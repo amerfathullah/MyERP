@@ -18,7 +18,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
       @if (ws) {
         <div class="d-flex justify-content-end mb-2">
           <a class="btn btn-outline-primary btn-sm" [routerLink]="['/manufacturing/workstations', ws.id, 'edit']">
-            <i class="fa fa-pen me-1"></i>{{ 'Edit' | abpLocalization }}
+            <i class="fa fa-pen me-1"></i>{{ '::Edit' | abpLocalization }}
           </a>
         </div>
       }
@@ -40,13 +40,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Type' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Type' | abpLocalization }}</div>
               <div class="fs-5">{{ ws.workstationType ?? 'General' }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="ws.isActive !== false ? 'bg-success' : 'bg-secondary'">
                 {{ ws.isActive !== false ? 'Active' : 'Inactive' }}
               </span>

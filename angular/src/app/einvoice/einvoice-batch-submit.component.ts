@@ -16,7 +16,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BatchSubmitEInvoice' | abpLocalization">
+    <abp-page [title]="'::BatchSubmitEInvoice' | abpLocalization">
       <div class="card mb-4">
         <div class="card-header">
           <h6 class="mb-0"><i class="fa fa-paper-plane me-2"></i>Batch Submit to LHDN MyInvois</h6>

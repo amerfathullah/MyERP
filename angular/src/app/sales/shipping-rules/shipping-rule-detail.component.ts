@@ -20,7 +20,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Type' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Type' | abpLocalization }}</div>
               <div class="fs-5 fw-bold">{{ rule.shippingRuleType }}</div>
             </div></div>
           </div>
@@ -32,13 +32,13 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'FixedAmount' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::FixedAmount' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ rule.fixedAmount | number:'1.2-2' }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="rule.isEnabled ? 'bg-success' : 'bg-secondary'">
                 {{ rule.isEnabled ? 'Active' : 'Disabled' }}
               </span>

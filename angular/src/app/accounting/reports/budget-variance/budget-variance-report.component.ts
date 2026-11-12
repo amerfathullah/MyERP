@@ -15,34 +15,34 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BudgetVarianceReport' | abpLocalization">
+    <abp-page [title]="'::BudgetVarianceReport' | abpLocalization">
       <div class="card mb-4">
         <div class="card-body">
           <div class="row g-3 align-items-end">
             <div class="col-md-3">
-              <label class="form-label">{{ 'FiscalYear' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FiscalYear' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="selectedFiscalYearId" (ngModelChange)="loadReport()">
                 <option value="">Select...</option>
                 @for (fy of fiscalYears(); track fy.id) { <option [value]="fy.id">{{ fy.name }}</option> }
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'From' | abpLocalization }}</label>
+              <label class="form-label">{{ '::From' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="fromDate" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'To' | abpLocalization }}</label>
+              <label class="form-label">{{ '::To' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="toDate" />
             </div>
             <div class="col-md-2">
               <button class="btn btn-primary" (click)="loadReport()" [disabled]="!selectedFiscalYearId || loading()">
-                <i class="fa fa-sync me-1"></i>{{ 'GenerateReport' | abpLocalization }}
+                <i class="fa fa-sync me-1"></i>{{ '::GenerateReport' | abpLocalization }}
               </button>
             </div>
             <div class="col-md-3 text-end">
               @if (report()) {
                 <button class="btn btn-outline-secondary btn-sm" (click)="exportReport()">
-                  <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+                  <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
                 </button>
               }
             </div>
@@ -58,7 +58,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'TotalBudget' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::TotalBudget' | abpLocalization }}</h6>
                 <h4 class="text-primary">{{ report()!.totalBudget | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -66,7 +66,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'TotalActual' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::TotalActual' | abpLocalization }}</h6>
                 <h4>{{ report()!.totalActual | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -74,7 +74,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'TotalVariance' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::TotalVariance' | abpLocalization }}</h6>
                 <h4 [class]="(report()!.totalVariance ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.totalVariance | number:'1.2-2' }}
                 </h4>
@@ -84,7 +84,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'OverBudget' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::OverBudget' | abpLocalization }}</h6>
                 <h4 [class]="(report()!.overBudgetCount ?? 0) > 0 ? 'text-danger' : 'text-success'">
                   {{ report()!.overBudgetCount ?? 0 }} / {{ (report()!.rows ?? []).length }}
                 </h4>
@@ -105,11 +105,11 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
               <table class="table table-hover">
                 <thead>
                   <tr>
-                    <th>{{ 'AccountCode' | abpLocalization }}</th>
-                    <th>{{ 'AccountName' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Budget' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Actual' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Variance' | abpLocalization }}</th>
+                    <th>{{ '::AccountCode' | abpLocalization }}</th>
+                    <th>{{ '::AccountName' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Budget' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Actual' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Variance' | abpLocalization }}</th>
                     <th class="text-end">%</th>
                     <th></th>
                   </tr>
@@ -137,7 +137,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
                 </tbody>
                 <tfoot>
                   <tr class="fw-bold table-secondary">
-                    <td colspan="2">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="2">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ report()!.totalBudget | number:'1.2-2' }}</td>
                     <td class="text-end">{{ report()!.totalActual | number:'1.2-2' }}</td>
                     <td class="text-end" [class.text-danger]="(report()!.totalVariance ?? 0) < 0">{{ report()!.totalVariance | number:'1.2-2' }}</td>

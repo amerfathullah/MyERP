@@ -14,12 +14,12 @@ import type { AssetCategoryDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetCategories' | abpLocalization">
+    <abp-page [title]="'::AssetCategories' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetCategories' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetCategories' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/categories/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewAssetCategory' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewAssetCategory' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,18 +28,18 @@ import type { AssetCategoryDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-tags fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAssetCategoriesYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAssetCategoriesYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/categories/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewAssetCategory' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewAssetCategory' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'CategoryName' | abpLocalization }}</th>
-                <th>{{ 'Depreciable' | abpLocalization }}</th>
-                <th>{{ 'DepreciationMethod' | abpLocalization }}</th>
-                <th>{{ 'UsefulLifeMonths' | abpLocalization }}</th>
+                <th>{{ '::CategoryName' | abpLocalization }}</th>
+                <th>{{ '::Depreciable' | abpLocalization }}</th>
+                <th>{{ '::DepreciationMethod' | abpLocalization }}</th>
+                <th>{{ '::UsefulLifeMonths' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

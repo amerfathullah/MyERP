@@ -8,10 +8,10 @@
       @if (order.status === 'Draft') {
         <div class="btn-group btn-group-sm">
           <a class="btn btn-outline-primary" [routerLink]="['/sales/orders', order.id, 'edit']">
-            <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+            <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
           </a>
           <button class="btn btn-outline-danger" (click)="deleteOrder()">
-            <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+            <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
           </button>
         </div>
       }
@@ -88,7 +88,7 @@
           <div class="card">
             <div class="card-body">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-bold">{{ 'DeliveredQty' | abpLocalization }}</small>
+                <small class="fw-bold">{{ '::DeliveredQty' | abpLocalization }}</small>
                 <small>{{ order.perDelivered ?? 0 | number:'1.0-0' }}%</small>
               </div>
               <div class="progress" style="height: 8px;">
@@ -101,7 +101,7 @@
           <div class="card">
             <div class="card-body">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-bold">{{ 'BilledQty' | abpLocalization }}</small>
+                <small class="fw-bold">{{ '::BilledQty' | abpLocalization }}</small>
                 <small>{{ order.perBilled ?? 0 | number:'1.0-0' }}%</small>
               </div>
               <div class="progress" style="height: 8px;">
@@ -426,12 +426,12 @@
         <div class="card-body text-center py-4">
           @if (!showScheduleGenerator()) {
             <i class="fa fa-calendar-days fa-2x text-muted mb-3"></i>
-            <p class="text-muted mb-2">{{ 'NoDeliveryScheduleYet' | abpLocalization }}</p>
+            <p class="text-muted mb-2">{{ '::NoDeliveryScheduleYet' | abpLocalization }}</p>
             <button class="btn btn-outline-primary btn-sm" (click)="showScheduleGenerator.set(true)">
-              <i class="fa fa-plus me-1"></i>{{ 'GenerateSchedule' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::GenerateSchedule' | abpLocalization }}
             </button>
           } @else {
-            <h6 class="mb-3"><i class="fa fa-calendar-days me-2"></i>{{ 'GenerateSchedule' | abpLocalization }}</h6>
+            <h6 class="mb-3"><i class="fa fa-calendar-days me-2"></i>{{ '::GenerateSchedule' | abpLocalization }}</h6>
             <div class="row g-3 justify-content-center mb-3">
               <div class="col-auto">
                 <label class="form-label small text-muted">{{ '::Item' | abpLocalization }}</label>
@@ -443,12 +443,12 @@
                 </select>
               </div>
               <div class="col-auto">
-                <label class="form-label small text-muted">{{ 'Frequency' | abpLocalization }}</label>
+                <label class="form-label small text-muted">{{ '::Frequency' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="scheduleFrequency">
-                  <option value="Weekly">{{ 'Weekly' | abpLocalization }}</option>
-                  <option value="Monthly">{{ 'Monthly' | abpLocalization }}</option>
-                  <option value="Quarterly">{{ 'Quarterly' | abpLocalization }}</option>
-                  <option value="Yearly">{{ 'Yearly' | abpLocalization }}</option>
+                  <option value="Weekly">{{ '::Weekly' | abpLocalization }}</option>
+                  <option value="Monthly">{{ '::Monthly' | abpLocalization }}</option>
+                  <option value="Quarterly">{{ '::Quarterly' | abpLocalization }}</option>
+                  <option value="Yearly">{{ '::Yearly' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-auto d-flex align-items-end gap-2">
@@ -457,7 +457,7 @@
                   @if (isGeneratingSchedule()) {
                     <span class="spinner-border spinner-border-sm me-1"></span>
                   }
-                  {{ 'Generate' | abpLocalization }}
+                  {{ '::Generate' | abpLocalization }}
                 </button>
                 <button class="btn btn-outline-secondary btn-sm" (click)="showScheduleGenerator.set(false)">
                   {{ '::Cancel' | abpLocalization }}
@@ -473,7 +473,7 @@
     @if (deliverySchedule().length > 0) {
       <div class="card mt-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="card-title mb-0"><i class="fa fa-calendar-days me-2"></i>{{ 'DeliverySchedule' | abpLocalization }}</h5>
+          <h5 class="card-title mb-0"><i class="fa fa-calendar-days me-2"></i>{{ '::DeliverySchedule' | abpLocalization }}</h5>
         </div>
         <div class="card-body">
           <div class="table-responsive">
@@ -481,9 +481,9 @@
               <thead>
                 <tr>
                   <th>{{ '::Date' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ScheduledQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ScheduledQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::DeliveredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
                   <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
@@ -496,9 +496,9 @@
                     <td class="text-end" [class.text-danger]="(entry.pendingQty ?? 0) > 0">{{ entry.pendingQty | number:'1.2-2' }}</td>
                     <td>
                       @if (entry.isFullyDelivered) {
-                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ 'Completed' | abpLocalization }}</span>
+                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Completed' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-warning text-dark"><i class="fa fa-clock me-1"></i>{{ 'Pending' | abpLocalization }}</span>
+                        <span class="badge bg-warning text-dark"><i class="fa fa-clock me-1"></i>{{ '::Pending' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
@@ -516,7 +516,7 @@
         <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
       </button>
       <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()">
-        <i class="fa fa-file-pdf me-1"></i>{{ 'Download' | abpLocalization }}
+        <i class="fa fa-file-pdf me-1"></i>{{ '::Download' | abpLocalization }}
       </button>
     </div>
 
@@ -532,11 +532,11 @@
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
-                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'Placeholder:Email' | abpLocalization">
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:Email' | abpLocalization">
               </div>
               <div class="mb-3">
                 <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
-                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'Placeholder:CommaSeparatedEmails' | abpLocalization">
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CommaSeparatedEmails' | abpLocalization">
               </div>
               <div class="form-check mb-3">
                 <input type="checkbox" class="form-check-input" id="soAttachPdf" [(ngModel)]="emailAttachPdf">

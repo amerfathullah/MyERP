@@ -26,7 +26,7 @@ import type { ServiceLevelAgreementDto } from '../../proxy/support/models';
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
               <th>{{ '::Scope' | abpLocalization }}</th>
               <th>{{ '::ResponseTimeHours' | abpLocalization }}</th>
               <th>{{ '::ResolutionTimeHours' | abpLocalization }}</th>

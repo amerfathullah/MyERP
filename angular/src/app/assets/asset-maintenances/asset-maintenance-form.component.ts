@@ -18,24 +18,24 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditAssetMaintenance' : 'NewAssetMaintenance') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditAssetMaintenance' : '::NewAssetMaintenance') | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ (isEdit() ? 'EditAssetMaintenance' : 'NewAssetMaintenance') | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ (isEdit() ? '::EditAssetMaintenance' : '::NewAssetMaintenance') | abpLocalization }}</h5>
           <a class="btn btn-outline-secondary btn-sm" routerLink="/assets/maintenances">
-            <i class="fa fa-arrow-left me-1"></i>{{ 'Back' | abpLocalization }}
+            <i class="fa fa-arrow-left me-1"></i>{{ '::Back' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row mb-3">
               <div class="col-md-6">
-                <label class="form-label required">{{ 'Asset' | abpLocalization }}</label>
+                <label class="form-label required">{{ '::Asset' | abpLocalization }}</label>
                 @if (isEdit()) {
                   <input type="text" class="form-control" [value]="assetDisplayName()" readonly />
                 } @else {
                   <select class="form-select" formControlName="assetId">
-                    <option [ngValue]="null">{{ 'SelectAsset' | abpLocalization }}</option>
+                    <option [ngValue]="null">{{ '::SelectAsset' | abpLocalization }}</option>
                     @for (a of assets(); track a.id) {
                       <option [value]="a.id">{{ a.assetName || a.assetNumber }}</option>
                     }
@@ -43,14 +43,14 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
                 }
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'MaintenanceManager' | abpLocalization }}</label>
+                <label class="form-label">{{ '::MaintenanceManager' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="maintenanceManagerName" placeholder="Manager Name" />
               </div>
             </div>
 
             <div class="row mb-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'MaintenanceTeam' | abpLocalization }}</label>
+                <label class="form-label">{{ '::MaintenanceTeam' | abpLocalization }}</label>
                 <select class="form-select" formControlName="maintenanceTeamId">
                   <option [ngValue]="null">--</option>
                   @for (t of teams(); track t.id) {
@@ -61,9 +61,9 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
-              <h6 class="mb-0 fw-bold">{{ 'MaintenanceTasks' | abpLocalization }}</h6>
+              <h6 class="mb-0 fw-bold">{{ '::MaintenanceTasks' | abpLocalization }}</h6>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="addTask()">
-                <i class="fa fa-plus me-1"></i>{{ 'AddTask' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::AddTask' | abpLocalization }}
               </button>
             </div>
 
@@ -71,12 +71,12 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
               <table class="table table-bordered align-middle">
                 <thead class="table-light">
                   <tr>
-                    <th class="required" style="width: 25%">{{ 'Task' | abpLocalization }}</th>
-                    <th style="width: 15%">{{ 'Periodicity' | abpLocalization }}</th>
-                    <th class="required" style="width: 15%">{{ 'StartDate' | abpLocalization }}</th>
-                    <th style="width: 15%">{{ 'EndDate' | abpLocalization }}</th>
-                    <th style="width: 15%">{{ 'AssignTo' | abpLocalization }}</th>
-                    <th style="width: 10%">{{ 'Certificate' | abpLocalization }}</th>
+                    <th class="required" style="width: 25%">{{ '::Task' | abpLocalization }}</th>
+                    <th style="width: 15%">{{ '::Periodicity' | abpLocalization }}</th>
+                    <th class="required" style="width: 15%">{{ '::StartDate' | abpLocalization }}</th>
+                    <th style="width: 15%">{{ '::EndDate' | abpLocalization }}</th>
+                    <th style="width: 15%">{{ '::AssignTo' | abpLocalization }}</th>
+                    <th style="width: 10%">{{ '::Certificate' | abpLocalization }}</th>
                     <th style="width: 5%"></th>
                   </tr>
                 </thead>
@@ -115,7 +115,7 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
                   @if (taskControls.length === 0) {
                     <tr>
                       <td colspan="7" class="text-center text-muted py-3">
-                        {{ 'NoTasksAddedYet' | abpLocalization }}
+                        {{ '::NoTasksAddedYet' | abpLocalization }}
                       </td>
                     </tr>
                   }
@@ -124,12 +124,12 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <a class="btn btn-outline-secondary" routerLink="/assets/maintenances">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-outline-secondary" routerLink="/assets/maintenances">{{ '::Cancel' | abpLocalization }}</a>
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) {
                   <i class="fa fa-spinner fa-spin me-1"></i>
                 }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
             </div>
           </form>

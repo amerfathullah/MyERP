@@ -19,12 +19,12 @@ const STATUS_LABELS: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: '
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetMovements' | abpLocalization">
+    <abp-page [title]="'::AssetMovements' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetMovements' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetMovements' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/movements/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewMovement' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewMovement' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -33,20 +33,20 @@ const STATUS_LABELS: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: '
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-exchange fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAssetMovementsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAssetMovementsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/movements/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewMovement' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewMovement' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Asset' | abpLocalization }}</th>
-                <th>{{ 'Purpose' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
-                <th>{{ 'From' | abpLocalization }}</th>
-                <th>{{ 'To' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Asset' | abpLocalization }}</th>
+                <th>{{ '::Purpose' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::From' | abpLocalization }}</th>
+                <th>{{ '::To' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

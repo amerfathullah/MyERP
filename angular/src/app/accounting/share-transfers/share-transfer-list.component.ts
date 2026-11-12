@@ -18,10 +18,10 @@ import { ShareholderService } from '../../proxy/accounting/shareholder.service';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ShareTransfers' | abpLocalization">
+    <abp-page [title]="'::ShareTransfers' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/accounting/share-transfers/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewShareTransfer' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewShareTransfer' | abpLocalization }}
         </button>
       </div>
 
@@ -32,9 +32,9 @@ import { ShareholderService } from '../../proxy/accounting/shareholder.service';
       @if (!isLoading && transfers.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-right-left fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoShareTransfersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoShareTransfersYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/accounting/share-transfers/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewShareTransfer' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewShareTransfer' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
@@ -43,13 +43,13 @@ import { ShareholderService } from '../../proxy/accounting/shareholder.service';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th>{{ 'TransferType' | abpLocalization }}</th>
-                  <th>{{ 'FromShareholder' | abpLocalization }}</th>
-                  <th>{{ 'ToShareholder' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Qty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::TransferType' | abpLocalization }}</th>
+                  <th>{{ '::FromShareholder' | abpLocalization }}</th>
+                  <th>{{ '::ToShareholder' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

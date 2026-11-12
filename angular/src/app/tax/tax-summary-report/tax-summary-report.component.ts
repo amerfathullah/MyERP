@@ -42,10 +42,10 @@ interface TaxSummary {
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">{{ 'TaxSummaryReport' | abpLocalization }}</h5>
+        <h5 class="mb-0">{{ '::TaxSummaryReport' | abpLocalization }}</h5>
         @if (result()) {
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
         }
       </div>
@@ -53,16 +53,16 @@ interface TaxSummary {
         <!-- Filters -->
         <div class="row g-2 mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
           </div>
           <div class="col-md-4 d-flex align-items-end">
             <button class="btn btn-primary btn-sm w-100" (click)="generate()">
-              {{ 'GenerateReport' | abpLocalization }}
+              {{ '::GenerateReport' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -73,7 +73,7 @@ interface TaxSummary {
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <strong>{{ r.isRefundable ? 'Tax Refundable' : 'Tax Payable' }}</strong>
-                <small class="d-block text-muted">{{ 'NetTaxPosition' | abpLocalization }}</small>
+                <small class="d-block text-muted">{{ '::NetTaxPosition' | abpLocalization }}</small>
               </div>
               <h4 class="mb-0">MYR {{ (r.isRefundable ? -r.netTaxPayable : r.netTaxPayable) | number:'1.2-2' }}</h4>
             </div>
@@ -84,17 +84,17 @@ interface TaxSummary {
             <div class="col-md-6">
               <div class="card h-100">
                 <div class="card-header bg-primary bg-opacity-10">
-                  <strong>{{ 'OutputTax' | abpLocalization }} ({{ 'Sales' | abpLocalization }})</strong>
+                  <strong>{{ '::OutputTax' | abpLocalization }} ({{ '::Sales' | abpLocalization }})</strong>
                 </div>
                 <div class="card-body">
                   <table class="table table-sm mb-2">
-                    <tr><td>{{ 'TotalSales' | abpLocalization }}</td><td class="text-end">{{ r.totalSalesAmount | number:'1.2-2' }}</td></tr>
-                    <tr><td>{{ 'TaxCollected' | abpLocalization }} ({{ r.salesInvoiceCount }} invoices)</td><td class="text-end">{{ r.outputTax | number:'1.2-2' }}</td></tr>
-                    <tr><td>{{ 'CreditNoteAdjustment' | abpLocalization }} ({{ r.creditNoteCount }})</td><td class="text-end text-danger">-{{ r.creditNoteTaxAdjustment | number:'1.2-2' }}</td></tr>
-                    <tr class="table-primary"><td><strong>{{ 'NetOutputTax' | abpLocalization }}</strong></td><td class="text-end"><strong>{{ r.netOutputTax | number:'1.2-2' }}</strong></td></tr>
+                    <tr><td>{{ '::TotalSales' | abpLocalization }}</td><td class="text-end">{{ r.totalSalesAmount | number:'1.2-2' }}</td></tr>
+                    <tr><td>{{ '::TaxCollected' | abpLocalization }} ({{ r.salesInvoiceCount }} invoices)</td><td class="text-end">{{ r.outputTax | number:'1.2-2' }}</td></tr>
+                    <tr><td>{{ '::CreditNoteAdjustment' | abpLocalization }} ({{ r.creditNoteCount }})</td><td class="text-end text-danger">-{{ r.creditNoteTaxAdjustment | number:'1.2-2' }}</td></tr>
+                    <tr class="table-primary"><td><strong>{{ '::NetOutputTax' | abpLocalization }}</strong></td><td class="text-end"><strong>{{ r.netOutputTax | number:'1.2-2' }}</strong></td></tr>
                   </table>
                   @if (r.outputTaxBreakdown.length) {
-                    <small class="text-muted">{{ 'ByRate' | abpLocalization }}:</small>
+                    <small class="text-muted">{{ '::ByRate' | abpLocalization }}:</small>
                     @for (b of r.outputTaxBreakdown; track b.taxRate) {
                       <div class="d-flex justify-content-between small">
                         <span>{{ b.taxRate }} ({{ b.invoiceCount }})</span>
@@ -110,17 +110,17 @@ interface TaxSummary {
             <div class="col-md-6">
               <div class="card h-100">
                 <div class="card-header bg-success bg-opacity-10">
-                  <strong>{{ 'InputTax' | abpLocalization }} ({{ 'Purchases' | abpLocalization }})</strong>
+                  <strong>{{ '::InputTax' | abpLocalization }} ({{ '::Purchases' | abpLocalization }})</strong>
                 </div>
                 <div class="card-body">
                   <table class="table table-sm mb-2">
-                    <tr><td>{{ 'TotalPurchases' | abpLocalization }}</td><td class="text-end">{{ r.totalPurchaseAmount | number:'1.2-2' }}</td></tr>
-                    <tr><td>{{ 'TaxPaid' | abpLocalization }} ({{ r.purchaseInvoiceCount }} invoices)</td><td class="text-end">{{ r.inputTax | number:'1.2-2' }}</td></tr>
-                    <tr><td>{{ 'DebitNoteAdjustment' | abpLocalization }} ({{ r.debitNoteCount }})</td><td class="text-end text-danger">-{{ r.debitNoteTaxAdjustment | number:'1.2-2' }}</td></tr>
-                    <tr class="table-success"><td><strong>{{ 'NetInputTax' | abpLocalization }}</strong></td><td class="text-end"><strong>{{ r.netInputTax | number:'1.2-2' }}</strong></td></tr>
+                    <tr><td>{{ '::TotalPurchases' | abpLocalization }}</td><td class="text-end">{{ r.totalPurchaseAmount | number:'1.2-2' }}</td></tr>
+                    <tr><td>{{ '::TaxPaid' | abpLocalization }} ({{ r.purchaseInvoiceCount }} invoices)</td><td class="text-end">{{ r.inputTax | number:'1.2-2' }}</td></tr>
+                    <tr><td>{{ '::DebitNoteAdjustment' | abpLocalization }} ({{ r.debitNoteCount }})</td><td class="text-end text-danger">-{{ r.debitNoteTaxAdjustment | number:'1.2-2' }}</td></tr>
+                    <tr class="table-success"><td><strong>{{ '::NetInputTax' | abpLocalization }}</strong></td><td class="text-end"><strong>{{ r.netInputTax | number:'1.2-2' }}</strong></td></tr>
                   </table>
                   @if (r.inputTaxBreakdown.length) {
-                    <small class="text-muted">{{ 'ByRate' | abpLocalization }}:</small>
+                    <small class="text-muted">{{ '::ByRate' | abpLocalization }}:</small>
                     @for (b of r.inputTaxBreakdown; track b.taxRate) {
                       <div class="d-flex justify-content-between small">
                         <span>{{ b.taxRate }} ({{ b.invoiceCount }})</span>
@@ -133,7 +133,7 @@ interface TaxSummary {
             </div>
           </div>
         } @else {
-          <p class="text-muted text-center py-4">{{ 'SelectPeriodToGenerateTaxSummary' | abpLocalization }}</p>
+          <p class="text-muted text-center py-4">{{ '::SelectPeriodToGenerateTaxSummary' | abpLocalization }}</p>
         }
       </div>
     </div>

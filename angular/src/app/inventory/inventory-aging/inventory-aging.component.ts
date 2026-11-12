@@ -44,30 +44,30 @@ interface InventoryAgingReport {
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'InventoryAging' | abpLocalization">
+    <abp-page [title]="'::InventoryAging' | abpLocalization">
       <!-- Settings -->
       <div class="card mb-3">
         <div class="card-body py-2">
           <div class="row align-items-end g-2">
             <div class="col-auto">
-              <label class="form-label small mb-0">{{ 'SlowMovingThreshold' | abpLocalization }}</label>
+              <label class="form-label small mb-0">{{ '::SlowMovingThreshold' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="slowMovingDays" (change)="loadReport()">
-                <option [value]="60">60 {{ 'Days' | abpLocalization }}</option>
-                <option [value]="90">90 {{ 'Days' | abpLocalization }}</option>
-                <option [value]="120">120 {{ 'Days' | abpLocalization }}</option>
+                <option [value]="60">60 {{ '::Days' | abpLocalization }}</option>
+                <option [value]="90">90 {{ '::Days' | abpLocalization }}</option>
+                <option [value]="120">120 {{ '::Days' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto">
-              <label class="form-label small mb-0">{{ 'DeadStockThreshold' | abpLocalization }}</label>
+              <label class="form-label small mb-0">{{ '::DeadStockThreshold' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="deadStockDays" (change)="loadReport()">
-                <option [value]="120">120 {{ 'Days' | abpLocalization }}</option>
-                <option [value]="180">180 {{ 'Days' | abpLocalization }}</option>
-                <option [value]="365">365 {{ 'Days' | abpLocalization }}</option>
+                <option [value]="120">120 {{ '::Days' | abpLocalization }}</option>
+                <option [value]="180">180 {{ '::Days' | abpLocalization }}</option>
+                <option [value]="365">365 {{ '::Days' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto ms-auto">
               <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()" [disabled]="!report()">
-                <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+                <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -82,7 +82,7 @@ interface InventoryAgingReport {
           <div class="col-md-3">
             <div class="card border-primary h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalStockValue' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalStockValue' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-primary">{{ report()!.totalStockValue | number:'1.2-2' }}</div>
                 <div class="small text-muted">{{ report()!.totalItems }} items</div>
               </div>
@@ -91,7 +91,7 @@ interface InventoryAgingReport {
           <div class="col-md-3">
             <div class="card border-warning h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'SlowMoving' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::SlowMoving' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-warning">{{ report()!.slowMovingValue | number:'1.2-2' }}</div>
                 <div class="small text-muted">{{ report()!.slowMovingCount }} items</div>
               </div>
@@ -100,7 +100,7 @@ interface InventoryAgingReport {
           <div class="col-md-3">
             <div class="card border-danger h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'DeadStock' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::DeadStock' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-danger">{{ report()!.deadStockValue | number:'1.2-2' }}</div>
                 <div class="small text-muted">{{ report()!.deadStockCount }} items</div>
               </div>
@@ -109,7 +109,7 @@ interface InventoryAgingReport {
           <div class="col-md-3">
             <div class="card border-success h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'HealthyStock' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::HealthyStock' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-success">
                   {{ report()!.totalStockValue - report()!.slowMovingValue - report()!.deadStockValue | number:'1.2-2' }}
                 </div>
@@ -121,7 +121,7 @@ interface InventoryAgingReport {
 
         <!-- Bucket Summary -->
         <div class="card mb-4">
-          <div class="card-header"><h6 class="mb-0">{{ 'AgingDistribution' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="mb-0">{{ '::AgingDistribution' | abpLocalization }}</h6></div>
           <div class="card-body">
             @for (bucket of report()!.buckets; track bucket.label) {
               <div class="mb-2">
@@ -142,18 +142,18 @@ interface InventoryAgingReport {
 
         <!-- Items Table -->
         <div class="card">
-          <div class="card-header"><h6 class="mb-0">{{ 'OldestStockItems' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="mb-0">{{ '::OldestStockItems' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <div class="table-responsive">
               <table class="table table-sm table-hover mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th>{{ 'Warehouse' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
-                    <th>{{ 'LastMovement' | abpLocalization }}</th>
-                    <th>{{ 'Age' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th>{{ '::Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
+                    <th>{{ '::LastMovement' | abpLocalization }}</th>
+                    <th>{{ '::Age' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -29,36 +29,36 @@ interface OutstandingInvoice {
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BatchPayment' | abpLocalization">
+    <abp-page [title]="'::BatchPayment' | abpLocalization">
       <!-- Configuration -->
       <div class="card mb-4">
         <div class="card-header">
-          <h6 class="card-title mb-0"><i class="fa fa-cogs me-2"></i>{{ 'PaymentConfiguration' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0"><i class="fa fa-cogs me-2"></i>{{ '::PaymentConfiguration' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">{{ 'PartyType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::PartyType' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="partyType" (ngModelChange)="onPartyTypeChange()">
                 <option value="Supplier">Supplier</option>
                 <option value="Customer">Customer</option>
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Party' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Party' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="selectedPartyId" (ngModelChange)="loadOutstanding()">
-                <option value="">{{ 'SelectParty' | abpLocalization }}</option>
+                <option value="">{{ '::SelectParty' | abpLocalization }}</option>
                 @for (p of parties(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="postingDate" />
             </div>
             <div class="col-md-3">
               <div class="form-check mt-4">
                 <input class="form-check-input" type="checkbox" [(ngModel)]="groupByParty" id="groupByParty">
-                <label class="form-check-label" for="groupByParty">{{ 'GroupByParty' | abpLocalization }}</label>
+                <label class="form-check-label" for="groupByParty">{{ '::GroupByParty' | abpLocalization }}</label>
               </div>
             </div>
           </div>
@@ -68,9 +68,9 @@ interface OutstandingInvoice {
       <!-- Outstanding Invoices -->
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ 'OutstandingInvoices' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::OutstandingInvoices' | abpLocalization }}</h6>
           @if (selectedInvoices().length > 0) {
-            <span class="badge bg-primary">{{ selectedInvoices().length }} selected — {{ 'Total' | abpLocalization }}: {{ totalPayAmount() | number:'1.2-2' }}</span>
+            <span class="badge bg-primary">{{ selectedInvoices().length }} selected — {{ '::Total' | abpLocalization }}: {{ totalPayAmount() | number:'1.2-2' }}</span>
           }
         </div>
         <div class="card-body">
@@ -79,24 +79,24 @@ interface OutstandingInvoice {
           } @else if (!selectedPartyId) {
             <div class="text-center text-muted p-4">
               <i class="fa fa-hand-pointer fa-2x mb-2 d-block"></i>
-              {{ 'SelectPartyToViewOutstanding' | abpLocalization }}
+              {{ '::SelectPartyToViewOutstanding' | abpLocalization }}
             </div>
           } @else if (invoices().length === 0) {
             <div class="text-center text-muted p-4">
               <i class="fa fa-check-circle fa-2x mb-2 d-block text-success"></i>
-              {{ 'NoOutstandingInvoices' | abpLocalization }}
+              {{ '::NoOutstandingInvoices' | abpLocalization }}
             </div>
           } @else {
             <table class="table table-hover">
               <thead>
                 <tr>
                   <th><input type="checkbox" (change)="toggleAll($event)" /></th>
-                  <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                  <th>{{ 'IssueDate' | abpLocalization }}</th>
-                  <th>{{ 'DueDate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'PayAmount' | abpLocalization }}</th>
+                  <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ '::IssueDate' | abpLocalization }}</th>
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PayAmount' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,25 +130,25 @@ interface OutstandingInvoice {
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <div>
-                <strong>{{ selectedInvoices().length }}</strong> {{ 'InvoicesSelected' | abpLocalization }},
-                {{ 'TotalPayment' | abpLocalization }}: <strong>{{ totalPayAmount() | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</strong>
+                <strong>{{ selectedInvoices().length }}</strong> {{ '::InvoicesSelected' | abpLocalization }},
+                {{ '::TotalPayment' | abpLocalization }}: <strong>{{ totalPayAmount() | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</strong>
               </div>
               <button class="btn btn-primary btn-lg" (click)="validateAndCreate()" [disabled]="processing()">
                 @if (processing()) { <i class="fa fa-spinner fa-spin me-2"></i> }
-                <i class="fa fa-paper-plane me-1"></i>{{ 'CreatePaymentEntries' | abpLocalization }}
+                <i class="fa fa-paper-plane me-1"></i>{{ '::CreatePaymentEntries' | abpLocalization }}
               </button>
             </div>
             @if (previewResult()) {
               <div class="border rounded p-3 bg-light">
                 <div class="d-flex align-items-center gap-3 mb-2">
-                  <span class="badge bg-primary fs-6">{{ previewResult()!.paymentEntryCount }} {{ 'PaymentEntries' | abpLocalization }}</span>
+                  <span class="badge bg-primary fs-6">{{ previewResult()!.paymentEntryCount }} {{ '::PaymentEntries' | abpLocalization }}</span>
                   <span class="badge bg-success fs-6">{{ previewResult()!.totalPayable | number:'1.2-2' }} {{ invoices()[0]?.currencyCode }}</span>
-                  <span class="badge bg-info"><i class="fa fa-file-pen me-1"></i>{{ 'CreatedAsDraft' | abpLocalization }}</span>
+                  <span class="badge bg-info"><i class="fa fa-file-pen me-1"></i>{{ '::CreatedAsDraft' | abpLocalization }}</span>
                 </div>
                 @if (previewResult()!.excluded && previewResult()!.excluded!.length > 0) {
                   <div class="text-warning small mt-2">
                     <i class="fa fa-triangle-exclamation me-1"></i>
-                    <strong>{{ previewResult()!.excluded!.length }}</strong> {{ 'InvoicesExcluded' | abpLocalization }}:
+                    <strong>{{ previewResult()!.excluded!.length }}</strong> {{ '::InvoicesExcluded' | abpLocalization }}:
                     @for (ex of previewResult()!.excluded!; track ex.invoiceId) {
                       <span class="ms-2 badge bg-warning text-dark">{{ ex.invoiceNumber || ex.invoiceId }} — {{ ex.reason }}</span>
                     }

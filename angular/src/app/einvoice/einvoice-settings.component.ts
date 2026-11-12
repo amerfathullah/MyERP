@@ -14,7 +14,7 @@ import type { EInvoiceConnectionStatusDto } from '../proxy/einvoice/models';
   imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'EInvoiceSettings' | abpLocalization">
+    <abp-page [title]="'::EInvoiceSettings' | abpLocalization">
       <!-- Connection status card -->
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">

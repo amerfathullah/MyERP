@@ -22,7 +22,7 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="entry()?.entryNumber || ('StockEntry' | abpLocalization)">
+    <abp-page [title]="entry()?.entryNumber || ('::StockEntry' | abpLocalization)">
       @if (!entry()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -31,10 +31,10 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
           @if (entry()!.status === 'Draft') {
             <div class="btn-group btn-group-sm">
               <a class="btn btn-outline-primary" [routerLink]="['/inventory/stock-entries', entry()!.id, 'edit']">
-                <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+                <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
               </a>
               <button class="btn btn-outline-danger" (click)="deleteEntry()">
-                <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+                <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
               </button>
             </div>
           }
@@ -46,10 +46,10 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
             <div class="card">
               <div class="card-body">
                 <table class="table table-borderless mb-0">
-                  <tr><td class="text-muted" style="width:40%">{{ 'EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.entryNumber }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
-                  <tr><td class="text-muted">{{ 'EntryType' | abpLocalization }}</td><td>{{ entry()!.entryType }}</td></tr>
-                  <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ entry()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
+                  <tr><td class="text-muted" style="width:40%">{{ '::EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.entryNumber }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
+                  <tr><td class="text-muted">{{ '::EntryType' | abpLocalization }}</td><td>{{ entry()!.entryType }}</td></tr>
+                  <tr><td class="text-muted">{{ '::PostingDate' | abpLocalization }}</td><td>{{ entry()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -58,9 +58,9 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
             <div class="card">
               <div class="card-body">
                 <table class="table table-borderless mb-0">
-                  <tr><td class="text-muted" style="width:40%">{{ 'ReferenceType' | abpLocalization }}</td><td>{{ entry()!.referenceType || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Notes' | abpLocalization }}</td><td>{{ entry()!.notes || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'CreatedDate' | abpLocalization }}</td><td>{{ entry()!.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
+                  <tr><td class="text-muted" style="width:40%">{{ '::ReferenceType' | abpLocalization }}</td><td>{{ entry()!.referenceType || '-' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Notes' | abpLocalization }}</td><td>{{ entry()!.notes || '-' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::CreatedDate' | abpLocalization }}</td><td>{{ entry()!.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -69,18 +69,18 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
 
         <!-- Items Table -->
         <div class="card mb-4">
-          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-boxes-stacked me-2"></i>{{ 'Items' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-boxes-stacked me-2"></i>{{ '::Items' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead class="table-light">
                 <tr>
                   <th>#</th>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                  <th>{{ 'Source' | abpLocalization }}</th>
-                  <th>{{ 'Target' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                  <th>{{ '::Source' | abpLocalization }}</th>
+                  <th>{{ '::Target' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,7 +98,7 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <td colspan="3" class="fw-bold text-end">{{ 'Total' | abpLocalization }}</td>
+                  <td colspan="3" class="fw-bold text-end">{{ '::Total' | abpLocalization }}</td>
                   <td colspan="2"></td>
                   <td></td>
                   <td class="text-end fw-bold">{{ totalAmount() | number:'1.2-2' }}</td>
@@ -115,7 +115,7 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
         <!-- Print Button -->
         <div class="mt-3 text-end">
           <button class="btn btn-outline-secondary btn-sm" (click)="printDocument()">
-            <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+            <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
           </button>
         </div>
 

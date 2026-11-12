@@ -16,44 +16,44 @@ import { ItemService } from '../../proxy/inventory/item.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewBlanketOrder' | abpLocalization">
+    <abp-page [title]="'::NewBlanketOrder' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true; onTypeChange()" [(ngModel)]="form.orderType">
-              <option value="Selling">{{ 'Selling' | abpLocalization }}</option>
-              <option value="Buying">{{ 'Buying' | abpLocalization }}</option>
+              <option value="Selling">{{ '::Selling' | abpLocalization }}</option>
+              <option value="Buying">{{ '::Buying' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Party' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Party' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (p of parties(); track p.id) {
                 <option [value]="p.id">{{ p.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ValidFrom' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ValidFrom' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.fromDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ValidUntil' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ValidUntil' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.toDate" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Items' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'UoM' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::UoM' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="onItemSelect(item)" [(ngModel)]="item.itemId">
-                    <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
                     @for (i of availableItems(); track i.id) {
                       <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
                     }
@@ -68,12 +68,12 @@ import { ItemService } from '../../proxy/inventory/item.service';
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-end gap-2">
-          <button class="btn btn-secondary" routerLink="/sales/blanket-orders">{{ 'Cancel' | abpLocalization }}</button>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <button class="btn btn-secondary" routerLink="/sales/blanket-orders">{{ '::Cancel' | abpLocalization }}</button>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

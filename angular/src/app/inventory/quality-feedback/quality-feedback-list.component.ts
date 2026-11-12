@@ -14,14 +14,14 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityFeedbacks' | abpLocalization">
+    <abp-page [title]="'::QualityFeedbacks' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <a routerLink="/inventory/quality-feedback-templates" class="btn btn-outline-secondary btn-sm">
-            <i class="fa fa-list-check me-1"></i>{{ 'QualityFeedbackTemplates' | abpLocalization }}
+            <i class="fa fa-list-check me-1"></i>{{ '::QualityFeedbackTemplates' | abpLocalization }}
           </a>
           <a routerLink="/inventory/quality-feedback/new" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i>{{ 'NewQualityFeedback' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewQualityFeedback' | abpLocalization }}
           </a>
         </div>
         <div class="card-body p-0">
@@ -34,9 +34,9 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
               <table class="table table-hover table-striped mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'DocumentType' | abpLocalization }}</th>
-                    <th>{{ 'DocumentName' | abpLocalization }}</th>
-                    <th>{{ 'AverageRating' | abpLocalization }}</th>
+                    <th>{{ '::DocumentType' | abpLocalization }}</th>
+                    <th>{{ '::DocumentName' | abpLocalization }}</th>
+                    <th>{{ '::AverageRating' | abpLocalization }}</th>
                     <th>{{ '::Remarks' | abpLocalization }}</th>
                   </tr>
                 </thead>

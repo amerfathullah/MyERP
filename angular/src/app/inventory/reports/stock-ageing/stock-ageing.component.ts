@@ -21,7 +21,7 @@ import {
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ 'StockAgeing' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ '::StockAgeing' | abpLocalization }}</h5>
         <div class="d-flex gap-2">
           <div class="btn-group btn-group-sm" role="group">
             <button
@@ -55,7 +55,7 @@ import {
         <!-- Filters -->
         <div class="row mb-3 g-2">
           <div class="col-md-2">
-            <label class="form-label small">{{ 'Warehouse' | abpLocalization }}</label>
+            <label class="form-label small">{{ '::Warehouse' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterWarehouse" (change)="loadData()">
               <option value="">All Warehouses</option>
               @for (w of warehouses(); track w.id) {
@@ -64,7 +64,7 @@ import {
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label small">{{ 'ItemGroup' | abpLocalization }}</label>
+            <label class="form-label small">{{ '::ItemGroup' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup" (change)="loadData()">
               <option value="">All Item Groups</option>
               @for (g of itemGroups(); track g.id) {
@@ -156,9 +156,9 @@ import {
             <table class="table table-sm table-hover align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
                   @if (showWarehouseWise) {
-                    <th>{{ 'Warehouse' | abpLocalization }}</th>
+                    <th>{{ '::Warehouse' | abpLocalization }}</th>
                   }
                   <th class="text-end">Total Qty</th>
                   <th class="text-end">Valuation Rate</th>
@@ -209,7 +209,7 @@ import {
                 } @empty {
                   <tr>
                     <td [attr.colspan]="showWarehouseWise ? (7 + buckets().length) : (6 + buckets().length)" class="text-center text-muted py-4">
-                      {{ 'NoDataAvailable' | abpLocalization }}
+                      {{ '::NoDataAvailable' | abpLocalization }}
                     </td>
                   </tr>
                 }

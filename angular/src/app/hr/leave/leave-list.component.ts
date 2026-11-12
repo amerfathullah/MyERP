@@ -18,19 +18,19 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'LeaveApplications' | abpLocalization">
+    <abp-page [title]="'::LeaveApplications' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/hr/leave/apply">
-          <i class="fa fa-plus me-1"></i>{{ 'ApplyLeave' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::ApplyLeave' | abpLocalization }}
         </button>
       </div>
       @if (isLoading()) { <app-loading-overlay /> }
       @if (!isLoading() && items().length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-calendar-minus fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoLeaveApplicationsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoLeaveApplicationsYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/hr/leave/apply">
-            <i class="fa fa-plus me-1"></i>{{ 'ApplyLeave' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::ApplyLeave' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading()) {
@@ -38,12 +38,12 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           <table class="table table-hover align-middle">
             <thead>
               <tr>
-                <th>{{ 'Employee' | abpLocalization }}</th>
-                <th>{{ 'LeaveType' | abpLocalization }}</th>
-                <th>{{ 'FromDate' | abpLocalization }}</th>
-                <th>{{ 'ToDate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Days' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Employee' | abpLocalization }}</th>
+                <th>{{ '::LeaveType' | abpLocalization }}</th>
+                <th>{{ '::FromDate' | abpLocalization }}</th>
+                <th>{{ '::ToDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Days' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr>
             </thead>

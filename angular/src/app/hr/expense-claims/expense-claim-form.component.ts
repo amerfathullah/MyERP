@@ -13,40 +13,40 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewExpenseClaim' | abpLocalization">
+    <abp-page [title]="'::NewExpenseClaim' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Employee' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Employee' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.employeeId">
-              <option value="">-- {{ 'SelectEmployee' | abpLocalization }} --</option>
+              <option value="">-- {{ '::SelectEmployee' | abpLocalization }} --</option>
               @for (e of employees(); track e.id) {
                 <option [value]="e.id">{{ e.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.expenseType">
-              <option value="Travel">{{ 'Travel' | abpLocalization }}</option>
-              <option value="Food">{{ 'Food' | abpLocalization }}</option>
-              <option value="Accommodation">{{ 'Accommodation' | abpLocalization }}</option>
-              <option value="Transportation">{{ 'Transportation' | abpLocalization }}</option>
-              <option value="Other">{{ 'Other' | abpLocalization }}</option>
+              <option value="Travel">{{ '::Travel' | abpLocalization }}</option>
+              <option value="Food">{{ '::Food' | abpLocalization }}</option>
+              <option value="Accommodation">{{ '::Accommodation' | abpLocalization }}</option>
+              <option value="Transportation">{{ '::Transportation' | abpLocalization }}</option>
+              <option value="Other">{{ '::Other' | abpLocalization }}</option>
             </select>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Expenses' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Expenses' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th>{{ 'Date' | abpLocalization }}</th>
-            <th>{{ 'Description' | abpLocalization }}</th>
-            <th>{{ 'Amount' | abpLocalization }}</th>
+            <th>{{ '::Date' | abpLocalization }}</th>
+            <th>{{ '::Description' | abpLocalization }}</th>
+            <th>{{ '::Amount' | abpLocalization }}</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -61,15 +61,15 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="addExpense()">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-between">
-          <span class="fw-bold">{{ 'Total' | abpLocalization }}: {{ getTotal() | number:'1.2-2' }}</span>
+          <span class="fw-bold">{{ '::Total' | abpLocalization }}: {{ getTotal() | number:'1.2-2' }}</span>
           <div class="d-flex gap-2">
-            <button class="btn btn-secondary" routerLink="/hr/expense-claims">{{ 'Cancel' | abpLocalization }}</button>
+            <button class="btn btn-secondary" routerLink="/hr/expense-claims">{{ '::Cancel' | abpLocalization }}</button>
             <button class="btn btn-primary" (click)="save()" [disabled]="saving">
-              <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
           </div>
         </div>

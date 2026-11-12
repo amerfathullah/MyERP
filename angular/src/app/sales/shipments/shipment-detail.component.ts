@@ -22,31 +22,31 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               <i class="fas fa-truck me-2"></i>{{ s.shipmentNumber }}
               @switch (s.status) {
                 @case (0) { <span class="badge bg-secondary ms-2">Draft</span> }
-                @case (1) { <span class="badge bg-primary ms-2">{{ 'Booked' | abpLocalization }}</span> }
-                @case (2) { <span class="badge bg-info ms-2">{{ 'InTransit' | abpLocalization }}</span> }
-                @case (3) { <span class="badge bg-success ms-2">{{ 'Delivered' | abpLocalization }}</span> }
-                @case (4) { <span class="badge bg-dark ms-2">{{ 'Cancelled' | abpLocalization }}</span> }
+                @case (1) { <span class="badge bg-primary ms-2">{{ '::Booked' | abpLocalization }}</span> }
+                @case (2) { <span class="badge bg-info ms-2">{{ '::InTransit' | abpLocalization }}</span> }
+                @case (3) { <span class="badge bg-success ms-2">{{ '::Delivered' | abpLocalization }}</span> }
+                @case (4) { <span class="badge bg-dark ms-2">{{ '::Cancelled' | abpLocalization }}</span> }
               }
             </h5>
             <div class="btn-group btn-group-sm">
               @if (s.status === 0) {
                 <button class="btn btn-outline-primary" (click)="submit()">
-                  <i class="fas fa-check me-1"></i>{{ 'Book' | abpLocalization }}
+                  <i class="fas fa-check me-1"></i>{{ '::Book' | abpLocalization }}
                 </button>
               }
               @if (s.status === 1) {
                 <button class="btn btn-outline-info" (click)="markInTransit()">
-                  <i class="fas fa-shipping-fast me-1"></i>{{ 'InTransit' | abpLocalization }}
+                  <i class="fas fa-shipping-fast me-1"></i>{{ '::InTransit' | abpLocalization }}
                 </button>
               }
               @if (s.status === 1 || s.status === 2) {
                 <button class="btn btn-outline-success" (click)="markDelivered()">
-                  <i class="fas fa-check-double me-1"></i>{{ 'MarkDelivered' | abpLocalization }}
+                  <i class="fas fa-check-double me-1"></i>{{ '::MarkDelivered' | abpLocalization }}
                 </button>
               }
               @if (s.status < 3) {
                 <button class="btn btn-outline-danger" (click)="cancel()">
-                  <i class="fas fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+                  <i class="fas fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
                 </button>
               }
             </div>
@@ -54,30 +54,30 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="card-body">
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'PickupFrom' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::PickupFrom' | abpLocalization }}</small>
                 <div class="fw-bold">{{ s.pickupFromName || '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'DeliveryTo' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::DeliveryTo' | abpLocalization }}</small>
                 <div class="fw-bold">{{ s.deliveryToName || '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'PickupDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::PickupDate' | abpLocalization }}</small>
                 <div>{{ s.pickupDate ? (s.pickupDate | date:'dd/MM/yyyy') : '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'DeliveryDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::DeliveryDate' | abpLocalization }}</small>
                 <div>{{ s.deliveryDate ? (s.deliveryDate | date:'dd/MM/yyyy') : '—' }}</div>
               </div>
             </div>
 
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Carrier' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Carrier' | abpLocalization }}</small>
                 <div>{{ s.carrier || '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'TrackingNumber' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::TrackingNumber' | abpLocalization }}</small>
                 <div>
                   @if (s.trackingUrl) {
                     <a [href]="s.trackingUrl" target="_blank" class="text-primary">
@@ -89,22 +89,22 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 </div>
               </div>
               <div class="col-md-2">
-                <small class="text-muted">{{ 'NetWeight' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::NetWeight' | abpLocalization }}</small>
                 <div>{{ s.totalNetWeight ? (s.totalNetWeight | number:'1.2-2') : '—' }}</div>
               </div>
               <div class="col-md-2">
-                <small class="text-muted">{{ 'ValueOfGoods' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::ValueOfGoods' | abpLocalization }}</small>
                 <div>{{ s.valueOfGoods ? (s.valueOfGoods | number:'1.2-2') : '—' }} {{ s.currencyCode }}</div>
               </div>
               <div class="col-md-2">
-                <small class="text-muted">{{ 'DeliveryNotes' | abpLocalization }}</small>
-                <div><span class="badge bg-info">{{ s.deliveryNoteCount }} {{ 'linked' | abpLocalization }}</span></div>
+                <small class="text-muted">{{ '::DeliveryNotes' | abpLocalization }}</small>
+                <div><span class="badge bg-info">{{ s.deliveryNoteCount }} {{ '::linked' | abpLocalization }}</span></div>
               </div>
             </div>
 
             @if (s.notes) {
               <div class="mb-3">
-                <small class="text-muted">{{ 'Notes' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Notes' | abpLocalization }}</small>
                 <div>{{ s.notes }}</div>
               </div>
             }

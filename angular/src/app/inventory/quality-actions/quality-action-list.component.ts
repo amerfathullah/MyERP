@@ -16,7 +16,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterLink, FormsModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityActions' | abpLocalization">
+    <abp-page [title]="'::QualityActions' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <div class="d-flex gap-2">
@@ -28,7 +28,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             </select>
           </div>
           <a routerLink="/inventory/quality-actions/new" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i>{{ 'NewQualityAction' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewQualityAction' | abpLocalization }}
           </a>
         </div>
         <div class="card-body p-0">

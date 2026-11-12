@@ -16,10 +16,10 @@ import { ItemService } from '../../proxy/inventory/item.service';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BomCreators' | abpLocalization">
+    <abp-page [title]="'::BomCreators' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/bom-creators/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewBomCreator' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewBomCreator' | abpLocalization }}
         </button>
       </div>
 
@@ -30,9 +30,9 @@ import { ItemService } from '../../proxy/inventory/item.service';
       @if (!isLoading && creators.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-sitemap fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoBomCreatorsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoBomCreatorsYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/manufacturing/bom-creators/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewBomCreator' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewBomCreator' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
@@ -41,11 +41,11 @@ import { ItemService } from '../../proxy/inventory/item.service';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'FinishedGood' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                  <th>{{ 'Items' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'TotalCost' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::FinishedGood' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                  <th>{{ '::Items' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TotalCost' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

@@ -20,24 +20,24 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ApplyLeave' | abpLocalization">
+    <abp-page [title]="'::ApplyLeave' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="card mb-3">
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="companyId" (change)="onCompanyChanged()">
-                  <option value="">{{ 'SelectCompany' | abpLocalization }}</option>
+                  <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
                   @for (c of companies(); track c.id) {
                     <option [value]="c.id">{{ c.name }}</option>
                   }
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'Employee' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Employee' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="employeeId">
-                  <option value="">{{ 'SelectEmployee' | abpLocalization }}</option>
+                  <option value="">{{ '::SelectEmployee' | abpLocalization }}</option>
                   @for (e of employees(); track e.id) {
                     <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
                   }
@@ -46,7 +46,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-4">
-                <label class="form-label">{{ 'LeaveType' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::LeaveType' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="leaveTypeId">
                   <option value="">-- Select Leave Type --</option>
                   @for (lt of leaveTypes(); track lt.id) {
@@ -55,23 +55,23 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'FromDate' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::FromDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="fromDate">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'ToDate' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::ToDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="toDate">
               </div>
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-3">
-                <label class="form-label">{{ 'Days' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Days' | abpLocalization }} *</label>
                 <input type="number" class="form-control" formControlName="totalLeaveDays" step="0.5" min="0.5">
               </div>
               <div class="col-md-3">
                 <div class="form-check mt-4">
                   <input type="checkbox" class="form-check-input" id="halfDay" formControlName="halfDay">
-                  <label class="form-check-label" for="halfDay">{{ 'HalfDay' | abpLocalization }}</label>
+                  <label class="form-check-label" for="halfDay">{{ '::HalfDay' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -83,7 +83,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/hr/leave">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/hr/leave">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
             <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
           </button>

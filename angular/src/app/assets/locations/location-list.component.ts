@@ -14,12 +14,12 @@ import type { LocationDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Locations' | abpLocalization">
+    <abp-page [title]="'::Locations' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'Locations' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::Locations' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/locations/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewLocation' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewLocation' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,18 +28,18 @@ import type { LocationDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-map-marker-alt fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoLocationsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoLocationsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/locations/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewLocation' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewLocation' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'LocationName' | abpLocalization }}</th>
-                <th>{{ 'ParentLocation' | abpLocalization }}</th>
-                <th>{{ 'IsGroup' | abpLocalization }}</th>
-                <th>{{ 'IsContainer' | abpLocalization }}</th>
+                <th>{{ '::LocationName' | abpLocalization }}</th>
+                <th>{{ '::ParentLocation' | abpLocalization }}</th>
+                <th>{{ '::IsGroup' | abpLocalization }}</th>
+                <th>{{ '::IsContainer' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -49,16 +49,16 @@ import type { LocationDto } from '../../proxy/assets/models';
                     <td>{{ loc.parentLocationName ?? '—' }}</td>
                     <td>
                       @if (loc.isGroup) {
-                        <span class="badge bg-secondary">{{ 'Yes' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Yes' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-light text-dark">{{ 'No' | abpLocalization }}</span>
+                        <span class="badge bg-light text-dark">{{ '::No' | abpLocalization }}</span>
                       }
                     </td>
                     <td>
                       @if (loc.isContainer) {
-                        <span class="badge bg-secondary">{{ 'Yes' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Yes' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-light text-dark">{{ 'No' | abpLocalization }}</span>
+                        <span class="badge bg-light text-dark">{{ '::No' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

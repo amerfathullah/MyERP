@@ -11,24 +11,24 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewRFQ' | abpLocalization">
+    <abp-page [title]="'::NewRFQ' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.transactionDate" (ngModelChange)="isDirty=true" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'Currency' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.currencyCode" (ngModelChange)="isDirty=true" />
           </div>
         </div>
         <div class="mb-3">
-          <label class="form-label">{{ 'MessageForSupplier' | abpLocalization }}</label>
+          <label class="form-label">{{ '::MessageForSupplier' | abpLocalization }}</label>
           <textarea class="form-control" rows="3" [(ngModel)]="form.messageForSupplier" (ngModelChange)="isDirty=true"></textarea>
         </div>
 
-        <h6>{{ 'Items' | abpLocalization }}</h6>
+        <h6>{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm mb-3">
           <thead><tr><th>Item</th><th>Qty</th><th>UOM</th><th></th></tr></thead>
           <tbody>
@@ -43,10 +43,10 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.items.push({itemId:'',description:'',qty:1,uom:'Unit'})">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
-        <h6>{{ 'Suppliers' | abpLocalization }}</h6>
+        <h6>{{ '::Suppliers' | abpLocalization }}</h6>
         <table class="table table-sm mb-3">
           <thead><tr><th>Supplier</th><th>Email</th><th></th></tr></thead>
           <tbody>
@@ -60,13 +60,13 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.suppliers.push({supplierId:'',email:''})">
-          <i class="fa fa-plus me-1"></i>{{ 'AddSupplier' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddSupplier' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-end gap-2">
-          <button class="btn btn-secondary" routerLink="/purchasing/rfq">{{ 'Cancel' | abpLocalization }}</button>
+          <button class="btn btn-secondary" routerLink="/purchasing/rfq">{{ '::Cancel' | abpLocalization }}</button>
           <button class="btn btn-primary" (click)="save()" [disabled]="saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </div></div>

@@ -11,32 +11,32 @@ import { SalaryStructureService } from '../../proxy/human-resources';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewSalaryStructure' | abpLocalization">
+    <abp-page [title]="'::NewSalaryStructure' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-5">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" [placeholder]="'::Placeholder:SalaryStructureName' | abpLocalization" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'PayrollFrequency' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PayrollFrequency' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.payrollFrequency">
-              <option>{{ 'Monthly' | abpLocalization }}</option>
-              <option>{{ 'Bimonthly' | abpLocalization }}</option>
-              <option>{{ 'Weekly' | abpLocalization }}</option>
+              <option>{{ '::Monthly' | abpLocalization }}</option>
+              <option>{{ '::Bimonthly' | abpLocalization }}</option>
+              <option>{{ '::Weekly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3">
             <div class="form-check mt-4">
               <input type="checkbox" class="form-check-input" (ngModelChange)="isDirty=true" [(ngModel)]="form.isHourlyBased" id="hourly" />
-              <label class="form-check-label" for="hourly">{{ 'HourlyBased' | abpLocalization }}</label>
+              <label class="form-check-label" for="hourly">{{ '::HourlyBased' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Components' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Components' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Component' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'Formula' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Component' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::Formula' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (d of form.details; track $index) {
               <tr>
@@ -49,12 +49,12 @@ import { SalaryStructureService } from '../../proxy/human-resources';
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.details.push({componentName:'',amount:0,formula:''})">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/hr/salary-structures">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/hr/salary-structures">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

@@ -31,19 +31,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="card-body">
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Item' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Item' | abpLocalization }}</small>
                 <div class="fw-bold">{{ s.itemId }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Warehouse' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Warehouse' | abpLocalization }}</small>
                 <div>{{ s.warehouseId || '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'PurchaseRate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::PurchaseRate' | abpLocalization }}</small>
                 <div>{{ s.purchaseRate ? (s.purchaseRate | number:'1.2-2') : '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Status' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Status' | abpLocalization }}</small>
                 <div>
                   @if (s.status === 0) {
                     <span class="badge bg-success">Active</span>
@@ -55,15 +55,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </div>
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'WarrantyExpiryDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::WarrantyExpiryDate' | abpLocalization }}</small>
                 <div>{{ s.warrantyExpiryDate ? (s.warrantyExpiryDate | date:'dd/MM/yyyy') : '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'AmcExpiryDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::AmcExpiryDate' | abpLocalization }}</small>
                 <div>{{ s.amcExpiryDate ? (s.amcExpiryDate | date:'dd/MM/yyyy') : '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Customer' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Customer' | abpLocalization }}</small>
                 <div>{{ s.customerId || '—' }}</div>
               </div>
             </div>

@@ -13,25 +13,25 @@ import { QualityInspectionTemplateService } from '../../proxy/inventory/quality-
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>{{ 'QualityInspectionTemplates' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>{{ '::QualityInspectionTemplates' | abpLocalization }}</h5>
           <a routerLink="new" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>{{ 'NewQITemplate' | abpLocalization }}
+            <i class="fas fa-plus me-1"></i>{{ '::NewQITemplate' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           @if (templates().length === 0) {
             <div class="text-center py-4 text-muted">
               <i class="fas fa-clipboard-check fa-2x mb-2"></i>
-              <p>{{ 'NoQITemplatesYet' | abpLocalization }}</p>
+              <p>{{ '::NoQITemplatesYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'Name' | abpLocalization }}</th>
-                  <th>{{ 'Description' | abpLocalization }}</th>
-                  <th>{{ 'Parameters' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::Name' | abpLocalization }}</th>
+                  <th>{{ '::Description' | abpLocalization }}</th>
+                  <th>{{ '::Parameters' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -43,9 +43,9 @@ import { QualityInspectionTemplateService } from '../../proxy/inventory/quality-
                     <td><span class="badge bg-info">{{ item.parameterCount }}</span></td>
                     <td>
                       @if (item.isEnabled) {
-                        <span class="badge bg-success">{{ 'Active' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

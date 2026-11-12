@@ -14,33 +14,33 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewBomCreator') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewBomCreator') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         @if (statusLabel() !== 'Draft') {
           <div class="alert" [class.alert-success]="statusLabel()==='Completed'" [class.alert-danger]="statusLabel()==='Failed'">
-            {{ 'Status' | abpLocalization }}: {{ statusLabel() }}
+            {{ '::Status' | abpLocalization }}: {{ statusLabel() }}
             @if (errorLog) { <div class="small mt-1">{{ errorLog }}</div> }
           </div>
         }
 
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'FinishedGood' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FinishedGood' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.finishedGoodItemId" [disabled]="statusLabel() !== 'Draft'">
-              <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+              <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
               @for (i of availableItems(); track i.id) { <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option> }
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'Quantity' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Quantity' | abpLocalization }}</label>
             <input type="number" class="form-control" min="0.01" step="0.01" [(ngModel)]="form.qty" [disabled]="statusLabel() !== 'Draft'" />
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'UOM' | abpLocalization }}</label>
+            <label class="form-label">{{ '::UOM' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.uom" [disabled]="statusLabel() !== 'Draft'" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'RateOfMaterialsBasedOn' | abpLocalization }}</label>
+            <label class="form-label">{{ '::RateOfMaterialsBasedOn' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.rmCostAsPer" [disabled]="statusLabel() !== 'Draft'">
               <option value="Valuation Rate">Valuation Rate</option>
               <option value="Last Purchase Rate">Last Purchase Rate</option>
@@ -49,17 +49,17 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'SubAssembliesAndRawMaterials' | abpLocalization }}</h6>
-        <p class="text-muted small">{{ 'BomCreatorTreeHint' | abpLocalization }}</p>
+        <h6 class="mb-2">{{ '::SubAssembliesAndRawMaterials' | abpLocalization }}</h6>
+        <p class="text-muted small">{{ '::BomCreatorTreeHint' | abpLocalization }}</p>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead><tr>
-              <th style="min-width:180px">{{ 'ComponentOf' | abpLocalization }}</th>
-              <th style="min-width:220px">{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'IsExpandable' | abpLocalization }}</th>
-              <th>{{ 'Qty' | abpLocalization }}</th>
-              <th>{{ 'Rate' | abpLocalization }}</th>
-              <th>{{ 'UOM' | abpLocalization }}</th>
+              <th style="min-width:180px">{{ '::ComponentOf' | abpLocalization }}</th>
+              <th style="min-width:220px">{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::IsExpandable' | abpLocalization }}</th>
+              <th>{{ '::Qty' | abpLocalization }}</th>
+              <th>{{ '::Rate' | abpLocalization }}</th>
+              <th>{{ '::UOM' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -93,23 +93,23 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </table>
         </div>
         @if (statusLabel() === 'Draft') {
-          <button class="btn btn-sm btn-outline-primary mb-3" (click)="addRow()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+          <button class="btn btn-sm btn-outline-primary mb-3" (click)="addRow()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
         }
 
         <div class="mb-3">
-          <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.remarks" [disabled]="statusLabel() !== 'Draft'"></textarea>
         </div>
 
         <div class="d-flex justify-content-between align-items-center">
-          <span class="fw-bold">{{ 'TotalCost' | abpLocalization }}: {{ totalCost() | number:'1.2-2' }}</span>
+          <span class="fw-bold">{{ '::TotalCost' | abpLocalization }}: {{ totalCost() | number:'1.2-2' }}</span>
           <div class="d-flex gap-2">
-            <a class="btn btn-secondary" routerLink="/manufacturing/bom-creators">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary" routerLink="/manufacturing/bom-creators">{{ '::Cancel' | abpLocalization }}</a>
             @if (statusLabel() === 'Draft') {
-              <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+              <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
             }
             @if (isEdit() && statusLabel() === 'Draft') {
-              <button class="btn btn-success" (click)="createBoms()" [disabled]="saving()"><i class="fa fa-sitemap me-1"></i>{{ 'CreateBOMs' | abpLocalization }}</button>
+              <button class="btn btn-success" (click)="createBoms()" [disabled]="saving()"><i class="fa fa-sitemap me-1"></i>{{ '::CreateBOMs' | abpLocalization }}</button>
             }
           </div>
         </div>

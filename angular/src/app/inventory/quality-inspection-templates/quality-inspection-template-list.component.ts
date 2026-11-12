@@ -14,25 +14,25 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityInspectionTemplates' | abpLocalization">
+    <abp-page [title]="'::QualityInspectionTemplates' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-end">
           <a routerLink="/inventory/quality-inspection-templates/new" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i>{{ 'NewQITemplate' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewQITemplate' | abpLocalization }}
           </a>
         </div>
         <div class="card-body p-0">
           @if (isLoading) {
             <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
           } @else if (templates.length === 0) {
-            <div class="text-center py-5 text-muted">{{ 'NoQITemplatesYet' | abpLocalization }}</div>
+            <div class="text-center py-5 text-muted">{{ '::NoQITemplatesYet' | abpLocalization }}</div>
           } @else {
             <div class="table-responsive">
               <table class="table table-hover table-striped mb-0">
                 <thead class="table-light">
                   <tr>
                     <th>{{ '::Name' | abpLocalization }}</th>
-                    <th>{{ 'Specification' | abpLocalization }}</th>
+                    <th>{{ '::Specification' | abpLocalization }}</th>
                     <th>{{ '::Status' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                   </tr>
@@ -41,7 +41,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   @for (t of templates; track t.id) {
                     <tr>
                       <td class="fw-semibold">{{ t.name }}</td>
-                      <td>{{ t.parameterCount }} {{ 'AddParameter' | abpLocalization }}</td>
+                      <td>{{ t.parameterCount }} {{ '::AddParameter' | abpLocalization }}</td>
                       <td>
                         <span class="badge" [ngClass]="t.isEnabled ? 'bg-success' : 'bg-secondary'">
                           {{ (t.isEnabled ? '::Active' : '::Inactive') | abpLocalization }}

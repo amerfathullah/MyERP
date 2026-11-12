@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h4 class="mb-1">{{ 'MaintenanceSchedule' | abpLocalization }}</h4>
+        <h4 class="mb-1">{{ '::MaintenanceSchedule' | abpLocalization }}</h4>
         <app-status-badge [status]="getStatusLabel(s.status ?? 0)"></app-status-badge>
       </div>
       <div class="btn-group">
@@ -30,7 +30,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'Periodicity' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::Periodicity' | abpLocalization }}</small>
             <h5 class="mb-0 mt-1">{{ s.periodicity || '—' }}</h5>
           </div>
         </div>
@@ -38,7 +38,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'TotalVisits' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::TotalVisits' | abpLocalization }}</small>
             <h5 class="mb-0 mt-1">{{ getTotalVisits() }}</h5>
           </div>
         </div>
@@ -76,7 +76,7 @@
     <div class="row g-3 mb-4">
       <div class="col-md-6">
         <div class="card">
-          <div class="card-header fw-medium">{{ 'ScheduleDetails' | abpLocalization }}</div>
+          <div class="card-header fw-medium">{{ '::ScheduleDetails' | abpLocalization }}</div>
           <div class="card-body">
             <div class="row mb-2">
               <div class="col-5 text-muted">{{ '::StartDate' | abpLocalization }}</div>
@@ -87,7 +87,7 @@
               <div class="col-7">{{ s.endDate | date:'dd/MM/yyyy' }}</div>
             </div>
             <div class="row mb-2">
-              <div class="col-5 text-muted">{{ 'Periodicity' | abpLocalization }}</div>
+              <div class="col-5 text-muted">{{ '::Periodicity' | abpLocalization }}</div>
               <div class="col-7"><span class="badge bg-info-subtle text-info">{{ s.periodicity }}</span></div>
             </div>
           </div>
@@ -95,7 +95,7 @@
       </div>
       <div class="col-md-6">
         <div class="card">
-          <div class="card-header fw-medium">{{ 'References' | abpLocalization }}</div>
+          <div class="card-header fw-medium">{{ '::References' | abpLocalization }}</div>
           <div class="card-body">
             <div class="row mb-2">
               <div class="col-5 text-muted">{{ '::Item' | abpLocalization }}</div>
@@ -114,7 +114,7 @@
     @if (s.details && s.details.length > 0) {
       <div class="card mb-4">
         <div class="card-header fw-medium d-flex align-items-center">
-          {{ 'ScheduledVisits' | abpLocalization }}
+          {{ '::ScheduledVisits' | abpLocalization }}
           <span class="badge bg-primary ms-2">{{ s.details.length }}</span>
         </div>
         <div class="card-body p-0">
@@ -123,8 +123,8 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>{{ 'ScheduledDate' | abpLocalization }}</th>
-                  <th>{{ 'ActualDate' | abpLocalization }}</th>
+                  <th>{{ '::ScheduledDate' | abpLocalization }}</th>
+                  <th>{{ '::ActualDate' | abpLocalization }}</th>
                   <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>

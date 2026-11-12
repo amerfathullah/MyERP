@@ -14,12 +14,12 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Subscriptions' | abpLocalization">
+    <abp-page [title]="'::Subscriptions' | abpLocalization">
       <div class="d-flex justify-content-between gap-2 mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
           [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
         <button class="btn btn-primary btn-sm" routerLink="/sales/subscriptions/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSubscription' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSubscription' | abpLocalization }}
         </button>
       </div>
 
@@ -27,18 +27,18 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && subscriptions.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-rotate fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSubscriptionsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSubscriptionsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'SubscriptionNumber' | abpLocalization }}</th>
-              <th>{{ 'Party' | abpLocalization }}</th>
-              <th>{{ 'BillingInterval' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-              <th>{{ 'StartDate' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::SubscriptionNumber' | abpLocalization }}</th>
+              <th>{{ '::Party' | abpLocalization }}</th>
+              <th>{{ '::BillingInterval' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+              <th>{{ '::StartDate' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (sub of subscriptions; track sub.id) {

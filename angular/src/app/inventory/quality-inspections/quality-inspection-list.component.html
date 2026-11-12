@@ -1,7 +1,7 @@
-<abp-page [title]="'QualityInspections' | abpLocalization">
+<abp-page [title]="'::QualityInspections' | abpLocalization">
   <div class="d-flex justify-content-end gap-2 mb-3">
     <button class="btn btn-primary btn-sm" routerLink="/inventory/quality-inspections/new">
-      <i class="fa fa-plus me-1"></i>{{ 'NewInspection' | abpLocalization }}
+      <i class="fa fa-plus me-1"></i>{{ '::NewInspection' | abpLocalization }}
     </button>
   </div>
 
@@ -12,9 +12,9 @@
   @if (!isLoading && inspections.length === 0) {
     <div class="text-center py-5">
       <i class="fa fa-clipboard-check fa-3x text-muted mb-3 d-block"></i>
-      <p class="text-muted">{{ 'NoQualityInspectionsYet' | abpLocalization }}</p>
+      <p class="text-muted">{{ '::NoQualityInspectionsYet' | abpLocalization }}</p>
       <button class="btn btn-primary" routerLink="/inventory/quality-inspections/new">
-        <i class="fa fa-plus me-1"></i>{{ 'NewInspection' | abpLocalization }}
+        <i class="fa fa-plus me-1"></i>{{ '::NewInspection' | abpLocalization }}
       </button>
     </div>
   } @else if (!isLoading) {
@@ -23,12 +23,12 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'InspectionType' | abpLocalization }}</th>
-              <th>{{ 'InspectionDate' | abpLocalization }}</th>
-              <th>{{ 'SampleSize' | abpLocalization }}</th>
-              <th>{{ 'Readings' | abpLocalization }}</th>
-              <th>{{ 'Result' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::InspectionType' | abpLocalization }}</th>
+              <th>{{ '::InspectionDate' | abpLocalization }}</th>
+              <th>{{ '::SampleSize' | abpLocalization }}</th>
+              <th>{{ '::Readings' | abpLocalization }}</th>
+              <th>{{ '::Result' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

@@ -25,7 +25,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <div>
               <h5 class="mb-0">{{ proforma()!.proformaNumber }}</h5>
               <small class="text-muted">
-                {{ 'ProformaInvoice' | abpLocalization }} •
+                {{ '::ProformaInvoice' | abpLocalization }} •
                 {{ proforma()!.proformaDate | date:'dd/MM/yyyy' }}
               </small>
             </div>
@@ -36,7 +36,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                   <i class="fas fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}
                 </button>
                 <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
-                  <i class="fas fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+                  <i class="fas fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
                 </button>
               }
             </div>
@@ -45,43 +45,43 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <!-- Header Info -->
             <div class="row mb-4">
               <div class="col-md-3">
-                <label class="form-label text-muted small mb-0">{{ 'Customer' | abpLocalization }}</label>
+                <label class="form-label text-muted small mb-0">{{ '::Customer' | abpLocalization }}</label>
                 <div class="fw-semibold">{{ proforma()!.customerName || '—' }}</div>
               </div>
               <div class="col-md-3">
-                <label class="form-label text-muted small mb-0">{{ 'SalesOrder' | abpLocalization }}</label>
+                <label class="form-label text-muted small mb-0">{{ '::SalesOrder' | abpLocalization }}</label>
                 <div><a [routerLink]="['/sales/orders', proforma()!.salesOrderId]">{{ proforma()!.salesOrderNumber || '—' }}</a></div>
               </div>
               <div class="col-md-2">
-                <label class="form-label text-muted small mb-0">{{ 'Basis' | abpLocalization }}</label>
+                <label class="form-label text-muted small mb-0">{{ '::Basis' | abpLocalization }}</label>
                 <div><span class="badge" [class.bg-primary]="proforma()!.basedOn === 0" [class.bg-info]="proforma()!.basedOn === 1">
                   {{ proforma()!.basedOn === 0 ? 'Quantity' : 'Amount' }}
                 </span></div>
               </div>
               <div class="col-md-2">
-                <label class="form-label text-muted small mb-0">{{ 'Currency' | abpLocalization }}</label>
+                <label class="form-label text-muted small mb-0">{{ '::Currency' | abpLocalization }}</label>
                 <div>{{ proforma()!.currencyCode || 'MYR' }}</div>
               </div>
               <div class="col-md-2">
-                <label class="form-label text-muted small mb-0">{{ 'GrandTotal' | abpLocalization }}</label>
+                <label class="form-label text-muted small mb-0">{{ '::GrandTotal' | abpLocalization }}</label>
                 <div class="fw-bold text-primary fs-5">{{ proforma()!.grandTotal | number:'1.2-2' }}</div>
               </div>
             </div>
 
             <!-- Items Table -->
-            <h6>{{ 'Items' | abpLocalization }}</h6>
+            <h6>{{ '::Items' | abpLocalization }}</h6>
             <div class="table-responsive">
               <table class="table table-sm table-bordered">
                 <thead class="table-light">
                   <tr>
                     <th>#</th>
-                    <th>{{ 'Item' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
                     @if (!proforma()!.hideItemQty) {
-                      <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                      <th>{{ 'UOM' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                      <th>{{ '::UOM' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
                     }
-                    <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -106,7 +106,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <tfoot>
                   <tr class="table-light">
                     <td [colSpan]="proforma()!.hideItemQty ? 1 : 4"></td>
-                    <td class="text-end fw-bold">{{ 'GrandTotal' | abpLocalization }}</td>
+                    <td class="text-end fw-bold">{{ '::GrandTotal' | abpLocalization }}</td>
                     <td class="text-end fw-bold text-primary">{{ proforma()!.grandTotal | number:'1.2-2' }}</td>
                   </tr>
                 </tfoot>

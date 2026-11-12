@@ -13,15 +13,15 @@ import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../..
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? 'EditOperation' : 'NewOperation') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditOperation' : '::NewOperation') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'WorkstationType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::WorkstationType' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationTypeId">
               <option [ngValue]="null">—</option>
               @for (t of workstationTypes; track t.id) {
@@ -30,7 +30,7 @@ import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../..
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Workstation' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Workstation' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.workstationId">
               <option [ngValue]="null">—</option>
               @for (ws of workstations; track ws.id) {
@@ -42,34 +42,34 @@ import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../..
 
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="2" (ngModelChange)="isDirty=true" [(ngModel)]="form.description"></textarea>
           </div>
           <div class="col-md-6 d-flex flex-column justify-content-end gap-2">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="opBatch" (ngModelChange)="isDirty=true" [(ngModel)]="form.createJobCardBasedOnBatchSize" />
-              <label class="form-check-label" for="opBatch">{{ 'CreateJobCardBasedOnBatchSize' | abpLocalization }}</label>
+              <label class="form-check-label" for="opBatch">{{ '::CreateJobCardBasedOnBatchSize' | abpLocalization }}</label>
             </div>
             @if (form.createJobCardBasedOnBatchSize) {
-              <input type="number" class="form-control form-control-sm" style="width:150px" min="1" (ngModelChange)="isDirty=true" [(ngModel)]="form.batchSize" [placeholder]="'BatchSize' | abpLocalization" />
+              <input type="number" class="form-control form-control-sm" style="width:150px" min="1" (ngModelChange)="isDirty=true" [(ngModel)]="form.batchSize" [placeholder]="'::BatchSize' | abpLocalization" />
             }
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="opCorrective" (ngModelChange)="isDirty=true" [(ngModel)]="form.isCorrectiveOperation" />
-              <label class="form-check-label" for="opCorrective">{{ 'IsCorrectiveOperation' | abpLocalization }}</label>
+              <label class="form-check-label" for="opCorrective">{{ '::IsCorrectiveOperation' | abpLocalization }}</label>
             </div>
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="opActive" (ngModelChange)="isDirty=true" [(ngModel)]="form.isActive" />
-              <label class="form-check-label" for="opActive">{{ 'Active' | abpLocalization }}</label>
+              <label class="form-check-label" for="opActive">{{ '::Active' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'SubOperations' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::SubOperations' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th>{{ 'Operation' | abpLocalization }}</th>
-            <th>{{ 'OperationTime' | abpLocalization }}</th>
-            <th>{{ 'Description' | abpLocalization }}</th>
+            <th>{{ '::Operation' | abpLocalization }}</th>
+            <th>{{ '::OperationTime' | abpLocalization }}</th>
+            <th>{{ '::Description' | abpLocalization }}</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -89,13 +89,13 @@ import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../..
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addSubOperation()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addSubOperation()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-between">
-          <span class="fw-bold">{{ 'TotalOperationTime' | abpLocalization }}: {{ getTotalTime() | number:'1.0-2' }}</span>
+          <span class="fw-bold">{{ '::TotalOperationTime' | abpLocalization }}: {{ getTotalTime() | number:'1.0-2' }}</span>
           <div class="d-flex gap-2">
-            <a class="btn btn-secondary" routerLink="/manufacturing/operations">{{ 'Cancel' | abpLocalization }}</a>
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <a class="btn btn-secondary" routerLink="/manufacturing/operations">{{ '::Cancel' | abpLocalization }}</a>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>

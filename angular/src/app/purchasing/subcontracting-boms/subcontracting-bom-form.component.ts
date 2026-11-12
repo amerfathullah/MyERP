@@ -14,22 +14,22 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewSubcontractingBom') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewSubcontractingBom') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'FinishedGood' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FinishedGood' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.finishedGoodId" (ngModelChange)="onFinishedGoodChanged()">
               <option value="">--</option>
               @for (i of items(); track i.id) { <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option> }
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'FinishedGoodQty' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FinishedGoodQty' | abpLocalization }}</label>
             <input type="number" class="form-control" min="0.000001" step="0.01" [(ngModel)]="form.finishedGoodQty" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'FinishedGoodBom' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FinishedGoodBom' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.finishedGoodBomId">
               <option value="">--</option>
               @for (bom of finishedGoodBoms(); track bom.id) { <option [value]="bom.id">{{ bom.bomNumber }}</option> }
@@ -39,31 +39,31 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
 
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'ServiceItem' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ServiceItem' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.serviceItemId">
               <option value="">--</option>
               @for (i of serviceItems(); track i.id) { <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option> }
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'ServiceItemQty' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ServiceItemQty' | abpLocalization }}</label>
             <input type="number" class="form-control" min="0" step="0.01" [(ngModel)]="form.serviceItemQty" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ConversionFactor' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ConversionFactor' | abpLocalization }}</label>
             <input type="text" class="form-control" [value]="computeConversionFactor() | number:'1.6-6'" disabled />
           </div>
           <div class="col-md-3 d-flex align-items-end">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="isActive" [(ngModel)]="form.isActive" />
-              <label class="form-check-label" for="isActive">{{ 'IsActive' | abpLocalization }}</label>
+              <label class="form-check-label" for="isActive">{{ '::IsActive' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/purchasing/subcontracting-boms">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !canSave()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/purchasing/subcontracting-boms">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !canSave()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

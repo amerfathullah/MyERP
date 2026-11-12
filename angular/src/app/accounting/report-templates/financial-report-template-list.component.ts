@@ -17,9 +17,9 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
     <div class="container-fluid py-3">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fa fa-file-alt me-2"></i>{{ 'FinancialReportTemplates' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fa fa-file-alt me-2"></i>{{ '::FinancialReportTemplates' | abpLocalization }}</h5>
           <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
-            <i class="fa fa-plus me-1"></i>{{ 'NewTemplate' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewTemplate' | abpLocalization }}
           </button>
         </div>
 
@@ -27,11 +27,11 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
           <div class="card-body border-bottom bg-light">
             <div class="row g-2">
               <div class="col-md-4">
-                <label class="form-label">{{ 'Name' | abpLocalization }}</label>
-                <input class="form-control form-control-sm" [(ngModel)]="newName" [placeholder]="'Name' | abpLocalization">
+                <label class="form-label">{{ '::Name' | abpLocalization }}</label>
+                <input class="form-control form-control-sm" [(ngModel)]="newName" [placeholder]="'::Name' | abpLocalization">
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'ReportType' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ReportType' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="newReportType">
                   <option [value]="0">Profit & Loss</option>
                   <option [value]="1">Balance Sheet</option>
@@ -40,12 +40,12 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Description' | abpLocalization }}</label>
                 <input class="form-control form-control-sm" [(ngModel)]="newDescription">
               </div>
               <div class="col-md-2 d-flex align-items-end">
                 <button class="btn btn-success btn-sm w-100" (click)="create()" [disabled]="!newName">
-                  <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+                  <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
                 </button>
               </div>
             </div>
@@ -56,20 +56,20 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
           @if (templates().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fa fa-file-alt fa-3x mb-3 opacity-25"></i>
-              <p>{{ 'NoFinancialReportTemplatesYet' | abpLocalization }}</p>
+              <p>{{ '::NoFinancialReportTemplatesYet' | abpLocalization }}</p>
               <button class="btn btn-outline-primary btn-sm" (click)="showCreateForm = true">
-                <i class="fa fa-plus me-1"></i>{{ 'NewTemplate' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewTemplate' | abpLocalization }}
               </button>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Name' | abpLocalization }}</th>
-                  <th>{{ 'ReportType' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Rows' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Status' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Actions' | abpLocalization }}</th>
+                  <th>{{ '::Name' | abpLocalization }}</th>
+                  <th>{{ '::ReportType' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Rows' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

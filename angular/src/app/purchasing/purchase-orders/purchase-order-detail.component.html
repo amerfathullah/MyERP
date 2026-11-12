@@ -6,19 +6,19 @@
     <div class="d-flex justify-content-between align-items-center mb-2">
       <div>
         <button class="btn btn-outline-secondary btn-sm" (click)="printOrder()">
-          <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+          <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
         </button>
         <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()">
-          <i class="fa fa-file-pdf me-1"></i>{{ 'Download' | abpLocalization }}
+          <i class="fa fa-file-pdf me-1"></i>{{ '::Download' | abpLocalization }}
         </button>
       </div>
       @if (order.status === 'Draft') {
         <div class="btn-group btn-group-sm">
           <a class="btn btn-outline-primary" [routerLink]="['/purchasing/orders', order.id, 'edit']">
-            <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+            <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
           </a>
           <button class="btn btn-outline-danger" (click)="deleteOrder()">
-            <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+            <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
           </button>
         </div>
       }
@@ -91,7 +91,7 @@
           <div class="card">
             <div class="card-body">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-bold">{{ 'ReceivedQty' | abpLocalization }}</small>
+                <small class="fw-bold">{{ '::ReceivedQty' | abpLocalization }}</small>
                 <small>{{ order.perReceived ?? 0 | number:'1.0-0' }}%</small>
               </div>
               <div class="progress" style="height: 8px;">
@@ -104,7 +104,7 @@
           <div class="card">
             <div class="card-body">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-bold">{{ 'BilledQty' | abpLocalization }}</small>
+                <small class="fw-bold">{{ '::BilledQty' | abpLocalization }}</small>
                 <small>{{ order.perBilled ?? 0 | number:'1.0-0' }}%</small>
               </div>
               <div class="progress" style="height: 8px;">
@@ -512,11 +512,11 @@
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
-                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'Placeholder:Email' | abpLocalization">
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:Email' | abpLocalization">
               </div>
               <div class="mb-3">
                 <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
-                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'Placeholder:CommaSeparatedEmails' | abpLocalization">
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CommaSeparatedEmails' | abpLocalization">
               </div>
               <div class="form-check mb-3">
                 <input type="checkbox" class="form-check-input" id="attachPdf" [(ngModel)]="emailAttachPdf">

@@ -1,7 +1,7 @@
-<abp-page [title]="'StockReconciliations' | abpLocalization">
+<abp-page [title]="'::StockReconciliations' | abpLocalization">
   <div class="d-flex justify-content-end gap-2 mb-3">
     <button class="btn btn-primary btn-sm" routerLink="/inventory/stock-reconciliations/new">
-      <i class="fa fa-plus me-1"></i>{{ 'NewReconciliation' | abpLocalization }}
+      <i class="fa fa-plus me-1"></i>{{ '::NewReconciliation' | abpLocalization }}
     </button>
   </div>
 
@@ -12,9 +12,9 @@
   @if (!isLoading && reconciliations.length === 0) {
     <div class="text-center py-5">
       <i class="fa fa-scale-balanced fa-3x text-muted mb-3 d-block"></i>
-      <p class="text-muted">{{ 'NoStockReconciliationsYet' | abpLocalization }}</p>
+      <p class="text-muted">{{ '::NoStockReconciliationsYet' | abpLocalization }}</p>
       <button class="btn btn-primary" routerLink="/inventory/stock-reconciliations/new">
-        <i class="fa fa-plus me-1"></i>{{ 'NewReconciliation' | abpLocalization }}
+        <i class="fa fa-plus me-1"></i>{{ '::NewReconciliation' | abpLocalization }}
       </button>
     </div>
   } @else if (!isLoading) {
@@ -23,12 +23,12 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>{{ 'ReconciliationNumber' | abpLocalization }}</th>
-              <th>{{ 'PostingDate' | abpLocalization }}</th>
-              <th>{{ 'Purpose' | abpLocalization }}</th>
-              <th>{{ 'Items' | abpLocalization }}</th>
-              <th class="text-end">{{ 'DifferenceAmount' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::ReconciliationNumber' | abpLocalization }}</th>
+              <th>{{ '::PostingDate' | abpLocalization }}</th>
+              <th>{{ '::Purpose' | abpLocalization }}</th>
+              <th>{{ '::Items' | abpLocalization }}</th>
+              <th class="text-end">{{ '::DifferenceAmount' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

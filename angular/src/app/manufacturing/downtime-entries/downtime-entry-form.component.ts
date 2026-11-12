@@ -25,25 +25,25 @@ const STOP_REASONS = [
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewDowntimeEntry') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewDowntimeEntry') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Workstation' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Workstation' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.workstationId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (w of workstations(); track w.id) { <option [value]="w.id">{{ w.name }}</option> }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Operator' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Operator' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.operatorId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (e of employees(); track e.id) { <option [value]="e.id">{{ e.name }}</option> }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'StopReason' | abpLocalization }}</label>
+            <label class="form-label">{{ '::StopReason' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.stopReason">
               @for (r of stopReasons; track r) { <option [value]="r">{{ r }}</option> }
             </select>
@@ -52,27 +52,27 @@ const STOP_REASONS = [
 
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'FromTime' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FromTime' | abpLocalization }}</label>
             <input type="datetime-local" class="form-control" [(ngModel)]="form.fromTime" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'ToTime' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ToTime' | abpLocalization }}</label>
             <input type="datetime-local" class="form-control" [(ngModel)]="form.toTime" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Downtime' | abpLocalization }} (min)</label>
+            <label class="form-label">{{ '::Downtime' | abpLocalization }} (min)</label>
             <input type="text" class="form-control" [value]="computedDowntime()" disabled />
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
           <textarea class="form-control" rows="3" [(ngModel)]="form.remarks"></textarea>
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/manufacturing/downtime-entries">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/manufacturing/downtime-entries">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

@@ -16,28 +16,28 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, ActivityLogComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Budgets' | abpLocalization">
+    <abp-page [title]="'::Budgets' | abpLocalization">
       <app-breadcrumb />
       @if (budget) {
         <div class="card mb-3"><div class="card-body">
           <div class="row align-items-center">
-            <div class="col-md-3"><strong>{{ 'BudgetAgainst' | abpLocalization }}:</strong> {{ budget.budgetAgainst }}</div>
-            <div class="col-md-3"><strong>{{ 'Target' | abpLocalization }}:</strong> {{ budget.budgetAgainstName }}</div>
+            <div class="col-md-3"><strong>{{ '::BudgetAgainst' | abpLocalization }}:</strong> {{ budget.budgetAgainst }}</div>
+            <div class="col-md-3"><strong>{{ '::Target' | abpLocalization }}:</strong> {{ budget.budgetAgainstName }}</div>
             <div class="col-md-3"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][budget.status ?? 0]"></app-status-badge></div>
             <div class="col-md-3 text-end">
               @if ((budget.status ?? 0) === 0) {
-                <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="loading()"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="loading()"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
               }
               @if ((budget.status ?? 0) === 1) {
-                <button class="btn btn-sm btn-outline-danger" (click)="cancel()" [disabled]="loading()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="cancel()" [disabled]="loading()"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
               }
             </div>
           </div>
         </div></div>
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'Accounts' | abpLocalization }}</h6>
+          <h6>{{ '::Accounts' | abpLocalization }}</h6>
           <table class="table table-sm">
-            <thead><tr><th>{{ 'AccountName' | abpLocalization }}</th><th class="text-end">{{ 'BudgetAmount' | abpLocalization }}</th></tr></thead>
+            <thead><tr><th>{{ '::AccountName' | abpLocalization }}</th><th class="text-end">{{ '::BudgetAmount' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (a of budget.accounts ?? []; track a.id) {
                 <tr><td>{{ a.accountName ?? '—' }}</td><td class="text-end fw-bold">{{ a.budgetAmount | number:'1.2-2' }}</td></tr>

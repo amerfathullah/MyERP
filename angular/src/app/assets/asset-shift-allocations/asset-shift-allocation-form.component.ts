@@ -16,11 +16,11 @@ import type { AssetDto, AssetShiftFactorDto, DepreciationScheduleDto } from '../
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewAssetShiftAllocation' | abpLocalization">
+    <abp-page [title]="'::NewAssetShiftAllocation' | abpLocalization">
       <div class="card mb-3">
         <div class="card-body row g-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Asset' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::Asset' | abpLocalization }} *</label>
             <select class="form-select" [(ngModel)]="selectedAssetId" (ngModelChange)="onAssetChange()">
               <option [ngValue]="null">—</option>
               @for (a of assets(); track a.id) {
@@ -34,16 +34,16 @@ import type { AssetDto, AssetShiftFactorDto, DepreciationScheduleDto } from '../
       @if (isLoadingSchedule()) {
         <div class="text-center py-4"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (selectedAssetId && schedule().length === 0) {
-        <div class="alert alert-info">{{ 'NoUnbookedPeriods' | abpLocalization }}</div>
+        <div class="alert alert-info">{{ '::NoUnbookedPeriods' | abpLocalization }}</div>
       } @else if (schedule().length > 0) {
         <div class="card">
-          <div class="card-header">{{ 'DepreciationSchedule' | abpLocalization }}</div>
+          <div class="card-header">{{ '::DepreciationSchedule' | abpLocalization }}</div>
           <div class="card-body">
             <table class="table table-sm mb-0">
               <thead><tr>
-                <th>{{ 'ScheduleDate' | abpLocalization }}</th>
-                <th>{{ 'DepreciationAmount' | abpLocalization }}</th>
-                <th>{{ 'ShiftFactor' | abpLocalization }}</th>
+                <th>{{ '::ScheduleDate' | abpLocalization }}</th>
+                <th>{{ '::DepreciationAmount' | abpLocalization }}</th>
+                <th>{{ '::ShiftFactor' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (row of schedule(); track row.id) {
@@ -52,7 +52,7 @@ import type { AssetDto, AssetShiftFactorDto, DepreciationScheduleDto } from '../
                     <td>{{ row.depreciationAmount | number:'1.2-2' }}</td>
                     <td style="max-width:220px">
                       <select class="form-select form-select-sm" [(ngModel)]="assignments[row.id!]">
-                        <option [ngValue]="null">{{ 'NoChange' | abpLocalization }}</option>
+                        <option [ngValue]="null">{{ '::NoChange' | abpLocalization }}</option>
                         @for (f of shiftFactors(); track f.id) {
                           <option [ngValue]="f.id">{{ f.shiftName }} ({{ f.factor }}×)</option>
                         }
@@ -67,9 +67,9 @@ import type { AssetDto, AssetShiftFactorDto, DepreciationScheduleDto } from '../
         <div class="d-flex gap-2 mt-3">
           <button class="btn btn-primary" [disabled]="isSaving() || !hasAnyAssignment()" (click)="save()">
             @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-            {{ 'Save' | abpLocalization }}
+            {{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-secondary" routerLink="/assets/shift-allocations">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/assets/shift-allocations">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       }
     </abp-page>

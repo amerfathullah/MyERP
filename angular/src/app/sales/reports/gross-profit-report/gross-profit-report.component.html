@@ -1,41 +1,41 @@
-<abp-page [title]="'GrossProfitReport' | abpLocalization">
+<abp-page [title]="'::GrossProfitReport' | abpLocalization">
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
         <div class="col-md-3">
-          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
-            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) {
               <option [value]="c.id">{{ c.name }}</option>
             }
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'GroupBy' | abpLocalization }}</label>
+          <label class="form-label">{{ '::GroupBy' | abpLocalization }}</label>
           <select class="form-select" formControlName="groupBy">
-            <option value="Invoice">{{ 'Invoice' | abpLocalization }}</option>
-            <option value="Item">{{ 'Item' | abpLocalization }}</option>
-            <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
-            <option value="Project">{{ 'Project' | abpLocalization }}</option>
-            <option value="Payment Term">{{ 'PaymentTerms' | abpLocalization }}</option>
-            <option value="Sales Person">{{ 'SalesPerson' | abpLocalization }}</option>
+            <option value="Invoice">{{ '::Invoice' | abpLocalization }}</option>
+            <option value="Item">{{ '::Item' | abpLocalization }}</option>
+            <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+            <option value="Project">{{ '::Project' | abpLocalization }}</option>
+            <option value="Payment Term">{{ '::PaymentTerms' | abpLocalization }}</option>
+            <option value="Sales Person">{{ '::SalesPerson' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-md-3 d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
-            <i class="fa fa-chart-line me-1"></i>{{ 'Generate' | abpLocalization }}
+            <i class="fa fa-chart-line me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
           <button type="button" class="btn btn-outline-secondary" (click)="exportCsv()" [disabled]="!report()?.items?.length">
-            <i class="fa fa-download me-1"></i>{{ 'Export' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::Export' | abpLocalization }}
           </button>
         </div>
       </form>
@@ -52,7 +52,7 @@
         <div class="card text-center">
           <div class="card-body">
             <h4 class="text-primary">{{ r.totalRevenue | number:'1.2-2' }}</h4>
-            <small class="text-muted">{{ 'Revenue' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::Revenue' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -60,7 +60,7 @@
         <div class="card text-center">
           <div class="card-body">
             <h4 class="text-danger">{{ r.totalCost | number:'1.2-2' }}</h4>
-            <small class="text-muted">{{ 'Cost' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::Cost' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -70,7 +70,7 @@
             <h4 [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
               {{ r.grossProfit | number:'1.2-2' }}
             </h4>
-            <small class="text-muted">{{ 'GrossProfit' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::GrossProfit' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@
             <h4 [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
               {{ r.grossProfitPercentage | number:'1.1-1' }}%
             </h4>
-            <small class="text-muted">{{ 'GrossMargin' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::GrossMargin' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -91,7 +91,7 @@
         @if ((r.items ?? []).length === 0) {
           <div class="text-center py-4 text-muted">
             <i class="fa fa-file-invoice fa-2x mb-2"></i>
-            <p>{{ 'NoRecordsFound' | abpLocalization }}</p>
+            <p>{{ '::NoRecordsFound' | abpLocalization }}</p>
           </div>
         } @else {
           <div class="table-responsive">
@@ -99,67 +99,67 @@
               <thead>
                 @if (filters.get('groupBy')?.value === 'Item') {
                   <tr>
-                    <th>{{ 'ItemCode' | abpLocalization }}</th>
-                    <th>{{ 'ItemName' | abpLocalization }}</th>
-                    <th>{{ 'ItemGroup' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'AvgSellingRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::ItemCode' | abpLocalization }}</th>
+                    <th>{{ '::ItemName' | abpLocalization }}</th>
+                    <th>{{ '::ItemGroup' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AvgSellingRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 } @else if (filters.get('groupBy')?.value === 'Customer') {
                   <tr>
-                    <th>{{ 'Customer' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::Customer' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 } @else if (filters.get('groupBy')?.value === 'Project') {
                   <tr>
-                    <th>{{ 'Project' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::Project' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 } @else if (filters.get('groupBy')?.value === 'Payment Term') {
                   <tr>
-                    <th>{{ 'PaymentTerms' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::PaymentTerms' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 } @else if (filters.get('groupBy')?.value === 'Sales Person') {
                   <tr>
-                    <th>{{ 'SalesPerson' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::SalesPerson' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 } @else {
                   <tr>
-                    <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                    <th>{{ 'Date' | abpLocalization }}</th>
-                    <th>{{ 'Customer' | abpLocalization }}</th>
-                    <th>{{ 'ItemCode' | abpLocalization }}</th>
-                    <th>{{ 'ItemName' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'SellingRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                    <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                    <th>{{ '::Date' | abpLocalization }}</th>
+                    <th>{{ '::Customer' | abpLocalization }}</th>
+                    <th>{{ '::ItemCode' | abpLocalization }}</th>
+                    <th>{{ '::ItemName' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::SellingRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrossMargin' | abpLocalization }}</th>
                   </tr>
                 }
               </thead>
@@ -197,7 +197,7 @@
                     </tr>
                   } @else if (filters.get('groupBy')?.value === 'Project') {
                     <tr>
-                      <td class="fw-semibold">{{ item.projectName ?? ('Project' | abpLocalization) }}</td>
+                      <td class="fw-semibold">{{ item.projectName ?? ('::Project' | abpLocalization) }}</td>
                       <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
                       <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
                       <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
@@ -259,7 +259,7 @@
               <tfoot>
                 <tr class="fw-bold bg-light">
                   @if (filters.get('groupBy')?.value === 'Item') {
-                    <td colspan="6">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="6">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
                     <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
                     <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
@@ -269,7 +269,7 @@
                       {{ r.grossProfitPercentage | number:'1.1-1' }}%
                     </td>
                   } @else if (filters.get('groupBy')?.value === 'Customer' || filters.get('groupBy')?.value === 'Project' || filters.get('groupBy')?.value === 'Payment Term' || filters.get('groupBy')?.value === 'Sales Person') {
-                    <td colspan="2">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="2">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
                     <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
                     <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
@@ -279,7 +279,7 @@
                       {{ r.grossProfitPercentage | number:'1.1-1' }}%
                     </td>
                   } @else {
-                    <td colspan="8">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="8">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
                     <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
                     <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">

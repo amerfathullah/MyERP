@@ -22,7 +22,7 @@ import { CampaignService } from '../../proxy/crm/campaign.service';
               <input type="text" class="form-control" formControlName="campaignName" maxlength="200">
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Description' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="description" maxlength="2000">
             </div>
           </div>
@@ -48,9 +48,9 @@ import { CampaignService } from '../../proxy/crm/campaign.service';
         </div></div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/crm/campaigns">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/crm/campaigns">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

@@ -62,7 +62,7 @@
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PriceList' | abpLocalization }}</label>
             <select class="form-select" formControlName="priceListId">
               <option value="">— {{ '::Default' | abpLocalization }} —</option>
               @for (pl of priceLists(); track pl.id) {
@@ -169,19 +169,19 @@
           <div class="col-auto">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" [attr.disabled]="hasDeliveryNoteItems() ? true : null" />
-              <label class="form-check-label" for="updateStock">{{ 'UpdateStock' | abpLocalization }}</label>
+              <label class="form-check-label" for="updateStock">{{ '::UpdateStock' | abpLocalization }}</label>
               @if (hasDeliveryNoteItems()) {
                 <small class="form-text text-warning d-block">{{ '::UpdateStockDisabledForDeliveryNote' | abpLocalization }}</small>
               } @else {
-                <small class="form-text text-muted d-block">{{ 'UpdateStockHelp' | abpLocalization }}</small>
+                <small class="form-text text-muted d-block">{{ '::UpdateStockHelp' | abpLocalization }}</small>
               }
             </div>
           </div>
           @if (form.get('updateStock')?.value) {
             <div class="col-12 col-md-4">
-              <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
               <select class="form-select" formControlName="warehouseId">
-                <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+                <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
                 @for (w of warehouses(); track w.id) {
                   <option [value]="w.id">{{ w.name }}</option>
                 }
@@ -193,12 +193,12 @@
         <!-- Coupon & Loyalty -->
         <div class="row g-3 mt-2">
           <div class="col-12 col-md-4">
-            <label class="form-label">{{ 'CouponCode' | abpLocalization }}</label>
+            <label class="form-label">{{ '::CouponCode' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="couponCode"
                    [placeholder]="'::Placeholder:CouponCode' | abpLocalization">
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label">{{ 'LoyaltyPointsToRedeem' | abpLocalization }}</label>
+            <label class="form-label">{{ '::LoyaltyPointsToRedeem' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="loyaltyPointsToRedeem" min="0">
           </div>
         </div>
@@ -264,9 +264,9 @@
     <!-- Sales Team (commission split) -->
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0"><i class="fa fa-people-group me-2"></i>{{ 'SalesTeam' | abpLocalization }}</h5>
+        <h5 class="card-title mb-0"><i class="fa fa-people-group me-2"></i>{{ '::SalesTeam' | abpLocalization }}</h5>
         <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSalesTeamRow()">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
       </div>
       @if (salesTeamRows().length > 0) {
@@ -274,9 +274,9 @@
           <table class="table table-sm mb-0">
             <thead>
               <tr>
-                <th>{{ 'SalesPerson' | abpLocalization }}</th>
-                <th style="width:140px">{{ 'AllocatedPercentage' | abpLocalization }}</th>
-                <th style="width:140px">{{ 'CommissionRate' | abpLocalization }}</th>
+                <th>{{ '::SalesPerson' | abpLocalization }}</th>
+                <th style="width:140px">{{ '::AllocatedPercentage' | abpLocalization }}</th>
+                <th style="width:140px">{{ '::CommissionRate' | abpLocalization }}</th>
                 <th></th>
               </tr>
             </thead>
@@ -308,7 +308,7 @@
             </tbody>
             <tfoot>
               <tr>
-                <td class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+                <td class="text-end fw-bold">{{ '::Total' | abpLocalization }}</td>
                 <td class="fw-bold" [class.text-danger]="salesTeamTotalPercentage() !== 100">{{ salesTeamTotalPercentage() }}%</td>
                 <td colspan="2"></td>
               </tr>

@@ -13,10 +13,10 @@ import type { SalaryStructureDto } from '../../proxy/human-resources/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SalaryStructures' | abpLocalization">
+    <abp-page [title]="'::SalaryStructures' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/hr/salary-structures/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSalaryStructure' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSalaryStructure' | abpLocalization }}
         </button>
       </div>
 
@@ -25,16 +25,16 @@ import type { SalaryStructureDto } from '../../proxy/human-resources/models';
       @if (!isLoading && structures.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-money-bill-wave fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSalaryStructuresYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSalaryStructuresYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'PayrollFrequency' | abpLocalization }}</th>
-              <th>{{ 'Components' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::PayrollFrequency' | abpLocalization }}</th>
+              <th>{{ '::Components' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

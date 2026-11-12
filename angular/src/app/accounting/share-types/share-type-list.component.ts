@@ -13,26 +13,26 @@ import type { ShareTypeDto } from '../../proxy/accounting/models';
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ShareTypes' | abpLocalization">
+    <abp-page [title]="'::ShareTypes' | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Title' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="newTitle" />
           </div>
           <div class="col-md-5">
-            <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="newDescription" />
           </div>
           <div class="col-md-3">
-            <button class="btn btn-primary" (click)="add()" [disabled]="!newTitle"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+            <button class="btn btn-primary" (click)="add()" [disabled]="!newTitle"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>
 
       <div class="card"><div class="card-body">
         <table class="table table-hover mb-0">
-          <thead><tr><th>{{ 'Title' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Title' | abpLocalization }}</th><th>{{ '::Description' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (t of types; track t.id) {
               <tr>

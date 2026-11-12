@@ -16,7 +16,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, ActivityLogComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ExpenseClaims' | abpLocalization">
+    <abp-page [title]="'::ExpenseClaims' | abpLocalization">
       <app-breadcrumb />
       @if (claim) {
         <!-- KPI Cards -->

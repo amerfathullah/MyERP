@@ -14,10 +14,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-cubes me-2"></i>{{ 'BomStockAnalysis' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="fa fa-cubes me-2"></i>{{ '::BomStockAnalysis' | abpLocalization }}</h5>
         @if (result()) {
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
         }
       </div>
@@ -34,12 +34,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Quantity' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Quantity' | abpLocalization }}</label>
             <input type="number" class="form-control form-control-sm" [(ngModel)]="requiredQty" min="1" step="1">
           </div>
           <div class="col-md-2 d-flex align-items-end">
             <button class="btn btn-primary btn-sm w-100" (click)="analyze()" [disabled]="!selectedBomId || isLoading()">
-              <i class="fa fa-search me-1" [class.fa-spin]="isLoading()"></i>{{ 'Generate' | abpLocalization }}
+              <i class="fa fa-search me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -50,15 +50,15 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-4">
               <div class="border rounded p-3 text-center" [class.border-success]="r.allMaterialsSufficient" [class.border-danger]="!r.allMaterialsSufficient">
                 <div class="fs-5 fw-bold" [class.text-success]="r.allMaterialsSufficient" [class.text-danger]="!r.allMaterialsSufficient">
-                  {{ r.allMaterialsSufficient ? ('SufficientStock' | abpLocalization) : ('InsufficientStock' | abpLocalization) }}
+                  {{ r.allMaterialsSufficient ? ('::SufficientStock' | abpLocalization) : ('::InsufficientStock' | abpLocalization) }}
                 </div>
-                <small class="text-muted">{{ 'MaterialAvailability' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::MaterialAvailability' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-4">
               <div class="border rounded p-3 text-center">
                 <div class="fs-3 fw-bold text-primary">{{ r.canManufactureQty | number:'1.0-0' }}</div>
-                <small class="text-muted">{{ 'CanManufacture' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::CanManufacture' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-4">
@@ -74,11 +74,11 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <table class="table table-sm table-hover">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Shortage' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AvailableQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Shortage' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,7 +107,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             </table>
           </div>
         } @else if (!isLoading()) {
-          <p class="text-muted text-center py-4">{{ 'SelectBomToAnalyze' | abpLocalization }}</p>
+          <p class="text-muted text-center py-4">{{ '::SelectBomToAnalyze' | abpLocalization }}</p>
         }
       </div>
     </div>

@@ -49,7 +49,7 @@ interface StockBalanceRow {
     <div class="container-fluid my-3">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-boxes-stacked me-2"></i>{{ 'Inventory:StockBalance' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-boxes-stacked me-2"></i>{{ '::Inventory:StockBalance' | abpLocalization }}</h5>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="!data().length">
               <i class="fas fa-download me-1"></i>Export CSV

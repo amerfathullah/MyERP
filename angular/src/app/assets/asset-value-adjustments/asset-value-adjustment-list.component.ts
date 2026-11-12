@@ -15,12 +15,12 @@ import type { AssetValueAdjustmentDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetValueAdjustments' | abpLocalization">
+    <abp-page [title]="'::AssetValueAdjustments' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetValueAdjustments' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetValueAdjustments' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/value-adjustments/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewAdjustment' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewAdjustment' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -29,20 +29,20 @@ import type { AssetValueAdjustmentDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-balance-scale fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAdjustmentsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAdjustmentsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/value-adjustments/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewAdjustment' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewAdjustment' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Asset' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
-                <th class="text-end">{{ 'CurrentValue' | abpLocalization }}</th>
-                <th class="text-end">{{ 'NewValue' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Difference' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Asset' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th class="text-end">{{ '::CurrentValue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::NewValue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Difference' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

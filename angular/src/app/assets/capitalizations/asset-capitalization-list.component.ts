@@ -13,10 +13,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetCapitalization' | abpLocalization">
+    <abp-page [title]="'::AssetCapitalization' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/assets/capitalizations/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewCapitalization' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewCapitalization' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -31,10 +31,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Target' | abpLocalization }} Asset</th>
-              <th>{{ 'PostingDate' | abpLocalization }}</th>
+              <th>{{ '::Target' | abpLocalization }} Asset</th>
+              <th>{{ '::PostingDate' | abpLocalization }}</th>
               <th>Total Value</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (c of items; track c.id) {

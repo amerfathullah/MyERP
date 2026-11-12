@@ -18,36 +18,36 @@ import { ProjectService } from '../../proxy/projects/project.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewLandedCostVoucher' | abpLocalization">
+    <abp-page [title]="'::NewLandedCostVoucher' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'DistributionMethod' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DistributionMethod' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.distributionMethod">
-              <option [ngValue]="0">{{ 'ByQuantity' | abpLocalization }}</option>
-              <option [ngValue]="1">{{ 'ByAmount' | abpLocalization }}</option>
-              <option [ngValue]="2">{{ 'Manual' | abpLocalization }}</option>
+              <option [ngValue]="0">{{ '::ByQuantity' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::ByAmount' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::Manual' | abpLocalization }}</option>
             </select>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Items' | abpLocalization }} (Receipt Items)</h6>
+        <h6 class="mb-2">{{ '::Items' | abpLocalization }} (Receipt Items)</h6>
         <div class="row mb-2 align-items-end">
           <div class="col-md-3">
-            <label class="form-label">{{ 'ReceiptType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ReceiptType' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="loadReceiptType" (ngModelChange)="loadReceiptId=''" [ngModelOptions]="{standalone: true}">
               <option value="PurchaseReceipt">PurchaseReceipt</option>
               <option value="PurchaseInvoice">PurchaseInvoice</option>
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'SubmittedReceipt' | abpLocalization }}</label>
+            <label class="form-label">{{ '::SubmittedReceipt' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="loadReceiptId" [ngModelOptions]="{standalone: true}">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (r of filteredReceipts(); track r.id) {
                 <option [value]="r.id">{{ r.number }}</option>
               }
@@ -55,12 +55,12 @@ import { ProjectService } from '../../proxy/projects/project.service';
           </div>
           <div class="col-md-3">
             <button class="btn btn-sm btn-outline-primary" [disabled]="!loadReceiptId" (click)="loadItemsFromReceipt()">
-              <i class="fa fa-download me-1"></i>{{ 'LoadItems' | abpLocalization }}
+              <i class="fa fa-download me-1"></i>{{ '::LoadItems' | abpLocalization }}
             </button>
           </div>
         </div>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'ReceiptType' | abpLocalization }}</th><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::ReceiptType' | abpLocalization }}</th><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
@@ -72,20 +72,20 @@ import { ProjectService } from '../../proxy/projects/project.service';
               </tr>
             }
             @empty {
-              <tr><td colspan="5" class="text-muted">{{ 'NoItemsLoaded' | abpLocalization }}</td></tr>
+              <tr><td colspan="5" class="text-muted">{{ '::NoItemsLoaded' | abpLocalization }}</td></tr>
             }
           </tbody>
         </table>
 
-        <h6 class="mb-2">{{ 'Charges' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Charges' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Account' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'CostCenter' | abpLocalization }}</th><th>{{ 'Project' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Account' | abpLocalization }}</th><th>{{ '::Description' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::CostCenter' | abpLocalization }}</th><th>{{ '::Project' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (ch of form.charges; track $index) {
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="ch.expenseAccountId">
-                    <option value="">-- {{ 'SelectAccount' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectAccount' | abpLocalization }} --</option>
                     @for (a of accounts(); track a.id) {
                       <option [value]="a.id">{{ a.accountCode }} — {{ a.accountName }}</option>
                     }
@@ -114,13 +114,13 @@ import { ProjectService } from '../../proxy/projects/project.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addCharge()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addCharge()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-between align-items-center">
-          <span class="fw-bold">{{ 'TotalCharges' | abpLocalization }}: {{ getTotalCharges() | number:'1.2-2' }}</span>
+          <span class="fw-bold">{{ '::TotalCharges' | abpLocalization }}: {{ getTotalCharges() | number:'1.2-2' }}</span>
           <div class="d-flex gap-2">
-            <a class="btn btn-secondary" routerLink="/inventory/landed-costs">{{ 'Cancel' | abpLocalization }}</a>
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <a class="btn btn-secondary" routerLink="/inventory/landed-costs">{{ '::Cancel' | abpLocalization }}</a>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>

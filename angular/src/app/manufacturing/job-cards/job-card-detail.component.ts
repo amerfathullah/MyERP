@@ -17,22 +17,22 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
   imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, ActivityLogComponent, DocumentConnectionsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'JobCards' | abpLocalization">
+    <abp-page [title]="'::JobCards' | abpLocalization">
   <app-breadcrumb />
       @if (d) {
         <!-- Header KPIs -->
         <div class="card mb-3"><div class="card-body">
           <div class="row">
-            <div class="col-md-3"><strong>{{ 'Sequence' | abpLocalization }}:</strong> #{{ d.sequenceId }}</div>
-            <div class="col-md-3"><strong>{{ 'Quantity' | abpLocalization }}:</strong> {{ d.forQuantity }}</div>
-            <div class="col-md-3"><strong>{{ 'CompletedQty' | abpLocalization }}:</strong> {{ d.completedQty }} / {{ d.forQuantity }}</div>
+            <div class="col-md-3"><strong>{{ '::Sequence' | abpLocalization }}:</strong> #{{ d.sequenceId }}</div>
+            <div class="col-md-3"><strong>{{ '::Quantity' | abpLocalization }}:</strong> {{ d.forQuantity }}</div>
+            <div class="col-md-3"><strong>{{ '::CompletedQty' | abpLocalization }}:</strong> {{ d.completedQty }} / {{ d.forQuantity }}</div>
             <div class="col-md-3">
               <span class="badge" [ngClass]="statusClass(d.status)">{{ statusLabel(d.status) }}</span>
             </div>
           </div>
           <div class="row mt-2">
-            <div class="col-md-3"><strong>{{ 'PlannedTime' | abpLocalization }}:</strong> {{ d.plannedTimeInMins }} min</div>
-            <div class="col-md-3"><strong>{{ 'ActualTime' | abpLocalization }}:</strong> {{ d.totalTimeInMins | number:'1.0-0' }} min</div>
+            <div class="col-md-3"><strong>{{ '::PlannedTime' | abpLocalization }}:</strong> {{ d.plannedTimeInMins }} min</div>
+            <div class="col-md-3"><strong>{{ '::ActualTime' | abpLocalization }}:</strong> {{ d.totalTimeInMins | number:'1.0-0' }} min</div>
             <div class="col-md-3">@if (d.startedAt) { <strong>{{ '::Started' | abpLocalization }}:</strong> {{ d.startedAt | date:'dd/MM/yyyy HH:mm' }} }</div>
             <div class="col-md-3">@if (d.completedAt) { <strong>{{ '::Completed' | abpLocalization }}:</strong> {{ d.completedAt | date:'dd/MM/yyyy HH:mm' }} }</div>
           </div>
@@ -131,7 +131,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
         <!-- Time Logs Table -->
         @if ((d.timeLogs ?? []).length > 0) {
           <div class="card mb-3"><div class="card-body">
-            <h6><i class="fa fa-clock me-2"></i>{{ 'TimeLogs' | abpLocalization }}
+            <h6><i class="fa fa-clock me-2"></i>{{ '::TimeLogs' | abpLocalization }}
               <span class="badge bg-secondary ms-2">{{ d.timeLogs!.length }}</span>
             </h6>
             <table class="table table-sm table-hover">
@@ -139,7 +139,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 <th>{{ '::From' | abpLocalization }}</th>
                 <th>{{ '::To' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Minutes' | abpLocalization }}</th>
-                <th class="text-end">{{ 'CompletedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::CompletedQty' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (log of d.timeLogs; track log.id) {

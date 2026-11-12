@@ -16,31 +16,31 @@
             </select>
           </div>
           <div class="col-12 col-md-3 mb-3">
-            <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Company' | abpLocalization }}</label>
             <select class="form-select" formControlName="companyId">
-              <option value="">{{ 'SelectCompany' | abpLocalization }}</option>
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
               @for (c of companies(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
             </select>
           </div>
           <div class="col-12 col-md-2 mb-3">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="entryDate" [class.is-invalid]="form.get('entryDate')?.invalid && form.get('entryDate')?.touched" />
           </div>
           <div class="col-12 col-md-2 mb-3">
-            <label class="form-label">{{ 'Reference' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Reference' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="reference" [class.is-invalid]="form.get('reference')?.invalid && form.get('reference')?.touched" [placeholder]="'::Placeholder:ReferenceExample' | abpLocalization" />
           </div>
           <div class="col-12 col-md-2 mb-3">
-            <label class="form-label">{{ 'Narration' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Narration' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="narration" [class.is-invalid]="form.get('narration')?.invalid && form.get('narration')?.touched" />
           </div>
           @if (templates().length > 0) {
             <div class="col-12 col-md-3 mb-3">
-              <label class="form-label">{{ 'LoadFromTemplate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::LoadFromTemplate' | abpLocalization }}</label>
               <select class="form-select" (change)="loadTemplate($any($event.target).value)">
-                <option value="">{{ 'SelectTemplate' | abpLocalization }}</option>
+                <option value="">{{ '::SelectTemplate' | abpLocalization }}</option>
                 @for (t of templates(); track t.id) { <option [value]="t.id">{{ t.templateName }}</option> }
               </select>
             </div>
@@ -59,7 +59,7 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
-                <th>{{ 'Account' | abpLocalization }}</th>
+                <th>{{ '::Account' | abpLocalization }}</th>
                 <th style="width: 140px">{{ '::Debit' | abpLocalization }}</th>
                 <th style="width: 140px">{{ '::Credit' | abpLocalization }}</th>
                 <th style="width: 50px"></th>
@@ -74,7 +74,7 @@
                       [searchFn]="accountSearchFn"
                       [getByIdFn]="accountGetByIdFn"
                       [displayFn]="accountDisplayFn"
-                      [placeholder]="'SelectAccount' | abpLocalization"
+                      [placeholder]="'::SelectAccount' | abpLocalization"
                       (linkSelected)="onAccountLinkSelected(i, $event)">
                     </app-link-picker>
                   </td>

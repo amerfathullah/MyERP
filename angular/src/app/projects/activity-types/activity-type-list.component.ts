@@ -14,30 +14,30 @@ import type { ActivityCostDto, ActivityTypeDto } from '../../proxy/projects/mode
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ActivityTypes' | abpLocalization">
+    <abp-page [title]="'::ActivityTypes' | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
-            <label class="form-label">{{ 'ActivityType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ActivityType' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="newName" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'DefaultBillingRate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DefaultBillingRate' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="newBillingRate" min="0" step="0.01" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'DefaultCostingRate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DefaultCostingRate' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="newCostingRate" min="0" step="0.01" />
           </div>
           <div class="col-md-2">
-            <button class="btn btn-primary" (click)="add()" [disabled]="!newName"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+            <button class="btn btn-primary" (click)="add()" [disabled]="!newName"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>
 
       @if (types.length === 0) {
         <div class="text-center py-5">
-          <p class="text-muted">{{ 'NoActivityTypesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoActivityTypesYet' | abpLocalization }}</p>
         </div>
       }
 
@@ -47,7 +47,7 @@ import type { ActivityCostDto, ActivityTypeDto } from '../../proxy/projects/mode
             <div class="d-flex align-items-center gap-3">
               <strong>{{ t.name }}</strong>
               @if (!t.isEnabled) {
-                <span class="badge bg-secondary-subtle text-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                <span class="badge bg-secondary-subtle text-secondary">{{ '::Disabled' | abpLocalization }}</span>
               }
             </div>
             <button class="btn btn-sm btn-outline-secondary" (click)="toggleExpand(t)">
@@ -57,33 +57,33 @@ import type { ActivityCostDto, ActivityTypeDto } from '../../proxy/projects/mode
           <div class="card-body">
             <div class="row g-2 align-items-end mb-2">
               <div class="col-md-3">
-                <label class="form-label">{{ 'DefaultBillingRate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DefaultBillingRate' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" [(ngModel)]="t.defaultBillingRate" min="0" step="0.01" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'DefaultCostingRate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DefaultCostingRate' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" [(ngModel)]="t.defaultCostingRate" min="0" step="0.01" />
               </div>
               <div class="col-md-2 d-flex align-items-center">
                 <div class="form-check">
                   <input type="checkbox" class="form-check-input" [id]="'enabled-' + t.id" [(ngModel)]="t.isEnabled" />
-                  <label class="form-check-label" [for]="'enabled-' + t.id">{{ 'IsEnabled' | abpLocalization }}</label>
+                  <label class="form-check-label" [for]="'enabled-' + t.id">{{ '::IsEnabled' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4 d-flex gap-2 justify-content-end">
-                <button class="btn btn-sm btn-primary" (click)="save(t)"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-primary" (click)="save(t)"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
                 <button class="btn btn-sm btn-outline-danger" (click)="remove(t)"><i class="fa fa-trash"></i></button>
               </div>
             </div>
 
             @if (expandedId === t.id) {
               <hr />
-              <h6 class="mb-2">{{ 'EmployeeRateOverrides' | abpLocalization }}</h6>
+              <h6 class="mb-2">{{ '::EmployeeRateOverrides' | abpLocalization }}</h6>
               <table class="table table-sm mb-2">
                 <thead><tr>
-                  <th>{{ 'Employee' | abpLocalization }}</th>
-                  <th>{{ 'BillingRate' | abpLocalization }}</th>
-                  <th>{{ 'CostingRate' | abpLocalization }}</th>
+                  <th>{{ '::Employee' | abpLocalization }}</th>
+                  <th>{{ '::BillingRate' | abpLocalization }}</th>
+                  <th>{{ '::CostingRate' | abpLocalization }}</th>
                   <th></th>
                 </tr></thead>
                 <tbody>
@@ -100,18 +100,18 @@ import type { ActivityCostDto, ActivityTypeDto } from '../../proxy/projects/mode
               <div class="row g-2 align-items-end">
                 <div class="col-md-4">
                   <select class="form-select form-select-sm" [(ngModel)]="newCostEmployeeId">
-                    <option value="">-- {{ 'Employee' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::Employee' | abpLocalization }} --</option>
                     @for (e of employees(); track e.id) { <option [value]="e.id">{{ e.fullName }}</option> }
                   </select>
                 </div>
                 <div class="col-md-3">
-                  <input type="number" class="form-control form-control-sm" [(ngModel)]="newCostBillingRate" placeholder="{{ 'BillingRate' | abpLocalization }}" min="0" step="0.01" />
+                  <input type="number" class="form-control form-control-sm" [(ngModel)]="newCostBillingRate" placeholder="{{ '::BillingRate' | abpLocalization }}" min="0" step="0.01" />
                 </div>
                 <div class="col-md-3">
-                  <input type="number" class="form-control form-control-sm" [(ngModel)]="newCostCostingRate" placeholder="{{ 'CostingRate' | abpLocalization }}" min="0" step="0.01" />
+                  <input type="number" class="form-control form-control-sm" [(ngModel)]="newCostCostingRate" placeholder="{{ '::CostingRate' | abpLocalization }}" min="0" step="0.01" />
                 </div>
                 <div class="col-md-2">
-                  <button class="btn btn-sm btn-outline-primary" (click)="addCost(t)" [disabled]="!newCostEmployeeId">{{ 'AddItem' | abpLocalization }}</button>
+                  <button class="btn btn-sm btn-outline-primary" (click)="addCost(t)" [disabled]="!newCostEmployeeId">{{ '::AddItem' | abpLocalization }}</button>
                 </div>
               </div>
             }

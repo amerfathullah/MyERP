@@ -24,7 +24,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
   imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="wo()?.workOrderNumber ?? ('Manufacturing:WorkOrders' | abpLocalization)">
+    <abp-page [title]="wo()?.workOrderNumber ?? ('::Manufacturing:WorkOrders' | abpLocalization)">
   <app-breadcrumb />
       @if (isLoading()) { <app-loading-overlay /> }
       @if (wo(); as w) {
@@ -32,7 +32,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           <div class="col-md-3">
             <div class="card">
               <div class="card-body text-center">
-                <small class="text-muted">{{ 'Status' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Status' | abpLocalization }}</small>
                 <div class="mt-1"><app-status-badge [status]="getStatus(w.status)" /></div>
               </div>
             </div>
@@ -48,7 +48,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           <div class="col-md-3">
             <div class="card">
               <div class="card-body text-center">
-                <small class="text-muted">{{ 'Manufacturing:Progress' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Manufacturing:Progress' | abpLocalization }}</small>
                 <div class="fw-bold mt-1">{{ w.percentComplete | number:'1.0-0' }}%</div>
                 <div class="progress mt-1" style="height: 6px;">
                   <div class="progress-bar bg-success" [style.width.%]="w.percentComplete"></div>
@@ -247,18 +247,18 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           <div class="card-body">
             <div class="row">
               <div class="col-md-4 mb-2">
-                <small class="text-muted d-block">{{ 'Manufacturing:Item' | abpLocalization }}</small>
+                <small class="text-muted d-block">{{ '::Manufacturing:Item' | abpLocalization }}</small>
                 <span>{{ w.itemName ?? w.itemId }}</span>
               </div>
               @if (w.plannedStartDate) {
                 <div class="col-md-4 mb-2">
-                  <small class="text-muted d-block">{{ 'StartDate' | abpLocalization }}</small>
+                  <small class="text-muted d-block">{{ '::StartDate' | abpLocalization }}</small>
                   <span>{{ w.plannedStartDate | date:'dd/MM/yyyy' }}</span>
                 </div>
               }
               @if (w.plannedEndDate) {
                 <div class="col-md-4 mb-2">
-                  <small class="text-muted d-block">{{ 'EndDate' | abpLocalization }}</small>
+                  <small class="text-muted d-block">{{ '::EndDate' | abpLocalization }}</small>
                   <span>{{ w.plannedEndDate | date:'dd/MM/yyyy' }}</span>
                 </div>
               }
@@ -286,15 +286,15 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 
         @if (operations().length > 0) {
           <div class="card mb-3">
-            <div class="card-header fw-bold">{{ 'Manufacturing:Operations' | abpLocalization }}</div>
+            <div class="card-header fw-bold">{{ '::Manufacturing:Operations' | abpLocalization }}</div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>{{ 'Manufacturing:OperationName' | abpLocalization }}</th>
-                    <th>{{ 'Manufacturing:Workstation' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Manufacturing:PlannedTime' | abpLocalization }}</th>
+                    <th>{{ '::Manufacturing:OperationName' | abpLocalization }}</th>
+                    <th>{{ '::Manufacturing:Workstation' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Manufacturing:PlannedTime' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,7 +341,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
         @if (jobCards().length > 0) {
           <div class="card mb-3">
             <div class="card-header fw-bold d-flex justify-content-between align-items-center">
-              <span><i class="fa fa-id-card me-2"></i>{{ 'JobCards' | abpLocalization }}</span>
+              <span><i class="fa fa-id-card me-2"></i>{{ '::JobCards' | abpLocalization }}</span>
               <span class="badge bg-primary">{{ jobCards().length }}</span>
             </div>
             <div class="card-body p-0">
@@ -349,11 +349,11 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>{{ 'Operation' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'CompletedQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'TimeSpent' | abpLocalization }}</th>
-                    <th style="width: 120px;">{{ 'Manufacturing:Progress' | abpLocalization }}</th>
-                    <th>{{ 'Status' | abpLocalization }}</th>
+                    <th>{{ '::Operation' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::CompletedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::TimeSpent' | abpLocalization }}</th>
+                    <th style="width: 120px;">{{ '::Manufacturing:Progress' | abpLocalization }}</th>
+                    <th>{{ '::Status' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -389,11 +389,11 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
               <table class="table table-sm mb-0">
                 <thead>
                   <tr>
-                    <th>{{ 'Manufacturing:Item' | abpLocalization }}</th>
+                    <th>{{ '::Manufacturing:Item' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Required' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Transferred' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Consumed' | abpLocalization }}</th>
-                    <th style="width: 140px;">{{ 'Manufacturing:TransferProgress' | abpLocalization }}</th>
+                    <th style="width: 140px;">{{ '::Manufacturing:TransferProgress' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -23,7 +23,7 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="entry()?.paymentNumber || ('PaymentEntry' | abpLocalization)">
+    <abp-page [title]="entry()?.paymentNumber || ('::PaymentEntry' | abpLocalization)">
       @if (!entry()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -32,10 +32,10 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
           @if (entry()!.status === 'Draft') {
             <div class="btn-group btn-group-sm">
               <a class="btn btn-outline-primary" [routerLink]="['/accounting/payments', entry()!.id, 'edit']">
-                <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+                <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
               </a>
               <button class="btn btn-outline-danger" (click)="deleteEntry()">
-                <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+                <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
               </button>
             </div>
           }
@@ -43,11 +43,11 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
             <div class="btn-group btn-group-sm">
               @if (linkedAllocations().length > 0) {
                 <button class="btn btn-outline-warning" (click)="openUnreconcileModal()">
-                  <i class="fa fa-undo me-1"></i>{{ 'Unreconcile' | abpLocalization }}
+                  <i class="fa fa-undo me-1"></i>{{ '::Unreconcile' | abpLocalization }}
                 </button>
               }
               <button class="btn btn-outline-secondary" (click)="printReceipt()">
-                <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+                <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
               </button>
             </div>
           }
@@ -57,35 +57,35 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
         <div class="row mb-4">
           <div class="col-md-6">
             <div class="card">
-              <div class="card-header"><h6 class="card-title mb-0">{{ 'PaymentDetails' | abpLocalization }}</h6></div>
+              <div class="card-header"><h6 class="card-title mb-0">{{ '::PaymentDetails' | abpLocalization }}</h6></div>
               <div class="card-body">
                 <table class="table table-borderless mb-0">
-                  <tr><td class="text-muted" style="width:40%">{{ 'PaymentNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.paymentNumber }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
-                  <tr><td class="text-muted">{{ 'PaymentType' | abpLocalization }}</td><td>
+                  <tr><td class="text-muted" style="width:40%">{{ '::PaymentNumber' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.paymentNumber }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Status' | abpLocalization }}</td><td><app-status-badge [status]="entry()!.status!" /></td></tr>
+                  <tr><td class="text-muted">{{ '::PaymentType' | abpLocalization }}</td><td>
                     <span class="badge" [class.bg-success]="entry()!.paymentType === 'Receive'" [class.bg-primary]="entry()!.paymentType === 'Pay'" [class.bg-info]="entry()!.paymentType === 'InternalTransfer'">
                       {{ entry()!.paymentType }}
                     </span>
                   </td></tr>
-                  <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ entry()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::PostingDate' | abpLocalization }}</td><td>{{ entry()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
               </div>
             </div>
           </div>
           <div class="col-md-6">
             <div class="card">
-              <div class="card-header"><h6 class="card-title mb-0">{{ 'Amount' | abpLocalization }}</h6></div>
+              <div class="card-header"><h6 class="card-title mb-0">{{ '::Amount' | abpLocalization }}</h6></div>
               <div class="card-body">
                 <div class="text-center">
-                  <div class="text-muted small">{{ 'PaidAmount' | abpLocalization }}</div>
+                  <div class="text-muted small">{{ '::PaidAmount' | abpLocalization }}</div>
                   <div class="fs-2 fw-bold text-primary">
                     {{ entry()!.currencyCode }} {{ entry()!.paidAmount | number:'1.2-2' }}
                   </div>
                 </div>
                 <hr />
                 <table class="table table-borderless table-sm mb-0">
-                  <tr><td class="text-muted">{{ 'ModeOfPayment' | abpLocalization }}</td><td>{{ entry()!.modeOfPayment || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'ReferenceNumber' | abpLocalization }}</td><td>{{ entry()!.referenceNumber || '-' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::ModeOfPayment' | abpLocalization }}</td><td>{{ entry()!.modeOfPayment || '-' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::ReferenceNumber' | abpLocalization }}</td><td>{{ entry()!.referenceNumber || '-' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -95,16 +95,16 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
         <!-- References Table (if present) -->
         @if (references().length > 0) {
           <div class="card mb-4">
-            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-link me-2"></i>{{ 'References' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-link me-2"></i>{{ '::References' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
               <table class="table table-hover mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'ReferenceType' | abpLocalization }}</th>
-                    <th>{{ 'ReferenceNumber' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'TotalAmount' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'AllocatedAmount' | abpLocalization }}</th>
+                    <th>{{ '::ReferenceType' | abpLocalization }}</th>
+                    <th>{{ '::ReferenceNumber' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::TotalAmount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AllocatedAmount' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,16 +132,16 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
         <!-- Taxes Table (if present) -->
         @if (taxes().length > 0) {
           <div class="card mb-4">
-            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-percent me-2"></i>{{ 'Taxes' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-percent me-2"></i>{{ '::Taxes' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
               <table class="table table-hover mb-0">
                 <thead class="table-light">
                   <tr>
                     <th>{{ '::Description' | abpLocalization }}</th>
-                    <th>{{ 'ChargeType' | abpLocalization }}</th>
+                    <th>{{ '::ChargeType' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'TaxAmount' | abpLocalization }}</th>
-                    <th class="text-center">{{ 'Included' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::TaxAmount' | abpLocalization }}</th>
+                    <th class="text-center">{{ '::Included' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,7 +163,7 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
                 </tbody>
                 <tfoot>
                   <tr class="table-light">
-                    <td colspan="3" class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="3" class="text-end fw-bold">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end fw-bold">{{ totalTaxes() | number:'1.2-2' }}</td>
                     <td></td>
                   </tr>
@@ -207,12 +207,12 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
             <div class="modal-dialog modal-lg modal-dialog-centered">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title"><i class="fa fa-undo me-2"></i>{{ 'Unreconcile' | abpLocalization }}</h5>
+                  <h5 class="modal-title"><i class="fa fa-undo me-2"></i>{{ '::Unreconcile' | abpLocalization }}</h5>
                   <button type="button" class="btn-close" (click)="closeUnreconcileModal()"></button>
                 </div>
                 <div class="modal-body">
                   <p class="text-muted small">
-                    {{ 'SelectAllocationsToUnreconcile' | abpLocalization }}
+                    {{ '::SelectAllocationsToUnreconcile' | abpLocalization }}
                   </p>
                   <div class="table-responsive">
                     <table class="table table-sm table-hover mb-0">
@@ -221,10 +221,10 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
                           <th style="width: 40px">
                             <input type="checkbox" class="form-check-input" [checked]="allAllocationsSelected" (change)="toggleSelectAllAllocations($event)" />
                           </th>
-                          <th>{{ 'VoucherType' | abpLocalization }}</th>
-                          <th>{{ 'VoucherNo' | abpLocalization }}</th>
-                          <th>{{ 'PostingDate' | abpLocalization }}</th>
-                          <th class="text-end">{{ 'AllocatedAmount' | abpLocalization }}</th>
+                          <th>{{ '::VoucherType' | abpLocalization }}</th>
+                          <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                          <th>{{ '::PostingDate' | abpLocalization }}</th>
+                          <th class="text-end">{{ '::AllocatedAmount' | abpLocalization }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -244,12 +244,12 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
                   </div>
                 </div>
                 <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" (click)="closeUnreconcileModal()">{{ 'Cancel' | abpLocalization }}</button>
+                  <button type="button" class="btn btn-secondary" (click)="closeUnreconcileModal()">{{ '::Cancel' | abpLocalization }}</button>
                   <button type="button" class="btn btn-warning" [disabled]="selectedAllocationsCount === 0 || unreconciling()" (click)="confirmUnreconcile()">
                     @if (unreconciling()) {
                       <i class="fa fa-spinner fa-spin me-1"></i>
                     }
-                    {{ 'Unreconcile' | abpLocalization }} ({{ selectedAllocationsCount }})
+                    {{ '::Unreconcile' | abpLocalization }} ({{ selectedAllocationsCount }})
                   </button>
                 </div>
               </div>

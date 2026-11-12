@@ -23,13 +23,13 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
         <div class="row g-3 mb-4">
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <app-status-badge [status]="rfq.status" />
             </div></div>
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Items' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Items' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ rfq.items?.length ?? 0 }}</div>
             </div></div>
           </div>
@@ -60,7 +60,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
           </div>
         }
 
-        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ 'Items' | abpLocalization }}</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::Items' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr><th>Item</th><th class="text-end">Qty</th><th>Required By</th></tr></thead>

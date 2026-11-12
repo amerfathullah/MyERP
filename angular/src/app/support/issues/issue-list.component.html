@@ -1,9 +1,9 @@
-<abp-page [title]="'Issues' | abpLocalization">
+<abp-page [title]="'::Issues' | abpLocalization">
   <div class="d-flex justify-content-between gap-2 mb-3">
     <input type="text" class="form-control form-control-sm" style="width:200px"
       [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" [placeholder]="'::Placeholder:Search' | abpLocalization">
     <button class="btn btn-primary btn-sm" routerLink="/support/issues/new">
-      <i class="fa fa-plus me-1"></i>{{ 'NewIssue' | abpLocalization }}
+      <i class="fa fa-plus me-1"></i>{{ '::NewIssue' | abpLocalization }}
     </button>
   </div>
 
@@ -14,9 +14,9 @@
   @if (!store.isLoading() && store.entities().length === 0) {
     <div class="text-center py-5">
       <i class="fa fa-headset fa-3x text-muted mb-3 d-block"></i>
-      <p class="text-muted">{{ 'NoIssuesYet' | abpLocalization }}</p>
+      <p class="text-muted">{{ '::NoIssuesYet' | abpLocalization }}</p>
       <button class="btn btn-primary" routerLink="/support/issues/new">
-        <i class="fa fa-plus me-1"></i>{{ 'NewIssue' | abpLocalization }}
+        <i class="fa fa-plus me-1"></i>{{ '::NewIssue' | abpLocalization }}
       </button>
     </div>
   } @else if (!store.isLoading()) {
@@ -24,10 +24,10 @@
       <table class="table table-hover align-middle">
         <thead>
           <tr>
-            <th>{{ 'Subject' | abpLocalization }}</th>
-            <th>{{ 'Priority' | abpLocalization }}</th>
-            <th>{{ 'Status' | abpLocalization }}</th>
-            <th>{{ 'OpeningDate' | abpLocalization }}</th>
+            <th>{{ '::Subject' | abpLocalization }}</th>
+            <th>{{ '::Priority' | abpLocalization }}</th>
+            <th>{{ '::Status' | abpLocalization }}</th>
+            <th>{{ '::OpeningDate' | abpLocalization }}</th>
             <th></th>
           </tr>
         </thead>

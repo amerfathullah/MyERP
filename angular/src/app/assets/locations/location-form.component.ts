@@ -14,17 +14,17 @@ import type { LocationDto } from '../../proxy/assets/models';
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditLocation' : 'NewLocation') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditLocation' : '::NewLocation') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'LocationName' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::LocationName' | abpLocalization }} *</label>
                 <input class="form-control" formControlName="locationName" />
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'ParentLocation' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ParentLocation' | abpLocalization }}</label>
                 <select class="form-select" formControlName="parentLocationId">
                   <option [ngValue]="null">—</option>
                   @for (loc of parentOptions(); track loc.id) {
@@ -35,21 +35,21 @@ import type { LocationDto } from '../../proxy/assets/models';
               <div class="col-md-3">
                 <div class="form-check mt-2">
                   <input class="form-check-input" type="checkbox" formControlName="isGroup" id="isGroup" />
-                  <label class="form-check-label" for="isGroup">{{ 'IsGroup' | abpLocalization }}</label>
+                  <label class="form-check-label" for="isGroup">{{ '::IsGroup' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="form-check mt-2">
                   <input class="form-check-input" type="checkbox" formControlName="isContainer" id="isContainer" />
-                  <label class="form-check-label" for="isContainer">{{ 'IsContainer' | abpLocalization }}</label>
+                  <label class="form-check-label" for="isContainer">{{ '::IsContainer' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Latitude' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Latitude' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="latitude" step="0.000001" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Longitude' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Longitude' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="longitude" step="0.000001" />
               </div>
             </div>
@@ -57,9 +57,9 @@ import type { LocationDto } from '../../proxy/assets/models';
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/assets/locations">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/assets/locations">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

@@ -13,31 +13,31 @@ import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'CurrencyExchangeRates' | abpLocalization">
+    <abp-page [title]="'::CurrencyExchangeRates' | abpLocalization">
       <!-- Add new rate form -->
       <div class="card mb-4">
-        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ 'AddRate' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ '::AddRate' | abpLocalization }}</h6></div>
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="addRate()" class="row g-3 align-items-end">
             <div class="col-md-2">
-              <label class="form-label">{{ 'FromCurrency' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FromCurrency' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="fromCurrency" maxlength="3" [placeholder]="'::Placeholder:FromCurrency' | abpLocalization" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'ToCurrency' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ToCurrency' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="toCurrency" maxlength="3" [placeholder]="'::Placeholder:ToCurrency' | abpLocalization" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'ExchangeRate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ExchangeRate' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="exchangeRate" step="0.000001" min="0.000001" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Date' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="date" />
             </div>
             <div class="col-md-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-                <i class="fa fa-plus me-1"></i>{{ 'Add' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
               </button>
             </div>
           </form>
@@ -50,7 +50,7 @@ import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
       } @else if (rates().length === 0) {
         <div class="text-center py-5 text-muted">
           <i class="fa fa-exchange-alt fa-3x mb-3"></i>
-          <p>{{ 'NoRatesYet' | abpLocalization }}</p>
+          <p>{{ '::NoRatesYet' | abpLocalization }}</p>
         </div>
       } @else {
         <div class="card">
@@ -58,10 +58,10 @@ import type { CurrencyExchangeDto } from '../../proxy/accounting/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th class="ps-3">{{ 'FromCurrency' | abpLocalization }}</th>
-                  <th>{{ 'ToCurrency' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ExchangeRate' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
+                  <th class="ps-3">{{ '::FromCurrency' | abpLocalization }}</th>
+                  <th>{{ '::ToCurrency' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ExchangeRate' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
                   <th class="pe-3"></th>
                 </tr>
               </thead>

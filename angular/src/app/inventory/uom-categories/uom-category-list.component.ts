@@ -14,12 +14,12 @@ import type { UomCategoryDto } from '../../proxy/inventory/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'UomCategories' | abpLocalization">
+    <abp-page [title]="'::UomCategories' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'UomCategories' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::UomCategories' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/inventory/uom-categories/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewUomCategory' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewUomCategory' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,15 +28,15 @@ import type { UomCategoryDto } from '../../proxy/inventory/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-ruler fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoUomCategoriesYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoUomCategoriesYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/inventory/uom-categories/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewUomCategory' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewUomCategory' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Name' | abpLocalization }}</th>
+                <th>{{ '::Name' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

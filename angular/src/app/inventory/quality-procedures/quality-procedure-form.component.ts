@@ -14,7 +14,7 @@ import type { QualityProcedureDto } from '../../proxy/inventory/models';
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? '::EditQualityProcedure' : 'NewQualityProcedure') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditQualityProcedure' : '::NewQualityProcedure') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">

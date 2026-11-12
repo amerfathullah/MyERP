@@ -23,7 +23,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
           <h5 class="mb-0">
-            <i class="fa fa-boxes-stacked me-2"></i>{{ 'MaterialRequirementsPlanning' | abpLocalization }}
+            <i class="fa fa-boxes-stacked me-2"></i>{{ '::MaterialRequirementsPlanning' | abpLocalization }}
           </h5>
           <div class="btn-group btn-group-sm" role="group">
             <button
@@ -33,7 +33,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               [class.btn-outline-primary]="activeTab !== 'matrix'"
               (click)="activeTab = 'matrix'"
             >
-              <i class="fa fa-table me-1"></i>{{ 'BucketMatrix' | abpLocalization }}
+              <i class="fa fa-table me-1"></i>{{ '::BucketMatrix' | abpLocalization }}
             </button>
             <button
               type="button"
@@ -42,7 +42,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               [class.btn-outline-primary]="activeTab !== 'orders'"
               (click)="activeTab = 'orders'"
             >
-              <i class="fa fa-clipboard-list me-1"></i>{{ 'PlannedOrders' | abpLocalization }}
+              <i class="fa fa-clipboard-list me-1"></i>{{ '::PlannedOrders' | abpLocalization }}
               @if (reportData()?.requirements?.length; as count) {
                 <span class="badge bg-secondary ms-1">{{ count }}</span>
               }
@@ -63,7 +63,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           }
           @if (reportData(); as data) {
             <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv(data)">
-              <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
             </button>
           }
         </div>
@@ -73,19 +73,19 @@ import { exportToCsv } from '../../shared/utils/csv-export';
         <!-- Filter Controls -->
         <div class="row g-2 mb-4 align-items-end">
           <div class="col-md-3">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'BucketSize' | abpLocalization }}</label>
+            <label class="form-label">{{ '::BucketSize' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="bucketSize">
-              <option [value]="MrpBucketSize.Daily">{{ 'Daily' | abpLocalization }}</option>
-              <option [value]="MrpBucketSize.Weekly">{{ 'Weekly' | abpLocalization }}</option>
-              <option [value]="MrpBucketSize.Monthly">{{ 'Monthly' | abpLocalization }}</option>
+              <option [value]="MrpBucketSize.Daily">{{ '::Daily' | abpLocalization }}</option>
+              <option [value]="MrpBucketSize.Weekly">{{ '::Weekly' | abpLocalization }}</option>
+              <option [value]="MrpBucketSize.Monthly">{{ '::Monthly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-2">
@@ -97,13 +97,13 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 [(ngModel)]="includeSafetyStock"
               />
               <label class="form-check-label" for="includeSafetyStock">
-                {{ 'IncludeSafetyStock' | abpLocalization }}
+                {{ '::IncludeSafetyStock' | abpLocalization }}
               </label>
             </div>
           </div>
           <div class="col-md-2">
             <button class="btn btn-primary btn-sm w-100" (click)="loadData()" [disabled]="isLoading()">
-              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ 'Generate' | abpLocalization }}
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -122,20 +122,20 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <table class="table table-sm table-bordered table-hover align-middle">
                   <thead class="table-light">
                     <tr>
-                      <th rowspan="2" class="align-middle">{{ 'Item' | abpLocalization }}</th>
-                      <th rowspan="2" class="align-middle text-center">{{ 'UOM' | abpLocalization }}</th>
-                      <th rowspan="2" class="align-middle text-end">{{ 'CurrentStock' | abpLocalization }}</th>
-                      <th rowspan="2" class="align-middle text-end">{{ 'SafetyStock' | abpLocalization }}</th>
+                      <th rowspan="2" class="align-middle">{{ '::Item' | abpLocalization }}</th>
+                      <th rowspan="2" class="align-middle text-center">{{ '::UOM' | abpLocalization }}</th>
+                      <th rowspan="2" class="align-middle text-end">{{ '::CurrentStock' | abpLocalization }}</th>
+                      <th rowspan="2" class="align-middle text-end">{{ '::SafetyStock' | abpLocalization }}</th>
                       @for (b of data.buckets; track b.fromDate) {
                         <th class="text-center" colspan="4">{{ b.label }}</th>
                       }
                     </tr>
                     <tr>
                       @for (b of data.buckets; track b.fromDate) {
-                        <th class="text-end text-muted small">{{ 'Demand' | abpLocalization }}</th>
-                        <th class="text-end text-muted small">{{ 'Supply' | abpLocalization }}</th>
-                        <th class="text-end text-muted small">{{ 'Projected' | abpLocalization }}</th>
-                        <th class="text-end text-muted small">{{ 'Planned' | abpLocalization }}</th>
+                        <th class="text-end text-muted small">{{ '::Demand' | abpLocalization }}</th>
+                        <th class="text-end text-muted small">{{ '::Supply' | abpLocalization }}</th>
+                        <th class="text-end text-muted small">{{ '::Projected' | abpLocalization }}</th>
+                        <th class="text-end text-muted small">{{ '::Planned' | abpLocalization }}</th>
                       }
                     </tr>
                   </thead>
@@ -171,7 +171,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               </div>
             } @else {
               <div class="alert alert-info mb-0">
-                <i class="fa fa-info-circle me-2"></i>{{ 'NoDataAvailable' | abpLocalization }}
+                <i class="fa fa-info-circle me-2"></i>{{ '::NoDataAvailable' | abpLocalization }}
               </div>
             }
           }
@@ -191,14 +191,14 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                           (change)="toggleSelectAll(data.requirements)"
                         />
                       </th>
-                      <th>{{ 'Item' | abpLocalization }}</th>
-                      <th class="text-center">{{ 'Type' | abpLocalization }}</th>
-                      <th>{{ 'BOM' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
-                      <th class="text-center">{{ 'LeadTimeDays' | abpLocalization }}</th>
-                      <th class="text-center">{{ 'ReleaseDate' | abpLocalization }}</th>
-                      <th class="text-center">{{ 'DeliveryDate' | abpLocalization }}</th>
-                      <th>{{ 'DefaultSupplier' | abpLocalization }}</th>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th class="text-center">{{ '::Type' | abpLocalization }}</th>
+                      <th>{{ '::BOM' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                      <th class="text-center">{{ '::LeadTimeDays' | abpLocalization }}</th>
+                      <th class="text-center">{{ '::ReleaseDate' | abpLocalization }}</th>
+                      <th class="text-center">{{ '::DeliveryDate' | abpLocalization }}</th>
+                      <th>{{ '::DefaultSupplier' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>

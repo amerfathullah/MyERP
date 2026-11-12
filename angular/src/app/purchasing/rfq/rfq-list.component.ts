@@ -14,7 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'RequestForQuotations' | abpLocalization">
+    <abp-page [title]="'::RequestForQuotations' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <div class="d-flex align-items-center gap-2">
@@ -22,24 +22,24 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
           </div>
           <a routerLink="/purchasing/rfq/new" class="btn btn-sm btn-primary">
-            <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           @if (rfqs().length === 0) {
             <div class="text-center text-muted py-4">
               <i class="fas fa-file-alt fa-3x mb-3 d-block"></i>
-              <p>{{ 'NoRecordsFound' | abpLocalization }}</p>
+              <p>{{ '::NoRecordsFound' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>{{ 'RFQ Number' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th>{{ 'Suppliers' | abpLocalization }}</th>
-                  <th>{{ 'Items' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::RFQNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::Suppliers' | abpLocalization }}</th>
+                  <th>{{ '::Items' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

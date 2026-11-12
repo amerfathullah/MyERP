@@ -20,13 +20,13 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewStockReservation' | abpLocalization">
+    <abp-page [title]="'::NewStockReservation' | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'SalesOrder' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::SalesOrder' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="salesOrderId" (change)="onSalesOrderChange()">
                   <option value="">— Select Sales Order —</option>
                   @for (so of salesOrders(); track so.id) {
@@ -35,7 +35,7 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'SalesOrderItem' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::SalesOrderItem' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="soItemId" (change)="onSoItemChange()"
                   [attr.disabled]="soItems().length === 0 ? true : null">
                   <option value="">— Select Item —</option>
@@ -44,18 +44,18 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
                   }
                 </select>
                 @if (selectedSoItem() && !selectedSoItem()!.warehouseId) {
-                  <small class="text-danger">{{ 'ItemHasNoWarehouseCannotReserve' | abpLocalization }}</small>
+                  <small class="text-danger">{{ '::ItemHasNoWarehouseCannotReserve' | abpLocalization }}</small>
                 }
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
                 <input type="text" class="form-control" [value]="selectedWarehouseName()" disabled />
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'ReservedQty' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::ReservedQty' | abpLocalization }} *</label>
                 <input type="number" min="0.0001" step="0.01" class="form-control" formControlName="reservedQty" />
                 @if (selectedSoItem()) {
-                  <small class="text-muted">{{ 'PendingQty' | abpLocalization }}: {{ pendingQty(selectedSoItem()!) | number:'1.2-2' }}</small>
+                  <small class="text-muted">{{ '::PendingQty' | abpLocalization }}: {{ pendingQty(selectedSoItem()!) | number:'1.2-2' }}</small>
                 }
               </div>
             </div>
@@ -63,9 +63,9 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving() || !canSubmit()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/inventory/stock-reservations">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/inventory/stock-reservations">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

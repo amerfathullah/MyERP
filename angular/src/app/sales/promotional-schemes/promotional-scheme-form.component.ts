@@ -20,15 +20,15 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewPromotionalScheme') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewPromotionalScheme') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Title' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.title" />
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'ApplyOn' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ApplyOn' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.applyOn">
               @for (o of applyOnOptions; track o.value) {
                 <option [ngValue]="o.value">{{ o.key }}</option>
@@ -36,7 +36,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ApplicableFor' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ApplicableFor' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.applicableFor">
               @for (o of applicableForOptions; track o.value) {
                 <option [ngValue]="o.value">{{ o.key }}</option>
@@ -46,42 +46,42 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
           <div class="col-md-3 d-flex align-items-end gap-3">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="selling" [(ngModel)]="form.selling" />
-              <label class="form-check-label" for="selling">{{ 'Selling' | abpLocalization }}</label>
+              <label class="form-check-label" for="selling">{{ '::Selling' | abpLocalization }}</label>
             </div>
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="buying" [(ngModel)]="form.buying" />
-              <label class="form-check-label" for="buying">{{ 'Buying' | abpLocalization }}</label>
+              <label class="form-check-label" for="buying">{{ '::Buying' | abpLocalization }}</label>
             </div>
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="disabled" [(ngModel)]="form.isDisabled" />
-              <label class="form-check-label" for="disabled">{{ 'IsDisabled' | abpLocalization }}</label>
+              <label class="form-check-label" for="disabled">{{ '::IsDisabled' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'ValidFrom' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ValidFrom' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.validFrom" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ValidUpto' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ValidUpto' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.validUpto" />
           </div>
           <div class="col-md-3 d-flex align-items-end gap-3">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="mixed" [(ngModel)]="form.mixedConditions" />
-              <label class="form-check-label" for="mixed">{{ 'MixedConditions' | abpLocalization }}</label>
+              <label class="form-check-label" for="mixed">{{ '::MixedConditions' | abpLocalization }}</label>
             </div>
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="cumulative" [(ngModel)]="form.isCumulative" />
-              <label class="form-check-label" for="cumulative">{{ 'IsCumulative' | abpLocalization }}</label>
+              <label class="form-check-label" for="cumulative">{{ '::IsCumulative' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
         @if (form.applyOn !== applyOnTransaction) {
-          <h6 class="mb-2">{{ 'Targets' | abpLocalization }} ({{ form.applyOn === applyOnItemGroup ? ('ItemGroup' | abpLocalization) : ('Item' | abpLocalization) }})</h6>
+          <h6 class="mb-2">{{ '::Targets' | abpLocalization }} ({{ form.applyOn === applyOnItemGroup ? ('::ItemGroup' | abpLocalization) : ('::Item' | abpLocalization) }})</h6>
           <div class="d-flex flex-wrap gap-2 mb-2">
             @for (t of form.targets; track $index) {
               <span class="badge bg-light text-dark border d-flex align-items-center gap-1">
@@ -91,7 +91,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             }
           </div>
           <select class="form-select form-select-sm mb-3" style="max-width:400px" (change)="addTarget($any($event.target).value); $any($event.target).value=''">
-            <option value="">-- {{ 'AddTarget' | abpLocalization }} --</option>
+            <option value="">-- {{ '::AddTarget' | abpLocalization }} --</option>
             @for (i of targetOptions(); track i.id) {
               <option [value]="i.id">{{ i.name }}</option>
             }
@@ -99,7 +99,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
         }
 
         @if (form.applicableFor !== applicableForNone) {
-          <h6 class="mb-2">{{ 'Parties' | abpLocalization }}</h6>
+          <h6 class="mb-2">{{ '::Parties' | abpLocalization }}</h6>
           <div class="d-flex flex-wrap gap-2 mb-2">
             @for (p of form.parties; track $index) {
               <span class="badge bg-light text-dark border d-flex align-items-center gap-1">
@@ -109,20 +109,20 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             }
           </div>
           <select class="form-select form-select-sm mb-3" style="max-width:400px" (change)="addParty($any($event.target).value); $any($event.target).value=''">
-            <option value="">-- {{ 'AddParty' | abpLocalization }} --</option>
+            <option value="">-- {{ '::AddParty' | abpLocalization }} --</option>
             @for (p of partyOptions(); track p.id) {
               <option [value]="p.id">{{ p.name }}</option>
             }
           </select>
         }
 
-        <h6 class="mb-2">{{ 'PriceDiscountSlabs' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::PriceDiscountSlabs' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th>{{ 'Type' | abpLocalization }}</th><th>{{ 'DiscountPercentage' | abpLocalization }}</th>
-            <th>{{ 'DiscountAmount' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th>
-            <th>{{ 'MinQty' | abpLocalization }}</th><th>{{ 'MaxQty' | abpLocalization }}</th>
-            <th>{{ 'Priority' | abpLocalization }}</th><th></th>
+            <th>{{ '::Type' | abpLocalization }}</th><th>{{ '::DiscountPercentage' | abpLocalization }}</th>
+            <th>{{ '::DiscountAmount' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th>
+            <th>{{ '::MinQty' | abpLocalization }}</th><th>{{ '::MaxQty' | abpLocalization }}</th>
+            <th>{{ '::Priority' | abpLocalization }}</th><th></th>
           </tr></thead>
           <tbody>
             @for (s of form.priceDiscountSlabs; track $index) {
@@ -143,15 +143,15 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addPriceSlab()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addPriceSlab()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
-        <h6 class="mb-2">{{ 'ProductDiscountSlabs' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::ProductDiscountSlabs' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th>{{ 'FreeItem' | abpLocalization }}</th><th>{{ 'SameItem' | abpLocalization }}</th>
-            <th>{{ 'FreeQty' | abpLocalization }}</th><th>{{ 'MinQty' | abpLocalization }}</th>
-            <th>{{ 'MinAmount' | abpLocalization }}</th><th>{{ 'IsRecursive' | abpLocalization }}</th>
-            <th>{{ 'RecurseFor' | abpLocalization }}</th><th></th>
+            <th>{{ '::FreeItem' | abpLocalization }}</th><th>{{ '::SameItem' | abpLocalization }}</th>
+            <th>{{ '::FreeQty' | abpLocalization }}</th><th>{{ '::MinQty' | abpLocalization }}</th>
+            <th>{{ '::MinAmount' | abpLocalization }}</th><th>{{ '::IsRecursive' | abpLocalization }}</th>
+            <th>{{ '::RecurseFor' | abpLocalization }}</th><th></th>
           </tr></thead>
           <tbody>
             @for (s of form.productDiscountSlabs; track $index) {
@@ -162,7 +162,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
                       <option value="">--</option>
                       @for (i of availableItems(); track i.id) { <option [value]="i.id">{{ i.itemCode }}</option> }
                     </select>
-                  } @else { <span class="text-muted">{{ 'SameItem' | abpLocalization }}</span> }
+                  } @else { <span class="text-muted">{{ '::SameItem' | abpLocalization }}</span> }
                 </td>
                 <td class="text-center"><input type="checkbox" [(ngModel)]="s.sameItem" /></td>
                 <td><input type="number" class="form-control form-control-sm" [(ngModel)]="s.freeQty" /></td>
@@ -175,11 +175,11 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addProductSlab()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addProductSlab()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/sales/promotional-schemes">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/sales/promotional-schemes">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

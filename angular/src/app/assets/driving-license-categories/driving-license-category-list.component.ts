@@ -14,12 +14,12 @@ import type { DrivingLicenseCategoryDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'DrivingLicenseCategories' | abpLocalization">
+    <abp-page [title]="'::DrivingLicenseCategories' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'DrivingLicenseCategories' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::DrivingLicenseCategories' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/driving-license-categories/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewDrivingLicenseCategory' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewDrivingLicenseCategory' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,16 +28,16 @@ import type { DrivingLicenseCategoryDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-id-card fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoDrivingLicenseCategoriesYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoDrivingLicenseCategoriesYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/driving-license-categories/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewDrivingLicenseCategory' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewDrivingLicenseCategory' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'CategoryName' | abpLocalization }}</th>
-                <th>{{ 'Description' | abpLocalization }}</th>
+                <th>{{ '::CategoryName' | abpLocalization }}</th>
+                <th>{{ '::Description' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

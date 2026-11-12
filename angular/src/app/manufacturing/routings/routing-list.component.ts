@@ -15,10 +15,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Routings' | abpLocalization">
+    <abp-page [title]="'::Routings' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/routings/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewRouting' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewRouting' | abpLocalization }}
         </button>
       </div>
 
@@ -27,16 +27,16 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && routings.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-diagram-project fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoRoutingsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoRoutingsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'Operations' | abpLocalization }}</th>
-              <th class="text-end">{{ 'OperatingCost' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Operations' | abpLocalization }}</th>
+              <th class="text-end">{{ '::OperatingCost' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -46,7 +46,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ r.operations?.length ?? 0 }}</td>
                   <td class="text-end">{{ totalCost(r) | number:'1.2-2' }}</td>
                   <td><span class="badge" [class]="r.isDisabled ? 'bg-secondary' : 'bg-success'">
-                    {{ (r.isDisabled ? 'Disabled' : 'Active') | abpLocalization }}
+                    {{ (r.isDisabled ? '::Disabled' : '::Active') | abpLocalization }}
                   </span></td>
                   <td class="text-end">
                     <button class="btn btn-sm btn-outline-danger" (click)="delete(r)"><i class="fa fa-trash"></i></button>

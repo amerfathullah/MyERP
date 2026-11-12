@@ -10,7 +10,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Settings' | abpLocalization">
+    <abp-page [title]="'::Settings' | abpLocalization">
       <div class="row g-3">
         @for (section of sections; track section.title) {
           <div class="col-md-4">

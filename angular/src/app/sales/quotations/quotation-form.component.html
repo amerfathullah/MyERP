@@ -28,7 +28,7 @@
             </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
-            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PriceList' | abpLocalization }}</label>
             <select class="form-select" formControlName="priceListId">
               <option value="">— {{ '::Default' | abpLocalization }} —</option>
               @for (pl of priceLists(); track pl.id) {

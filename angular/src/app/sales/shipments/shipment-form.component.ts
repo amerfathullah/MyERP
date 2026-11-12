@@ -18,57 +18,57 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
     <div class="container-fluid">
       <div class="card">
         <div class="card-header">
-          <h5 class="mb-0"><i class="fas fa-truck me-2"></i>{{ 'NewShipment' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-truck me-2"></i>{{ '::NewShipment' | abpLocalization }}</h5>
         </div>
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
             <div class="row">
               <div class="col-md-6 mb-3">
-                <label class="form-label">{{ 'PickupFrom' | abpLocalization }}</label>
+                <label class="form-label">{{ '::PickupFrom' | abpLocalization }}</label>
                 <select class="form-select" formControlName="pickupFromType">
                   <option value="">{{ '::Select' | abpLocalization }}</option>
-                  <option value="Company">{{ 'Company' | abpLocalization }}</option>
-                  <option value="Supplier">{{ 'Supplier' | abpLocalization }}</option>
-                  <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
+                  <option value="Company">{{ '::Company' | abpLocalization }}</option>
+                  <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
+                  <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-6 mb-3">
-                <label class="form-label">{{ 'DeliveryTo' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DeliveryTo' | abpLocalization }}</label>
                 <select class="form-select" formControlName="deliveryToType">
                   <option value="">{{ '::Select' | abpLocalization }}</option>
-                  <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
-                  <option value="Company">{{ 'Company' | abpLocalization }}</option>
-                  <option value="Supplier">{{ 'Supplier' | abpLocalization }}</option>
+                  <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+                  <option value="Company">{{ '::Company' | abpLocalization }}</option>
+                  <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
 
             <div class="row">
               <div class="col-md-4 mb-3">
-                <label class="form-label">{{ 'PickupDate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::PickupDate' | abpLocalization }}</label>
                 <input type="date" class="form-control" formControlName="pickupDate" />
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label">{{ 'Carrier' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Carrier' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="carrier" />
               </div>
               <div class="col-md-4 mb-3">
-                <label class="form-label">{{ 'CarrierService' | abpLocalization }}</label>
+                <label class="form-label">{{ '::CarrierService' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="carrierService" />
               </div>
             </div>
 
             <div class="row">
               <div class="col-md-3 mb-3">
-                <label class="form-label">{{ 'NetWeight' | abpLocalization }}</label>
+                <label class="form-label">{{ '::NetWeight' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="totalNetWeight" min="0" step="0.01" />
               </div>
               <div class="col-md-3 mb-3">
-                <label class="form-label">{{ 'GrossWeight' | abpLocalization }}</label>
+                <label class="form-label">{{ '::GrossWeight' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="totalGrossWeight" min="0" step="0.01" />
               </div>
               <div class="col-md-2 mb-3">
-                <label class="form-label">{{ 'WeightUom' | abpLocalization }}</label>
+                <label class="form-label">{{ '::WeightUom' | abpLocalization }}</label>
                 <select class="form-select" formControlName="weightUom">
                   <option value="Kg">Kg</option>
                   <option value="Gram">Gram</option>
@@ -76,25 +76,25 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
                 </select>
               </div>
               <div class="col-md-2 mb-3">
-                <label class="form-label">{{ 'ValueOfGoods' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ValueOfGoods' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="valueOfGoods" min="0" step="0.01" />
               </div>
               <div class="col-md-2 mb-3">
-                <label class="form-label">{{ 'Currency' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="currencyCode" maxlength="3" />
               </div>
             </div>
 
             <div class="mb-3">
-              <label class="form-label">{{ 'Notes' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
               <textarea class="form-control" formControlName="notes" rows="3"></textarea>
             </div>
 
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving()">
-                <i class="fas fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+                <i class="fas fa-save me-1"></i>{{ '::Save' | abpLocalization }}
               </button>
-              <a routerLink="/sales/shipments" class="btn btn-outline-secondary">{{ 'Cancel' | abpLocalization }}</a>
+              <a routerLink="/sales/shipments" class="btn btn-outline-secondary">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

@@ -33,7 +33,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div></div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/accounting/unreconcile-payments">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/accounting/unreconcile-payments">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
             <i class="fa fa-search me-1"></i>{{ '::LoadAllocations' | abpLocalization }}
           </button>

@@ -14,24 +14,24 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewShippingRule' | abpLocalization">
+    <abp-page [title]="'::NewShippingRule' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ 'RuleDetails' | abpLocalization }}</h6>
+          <h6 class="card-title">{{ '::RuleDetails' | abpLocalization }}</h6>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Label' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Label' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="label">
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select" formControlName="ruleType">
-                <option [value]="0">{{ 'Selling' | abpLocalization }}</option>
-                <option [value]="1">{{ 'Buying' | abpLocalization }}</option>
+                <option [value]="0">{{ '::Selling' | abpLocalization }}</option>
+                <option [value]="1">{{ '::Buying' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Mode' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Mode' | abpLocalization }}</label>
               <select class="form-select" formControlName="calculationMode">
                 <option [value]="0">Fixed</option>
                 <option [value]="1">Based on Net Total</option>
@@ -39,7 +39,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'FixedAmount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FixedAmount' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="fixedAmount" step="0.01">
             </div>
           </div>
@@ -54,7 +54,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
           </div>
           @if (conditions.length > 0) {
             <table class="table table-sm">
-              <thead><tr><th>From</th><th>To (0=catch-all)</th><th>{{ 'Amount' | abpLocalization }}</th><th></th></tr></thead>
+              <thead><tr><th>From</th><th>To (0=catch-all)</th><th>{{ '::Amount' | abpLocalization }}</th><th></th></tr></thead>
               <tbody>
                 @for (cond of conditions.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(cond)">
@@ -70,7 +70,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
         </div></div>
 
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ 'Countries' | abpLocalization }} (leave empty for global)</h6>
+          <h6 class="card-title">{{ '::Countries' | abpLocalization }} (leave empty for global)</h6>
           <div class="d-flex gap-2 align-items-center">
             <input type="text" class="form-control form-control-sm" style="max-width:100px" [placeholder]="'::Placeholder:CountryCode' | abpLocalization" #countryInput>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCountry(countryInput)">Add</button>
@@ -86,9 +86,9 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="!form.valid || saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-outline-secondary" routerLink="/sales/shipping-rules">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-outline-secondary" routerLink="/sales/shipping-rules">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       </form>
     </abp-page>

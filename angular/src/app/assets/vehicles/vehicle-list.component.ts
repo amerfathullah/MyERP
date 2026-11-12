@@ -15,12 +15,12 @@ import type { VehicleDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Vehicles' | abpLocalization">
+    <abp-page [title]="'::Vehicles' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'Vehicles' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::Vehicles' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/vehicles/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewVehicle' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewVehicle' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -29,20 +29,20 @@ import type { VehicleDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-truck fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoVehiclesYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoVehiclesYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/vehicles/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewVehicle' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewVehicle' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'LicensePlate' | abpLocalization }}</th>
-                <th>{{ 'Make' | abpLocalization }}</th>
-                <th>{{ 'Model' | abpLocalization }}</th>
-                <th>{{ 'AssignedDriver' | abpLocalization }}</th>
-                <th>{{ 'LastOdometer' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::LicensePlate' | abpLocalization }}</th>
+                <th>{{ '::Make' | abpLocalization }}</th>
+                <th>{{ '::Model' | abpLocalization }}</th>
+                <th>{{ '::AssignedDriver' | abpLocalization }}</th>
+                <th>{{ '::LastOdometer' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -55,9 +55,9 @@ import type { VehicleDto } from '../../proxy/assets/models';
                     <td>{{ v.lastOdometer }}</td>
                     <td>
                       @if (v.isDisabled) {
-                        <span class="badge bg-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-success">{{ 'Active' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

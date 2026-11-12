@@ -12,14 +12,14 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'EmailTemplates' | abpLocalization">
+    <abp-page [title]="'::EmailTemplates' | abpLocalization">
       <!-- Create/Edit Form -->
       @if (editMode) {
         <div class="card mb-3"><div class="card-body">
           <h6 class="card-title">{{ editing ? 'Edit Template' : 'New Template' }}</h6>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control" [(ngModel)]="formData.name" [disabled]="!!editing">
             </div>
             <div class="col-md-4">
@@ -45,12 +45,12 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
           </div>
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-primary btn-sm" (click)="saveTemplate()" [disabled]="!formData.name || !formData.subject || !formData.body">
-              <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
             <button class="btn btn-outline-info btn-sm" (click)="previewTemplate()" [disabled]="!editing">
               <i class="fa fa-eye me-1"></i>Preview
             </button>
-            <button class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()">{{ 'Cancel' | abpLocalization }}</button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()">{{ '::Cancel' | abpLocalization }}</button>
           </div>
         </div></div>
       }
@@ -84,7 +84,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
               <th>Subject</th>
               <th>Document Type</th>
               <th></th>

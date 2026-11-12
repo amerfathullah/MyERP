@@ -27,20 +27,20 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Type' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Type' | abpLocalization }}</div>
               <div class="fs-5 fw-bold">{{ person.isGroup ? 'Group (Manager)' : 'Individual' }}</div>
             </div></div>
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="person.isEnabled ? 'bg-success' : 'bg-secondary'">
                 {{ person.isEnabled ? 'Active' : 'Disabled' }}
               </span>
               @if (person.isEnabled) {
                 <div class="mt-2">
                   <button class="btn btn-outline-danger btn-sm" (click)="disable()">
-                    <i class="fa fa-ban me-1"></i>{{ 'Disable' | abpLocalization }}
+                    <i class="fa fa-ban me-1"></i>{{ '::Disable' | abpLocalization }}
                   </button>
                 </div>
               }

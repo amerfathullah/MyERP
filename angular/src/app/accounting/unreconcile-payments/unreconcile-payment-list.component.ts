@@ -29,7 +29,7 @@ const VOUCHER_TYPE_LABELS = ['Payment Entry', 'Journal Entry'];
               <th>{{ '::VoucherType' | abpLocalization }}</th>
               <th>{{ '::VoucherId' | abpLocalization }}</th>
               <th>{{ '::Allocations' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

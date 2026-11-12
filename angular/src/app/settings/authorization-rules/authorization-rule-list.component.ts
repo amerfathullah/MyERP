@@ -13,10 +13,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AuthorizationRules' | abpLocalization">
+    <abp-page [title]="'::AuthorizationRules' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/settings/authorization-rules/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewRule' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewRule' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -31,7 +31,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'TransactionType' | abpLocalization }}</th>
+              <th>{{ '::TransactionType' | abpLocalization }}</th>
               <th>Based On</th>
               <th>Threshold</th>
               <th>Approving Role</th>

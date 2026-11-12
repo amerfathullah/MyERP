@@ -27,7 +27,7 @@ const VOUCHER_TYPE_LABELS = ['Payment Entry', 'Journal Entry'];
           </div>
 
           <table class="table table-sm mt-3">
-            <thead><tr><th>{{ '::AgainstVoucherType' | abpLocalization }}</th><th>{{ '::AgainstVoucherId' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ '::Unlinked' | abpLocalization }}</th></tr></thead>
+            <thead><tr><th>{{ '::AgainstVoucherType' | abpLocalization }}</th><th>{{ '::AgainstVoucherId' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::Unlinked' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (a of d.allocations; track a.id) {
                 <tr>

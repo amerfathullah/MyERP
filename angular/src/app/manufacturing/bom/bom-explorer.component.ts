@@ -41,7 +41,7 @@ interface BomTreeNode {
     <div class="container-fluid my-3">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>{{ 'Manufacturing:BOMExplorer' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>{{ '::Manufacturing:BOMExplorer' | abpLocalization }}</h5>
           <div class="d-flex align-items-center gap-2">
             <select class="form-select form-select-sm" style="width:300px" [(ngModel)]="selectedBomId" (ngModelChange)="loadBomTree()">
               <option value="">{{ '::SelectBOM' | abpLocalization }}</option>

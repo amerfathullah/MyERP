@@ -17,34 +17,34 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'ShareTransfer' : 'NewShareTransfer') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::ShareTransfer' : '::NewShareTransfer') | abpLocalization">
       <div class="card"><div class="card-body">
         @if (isEdit() && status !== 0) {
           <div class="alert" [class.alert-success]="status===1" [class.alert-secondary]="status===4">
-            {{ 'Status' | abpLocalization }}: {{ statusLabel() }}
+            {{ '::Status' | abpLocalization }}: {{ statusLabel() }}
           </div>
         }
 
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'TransferType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::TransferType' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.transferType" [disabled]="readOnly()">
               @for (o of typeOptions; track o.value) { <option [ngValue]="o.value">{{ o.key }}</option> }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.date" [disabled]="readOnly()" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ShareType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ShareType' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.shareTypeId" [disabled]="readOnly()">
               <option value="">--</option>
               @for (t of shareTypes(); track t.id) { <option [value]="t.id">{{ t.title }}</option> }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Rate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Rate' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.rate" [disabled]="readOnly()" />
           </div>
         </div>
@@ -52,7 +52,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         <div class="row mb-3">
           @if (form.transferType !== issueType) {
             <div class="col-md-6">
-              <label class="form-label">{{ 'FromShareholder' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FromShareholder' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="form.fromShareholderId" [disabled]="readOnly()">
                 <option value="">--</option>
                 @for (s of shareholders(); track s.id) { <option [value]="s.id">{{ s.title }}</option> }
@@ -61,7 +61,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           }
           @if (form.transferType !== purchaseType) {
             <div class="col-md-6">
-              <label class="form-label">{{ 'ToShareholder' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ToShareholder' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="form.toShareholderId" [disabled]="readOnly()">
                 <option value="">--</option>
                 @for (s of shareholders(); track s.id) { <option [value]="s.id">{{ s.title }}</option> }
@@ -72,26 +72,26 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'FromNo' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FromNo' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.fromNo" [disabled]="readOnly()" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ToNo' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ToNo' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.toNo" [disabled]="readOnly()" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Qty' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Qty' | abpLocalization }}</label>
             <input type="text" class="form-control" [value]="noOfShares()" disabled />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Amount' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
             <input type="text" class="form-control" [value]="amount() | number:'1.2-2'" disabled />
           </div>
         </div>
 
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'EquityOrLiabilityAccount' | abpLocalization }}</label>
+            <label class="form-label">{{ '::EquityOrLiabilityAccount' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.equityOrLiabilityAccountId" [disabled]="readOnly()">
               <option value="">--</option>
               @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} — {{ a.accountName }}</option> }
@@ -99,7 +99,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
           @if (form.transferType === purchaseType) {
             <div class="col-md-6">
-              <label class="form-label">{{ 'AssetAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::AssetAccount' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="form.assetAccountId" [disabled]="readOnly()">
                 <option value="">--</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} — {{ a.accountName }}</option> }
@@ -109,20 +109,20 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         </div>
 
         <div class="mb-3">
-          <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
           <textarea class="form-control" rows="2" [(ngModel)]="form.remarks" [disabled]="readOnly()"></textarea>
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/accounting/share-transfers">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/accounting/share-transfers">{{ '::Cancel' | abpLocalization }}</a>
           @if (!readOnly()) {
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           }
           @if (isEdit() && status === 0) {
-            <button class="btn btn-success" (click)="submit()" [disabled]="saving()"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
+            <button class="btn btn-success" (click)="submit()" [disabled]="saving()"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
           }
           @if (isEdit() && status === 1) {
-            <button class="btn btn-outline-danger" (click)="cancelTransfer()" [disabled]="saving()"><i class="fa fa-ban me-1"></i>{{ 'CancelTransfer' | abpLocalization }}</button>
+            <button class="btn btn-outline-danger" (click)="cancelTransfer()" [disabled]="saving()"><i class="fa fa-ban me-1"></i>{{ '::CancelTransfer' | abpLocalization }}</button>
           }
         </div>
       </div></div>

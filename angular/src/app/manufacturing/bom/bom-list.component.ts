@@ -16,11 +16,11 @@ import type { BomDto } from '../../proxy/manufacturing/models';
   imports: [PaginationComponent, SortableHeaderComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BillOfMaterials' | abpLocalization">
+    <abp-page [title]="'::BillOfMaterials' | abpLocalization">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <span class="text-muted small">{{ totalCount }} {{ '::Results' | abpLocalization }}</span>
         <a routerLink="/manufacturing/bom/new" class="btn btn-primary btn-sm">
-          <i class="fa fa-plus me-1"></i>{{ 'NewBOM' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewBOM' | abpLocalization }}
         </a>
       </div>
 
@@ -43,8 +43,8 @@ import type { BomDto } from '../../proxy/manufacturing/models';
             <div class="text-center py-5 text-muted">
               <i class="fa fa-sitemap fa-3x mb-3 d-block"></i>
               <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-              <p class="text-muted small mb-3">{{ 'NoBOMsYet' | abpLocalization }}</p>
-              <a routerLink="/manufacturing/bom/new" class="btn btn-primary btn-sm"><i class="fa fa-plus me-1"></i>{{ 'NewBOM' | abpLocalization }}</a>
+              <p class="text-muted small mb-3">{{ '::NoBOMsYet' | abpLocalization }}</p>
+              <a routerLink="/manufacturing/bom/new" class="btn btn-primary btn-sm"><i class="fa fa-plus me-1"></i>{{ '::NewBOM' | abpLocalization }}</a>
             </div>
           } @else {
             <div class="table-responsive">
@@ -53,17 +53,17 @@ import type { BomDto } from '../../proxy/manufacturing/models';
                   <tr>
                     <th style="min-width: 140px;">
                       <app-sortable-header field="bomNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
-                        {{ 'BOMNumber' | abpLocalization }}
+                        {{ '::BOMNumber' | abpLocalization }}
                       </app-sortable-header>
                     </th>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 100px;">{{ 'Quantity' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 100px;">{{ '::Quantity' | abpLocalization }}</th>
                     <th class="text-end" style="width: 120px;">
                       <app-sortable-header field="totalCost" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
-                        {{ 'TotalCost' | abpLocalization }}
+                        {{ '::TotalCost' | abpLocalization }}
                       </app-sortable-header>
                     </th>
-                    <th class="text-center" style="width: 110px;">{{ 'Status' | abpLocalization }}</th>
+                    <th class="text-center" style="width: 110px;">{{ '::Status' | abpLocalization }}</th>
                     <th class="text-end" style="width: 80px;"></th>
                   </tr>
                 </thead>

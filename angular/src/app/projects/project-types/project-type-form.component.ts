@@ -13,18 +13,18 @@ import { ProjectTypeService } from '../../proxy/projects/project-type.service';
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditProjectType' : 'NewProjectType') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditProjectType' : '::NewProjectType') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">{{ 'Name' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
               <input class="form-control" [(ngModel)]="form.name" />
             </div>
             <div class="col-md-3">
               <div class="form-check mt-4">
                 <input class="form-check-input" type="checkbox" [(ngModel)]="form.isActive" id="isActive" />
-                <label class="form-check-label" for="isActive">{{ 'Active' | abpLocalization }}</label>
+                <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
               </div>
             </div>
           </div>
@@ -32,9 +32,9 @@ import { ProjectTypeService } from '../../proxy/projects/project-type.service';
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-primary" [disabled]="!form.name || isSaving()" (click)="save()">
               @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ 'Save' | abpLocalization }}
+              {{ '::Save' | abpLocalization }}
             </button>
-            <a class="btn btn-secondary" routerLink="/projects/project-types">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary" routerLink="/projects/project-types">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </div>
       </div>

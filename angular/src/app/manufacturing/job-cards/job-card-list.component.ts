@@ -15,7 +15,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
   imports: [PaginationComponent, SortableHeaderComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'JobCards' | abpLocalization">
+    <abp-page [title]="'::JobCards' | abpLocalization">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <span class="text-muted small">{{ totalCount }} {{ '::Results' | abpLocalization }}</span>
       </div>
@@ -48,7 +48,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
             <div class="text-center py-5">
               <i class="fa fa-id-card fa-3x text-muted mb-3 d-block"></i>
               <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-              <p class="text-muted small">{{ 'NoJobCardsYet' | abpLocalization }}</p>
+              <p class="text-muted small">{{ '::NoJobCardsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <div class="table-responsive">

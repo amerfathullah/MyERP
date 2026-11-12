@@ -17,18 +17,18 @@ import { SalesStageService } from '../../proxy/crm/sales-stage.service';
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body row g-3">
           <div class="col-md-8">
-            <label class="form-label">{{ 'StageName' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::StageName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="stageName" maxlength="100">
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'SortOrder' | abpLocalization }}</label>
+            <label class="form-label">{{ '::SortOrder' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="sortOrder">
           </div>
         </div></div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/crm/sales-stages">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/crm/sales-stages">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

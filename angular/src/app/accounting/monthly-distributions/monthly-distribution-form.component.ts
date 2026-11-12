@@ -18,15 +18,15 @@ const MONTH_NAMES = [
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewMonthlyDistribution') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewMonthlyDistribution') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'DistributionName' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DistributionName' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.distributionName" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'FiscalYear' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FiscalYear' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.fiscalYearId">
               <option value="">--</option>
               @for (y of fiscalYears(); track y.id) { <option [value]="y.id">{{ y.name }}</option> }
@@ -35,30 +35,30 @@ const MONTH_NAMES = [
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="mb-0">{{ 'MonthlyPercentages' | abpLocalization }}</h6>
-          <button class="btn btn-sm btn-outline-secondary" (click)="evenSplit()">{{ 'EvenSplit' | abpLocalization }}</button>
+          <h6 class="mb-0">{{ '::MonthlyPercentages' | abpLocalization }}</h6>
+          <button class="btn btn-sm btn-outline-secondary" (click)="evenSplit()">{{ '::EvenSplit' | abpLocalization }}</button>
         </div>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Month' | abpLocalization }}</th><th style="width:160px">{{ 'PercentageAllocation' | abpLocalization }}</th></tr></thead>
+          <thead><tr><th>{{ '::Month' | abpLocalization }}</th><th style="width:160px">{{ '::PercentageAllocation' | abpLocalization }}</th></tr></thead>
           <tbody>
             @for (row of form.percentages; track row.month) {
               <tr>
-                <td>{{ monthName(row.month) | abpLocalization }}</td>
+                <td>{{ ('::' + monthName(row.month)) | abpLocalization }}</td>
                 <td><input type="number" class="form-control form-control-sm" [(ngModel)]="row.percentageAllocation" /></td>
               </tr>
             }
           </tbody>
           <tfoot>
             <tr>
-              <td class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+              <td class="text-end fw-bold">{{ '::Total' | abpLocalization }}</td>
               <td class="fw-bold" [class.text-danger]="total() !== 100">{{ total() | number:'1.0-2' }}%</td>
             </tr>
           </tfoot>
         </table>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/accounting/monthly-distributions">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || total() !== 100"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/accounting/monthly-distributions">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || total() !== 100"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

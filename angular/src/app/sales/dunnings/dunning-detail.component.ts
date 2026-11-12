@@ -16,15 +16,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, ActivityLogComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Dunnings' | abpLocalization">
+    <abp-page [title]="'::Dunnings' | abpLocalization">
   <app-breadcrumb />
       @if (d) {
         <div class="card mb-3"><div class="card-body">
           <div class="row">
-            <div class="col-md-3"><strong>{{ 'Customer' | abpLocalization }}:</strong> {{ d.customerName }}</div>
-            <div class="col-md-2"><strong>{{ 'Level' | abpLocalization }}:</strong> <span class="badge bg-warning">Level {{ d.dunningLevel }}</span></div>
-            <div class="col-md-2"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
-            <div class="col-md-2"><strong>{{ 'Fee' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.dunningFee | number:'1.2-2' }}</div>
+            <div class="col-md-3"><strong>{{ '::Customer' | abpLocalization }}:</strong> {{ d.customerName }}</div>
+            <div class="col-md-2"><strong>{{ '::Level' | abpLocalization }}:</strong> <span class="badge bg-warning">Level {{ d.dunningLevel }}</span></div>
+            <div class="col-md-2"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-2"><strong>{{ '::Fee' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.dunningFee | number:'1.2-2' }}</div>
             <div class="col-md-3">
               <span class="badge" [ngClass]="{'bg-secondary':d.status===0,'bg-primary':d.status===1,'bg-success':d.status===3,'bg-danger':d.status===4}">
                 {{ getStatusLabel(d.status) }}
@@ -32,14 +32,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </div>
           </div>
           <div class="row mt-2">
-            <div class="col-md-4"><strong>{{ 'Outstanding' | abpLocalization }}:</strong> <span class="text-danger fw-bold">{{ d.currency || 'MYR' }} {{ d.totalOutstanding | number:'1.2-2' }}</span></div>
-            <div class="col-md-4"><strong>{{ 'Interest' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.interestAmount | number:'1.2-2' }}</div>
-            <div class="col-md-4"><strong>{{ 'GrandTotal' | abpLocalization }}:</strong> <span class="fw-bold">{{ d.currency || 'MYR' }} {{ d.grandTotal | number:'1.2-2' }}</span></div>
+            <div class="col-md-4"><strong>{{ '::Outstanding' | abpLocalization }}:</strong> <span class="text-danger fw-bold">{{ d.currency || 'MYR' }} {{ d.totalOutstanding | number:'1.2-2' }}</span></div>
+            <div class="col-md-4"><strong>{{ '::Interest' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.interestAmount | number:'1.2-2' }}</div>
+            <div class="col-md-4"><strong>{{ '::GrandTotal' | abpLocalization }}:</strong> <span class="fw-bold">{{ d.currency || 'MYR' }} {{ d.grandTotal | number:'1.2-2' }}</span></div>
           </div>
           @if ((d.dunningAmount ?? 0) > 0) {
             <div class="row mt-2 text-muted small">
               <div class="col-md-4"><strong>{{ '::Paid' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.paidDunningAmount | number:'1.2-2' }}</div>
-              <div class="col-md-4"><strong>{{ 'Outstanding' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.unpaidDunningAmount | number:'1.2-2' }}</div>
+              <div class="col-md-4"><strong>{{ '::Outstanding' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.unpaidDunningAmount | number:'1.2-2' }}</div>
             </div>
           }
           @if (d.emailSentAt) {
@@ -49,15 +49,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           }
           @if (d.status === 0) {
             <div class="mt-3 d-flex gap-2">
-              <button class="btn btn-sm btn-primary" [disabled]="actionLoading()" (click)="action('submit')"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-primary" [disabled]="actionLoading()" (click)="action('submit')"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
             </div>
           }
           @if (d.status === 1) {
             <div class="mt-3 d-flex gap-2">
               <button class="btn btn-sm btn-primary" [disabled]="actionLoading()" (click)="recordPayment()"><i class="fa fa-credit-card me-1"></i>{{ '::RecordPayment' | abpLocalization }}</button>
-              <button class="btn btn-sm btn-success" [disabled]="actionLoading()" (click)="action('resolve')"><i class="fa fa-check me-1"></i>{{ 'Resolve' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-success" [disabled]="actionLoading()" (click)="action('resolve')"><i class="fa fa-check me-1"></i>{{ '::Resolve' | abpLocalization }}</button>
               <button class="btn btn-sm btn-outline-info" [disabled]="actionLoading()" (click)="showEmailDialog.set(true)"><i class="fa fa-envelope me-1"></i>{{ '::SendDunningNotice' | abpLocalization }}</button>
-              <button class="btn btn-sm btn-danger" [disabled]="actionLoading()" (click)="action('cancel')"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-danger" [disabled]="actionLoading()" (click)="action('cancel')"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             </div>
           }
         </div></div>

@@ -17,16 +17,16 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
     PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SubcontractingInwardOrders' | abpLocalization">
+    <abp-page [title]="'::SubcontractingInwardOrders' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'SubcontractingInwardOrders' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::SubcontractingInwardOrders' | abpLocalization }}</h5>
           <div class="d-flex gap-2">
             <a routerLink="/purchasing/subcontracting-inward/reports" class="btn btn-outline-secondary btn-sm">
-              <i class="fa fa-chart-bar me-1"></i> {{ 'SubcontractingInwardReports' | abpLocalization }}
+              <i class="fa fa-chart-bar me-1"></i> {{ '::SubcontractingInwardReports' | abpLocalization }}
             </a>
             <a routerLink="/purchasing/subcontracting-inward/new" class="btn btn-primary btn-sm">
-              <i class="fa fa-plus me-1"></i> {{ 'NewSubcontractingInwardOrder' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i> {{ '::NewSubcontractingInwardOrder' | abpLocalization }}
             </a>
           </div>
         </div>
@@ -34,12 +34,12 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
           <div class="row mb-3">
             <div class="col-md-4">
               <input type="text" class="form-control form-control-sm"
-                [placeholder]="'Search' | abpLocalization"
+                [placeholder]="'::Search' | abpLocalization"
                 [(ngModel)]="searchTerm" (keyup.enter)="loadData()">
             </div>
             <div class="col-md-3">
               <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (change)="loadData()">
-                <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+                <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
                 <option value="Open">Open</option>
                 <option value="PartiallyReceived">Partially Received</option>
                 <option value="Completed">Completed</option>
@@ -54,19 +54,19 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
           } @else if (entries().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fa fa-truck-ramp-box fa-3x mb-3 d-block"></i>
-              <p>{{ 'NoSubcontractingInwardOrdersYet' | abpLocalization }}</p>
+              <p>{{ '::NoSubcontractingInwardOrdersYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'OrderNumber' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th>{{ 'Total' | abpLocalization }}</th>
-                  <th>{{ 'Received' | abpLocalization }}</th>
-                  <th>{{ 'Billed' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
-                  <th>{{ 'Actions' | abpLocalization }}</th>
+                  <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::Total' | abpLocalization }}</th>
+                  <th>{{ '::Received' | abpLocalization }}</th>
+                  <th>{{ '::Billed' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th>{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

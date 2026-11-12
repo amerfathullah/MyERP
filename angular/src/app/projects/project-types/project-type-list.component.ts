@@ -14,12 +14,12 @@ import type { ProjectTypeDto } from '../../proxy/projects/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ProjectTypes' | abpLocalization">
+    <abp-page [title]="'::ProjectTypes' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'ProjectTypes' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::ProjectTypes' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/projects/project-types/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewProjectType' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewProjectType' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,16 +28,16 @@ import type { ProjectTypeDto } from '../../proxy/projects/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-diagram-project fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoProjectTypesYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoProjectTypesYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/projects/project-types/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewProjectType' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewProjectType' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Name' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Name' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -46,9 +46,9 @@ import type { ProjectTypeDto } from '../../proxy/projects/models';
                     <td class="fw-semibold">{{ t.name }}</td>
                     <td>
                       @if (t.isActive) {
-                        <span class="badge bg-success">{{ 'Active' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

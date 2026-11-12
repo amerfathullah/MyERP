@@ -22,7 +22,7 @@ import { LeadService } from '../../proxy/crm/lead.service';
             <div class="col-md-6">
               <label class="form-label">{{ '::Campaign' | abpLocalization }} *</label>
               <select class="form-select" formControlName="campaignId">
-                <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+                <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                 @for (c of campaigns(); track c.id) { <option [value]="c.id">{{ c.campaignName }}</option> }
               </select>
             </div>
@@ -43,7 +43,7 @@ import { LeadService } from '../../proxy/crm/lead.service';
               <label class="form-label">{{ '::Recipient' | abpLocalization }} *</label>
               @if (form.value.emailCampaignFor === 0) {
                 <select class="form-select" formControlName="recipientId">
-                  <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+                  <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                   @for (l of leads(); track l.id) { <option [value]="l.id">{{ l.fullName ?? l.firstName }}</option> }
                 </select>
               } @else {
@@ -53,9 +53,9 @@ import { LeadService } from '../../proxy/crm/lead.service';
           </div>
         </div></div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/crm/email-campaigns">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/crm/email-campaigns">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

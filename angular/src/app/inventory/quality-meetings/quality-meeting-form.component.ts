@@ -15,23 +15,23 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? 'QualityMeeting' : 'NewQualityMeeting') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::QualityMeeting' : '::NewQualityMeeting') | abpLocalization">
       <div class="card">
         <div class="card-body">
           @if (isEdit) {
             <div class="row g-3 mb-3">
-              <div class="col-md-4"><strong>{{ 'MeetingDate' | abpLocalization }}:</strong> {{ $safeNavigationMigration(meeting?.meetingDate) | date:'mediumDate' }}</div>
-              <div class="col-md-4"><strong>{{ 'Chairperson' | abpLocalization }}:</strong> {{ meeting?.chairperson ?? '-' }}</div>
+              <div class="col-md-4"><strong>{{ '::MeetingDate' | abpLocalization }}:</strong> {{ $safeNavigationMigration(meeting?.meetingDate) | date:'mediumDate' }}</div>
+              <div class="col-md-4"><strong>{{ '::Chairperson' | abpLocalization }}:</strong> {{ meeting?.chairperson ?? '-' }}</div>
               <div class="col-md-4">
                 <span class="badge" [ngClass]="meeting?.status === QualityMeetingStatus.Closed ? 'bg-secondary' : 'bg-success'">
                   {{ meeting?.status === QualityMeetingStatus.Closed ? 'Closed' : 'Open' }}
                 </span>
               </div>
-              <div class="col-12"><strong>{{ 'Attendees' | abpLocalization }}:</strong> {{ meeting?.attendees ?? '-' }}</div>
+              <div class="col-12"><strong>{{ '::Attendees' | abpLocalization }}:</strong> {{ meeting?.attendees ?? '-' }}</div>
             </div>
 
             <div class="card bg-light mb-3">
-              <div class="card-header py-2"><span class="fw-semibold">{{ 'Agendas' | abpLocalization }}</span></div>
+              <div class="card-header py-2"><span class="fw-semibold">{{ '::Agendas' | abpLocalization }}</span></div>
               <div class="card-body p-0">
                 <table class="table table-sm mb-0">
                   <tbody>
@@ -46,13 +46,13 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
             </div>
 
             <div class="card bg-light mb-3">
-              <div class="card-header py-2"><span class="fw-semibold">{{ 'Minutes' | abpLocalization }}</span></div>
+              <div class="card-header py-2"><span class="fw-semibold">{{ '::Minutes' | abpLocalization }}</span></div>
               <div class="card-body p-0">
                 <table class="table table-sm mb-0">
                   <thead>
                     <tr>
-                      <th>{{ 'Discussion' | abpLocalization }}</th>
-                      <th>{{ 'ActionPlan' | abpLocalization }}</th>
+                      <th>{{ '::Discussion' | abpLocalization }}</th>
+                      <th>{{ '::ActionPlan' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -70,7 +70,7 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
               <div>
                 @if (meeting?.status === QualityMeetingStatus.Open) {
                   <button type="button" class="btn btn-danger btn-sm" (click)="closeMeeting()" [disabled]="isSaving">
-                    <i class="fa fa-lock me-1"></i>{{ 'CloseMeeting' | abpLocalization }}
+                    <i class="fa fa-lock me-1"></i>{{ '::CloseMeeting' | abpLocalization }}
                   </button>
                 }
               </div>
@@ -80,22 +80,22 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
             <form [formGroup]="form" (ngSubmit)="save()">
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'MeetingDate' | abpLocalization }} *</label>
+                  <label class="form-label">{{ '::MeetingDate' | abpLocalization }} *</label>
                   <input type="date" class="form-control form-control-sm" formControlName="meetingDate" />
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'Chairperson' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::Chairperson' | abpLocalization }}</label>
                   <input type="text" class="form-control form-control-sm" formControlName="chairperson" />
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'Attendees' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::Attendees' | abpLocalization }}</label>
                   <input type="text" class="form-control form-control-sm" formControlName="attendees" />
                 </div>
               </div>
 
               <div class="card bg-light mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center py-2">
-                  <span class="fw-semibold">{{ 'Agendas' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ '::Agendas' | abpLocalization }}</span>
                   <button type="button" class="btn btn-outline-primary btn-sm" (click)="addAgenda()">
                     <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
                   </button>
@@ -120,7 +120,7 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
 
               <div class="card bg-light mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center py-2">
-                  <span class="fw-semibold">{{ 'Minutes' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ '::Minutes' | abpLocalization }}</span>
                   <button type="button" class="btn btn-outline-primary btn-sm" (click)="addMinute()">
                     <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
                   </button>
@@ -129,8 +129,8 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
                   <table class="table table-sm mb-0">
                     <thead>
                       <tr>
-                        <th>{{ 'Discussion' | abpLocalization }}</th>
-                        <th>{{ 'ActionPlan' | abpLocalization }}</th>
+                        <th>{{ '::Discussion' | abpLocalization }}</th>
+                        <th>{{ '::ActionPlan' | abpLocalization }}</th>
                         <th style="width: 60px"></th>
                       </tr>
                     </thead>

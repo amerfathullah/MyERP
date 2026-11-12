@@ -13,26 +13,26 @@ import type { AssetShiftFactorDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetShiftFactors' | abpLocalization">
+    <abp-page [title]="'::AssetShiftFactors' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetShiftFactors' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetShiftFactors' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/shift-factors/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewAssetShiftFactor' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewAssetShiftFactor' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           @if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-clock fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAssetShiftFactorsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAssetShiftFactorsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'ShiftName' | abpLocalization }}</th>
-                <th>{{ 'Factor' | abpLocalization }}</th>
-                <th>{{ 'Default' | abpLocalization }}</th>
+                <th>{{ '::ShiftName' | abpLocalization }}</th>
+                <th>{{ '::Factor' | abpLocalization }}</th>
+                <th>{{ '::Default' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -42,9 +42,9 @@ import type { AssetShiftFactorDto } from '../../proxy/assets/models';
                     <td>{{ item.factor }}</td>
                     <td>
                       @if (item.isDefault) {
-                        <span class="badge bg-success">{{ 'Yes' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::Yes' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-light text-dark">{{ 'No' | abpLocalization }}</span>
+                        <span class="badge bg-light text-dark">{{ '::No' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

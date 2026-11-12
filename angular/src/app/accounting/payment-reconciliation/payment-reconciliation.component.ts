@@ -130,7 +130,7 @@ export class PaymentReconciliationComponent implements OnInit {
   autoAllocate() {
     const payment = this.selectedPayment;
     if (!payment) {
-      this.toaster.warn('SelectAPaymentFirst');
+      this.toaster.warn('::SelectAPaymentFirst');
       return;
     }
 
@@ -151,7 +151,7 @@ export class PaymentReconciliationComponent implements OnInit {
   reconcile() {
     const payment = this.selectedPayment;
     if (!payment) {
-      this.toaster.warn('SelectAPaymentFirst');
+      this.toaster.warn('::SelectAPaymentFirst');
       return;
     }
 

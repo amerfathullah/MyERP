@@ -15,10 +15,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BlanketOrders' | abpLocalization">
+    <abp-page [title]="'::BlanketOrders' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/blanket-orders/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewBlanketOrder' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewBlanketOrder' | abpLocalization }}
         </button>
       </div>
 
@@ -26,19 +26,19 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && orders.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-file-contract fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoBlanketOrdersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoBlanketOrdersYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'OrderNumber' | abpLocalization }}</th>
-              <th>{{ 'Party' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'ValidFrom' | abpLocalization }}</th>
-              <th>{{ 'ValidUntil' | abpLocalization }}</th>
-              <th>{{ 'Items' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::OrderNumber' | abpLocalization }}</th>
+              <th>{{ '::Party' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::ValidFrom' | abpLocalization }}</th>
+              <th>{{ '::ValidUntil' | abpLocalization }}</th>
+              <th>{{ '::Items' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (bo of orders; track bo.id) {

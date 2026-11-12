@@ -13,10 +13,10 @@ import type { HolidayListDto } from '../../proxy/human-resources/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'HolidayLists' | abpLocalization">
+    <abp-page [title]="'::HolidayLists' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/hr/holiday-lists/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewHolidayList' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewHolidayList' | abpLocalization }}
         </button>
       </div>
 
@@ -25,16 +25,16 @@ import type { HolidayListDto } from '../../proxy/human-resources/models';
       @if (!isLoading && lists.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-calendar-days fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoHolidayListsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoHolidayListsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'Year' | abpLocalization }}</th>
-              <th>{{ 'WeeklyOff' | abpLocalization }}</th>
-              <th>{{ 'Holidays' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Year' | abpLocalization }}</th>
+              <th>{{ '::WeeklyOff' | abpLocalization }}</th>
+              <th>{{ '::Holidays' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

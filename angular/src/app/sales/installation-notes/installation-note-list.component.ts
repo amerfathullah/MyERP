@@ -14,7 +14,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'InstallationNotes' | abpLocalization">
+    <abp-page [title]="'::InstallationNotes' | abpLocalization">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       }
@@ -27,11 +27,11 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Number' | abpLocalization }}</th>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th>{{ 'Customer' | abpLocalization }}</th>
+              <th>{{ '::Number' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th>{{ '::Customer' | abpLocalization }}</th>
               <th>Items</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (n of notes; track n.id) {

@@ -19,17 +19,17 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewIssue' | abpLocalization">
+    <abp-page [title]="'::NewIssue' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="card mb-3">
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-8">
-                <label class="form-label">{{ 'Subject' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Subject' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="subject" maxlength="500">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="companyId">
                   <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
                   @for (c of companies(); track c.id) {
@@ -40,38 +40,38 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-4">
-                <label class="form-label">{{ 'Priority' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Priority' | abpLocalization }}</label>
                 <select class="form-select" formControlName="priority">
-                  <option value="Low">{{ 'Low' | abpLocalization }}</option>
-                  <option value="Medium">{{ 'Medium' | abpLocalization }}</option>
-                  <option value="High">{{ 'High' | abpLocalization }}</option>
-                  <option value="Urgent">{{ 'Urgent' | abpLocalization }}</option>
+                  <option value="Low">{{ '::Low' | abpLocalization }}</option>
+                  <option value="Medium">{{ '::Medium' | abpLocalization }}</option>
+                  <option value="High">{{ '::High' | abpLocalization }}</option>
+                  <option value="Urgent">{{ '::Urgent' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'IssueType' | abpLocalization }}</label>
+                <label class="form-label">{{ '::IssueType' | abpLocalization }}</label>
                 <select class="form-select" formControlName="issueType">
                   <option value="">-- Select --</option>
-                  <option value="Bug">{{ 'Bug' | abpLocalization }}</option>
-                  <option value="Feature Request">{{ 'FeatureRequest' | abpLocalization }}</option>
-                  <option value="Complaint">{{ 'Complaint' | abpLocalization }}</option>
-                  <option value="Question">{{ 'Question' | abpLocalization }}</option>
-                  <option value="Other">{{ 'Other' | abpLocalization }}</option>
+                  <option value="Bug">{{ '::Bug' | abpLocalization }}</option>
+                  <option value="Feature Request">{{ '::FeatureRequest' | abpLocalization }}</option>
+                  <option value="Complaint">{{ '::Complaint' | abpLocalization }}</option>
+                  <option value="Question">{{ '::Question' | abpLocalization }}</option>
+                  <option value="Other">{{ '::Other' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'RaisedVia' | abpLocalization }}</label>
+                <label class="form-label">{{ '::RaisedVia' | abpLocalization }}</label>
                 <select class="form-select" formControlName="raisedVia">
                   <option value="">-- Select --</option>
-                  <option value="Email">{{ 'Email' | abpLocalization }}</option>
-                  <option value="Phone">{{ 'Phone' | abpLocalization }}</option>
-                  <option value="Website">{{ 'Website' | abpLocalization }}</option>
+                  <option value="Email">{{ '::Email' | abpLocalization }}</option>
+                  <option value="Phone">{{ '::Phone' | abpLocalization }}</option>
+                  <option value="Website">{{ '::Website' | abpLocalization }}</option>
                   <option value="Walk-In">Walk-In</option>
                 </select>
               </div>
             </div>
             <div class="mt-3">
-              <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Description' | abpLocalization }}</label>
               <textarea class="form-control" formControlName="description" rows="5" maxlength="4000"></textarea>
             </div>
             <div class="row g-3 mt-2">
@@ -89,9 +89,9 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/support/issues">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/support/issues">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

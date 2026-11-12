@@ -21,13 +21,13 @@ import type { ProjectDto } from '../../proxy/projects/models';
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditAssetRepair' : 'NewRepair') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditAssetRepair' : '::NewRepair') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'Asset' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Asset' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="assetId">
                   <option value="">— Select Asset —</option>
                   @for (a of assets(); track a.id) {
@@ -35,35 +35,35 @@ import type { ProjectDto } from '../../proxy/projects/models';
                   }
                 </select>
                 @if (selectedAssetFullyDepreciated()) {
-                  <small class="text-muted">{{ 'AssetFullyDepreciatedRepairHint' | abpLocalization }}</small>
+                  <small class="text-muted">{{ '::AssetFullyDepreciatedRepairHint' | abpLocalization }}</small>
                 }
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'FailureDate' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::FailureDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="failureDate" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'CompletionDate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::CompletionDate' | abpLocalization }}</label>
                 <input type="date" class="form-control" formControlName="completionDate" />
               </div>
               <div class="col-12">
-                <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Description' | abpLocalization }}</label>
                 <textarea class="form-control" rows="2" formControlName="repairDescription"></textarea>
               </div>
               <div class="col-12">
-                <label class="form-label">{{ 'ActionsPerformed' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ActionsPerformed' | abpLocalization }}</label>
                 <textarea class="form-control" rows="2" formControlName="actionsPerformed"></textarea>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Downtime' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Downtime' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="downtime" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'RepairCost' | abpLocalization }}</label>
+                <label class="form-label">{{ '::RepairCost' | abpLocalization }}</label>
                 <input type="number" min="0" step="0.01" class="form-control" formControlName="repairCost" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'CostCenter' | abpLocalization }}</label>
+                <label class="form-label">{{ '::CostCenter' | abpLocalization }}</label>
                 <select class="form-select" formControlName="costCenterId">
                   <option [ngValue]="null">—</option>
                   @for (cc of costCenters(); track cc.id) {
@@ -72,7 +72,7 @@ import type { ProjectDto } from '../../proxy/projects/models';
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Project' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Project' | abpLocalization }}</label>
                 <select class="form-select" formControlName="projectId">
                   <option [ngValue]="null">—</option>
                   @for (p of projects(); track p.id) {
@@ -84,11 +84,11 @@ import type { ProjectDto } from '../../proxy/projects/models';
                 <div class="form-check">
                   <input type="checkbox" class="form-check-input" id="capitalize"
                     formControlName="capitalizeRepairCost" [attr.disabled]="selectedAssetFullyDepreciated() ? true : null">
-                  <label class="form-check-label" for="capitalize">{{ 'Capitalize' | abpLocalization }}</label>
+                  <label class="form-check-label" for="capitalize">{{ '::Capitalize' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'IncreaseInAssetLifeMonths' | abpLocalization }}</label>
+                <label class="form-label">{{ '::IncreaseInAssetLifeMonths' | abpLocalization }}</label>
                 <input type="number" min="0" step="1" class="form-control" formControlName="increaseInAssetLife"
                   [attr.disabled]="(!form.value.capitalizeRepairCost || selectedAssetFullyDepreciated()) ? true : null" />
               </div>
@@ -97,9 +97,9 @@ import type { ProjectDto } from '../../proxy/projects/models';
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" [routerLink]="cancelLink()">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" [routerLink]="cancelLink()">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

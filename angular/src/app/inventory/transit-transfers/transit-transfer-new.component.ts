@@ -26,13 +26,13 @@ interface TransferLine {
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0"><i class="fa fa-paper-plane me-2"></i>{{ '::NewTransfer' | abpLocalization }}</h5>
           <a routerLink="/inventory/transit-transfers" class="btn btn-sm btn-outline-secondary">
-            <i class="fa fa-arrow-left me-1"></i>{{ 'Cancel' | abpLocalization }}
+            <i class="fa fa-arrow-left me-1"></i>{{ '::Cancel' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           <div class="row g-3 mb-3">
             <div class="col-md-3">
-              <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="postingDate" />
             </div>
             <div class="col-md-4">
@@ -55,15 +55,15 @@ interface TransferLine {
             </div>
           </div>
           @if (sourceWarehouseId && destinationWarehouseId && sourceWarehouseId === destinationWarehouseId) {
-            <div class="alert alert-danger py-2">{{ 'SameWarehouseTransfer' | abpLocalization }}</div>
+            <div class="alert alert-danger py-2">{{ '::SameWarehouseTransfer' | abpLocalization }}</div>
           }
 
           <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
           <table class="table table-sm">
             <thead><tr>
-              <th>{{ 'Item' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
               <th>{{ '::TotalQty' | abpLocalization }}</th>
-              <th>{{ 'ValuationRate' | abpLocalization }}</th>
+              <th>{{ '::ValuationRate' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -71,7 +71,7 @@ interface TransferLine {
                 <tr>
                   <td>
                     <select class="form-select form-select-sm" [(ngModel)]="line.itemId">
-                      <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+                      <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
                       @for (i of availableItems(); track i.id) {
                         <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
                       }
@@ -84,10 +84,10 @@ interface TransferLine {
               }
             </tbody>
           </table>
-          <button class="btn btn-sm btn-outline-primary mb-3" (click)="addLine()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+          <button class="btn btn-sm btn-outline-primary mb-3" (click)="addLine()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
           <div class="col-md-4">
-            <label class="form-label">{{ 'Notes' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="notes" />
           </div>
 

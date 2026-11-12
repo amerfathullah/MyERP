@@ -16,22 +16,22 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SerialNumbers' | abpLocalization">
+    <abp-page [title]="'::SerialNumbers' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-barcode fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSerialNumbersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSerialNumbersYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'SerialNumber' | abpLocalization }}</th>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'Warehouse' | abpLocalization }}</th>
-              <th>{{ 'MaintenanceStatus' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::SerialNumber' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::Warehouse' | abpLocalization }}</th>
+              <th>{{ '::MaintenanceStatus' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (sn of items; track sn.id) {

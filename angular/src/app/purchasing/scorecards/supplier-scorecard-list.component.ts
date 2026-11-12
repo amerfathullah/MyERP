@@ -12,10 +12,10 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SupplierScorecards' | abpLocalization">
+    <abp-page [title]="'::SupplierScorecards' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/purchasing/scorecards/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewScorecard' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewScorecard' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -24,17 +24,17 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
       @if (!isLoading && scorecards.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-star-half-stroke fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoScorecardsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoScorecardsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Supplier' | abpLocalization }}</th>
-              <th>{{ 'Score' | abpLocalization }}</th>
-              <th>{{ 'Standing' | abpLocalization }}</th>
-              <th>{{ 'Period' | abpLocalization }}</th>
-              <th>{{ 'Enforcement' | abpLocalization }}</th>
+              <th>{{ '::Supplier' | abpLocalization }}</th>
+              <th>{{ '::Score' | abpLocalization }}</th>
+              <th>{{ '::Standing' | abpLocalization }}</th>
+              <th>{{ '::Period' | abpLocalization }}</th>
+              <th>{{ '::Enforcement' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (s of scorecards; track s.id) {

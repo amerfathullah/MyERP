@@ -20,15 +20,15 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
     <app-breadcrumb />
     @if (isLoading) { <app-loading-overlay /> }
     @if (!isLoading) {
-      <abp-page [title]="'InstallationNotes' | abpLocalization">
+      <abp-page [title]="'::InstallationNotes' | abpLocalization">
         <div class="card mb-3"><div class="card-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Customer' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
               <input class="form-control" [value]="deliveryNote?.customerName || deliveryNote?.customerId" disabled />
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'DeliveryNote' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DeliveryNote' | abpLocalization }}</label>
               <input class="form-control" [value]="$safeNavigationMigration(deliveryNote?.deliveryNumber)" disabled />
             </div>
             <div class="col-md-4">
@@ -36,7 +36,7 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
               <input type="date" class="form-control" [(ngModel)]="installationDate" [min]="minDate" />
             </div>
             <div class="col-12">
-              <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
               <input class="form-control" [(ngModel)]="remarks" />
             </div>
           </div>
@@ -46,8 +46,8 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
           <h6 class="card-title">Installed Items</h6>
           <table class="table table-sm mb-0">
             <thead><tr>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th class="text-end" style="width:150px">{{ 'Quantity' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th class="text-end" style="width:150px">{{ '::Quantity' | abpLocalization }}</th>
               <th style="width:200px">Serial No</th>
             </tr></thead>
             <tbody>
@@ -67,10 +67,10 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
 
         <div class="d-flex gap-2">
           <button class="btn btn-primary" [disabled]="isSaving || rows.length === 0" (click)="save()">
-            <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
           <button class="btn btn-outline-secondary" (click)="router.navigate(['/sales/delivery-notes', deliveryNoteId])">
-            {{ 'Cancel' | abpLocalization }}
+            {{ '::Cancel' | abpLocalization }}
           </button>
         </div>
       </abp-page>

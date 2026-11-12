@@ -16,23 +16,23 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'BankTransactionRules' | abpLocalization">
+    <abp-page [title]="'::BankTransactionRules' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">
         <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
-          <i class="fa fa-plus me-1"></i>{{ 'NewRule' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewRule' | abpLocalization }}
         </button>
       </div>
 
       @if (showCreateForm) {
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ 'NewRule' | abpLocalization }}</h6>
+          <h6 class="card-title">{{ '::NewRule' | abpLocalization }}</h6>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="newRule.name" />
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'TransactionType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::TransactionType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newRule.transactionType">
                 <option [value]="0">Any</option>
                 <option [value]="1">Withdrawal</option>
@@ -63,8 +63,8 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
             </div>
           </div>
           <div class="mt-3">
-            <button class="btn btn-sm btn-primary" (click)="createRule()">{{ 'Save' | abpLocalization }}</button>
-            <button class="btn btn-sm btn-outline-secondary ms-2" (click)="showCreateForm = false">{{ 'Cancel' | abpLocalization }}</button>
+            <button class="btn btn-sm btn-primary" (click)="createRule()">{{ '::Save' | abpLocalization }}</button>
+            <button class="btn btn-sm btn-outline-secondary ms-2" (click)="showCreateForm = false">{{ '::Cancel' | abpLocalization }}</button>
           </div>
         </div></div>
       }
@@ -73,17 +73,17 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-robot fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoBankTransactionRulesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoBankTransactionRulesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body p-0">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th style="width:50px">{{ 'Priority' | abpLocalization }}</th>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'TransactionType' | abpLocalization }}</th>
+              <th style="width:50px">{{ '::Priority' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::TransactionType' | abpLocalization }}</th>
               <th>{{ '::ClassifyAs' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

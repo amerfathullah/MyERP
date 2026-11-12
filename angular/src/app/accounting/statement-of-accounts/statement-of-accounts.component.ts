@@ -19,11 +19,11 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-file-contract me-2"></i>{{ 'StatementOfAccounts' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="fa fa-file-contract me-2"></i>{{ '::StatementOfAccounts' | abpLocalization }}</h5>
         @if (customerResult() || supplierResult()) {
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-secondary" (click)="exportCsv()">
-              <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
             </button>
             <button class="btn btn-outline-success" (click)="openEmailDialog()">
               <i class="fa fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}

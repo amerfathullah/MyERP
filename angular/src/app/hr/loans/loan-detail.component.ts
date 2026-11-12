@@ -47,15 +47,15 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
         <!-- KPI Cards -->
         <div class="row g-3 mb-4">
           <div class="col-md-3"><div class="card text-center"><div class="card-body py-3">
-            <div class="text-muted small">{{ 'LoanAmount' | abpLocalization }}</div>
+            <div class="text-muted small">{{ '::LoanAmount' | abpLocalization }}</div>
             <div class="fs-4 fw-bold">{{ loan.loanAmount | number:'1.2-2' }}</div>
           </div></div></div>
           <div class="col-md-3"><div class="card text-center"><div class="card-body py-3">
-            <div class="text-muted small">{{ 'Outstanding' | abpLocalization }}</div>
+            <div class="text-muted small">{{ '::Outstanding' | abpLocalization }}</div>
             <div class="fs-4 fw-bold" [class.text-danger]="(loan.outstandingBalance ?? 0) > 0">{{ loan.outstandingBalance | number:'1.2-2' }}</div>
           </div></div></div>
           <div class="col-md-3"><div class="card text-center"><div class="card-body py-3">
-            <div class="text-muted small">{{ 'InterestRate' | abpLocalization }}</div>
+            <div class="text-muted small">{{ '::InterestRate' | abpLocalization }}</div>
             <div class="fs-4 fw-bold">{{ loan.annualInterestRate }}%</div>
           </div></div></div>
           <div class="col-md-3"><div class="card text-center"><div class="card-body py-3">
@@ -66,33 +66,33 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
 
         <!-- Loan Details -->
         <div class="card mb-4"><div class="card-body">
-          <h6 class="card-title">{{ 'LoanDetails' | abpLocalization }}</h6>
+          <h6 class="card-title">{{ '::LoanDetails' | abpLocalization }}</h6>
           <div class="row">
-            <div class="col-md-4"><strong>{{ 'Employee' | abpLocalization }}:</strong> {{ loan.employeeId ?? '—' }}</div>
-            <div class="col-md-4"><strong>{{ 'LoanType' | abpLocalization }}:</strong> {{ LOAN_TYPE[loan.loanType ?? 0] }}</div>
-            <div class="col-md-4"><strong>{{ 'InterestMethod' | abpLocalization }}:</strong> {{ INTEREST_METHOD[loan.interestMethod ?? 0] }}</div>
+            <div class="col-md-4"><strong>{{ '::Employee' | abpLocalization }}:</strong> {{ loan.employeeId ?? '—' }}</div>
+            <div class="col-md-4"><strong>{{ '::LoanType' | abpLocalization }}:</strong> {{ LOAN_TYPE[loan.loanType ?? 0] }}</div>
+            <div class="col-md-4"><strong>{{ '::InterestMethod' | abpLocalization }}:</strong> {{ INTEREST_METHOD[loan.interestMethod ?? 0] }}</div>
           </div>
           <div class="row mt-2">
-            <div class="col-md-4"><strong>{{ 'Tenure' | abpLocalization }}:</strong> {{ loan.tenureMonths }} months</div>
-            <div class="col-md-4"><strong>{{ 'DisbursementDate' | abpLocalization }}:</strong> {{ loan.disbursementDate | date:'dd/MM/yyyy' }}</div>
-            <div class="col-md-4"><strong>{{ 'RepaymentStartDate' | abpLocalization }}:</strong> {{ loan.repaymentStartDate | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-4"><strong>{{ '::Tenure' | abpLocalization }}:</strong> {{ loan.tenureMonths }} months</div>
+            <div class="col-md-4"><strong>{{ '::DisbursementDate' | abpLocalization }}:</strong> {{ loan.disbursementDate | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-4"><strong>{{ '::RepaymentStartDate' | abpLocalization }}:</strong> {{ loan.repaymentStartDate | date:'dd/MM/yyyy' }}</div>
           </div>
         </div></div>
 
         <!-- Repayment Schedule -->
         @if (loan.schedule && loan.schedule.length > 0) {
           <div class="card mb-4"><div class="card-body">
-            <h6 class="card-title">{{ 'RepaymentSchedule' | abpLocalization }}</h6>
+            <h6 class="card-title">{{ '::RepaymentSchedule' | abpLocalization }}</h6>
             <div class="table-responsive">
               <table class="table table-sm mb-0">
                 <thead><tr>
                   <th>#</th>
-                  <th>{{ 'DueDate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Principal' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Interest' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Total' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Principal' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Interest' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 </tr></thead>
                 <tbody>
                   @for (entry of loan.schedule; let i = $index; track i) {

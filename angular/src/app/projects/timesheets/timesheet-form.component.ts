@@ -17,35 +17,35 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewTimesheet' | abpLocalization">
+    <abp-page [title]="'::NewTimesheet' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="card mb-3">
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Title' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="title">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="companyId">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Employee' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Employee' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="employeeId">
               </div>
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-4">
-                <label class="form-label">{{ 'EmployeeName' | abpLocalization }}</label>
+                <label class="form-label">{{ '::EmployeeName' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="employeeName">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'StartDate' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::StartDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="startDate">
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'EndDate' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::EndDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="endDate">
               </div>
             </div>
@@ -57,7 +57,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="col-md-4">
               <div class="card border-0 bg-light">
                 <div class="card-body py-2 text-center">
-                  <div class="text-muted small">{{ 'TotalHours' | abpLocalization }}</div>
+                  <div class="text-muted small">{{ '::TotalHours' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-primary">{{ totalHours | number:'1.1-1' }}h</div>
                 </div>
               </div>
@@ -65,7 +65,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="col-md-4">
               <div class="card border-0 bg-light">
                 <div class="card-body py-2 text-center">
-                  <div class="text-muted small">{{ 'BillableHours' | abpLocalization }}</div>
+                  <div class="text-muted small">{{ '::BillableHours' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-success">{{ totalBillableHours | number:'1.1-1' }}h</div>
                 </div>
               </div>
@@ -73,7 +73,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="col-md-4">
               <div class="card border-0 bg-light">
                 <div class="card-body py-2 text-center">
-                  <div class="text-muted small">{{ 'TotalBillingAmount' | abpLocalization }}</div>
+                  <div class="text-muted small">{{ '::TotalBillingAmount' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold">{{ totalBillingAmount | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -83,9 +83,9 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
 
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-bold">{{ 'TimeEntries' | abpLocalization }}</span>
+            <span class="fw-bold">{{ '::TimeEntries' | abpLocalization }}</span>
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="addRow()">
-              <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
             </button>
           </div>
           <div class="card-body p-0">
@@ -93,11 +93,11 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
               <table class="table table-sm mb-0">
                 <thead>
                   <tr>
-                    <th>{{ 'ActivityType' | abpLocalization }}</th>
-                    <th>{{ 'TotalHours' | abpLocalization }}</th>
-                    <th>{{ 'Billable' | abpLocalization }}</th>
-                    <th>{{ 'BillingRate' | abpLocalization }}</th>
-                    <th>{{ 'Description' | abpLocalization }}</th>
+                    <th>{{ '::ActivityType' | abpLocalization }}</th>
+                    <th>{{ '::TotalHours' | abpLocalization }}</th>
+                    <th>{{ '::Billable' | abpLocalization }}</th>
+                    <th>{{ '::BillingRate' | abpLocalization }}</th>
+                    <th>{{ '::Description' | abpLocalization }}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -119,9 +119,9 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/projects/timesheets">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/projects/timesheets">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid || details.length === 0">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

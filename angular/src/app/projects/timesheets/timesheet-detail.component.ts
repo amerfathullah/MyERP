@@ -17,7 +17,7 @@ import type { TimesheetDto } from '../../proxy/projects/models';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="ts()?.title || ts()?.employeeName || ('Timesheet' | abpLocalization)">
+    <abp-page [title]="ts()?.title || ts()?.employeeName || ('::Timesheet' | abpLocalization)">
       @if (!ts()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -27,7 +27,7 @@ import type { TimesheetDto } from '../../proxy/projects/models';
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalHours' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalHours' | abpLocalization }}</div>
                 <div class="fs-2 fw-bold text-primary">{{ ts()!.totalHours | number:'1.1-1' }}h</div>
               </div>
             </div>
@@ -35,7 +35,7 @@ import type { TimesheetDto } from '../../proxy/projects/models';
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'BillableHours' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::BillableHours' | abpLocalization }}</div>
                 <div class="fs-2 fw-bold text-success">{{ ts()!.totalBillableHours | number:'1.1-1' }}h</div>
               </div>
             </div>
@@ -43,7 +43,7 @@ import type { TimesheetDto } from '../../proxy/projects/models';
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalBillingAmount' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalBillingAmount' | abpLocalization }}</div>
                 <div class="fs-2 fw-bold">{{ ts()!.totalBillingAmount | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -57,16 +57,16 @@ import type { TimesheetDto } from '../../proxy/projects/models';
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
                   @if (ts()!.title) {
-                    <tr><td class="text-muted">{{ 'Title' | abpLocalization }}</td><td class="fw-medium">{{ ts()!.title }}</td></tr>
+                    <tr><td class="text-muted">{{ '::Title' | abpLocalization }}</td><td class="fw-medium">{{ ts()!.title }}</td></tr>
                   }
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="getStatusLabel(ts()!.status)" /></td></tr>
-                  <tr><td class="text-muted">{{ 'Employee' | abpLocalization }}</td><td>{{ ts()!.employeeId }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Status' | abpLocalization }}</td><td><app-status-badge [status]="getStatusLabel(ts()!.status)" /></td></tr>
+                  <tr><td class="text-muted">{{ '::Employee' | abpLocalization }}</td><td>{{ ts()!.employeeId }}</td></tr>
                 </table>
               </div>
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
-                  <tr><td class="text-muted">{{ 'StartDate' | abpLocalization }}</td><td>{{ ts()!.startDate | date:'dd/MM/yyyy' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'EndDate' | abpLocalization }}</td><td>{{ ts()!.endDate | date:'dd/MM/yyyy' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::StartDate' | abpLocalization }}</td><td>{{ ts()!.startDate | date:'dd/MM/yyyy' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::EndDate' | abpLocalization }}</td><td>{{ ts()!.endDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -75,17 +75,17 @@ import type { TimesheetDto } from '../../proxy/projects/models';
 
         <!-- Time Entries -->
         <div class="card">
-          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-clock me-2"></i>{{ 'TimeLogs' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-clock me-2"></i>{{ '::TimeLogs' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead class="table-light">
                 <tr>
                   <th>#</th>
-                  <th>{{ 'ActivityType' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Hours' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Billable' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'BillingRate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                  <th>{{ '::ActivityType' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Hours' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Billable' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::BillingRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

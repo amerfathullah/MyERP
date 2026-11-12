@@ -11,26 +11,26 @@ import { HolidayListService } from '../../proxy/human-resources';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewHolidayList' | abpLocalization">
+    <abp-page [title]="'::NewHolidayList' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" [placeholder]="'::Placeholder:HolidayListName' | abpLocalization" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Year' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Year' | abpLocalization }}</label>
             <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.year" />
           </div>
           <div class="col-md-5">
-            <label class="form-label">{{ 'WeeklyOff' | abpLocalization }}</label>
+            <label class="form-label">{{ '::WeeklyOff' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.weeklyOff" [placeholder]="'::Placeholder:WeeklyOff' | abpLocalization" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Holidays' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Holidays' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Date' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Date' | abpLocalization }}</th><th>{{ '::Description' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (h of form.holidays; track $index) {
               <tr>
@@ -42,12 +42,12 @@ import { HolidayListService } from '../../proxy/human-resources';
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.holidays.push({holidayDate:'',description:''})">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/hr/holiday-lists">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/hr/holiday-lists">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

@@ -16,13 +16,13 @@ import type { AssetDto } from '../../proxy/assets/models';
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewAssetValueAdjustment' | abpLocalization">
+    <abp-page [title]="'::NewAssetValueAdjustment' | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'Asset' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Asset' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="assetId" (change)="onAssetChange()">
                   <option value="">— Select Asset —</option>
                   @for (a of assets(); track a.id) {
@@ -31,24 +31,24 @@ import type { AssetDto } from '../../proxy/assets/models';
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Date' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Date' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="date" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'CurrentValue' | abpLocalization }}</label>
+                <label class="form-label">{{ '::CurrentValue' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="currentAssetValue" [readonly]="true" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'NewValue' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::NewValue' | abpLocalization }} *</label>
                 <input type="number" class="form-control" formControlName="newAssetValue" step="0.01" (input)="calcDiff()" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Difference' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Difference' | abpLocalization }}</label>
                 <input type="number" class="form-control" [value]="difference()" [readonly]="true"
                   [class.text-success]="difference() > 0" [class.text-danger]="difference() < 0" />
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'Notes' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Notes' | abpLocalization }}</label>
                 <textarea class="form-control" formControlName="notes" rows="2"></textarea>
               </div>
             </div>
@@ -56,9 +56,9 @@ import type { AssetDto } from '../../proxy/assets/models';
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/assets/value-adjustments">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/assets/value-adjustments">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

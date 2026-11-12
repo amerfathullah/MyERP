@@ -14,12 +14,12 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Workstations' | abpLocalization">
+    <abp-page [title]="'::Workstations' | abpLocalization">
       <div class="d-flex justify-content-between gap-2 mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
           [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/workstations/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewWorkstation' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewWorkstation' | abpLocalization }}
         </button>
       </div>
 
@@ -28,17 +28,17 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && workstations.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-gear fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoWorkstationsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoWorkstationsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'Capacity' | abpLocalization }}</th>
-              <th class="text-end">{{ 'HourRate' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::Capacity' | abpLocalization }}</th>
+              <th class="text-end">{{ '::HourRate' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (ws of workstations; track ws.id) {

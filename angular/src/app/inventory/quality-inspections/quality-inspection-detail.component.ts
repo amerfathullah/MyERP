@@ -15,14 +15,14 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   imports: [BreadcrumbComponent, CommonModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityInspections' | abpLocalization">
+    <abp-page [title]="'::QualityInspections' | abpLocalization">
   <app-breadcrumb />
       @if (d) {
         <div class="card mb-3"><div class="card-body">
           <div class="row">
-            <div class="col-md-3"><strong>{{ 'Item' | abpLocalization }}:</strong> {{ d.itemName }}</div>
-            <div class="col-md-2"><strong>{{ 'InspectionType' | abpLocalization }}:</strong> {{ ['Incoming','Outgoing','In Process'][d.inspectionType ?? 0] }}</div>
-            <div class="col-md-2"><strong>{{ 'InspectionDate' | abpLocalization }}:</strong> {{ d.inspectionDate | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-3"><strong>{{ '::Item' | abpLocalization }}:</strong> {{ d.itemName }}</div>
+            <div class="col-md-2"><strong>{{ '::InspectionType' | abpLocalization }}:</strong> {{ ['Incoming','Outgoing','In Process'][d.inspectionType ?? 0] }}</div>
+            <div class="col-md-2"><strong>{{ '::InspectionDate' | abpLocalization }}:</strong> {{ d.inspectionDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-2">
               <span class="badge" [ngClass]="{'bg-success': d.status===1, 'bg-danger': d.status===2, 'bg-secondary': d.status===0}">{{ ['Draft','Accepted','Rejected'][d.status ?? 0] }}</span>
             </div>
@@ -32,9 +32,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           </div>
         </div></div>
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'Readings' | abpLocalization }}</h6>
+          <h6>{{ '::Readings' | abpLocalization }}</h6>
           <table class="table table-sm">
-            <thead><tr><th>{{ 'Specification' | abpLocalization }}</th><th>{{ 'Expected' | abpLocalization }}</th><th>{{ 'Reading' | abpLocalization }}</th><th>{{ 'Result' | abpLocalization }}</th></tr></thead>
+            <thead><tr><th>{{ '::Specification' | abpLocalization }}</th><th>{{ '::Expected' | abpLocalization }}</th><th>{{ '::Reading' | abpLocalization }}</th><th>{{ '::Result' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (r of d.readings ?? []; track r.id) {
                 <tr>
@@ -51,12 +51,12 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
         <div class="d-flex gap-2">
           @if (d.docStatus === 0) {
             <button class="btn btn-success btn-sm" [disabled]="acting" (click)="submit()">
-              <i class="fa fa-check-double me-1"></i>{{ 'Submit' | abpLocalization }}
+              <i class="fa fa-check-double me-1"></i>{{ '::Submit' | abpLocalization }}
             </button>
           }
           @if (d.docStatus === 1) {
             <button class="btn btn-outline-danger btn-sm" [disabled]="acting" (click)="cancel()">
-              <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
+              <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
           }
         </div>

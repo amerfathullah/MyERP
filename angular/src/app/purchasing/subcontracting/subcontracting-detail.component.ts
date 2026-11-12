@@ -33,9 +33,9 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
               </div>
               <div class="card-body">
                 <div class="row g-3">
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? '—' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Date' | abpLocalization }}</small><strong>{{ order()!.orderDate | date:'dd/MM/yyyy' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'GrandTotal' | abpLocalization }}</small><strong class="fs-5">{{ order()!.grandTotal | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? '—' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::Date' | abpLocalization }}</small><strong>{{ order()!.orderDate | date:'dd/MM/yyyy' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::GrandTotal' | abpLocalization }}</small><strong class="fs-5">{{ order()!.grandTotal | number:'1.2-2' }}</strong></div>
                 </div>
               </div>
             </div>
@@ -47,15 +47,15 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
         @if ((order()!.items ?? []).length > 0) {
           <div class="card mb-3">
-            <div class="card-header"><h6 class="mb-0">{{ 'Items' | abpLocalization }} (FG)</h6></div>
+            <div class="card-header"><h6 class="mb-0">{{ '::Items' | abpLocalization }} (FG)</h6></div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead><tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
                 </tr></thead>
                 <tbody>
                   @for (item of order()!.items ?? []; track item.id) {
@@ -85,27 +85,27 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
         @if (receipts().length > 0) {
           <div class="card mb-3">
-            <div class="card-header"><h6 class="mb-0">{{ 'Receipts' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="mb-0">{{ '::Receipts' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead><tr>
-                  <th>{{ 'ReceiptNumber' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
+                  <th>{{ '::ReceiptNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::NetTotal' | abpLocalization }}</th>
                   <th></th>
                 </tr></thead>
                 <tbody>
                   @for (r of receipts(); track r.id) {
                     <tr>
-                      <td>{{ r.receiptNumber }} @if (r.isReturn) { <span class="badge bg-secondary ms-1">{{ 'Return' | abpLocalization }}</span> }</td>
+                      <td>{{ r.receiptNumber }} @if (r.isReturn) { <span class="badge bg-secondary ms-1">{{ '::Return' | abpLocalization }}</span> }</td>
                       <td>{{ r.postingDate | date:'dd/MM/yyyy' }}</td>
                       <td><app-status-badge [status]="r.status + ''" /></td>
                       <td class="text-end">{{ r.netTotal | number:'1.2-2' }}</td>
                       <td>
                         @if (r.status === 1 && !r.isReturn) {
                           <button class="btn btn-sm btn-outline-danger" (click)="openReturnDialog(r)">
-                            <i class="fa fa-rotate-left me-1"></i>{{ 'Return' | abpLocalization }}
+                            <i class="fa fa-rotate-left me-1"></i>{{ '::Return' | abpLocalization }}
                           </button>
                         }
                       </td>
@@ -120,16 +120,16 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
         @if (showReturnDialog()) {
           <div class="card border-danger mb-3">
             <div class="card-header bg-danger bg-opacity-10 d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fa fa-rotate-left me-2"></i>{{ 'ReturnReceipt' | abpLocalization }} — {{ returnAgainst()?.receiptNumber }}</h6>
+              <h6 class="mb-0"><i class="fa fa-rotate-left me-2"></i>{{ '::ReturnReceipt' | abpLocalization }} — {{ returnAgainst()?.receiptNumber }}</h6>
               <button type="button" class="btn-close btn-sm" (click)="showReturnDialog.set(false)"></button>
             </div>
             <div class="card-body">
               <table class="table table-sm table-bordered">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
-                    <th class="text-center" style="width: 120px">{{ 'ReturnQty' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
+                    <th class="text-center" style="width: 120px">{{ '::ReturnQty' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,10 +146,10 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
                 </tbody>
               </table>
               <div class="d-flex justify-content-end gap-2 mt-2">
-                <button class="btn btn-sm btn-secondary" (click)="showReturnDialog.set(false)">{{ 'Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-secondary" (click)="showReturnDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
                 <button class="btn btn-sm btn-danger" (click)="submitReturn()" [disabled]="isReturning() || !hasReturnQty()">
                   @if (isReturning()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                  <i class="fa fa-check me-1"></i>{{ 'ReturnReceipt' | abpLocalization }}
+                  <i class="fa fa-check me-1"></i>{{ '::ReturnReceipt' | abpLocalization }}
                 </button>
               </div>
             </div>
@@ -159,15 +159,15 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
         @if (showReceiptDialog()) {
           <div class="card border-success mb-3">
             <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fa fa-box-open me-2"></i>{{ 'ReceiveFinishedGoods' | abpLocalization }}</h6>
+              <h6 class="mb-0"><i class="fa fa-box-open me-2"></i>{{ '::ReceiveFinishedGoods' | abpLocalization }}</h6>
               <button type="button" class="btn-close btn-sm" (click)="showReceiptDialog.set(false)"></button>
             </div>
             <div class="card-body">
               <div class="row mb-3">
                 <div class="col-md-5">
-                  <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
                   <select class="form-select form-select-sm" [(ngModel)]="receiptWarehouseId">
-                    <option value="">-- {{ 'SelectWarehouse' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectWarehouse' | abpLocalization }} --</option>
                     @for (w of warehouses(); track w.id) {
                       <option [value]="w.id">{{ w.warehouseName }}</option>
                     }
@@ -177,11 +177,11 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
               <table class="table table-sm table-bordered">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Pending' | abpLocalization }}</th>
-                    <th class="text-center" style="width: 120px">{{ 'ReceiveQty' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Pending' | abpLocalization }}</th>
+                    <th class="text-center" style="width: 120px">{{ '::ReceiveQty' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,10 +202,10 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
                 </tbody>
               </table>
               <div class="d-flex justify-content-end gap-2 mt-2">
-                <button class="btn btn-sm btn-secondary" (click)="showReceiptDialog.set(false)">{{ 'Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-secondary" (click)="showReceiptDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
                 <button class="btn btn-sm btn-success" (click)="createReceipt()" [disabled]="isCreatingReceipt() || !hasReceivableQty() || !receiptWarehouseId">
                   @if (isCreatingReceipt()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                  <i class="fa fa-check me-1"></i>{{ 'ReceiveFinishedGoods' | abpLocalization }}
+                  <i class="fa fa-check me-1"></i>{{ '::ReceiveFinishedGoods' | abpLocalization }}
                 </button>
               </div>
             </div>
@@ -339,7 +339,7 @@ export class SubcontractingDetailComponent implements OnInit {
       case 'receiveFinishedGoods': this.openReceiptDialog(); break;
       case 'close': this.service.closeOrder(id).subscribe(reload); break;
       case 'reopen': this.service.reopenOrder(id).subscribe(reload); break;
-      case 'cancel': this.confirmation.warn('CancelConfirmationMessage', 'Confirm').subscribe(s => {
+      case 'cancel': this.confirmation.warn('::CancelConfirmationMessage', '::Confirm').subscribe(s => {
         if (s === Confirmation.Status.confirm) this.service.cancelOrder(id).subscribe(reload);
       }); break;
     }

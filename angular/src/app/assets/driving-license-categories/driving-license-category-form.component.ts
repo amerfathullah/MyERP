@@ -13,16 +13,16 @@ import { DrivingLicenseCategoryService } from '../../proxy/assets/driving-licens
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditDrivingLicenseCategory' : 'NewDrivingLicenseCategory') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditDrivingLicenseCategory' : '::NewDrivingLicenseCategory') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">{{ 'CategoryName' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::CategoryName' | abpLocalization }} *</label>
               <input class="form-control" [(ngModel)]="form.categoryName" />
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Description' | abpLocalization }}</label>
               <input class="form-control" [(ngModel)]="form.description" />
             </div>
           </div>
@@ -30,9 +30,9 @@ import { DrivingLicenseCategoryService } from '../../proxy/assets/driving-licens
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-primary" [disabled]="!form.categoryName || isSaving()" (click)="save()">
               @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ 'Save' | abpLocalization }}
+              {{ '::Save' | abpLocalization }}
             </button>
-            <a class="btn btn-secondary" routerLink="/assets/driving-license-categories">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary" routerLink="/assets/driving-license-categories">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </div>
       </div>

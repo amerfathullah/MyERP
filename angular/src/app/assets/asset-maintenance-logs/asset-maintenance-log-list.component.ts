@@ -16,10 +16,10 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetMaintenanceLogs' | abpLocalization">
+    <abp-page [title]="'::AssetMaintenanceLogs' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetMaintenanceLogs' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetMaintenanceLogs' | abpLocalization }}</h5>
         </div>
         <div class="card-body">
           @if (isLoading()) {
@@ -27,19 +27,19 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-calendar-check-o fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAssetMaintenanceLogsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAssetMaintenanceLogsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Asset' | abpLocalization }}</th>
-                  <th>{{ 'Task' | abpLocalization }}</th>
-                  <th>{{ 'DueDate' | abpLocalization }}</th>
-                  <th>{{ 'Assignee' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
-                  <th>{{ 'CompletionDate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                  <th>{{ '::Asset' | abpLocalization }}</th>
+                  <th>{{ '::Task' | abpLocalization }}</th>
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
+                  <th>{{ '::Assignee' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th>{{ '::CompletionDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Cost' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -53,16 +53,16 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
                     <td>
                       @switch (log.status) {
                         @case (AssetMaintenanceStatus.Planned) {
-                          <span class="badge bg-primary">{{ 'Planned' | abpLocalization }}</span>
+                          <span class="badge bg-primary">{{ '::Planned' | abpLocalization }}</span>
                         }
                         @case (AssetMaintenanceStatus.Completed) {
-                          <span class="badge bg-success">{{ 'Completed' | abpLocalization }}</span>
+                          <span class="badge bg-success">{{ '::Completed' | abpLocalization }}</span>
                         }
                         @case (AssetMaintenanceStatus.Cancelled) {
-                          <span class="badge bg-secondary">{{ 'Cancelled' | abpLocalization }}</span>
+                          <span class="badge bg-secondary">{{ '::Cancelled' | abpLocalization }}</span>
                         }
                         @case (AssetMaintenanceStatus.Overdue) {
-                          <span class="badge bg-danger">{{ 'Overdue' | abpLocalization }}</span>
+                          <span class="badge bg-danger">{{ '::Overdue' | abpLocalization }}</span>
                         }
                       }
                     </td>

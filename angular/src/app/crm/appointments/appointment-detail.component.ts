@@ -27,8 +27,8 @@ const STATUS_LABELS = ['Unverified', 'Open', 'Closed'];
           </div>
           <div class="row mt-3">
             <div class="col-md-3"><strong>{{ '::ScheduledTime' | abpLocalization }}:</strong> {{ d.scheduledTime | date:'dd/MM/yyyy HH:mm' }}</div>
-            <div class="col-md-3"><strong>{{ 'Phone' | abpLocalization }}:</strong> {{ d.phone ?? '—' }}</div>
-            <div class="col-md-3"><strong>{{ 'Email' | abpLocalization }}:</strong> {{ d.email ?? '—' }}</div>
+            <div class="col-md-3"><strong>{{ '::Phone' | abpLocalization }}:</strong> {{ d.phone ?? '—' }}</div>
+            <div class="col-md-3"><strong>{{ '::Email' | abpLocalization }}:</strong> {{ d.email ?? '—' }}</div>
             <div class="col-md-3"><strong>{{ '::AssignedAgent' | abpLocalization }}:</strong> {{ d.assignedAgentUserId ?? '—' }}</div>
           </div>
           @if (d.details) { <div class="mt-3"><strong>{{ '::Details' | abpLocalization }}:</strong><p class="mt-1">{{ d.details }}</p></div> }

@@ -17,9 +17,9 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-file-contract me-2"></i>{{ 'Contracts' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-file-contract me-2"></i>{{ '::Contracts' | abpLocalization }}</h5>
           <a routerLink="new" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>{{ 'NewContract' | abpLocalization }}
+            <i class="fas fa-plus me-1"></i>{{ '::NewContract' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -32,18 +32,18 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
           @if (contracts().length === 0) {
             <div class="text-center py-4 text-muted">
               <i class="fas fa-file-contract fa-2x mb-2"></i>
-              <p>{{ 'NoContractsYet' | abpLocalization }}</p>
+              <p>{{ '::NoContractsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'ContractNumber' | abpLocalization }}</th>
-                  <th>{{ 'PartyType' | abpLocalization }}</th>
-                  <th>{{ 'StartDate' | abpLocalization }}</th>
-                  <th>{{ 'EndDate' | abpLocalization }}</th>
-                  <th>{{ 'ContractValue' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::ContractNumber' | abpLocalization }}</th>
+                  <th>{{ '::PartyType' | abpLocalization }}</th>
+                  <th>{{ '::StartDate' | abpLocalization }}</th>
+                  <th>{{ '::EndDate' | abpLocalization }}</th>
+                  <th>{{ '::ContractValue' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -57,11 +57,11 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                     <td>{{ item.contractValue ? (item.contractValue | number:'1.2-2') : '—' }}</td>
                     <td>
                       @switch (item.status) {
-                        @case (0) { <span class="badge bg-secondary">{{ 'Unsigned' | abpLocalization }}</span> }
-                        @case (1) { <span class="badge bg-success">{{ 'Active' | abpLocalization }}</span> }
-                        @case (2) { <span class="badge bg-warning">{{ 'InactiveByExpiry' | abpLocalization }}</span> }
-                        @case (3) { <span class="badge bg-danger">{{ 'InactiveByAutoRenewFailure' | abpLocalization }}</span> }
-                        @case (4) { <span class="badge bg-dark">{{ 'Cancelled' | abpLocalization }}</span> }
+                        @case (0) { <span class="badge bg-secondary">{{ '::Unsigned' | abpLocalization }}</span> }
+                        @case (1) { <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span> }
+                        @case (2) { <span class="badge bg-warning">{{ '::InactiveByExpiry' | abpLocalization }}</span> }
+                        @case (3) { <span class="badge bg-danger">{{ '::InactiveByAutoRenewFailure' | abpLocalization }}</span> }
+                        @case (4) { <span class="badge bg-dark">{{ '::Cancelled' | abpLocalization }}</span> }
                       }
                     </td>
                     <td>

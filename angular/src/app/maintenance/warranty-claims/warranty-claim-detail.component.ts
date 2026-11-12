@@ -16,7 +16,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="claim()?.claimNumber || ('WarrantyClaim' | abpLocalization)">
+    <abp-page [title]="claim()?.claimNumber || ('::WarrantyClaim' | abpLocalization)">
       @if (isLoading()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (claim(); as c) {
@@ -24,19 +24,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         <div class="row mb-3">
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
               <span class="badge mt-1" [class]="getStatusClass(c.status ?? 0)">{{ getStatusName(c.status ?? 0) }}</span>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'ComplaintDate' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::ComplaintDate' | abpLocalization }}</small>
               <strong>{{ c.complaintDate | date:'dd/MM/yyyy' }}</strong>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'Warranty' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::Warranty' | abpLocalization }}</small>
               <span class="badge mt-1" [class]="c.isUnderWarranty ? 'bg-success' : 'bg-warning text-dark'">
                 {{ c.isUnderWarranty ? ('::UnderWarranty' | abpLocalization) : ('::Expired' | abpLocalization) }}
               </span>
@@ -44,7 +44,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'Resolution' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::Resolution' | abpLocalization }}</small>
               <strong>{{ c.resolutionDate ? (c.resolutionDate | date:'dd/MM/yyyy') : '—' }}</strong>
             </div></div>
           </div>
@@ -55,20 +55,20 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           <div class="row">
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
-                <tr><td class="text-muted" style="width:40%">{{ 'Customer' | abpLocalization }}</td><td><strong>{{ c.customerName || '—' }}</strong></td></tr>
-                <tr><td class="text-muted">{{ 'Item' | abpLocalization }}</td><td>{{ c.itemName || '—' }}</td></tr>
-                <tr><td class="text-muted">{{ 'SerialNo' | abpLocalization }}</td><td>
+                <tr><td class="text-muted" style="width:40%">{{ '::Customer' | abpLocalization }}</td><td><strong>{{ c.customerName || '—' }}</strong></td></tr>
+                <tr><td class="text-muted">{{ '::Item' | abpLocalization }}</td><td>{{ c.itemName || '—' }}</td></tr>
+                <tr><td class="text-muted">{{ '::SerialNo' | abpLocalization }}</td><td>
                   @if (c.serialNoId) { <a [routerLink]="['/inventory/serial-numbers', c.serialNoId]">{{ c.serialNoId }}</a> } @else { — }
                 </td></tr>
-                <tr><td class="text-muted">{{ 'SalesInvoice' | abpLocalization }}</td><td>
+                <tr><td class="text-muted">{{ '::SalesInvoice' | abpLocalization }}</td><td>
                   @if (c.salesInvoiceId) { <a [routerLink]="['/sales/invoices', c.salesInvoiceId]">{{ c.salesInvoiceId }}</a> } @else { — }
                 </td></tr>
               </table>
             </div>
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
-                <tr><td class="text-muted" style="width:40%">{{ 'WarrantyExpiryDate' | abpLocalization }}</td><td>{{ c.warrantyExpiryDate ? (c.warrantyExpiryDate | date:'dd/MM/yyyy') : '—' }}</td></tr>
-                <tr><td class="text-muted">{{ 'AmcExpiryDate' | abpLocalization }}</td><td>{{ c.amcExpiryDate ? (c.amcExpiryDate | date:'dd/MM/yyyy') : '—' }}</td></tr>
+                <tr><td class="text-muted" style="width:40%">{{ '::WarrantyExpiryDate' | abpLocalization }}</td><td>{{ c.warrantyExpiryDate ? (c.warrantyExpiryDate | date:'dd/MM/yyyy') : '—' }}</td></tr>
+                <tr><td class="text-muted">{{ '::AmcExpiryDate' | abpLocalization }}</td><td>{{ c.amcExpiryDate ? (c.amcExpiryDate | date:'dd/MM/yyyy') : '—' }}</td></tr>
               </table>
             </div>
           </div>
@@ -76,14 +76,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 
         <!-- Complaint -->
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'Complaint' | abpLocalization }}</h6>
+          <h6>{{ '::Complaint' | abpLocalization }}</h6>
           <p class="mb-0">{{ c.complaint || '—' }}</p>
         </div></div>
 
         <!-- Resolution (if resolved) -->
         @if (c.resolution) {
           <div class="card mb-3"><div class="card-body">
-            <h6>{{ 'Resolution' | abpLocalization }}</h6>
+            <h6>{{ '::Resolution' | abpLocalization }}</h6>
             <p class="mb-0">{{ c.resolution }}</p>
           </div></div>
         }
@@ -92,19 +92,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         <div class="d-flex gap-2 mb-3">
           @if (c.status === 0) {
             <button class="btn btn-primary btn-sm" (click)="startWork()">
-              <i class="fa fa-wrench me-1"></i>{{ 'StartWork' | abpLocalization }}
+              <i class="fa fa-wrench me-1"></i>{{ '::StartWork' | abpLocalization }}
             </button>
           }
           @if (c.status === 0 || c.status === 1) {
             <button class="btn btn-success btn-sm" (click)="closePrompt()">
-              <i class="fa fa-check me-1"></i>{{ 'Close' | abpLocalization }}
+              <i class="fa fa-check me-1"></i>{{ '::Close' | abpLocalization }}
             </button>
             <button class="btn btn-outline-primary btn-sm" [disabled]="creatingVisit()" (click)="createMaintenanceVisit()">
               @if (creatingVisit()) { <span class="spinner-border spinner-border-sm me-1"></span> }
               <i class="fa fa-truck-medical me-1"></i>{{ '::CreateMaintenanceVisit' | abpLocalization }}
             </button>
             <button class="btn btn-outline-danger btn-sm" (click)="cancelClaim()">
-              <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+              <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
           }
         </div>
@@ -112,14 +112,14 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         <!-- Resolution Prompt -->
         @if (showResolutionPrompt()) {
           <div class="card mb-3 border-success"><div class="card-body">
-            <h6>{{ 'Resolution' | abpLocalization }}</h6>
+            <h6>{{ '::Resolution' | abpLocalization }}</h6>
             <textarea class="form-control mb-2" rows="3" #resolutionInput
-              [placeholder]="'Placeholder:Resolution' | abpLocalization"></textarea>
+              [placeholder]="'::Placeholder:Resolution' | abpLocalization"></textarea>
             <button class="btn btn-success btn-sm me-2" (click)="closeClaim(resolutionInput.value)">
-              {{ 'Confirm' | abpLocalization }}
+              {{ '::Confirm' | abpLocalization }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" (click)="showResolutionPrompt.set(false)">
-              {{ 'Cancel' | abpLocalization }}
+              {{ '::Cancel' | abpLocalization }}
             </button>
           </div></div>
         }

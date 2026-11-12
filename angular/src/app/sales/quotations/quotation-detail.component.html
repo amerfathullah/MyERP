@@ -31,7 +31,7 @@
           <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
         </button>
         <button class="btn btn-outline-success" (click)="downloadPdf()">
-          <i class="fa fa-file-pdf me-1"></i>{{ 'Download' | abpLocalization }}
+          <i class="fa fa-file-pdf me-1"></i>{{ '::Download' | abpLocalization }}
         </button>
       </div>
     </div>
@@ -155,11 +155,11 @@
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
-                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'Placeholder:Email' | abpLocalization">
+                <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:Email' | abpLocalization">
               </div>
               <div class="mb-3">
                 <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
-                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'Placeholder:CommaSeparatedEmails' | abpLocalization">
+                <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CommaSeparatedEmails' | abpLocalization">
               </div>
               <div class="form-check mb-3">
                 <input type="checkbox" class="form-check-input" id="qtnAttachPdf" [(ngModel)]="emailAttachPdf">

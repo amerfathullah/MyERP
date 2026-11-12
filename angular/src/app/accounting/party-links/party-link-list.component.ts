@@ -29,7 +29,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
           <div class="col-md-3">
             <label class="form-label">{{ '::PrimaryParty' | abpLocalization }}</label>
             <select class="form-select" formControlName="primaryPartyId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @if (form.value.primaryPartyType === 'Customer') {
                 @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
               } @else {
@@ -47,7 +47,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
           <div class="col-md-3">
             <label class="form-label">{{ '::SecondaryParty' | abpLocalization }}</label>
             <select class="form-select" formControlName="secondaryPartyId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @if (form.value.secondaryPartyType === 'Customer') {
                 @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
               } @else {

@@ -26,17 +26,17 @@ type ReportTab = 'items' | 'materials' | 'summary';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="'SubcontractingInwardReports' | abpLocalization">
+    <abp-page [title]="'::SubcontractingInwardReports' | abpLocalization">
       <!-- Header Controls -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-2">
           <a routerLink="/purchasing/subcontracting-inward" class="btn btn-outline-secondary btn-sm">
-            <i class="fa fa-arrow-left me-1"></i> {{ 'Back' | abpLocalization }}
+            <i class="fa fa-arrow-left me-1"></i> {{ '::Back' | abpLocalization }}
           </a>
-          <h4 class="mb-0">{{ 'SubcontractingInwardReports' | abpLocalization }}</h4>
+          <h4 class="mb-0">{{ '::SubcontractingInwardReports' | abpLocalization }}</h4>
         </div>
         <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="loading()">
-          <i class="fa fa-download me-1"></i> {{ 'Export' | abpLocalization }} CSV
+          <i class="fa fa-download me-1"></i> {{ '::Export' | abpLocalization }} CSV
         </button>
       </div>
 
@@ -45,26 +45,26 @@ type ReportTab = 'items' | 'materials' | 'summary';
         <div class="card-body py-3">
           <div class="row g-2 align-items-end">
             <div class="col-md-2">
-              <label class="form-label small text-muted mb-1">{{ 'FromDate' | abpLocalization }}</label>
+              <label class="form-label small text-muted mb-1">{{ '::FromDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
             </div>
             <div class="col-md-2">
-              <label class="form-label small text-muted mb-1">{{ 'ToDate' | abpLocalization }}</label>
+              <label class="form-label small text-muted mb-1">{{ '::ToDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
             </div>
             <div class="col-md-3">
-              <label class="form-label small text-muted mb-1">{{ 'Supplier' | abpLocalization }}</label>
+              <label class="form-label small text-muted mb-1">{{ '::Supplier' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="selectedSupplierId">
-                <option value="">{{ 'All' | abpLocalization }}</option>
+                <option value="">{{ '::All' | abpLocalization }}</option>
                 @for (s of suppliers(); track s.id) {
                   <option [value]="s.id">{{ s.name }}</option>
                 }
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label small text-muted mb-1">{{ 'Status' | abpLocalization }}</label>
+              <label class="form-label small text-muted mb-1">{{ '::Status' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="selectedStatus">
-                <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+                <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
                 <option value="Open">Open</option>
                 <option value="PartiallyReceived">Partially Received</option>
                 <option value="Completed">Completed</option>
@@ -77,7 +77,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 @if (loading()) {
                   <span class="spinner-border spinner-border-sm me-1"></span>
                 }
-                <i class="fa fa-filter me-1"></i> {{ 'Filter' | abpLocalization }}
+                <i class="fa fa-filter me-1"></i> {{ '::Filter' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -92,7 +92,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
             [class.active]="activeTab() === 'items'"
             (click)="switchTab('items')"
           >
-            <i class="fa fa-boxes-stacked me-1"></i> {{ 'ItemsToBeDelivered' | abpLocalization }}
+            <i class="fa fa-boxes-stacked me-1"></i> {{ '::ItemsToBeDelivered' | abpLocalization }}
           </button>
         </li>
         <li class="nav-item">
@@ -101,7 +101,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
             [class.active]="activeTab() === 'materials'"
             (click)="switchTab('materials')"
           >
-            <i class="fa fa-cubes-stacked me-1"></i> {{ 'RawMaterialsToBeReceived' | abpLocalization }}
+            <i class="fa fa-cubes-stacked me-1"></i> {{ '::RawMaterialsToBeReceived' | abpLocalization }}
           </button>
         </li>
         <li class="nav-item">
@@ -110,7 +110,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
             [class.active]="activeTab() === 'summary'"
             (click)="switchTab('summary')"
           >
-            <i class="fa fa-table-list me-1"></i> {{ 'OrderSummary' | abpLocalization }}
+            <i class="fa fa-table-list me-1"></i> {{ '::OrderSummary' | abpLocalization }}
           </button>
         </li>
       </ul>
@@ -118,7 +118,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
       @if (loading()) {
         <div class="text-center py-5">
           <i class="fa fa-spinner fa-spin fa-2x text-primary"></i>
-          <p class="mt-2 text-muted">{{ 'Loading' | abpLocalization }}...</p>
+          <p class="mt-2 text-muted">{{ '::Loading' | abpLocalization }}...</p>
         </div>
       } @else {
         <!-- TAB 1: Items to be Delivered -->
@@ -130,7 +130,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-primary">{{ rep.totalOrderQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'OrderQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::OrderQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -138,7 +138,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-info">{{ rep.totalProducedQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'ProducedQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::ProducedQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -146,7 +146,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-success">{{ rep.totalDeliveredQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'DeliveredQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::DeliveredQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -154,7 +154,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-warning">{{ rep.totalPendingQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'PendingQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::PendingQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -166,16 +166,16 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <table class="table table-hover table-sm align-middle mb-0">
                   <thead class="table-light">
                     <tr>
-                      <th>{{ 'OrderNumber' | abpLocalization }}</th>
-                      <th>{{ 'Date' | abpLocalization }}</th>
-                      <th>{{ 'Supplier' | abpLocalization }}</th>
-                      <th>{{ 'ItemCode' | abpLocalization }}</th>
-                      <th>{{ 'ItemName' | abpLocalization }}</th>
-                      <th>{{ 'Uom' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'OrderQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'ProducedQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
+                      <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                      <th>{{ '::Date' | abpLocalization }}</th>
+                      <th>{{ '::Supplier' | abpLocalization }}</th>
+                      <th>{{ '::ItemCode' | abpLocalization }}</th>
+                      <th>{{ '::ItemName' | abpLocalization }}</th>
+                      <th>{{ '::Uom' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::OrderQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::DeliveredQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -199,7 +199,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                     } @empty {
                       <tr>
                         <td colspan="10" class="text-center py-4 text-muted">
-                          {{ 'NoDataAvailable' | abpLocalization }}
+                          {{ '::NoDataAvailable' | abpLocalization }}
                         </td>
                       </tr>
                     }
@@ -219,7 +219,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-5 fw-bold text-primary">{{ rep.totalRequiredQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'RequiredQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::RequiredQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -227,7 +227,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-5 fw-bold text-danger">{{ rep.totalProcessLossQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'ProcessLossQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::ProcessLossQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -235,7 +235,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-5 fw-bold text-success">{{ rep.totalReceivedQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'ReceivedQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::ReceivedQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -243,7 +243,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-5 fw-bold text-secondary">{{ rep.totalReturnedQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'ReturnedQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::ReturnedQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -251,7 +251,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-5 fw-bold text-warning">{{ rep.totalPendingQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'PendingQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::PendingQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -263,17 +263,17 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <table class="table table-hover table-sm align-middle mb-0">
                   <thead class="table-light">
                     <tr>
-                      <th>{{ 'OrderNumber' | abpLocalization }}</th>
-                      <th>{{ 'Date' | abpLocalization }}</th>
-                      <th>{{ 'Supplier' | abpLocalization }}</th>
-                      <th>{{ 'FinishedGood' | abpLocalization }}</th>
-                      <th>{{ 'RawMaterial' | abpLocalization }}</th>
-                      <th>{{ 'Uom' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'ProcessLossQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'ReceivedQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'ReturnedQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
+                      <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                      <th>{{ '::Date' | abpLocalization }}</th>
+                      <th>{{ '::Supplier' | abpLocalization }}</th>
+                      <th>{{ '::FinishedGood' | abpLocalization }}</th>
+                      <th>{{ '::RawMaterial' | abpLocalization }}</th>
+                      <th>{{ '::Uom' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ProcessLossQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ReturnedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -304,7 +304,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                     } @empty {
                       <tr>
                         <td colspan="11" class="text-center py-4 text-muted">
-                          {{ 'NoDataAvailable' | abpLocalization }}
+                          {{ '::NoDataAvailable' | abpLocalization }}
                         </td>
                       </tr>
                     }
@@ -324,7 +324,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-primary">{{ rep.totalOrderQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'OrderQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::OrderQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -332,7 +332,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-success">{{ rep.totalDeliveredQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'DeliveredQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::DeliveredQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -340,7 +340,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-warning">{{ rep.totalPendingQty | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'PendingQty' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::PendingQty' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -348,7 +348,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <div class="card text-center border-0 shadow-sm">
                   <div class="card-body py-2">
                     <div class="fs-4 fw-bold text-secondary">{{ rep.totalAmount | number:'1.2-2' }}</div>
-                    <div class="text-muted small">{{ 'TotalAmount' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::TotalAmount' | abpLocalization }}</div>
                   </div>
                 </div>
               </div>
@@ -360,18 +360,18 @@ type ReportTab = 'items' | 'materials' | 'summary';
                 <table class="table table-hover table-sm align-middle mb-0">
                   <thead class="table-light">
                     <tr>
-                      <th>{{ 'OrderNumber' | abpLocalization }}</th>
-                      <th>{{ 'Date' | abpLocalization }}</th>
-                      <th>{{ 'Supplier' | abpLocalization }}</th>
-                      <th>{{ 'Status' | abpLocalization }}</th>
-                      <th>{{ 'ItemCode' | abpLocalization }}</th>
-                      <th>{{ 'ItemName' | abpLocalization }}</th>
-                      <th>{{ 'Uom' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'OrderQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                      <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                      <th>{{ '::Date' | abpLocalization }}</th>
+                      <th>{{ '::Supplier' | abpLocalization }}</th>
+                      <th>{{ '::Status' | abpLocalization }}</th>
+                      <th>{{ '::ItemCode' | abpLocalization }}</th>
+                      <th>{{ '::ItemName' | abpLocalization }}</th>
+                      <th>{{ '::Uom' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::OrderQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::DeliveredQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -397,7 +397,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
                     } @empty {
                       <tr>
                         <td colspan="12" class="text-center py-4 text-muted">
-                          {{ 'NoDataAvailable' | abpLocalization }}
+                          {{ '::NoDataAvailable' | abpLocalization }}
                         </td>
                       </tr>
                     }

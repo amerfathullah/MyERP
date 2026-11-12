@@ -33,7 +33,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         </div></div>
         <div class="d-flex justify-content-end gap-2 mt-3">
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

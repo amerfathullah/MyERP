@@ -12,10 +12,10 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'LoyaltyPrograms' | abpLocalization">
+    <abp-page [title]="'::LoyaltyPrograms' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/loyalty-programs/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewLoyaltyProgram' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewLoyaltyProgram' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -24,17 +24,17 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
       @if (!isLoading && programs.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-gift fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoLoyaltyProgramsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoLoyaltyProgramsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'ConversionFactor' | abpLocalization }}</th>
-              <th>{{ 'ExpiryDays' | abpLocalization }}</th>
-              <th>{{ 'Tiers' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::ConversionFactor' | abpLocalization }}</th>
+              <th>{{ '::ExpiryDays' | abpLocalization }}</th>
+              <th>{{ '::Tiers' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (p of programs; track p.id) {

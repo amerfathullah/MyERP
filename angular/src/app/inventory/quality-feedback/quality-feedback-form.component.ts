@@ -16,21 +16,21 @@ import type { CreateQualityFeedbackDto, QualityFeedbackTemplateDto } from '../..
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewQualityFeedback' | abpLocalization">
+    <abp-page [title]="'::NewQualityFeedback' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'DocumentType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="documentType" (ngModelChange)="onDocumentTypeChange()">
               <option [ngValue]="0">User</option>
               <option [ngValue]="1">Customer</option>
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'DocumentName' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::DocumentName' | abpLocalization }} *</label>
             @if (documentType === 1) {
               <select class="form-select" [(ngModel)]="documentName">
-                <option value="">-- {{ 'SelectCustomer' | abpLocalization }} --</option>
+                <option value="">-- {{ '::SelectCustomer' | abpLocalization }} --</option>
                 @for (c of availableCustomers(); track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
@@ -40,7 +40,7 @@ import type { CreateQualityFeedbackDto, QualityFeedbackTemplateDto } from '../..
             }
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'QualityFeedbackTemplate' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::QualityFeedbackTemplate' | abpLocalization }} *</label>
             <select class="form-select" [(ngModel)]="templateId" (ngModelChange)="onTemplateChange()">
               <option value="">-- Select --</option>
               @for (t of templates(); track t.id) {
@@ -56,10 +56,10 @@ import type { CreateQualityFeedbackDto, QualityFeedbackTemplateDto } from '../..
 
         @if (parameterRows.length > 0) {
           <div class="card bg-light mb-3">
-            <div class="card-header py-2"><span class="fw-semibold">{{ 'Rating' | abpLocalization }}</span></div>
+            <div class="card-header py-2"><span class="fw-semibold">{{ '::Rating' | abpLocalization }}</span></div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
-                <thead><tr><th>Parameter</th><th style="width:200px">{{ 'Rating' | abpLocalization }} (1-5)</th><th>{{ '::Remarks' | abpLocalization }}</th></tr></thead>
+                <thead><tr><th>Parameter</th><th style="width:200px">{{ '::Rating' | abpLocalization }} (1-5)</th><th>{{ '::Remarks' | abpLocalization }}</th></tr></thead>
                 <tbody>
                   @for (row of parameterRows; track row.parameter) {
                     <tr>

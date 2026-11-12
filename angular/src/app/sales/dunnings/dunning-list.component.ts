@@ -18,7 +18,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Dunnings' | abpLocalization">
+    <abp-page [title]="'::Dunnings' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
 
       <!-- Auto-Generate Dunnings panel -->
@@ -60,25 +60,25 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-bell fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoDunningsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoDunningsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Customer' | abpLocalization }}</th>
-              <th>{{ 'Level' | abpLocalization }}</th>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-              <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Customer' | abpLocalization }}</th>
+              <th>{{ '::Level' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+              <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th>{{ '::Actions' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (d of items; track d.id) {
                 <tr>
                   <td>{{ d.customerName ?? '—' }}</td>
-                  <td><span class="badge bg-warning">{{ 'Level' | abpLocalization }} {{ d.dunningLevel }}</span></td>
+                  <td><span class="badge bg-warning">{{ '::Level' | abpLocalization }} {{ d.dunningLevel }}</span></td>
                   <td>{{ d.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end">{{ d.totalOutstanding | number:'1.2-2' }}</td>
                   <td class="text-end fw-bold">{{ d.grandTotal | number:'1.2-2' }}</td>

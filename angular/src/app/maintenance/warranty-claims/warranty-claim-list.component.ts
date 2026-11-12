@@ -17,7 +17,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [PaginationComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'WarrantyClaims' | abpLocalization">
+    <abp-page [title]="'::WarrantyClaims' | abpLocalization">
       <div class="d-flex justify-content-between mb-3">
         <div class="d-flex gap-2">
           <input type="text" class="form-control form-control-sm" style="max-width: 250px"
@@ -25,7 +25,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
           <select class="form-select form-select-sm" style="max-width: 160px"
             [(ngModel)]="statusFilter" (ngModelChange)="onSearch()">
-            <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+            <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
             <option value="0">Open</option>
             <option value="1">Work In Progress</option>
             <option value="2">Closed</option>
@@ -33,16 +33,16 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </select>
         </div>
         <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
-          <i class="fa fa-plus me-1"></i>{{ 'NewWarrantyClaim' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewWarrantyClaim' | abpLocalization }}
         </button>
       </div>
 
       @if (showCreateForm) {
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'NewWarrantyClaim' | abpLocalization }}</h6>
+          <h6>{{ '::NewWarrantyClaim' | abpLocalization }}</h6>
           <div class="row g-2">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Customer' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newClaim.customerId">
                 <option value="">{{ '::Select' | abpLocalization }}</option>
                 @for (c of customers(); track c.id) {
@@ -51,7 +51,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'Item' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Item' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newClaim.itemId">
                 <option value="">{{ '::Select' | abpLocalization }}</option>
                 @for (i of items(); track i.id) {
@@ -60,22 +60,22 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'ComplaintDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ComplaintDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="newClaim.complaintDate">
             </div>
           </div>
           <div class="row g-2 mt-1">
             <div class="col-md-12">
-              <label class="form-label">{{ 'Complaint' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Complaint' | abpLocalization }}</label>
               <textarea class="form-control form-control-sm" rows="2" [(ngModel)]="newClaim.complaint"></textarea>
             </div>
           </div>
           <div class="mt-2">
             <button class="btn btn-success btn-sm me-2" (click)="create()">
-              <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" (click)="showCreateForm = false">
-              {{ 'Cancel' | abpLocalization }}
+              {{ '::Cancel' | abpLocalization }}
             </button>
           </div>
         </div></div>
@@ -87,18 +87,18 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
       @if (!isLoading && claims.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-shield-halved fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoWarrantyClaimsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoWarrantyClaimsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'ClaimNumber' | abpLocalization }}</th>
-              <th>{{ 'Customer' | abpLocalization }}</th>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'ComplaintDate' | abpLocalization }}</th>
-              <th>{{ 'Warranty' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::ClaimNumber' | abpLocalization }}</th>
+              <th>{{ '::Customer' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::ComplaintDate' | abpLocalization }}</th>
+              <th>{{ '::Warranty' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

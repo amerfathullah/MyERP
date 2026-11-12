@@ -17,22 +17,22 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SubcontractingOrders' | abpLocalization">
+    <abp-page [title]="'::SubcontractingOrders' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && orders.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-handshake fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSubcontractingOrdersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSubcontractingOrdersYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'OrderNumber' | abpLocalization }}</th>
-              <th>{{ 'Supplier' | abpLocalization }}</th>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Total' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::OrderNumber' | abpLocalization }}</th>
+              <th>{{ '::Supplier' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (o of orders; track o.id) {

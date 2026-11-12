@@ -15,38 +15,38 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Timesheets' | abpLocalization">
+    <abp-page [title]="'::Timesheets' | abpLocalization">
       <div class="d-flex justify-content-between mb-3">
         <input type="text" class="form-control form-control-sm" style="width:200px"
           [(ngModel)]="searchTerm" (keyup.enter)="loadData()" [placeholder]="'::Placeholder:Search' | abpLocalization">
         <button class="btn btn-primary btn-sm" routerLink="/projects/timesheets/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewTimesheet' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewTimesheet' | abpLocalization }}
         </button>
       </div>
       @if (isLoading()) { <div class="text-center py-3"><i class="fa fa-spinner fa-spin fa-2x"></i></div> }
       @if (!isLoading() && items().length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-clock fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoTimesheetsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoTimesheetsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading()) {
         <div class="table-responsive">
           <table class="table table-hover align-middle">
             <thead>
               <tr>
-                <th>{{ 'Title' | abpLocalization }}</th>
-                <th>{{ 'Employee' | abpLocalization }}</th>
-                <th>{{ 'StartDate' | abpLocalization }}</th>
-                <th>{{ 'EndDate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'TotalHours' | abpLocalization }}</th>
-                <th class="text-end">{{ 'BillingAmount' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Title' | abpLocalization }}</th>
+                <th>{{ '::Employee' | abpLocalization }}</th>
+                <th>{{ '::StartDate' | abpLocalization }}</th>
+                <th>{{ '::EndDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TotalHours' | abpLocalization }}</th>
+                <th class="text-end">{{ '::BillingAmount' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @for (ts of items(); track ts.id) {
                 <tr>
-                  <td><a [routerLink]="['/projects/timesheets', ts.id]" class="text-decoration-none fw-medium">{{ ts.title || ('Timesheet' | abpLocalization) }}</a></td>
+                  <td><a [routerLink]="['/projects/timesheets', ts.id]" class="text-decoration-none fw-medium">{{ ts.title || ('::Timesheet' | abpLocalization) }}</a></td>
                   <td>{{ ts.employeeName ?? ts.employeeId }}</td>
                   <td>{{ ts.startDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ ts.endDate | date:'dd/MM/yyyy' }}</td>

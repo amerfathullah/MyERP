@@ -13,13 +13,13 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ManufacturingSettings' | abpLocalization">
+    <abp-page [title]="'::ManufacturingSettings' | abpLocalization">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
         <form (ngSubmit)="save()">
           <div class="card mb-3"><div class="card-body">
-            <h6 class="card-title">{{ 'Production' | abpLocalization }}</h6>
+            <h6 class="card-title">{{ '::Production' | abpLocalization }}</h6>
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">Overproduction %</label>
@@ -99,7 +99,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div></div>
 
           <button type="submit" class="btn btn-primary" [disabled]="saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </form>
       }

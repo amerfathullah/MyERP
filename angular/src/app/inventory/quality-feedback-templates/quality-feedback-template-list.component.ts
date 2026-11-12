@@ -13,11 +13,11 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityFeedbackTemplates' | abpLocalization">
+    <abp-page [title]="'::QualityFeedbackTemplates' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <a routerLink="/inventory/quality-feedback" class="btn btn-outline-secondary btn-sm">
-            <i class="fa fa-arrow-left me-1"></i>{{ 'QualityFeedbacks' | abpLocalization }}
+            <i class="fa fa-arrow-left me-1"></i>{{ '::QualityFeedbacks' | abpLocalization }}
           </a>
           <a routerLink="/inventory/quality-feedback-templates/new" class="btn btn-primary btn-sm">
             <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}

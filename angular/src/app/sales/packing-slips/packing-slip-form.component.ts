@@ -20,15 +20,15 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
     @if (isLoading) {
       <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
     } @else {
-      <abp-page [title]="'PackingSlip' | abpLocalization">
+      <abp-page [title]="'::PackingSlip' | abpLocalization">
         <div class="card mb-3"><div class="card-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'DeliveryNote' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DeliveryNote' | abpLocalization }}</label>
               <input class="form-control" [value]="$safeNavigationMigration(deliveryNote?.deliveryNumber)" disabled />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'CaseNumbers' | abpLocalization }} From</label>
+              <label class="form-label">{{ '::CaseNumbers' | abpLocalization }} From</label>
               <input type="number" class="form-control" [(ngModel)]="fromCaseNo" min="1" />
             </div>
             <div class="col-md-2">
@@ -36,7 +36,7 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
               <input type="number" class="form-control" [(ngModel)]="toCaseNo" min="1" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'GrossWeight' | abpLocalization }}</label>
+              <label class="form-label">{{ '::GrossWeight' | abpLocalization }}</label>
               <input type="number" class="form-control" [(ngModel)]="grossWeightKg" min="0" step="0.01" />
             </div>
             <div class="col-md-2">
@@ -47,13 +47,13 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
         </div></div>
 
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'Items' | abpLocalization }}</h6>
+          <h6>{{ '::Items' | abpLocalization }}</h6>
           <table class="table table-sm mb-0">
             <thead><tr>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'Description' | abpLocalization }}</th>
-              <th class="text-end" style="width:130px">{{ 'Quantity' | abpLocalization }}</th>
-              <th class="text-end" style="width:150px">{{ 'NetWeight' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-end" style="width:130px">{{ '::Quantity' | abpLocalization }}</th>
+              <th class="text-end" style="width:150px">{{ '::NetWeight' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (row of rows; track row.itemId) {
@@ -73,10 +73,10 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
 
         <div class="d-flex gap-2">
           <button class="btn btn-primary" [disabled]="isSaving || rows.length === 0" (click)="save()">
-            <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
           <button class="btn btn-outline-secondary" (click)="router.navigate(['/sales/delivery-notes', deliveryNoteId])">
-            {{ 'Cancel' | abpLocalization }}
+            {{ '::Cancel' | abpLocalization }}
           </button>
         </div>
       </abp-page>

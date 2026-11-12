@@ -28,7 +28,7 @@ const STATUS_LABELS = ['Scheduled', 'In Progress', 'Completed', 'Unsubscribed'];
               <th>{{ '::Recipient' | abpLocalization }}</th>
               <th>{{ '::StartDate' | abpLocalization }}</th>
               <th>{{ '::EndDate' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

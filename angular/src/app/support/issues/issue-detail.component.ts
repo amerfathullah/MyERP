@@ -15,16 +15,16 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Issues' | abpLocalization">
+    <abp-page [title]="'::Issues' | abpLocalization">
   <app-breadcrumb />
       @if (d) {
         <div class="card"><div class="card-body">
           <h5>{{ d.subject }}</h5>
           <div class="row mt-3">
-            <div class="col-md-3"><strong>{{ 'Priority' | abpLocalization }}:</strong> {{ d.priority }}</div>
-            <div class="col-md-3"><strong>{{ 'Status' | abpLocalization }}:</strong> <span class="badge bg-info">{{ ['Open','Replied','On Hold','Closed','Cancelled'][d.status ?? 0] }}</span></div>
-            <div class="col-md-3"><strong>{{ 'Type' | abpLocalization }}:</strong> {{ d.issueType ?? '—' }}</div>
-            <div class="col-md-3"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.creationTime | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-3"><strong>{{ '::Priority' | abpLocalization }}:</strong> {{ d.priority }}</div>
+            <div class="col-md-3"><strong>{{ '::Status' | abpLocalization }}:</strong> <span class="badge bg-info">{{ ['Open','Replied','On Hold','Closed','Cancelled'][d.status ?? 0] }}</span></div>
+            <div class="col-md-3"><strong>{{ '::Type' | abpLocalization }}:</strong> {{ d.issueType ?? '—' }}</div>
+            <div class="col-md-3"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ d.creationTime | date:'dd/MM/yyyy' }}</div>
           </div>
           @if (d.serviceLevelAgreementId) {
             <div class="row mt-2">
@@ -37,23 +37,23 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <div class="col-md-3"><strong>{{ '::ResolveBy' | abpLocalization }}:</strong> {{ d.resolutionByDate ? (d.resolutionByDate | date:'dd/MM/yyyy HH:mm') : '—' }}</div>
             </div>
           }
-          @if (d.description) { <div class="mt-3"><strong>{{ 'Description' | abpLocalization }}:</strong><p class="mt-1">{{ d.description }}</p></div> }
+          @if (d.description) { <div class="mt-3"><strong>{{ '::Description' | abpLocalization }}:</strong><p class="mt-1">{{ d.description }}</p></div> }
           <div class="mt-3 d-flex gap-2">
             @if (d.status === 0) { <button class="btn btn-sm btn-success" [disabled]="busy" (click)="action('reply')"><i class="fa fa-reply me-1"></i>Reply</button> }
             @if ((d.status ?? 0) < 3) { <button class="btn btn-sm btn-primary" [disabled]="busy" (click)="action('resolve')"><i class="fa fa-check me-1"></i>Resolve</button> }
-            @if (d.status === 0 || d.status === 1) { <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="action('hold')"><i class="fa fa-pause me-1"></i>{{ 'Hold' | abpLocalization }}</button> }
-            @if (d.status === 1 || d.status === 2 || d.status === 3) { <button class="btn btn-sm btn-outline-primary" [disabled]="busy" (click)="action('reopen')"><i class="fa fa-rotate-left me-1"></i>{{ 'Reopen' | abpLocalization }}</button> }
-            <button class="btn btn-sm btn-outline-secondary" [disabled]="busy" (click)="showSplitPrompt = !showSplitPrompt"><i class="fa fa-code-branch me-1"></i>{{ 'Split' | abpLocalization }}</button>
+            @if (d.status === 0 || d.status === 1) { <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="action('hold')"><i class="fa fa-pause me-1"></i>{{ '::Hold' | abpLocalization }}</button> }
+            @if (d.status === 1 || d.status === 2 || d.status === 3) { <button class="btn btn-sm btn-outline-primary" [disabled]="busy" (click)="action('reopen')"><i class="fa fa-rotate-left me-1"></i>{{ '::Reopen' | abpLocalization }}</button> }
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="busy" (click)="showSplitPrompt = !showSplitPrompt"><i class="fa fa-code-branch me-1"></i>{{ '::Split' | abpLocalization }}</button>
             @if (d.serviceLevelAgreementId) {
               <button class="btn btn-sm btn-outline-warning" [disabled]="busy" (click)="showResetSlaPrompt = !showResetSlaPrompt"><i class="fa fa-rotate me-1"></i>{{ '::ResetSla' | abpLocalization }}</button>
             }
           </div>
           @if (showSplitPrompt) {
             <div class="mt-3 p-3 border rounded">
-              <label class="form-label">{{ 'Subject' | abpLocalization }}</label>
-              <input class="form-control mb-2" [(ngModel)]="splitSubject" [placeholder]="'Subject' | abpLocalization" />
-              <button class="btn btn-sm btn-primary me-2" [disabled]="busy || !splitSubject.trim()" (click)="action('split')">{{ 'Confirm' | abpLocalization }}</button>
-              <button class="btn btn-sm btn-outline-secondary" (click)="showSplitPrompt = false">{{ 'Cancel' | abpLocalization }}</button>
+              <label class="form-label">{{ '::Subject' | abpLocalization }}</label>
+              <input class="form-control mb-2" [(ngModel)]="splitSubject" [placeholder]="'::Subject' | abpLocalization" />
+              <button class="btn btn-sm btn-primary me-2" [disabled]="busy || !splitSubject.trim()" (click)="action('split')">{{ '::Confirm' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="showSplitPrompt = false">{{ '::Cancel' | abpLocalization }}</button>
             </div>
           }
           @if (showResetSlaPrompt) {
@@ -61,9 +61,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <label class="form-label">{{ '::ResetReason' | abpLocalization }}</label>
               <input class="form-control mb-2" [(ngModel)]="resetSlaReason" [placeholder]="'::ResetReason' | abpLocalization" />
               <label class="form-label">{{ '::NewPriorityOptional' | abpLocalization }}</label>
-              <input class="form-control mb-2" [(ngModel)]="resetSlaNewPriority" [placeholder]="'Priority' | abpLocalization" />
-              <button class="btn btn-sm btn-warning me-2" [disabled]="busy || !resetSlaReason.trim()" (click)="action('resetSla')">{{ 'Confirm' | abpLocalization }}</button>
-              <button class="btn btn-sm btn-outline-secondary" (click)="showResetSlaPrompt = false">{{ 'Cancel' | abpLocalization }}</button>
+              <input class="form-control mb-2" [(ngModel)]="resetSlaNewPriority" [placeholder]="'::Priority' | abpLocalization" />
+              <button class="btn btn-sm btn-warning me-2" [disabled]="busy || !resetSlaReason.trim()" (click)="action('resetSla')">{{ '::Confirm' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="showResetSlaPrompt = false">{{ '::Cancel' | abpLocalization }}</button>
             </div>
           }
         </div></div>

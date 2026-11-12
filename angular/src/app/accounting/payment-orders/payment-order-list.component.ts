@@ -29,7 +29,7 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled'];
               <th>{{ '::PostingDate' | abpLocalization }}</th>
               <th>{{ '::Type' | abpLocalization }}</th>
               <th>{{ '::References' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

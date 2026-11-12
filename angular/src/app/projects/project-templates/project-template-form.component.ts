@@ -25,29 +25,29 @@ function newKey(): string {
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewProjectTemplate') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewProjectTemplate') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'TemplateName' | abpLocalization }}</label>
+            <label class="form-label">{{ '::TemplateName' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.templateName" />
           </div>
           <div class="col-md-6 d-flex align-items-end">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="disabled" [(ngModel)]="form.disabled" />
-              <label class="form-check-label" for="disabled">{{ 'Disabled' | abpLocalization }}</label>
+              <label class="form-check-label" for="disabled">{{ '::Disabled' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Tasks' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Tasks' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th style="min-width:200px">{{ 'TaskSubject' | abpLocalization }}</th>
-            <th style="width:100px">{{ 'TaskWeight' | abpLocalization }}</th>
-            <th style="width:120px">{{ 'ExpectedHours' | abpLocalization }}</th>
-            <th style="width:90px" class="text-center">{{ 'IsMilestone' | abpLocalization }}</th>
-            <th style="min-width:220px">{{ 'DependsOn' | abpLocalization }}</th>
+            <th style="min-width:200px">{{ '::TaskSubject' | abpLocalization }}</th>
+            <th style="width:100px">{{ '::TaskWeight' | abpLocalization }}</th>
+            <th style="width:120px">{{ '::ExpectedHours' | abpLocalization }}</th>
+            <th style="width:90px" class="text-center">{{ '::IsMilestone' | abpLocalization }}</th>
+            <th style="min-width:220px">{{ '::DependsOn' | abpLocalization }}</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -67,7 +67,7 @@ function newKey(): string {
                     }
                   </div>
                   <select class="form-select form-select-sm mt-1" (change)="addDependency(row, $any($event.target).value); $any($event.target).value=''">
-                    <option value="">-- {{ 'AddItem' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::AddItem' | abpLocalization }} --</option>
                     @for (other of otherTasks(row); track other.key) { <option [value]="other.key">{{ other.subject }}</option> }
                   </select>
                 </td>
@@ -76,11 +76,11 @@ function newKey(): string {
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addTask()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addTask()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/projects/templates">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !form.templateName"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/projects/templates">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !form.templateName"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

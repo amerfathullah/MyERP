@@ -24,26 +24,26 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'ConversionFactor' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::ConversionFactor' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ program.conversionFactor }}</div>
               <div class="text-muted small">amount per point</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'ExpiryDays' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::ExpiryDays' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ program.expiryDurationDays > 0 ? program.expiryDurationDays : '∞' }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Tiers' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Tiers' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ program.tiers?.length ?? 0 }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="program.isEnabled ? 'bg-success' : 'bg-secondary'">
                 {{ program.isEnabled ? 'Active' : 'Disabled' }}
               </span>
@@ -51,11 +51,11 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
           </div>
         </div>
 
-        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ 'Tiers' | abpLocalization }}</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::Tiers' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'TierName' | abpLocalization }}</th>
+                <th>{{ '::TierName' | abpLocalization }}</th>
                 <th class="text-end">Min Spent</th>
                 <th class="text-end">Collection Factor</th>
                 <th class="text-end">Redemption Factor</th>
@@ -84,7 +84,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
         }
 
         <div class="card">
-          <div class="card-header"><h6 class="mb-0">{{ 'CustomerBalanceLookup' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="mb-0">{{ '::CustomerBalanceLookup' | abpLocalization }}</h6></div>
           <div class="card-body">
             <div class="row g-2 align-items-end mb-3">
               <div class="col-md-6">
@@ -107,19 +107,19 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <div class="card text-center h-100"><div class="card-body">
-                    <div class="text-muted small">{{ 'AvailablePoints' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::AvailablePoints' | abpLocalization }}</div>
                     <div class="fs-4 fw-bold">{{ balance.availablePoints }}</div>
                   </div></div>
                 </div>
                 <div class="col-md-4">
                   <div class="card text-center h-100"><div class="card-body">
-                    <div class="text-muted small">{{ 'CurrentTier' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::CurrentTier' | abpLocalization }}</div>
                     <div class="fs-4 fw-bold">{{ balance.currentTier ?? '—' }}</div>
                   </div></div>
                 </div>
                 <div class="col-md-4">
                   <div class="card text-center h-100"><div class="card-body">
-                    <div class="text-muted small">{{ 'RedemptionValue' | abpLocalization }}</div>
+                    <div class="text-muted small">{{ '::RedemptionValue' | abpLocalization }}</div>
                     <div class="fs-4 fw-bold">{{ balance.redemptionValue | number:'1.2-2' }}</div>
                   </div></div>
                 </div>
@@ -127,21 +127,21 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
 
               <div class="d-flex gap-2 align-items-end mb-3">
                 <div>
-                  <label class="form-label">{{ 'PointsToRedeem' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::PointsToRedeem' | abpLocalization }}</label>
                   <input type="number" min="1" [max]="balance.availablePoints ?? null" class="form-control form-control-sm" [(ngModel)]="pointsToRedeem" />
                 </div>
                 <button class="btn btn-outline-success btn-sm" [disabled]="!pointsToRedeem || pointsToRedeem <= 0 || redeeming" (click)="redeemPoints()">
-                  <i class="fa fa-gift me-1"></i>{{ 'RedeemPoints' | abpLocalization }}
+                  <i class="fa fa-gift me-1"></i>{{ '::RedeemPoints' | abpLocalization }}
                 </button>
               </div>
 
-              <h6>{{ 'PointHistory' | abpLocalization }}</h6>
+              <h6>{{ '::PointHistory' | abpLocalization }}</h6>
               <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0">
                   <thead><tr>
                     <th>{{ '::Date' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Points' | abpLocalization }}</th>
-                    <th>{{ 'TierName' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Points' | abpLocalization }}</th>
+                    <th>{{ '::TierName' | abpLocalization }}</th>
                     <th>{{ '::Status' | abpLocalization }}</th>
                   </tr></thead>
                   <tbody>

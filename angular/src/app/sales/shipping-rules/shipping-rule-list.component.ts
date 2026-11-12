@@ -12,10 +12,10 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ShippingRules' | abpLocalization">
+    <abp-page [title]="'::ShippingRules' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/shipping-rules/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewShippingRule' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewShippingRule' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -24,18 +24,18 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && rules.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-truck fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoShippingRulesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoShippingRulesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Label' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'Mode' | abpLocalization }}</th>
-              <th>{{ 'Amount' | abpLocalization }}</th>
-              <th>{{ 'Countries' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Label' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::Mode' | abpLocalization }}</th>
+              <th>{{ '::Amount' | abpLocalization }}</th>
+              <th>{{ '::Countries' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

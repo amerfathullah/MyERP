@@ -13,15 +13,15 @@ import type { WorkstationTypeDto } from '../../proxy/manufacturing/models';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? 'EditWorkstation' : 'NewWorkstation') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditWorkstation' : '::NewWorkstation') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="onWorkstationTypeChange($event)" [(ngModel)]="form.workstationTypeId">
               <option [ngValue]="null">{{ '::None' | abpLocalization }}</option>
               @for (t of workstationTypes; track t.id) {
@@ -30,14 +30,14 @@ import type { WorkstationTypeDto } from '../../proxy/manufacturing/models';
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Capacity' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Capacity' | abpLocalization }}</label>
             <input type="number" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.productionCapacity" min="1" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'CostComponents' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::CostComponents' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Component' | abpLocalization }}</th><th>Cost/Hour</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Component' | abpLocalization }}</th><th>Cost/Hour</th><th></th></tr></thead>
           <tbody>
             @for (c of form.costs; track $index) {
               <tr>
@@ -48,13 +48,13 @@ import type { WorkstationTypeDto } from '../../proxy/manufacturing/models';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.costs.push({component:'',operatingCost:0})"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.costs.push({component:'',operatingCost:0})"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-between">
-          <span class="fw-bold">{{ 'HourRate' | abpLocalization }}: {{ getHourRate() | number:'1.2-2' }}</span>
+          <span class="fw-bold">{{ '::HourRate' | abpLocalization }}: {{ getHourRate() | number:'1.2-2' }}</span>
           <div class="d-flex gap-2">
-            <a class="btn btn-secondary" routerLink="/manufacturing/workstations">{{ 'Cancel' | abpLocalization }}</a>
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <a class="btn btn-secondary" routerLink="/manufacturing/workstations">{{ '::Cancel' | abpLocalization }}</a>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>

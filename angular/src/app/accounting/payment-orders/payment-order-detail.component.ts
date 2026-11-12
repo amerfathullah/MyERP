@@ -30,7 +30,7 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled'];
           </div>
 
           <table class="table table-sm mt-3">
-            <thead><tr><th>{{ '::ReferenceType' | abpLocalization }}</th><th>{{ '::ReferenceId' | abpLocalization }}</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ '::ModeOfPayment' | abpLocalization }}</th></tr></thead>
+            <thead><tr><th>{{ '::ReferenceType' | abpLocalization }}</th><th>{{ '::ReferenceId' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::ModeOfPayment' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (r of d.references; track r.id) {
                 <tr><td>{{ r.referenceType }}</td><td>{{ r.referenceId }}</td><td>{{ r.amount }}</td><td>{{ r.modeOfPayment ?? '—' }}</td></tr>
@@ -39,7 +39,7 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled'];
           </table>
 
           <div class="mt-3 d-flex gap-2">
-            @if (d.status === 0) { <button class="btn btn-sm btn-success" (click)="submit()"><i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}</button> }
+            @if (d.status === 0) { <button class="btn btn-sm btn-success" (click)="submit()"><i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}</button> }
             @if (d.status === 1) {
               @for (supplierId of distinctSuppliers(); track supplierId) {
                 <button class="btn btn-sm btn-primary" (click)="makePaymentRecords(supplierId)">
@@ -49,7 +49,7 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled'];
               <button class="btn btn-sm btn-outline-primary" [disabled]="generatingBankFile" (click)="generateBankFile()">
                 <i class="fa fa-file-arrow-down me-1"></i>{{ '::GenerateBankFile' | abpLocalization }}
               </button>
-              <button class="btn btn-sm btn-outline-danger" (click)="cancel()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-sm btn-outline-danger" (click)="cancel()"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             }
           </div>
         </div></div>

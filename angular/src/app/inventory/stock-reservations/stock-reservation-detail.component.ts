@@ -17,7 +17,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="'StockReservationEntry' | abpLocalization">
+    <abp-page [title]="'::StockReservationEntry' | abpLocalization">
       @if (isLoading()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (entry(); as e) {
@@ -25,25 +25,25 @@ import { ItemService } from '../../proxy/inventory/item.service';
         <div class="row mb-3">
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
               <span class="badge mt-1" [class]="getStatusClass(e.status)">{{ getStatusName(e.status) }}</span>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'ReservedQty' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::ReservedQty' | abpLocalization }}</small>
               <h4 class="mb-0">{{ e.reservedQty | number:'1.0-2' }}</h4>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'DeliveredQty' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::DeliveredQty' | abpLocalization }}</small>
               <h4 class="mb-0">{{ e.deliveredQty | number:'1.0-2' }}</h4>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'AvailableQty' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::AvailableQty' | abpLocalization }}</small>
               <h4 class="mb-0" [class]="(e.availableQty > 0) ? 'text-success' : 'text-danger'">
                 {{ e.availableQty | number:'1.0-2' }}
               </h4>
@@ -53,14 +53,14 @@ import { ItemService } from '../../proxy/inventory/item.service';
 
         <!-- Fulfillment Progress -->
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'FulfillmentProgress' | abpLocalization }}</h6>
+          <h6>{{ '::FulfillmentProgress' | abpLocalization }}</h6>
           <div class="progress" style="height: 24px">
             @if (e.reservedQty > 0) {
               <div class="progress-bar bg-success" [style.width.%]="(e.deliveredQty / e.reservedQty * 100)">
-                {{ 'Delivered' | abpLocalization }}: {{ e.deliveredQty | number:'1.0-2' }}
+                {{ '::Delivered' | abpLocalization }}: {{ e.deliveredQty | number:'1.0-2' }}
               </div>
               <div class="progress-bar bg-info" [style.width.%]="(e.availableQty / e.reservedQty * 100)">
-                {{ 'Available' | abpLocalization }}: {{ e.availableQty | number:'1.0-2' }}
+                {{ '::Available' | abpLocalization }}: {{ e.availableQty | number:'1.0-2' }}
               </div>
             }
           </div>
@@ -68,18 +68,18 @@ import { ItemService } from '../../proxy/inventory/item.service';
 
         <!-- Details Card -->
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'ReservationDetails' | abpLocalization }}</h6>
+          <h6>{{ '::ReservationDetails' | abpLocalization }}</h6>
           <div class="row">
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
-                <tr><td class="text-muted" style="width:40%">{{ 'Item' | abpLocalization }}</td><td><strong>{{ itemName() || e.itemId || '...' }}</strong></td></tr>
-                <tr><td class="text-muted">{{ 'Warehouse' | abpLocalization }}</td><td>{{ warehouseName() || e.warehouseId || '...' }}</td></tr>
+                <tr><td class="text-muted" style="width:40%">{{ '::Item' | abpLocalization }}</td><td><strong>{{ itemName() || e.itemId || '...' }}</strong></td></tr>
+                <tr><td class="text-muted">{{ '::Warehouse' | abpLocalization }}</td><td>{{ warehouseName() || e.warehouseId || '...' }}</td></tr>
               </table>
             </div>
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
-                <tr><td class="text-muted" style="width:40%">{{ 'VoucherType' | abpLocalization }}</td><td>{{ e.voucherType || '—' }}</td></tr>
-                <tr><td class="text-muted">{{ 'VoucherId' | abpLocalization }}</td>
+                <tr><td class="text-muted" style="width:40%">{{ '::VoucherType' | abpLocalization }}</td><td>{{ e.voucherType || '—' }}</td></tr>
+                <tr><td class="text-muted">{{ '::VoucherId' | abpLocalization }}</td>
                   <td>
                     @if (e.voucherId && e.voucherType === 'SalesOrder') {
                       <a [routerLink]="['/sales/orders', e.voucherId]">{{ e.voucherNumber || e.voucherId }}</a>
@@ -88,7 +88,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
                     }
                   </td>
                 </tr>
-                <tr><td class="text-muted">{{ 'Created' | abpLocalization }}</td><td>{{ e.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
+                <tr><td class="text-muted">{{ '::Created' | abpLocalization }}</td><td>{{ e.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
               </table>
             </div>
           </div>
@@ -98,7 +98,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
         <div class="d-flex gap-2 mb-3">
           @if (e.status === 1) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancelEntry()">
-              <i class="fa fa-times me-1"></i>{{ 'CancelReservation' | abpLocalization }}
+              <i class="fa fa-times me-1"></i>{{ '::CancelReservation' | abpLocalization }}
             </button>
           }
         </div>

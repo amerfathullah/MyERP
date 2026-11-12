@@ -25,23 +25,23 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
           <app-status-badge [status]="STATUS[note.status ?? 0]" />
           <div class="btn-group btn-group-sm">
             @if (note.status === 0) {
-              <button class="btn btn-outline-success" (click)="submit()"><i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}</button>
-              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-outline-success" (click)="submit()"><i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}</button>
+              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             }
             @if (note.status === 1) {
-              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             }
           </div>
         </div>
 
         <div class="card mb-3"><div class="card-body">
           <div class="row">
-            <div class="col-md-4"><strong>{{ 'Customer' | abpLocalization }}:</strong> {{ note.customerId ?? '—' }}</div>
+            <div class="col-md-4"><strong>{{ '::Customer' | abpLocalization }}:</strong> {{ note.customerId ?? '—' }}</div>
             <div class="col-md-4"><strong>Installation Date:</strong> {{ note.installationDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-4"><strong>Delivery Note:</strong> {{ note.deliveryNoteId ?? '—' }}</div>
           </div>
           @if (note.remarks) {
-            <div class="mt-2"><strong>{{ 'Remarks' | abpLocalization }}:</strong> {{ note.remarks }}</div>
+            <div class="mt-2"><strong>{{ '::Remarks' | abpLocalization }}:</strong> {{ note.remarks }}</div>
           }
         </div></div>
 
@@ -50,8 +50,8 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
             <h6 class="card-title">Installed Items</h6>
             <table class="table table-sm mb-0">
               <thead><tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                 <th>Serial No</th>
               </tr></thead>
               <tbody>

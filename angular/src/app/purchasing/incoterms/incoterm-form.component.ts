@@ -13,26 +13,26 @@ import { IncotermService } from '../../proxy/purchasing/incoterm.service';
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditIncoterm' : 'NewIncoterm') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditIncoterm' : '::NewIncoterm') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">{{ 'Code' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::Code' | abpLocalization }} *</label>
               <input class="form-control" [(ngModel)]="form.code" maxlength="10" />
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'Title' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
               <input class="form-control" [(ngModel)]="form.title" />
             </div>
             <div class="col-md-3">
               <div class="form-check mt-4">
                 <input class="form-check-input" type="checkbox" [(ngModel)]="form.isActive" id="isActive" />
-                <label class="form-check-label" for="isActive">{{ 'Active' | abpLocalization }}</label>
+                <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-12">
-              <label class="form-label">{{ 'Description' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Description' | abpLocalization }}</label>
               <textarea class="form-control" rows="2" [(ngModel)]="form.description"></textarea>
             </div>
           </div>
@@ -40,9 +40,9 @@ import { IncotermService } from '../../proxy/purchasing/incoterm.service';
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-primary" [disabled]="!form.code || !form.title || isSaving()" (click)="save()">
               @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ 'Save' | abpLocalization }}
+              {{ '::Save' | abpLocalization }}
             </button>
-            <a class="btn btn-secondary" routerLink="/purchasing/incoterms">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary" routerLink="/purchasing/incoterms">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </div>
       </div>

@@ -94,9 +94,9 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
 
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">{{ 'SubmitPeriodEvaluation' | abpLocalization }}</h6>
+            <h6 class="mb-0">{{ '::SubmitPeriodEvaluation' | abpLocalization }}</h6>
             <button type="button" class="btn btn-primary btn-sm" (click)="showSubmitPanel = !showSubmitPanel">
-              <i class="fa fa-plus me-1"></i>{{ 'SubmitPeriodEvaluation' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::SubmitPeriodEvaluation' | abpLocalization }}
             </button>
           </div>
           @if (showSubmitPanel) {

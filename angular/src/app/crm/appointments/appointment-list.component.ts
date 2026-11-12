@@ -28,7 +28,7 @@ const STATUS_LABELS = ['Unverified', 'Open', 'Closed'];
               <th>{{ '::Customer' | abpLocalization }}</th>
               <th>{{ '::ScheduledTime' | abpLocalization }}</th>
               <th>{{ '::AssignedAgent' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>

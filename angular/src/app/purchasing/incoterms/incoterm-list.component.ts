@@ -14,12 +14,12 @@ import type { IncotermDto } from '../../proxy/purchasing/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Incoterms' | abpLocalization">
+    <abp-page [title]="'::Incoterms' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'Incoterms' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::Incoterms' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/purchasing/incoterms/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewIncoterm' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewIncoterm' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -28,17 +28,17 @@ import type { IncotermDto } from '../../proxy/purchasing/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-ship fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoIncotermsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoIncotermsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/purchasing/incoterms/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewIncoterm' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewIncoterm' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Code' | abpLocalization }}</th>
-                <th>{{ 'Title' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Code' | abpLocalization }}</th>
+                <th>{{ '::Title' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -48,9 +48,9 @@ import type { IncotermDto } from '../../proxy/purchasing/models';
                     <td>{{ i.title }}</td>
                     <td>
                       @if (i.isActive) {
-                        <span class="badge bg-success">{{ 'Active' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

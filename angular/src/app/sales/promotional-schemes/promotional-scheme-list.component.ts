@@ -16,10 +16,10 @@ import type { PromotionalSchemeDto } from '../../proxy/sales/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'PromotionalSchemes' | abpLocalization">
+    <abp-page [title]="'::PromotionalSchemes' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/promotional-schemes/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewPromotionalScheme' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewPromotionalScheme' | abpLocalization }}
         </button>
       </div>
 
@@ -30,9 +30,9 @@ import type { PromotionalSchemeDto } from '../../proxy/sales/models';
       @if (!isLoading && schemes.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-tags fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoPromotionalSchemesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoPromotionalSchemesYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/sales/promotional-schemes/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewPromotionalScheme' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewPromotionalScheme' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
@@ -41,13 +41,13 @@ import type { PromotionalSchemeDto } from '../../proxy/sales/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Title' | abpLocalization }}</th>
-                  <th>{{ 'ApplyOn' | abpLocalization }}</th>
-                  <th>{{ 'Selling' | abpLocalization }} / {{ 'Buying' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'GeneratedRules' | abpLocalization }}</th>
-                  <th>{{ 'ValidFrom' | abpLocalization }}</th>
-                  <th>{{ 'ValidUpto' | abpLocalization }}</th>
-                  <th>{{ 'IsDisabled' | abpLocalization }}</th>
+                  <th>{{ '::Title' | abpLocalization }}</th>
+                  <th>{{ '::ApplyOn' | abpLocalization }}</th>
+                  <th>{{ '::Selling' | abpLocalization }} / {{ '::Buying' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::GeneratedRules' | abpLocalization }}</th>
+                  <th>{{ '::ValidFrom' | abpLocalization }}</th>
+                  <th>{{ '::ValidUpto' | abpLocalization }}</th>
+                  <th>{{ '::IsDisabled' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

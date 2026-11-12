@@ -12,10 +12,10 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SalesPersons' | abpLocalization">
+    <abp-page [title]="'::SalesPersons' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/sales-persons/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSalesPerson' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSalesPerson' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) {
@@ -24,17 +24,17 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
       @if (!isLoading && persons.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-user-tie fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSalesPersonsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSalesPersonsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'CommissionRate' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'Targets' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::CommissionRate' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::Targets' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (p of persons; track p.id) {

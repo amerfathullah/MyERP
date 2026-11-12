@@ -13,27 +13,27 @@ import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewBudget' | abpLocalization">
+    <abp-page [title]="'::NewBudget' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'FiscalYear' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FiscalYear' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.fiscalYearId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (fy of fiscalYears(); track fy.id) {
                 <option [value]="fy.id">{{ fy.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'BudgetAgainst' | abpLocalization }}</label>
+            <label class="form-label">{{ '::BudgetAgainst' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.budgetAgainst">
-              <option value="CostCenter">{{ 'CostCenter' | abpLocalization }}</option>
+              <option value="CostCenter">{{ '::CostCenter' | abpLocalization }}</option>
               <option value="Project">Project</option>
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'AnnualAction' | abpLocalization }}</label>
+            <label class="form-label">{{ '::AnnualAction' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.actionIfAnnualBudgetExceeded">
               <option [ngValue]="0">Ignore</option>
               <option [ngValue]="1">Warn</option>
@@ -41,7 +41,7 @@ import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'MonthlyAction' | abpLocalization }}</label>
+            <label class="form-label">{{ '::MonthlyAction' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.actionIfAccumulatedMonthlyBudgetExceeded">
               <option [ngValue]="0">Ignore</option>
               <option [ngValue]="1">Warn</option>
@@ -49,15 +49,15 @@ import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
             </select>
           </div>
         </div>
-        <h6>{{ 'Accounts' | abpLocalization }}</h6>
+        <h6>{{ '::Accounts' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Account' | abpLocalization }}</th><th>{{ 'BudgetAmount' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Account' | abpLocalization }}</th><th>{{ '::BudgetAmount' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (a of form.accounts; track $index) {
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="a.accountId">
-                    <option value="">-- {{ 'SelectAccount' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectAccount' | abpLocalization }} --</option>
                     @for (acc of accounts(); track acc.id) {
                       <option [value]="acc.id">{{ acc.accountCode }} — {{ acc.accountName }}</option>
                     }
@@ -69,10 +69,10 @@ import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.accounts.push({accountId:'',budgetAmount:0}); isDirty=true"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.accounts.push({accountId:'',budgetAmount:0}); isDirty=true"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
         <div class="d-flex justify-content-end gap-2">
-          <button class="btn btn-secondary" routerLink="/accounting/budgets">{{ 'Cancel' | abpLocalization }}</button>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <button class="btn btn-secondary" routerLink="/accounting/budgets">{{ '::Cancel' | abpLocalization }}</button>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

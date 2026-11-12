@@ -21,14 +21,14 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="opp()?.title ?? ('Opportunity' | abpLocalization)">
+    <abp-page [title]="opp()?.title ?? ('::Opportunity' | abpLocalization)">
   <app-breadcrumb />
       @if (isLoading()) { <app-loading-overlay /> }
       @if (opp(); as o) {
         <div class="d-flex justify-content-end gap-2 mb-3">
           @if (o.status === 0 || o.status === 1) {
             <a class="btn btn-outline-primary btn-sm" [routerLink]="'/crm/opportunities/' + o.id + '/edit'">
-              <i class="fa fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+              <i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
             </a>
             <button class="btn btn-primary btn-sm" [disabled]="isConverting()" (click)="convertToQuotation()">
               <i class="fa fa-file-invoice me-1"></i>{{ '::ConvertToQuotation' | abpLocalization }}
@@ -63,10 +63,10 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <textarea class="form-control mb-2" rows="2" #lostReasonInput
               [placeholder]="'::LostReason' | abpLocalization"></textarea>
             <button class="btn btn-danger btn-sm me-2" [disabled]="isUpdatingStatus()" (click)="markLost(lostReasonInput.value)">
-              {{ 'Confirm' | abpLocalization }}
+              {{ '::Confirm' | abpLocalization }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" (click)="showLostReasonPrompt.set(false)">
-              {{ 'Cancel' | abpLocalization }}
+              {{ '::Cancel' | abpLocalization }}
             </button>
           </div></div>
         }
@@ -74,7 +74,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           <div class="card-body">
             <div class="row">
               <div class="col-md-4 mb-3">
-                <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
+                <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
                 <app-status-badge [status]="getStatus(o.status)" />
               </div>
               <div class="col-md-4 mb-3">

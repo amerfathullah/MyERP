@@ -13,7 +13,7 @@ import { QualityManagementService } from '../../proxy/inventory/quality-manageme
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? '::Edit' : 'NewQualityGoal') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::Edit' : '::NewQualityGoal') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">

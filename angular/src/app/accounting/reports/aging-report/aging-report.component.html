@@ -1,25 +1,25 @@
-<abp-page [title]="'AgingReport' | abpLocalization">
+<abp-page [title]="'::AgingReport' | abpLocalization">
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
         <div class="col-md-3">
-          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
-            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) {
               <option [value]="c.id">{{ c.name }}</option>
             }
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">{{ 'AsOfDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="asOfDate" />
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'ReportType' | abpLocalization }}</label>
+          <label class="form-label">{{ '::ReportType' | abpLocalization }}</label>
           <select class="form-select" formControlName="reportType">
-            <option value="receivables">{{ 'Receivables' | abpLocalization }}</option>
-            <option value="payables">{{ 'Payables' | abpLocalization }}</option>
+            <option value="receivables">{{ '::Receivables' | abpLocalization }}</option>
+            <option value="payables">{{ '::Payables' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-md-3 d-flex align-items-end">
@@ -30,7 +30,7 @@
         </div>
         <div class="col-md-2">
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
-            <i class="fa fa-chart-bar me-1"></i>{{ 'Generate' | abpLocalization }}
+            <i class="fa fa-chart-bar me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
         </div>
       </form>
@@ -47,7 +47,7 @@
         <div class="card text-center">
           <div class="card-body">
             <h4 class="text-primary">{{ r.totalOutstanding | number:'1.2-2' }}</h4>
-            <small class="text-muted">{{ 'TotalOutstanding' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::TotalOutstanding' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@
         <div class="card text-center">
           <div class="card-body">
             <h4>{{ r.invoiceCount }}</h4>
-            <small class="text-muted">{{ 'InvoiceCount' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::InvoiceCount' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -63,7 +63,7 @@
         <div class="card text-center">
           <div class="card-body">
             <h4>{{ r.reportType }}</h4>
-            <small class="text-muted">{{ 'ReportType' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::ReportType' | abpLocalization }}</small>
           </div>
         </div>
       </div>
@@ -71,9 +71,9 @@
 
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0">{{ 'AgingSummary' | abpLocalization }}</h6>
+        <h6 class="mb-0">{{ '::AgingSummary' | abpLocalization }}</h6>
         <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-          <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
         </button>
       </div>
       <div class="card-body">
@@ -81,9 +81,9 @@
           <thead>
             <tr>
               @for (label of r.bucketLabels; track label) {
-                <th class="text-end">{{ label }} {{ 'Days' | abpLocalization }}</th>
+                <th class="text-end">{{ label }} {{ '::Days' | abpLocalization }}</th>
               }
-              <th class="text-end fw-bold">{{ 'Total' | abpLocalization }}</th>
+              <th class="text-end fw-bold">{{ '::Total' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -103,22 +103,22 @@
     @if (r.details && r.details.length) {
       <div class="card mt-3">
         <div class="card-header">
-          <h6 class="mb-0"><i class="fa fa-list me-2"></i>{{ 'InvoiceDetails' | abpLocalization }} ({{ r.details.length }})</h6>
+          <h6 class="mb-0"><i class="fa fa-list me-2"></i>{{ '::InvoiceDetails' | abpLocalization }} ({{ r.details.length }})</h6>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'Party' | abpLocalization }}</th>
-                  <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                  <th>{{ 'CostCenter' | abpLocalization }}</th>
-                  <th>{{ 'PostingDate' | abpLocalization }}</th>
-                  <th>{{ 'DueDate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'AgeDays' | abpLocalization }}</th>
-                  <th>{{ 'AgingBucket' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Actions' | abpLocalization }}</th>
+                  <th>{{ '::Party' | abpLocalization }}</th>
+                  <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ '::CostCenter' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AgeDays' | abpLocalization }}</th>
+                  <th>{{ '::AgingBucket' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,7 +137,7 @@
                     <td class="small" [class.text-danger]="isOverdue(d)">
                       {{ d.dueDate | date:'dd/MM/yyyy' }}
                       @if (isOverdue(d)) {
-                        <span class="badge bg-danger ms-1">{{ 'Overdue' | abpLocalization }}</span>
+                        <span class="badge bg-danger ms-1">{{ '::Overdue' | abpLocalization }}</span>
                       }
                     </td>
                     <td class="text-end fw-medium">{{ d.outstandingAmount | number:'1.2-2' }}</td>

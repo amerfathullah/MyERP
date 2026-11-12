@@ -1,6 +1,6 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <h5 class="mb-0"><i class="fa fa-table-columns me-2"></i>{{ 'MonthlyProfitLoss' | abpLocalization }}</h5>
+    <h5 class="mb-0"><i class="fa fa-table-columns me-2"></i>{{ '::MonthlyProfitLoss' | abpLocalization }}</h5>
     @if (report()) {
       <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
         <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}

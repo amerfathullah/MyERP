@@ -18,45 +18,45 @@ import type { DrivingLicenseCategoryDto } from '../../proxy/assets/models';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditDriver' : 'NewDriver') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditDriver' : '::NewDriver') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'FullName' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::FullName' | abpLocalization }} *</label>
             <input class="form-control" [(ngModel)]="form.fullName" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'CellNumber' | abpLocalization }}</label>
+            <label class="form-label">{{ '::CellNumber' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.cellNumber" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'LicenseNumber' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::LicenseNumber' | abpLocalization }} *</label>
             <input class="form-control" [(ngModel)]="form.licenseNumber" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'LicenseExpiryDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::LicenseExpiryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.licenseExpiryDate" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'Employee' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Employee' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.employeeId">
               <option value="">—</option>
               @for (e of employees(); track e.id) { <option [value]="e.id">{{ e.fullName }}</option> }
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'Transporter' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Transporter' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.transporterId">
               <option value="">—</option>
               @for (s of suppliers(); track s.id) { <option [value]="s.id">{{ s.supplierName }}</option> }
             </select>
           </div>
           <div class="col-md-12">
-            <label class="form-label">{{ 'Address' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Address' | abpLocalization }}</label>
             <textarea class="form-control" rows="2" [(ngModel)]="form.address"></textarea>
           </div>
           <div class="col-md-12">
-            <label class="form-label d-block">{{ 'LicenseCategories' | abpLocalization }}</label>
+            <label class="form-label d-block">{{ '::LicenseCategories' | abpLocalization }}</label>
             @for (cat of categories(); track cat.id) {
               <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox"
@@ -71,9 +71,9 @@ import type { DrivingLicenseCategoryDto } from '../../proxy/assets/models';
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-primary" [disabled]="!form.fullName || !form.licenseNumber || isSaving()" (click)="save()">
             @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-            {{ 'Save' | abpLocalization }}
+            {{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-secondary" routerLink="/assets/drivers">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/assets/drivers">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       </div></div>
     </abp-page>

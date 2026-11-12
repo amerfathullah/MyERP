@@ -16,13 +16,13 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewScorecard' | abpLocalization">
+    <abp-page [title]="'::NewScorecard' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body">
           <h6 class="card-title">Scorecard Settings</h6>
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
               <select class="form-select" formControlName="supplierId">
                 <option value="">Select Supplier...</option>
                 @for (s of suppliers; track s.id) {
@@ -31,7 +31,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'Period' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Period' | abpLocalization }}</label>
               <select class="form-select" formControlName="periodType">
                 <option [value]="0">Weekly</option>
                 <option [value]="1">Monthly</option>
@@ -43,7 +43,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title mb-0">{{ 'Standing' | abpLocalization }} Bands (must cover 0-100)</h6>
+            <h6 class="card-title mb-0">{{ '::Standing' | abpLocalization }} Bands (must cover 0-100)</h6>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addStanding()">
               <i class="fa fa-plus me-1"></i>Add Band
             </button>
@@ -76,7 +76,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
           </div>
           @if (criteria.length > 0) {
             <table class="table table-sm">
-              <thead><tr><th>{{ 'Name' | abpLocalization }}</th><th>Weight %</th><th>Max Score</th><th></th></tr></thead>
+              <thead><tr><th>{{ '::Name' | abpLocalization }}</th><th>Weight %</th><th>Max Score</th><th></th></tr></thead>
               <tbody>
                 @for (c of criteria.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(c)">
@@ -93,9 +93,9 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="!form.valid || saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-outline-secondary" routerLink="/purchasing/scorecards">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-outline-secondary" routerLink="/purchasing/scorecards">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       </form>
     </abp-page>

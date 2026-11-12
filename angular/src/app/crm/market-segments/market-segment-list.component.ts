@@ -24,7 +24,7 @@ import type { MarketSegmentDto } from '../../proxy/crm/models';
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle">
-          <thead><tr><th>{{ 'Name' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Name' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of items(); track item.id) {
               <tr>

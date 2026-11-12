@@ -14,16 +14,16 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewSalesPerson' | abpLocalization">
+    <abp-page [title]="'::NewSalesPerson' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="name">
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'CommissionRate' | abpLocalization }} (%)</label>
+              <label class="form-label">{{ '::CommissionRate' | abpLocalization }} (%)</label>
               <input type="number" class="form-control" formControlName="commissionRate" min="0" max="100" step="0.5">
             </div>
             <div class="col-md-3">
@@ -36,7 +36,7 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <div class="form-check mt-2">
                 <input type="checkbox" class="form-check-input" formControlName="isGroup" id="isGroup">
                 <label class="form-check-label" for="isGroup">Is Group</label>
@@ -47,9 +47,9 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="!form.valid || saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-outline-secondary" routerLink="/sales/sales-persons">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-outline-secondary" routerLink="/sales/sales-persons">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       </form>
     </abp-page>

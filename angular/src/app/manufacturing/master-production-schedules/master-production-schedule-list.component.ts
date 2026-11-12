@@ -16,10 +16,10 @@ import type { MasterProductionScheduleDto } from '../../proxy/manufacturing/mode
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'MasterProductionSchedules' | abpLocalization">
+    <abp-page [title]="'::MasterProductionSchedules' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/master-production-schedules/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewMasterProductionSchedule' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewMasterProductionSchedule' | abpLocalization }}
         </button>
       </div>
 
@@ -30,7 +30,7 @@ import type { MasterProductionScheduleDto } from '../../proxy/manufacturing/mode
       @if (!isLoading && schedules.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-calendar fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoMasterProductionSchedulesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoMasterProductionSchedulesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card">
@@ -38,12 +38,12 @@ import type { MasterProductionScheduleDto } from '../../proxy/manufacturing/mode
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'ScheduleNumber' | abpLocalization }}</th>
-                  <th>{{ 'PostingDate' | abpLocalization }}</th>
-                  <th>{{ 'FromDate' | abpLocalization }}</th>
-                  <th>{{ 'ToDate' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'PlannedItems' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::ScheduleNumber' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
+                  <th>{{ '::FromDate' | abpLocalization }}</th>
+                  <th>{{ '::ToDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PlannedItems' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

@@ -14,35 +14,35 @@ import type { ShareholderDto } from '../../proxy/accounting/models';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewShareholder') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewShareholder') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Title' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.title" [disabled]="$safeNavigationMigration(detail?.isCompany)" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'FolioNo' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FolioNo' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.folioNo" />
           </div>
         </div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/accounting/shareholders">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/accounting/shareholders">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
 
       @if (isEdit()) {
         <div class="card"><div class="card-body">
-          <h6 class="mb-2">{{ 'ShareBalances' | abpLocalization }}</h6>
+          <h6 class="mb-2">{{ '::ShareBalances' | abpLocalization }}</h6>
           @if (!detail?.shareBalances?.length) {
-            <p class="text-muted">{{ 'NoSharesHeld' | abpLocalization }}</p>
+            <p class="text-muted">{{ '::NoSharesHeld' | abpLocalization }}</p>
           } @else {
             <table class="table table-sm">
               <thead><tr>
-                <th>{{ 'FromNo' | abpLocalization }}</th><th>{{ 'ToNo' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Qty' | abpLocalization }}</th><th class="text-end">{{ 'Rate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Amount' | abpLocalization }}</th><th>{{ 'CurrentState' | abpLocalization }}</th>
+                <th>{{ '::FromNo' | abpLocalization }}</th><th>{{ '::ToNo' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th><th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th><th>{{ '::CurrentState' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (b of detail?.shareBalances; track $index) {

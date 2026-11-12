@@ -17,10 +17,10 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'DowntimeEntries' | abpLocalization">
+    <abp-page [title]="'::DowntimeEntries' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/downtime-entries/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewDowntimeEntry' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewDowntimeEntry' | abpLocalization }}
         </button>
       </div>
 
@@ -31,9 +31,9 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
       @if (!isLoading && entries.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-hourglass-half fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoDowntimeEntriesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoDowntimeEntriesYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/manufacturing/downtime-entries/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewDowntimeEntry' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewDowntimeEntry' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
@@ -42,12 +42,12 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Workstation' | abpLocalization }}</th>
-                  <th>{{ 'Operator' | abpLocalization }}</th>
-                  <th>{{ 'FromTime' | abpLocalization }}</th>
-                  <th>{{ 'ToTime' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Downtime' | abpLocalization }} (min)</th>
-                  <th>{{ 'StopReason' | abpLocalization }}</th>
+                  <th>{{ '::Workstation' | abpLocalization }}</th>
+                  <th>{{ '::Operator' | abpLocalization }}</th>
+                  <th>{{ '::FromTime' | abpLocalization }}</th>
+                  <th>{{ '::ToTime' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Downtime' | abpLocalization }} (min)</th>
+                  <th>{{ '::StopReason' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

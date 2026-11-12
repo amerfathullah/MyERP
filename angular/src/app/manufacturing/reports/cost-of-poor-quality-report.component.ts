@@ -16,12 +16,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div>
-          <h5 class="mb-0"><i class="fa fa-exclamation-triangle me-2 text-warning"></i>{{ 'CostOfPoorQualityReport' | abpLocalization }}</h5>
-          <small class="text-muted">{{ 'CostOfPoorQualityReportDescription' | abpLocalization }}</small>
+          <h5 class="mb-0"><i class="fa fa-exclamation-triangle me-2 text-warning"></i>{{ '::CostOfPoorQualityReport' | abpLocalization }}</h5>
+          <small class="text-muted">{{ '::CostOfPoorQualityReportDescription' | abpLocalization }}</small>
         </div>
         @if (data()) {
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
         }
       </div>
@@ -29,16 +29,16 @@ import { exportToCsv } from '../../shared/utils/csv-export';
         <!-- Filters -->
         <div class="row g-2 mb-4">
           <div class="col-md-3">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
           </div>
           <div class="col-md-2 d-flex align-items-end">
             <button class="btn btn-primary btn-sm w-100" (click)="loadData()" [disabled]="isLoading()">
-              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ 'Generate' | abpLocalization }}
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -79,10 +79,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <table class="table table-sm table-hover align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'WorkOrder' | abpLocalization }}</th>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th>{{ 'Operation' | abpLocalization }}</th>
-                  <th>{{ 'Workstation' | abpLocalization }}</th>
+                  <th>{{ '::WorkOrder' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Operation' | abpLocalization }}</th>
+                  <th>{{ '::Workstation' | abpLocalization }}</th>
                   <th class="text-end">Hourly Rate</th>
                   <th class="text-end">Time (Mins)</th>
                   <th class="text-end">Operating Cost</th>
@@ -122,7 +122,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               @if (d.rows.length > 0) {
                 <tfoot class="table-light fw-bold">
                   <tr>
-                    <td colspan="5">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="5">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ d.totalTimeInMins | number:'1.1-1' }}</td>
                     <td class="text-end text-danger">{{ d.totalOperatingCost | number:'1.2-2' }}</td>
                     <td colspan="2"></td>

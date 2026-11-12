@@ -18,11 +18,11 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
   imports: [CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'OpeningBalance' | abpLocalization">
+    <abp-page [title]="'::OpeningBalance' | abpLocalization">
       <!-- Status Card -->
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0"><i class="fa fa-info-circle me-2"></i>{{ 'OpeningStatus' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0"><i class="fa fa-info-circle me-2"></i>{{ '::OpeningStatus' | abpLocalization }}</h6>
           <button class="btn btn-sm btn-outline-secondary" (click)="loadStatus()">
             <i class="fa fa-refresh"></i>
           </button>
@@ -32,7 +32,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
           <div class="row">
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
-                <div class="text-muted small">{{ 'TemporaryOpeningBalance' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TemporaryOpeningBalance' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold" [class.text-success]="status()!.isBalanced" [class.text-danger]="!status()!.isBalanced">
                   {{ status()!.temporaryOpeningBalance | number:'1.2-2' }}
                 </div>
@@ -40,19 +40,19 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
-                <div class="text-muted small">{{ 'OpeningJournalEntries' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::OpeningJournalEntries' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold">{{ status()!.openingJournalEntryCount }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
-                <div class="text-muted small">{{ 'OpeningSalesInvoices' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::OpeningSalesInvoices' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold">{{ status()!.openingSalesInvoiceCount }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
-                <div class="text-muted small">{{ 'OpeningPurchaseInvoices' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::OpeningPurchaseInvoices' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold">{{ status()!.openingPurchaseInvoiceCount }}</div>
               </div>
             </div>
@@ -60,7 +60,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
           @if (status()!.isBalanced) {
           <div class="mt-3">
             <div class="alert alert-success mb-0">
-              <i class="fa fa-check-circle me-2"></i>{{ 'OpeningEntriesBalanced' | abpLocalization }}
+              <i class="fa fa-check-circle me-2"></i>{{ '::OpeningEntriesBalanced' | abpLocalization }}
             </div>
           </div>
           } @else {
@@ -77,18 +77,18 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
       <!-- Opening Journal Entry Form -->
       <div class="card mb-4">
         <div class="card-header">
-          <h6 class="card-title mb-0"><i class="fa fa-book me-2"></i>{{ 'OpeningJournalEntry' | abpLocalization }}</h6>
-          <small class="text-muted">{{ 'OpeningJEDescription' | abpLocalization }}</small>
+          <h6 class="card-title mb-0"><i class="fa fa-book me-2"></i>{{ '::OpeningJournalEntry' | abpLocalization }}</h6>
+          <small class="text-muted">{{ '::OpeningJEDescription' | abpLocalization }}</small>
         </div>
         <div class="card-body">
           <form [formGroup]="jeForm" (ngSubmit)="createJournalEntry()">
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
                 <input type="date" class="form-control" formControlName="postingDate" />
               </div>
               <div class="col-md-8">
-                <label class="form-label">{{ 'Remarks' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Remarks' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="remarks" [placeholder]="'::Placeholder:OpeningBalanceEntry' | abpLocalization" />
               </div>
             </div>
@@ -97,9 +97,9 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
             <table class="table table-sm table-bordered">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'Account' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 150px">{{ 'Debit' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 150px">{{ 'Credit' | abpLocalization }}</th>
+                  <th>{{ '::Account' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 150px">{{ '::Debit' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 150px">{{ '::Credit' | abpLocalization }}</th>
                   <th style="width: 50px"></th>
                 </tr>
               </thead>
@@ -108,7 +108,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
                   <tr [formGroupName]="$index">
                     <td>
                       <select class="form-select form-select-sm" formControlName="accountId">
-                        <option value="">{{ 'SelectAccount' | abpLocalization }}...</option>
+                        <option value="">{{ '::SelectAccount' | abpLocalization }}...</option>
                         @for (account of bsAccounts(); track account.id) {
                           <option [value]="account.id">{{ account.accountCode }} - {{ account.accountName }}</option>
                         }
@@ -124,7 +124,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
                 <tr>
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-primary" (click)="addLine()">
-                      <i class="fa fa-plus me-1"></i>{{ 'AddLine' | abpLocalization }}
+                      <i class="fa fa-plus me-1"></i>{{ '::AddLine' | abpLocalization }}
                     </button>
                   </td>
                   <td class="text-end fw-bold">{{ totalDebit() | number:'1.2-2' }}</td>
@@ -133,7 +133,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
                 </tr>
                 @if (difference() !== 0) {
                 <tr>
-                  <td class="text-end text-muted">{{ 'TemporaryOpening' | abpLocalization }}</td>
+                  <td class="text-end text-muted">{{ '::TemporaryOpening' | abpLocalization }}</td>
                   <td class="text-end text-muted">{{ difference() < 0 ? (-difference() | number:'1.2-2') : '' }}</td>
                   <td class="text-end text-muted">{{ difference() > 0 ? (difference() | number:'1.2-2') : '' }}</td>
                   <td></td>
@@ -143,7 +143,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
             </table>
 
             <button type="submit" class="btn btn-primary" [disabled]="saving() || jeLines.length === 0">
-              <i class="fa fa-save me-1"></i>{{ 'CreateOpeningEntry' | abpLocalization }}
+              <i class="fa fa-save me-1"></i>{{ '::CreateOpeningEntry' | abpLocalization }}
             </button>
           </form>
         </div>
@@ -152,40 +152,40 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
       <!-- Opening Invoices Section -->
       <div class="card">
         <div class="card-header">
-          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ 'OpeningInvoices' | abpLocalization }}</h6>
-          <small class="text-muted">{{ 'OpeningInvoicesDescription' | abpLocalization }}</small>
+          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::OpeningInvoices' | abpLocalization }}</h6>
+          <small class="text-muted">{{ '::OpeningInvoicesDescription' | abpLocalization }}</small>
         </div>
         <div class="card-body">
           <div class="row mb-3">
             <div class="col-md-3">
-              <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="invoicePostingDate" [ngModelOptions]="{standalone: true}" />
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'InvoiceType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::InvoiceType' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="invoiceType" [ngModelOptions]="{standalone: true}" (ngModelChange)="onInvoiceTypeChange()">
-                <option value="sales">{{ 'SalesInvoices' | abpLocalization }} ({{ 'Receivables' | abpLocalization }})</option>
-                <option value="purchase">{{ 'PurchaseInvoices' | abpLocalization }} ({{ 'Payables' | abpLocalization }})</option>
+                <option value="sales">{{ '::SalesInvoices' | abpLocalization }} ({{ '::Receivables' | abpLocalization }})</option>
+                <option value="purchase">{{ '::PurchaseInvoices' | abpLocalization }} ({{ '::Payables' | abpLocalization }})</option>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'OpeningBalanceItem' | abpLocalization }}</label>
+              <label class="form-label">{{ '::OpeningBalanceItem' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="openingItemId" [ngModelOptions]="{standalone: true}">
-                <option value="">{{ 'SelectItem' | abpLocalization }}...</option>
+                <option value="">{{ '::SelectItem' | abpLocalization }}...</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
               </select>
-              <small class="form-text text-muted">{{ 'OpeningBalanceItemHelp' | abpLocalization }}</small>
+              <small class="form-text text-muted">{{ '::OpeningBalanceItemHelp' | abpLocalization }}</small>
             </div>
           </div>
 
           <table class="table table-sm table-bordered">
             <thead class="table-light">
               <tr>
-                <th>{{ (invoiceType === 'sales' ? 'Customer' : 'Supplier') | abpLocalization }}</th>
-                <th class="text-end" style="width: 160px">{{ 'OutstandingAmount' | abpLocalization }}</th>
-                <th style="width: 160px">{{ 'DueDate' | abpLocalization }}</th>
+                <th>{{ (invoiceType === 'sales' ? '::Customer' : '::Supplier') | abpLocalization }}</th>
+                <th class="text-end" style="width: 160px">{{ '::OutstandingAmount' | abpLocalization }}</th>
+                <th style="width: 160px">{{ '::DueDate' | abpLocalization }}</th>
                 <th style="width: 50px"></th>
               </tr>
             </thead>
@@ -194,7 +194,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
                 <tr>
                   <td>
                     <select class="form-select form-select-sm" [(ngModel)]="row.partyId" [ngModelOptions]="{standalone: true}">
-                      <option value="">{{ (invoiceType === 'sales' ? 'SelectCustomer' : 'SelectSupplier') | abpLocalization }}...</option>
+                      <option value="">{{ (invoiceType === 'sales' ? '::SelectCustomer' : '::SelectSupplier') | abpLocalization }}...</option>
                       @for (p of parties(); track p.id) {
                         <option [value]="p.id">{{ p.name }}</option>
                       }
@@ -208,18 +208,18 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
             </tbody>
           </table>
           <button type="button" class="btn btn-sm btn-outline-primary mb-3" (click)="addInvoiceRow()">
-            <i class="fa fa-plus me-1"></i>{{ 'AddLine' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::AddLine' | abpLocalization }}
           </button>
 
           <div class="alert alert-info">
             <i class="fa fa-info-circle me-2"></i>
-            {{ 'OpeningInvoiceHelp' | abpLocalization }}
+            {{ '::OpeningInvoiceHelp' | abpLocalization }}
           </div>
 
           <button type="button" class="btn btn-primary" [disabled]="savingInvoices() || invoiceRows().length === 0"
             (click)="createOpeningInvoices()">
             @if (savingInvoices()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-            {{ 'CreateOpeningInvoices' | abpLocalization }}
+            {{ '::CreateOpeningInvoices' | abpLocalization }}
           </button>
         </div>
       </div>

@@ -15,34 +15,34 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, ActivityLogComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'LandedCostVouchers' | abpLocalization">
+    <abp-page [title]="'::LandedCostVouchers' | abpLocalization">
       <app-breadcrumb />
       @if (d) {
         <div class="card mb-3"><div class="card-body">
           <div class="row align-items-center">
-            <div class="col-md-3"><strong>{{ 'VoucherNumber' | abpLocalization }}:</strong> {{ d.voucherNumber ?? '—' }}</div>
-            <div class="col-md-2"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
-            <div class="col-md-2"><strong>{{ 'TotalCharges' | abpLocalization }}:</strong> {{ d.totalCharges | number:'1.2-2' }}</div>
+            <div class="col-md-3"><strong>{{ '::VoucherNumber' | abpLocalization }}:</strong> {{ d.voucherNumber ?? '—' }}</div>
+            <div class="col-md-2"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
+            <div class="col-md-2"><strong>{{ '::TotalCharges' | abpLocalization }}:</strong> {{ d.totalCharges | number:'1.2-2' }}</div>
             <div class="col-md-2"><app-status-badge [status]="['Draft','Submitted','','','Cancelled'][d.status ?? 0]"></app-status-badge></div>
             <div class="col-md-3 text-end">
               @if ((d.status ?? 0) === 0) {
-                <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="loading()"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="loading()"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
               }
               @if ((d.status ?? 0) === 1) {
-                <button class="btn btn-sm btn-outline-danger" (click)="cancel()" [disabled]="loading()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="cancel()" [disabled]="loading()"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
               }
             </div>
           </div>
         </div></div>
         <div class="row mb-3">
           <div class="col-md-6"><div class="card"><div class="card-body">
-            <h6>{{ 'Items' | abpLocalization }}</h6>
-            <table class="table table-sm"><thead><tr><th>{{ 'Item' | abpLocalization }}</th><th class="text-end">{{ 'Amount' | abpLocalization }}</th><th class="text-end">{{ 'Charges' | abpLocalization }}</th></tr></thead>
+            <h6>{{ '::Items' | abpLocalization }}</h6>
+            <table class="table table-sm"><thead><tr><th>{{ '::Item' | abpLocalization }}</th><th class="text-end">{{ '::Amount' | abpLocalization }}</th><th class="text-end">{{ '::Charges' | abpLocalization }}</th></tr></thead>
             <tbody>@for (i of d.items ?? []; track i.id) { <tr><td>{{ i.description ?? '—' }}</td><td class="text-end">{{ i.amount | number:'1.2-2' }}</td><td class="text-end">{{ i.applicableCharges | number:'1.2-2' }}</td></tr> }</tbody></table>
           </div></div></div>
           <div class="col-md-6"><div class="card"><div class="card-body">
-            <h6>{{ 'Charges' | abpLocalization }}</h6>
-            <table class="table table-sm"><thead><tr><th>{{ 'Description' | abpLocalization }}</th><th class="text-end">{{ 'Amount' | abpLocalization }}</th></tr></thead>
+            <h6>{{ '::Charges' | abpLocalization }}</h6>
+            <table class="table table-sm"><thead><tr><th>{{ '::Description' | abpLocalization }}</th><th class="text-end">{{ '::Amount' | abpLocalization }}</th></tr></thead>
             <tbody>@for (c of d.charges ?? []; track c.id) { <tr><td>{{ c.description }}</td><td class="text-end">{{ c.amount | number:'1.2-2' }}</td></tr> }</tbody></table>
           </div></div></div>
         </div>

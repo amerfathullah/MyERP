@@ -16,12 +16,12 @@ import type { AssetRepairDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetRepairs' | abpLocalization">
+    <abp-page [title]="'::AssetRepairs' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'AssetRepairs' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::AssetRepairs' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/repairs/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewRepair' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewRepair' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -30,20 +30,20 @@ import type { AssetRepairDto } from '../../proxy/assets/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-wrench fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoAssetRepairsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoAssetRepairsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/repairs/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewRepair' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewRepair' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Asset' | abpLocalization }}</th>
-                <th>{{ 'Description' | abpLocalization }}</th>
-                <th>{{ 'FailureDate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'RepairCost' | abpLocalization }}</th>
-                <th>{{ 'Capitalize' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
+                <th>{{ '::Asset' | abpLocalization }}</th>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th>{{ '::FailureDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::RepairCost' | abpLocalization }}</th>
+                <th>{{ '::Capitalize' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

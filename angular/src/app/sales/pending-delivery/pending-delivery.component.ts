@@ -45,22 +45,22 @@ interface PendingDeliveryReport {
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'PendingDeliveryReport' | abpLocalization">
+    <abp-page [title]="'::PendingDeliveryReport' | abpLocalization">
       <!-- Filters -->
       <div class="card mb-3">
         <div class="card-body py-2">
           <div class="row align-items-end g-2">
             <div class="col-auto">
-              <label class="form-label small mb-0">{{ 'Filter' | abpLocalization }}</label>
+              <label class="form-label small mb-0">{{ '::Filter' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="overdueOnly" (change)="loadReport()">
-                <option [ngValue]="false">{{ 'AllPending' | abpLocalization }}</option>
-                <option [ngValue]="true">{{ 'OverdueOnly' | abpLocalization }}</option>
+                <option [ngValue]="false">{{ '::AllPending' | abpLocalization }}</option>
+                <option [ngValue]="true">{{ '::OverdueOnly' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto">
-              <label class="form-label small mb-0">{{ 'Customer' | abpLocalization }}</label>
+              <label class="form-label small mb-0">{{ '::Customer' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="customerFilter" (change)="loadReport()">
-                <option value="">{{ 'AllCustomers' | abpLocalization }}</option>
+                <option value="">{{ '::AllCustomers' | abpLocalization }}</option>
                 @for (c of uniqueCustomers(); track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
@@ -68,7 +68,7 @@ interface PendingDeliveryReport {
             </div>
             <div class="col-auto ms-auto">
               <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()" [disabled]="!report()">
-                <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+                <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -80,8 +80,8 @@ interface PendingDeliveryReport {
         <div class="alert alert-info d-flex align-items-center mb-3 py-2">
           <i class="fa fa-check-circle me-2"></i>
           <span class="flex-grow-1">
-            <strong>{{ selectedCount() }}</strong> {{ 'ItemsSelected' | abpLocalization }}
-            ({{ selectedCustomerCount() }} {{ 'Customers' | abpLocalization }})
+            <strong>{{ selectedCount() }}</strong> {{ '::ItemsSelected' | abpLocalization }}
+            ({{ selectedCustomerCount() }} {{ '::Customers' | abpLocalization }})
           </span>
           <button class="btn btn-sm btn-success me-2" (click)="createDeliveryNotes()" [disabled]="isCreatingDN()">
             @if (isCreatingDN()) {
@@ -89,10 +89,10 @@ interface PendingDeliveryReport {
             } @else {
               <i class="fa fa-truck me-1"></i>
             }
-            {{ 'CreateDeliveryNotes' | abpLocalization }}
+            {{ '::CreateDeliveryNotes' | abpLocalization }}
           </button>
           <button class="btn btn-sm btn-outline-secondary" (click)="clearSelection()">
-            <i class="fa fa-times me-1"></i>{{ 'ClearSelection' | abpLocalization }}
+            <i class="fa fa-times me-1"></i>{{ '::ClearSelection' | abpLocalization }}
           </button>
         </div>
       }
@@ -105,7 +105,7 @@ interface PendingDeliveryReport {
           <div class="col-md-3">
             <div class="card border-primary h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalOrders' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalOrders' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-primary">{{ report()!.totalOrders }}</div>
               </div>
             </div>
@@ -113,7 +113,7 @@ interface PendingDeliveryReport {
           <div class="col-md-3">
             <div class="card border-info h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'PendingItems' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::PendingItems' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-info">{{ report()!.totalItems }}</div>
               </div>
             </div>
@@ -121,7 +121,7 @@ interface PendingDeliveryReport {
           <div class="col-md-3">
             <div class="card border-warning h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalPendingAmount' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalPendingAmount' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-warning">{{ report()!.totalPendingAmount | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -129,7 +129,7 @@ interface PendingDeliveryReport {
           <div class="col-md-3">
             <div class="card border-danger h-100">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'Overdue' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Overdue' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-danger">{{ report()!.overdueCount }} ({{ report()!.overdueAmount | number:'1.2-2' }})</div>
               </div>
             </div>
@@ -144,13 +144,13 @@ interface PendingDeliveryReport {
                 <thead class="table-light">
                   <tr>
                     <th style="width: 30px;"><input type="checkbox" class="form-check-input" [checked]="isAllSelected()" (change)="toggleSelectAll($event)" /></th>
-                    <th>{{ 'OrderNumber' | abpLocalization }}</th>
-                    <th>{{ 'Customer' | abpLocalization }}</th>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-                    <th>{{ 'DeliveryDate' | abpLocalization }}</th>
-                    <th>{{ 'Status' | abpLocalization }}</th>
+                    <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                    <th>{{ '::Customer' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                    <th>{{ '::DeliveryDate' | abpLocalization }}</th>
+                    <th>{{ '::Status' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,7 +182,7 @@ interface PendingDeliveryReport {
                     </tr>
                   }
                   @if (!report()!.items.length) {
-                    <tr><td colspan="8" class="text-center text-muted py-4">{{ 'NoPendingDeliveries' | abpLocalization }}</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">{{ '::NoPendingDeliveries' | abpLocalization }}</td></tr>
                   }
                 </tbody>
               </table>
@@ -192,7 +192,7 @@ interface PendingDeliveryReport {
       } @else {
         <div class="text-center py-5 text-muted">
           <i class="fa fa-truck fa-3x mb-3 opacity-25"></i>
-          <p>{{ 'SelectCompanyToViewPendingDeliveries' | abpLocalization }}</p>
+          <p>{{ '::SelectCompanyToViewPendingDeliveries' | abpLocalization }}</p>
         </div>
       }
     </abp-page>

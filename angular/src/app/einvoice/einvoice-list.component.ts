@@ -23,7 +23,7 @@ const STATUS_BADGE: Record<string, string> = {
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'EInvoiceSubmissions' | abpLocalization">
+    <abp-page [title]="'::EInvoiceSubmissions' | abpLocalization">
       <!-- Summary strip -->
       <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
@@ -54,7 +54,7 @@ const STATUS_BADGE: Record<string, string> = {
 
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <h5 class="mb-0">{{ 'EInvoiceSubmissions' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::EInvoiceSubmissions' | abpLocalization }}</h5>
           <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary btn-sm" routerLink="/einvoice/settings">
               <i class="fa fa-cog me-1"></i>Settings

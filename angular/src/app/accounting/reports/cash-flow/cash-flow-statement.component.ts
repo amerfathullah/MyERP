@@ -14,43 +14,43 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'CashFlowStatement' | abpLocalization">
+    <abp-page [title]="'::CashFlowStatement' | abpLocalization">
       <!-- Filters -->
       <div class="card mb-4">
         <div class="card-body">
           <div class="row g-3 align-items-end">
             <div class="col-md-2">
-              <label class="form-label">{{ 'From' | abpLocalization }}</label>
+              <label class="form-label">{{ '::From' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="fromDate" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'To' | abpLocalization }}</label>
+              <label class="form-label">{{ '::To' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="toDate" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'Periodicity' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Periodicity' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="periodicity">
-                <option value="">{{ 'SinglePeriod' | abpLocalization }}</option>
-                <option value="Monthly">{{ 'Monthly' | abpLocalization }}</option>
-                <option value="Quarterly">{{ 'Quarterly' | abpLocalization }}</option>
-                <option value="Yearly">{{ 'Yearly' | abpLocalization }}</option>
+                <option value="">{{ '::SinglePeriod' | abpLocalization }}</option>
+                <option value="Monthly">{{ '::Monthly' | abpLocalization }}</option>
+                <option value="Quarterly">{{ '::Quarterly' | abpLocalization }}</option>
+                <option value="Yearly">{{ '::Yearly' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-2">
               <div class="form-check mb-2">
                 <input class="form-check-input" type="checkbox" id="cfAccumulated" [(ngModel)]="accumulatedValues" />
-                <label class="form-check-label" for="cfAccumulated">{{ 'AccumulatedValues' | abpLocalization }}</label>
+                <label class="form-check-label" for="cfAccumulated">{{ '::AccumulatedValues' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-2">
               <button class="btn btn-primary" (click)="loadReport()" [disabled]="loading()">
-                <i class="fa fa-sync me-1"></i>{{ 'GenerateReport' | abpLocalization }}
+                <i class="fa fa-sync me-1"></i>{{ '::GenerateReport' | abpLocalization }}
               </button>
             </div>
             <div class="col-md-2 text-end">
               @if (report()) {
                 <button class="btn btn-outline-secondary btn-sm" (click)="exportReport()">
-                  <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+                  <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
                 </button>
               }
             </div>
@@ -66,7 +66,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'OperatingCashFlow' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::OperatingCashFlow' | abpLocalization }}</h6>
                 <h4 [class]="(report()!.operatingTotal ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.operatingTotal | number:'1.2-2' }}
                 </h4>
@@ -76,7 +76,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'NetCashChange' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::NetCashChange' | abpLocalization }}</h6>
                 <h4 [class]="(report()!.netCashChange ?? 0) >= 0 ? 'text-success' : 'text-danger'">
                   {{ report()!.netCashChange | number:'1.2-2' }}
                 </h4>
@@ -86,7 +86,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'OpeningBalance' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::OpeningBalance' | abpLocalization }}</h6>
                 <h4>{{ report()!.openingCashBalance | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -94,7 +94,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
           <div class="col-md-3">
             <div class="card text-center">
               <div class="card-body">
-                <h6 class="text-muted mb-1">{{ 'ClosingBalance' | abpLocalization }}</h6>
+                <h6 class="text-muted mb-1">{{ '::ClosingBalance' | abpLocalization }}</h6>
                 <h4 class="text-primary">{{ report()!.closingCashBalance | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -105,7 +105,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
         <div class="card">
           <div class="card-body">
             <!-- Operating Activities -->
-            <h6 class="fw-bold text-primary mb-3"><i class="fa fa-industry me-2"></i>{{ 'OperatingActivities' | abpLocalization }}</h6>
+            <h6 class="fw-bold text-primary mb-3"><i class="fa fa-industry me-2"></i>{{ '::OperatingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
                 @for (item of (report()!.operatingActivities ?? []); track item.label) {
@@ -115,14 +115,14 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
                   </tr>
                 }
                 <tr class="table-primary fw-bold">
-                  <td>{{ 'NetCashFromOperations' | abpLocalization }}</td>
+                  <td>{{ '::NetCashFromOperations' | abpLocalization }}</td>
                   <td class="text-end">{{ report()!.operatingTotal | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
             </table>
 
             <!-- Investing Activities -->
-            <h6 class="fw-bold text-info mb-3"><i class="fa fa-chart-line me-2"></i>{{ 'InvestingActivities' | abpLocalization }}</h6>
+            <h6 class="fw-bold text-info mb-3"><i class="fa fa-chart-line me-2"></i>{{ '::InvestingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
                 @for (item of (report()!.investingActivities ?? []); track item.label) {
@@ -135,14 +135,14 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
                   <tr><td colspan="2" class="text-muted ps-4">No investing activities</td></tr>
                 }
                 <tr class="table-info fw-bold">
-                  <td>{{ 'NetCashFromInvesting' | abpLocalization }}</td>
+                  <td>{{ '::NetCashFromInvesting' | abpLocalization }}</td>
                   <td class="text-end">{{ report()!.investingTotal | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
             </table>
 
             <!-- Financing Activities -->
-            <h6 class="fw-bold text-warning mb-3"><i class="fa fa-university me-2"></i>{{ 'FinancingActivities' | abpLocalization }}</h6>
+            <h6 class="fw-bold text-warning mb-3"><i class="fa fa-university me-2"></i>{{ '::FinancingActivities' | abpLocalization }}</h6>
             <table class="table table-sm mb-4">
               <tbody>
                 @for (item of (report()!.financingActivities ?? []); track item.label) {
@@ -155,7 +155,7 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
                   <tr><td colspan="2" class="text-muted ps-4">No financing activities</td></tr>
                 }
                 <tr class="table-warning fw-bold">
-                  <td>{{ 'NetCashFromFinancing' | abpLocalization }}</td>
+                  <td>{{ '::NetCashFromFinancing' | abpLocalization }}</td>
                   <td class="text-end">{{ report()!.financingTotal | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
@@ -166,17 +166,17 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
             <table class="table table-sm">
               <tbody>
                 <tr class="fw-bold">
-                  <td>{{ 'NetCashChange' | abpLocalization }}</td>
+                  <td>{{ '::NetCashChange' | abpLocalization }}</td>
                   <td class="text-end" [class.text-success]="(report()!.netCashChange ?? 0) >= 0" [class.text-danger]="(report()!.netCashChange ?? 0) < 0">
                     {{ report()!.netCashChange | number:'1.2-2' }}
                   </td>
                 </tr>
                 <tr>
-                  <td>{{ 'OpeningBalance' | abpLocalization }}</td>
+                  <td>{{ '::OpeningBalance' | abpLocalization }}</td>
                   <td class="text-end">{{ report()!.openingCashBalance | number:'1.2-2' }}</td>
                 </tr>
                 <tr class="table-dark fw-bold fs-5">
-                  <td>{{ 'ClosingBalance' | abpLocalization }}</td>
+                  <td>{{ '::ClosingBalance' | abpLocalization }}</td>
                   <td class="text-end">{{ report()!.closingCashBalance | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
@@ -184,12 +184,12 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
 
             @if ((report()!.periods ?? []).length > 1) {
               <hr />
-              <h6 class="fw-bold text-secondary mb-3">{{ 'PeriodBreakdown' | abpLocalization }}</h6>
+              <h6 class="fw-bold text-secondary mb-3">{{ '::PeriodBreakdown' | abpLocalization }}</h6>
               <div class="table-responsive">
                 <table class="table table-sm table-bordered">
                   <thead class="table-light">
                     <tr>
-                      <th>{{ 'Section' | abpLocalization }}</th>
+                      <th>{{ '::Section' | abpLocalization }}</th>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <th class="text-end">{{ p.label }}</th>
                       }
@@ -197,37 +197,37 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
                   </thead>
                   <tbody>
                     <tr>
-                      <td>{{ 'NetCashFromOperations' | abpLocalization }}</td>
+                      <td>{{ '::NetCashFromOperations' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.operatingTotal | number:'1.2-2' }}</td>
                       }
                     </tr>
                     <tr>
-                      <td>{{ 'NetCashFromInvesting' | abpLocalization }}</td>
+                      <td>{{ '::NetCashFromInvesting' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.investingTotal | number:'1.2-2' }}</td>
                       }
                     </tr>
                     <tr>
-                      <td>{{ 'NetCashFromFinancing' | abpLocalization }}</td>
+                      <td>{{ '::NetCashFromFinancing' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.financingTotal | number:'1.2-2' }}</td>
                       }
                     </tr>
                     <tr class="fw-bold">
-                      <td>{{ 'NetCashChange' | abpLocalization }}</td>
+                      <td>{{ '::NetCashChange' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.netCashChange | number:'1.2-2' }}</td>
                       }
                     </tr>
                     <tr>
-                      <td>{{ 'OpeningBalance' | abpLocalization }}</td>
+                      <td>{{ '::OpeningBalance' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.openingCashBalance | number:'1.2-2' }}</td>
                       }
                     </tr>
                     <tr class="table-dark fw-bold">
-                      <td>{{ 'ClosingBalance' | abpLocalization }}</td>
+                      <td>{{ '::ClosingBalance' | abpLocalization }}</td>
                       @for (p of (report()!.periods ?? []); track p.key) {
                         <td class="text-end">{{ p.closingCashBalance | number:'1.2-2' }}</td>
                       }

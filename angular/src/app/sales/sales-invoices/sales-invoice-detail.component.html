@@ -23,7 +23,7 @@
         <i class="fa fa-pencil me-1"></i>{{ '::Edit' | abpLocalization }}</button>
       @if (invoice.status === 'Draft' && canDelete()) {
         <button class="btn btn-outline-danger btn-sm" (click)="deleteInvoice()">
-          <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}</button>
+          <i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}</button>
       }
       @if (invoice.status === 'Cancelled' && canCreate()) {
         <button class="btn btn-outline-success btn-sm" (click)="amend()">
@@ -31,12 +31,12 @@
       }
       @if (canCreate()) {
         <button class="btn btn-outline-warning btn-sm" (click)="duplicate()">
-          <i class="fa fa-copy me-1"></i>{{ 'Duplicate' | abpLocalization }}</button>
+          <i class="fa fa-copy me-1"></i>{{ '::Duplicate' | abpLocalization }}</button>
       }
       <button class="btn btn-outline-info btn-sm" (click)="printInvoice()">
-        <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}</button>
+        <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}</button>
       <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()">
-        <i class="fa fa-file-pdf me-1"></i>{{ 'Download' | abpLocalization }}</button>
+        <i class="fa fa-file-pdf me-1"></i>{{ '::Download' | abpLocalization }}</button>
       <button class="btn btn-outline-secondary btn-sm" (click)="goBack()">
         <i class="fa fa-arrow-left me-1"></i>{{ '::Back' | abpLocalization }}
       </button>
@@ -234,7 +234,7 @@
       <div class="card mb-3">
         <div class="card-header">
           <h5 class="card-title mb-0">
-            <i class="fa fa-people-group me-2"></i>{{ 'SalesTeam' | abpLocalization }}
+            <i class="fa fa-people-group me-2"></i>{{ '::SalesTeam' | abpLocalization }}
           </h5>
         </div>
         <div class="card-body">
@@ -242,11 +242,11 @@
             <table class="table table-hover w-100">
               <thead>
                 <tr>
-                  <th>{{ 'SalesPerson' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 100px;">{{ 'AllocatedPercentage' | abpLocalization }}</th>
+                  <th>{{ '::SalesPerson' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 100px;">{{ '::AllocatedPercentage' | abpLocalization }}</th>
                   <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 100px;">{{ 'CommissionRate' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 120px;">{{ 'Incentives' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 100px;">{{ '::CommissionRate' | abpLocalization }}</th>
+                  <th class="text-end" style="width: 120px;">{{ '::Incentives' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,7 +262,7 @@
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="4" class="text-end fw-bold">{{ 'TotalCommission' | abpLocalization }}</td>
+                  <td colspan="4" class="text-end fw-bold">{{ '::TotalCommission' | abpLocalization }}</td>
                   <td class="text-end font-monospace fw-bold">{{ invoice.totalCommission | number:'1.2-2' }}</td>
                 </tr>
               </tfoot>
@@ -357,20 +357,20 @@
       <div class="card mb-3 mt-3">
         <div class="card-header">
           <h5 class="card-title mb-0">
-            <i class="fa fa-calendar-check me-2"></i>{{ 'PaymentSchedule' | abpLocalization }}
+            <i class="fa fa-calendar-check me-2"></i>{{ '::PaymentSchedule' | abpLocalization }}
           </h5>
         </div>
         <div class="card-body">
           <table class="table table-hover">
             <thead>
               <tr>
-                <th>{{ 'DueDate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Portion' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
+                <th>{{ '::DueDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Portion' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Paid' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
                 <th class="text-center">{{ '::EarlyDiscount' | abpLocalization }}</th>
-                <th class="text-center">{{ 'Status' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -414,9 +414,9 @@
                   </td>
                   <td class="text-center">
                     @if (entry.outstanding <= 0.01) {
-                      <span class="badge bg-success">{{ 'Paid' | abpLocalization }}</span>
+                      <span class="badge bg-success">{{ '::Paid' | abpLocalization }}</span>
                     } @else {
-                      <span class="badge bg-warning text-dark">{{ 'Pending' | abpLocalization }}</span>
+                      <span class="badge bg-warning text-dark">{{ '::Pending' | abpLocalization }}</span>
                     }
                   </td>
                 </tr>

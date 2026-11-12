@@ -20,24 +20,24 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
     PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'StockReservations' | abpLocalization">
+    <abp-page [title]="'::StockReservations' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'StockReservations' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::StockReservations' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/inventory/stock-reservations/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewStockReservation' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewStockReservation' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
           <div class="row mb-3">
             <div class="col-md-4">
               <input type="text" class="form-control form-control-sm"
-                [placeholder]="'Search' | abpLocalization"
+                [placeholder]="'::Search' | abpLocalization"
                 [(ngModel)]="searchTerm" (keyup.enter)="loadData()">
             </div>
             <div class="col-md-3">
               <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (ngModelChange)="loadData()">
-                <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+                <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
                 <option value="Submitted">Active</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
@@ -49,22 +49,22 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-lock fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoStockReservationsYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoStockReservationsYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/inventory/stock-reservations/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewStockReservation' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewStockReservation' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th>{{ 'Warehouse' | abpLocalization }}</th>
-                <th>{{ 'VoucherType' | abpLocalization }}</th>
-                <th class="text-end">{{ 'ReservedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'DeliveredQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
-                <th>{{ 'Status' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
+                <th>{{ '::VoucherType' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ReservedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::DeliveredQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AvailableQty' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

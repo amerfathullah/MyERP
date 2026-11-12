@@ -15,13 +15,13 @@ import { QualityReviewStatus } from '../../proxy/inventory/quality-review-status
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? '::ReviewDetails' : 'NewQualityReview') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::ReviewDetails' : '::NewQualityReview') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3 mb-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'QualityGoal' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::QualityGoal' | abpLocalization }} *</label>
                 <select class="form-select form-select-sm" formControlName="qualityGoalId">
                   <option value="">{{ '::Select' | abpLocalization }}</option>
                   @for (goal of goalStore.entities(); track goal.id) {

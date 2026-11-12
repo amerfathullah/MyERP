@@ -12,7 +12,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NotificationLogs' | abpLocalization">
+    <abp-page [title]="'::NotificationLogs' | abpLocalization">
       <div class="row mb-3 g-2">
         <div class="col-md-3">
           <select class="form-select form-select-sm" [(ngModel)]="channelFilter" (change)="loadData()">
@@ -49,11 +49,11 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
         <div class="card"><div class="card-body">
           <table class="table table-hover table-sm mb-0">
             <thead><tr>
-              <th>{{ 'Date' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
               <th>Recipient</th>
               <th>Subject</th>
               <th>Channel</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th>Document</th>
             </tr></thead>
             <tbody>

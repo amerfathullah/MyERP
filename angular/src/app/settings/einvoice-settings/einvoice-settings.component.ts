@@ -12,11 +12,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'EInvoiceSettings' | abpLocalization">
+    <abp-page [title]="'::EInvoiceSettings' | abpLocalization">
       <!-- Connection Status Card -->
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="mb-0"><i class="fa fa-plug me-2"></i>{{ 'ConnectionStatus' | abpLocalization }}</h6>
+          <h6 class="mb-0"><i class="fa fa-plug me-2"></i>{{ '::ConnectionStatus' | abpLocalization }}</h6>
           @if (status()) {
             <span class="badge" [class]="status()!.isConnected ? 'bg-success' : status()!.isTokenExpired ? 'bg-warning' : 'bg-secondary'">
               {{ status()!.isConnected ? 'Connected' : status()!.isTokenExpired ? 'Token Expired' : 'Not Connected' }}
@@ -29,17 +29,17 @@ import { ToasterService } from '@abp/ng.theme.shared';
           } @else if (status()) {
             <div class="row g-3">
               <div class="col-md-3">
-                <small class="text-muted d-block">{{ 'Environment' | abpLocalization }}</small>
+                <small class="text-muted d-block">{{ '::Environment' | abpLocalization }}</small>
                 <span class="badge" [class]="status()!.environment === 'Production' ? 'bg-danger' : 'bg-info'">
                   {{ status()!.environment }}
                 </span>
               </div>
               <div class="col-md-3">
-                <small class="text-muted d-block">{{ 'Credentials' | abpLocalization }}</small>
+                <small class="text-muted d-block">{{ '::Credentials' | abpLocalization }}</small>
                 <span>{{ status()!.isConfigured ? '✓ Configured' : '✗ Not configured' }}</span>
               </div>
               <div class="col-md-3">
-                <small class="text-muted d-block">{{ 'Certificate' | abpLocalization }}</small>
+                <small class="text-muted d-block">{{ '::Certificate' | abpLocalization }}</small>
                 <span>{{ status()!.isCertificateConfigured ? '✓ Uploaded' : '✗ Not uploaded' }}</span>
               </div>
               <div class="col-md-3">
@@ -53,11 +53,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
 
       <!-- Credentials Form -->
       <div class="card mb-3">
-        <div class="card-header"><h6 class="mb-0"><i class="fa fa-key me-2"></i>{{ 'APICredentials' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="mb-0"><i class="fa fa-key me-2"></i>{{ '::APICredentials' | abpLocalization }}</h6></div>
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Environment' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Environment' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="credentials.environment">
                 <option value="Sandbox">Sandbox (Testing)</option>
                 <option value="Production">Production</option>
@@ -74,7 +74,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
           </div>
           <div class="mt-3 d-flex gap-2">
             <button class="btn btn-primary" (click)="saveCredentials()" [disabled]="isSaving()">
-              <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
             <button class="btn btn-success" (click)="connect()" [disabled]="isConnecting() || !credentials.clientId">
               @if (isConnecting()) {
@@ -82,7 +82,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
               } @else {
                 <i class="fa fa-plug me-1"></i>
               }
-              {{ 'Connect' | abpLocalization }}
+              {{ '::Connect' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -90,7 +90,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 
       <!-- Digital Certificate -->
       <div class="card mb-3">
-        <div class="card-header"><h6 class="mb-0"><i class="fa fa-certificate me-2"></i>{{ 'DigitalCertificate' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="mb-0"><i class="fa fa-certificate me-2"></i>{{ '::DigitalCertificate' | abpLocalization }}</h6></div>
         <div class="card-body">
           <p class="text-muted small mb-3">Upload PFX/P12 certificate for XAdES document signing. Required for LHDN submission.</p>
           <div class="row g-3">
@@ -113,7 +113,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 
       <!-- TIN Lookup -->
       <div class="card">
-        <div class="card-header"><h6 class="mb-0"><i class="fa fa-search me-2"></i>{{ 'TINLookup' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="mb-0"><i class="fa fa-search me-2"></i>{{ '::TINLookup' | abpLocalization }}</h6></div>
         <div class="card-body">
           <p class="text-muted small mb-3">Search LHDN database for taxpayer TIN by ID type and value.</p>
           <div class="row g-3">

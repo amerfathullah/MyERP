@@ -34,7 +34,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="col-md-6">
               <label class="form-label">{{ '::CompanyBankAccount' | abpLocalization }} *</label>
               <select class="form-select" formControlName="companyBankAccountId">
-                <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+                <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                 @for (b of bankAccounts(); track b.id) { <option [value]="b.id">{{ b.accountName }}</option> }
               </select>
             </div>
@@ -52,7 +52,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                 <th>{{ '::Supplier' | abpLocalization }}</th>
                 <th>{{ '::ReferenceType' | abpLocalization }}</th>
                 <th>{{ '::ReferenceId' | abpLocalization }}</th>
-                <th>{{ 'Amount' | abpLocalization }}</th>
+                <th>{{ '::Amount' | abpLocalization }}</th>
                 <th>{{ '::ModeOfPayment' | abpLocalization }}</th>
                 <th></th>
               </tr>
@@ -62,7 +62,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                 <tr [formGroupName]="i">
                   <td>
                     <select class="form-select form-select-sm" formControlName="supplierId">
-                      <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+                      <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                       @for (s of suppliers(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
                     </select>
                   </td>
@@ -79,8 +79,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   <td><input type="number" class="form-control form-control-sm" formControlName="amount" min="0"></td>
                   <td>
                     <select class="form-select form-select-sm" formControlName="modeOfPayment">
-                      <option value="">-- {{ 'Select' | abpLocalization }} --</option>
-                      <option value="Cash">{{ 'Cash' | abpLocalization }}</option>
+                      <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+                      <option value="Cash">{{ '::Cash' | abpLocalization }}</option>
                       <option value="Bank Transfer">{{ '::BankTransfer' | abpLocalization }}</option>
                       <option value="Cheque">{{ '::Cheque' | abpLocalization }}</option>
                     </select>
@@ -93,9 +93,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         </div></div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/accounting/payment-orders">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/accounting/payment-orders">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid || references.length === 0">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

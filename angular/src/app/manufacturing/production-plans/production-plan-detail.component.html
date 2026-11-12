@@ -1,4 +1,4 @@
-<abp-page [title]="plan?.planNumber ?? ('ProductionPlans' | abpLocalization)">
+<abp-page [title]="plan?.planNumber ?? ('::ProductionPlans' | abpLocalization)">
   @if (store.isLoading()) {
     <app-loading-overlay />
   }
@@ -13,7 +13,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'Status' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::Status' | abpLocalization }}</small>
             <div class="mt-1"><app-status-badge [status]="getStatusLabel(plan.status)" /></div>
           </div>
         </div>
@@ -21,7 +21,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'PostingDate' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::PostingDate' | abpLocalization }}</small>
             <div class="fw-bold mt-1">{{ plan.postingDate | date:'dd/MM/yyyy' }}</div>
           </div>
         </div>
@@ -29,7 +29,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'PlannedItems' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::PlannedItems' | abpLocalization }}</small>
             <div class="fw-bold mt-1">{{ plan.plannedItems?.length ?? 0 }}</div>
           </div>
         </div>
@@ -37,7 +37,7 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <small class="text-muted">{{ 'MaterialRequirements' | abpLocalization }}</small>
+            <small class="text-muted">{{ '::MaterialRequirements' | abpLocalization }}</small>
             <div class="fw-bold mt-1">{{ plan.materialRequirements?.length ?? 0 }}</div>
           </div>
         </div>
@@ -64,17 +64,17 @@
 
     <!-- Planned Items with production progress -->
     <div class="card mb-4">
-      <div class="card-header fw-bold"><i class="fa fa-list me-2"></i>{{ 'PlannedItems' | abpLocalization }}</div>
+      <div class="card-header fw-bold"><i class="fa fa-list me-2"></i>{{ '::PlannedItems' | abpLocalization }}</div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-sm mb-0">
             <thead>
               <tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'OrderedQty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
-                <th style="width: 160px;">{{ 'Manufacturing:Progress' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end">{{ '::PlannedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
+                <th style="width: 160px;">{{ '::Manufacturing:Progress' | abpLocalization }}</th>
                 <th>{{ '::WorkOrder' | abpLocalization }}</th>
               </tr>
             </thead>
@@ -118,16 +118,16 @@
     <!-- Material Requirements with shortage highlighting -->
     @if (plan.materialRequirements && plan.materialRequirements.length > 0) {
       <div class="card mb-4">
-        <div class="card-header fw-bold"><i class="fa fa-boxes-stacked me-2"></i>{{ 'MaterialRequirements' | abpLocalization }}</div>
+        <div class="card-header fw-bold"><i class="fa fa-boxes-stacked me-2"></i>{{ '::MaterialRequirements' | abpLocalization }}</div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ShortageQty' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AvailableQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ShortageQty' | abpLocalization }}</th>
                   <th class="text-center">{{ '::MaterialRequest' | abpLocalization }}</th>
                 </tr>
               </thead>

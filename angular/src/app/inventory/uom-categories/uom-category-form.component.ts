@@ -13,12 +13,12 @@ import { UomCategoryService } from '../../proxy/inventory/uom-category.service';
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditUomCategory' : 'NewUomCategory') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditUomCategory' : '::NewUomCategory') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">{{ 'Name' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
               <input class="form-control" [(ngModel)]="form.name" />
             </div>
           </div>
@@ -26,9 +26,9 @@ import { UomCategoryService } from '../../proxy/inventory/uom-category.service';
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-primary" [disabled]="!form.name || isSaving()" (click)="save()">
               @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ 'Save' | abpLocalization }}
+              {{ '::Save' | abpLocalization }}
             </button>
-            <a class="btn btn-secondary" routerLink="/inventory/uom-categories">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary" routerLink="/inventory/uom-categories">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </div>
       </div>

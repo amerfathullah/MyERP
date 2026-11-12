@@ -35,17 +35,17 @@ const VOUCHER_TYPES: { value: number; label: string }[] = [
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditJournalEntryTemplate' : 'NewJournalEntryTemplate') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditJournalEntryTemplate' : '::NewJournalEntryTemplate') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3 mb-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'TemplateName' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::TemplateName' | abpLocalization }} *</label>
                 <input class="form-control" formControlName="templateName" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'VoucherType' | abpLocalization }}</label>
+                <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
                 <select class="form-select" formControlName="voucherType">
                   @for (t of voucherTypes; track t.value) { <option [ngValue]="t.value">{{ t.label }}</option> }
                 </select>
@@ -53,24 +53,24 @@ const VOUCHER_TYPES: { value: number; label: string }[] = [
               <div class="col-md-2">
                 <div class="form-check mt-4">
                   <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive" />
-                  <label class="form-check-label" for="isActive">{{ 'Active' | abpLocalization }}</label>
+                  <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0">{{ 'Lines' | abpLocalization }}</h6>
+              <h6 class="mb-0">{{ '::Lines' | abpLocalization }}</h6>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="addLine()">
-                <i class="fa fa-plus me-1"></i>{{ 'AddLine' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::AddLine' | abpLocalization }}
               </button>
             </div>
             <table class="table table-sm" formArrayName="lines">
               <thead><tr>
-                <th>{{ 'Account' | abpLocalization }}</th>
-                <th style="width:110px">{{ 'Debit' | abpLocalization }}/{{ 'Credit' | abpLocalization }}</th>
-                <th style="width:140px">{{ 'DefaultAmount' | abpLocalization }}</th>
-                <th style="width:120px">{{ 'PartyType' | abpLocalization }}</th>
-                <th>{{ 'Description' | abpLocalization }}</th>
+                <th>{{ '::Account' | abpLocalization }}</th>
+                <th style="width:110px">{{ '::Debit' | abpLocalization }}/{{ '::Credit' | abpLocalization }}</th>
+                <th style="width:140px">{{ '::DefaultAmount' | abpLocalization }}</th>
+                <th style="width:120px">{{ '::PartyType' | abpLocalization }}</th>
+                <th>{{ '::Description' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -84,16 +84,16 @@ const VOUCHER_TYPES: { value: number; label: string }[] = [
                     </td>
                     <td>
                       <select class="form-select form-select-sm" formControlName="isDebit">
-                        <option [ngValue]="true">{{ 'Debit' | abpLocalization }}</option>
-                        <option [ngValue]="false">{{ 'Credit' | abpLocalization }}</option>
+                        <option [ngValue]="true">{{ '::Debit' | abpLocalization }}</option>
+                        <option [ngValue]="false">{{ '::Credit' | abpLocalization }}</option>
                       </select>
                     </td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="defaultAmount" /></td>
                     <td>
                       <select class="form-select form-select-sm" formControlName="partyType">
                         <option [ngValue]="null">—</option>
-                        <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
-                        <option value="Supplier">{{ 'Supplier' | abpLocalization }}</option>
+                        <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+                        <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
                       </select>
                     </td>
                     <td><input class="form-control form-control-sm" formControlName="description" /></td>
@@ -107,9 +107,9 @@ const VOUCHER_TYPES: { value: number; label: string }[] = [
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || lines.length === 0 || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/accounting/journal-entry-templates">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/accounting/journal-entry-templates">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

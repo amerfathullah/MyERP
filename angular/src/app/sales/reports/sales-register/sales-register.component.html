@@ -1,36 +1,36 @@
-<abp-page [title]="'SalesRegister' | abpLocalization">
+<abp-page [title]="'::SalesRegister' | abpLocalization">
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
         <div class="col-md-3">
-          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
-            <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">{{ 'Customer' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
           <select class="form-select" formControlName="customerId">
-            <option value="">-- {{ 'All' | abpLocalization }} --</option>
+            <option value="">-- {{ '::All' | abpLocalization }} --</option>
             @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
         <div class="col-md-2">
           <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
-            <label class="form-check-label small" for="includePayments">{{ 'IncludePayments' | abpLocalization }}</label>
+            <label class="form-check-label small" for="includePayments">{{ '::IncludePayments' | abpLocalization }}</label>
           </div>
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
-            <i class="fa fa-table me-1"></i>{{ 'Generate' | abpLocalization }}
+            <i class="fa fa-table me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
         </div>
       </form>
@@ -42,8 +42,8 @@
   @if (report(); as r) {
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-bold">{{ r.count }} {{ 'Entries' | abpLocalization }}</span>
-        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}</button>
+        <span class="fw-bold">{{ r.count }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}</button>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
@@ -51,22 +51,22 @@
             <thead>
               @if (filters.get('includePayments')?.value) {
                 <tr>
-                  <th class="ps-3">{{ 'VoucherType' | abpLocalization }}</th>
-                  <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
-                  <th class="text-end pe-3">{{ 'Balance' | abpLocalization }}</th>
+                  <th class="ps-3">{{ '::VoucherType' | abpLocalization }}</th>
+                  <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
+                  <th class="text-end pe-3">{{ '::Balance' | abpLocalization }}</th>
                 </tr>
               } @else {
                 <tr>
-                  <th class="ps-3">{{ 'InvoiceNumber' | abpLocalization }}</th>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Tax' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
-                  <th class="text-end pe-3">{{ 'Outstanding' | abpLocalization }}</th>
+                  <th class="ps-3">{{ '::InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::NetTotal' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Paid' | abpLocalization }}</th>
+                  <th class="text-end pe-3">{{ '::Outstanding' | abpLocalization }}</th>
                 </tr>
               }
             </thead>
@@ -104,7 +104,7 @@
             <tfoot>
               @if (!filters.get('includePayments')?.value) {
                 <tr class="fw-bold table-light">
-                  <td class="ps-3" colspan="2">{{ 'Total' | abpLocalization }}</td>
+                  <td class="ps-3" colspan="2">{{ '::Total' | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ r.totalNet | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ r.totalTax | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ r.totalGrand | number:'1.2-2' }}</td>

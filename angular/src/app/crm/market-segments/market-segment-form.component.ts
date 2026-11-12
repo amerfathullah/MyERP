@@ -16,13 +16,13 @@ import { MarketSegmentService } from '../../proxy/crm/market-segment.service';
     <abp-page [title]="(id ? '::Edit' : '::New') | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body">
-          <label class="form-label">{{ 'Name' | abpLocalization }} *</label>
+          <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
           <input type="text" class="form-control" formControlName="name" maxlength="100">
         </div></div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/crm/market-segments">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/crm/market-segments">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

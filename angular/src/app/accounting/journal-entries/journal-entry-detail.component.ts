@@ -28,7 +28,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="je()?.entryNumber || ('JournalEntry' | abpLocalization)">
+    <abp-page [title]="je()?.entryNumber || ('::JournalEntry' | abpLocalization)">
       @if (!je()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -39,7 +39,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalDebit' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalDebit' | abpLocalization }}</div>
                 <div class="fs-3 fw-bold text-success">{{ totalDebit() | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -47,7 +47,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'TotalCredit' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalCredit' | abpLocalization }}</div>
                 <div class="fs-3 fw-bold text-danger">{{ totalCredit() | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -55,7 +55,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
           <div class="col-md-4">
             <div class="card">
               <div class="card-body text-center">
-                <div class="text-muted small">{{ 'Difference' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Difference' | abpLocalization }}</div>
                 <div class="fs-3 fw-bold" [class.text-success]="difference() === 0" [class.text-danger]="difference() !== 0">
                   {{ difference() | number:'1.2-2' }}
                 </div>
@@ -70,16 +70,16 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
             <div class="row">
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
-                  <tr><td class="text-muted" style="width:40%">{{ 'EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ je()!.entryNumber }}</td></tr>
-                  <tr><td class="text-muted">{{ 'EntryType' | abpLocalization }}</td><td>{{ voucherTypeLabel(je()!.voucherType) }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="je()!.status!" /></td></tr>
-                  <tr><td class="text-muted">{{ 'PostingDate' | abpLocalization }}</td><td>{{ je()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
+                  <tr><td class="text-muted" style="width:40%">{{ '::EntryNumber' | abpLocalization }}</td><td class="fw-bold">{{ je()!.entryNumber }}</td></tr>
+                  <tr><td class="text-muted">{{ '::EntryType' | abpLocalization }}</td><td>{{ voucherTypeLabel(je()!.voucherType) }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Status' | abpLocalization }}</td><td><app-status-badge [status]="je()!.status!" /></td></tr>
+                  <tr><td class="text-muted">{{ '::PostingDate' | abpLocalization }}</td><td>{{ je()!.postingDate | date:'dd/MM/yyyy' }}</td></tr>
                 </table>
               </div>
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
-                  <tr><td class="text-muted" style="width:40%">{{ 'ReferenceType' | abpLocalization }}</td><td>{{ je()!.referenceType || '-' }}</td></tr>
-                  <tr><td class="text-muted">{{ 'Notes' | abpLocalization }}</td><td>{{ je()!.narration || '-' }}</td></tr>
+                  <tr><td class="text-muted" style="width:40%">{{ '::ReferenceType' | abpLocalization }}</td><td>{{ je()!.referenceType || '-' }}</td></tr>
+                  <tr><td class="text-muted">{{ '::Notes' | abpLocalization }}</td><td>{{ je()!.narration || '-' }}</td></tr>
                 </table>
               </div>
             </div>
@@ -88,16 +88,16 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
 
         <!-- GL Lines Table -->
         <div class="card mb-4">
-          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ 'JournalEntryLines' | abpLocalization }}</h6></div>
+          <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::JournalEntryLines' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead class="table-light">
                 <tr>
                   <th>#</th>
-                  <th>{{ 'Account' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
-                  <th>{{ 'Description' | abpLocalization }}</th>
+                  <th>{{ '::Account' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
+                  <th>{{ '::Description' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,7 +120,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
               </tbody>
               <tfoot class="table-light fw-bold">
                 <tr>
-                  <td colspan="2" class="text-end">{{ 'Total' | abpLocalization }}</td>
+                  <td colspan="2" class="text-end">{{ '::Total' | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ totalDebit() | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ totalCredit() | number:'1.2-2' }}</td>
                   <td></td>

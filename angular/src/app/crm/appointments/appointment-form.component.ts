@@ -27,11 +27,11 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
               <input type="datetime-local" class="form-control" formControlName="scheduledTime">
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'Phone' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Phone' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="phone" maxlength="30">
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'Email' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Email' | abpLocalization }}</label>
               <input type="email" class="form-control" formControlName="email" maxlength="256">
             </div>
             <div class="col-12">
@@ -41,9 +41,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div></div>
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/crm/appointments">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/crm/appointments">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

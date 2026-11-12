@@ -21,48 +21,48 @@ const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled'
     <div class="container-fluid my-3">
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fa fa-robot me-2"></i>{{ 'ProcessPaymentReconciliation' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fa fa-robot me-2"></i>{{ '::ProcessPaymentReconciliation' | abpLocalization }}</h5>
           @if (!showCreateForm) {
             <button class="btn btn-primary btn-sm" (click)="showCreateForm = true">
-              <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
             </button>
           }
         </div>
         <div class="card-body py-2">
-          <small class="text-muted">{{ 'ProcessPaymentReconciliationHint' | abpLocalization }}</small>
+          <small class="text-muted">{{ '::ProcessPaymentReconciliationHint' | abpLocalization }}</small>
         </div>
       </div>
 
       @if (showCreateForm) {
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">{{ 'NewProcessPaymentReconciliation' | abpLocalization }}</h6>
+            <h6 class="mb-0">{{ '::NewProcessPaymentReconciliation' | abpLocalization }}</h6>
             <button class="btn-close" (click)="showCreateForm = false"></button>
           </div>
           <div class="card-body">
             <div class="row g-2 mb-3">
               <div class="col-md-3">
-                <label class="form-label">{{ 'PartyType' | abpLocalization }}</label>
+                <label class="form-label">{{ '::PartyType' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="draft.partyType">
-                  <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
-                  <option value="Supplier">{{ 'Supplier' | abpLocalization }}</option>
+                  <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+                  <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'Party' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Party' | abpLocalization }}</label>
                 <input class="form-control form-control-sm" [(ngModel)]="draft.partyId" [placeholder]="'::Placeholder:EnterPartyId' | abpLocalization" />
               </div>
               <div class="col-md-5">
-                <label class="form-label">{{ 'ReceivablePayableAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ReceivablePayableAccount' | abpLocalization }}</label>
                 <input class="form-control form-control-sm" [(ngModel)]="draft.receivablePayableAccountId" placeholder="Account Id" />
               </div>
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-primary" [disabled]="creating || !draft.partyId || !draft.receivablePayableAccountId" (click)="createDraft()">
                 @if (creating) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+                <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
               </button>
-              <button class="btn btn-secondary" (click)="showCreateForm = false">{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-secondary" (click)="showCreateForm = false">{{ '::Cancel' | abpLocalization }}</button>
             </div>
           </div>
         </div>
@@ -72,17 +72,17 @@ const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled'
       @if (!isLoading && items.length === 0 && !showCreateForm) {
         <div class="text-center py-5">
           <i class="fa fa-robot fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoProcessPaymentReconciliationYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoProcessPaymentReconciliationYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading && items.length > 0) {
         <div class="card"><div class="card-body p-0">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th>{{ 'PartyType' | abpLocalization }}</th>
-              <th>{{ 'Party' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Reconciled' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th>{{ '::PartyType' | abpLocalization }}</th>
+              <th>{{ '::Party' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Reconciled' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -160,7 +160,7 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
   createDraft() {
     const cid = this.companyContext.currentCompanyId();
     if (!cid) {
-      this.toaster.warn('SelectCompanyFirst');
+      this.toaster.warn('::SelectCompanyFirst');
       return;
     }
     this.creating = true;
@@ -171,7 +171,7 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
       receivablePayableAccountId: this.draft.receivablePayableAccountId,
     }).subscribe({
       next: () => {
-        this.toaster.success('SuccessfullyCreated');
+        this.toaster.success('::SuccessfullyCreated');
         this.creating = false;
         this.showCreateForm = false;
         this.loadData();
@@ -185,16 +185,16 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
 
   submitItem(item: ProcessPaymentReconciliationDto) {
     this.service.submit(item.id!).subscribe({
-      next: () => { this.toaster.success('SuccessfullySubmitted'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
 
   cancelItem(item: ProcessPaymentReconciliationDto) {
-    this.confirmation.warn('DeleteConfirmation', 'AreYouSure').subscribe(status => {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
       this.service.cancel(item.id!).subscribe({
-        next: () => { this.toaster.success('SuccessfullyCancelled'); this.loadData(); },
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadData(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
       });
     });
@@ -209,14 +209,14 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
 
   pauseItem(item: ProcessPaymentReconciliationDto) {
     this.service.pause(item.id!).subscribe({
-      next: () => { this.toaster.success('SuccessfullyPaused'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyPaused'); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
 
   resumeItem(item: ProcessPaymentReconciliationDto) {
     this.service.resume(item.id!).subscribe({
-      next: () => { this.toaster.success('SuccessfullyResumed'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyResumed'); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }

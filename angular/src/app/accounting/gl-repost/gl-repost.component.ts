@@ -23,18 +23,18 @@ interface RepostResultDto {
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="fas fa-rotate me-2"></i>{{ 'GLRepost' | abpLocalization }}</h4>
+        <h4><i class="fas fa-rotate me-2"></i>{{ '::GLRepost' | abpLocalization }}</h4>
       </div>
 
       <!-- Single Voucher Repost -->
       <div class="card mb-3">
         <div class="card-header">
-          <h6 class="mb-0">{{ 'RepostSingleVoucher' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::RepostSingleVoucher' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">{{ 'VoucherType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="voucherType">
                 @for (t of allowedTypes(); track t) {
                   <option [value]="t">{{ t }}</option>
@@ -42,13 +42,13 @@ interface RepostResultDto {
               </select>
             </div>
             <div class="col-md-5">
-              <label class="form-label">{{ 'VoucherId' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherId' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="voucherId"
                      [placeholder]="'::Placeholder:EnterDocumentId' | abpLocalization">
             </div>
             <div class="col-md-3">
               <button class="btn btn-warning btn-sm w-100" (click)="repostSingle()" [disabled]="isProcessing()">
-                <i class="fas fa-rotate me-1"></i> {{ 'Repost' | abpLocalization }}
+                <i class="fas fa-rotate me-1"></i> {{ '::Repost' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -62,12 +62,12 @@ interface RepostResultDto {
       <!-- Batch Repost -->
       <div class="card mb-3">
         <div class="card-header">
-          <h6 class="mb-0">{{ 'RepostBatch' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::RepostBatch' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end mb-3">
             <div class="col-md-4">
-              <label class="form-label">{{ 'VoucherType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="batchVoucherType">
                 @for (t of allowedTypes(); track t) {
                   <option [value]="t">{{ t }}</option>
@@ -75,20 +75,20 @@ interface RepostResultDto {
               </select>
             </div>
             <div class="col-md-5">
-              <label class="form-label">{{ 'VoucherId' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherId' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="batchVoucherId"
                      [placeholder]="'::Placeholder:EnterDocumentId' | abpLocalization">
             </div>
             <div class="col-md-3">
               <button class="btn btn-outline-primary btn-sm w-100" (click)="addToBatch()" [disabled]="!batchVoucherId">
-                <i class="fas fa-plus me-1"></i> {{ 'Add' | abpLocalization }}
+                <i class="fas fa-plus me-1"></i> {{ '::Add' | abpLocalization }}
               </button>
             </div>
           </div>
 
           @if (batchVouchers().length > 0) {
             <table class="table table-sm mb-3">
-              <thead><tr><th>{{ 'VoucherType' | abpLocalization }}</th><th>{{ 'VoucherId' | abpLocalization }}</th><th></th></tr></thead>
+              <thead><tr><th>{{ '::VoucherType' | abpLocalization }}</th><th>{{ '::VoucherId' | abpLocalization }}</th><th></th></tr></thead>
               <tbody>
                 @for (v of batchVouchers(); track $index; let i = $index) {
                   <tr>
@@ -106,7 +106,7 @@ interface RepostResultDto {
           }
 
           <button class="btn btn-warning btn-sm" (click)="repostBatch()" [disabled]="isProcessing() || batchVouchers().length === 0">
-            <i class="fas fa-rotate me-1"></i> {{ 'RepostBatch' | abpLocalization }} ({{ batchVouchers().length }})
+            <i class="fas fa-rotate me-1"></i> {{ '::RepostBatch' | abpLocalization }} ({{ batchVouchers().length }})
           </button>
         </div>
       </div>
@@ -117,19 +117,19 @@ interface RepostResultDto {
           <div class="card-body">
             <div class="row text-center">
               <div class="col-md-3">
-                <div class="text-muted small">{{ 'Processed' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Processed' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ lastResult()!.totalProcessed }}</div>
               </div>
               <div class="col-md-3">
-                <div class="text-muted small">{{ 'Succeeded' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Succeeded' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-success">{{ lastResult()!.successCount }}</div>
               </div>
               <div class="col-md-3">
-                <div class="text-muted small">{{ 'Skipped' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Skipped' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-warning">{{ lastResult()!.skippedCount }}</div>
               </div>
               <div class="col-md-3">
-                <div class="text-muted small">{{ 'Failed' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Failed' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-danger">{{ lastResult()!.failedCount }}</div>
               </div>
             </div>
@@ -150,7 +150,7 @@ interface RepostResultDto {
       <!-- Allowed Types Info -->
       <div class="card">
         <div class="card-header">
-          <h6 class="mb-0">{{ 'AllowedVoucherTypes' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::AllowedVoucherTypes' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="d-flex flex-wrap gap-2">

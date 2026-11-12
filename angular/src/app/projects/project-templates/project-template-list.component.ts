@@ -13,17 +13,17 @@ import type { ProjectTemplateDto } from '../../proxy/projects/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ProjectTemplates' | abpLocalization">
+    <abp-page [title]="'::ProjectTemplates' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/projects/templates/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewProjectTemplate' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewProjectTemplate' | abpLocalization }}
         </button>
       </div>
 
       @if (templates.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-diagram-project fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoProjectTemplatesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoProjectTemplatesYet' | abpLocalization }}</p>
         </div>
       } @else {
         <div class="card">
@@ -31,9 +31,9 @@ import type { ProjectTemplateDto } from '../../proxy/projects/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'TemplateName' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Tasks' | abpLocalization }}</th>
-                  <th>{{ 'Disabled' | abpLocalization }}</th>
+                  <th>{{ '::TemplateName' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Tasks' | abpLocalization }}</th>
+                  <th>{{ '::Disabled' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -44,7 +44,7 @@ import type { ProjectTemplateDto } from '../../proxy/projects/models';
                     <td class="text-end">{{ t.tasks?.length ?? 0 }}</td>
                     <td>
                       @if (t.disabled) {
-                        <span class="badge bg-secondary-subtle text-secondary">{{ 'Disabled' | abpLocalization }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

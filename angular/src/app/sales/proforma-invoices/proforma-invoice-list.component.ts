@@ -33,7 +33,7 @@ interface ProformaInvoice {
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'ProformaInvoices' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::ProformaInvoices' | abpLocalization }}</h5>
         </div>
         <div class="card-body">
           <div class="row mb-3">
@@ -43,9 +43,9 @@ interface ProformaInvoice {
             </div>
             <div class="col-md-3">
               <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (change)="loadData()">
-                <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
-                <option value="1">{{ 'Issued' | abpLocalization }}</option>
-                <option value="2">{{ 'Cancelled' | abpLocalization }}</option>
+                <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+                <option value="1">{{ '::Issued' | abpLocalization }}</option>
+                <option value="2">{{ '::Cancelled' | abpLocalization }}</option>
               </select>
             </div>
           </div>
@@ -55,21 +55,21 @@ interface ProformaInvoice {
           } @else if (proformas().length === 0) {
             <div class="text-center text-muted py-5">
               <i class="fas fa-file-invoice fa-3x mb-3 opacity-25"></i>
-              <p>{{ 'NoProformaInvoicesYet' | abpLocalization }}</p>
+              <p>{{ '::NoProformaInvoicesYet' | abpLocalization }}</p>
             </div>
           } @else {
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle">
                 <thead>
                   <tr>
-                    <th>{{ 'ProformaNumber' | abpLocalization }}</th>
-                    <th>{{ 'Date' | abpLocalization }}</th>
-                    <th>{{ 'Customer' | abpLocalization }}</th>
-                    <th>{{ 'SalesOrder' | abpLocalization }}</th>
-                    <th>{{ 'Basis' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-                    <th>{{ 'Status' | abpLocalization }}</th>
-                    <th>{{ 'Actions' | abpLocalization }}</th>
+                    <th>{{ '::ProformaNumber' | abpLocalization }}</th>
+                    <th>{{ '::Date' | abpLocalization }}</th>
+                    <th>{{ '::Customer' | abpLocalization }}</th>
+                    <th>{{ '::SalesOrder' | abpLocalization }}</th>
+                    <th>{{ '::Basis' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                    <th>{{ '::Status' | abpLocalization }}</th>
+                    <th>{{ '::Actions' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>

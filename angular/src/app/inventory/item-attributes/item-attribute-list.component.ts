@@ -12,13 +12,13 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ItemAttributes' | abpLocalization">
+    <abp-page [title]="'::ItemAttributes' | abpLocalization">
       <!-- Inline Create Form -->
       <div class="card mb-3"><div class="card-body">
-        <h6 class="card-title">{{ 'CreateAttribute' | abpLocalization }}</h6>
+        <h6 class="card-title">{{ '::CreateAttribute' | abpLocalization }}</h6>
         <div class="row g-2 align-items-end">
           <div class="col-md-3">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input type="text" class="form-control form-control-sm" [(ngModel)]="newName" [placeholder]="'::Placeholder:AttributeName' | abpLocalization">
           </div>
           <div class="col-md-2">
@@ -43,7 +43,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
           }
           <div class="col-md-2">
             <button class="btn btn-primary btn-sm" (click)="createAttribute()" [disabled]="!newName.trim()">
-              <i class="fa fa-plus me-1"></i>{{ 'Create' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::Create' | abpLocalization }}
             </button>
           </div>
         </div>

@@ -14,7 +14,7 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewQITemplate' | abpLocalization">
+    <abp-page [title]="'::NewQITemplate' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
@@ -22,9 +22,9 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
             <input class="form-control" [(ngModel)]="form.name" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'Item' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Item' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.itemId">
-              <option [ngValue]="undefined">-- {{ 'SelectItem' | abpLocalization }} --</option>
+              <option [ngValue]="undefined">-- {{ '::SelectItem' | abpLocalization }} --</option>
               @for (i of availableItems(); track i.id) {
                 <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
               }
@@ -38,7 +38,7 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
 
         <div class="card bg-light mb-3">
           <div class="card-header d-flex justify-content-between align-items-center py-2">
-            <span class="fw-semibold">{{ 'AddParameter' | abpLocalization }}</span>
+            <span class="fw-semibold">{{ '::AddParameter' | abpLocalization }}</span>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addParameter()">
               <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
             </button>
@@ -47,11 +47,11 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
             <table class="table table-sm mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Specification' | abpLocalization }} *</th>
+                  <th>{{ '::Specification' | abpLocalization }} *</th>
                   <th style="width:110px">Numeric</th>
                   <th style="width:120px">Min</th>
                   <th style="width:120px">Max</th>
-                  <th>{{ 'AcceptanceCriteria' | abpLocalization }}</th>
+                  <th>{{ '::AcceptanceCriteria' | abpLocalization }}</th>
                   <th style="width:60px"></th>
                 </tr>
               </thead>

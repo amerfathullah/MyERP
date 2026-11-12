@@ -21,7 +21,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="order()?.orderNumber || ('SubcontractingInwardOrder' | abpLocalization)">
+    <abp-page [title]="order()?.orderNumber || ('::SubcontractingInwardOrder' | abpLocalization)">
       @if (isLoading()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (order(); as o) {
@@ -29,20 +29,20 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
         <div class="row mb-3">
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
               <span class="badge mt-1" [class]="getStatusClass(o.status)">{{ getStatusName(o.status) }}</span>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'GrandTotal' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::GrandTotal' | abpLocalization }}</small>
               <h4 class="mb-0">{{ o.grandTotal | number:'1.2-2' }}</h4>
               <small class="text-muted">{{ o.currencyCode }}</small>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'PerReceived' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::PerReceived' | abpLocalization }}</small>
               <div class="progress mt-1" style="height: 20px">
                 <div class="progress-bar" [class]="o.perReceived >= 100 ? 'bg-success' : 'bg-info'"
                   [style.width.%]="o.perReceived || 0">{{ o.perReceived | number:'1.0-0' }}%</div>
@@ -51,7 +51,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
           </div>
           <div class="col-md-3">
             <div class="card text-center"><div class="card-body py-2">
-              <small class="text-muted d-block">{{ 'PerBilled' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::PerBilled' | abpLocalization }}</small>
               <div class="progress mt-1" style="height: 20px">
                 <div class="progress-bar bg-warning text-dark" [style.width.%]="o.perBilled || 0">
                   {{ o.perBilled | number:'1.0-0' }}%</div>
@@ -62,22 +62,22 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
 
         <!-- Order Details -->
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'OrderDetails' | abpLocalization }}</h6>
+          <h6>{{ '::OrderDetails' | abpLocalization }}</h6>
           <div class="row">
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
-                <tr><td class="text-muted" style="width:40%">{{ 'OrderDate' | abpLocalization }}</td><td>{{ o.orderDate | date:'dd/MM/yyyy' }}</td></tr>
-                <tr><td class="text-muted">{{ 'Supplier' | abpLocalization }}</td><td><strong>{{ supplierName() || '—' }}</strong></td></tr>
+                <tr><td class="text-muted" style="width:40%">{{ '::OrderDate' | abpLocalization }}</td><td>{{ o.orderDate | date:'dd/MM/yyyy' }}</td></tr>
+                <tr><td class="text-muted">{{ '::Supplier' | abpLocalization }}</td><td><strong>{{ supplierName() || '—' }}</strong></td></tr>
               </table>
             </div>
             <div class="col-md-6">
               <table class="table table-borderless table-sm mb-0">
                 @if (o.salesOrderId) {
-                  <tr><td class="text-muted" style="width:40%">{{ 'SalesOrder' | abpLocalization }}</td>
+                  <tr><td class="text-muted" style="width:40%">{{ '::SalesOrder' | abpLocalization }}</td>
                     <td><a [routerLink]="['/sales/orders', o.salesOrderId]">{{ soNumber() || o.salesOrderId }}</a></td></tr>
                 }
                 @if (o.subcontractingOrderId) {
-                  <tr><td class="text-muted">{{ 'SubcontractingOrder' | abpLocalization }}</td>
+                  <tr><td class="text-muted">{{ '::SubcontractingOrder' | abpLocalization }}</td>
                     <td><a [routerLink]="['/purchasing/subcontracting', o.subcontractingOrderId]">{{ scoNumber() || o.subcontractingOrderId }}</a></td></tr>
                 }
               </table>
@@ -88,17 +88,17 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
         <!-- Items Table -->
         @if (o.items?.length) {
           <div class="card mb-3"><div class="card-body">
-            <h6>{{ 'Items' | abpLocalization }} ({{ o.items.length }})</h6>
+            <h6>{{ '::Items' | abpLocalization }} ({{ o.items.length }})</h6>
             <table class="table table-hover table-sm mb-0">
               <thead><tr>
                 <th>#</th>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Received' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Pending' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Billed' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Received' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Pending' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Billed' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (item of o.items; track item.id; let i = $index) {
@@ -123,7 +123,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
                 }
               </tbody>
               <tfoot><tr class="fw-bold">
-                <td colspan="4" class="text-end">{{ 'Total' | abpLocalization }}</td>
+                <td colspan="4" class="text-end">{{ '::Total' | abpLocalization }}</td>
                 <td class="text-end">{{ o.grandTotal | number:'1.2-2' }}</td>
                 <td colspan="3"></td>
               </tr></tfoot>
@@ -135,7 +135,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
         <div class="d-flex gap-2 mb-3">
           @if (o.status === 0) {
             <button class="btn btn-primary btn-sm" (click)="submit()">
-              <i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}
+              <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
             </button>
           }
           @if (o.status === 1 || o.status === 2) {
@@ -143,12 +143,12 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
               <i class="fa fa-box-open me-1"></i>{{ '::CreateReceipt' | abpLocalization }}
             </button>
             <button class="btn btn-outline-warning btn-sm" (click)="close()">
-              <i class="fa fa-lock me-1"></i>{{ 'Close' | abpLocalization }}
+              <i class="fa fa-lock me-1"></i>{{ '::Close' | abpLocalization }}
             </button>
           }
           @if (o.status !== 4 && o.status !== 5) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancelOrder()">
-              <i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}
+              <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
           }
         </div>

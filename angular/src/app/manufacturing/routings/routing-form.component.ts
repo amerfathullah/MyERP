@@ -12,28 +12,28 @@ import type { CreateRoutingDto, OperationDto, WorkstationDto } from '../../proxy
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? 'EditRouting' : 'NewRouting') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditRouting' : '::NewRouting') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.name" />
           </div>
           <div class="col-md-6 d-flex align-items-end">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="rtDisabled" (ngModelChange)="isDirty=true" [(ngModel)]="form.isDisabled" />
-              <label class="form-check-label" for="rtDisabled">{{ 'Disabled' | abpLocalization }}</label>
+              <label class="form-check-label" for="rtDisabled">{{ '::Disabled' | abpLocalization }}</label>
             </div>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Operations' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Operations' | abpLocalization }}</h6>
         <table class="table table-sm">
           <thead><tr>
-            <th>{{ 'Sequence' | abpLocalization }}</th>
-            <th>{{ 'Operation' | abpLocalization }}</th>
-            <th>{{ 'Workstation' | abpLocalization }}</th>
-            <th>{{ 'OperationTime' | abpLocalization }}</th>
+            <th>{{ '::Sequence' | abpLocalization }}</th>
+            <th>{{ '::Operation' | abpLocalization }}</th>
+            <th>{{ '::Workstation' | abpLocalization }}</th>
+            <th>{{ '::OperationTime' | abpLocalization }}</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -61,11 +61,11 @@ import type { CreateRoutingDto, OperationDto, WorkstationDto } from '../../proxy
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addOperation()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addOperation()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/manufacturing/routings">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/manufacturing/routings">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

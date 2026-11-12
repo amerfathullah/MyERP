@@ -15,21 +15,21 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Batches' | abpLocalization">
+    <abp-page [title]="'::Batches' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-boxes-stacked fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoBatchesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoBatchesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'BatchNo' | abpLocalization }}</th>
-              <th>{{ 'Item' | abpLocalization }}</th>
-              <th>{{ 'ExpiryDate' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::BatchNo' | abpLocalization }}</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::ExpiryDate' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (b of items; track b.id) {

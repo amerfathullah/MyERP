@@ -15,7 +15,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [CommonModule, RouterLink, FormsModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityMeetings' | abpLocalization">
+    <abp-page [title]="'::QualityMeetings' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <div class="d-flex gap-2">
@@ -26,7 +26,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             </select>
           </div>
           <a routerLink="/inventory/quality-meetings/new" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i>{{ 'NewQualityMeeting' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewQualityMeeting' | abpLocalization }}
           </a>
         </div>
         <div class="card-body p-0">
@@ -34,9 +34,9 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <table class="table table-hover table-striped mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'MeetingDate' | abpLocalization }}</th>
-                  <th>{{ 'Chairperson' | abpLocalization }}</th>
-                  <th>{{ 'Attendees' | abpLocalization }}</th>
+                  <th>{{ '::MeetingDate' | abpLocalization }}</th>
+                  <th>{{ '::Chairperson' | abpLocalization }}</th>
+                  <th>{{ '::Attendees' | abpLocalization }}</th>
                   <th>{{ '::Status' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                 </tr>

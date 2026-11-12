@@ -19,14 +19,14 @@ const LOAN_STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'PartiallyRepaid', 'Ful
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Loans' | abpLocalization">
+    <abp-page [title]="'::Loans' | abpLocalization">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex gap-2">
           <input type="text" class="form-control form-control-sm" style="width: 200px"
             [placeholder]="'::Placeholder:Search' | abpLocalization"
             [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" />
           <select class="form-select form-select-sm" style="width: 150px" [(ngModel)]="statusFilter" (change)="onStatusChange()">
-            <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+            <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
             <option value="Draft">Draft</option>
             <option value="Sanctioned">Sanctioned</option>
             <option value="Disbursed">Disbursed</option>
@@ -36,28 +36,28 @@ const LOAN_STATUS = ['Draft', 'Sanctioned', 'Disbursed', 'PartiallyRepaid', 'Ful
           </select>
         </div>
         <button class="btn btn-primary btn-sm" routerLink="/hr/loans/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewLoan' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewLoan' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-hand-holding-dollar fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoLoansYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoLoansYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" routerLink="/hr/loans/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewLoan' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewLoan' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body p-0">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'LoanNumber' | abpLocalization }}</th>
-              <th>{{ 'Employee' | abpLocalization }}</th>
-              <th>{{ 'LoanType' | abpLocalization }}</th>
-              <th class="text-end">{{ 'LoanAmount' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::LoanNumber' | abpLocalization }}</th>
+              <th>{{ '::Employee' | abpLocalization }}</th>
+              <th>{{ '::LoanType' | abpLocalization }}</th>
+              <th class="text-end">{{ '::LoanAmount' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

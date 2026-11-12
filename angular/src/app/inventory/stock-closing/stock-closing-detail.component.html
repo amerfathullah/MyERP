@@ -1,4 +1,4 @@
-<abp-page [title]="'StockClosingDetail' | abpLocalization">
+<abp-page [title]="'::StockClosingDetail' | abpLocalization">
   <app-breadcrumb />
 
   @if (loading()) {
@@ -11,41 +11,41 @@
       <div class="card-body">
         <div class="row align-items-center">
           <div class="col-md-3">
-            <small class="text-muted d-block">{{ 'PostingDate' | abpLocalization }}</small>
+            <small class="text-muted d-block">{{ '::PostingDate' | abpLocalization }}</small>
             <strong>{{ entry.toDate | date:'dd/MM/yyyy' }}</strong>
           </div>
           <div class="col-md-3">
             @if (entry.scannedFromDate) {
-              <small class="text-muted d-block">{{ 'ScannedFrom' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::ScannedFrom' | abpLocalization }}</small>
               <span>{{ entry.scannedFromDate | date:'dd/MM/yyyy' }}</span>
             }
           </div>
           <div class="col-md-2">
-            <small class="text-muted d-block">{{ 'Status' | abpLocalization }}</small>
+            <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
             <app-status-badge [status]="statusLabel" />
           </div>
           <div class="col-md-2">
             @if (entry.previousClosingEntryId) {
-              <small class="text-muted d-block">{{ 'PreviousClosing' | abpLocalization }}</small>
+              <small class="text-muted d-block">{{ '::PreviousClosing' | abpLocalization }}</small>
               <a [routerLink]="'/inventory/stock-closing/' + entry.previousClosingEntryId" class="text-primary">
-                <i class="fa fa-link me-1"></i>{{ 'View' | abpLocalization }}
+                <i class="fa fa-link me-1"></i>{{ '::View' | abpLocalization }}
               </a>
             }
           </div>
           <div class="col-md-2 text-end">
             @if (isDraft && !hasBalances) {
               <button class="btn btn-sm btn-outline-primary" (click)="generate()" [disabled]="actionLoading()">
-                <i class="fa fa-cogs me-1"></i>{{ 'GenerateBalances' | abpLocalization }}
+                <i class="fa fa-cogs me-1"></i>{{ '::GenerateBalances' | abpLocalization }}
               </button>
             }
             @if (isDraft && hasBalances) {
               <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="actionLoading()">
-                <i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}
+                <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
               </button>
             }
             @if (isSubmitted) {
               <button class="btn btn-sm btn-outline-danger" (click)="cancel()" [disabled]="actionLoading()">
-                <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
+                <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
               </button>
             }
           </div>
@@ -58,7 +58,7 @@
       <div class="col-md-4">
         <div class="card text-center">
           <div class="card-body py-3">
-            <small class="text-muted d-block mb-1">{{ 'TotalStockValue' | abpLocalization }}</small>
+            <small class="text-muted d-block mb-1">{{ '::TotalStockValue' | abpLocalization }}</small>
             <h4 class="mb-0 fw-bold">{{ entry.totalStockValue | number:'1.2-2' }}</h4>
           </div>
         </div>
@@ -66,7 +66,7 @@
       <div class="col-md-4">
         <div class="card text-center">
           <div class="card-body py-3">
-            <small class="text-muted d-block mb-1">{{ 'TotalEntries' | abpLocalization }}</small>
+            <small class="text-muted d-block mb-1">{{ '::TotalEntries' | abpLocalization }}</small>
             <h4 class="mb-0 fw-bold">{{ entry.totalEntries }}</h4>
           </div>
         </div>
@@ -74,7 +74,7 @@
       <div class="col-md-4">
         <div class="card text-center">
           <div class="card-body py-3">
-            <small class="text-muted d-block mb-1">{{ 'CreatedOn' | abpLocalization }}</small>
+            <small class="text-muted d-block mb-1">{{ '::CreatedOn' | abpLocalization }}</small>
             <h4 class="mb-0 fw-bold">{{ entry.creationTime | date:'dd/MM/yyyy HH:mm' }}</h4>
           </div>
         </div>
@@ -84,19 +84,19 @@
     <!-- Closing Balances Table -->
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0">{{ 'ClosingBalances' | abpLocalization }}</h6>
-        <span class="badge bg-secondary">{{ entry.balances?.length ?? 0 }} {{ 'Entries' | abpLocalization }}</span>
+        <h6 class="mb-0">{{ '::ClosingBalances' | abpLocalization }}</h6>
+        <span class="badge bg-secondary">{{ entry.balances?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
       </div>
       <div class="card-body p-0">
         @if (entry.balances && entry.balances.length > 0) {
           <table class="table table-sm table-hover mb-0">
             <thead>
               <tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th>{{ 'Warehouse' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Qty' | abpLocalization }}</th>
-                <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -112,7 +112,7 @@
             </tbody>
             <tfoot>
               <tr class="table-light fw-bold">
-                <td colspan="4" class="text-end">{{ 'Total' | abpLocalization }}:</td>
+                <td colspan="4" class="text-end">{{ '::Total' | abpLocalization }}:</td>
                 <td class="text-end">{{ entry.totalStockValue | number:'1.2-2' }}</td>
               </tr>
             </tfoot>
@@ -122,9 +122,9 @@
             <i class="fa fa-inbox fa-2x text-muted mb-2 d-block"></i>
             <p class="text-muted mb-0">
               @if (isDraft) {
-                {{ 'NoBalancesGeneratedYet' | abpLocalization }}
+                {{ '::NoBalancesGeneratedYet' | abpLocalization }}
               } @else {
-                {{ 'NoClosingBalances' | abpLocalization }}
+                {{ '::NoClosingBalances' | abpLocalization }}
               }
             </p>
           </div>

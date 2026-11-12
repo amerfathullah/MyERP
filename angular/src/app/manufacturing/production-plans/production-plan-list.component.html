@@ -1,8 +1,8 @@
-<abp-page [title]="'ProductionPlans' | abpLocalization">
+<abp-page [title]="'::ProductionPlans' | abpLocalization">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <span class="text-muted small">{{ store?.totalCount?.() ?? 0 }} {{ '::Results' | abpLocalization }}</span>
     <button class="btn btn-primary btn-sm" routerLink="/manufacturing/production-plans/new">
-      <i class="fa fa-plus me-1"></i>{{ 'NewProductionPlan' | abpLocalization }}
+      <i class="fa fa-plus me-1"></i>{{ '::NewProductionPlan' | abpLocalization }}
     </button>
   </div>
 
@@ -34,9 +34,9 @@
         <div class="text-center py-5">
           <i class="fa fa-clipboard-list fa-3x text-muted mb-3 d-block"></i>
           <h6 class="text-muted">{{ '::NoRecordsFound' | abpLocalization }}</h6>
-          <p class="text-muted small mb-3">{{ 'NoProductionPlansYet' | abpLocalization }}</p>
+          <p class="text-muted small mb-3">{{ '::NoProductionPlansYet' | abpLocalization }}</p>
           <button class="btn btn-primary btn-sm" routerLink="/manufacturing/production-plans/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewProductionPlan' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewProductionPlan' | abpLocalization }}
           </button>
         </div>
       } @else {
@@ -46,18 +46,18 @@
               <tr>
                 <th style="min-width: 140px;">
                   <app-sortable-header field="planNumber" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
-                    {{ 'PlanNumber' | abpLocalization }}
+                    {{ '::PlanNumber' | abpLocalization }}
                   </app-sortable-header>
                 </th>
                 <th style="width: 110px;">
                   <app-sortable-header field="postingDate" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
-                    {{ 'PostingDate' | abpLocalization }}
+                    {{ '::PostingDate' | abpLocalization }}
                   </app-sortable-header>
                 </th>
-                <th class="text-end" style="width: 100px;">{{ 'PlannedItems' | abpLocalization }}</th>
+                <th class="text-end" style="width: 100px;">{{ '::PlannedItems' | abpLocalization }}</th>
                 <th style="width: 120px;">
                   <app-sortable-header field="status" [currentField]="sortField" [currentDirection]="sortDirection" (sort)="onSort($event)">
-                    {{ 'Status' | abpLocalization }}
+                    {{ '::Status' | abpLocalization }}
                   </app-sortable-header>
                 </th>
                 <th class="text-end" style="width: 80px;"></th>

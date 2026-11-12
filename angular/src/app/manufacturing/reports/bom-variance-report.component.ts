@@ -15,10 +15,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-balance-scale me-2"></i>{{ 'BomVarianceReport' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="fa fa-balance-scale me-2"></i>{{ '::BomVarianceReport' | abpLocalization }}</h5>
         @if (data()) {
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
         }
       </div>
@@ -26,11 +26,11 @@ import { exportToCsv } from '../../shared/utils/csv-export';
         <!-- Filters -->
         <div class="row g-2 mb-4">
           <div class="col-md-3">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
           </div>
           <div class="col-md-4 d-flex align-items-center pt-3">
@@ -43,7 +43,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           </div>
           <div class="col-md-2 d-flex align-items-end">
             <button class="btn btn-primary btn-sm w-100" (click)="loadData()" [disabled]="isLoading()">
-              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ 'Generate' | abpLocalization }}
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -54,7 +54,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
                 <div class="fs-3 fw-bold text-primary">{{ d.totalWorkOrders }}</div>
-                <small class="text-muted">{{ 'TotalWorkOrders' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::TotalWorkOrders' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
@@ -88,14 +88,14 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <table class="table table-sm table-hover align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'WorkOrder' | abpLocalization }}</th>
+                  <th>{{ '::WorkOrder' | abpLocalization }}</th>
                   <th>BOM</th>
-                  <th>{{ 'FinishedGood' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'OrderedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ProducedQty' | abpLocalization }}</th>
+                  <th>{{ '::FinishedGood' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
                   <th>Raw Material</th>
-                  <th class="text-end">{{ 'RequiredQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ConsumedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ConsumedQty' | abpLocalization }}</th>
                   <th class="text-end">Variance</th>
                 </tr>
               </thead>
@@ -124,7 +124,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="9" class="text-center py-4 text-muted">{{ 'NoDataAvailable' | abpLocalization }}</td>
+                    <td colspan="9" class="text-center py-4 text-muted">{{ '::NoDataAvailable' | abpLocalization }}</td>
                   </tr>
                 }
               </tbody>

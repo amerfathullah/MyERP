@@ -2,7 +2,7 @@
   <div class="card">
     <div class="card-header">
       <h5 class="mb-0">
-        <i class="fas fa-chart-bar me-2"></i>{{ 'RunFinancialReport' | abpLocalization }}
+        <i class="fas fa-chart-bar me-2"></i>{{ '::RunFinancialReport' | abpLocalization }}
       </h5>
     </div>
 
@@ -10,16 +10,16 @@
     <div class="card-body border-bottom">
       <div class="row g-3 align-items-end">
         <div class="col-md-3">
-          <label class="form-label">{{ 'SelectTemplate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::SelectTemplate' | abpLocalization }}</label>
           <select class="form-select form-select-sm" [(ngModel)]="selectedTemplateId">
-            <option value="">-- {{ 'SelectTemplate' | abpLocalization }} --</option>
+            <option value="">-- {{ '::SelectTemplate' | abpLocalization }} --</option>
             @for (t of templates(); track t.id) {
               <option [value]="t.id">{{ t.name }}</option>
             }
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select form-select-sm" [ngModel]="companyContext.currentCompanyId()"
                   (ngModelChange)="companyContext.selectCompany($event, '')">
             @for (c of companyContext.companies(); track c.id) {
@@ -28,11 +28,11 @@
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
         </div>
         <div class="col-md-2">
-          <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
         </div>
         <div class="col-md-2">
@@ -42,7 +42,7 @@
             } @else {
               <i class="fas fa-play me-1"></i>
             }
-            {{ 'RunReport' | abpLocalization }}
+            {{ '::RunReport' | abpLocalization }}
           </button>
         </div>
       </div>
@@ -60,7 +60,7 @@
             <i class="fas fa-file-csv me-1"></i>CSV
           </button>
           <button class="btn btn-outline-secondary" (click)="printReport()" title="Print">
-            <i class="fas fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+            <i class="fas fa-print me-1"></i>{{ '::Print' | abpLocalization }}
           </button>
         </div>
       </div>
@@ -69,14 +69,14 @@
         @if (visibleRows().length === 0) {
           <div class="text-center py-5 text-muted">
             <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
-            <p>{{ 'NoDataForSelectedPeriod' | abpLocalization }}</p>
+            <p>{{ '::NoDataForSelectedPeriod' | abpLocalization }}</p>
           </div>
         } @else {
           <table class="table table-sm mb-0 report-table">
             <thead>
               <tr>
-                <th class="ps-3">{{ 'Label' | abpLocalization }}</th>
-                <th class="text-end pe-3" style="width: 200px;">{{ 'Amount' | abpLocalization }}</th>
+                <th class="ps-3">{{ '::Label' | abpLocalization }}</th>
+                <th class="text-end pe-3" style="width: 200px;">{{ '::Amount' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,7 +103,7 @@
             @if (r.grandTotal !== undefined && r.grandTotal !== null) {
               <tfoot>
                 <tr class="fw-bold border-top border-2 total-row">
-                  <td class="ps-3">{{ 'GrandTotal' | abpLocalization }}</td>
+                  <td class="ps-3">{{ '::GrandTotal' | abpLocalization }}</td>
                   <td class="text-end pe-3 font-monospace">{{ r.grandTotal | number:'1.2-2' }}</td>
                 </tr>
               </tfoot>
@@ -115,7 +115,7 @@
       <!-- Empty state before running -->
       <div class="card-body text-center py-5 text-muted">
         <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
-        <p>{{ 'SelectTemplateAndRunReport' | abpLocalization }}</p>
+        <p>{{ '::SelectTemplateAndRunReport' | abpLocalization }}</p>
       </div>
     }
   </div>

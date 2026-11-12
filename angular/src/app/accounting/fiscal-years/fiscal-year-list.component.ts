@@ -15,34 +15,34 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'FiscalYears' | abpLocalization">
+    <abp-page [title]="'::FiscalYears' | abpLocalization">
       <!-- Create form -->
       <div class="card mb-4">
-        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ 'CreateFiscalYear' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ '::CreateFiscalYear' | abpLocalization }}</h6></div>
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="create()" class="row g-3 align-items-end">
             <div class="col-md-3">
-              <label class="form-label">{{ 'Company' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Company' | abpLocalization }}</label>
               <select class="form-select" formControlName="companyId">
-                <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
+                <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
                 @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:FiscalYearExample' | abpLocalization" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'StartDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::StartDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="startDate" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'EndDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::EndDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="endDate" />
             </div>
             <div class="col-md-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-                <i class="fa fa-plus me-1"></i>{{ 'Create' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::Create' | abpLocalization }}
               </button>
             </div>
           </form>
@@ -55,7 +55,7 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
       } @else if (fiscalYears().length === 0) {
         <div class="text-center py-5 text-muted">
           <i class="fa fa-calendar-days fa-3x mb-3"></i>
-          <p>{{ 'NoFiscalYearsYet' | abpLocalization }}</p>
+          <p>{{ '::NoFiscalYearsYet' | abpLocalization }}</p>
         </div>
       } @else {
         <div class="card">
@@ -63,10 +63,10 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th class="ps-3">{{ 'Name' | abpLocalization }}</th>
-                  <th>{{ 'StartDate' | abpLocalization }}</th>
-                  <th>{{ 'EndDate' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'Status' | abpLocalization }}</th>
+                  <th class="ps-3">{{ '::Name' | abpLocalization }}</th>
+                  <th>{{ '::StartDate' | abpLocalization }}</th>
+                  <th>{{ '::EndDate' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

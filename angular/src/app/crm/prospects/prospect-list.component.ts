@@ -17,9 +17,9 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-building me-2"></i>{{ 'Prospects' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-building me-2"></i>{{ '::Prospects' | abpLocalization }}</h5>
           <a routerLink="new" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>{{ 'NewProspect' | abpLocalization }}
+            <i class="fas fa-plus me-1"></i>{{ '::NewProspect' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -32,17 +32,17 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
           @if (prospects().length === 0) {
             <div class="text-center py-4 text-muted">
               <i class="fas fa-building fa-2x mb-2"></i>
-              <p>{{ 'NoProspectsYet' | abpLocalization }}</p>
+              <p>{{ '::NoProspectsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'ProspectName' | abpLocalization }}</th>
-                  <th>{{ 'Industry' | abpLocalization }}</th>
-                  <th>{{ 'LeadCount' | abpLocalization }}</th>
-                  <th>{{ 'OpportunityCount' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::ProspectName' | abpLocalization }}</th>
+                  <th>{{ '::Industry' | abpLocalization }}</th>
+                  <th>{{ '::LeadCount' | abpLocalization }}</th>
+                  <th>{{ '::OpportunityCount' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -56,9 +56,9 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                     <td><span class="badge bg-warning">{{ item.opportunityCount }}</span></td>
                     <td>
                       @if (item.isConverted) {
-                        <span class="badge bg-success">{{ 'AlreadyConverted' | abpLocalization }}</span>
+                        <span class="badge bg-success">{{ '::AlreadyConverted' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-primary">{{ 'Active' | abpLocalization }}</span>
+                        <span class="badge bg-primary">{{ '::Active' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>

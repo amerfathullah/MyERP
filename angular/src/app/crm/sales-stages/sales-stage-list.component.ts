@@ -25,8 +25,8 @@ import type { SalesStageDto } from '../../proxy/crm/models';
       <div class="table-responsive">
         <table class="table table-hover align-middle">
           <thead><tr>
-            <th>{{ 'SortOrder' | abpLocalization }}</th>
-            <th>{{ 'StageName' | abpLocalization }}</th>
+            <th>{{ '::SortOrder' | abpLocalization }}</th>
+            <th>{{ '::StageName' | abpLocalization }}</th>
             <th></th>
           </tr></thead>
           <tbody>

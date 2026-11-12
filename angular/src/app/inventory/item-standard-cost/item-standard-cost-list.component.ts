@@ -17,12 +17,12 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
     PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ItemStandardCosts' | abpLocalization">
+    <abp-page [title]="'::ItemStandardCosts' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'ItemStandardCosts' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::ItemStandardCosts' | abpLocalization }}</h5>
           <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
-            <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
           </button>
         </div>
         <div class="card-body">
@@ -31,28 +31,28 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
               <div class="card-body">
                 <div class="row g-2">
                   <div class="col-md-3">
-                    <label class="form-label">{{ 'Item' | abpLocalization }}</label>
+                    <label class="form-label">{{ '::Item' | abpLocalization }}</label>
                     <select class="form-select form-select-sm" [(ngModel)]="newEntry.itemId">
-                      <option value="">{{ 'SelectItem' | abpLocalization }}</option>
+                      <option value="">{{ '::SelectItem' | abpLocalization }}</option>
                       @for (item of items(); track item.id) {
                         <option [value]="item.id">{{ item.itemCode }}</option>
                       }
                     </select>
                   </div>
                   <div class="col-md-2">
-                    <label class="form-label">{{ 'StandardRate' | abpLocalization }}</label>
+                    <label class="form-label">{{ '::StandardRate' | abpLocalization }}</label>
                     <input type="number" class="form-control form-control-sm" [(ngModel)]="newEntry.standardRate" min="0.01" step="0.01">
                   </div>
                   <div class="col-md-2">
-                    <label class="form-label">{{ 'EffectiveDate' | abpLocalization }}</label>
+                    <label class="form-label">{{ '::EffectiveDate' | abpLocalization }}</label>
                     <input type="date" class="form-control form-control-sm" [(ngModel)]="newEntry.effectiveDate">
                   </div>
                   <div class="col-md-2 d-flex align-items-end">
                     <button class="btn btn-success btn-sm me-2" (click)="create()">
-                      <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+                      <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
                     </button>
                     <button class="btn btn-outline-secondary btn-sm" (click)="showCreateForm = false">
-                      {{ 'Cancel' | abpLocalization }}
+                      {{ '::Cancel' | abpLocalization }}
                     </button>
                   </div>
                 </div>
@@ -65,18 +65,18 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
           } @else if (entries().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fa fa-tag fa-3x mb-3 d-block"></i>
-              <p>{{ 'NoStandardCostsYet' | abpLocalization }}</p>
+              <p>{{ '::NoStandardCostsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'Item' | abpLocalization }}</th>
-                  <th>{{ 'StandardRate' | abpLocalization }}</th>
-                  <th>{{ 'EffectiveDate' | abpLocalization }}</th>
-                  <th>{{ 'PreviousRate' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
-                  <th>{{ 'Actions' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::StandardRate' | abpLocalization }}</th>
+                  <th>{{ '::EffectiveDate' | abpLocalization }}</th>
+                  <th>{{ '::PreviousRate' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th>{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,12 +99,12 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
                     <td>
                       @if (entry.status === 0) {
                         <button class="btn btn-outline-success btn-sm me-1" (click)="submit(entry.id!)">
-                          {{ 'Submit' | abpLocalization }}
+                          {{ '::Submit' | abpLocalization }}
                         </button>
                       }
                       @if (entry.status === 1) {
                         <button class="btn btn-outline-danger btn-sm" (click)="cancel(entry.id!)">
-                          {{ 'Cancel' | abpLocalization }}
+                          {{ '::Cancel' | abpLocalization }}
                         </button>
                       }
                     </td>

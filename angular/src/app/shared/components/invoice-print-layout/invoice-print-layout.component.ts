@@ -88,7 +88,7 @@ import { LocalizationPipe } from '@abp/ng.core';
           <div class="company-info">
             <h1>{{ company?.name || 'Company Name' }}</h1>
             @if (company?.registrationNumber) {
-              <p>{{ 'RegistrationNumber' | abpLocalization }}: {{ company.registrationNumber }}</p>
+              <p>{{ '::RegistrationNumber' | abpLocalization }}: {{ company.registrationNumber }}</p>
             }
             @if (company?.taxId) {
               <p>TIN: {{ company.taxId }}</p>
@@ -121,16 +121,16 @@ import { LocalizationPipe } from '@abp/ng.core';
               }
             </h2>
             <div class="inv-number">{{ invoice.invoiceNumber }}</div>
-            <div class="inv-date">{{ 'Date' | abpLocalization }}: {{ invoice.issueDate | date:'dd/MM/yyyy' }}</div>
+            <div class="inv-date">{{ '::Date' | abpLocalization }}: {{ invoice.issueDate | date:'dd/MM/yyyy' }}</div>
             @if (invoice.dueDate) {
-              <div class="inv-date">{{ 'DueDate' | abpLocalization }}: {{ invoice.dueDate | date:'dd/MM/yyyy' }}</div>
+              <div class="inv-date">{{ '::DueDate' | abpLocalization }}: {{ invoice.dueDate | date:'dd/MM/yyyy' }}</div>
             }
           </div>
         </div>
         <!-- Parties: Bill To + Ship To -->
         <div class="parties">
           <div class="party-box">
-            <h4>{{ 'BillTo' | abpLocalization }}</h4>
+            <h4>{{ '::BillTo' | abpLocalization }}</h4>
             <p><strong>{{ invoice.customerName || '—' }}</strong></p>
             @if (invoice.customerTin) {
               <p>TIN: {{ invoice.customerTin }}</p>
@@ -141,7 +141,7 @@ import { LocalizationPipe } from '@abp/ng.core';
           </div>
           @if (invoice.shippingAddress) {
             <div class="party-box">
-              <h4>{{ 'ShipTo' | abpLocalization }}</h4>
+              <h4>{{ '::ShipTo' | abpLocalization }}</h4>
               <p>{{ invoice.shippingAddress }}</p>
             </div>
           }
@@ -151,11 +151,11 @@ import { LocalizationPipe } from '@abp/ng.core';
           <thead>
             <tr>
               <th class="sno">#</th>
-              <th>{{ 'Description' | abpLocalization }}</th>
-              <th class="text-end" style="width:60px">{{ 'Qty' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-end" style="width:60px">{{ '::Qty' | abpLocalization }}</th>
               <th class="text-end" style="width:50px">UOM</th>
-              <th class="text-end" style="width:100px">{{ 'Rate' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
-              <th class="text-end" style="width:120px">{{ 'Amount' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
+              <th class="text-end" style="width:100px">{{ '::Rate' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
+              <th class="text-end" style="width:120px">{{ '::Amount' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
             </tr>
           </thead>
           <tbody>
@@ -175,12 +175,12 @@ import { LocalizationPipe } from '@abp/ng.core';
         <div class="totals-section">
           <table class="totals-table">
             <tr>
-              <td>{{ 'NetTotal' | abpLocalization }}</td>
+              <td>{{ '::NetTotal' | abpLocalization }}</td>
               <td>{{ formatCurrency(invoice.netTotal) }}</td>
             </tr>
             @if (invoice.discountAmount > 0) {
               <tr>
-                <td>{{ 'Discount' | abpLocalization }}</td>
+                <td>{{ '::Discount' | abpLocalization }}</td>
                 <td>- {{ formatCurrency(invoice.discountAmount) }}</td>
               </tr>
             }
@@ -191,18 +191,18 @@ import { LocalizationPipe } from '@abp/ng.core';
               </tr>
             }
             <tr class="grand-total">
-              <td>{{ 'GrandTotal' | abpLocalization }}</td>
+              <td>{{ '::GrandTotal' | abpLocalization }}</td>
               <td>{{ invoice.currencyCode || 'MYR' }} {{ formatCurrency(invoice.grandTotal) }}</td>
             </tr>
             @if (invoice.amountPaid > 0) {
               <tr>
-                <td>{{ 'Paid' | abpLocalization }}</td>
+                <td>{{ '::Paid' | abpLocalization }}</td>
                 <td>{{ formatCurrency(invoice.amountPaid) }}</td>
               </tr>
             }
             @if (invoice.outstandingAmount > 0) {
               <tr>
-                <td><strong>{{ 'Outstanding' | abpLocalization }}</strong></td>
+                <td><strong>{{ '::Outstanding' | abpLocalization }}</strong></td>
                 <td><strong>{{ formatCurrency(invoice.outstandingAmount) }}</strong></td>
               </tr>
             }
@@ -211,10 +211,10 @@ import { LocalizationPipe } from '@abp/ng.core';
         <!-- Payment Terms -->
         @if (paymentSchedule?.length) {
           <div class="payment-terms">
-            <h4>{{ 'PaymentTerms' | abpLocalization }}</h4>
+            <h4>{{ '::PaymentTerms' | abpLocalization }}</h4>
             <table>
               <thead>
-                <tr><th>{{ 'DueDate' | abpLocalization }}</th><th>%</th><th>{{ 'Amount' | abpLocalization }}</th><th>{{ 'Status' | abpLocalization }}</th></tr>
+                <tr><th>{{ '::DueDate' | abpLocalization }}</th><th>%</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::Status' | abpLocalization }}</th></tr>
               </thead>
               <tbody>
                 @for (term of paymentSchedule; track term) {
@@ -236,12 +236,12 @@ import { LocalizationPipe } from '@abp/ng.core';
               <img [src]="getQrCodeUrl()" alt="LHDN e-Invoice QR" class="qr-image" />
             </div>
             <div class="einvoice-info">
-              <p class="einvoice-label">{{ 'PrintLayout:LhdnVerification' | abpLocalization }}</p>
+              <p class="einvoice-label">{{ '::PrintLayout:LhdnVerification' | abpLocalization }}</p>
               @if (invoice.lhdnUuid) {
                 <p class="einvoice-uuid">UUID: {{ invoice.lhdnUuid }}</p>
               }
               <p class="einvoice-link">
-                <a [href]="getLhdnVerificationUrl()" target="_blank">{{ 'PrintLayout:VerifyOnLhdn' | abpLocalization }}</a>
+                <a [href]="getLhdnVerificationUrl()" target="_blank">{{ '::PrintLayout:VerifyOnLhdn' | abpLocalization }}</a>
               </p>
             </div>
           </div>
@@ -256,18 +256,18 @@ import { LocalizationPipe } from '@abp/ng.core';
         <div class="footer">
           @if (invoice.notes) {
             <div class="notes">
-              <strong>{{ 'Notes' | abpLocalization }}:</strong> {{ invoice.notes }}
+              <strong>{{ '::Notes' | abpLocalization }}:</strong> {{ invoice.notes }}
             </div>
           }
           @if (bankDetails) {
             <div class="bank-details">
-              <strong>{{ 'BankDetails' | abpLocalization }}:</strong><br/>
+              <strong>{{ '::BankDetails' | abpLocalization }}:</strong><br/>
               {{ bankDetails }}
             </div>
           }
-          <div class="thank-you">{{ 'PrintLayout:ThankYou' | abpLocalization }}</div>
+          <div class="thank-you">{{ '::PrintLayout:ThankYou' | abpLocalization }}</div>
           @if (invoice.lhdnLongId) {
-            <div class="computer-generated">{{ 'PrintLayout:ComputerGenerated' | abpLocalization }}</div>
+            <div class="computer-generated">{{ '::PrintLayout:ComputerGenerated' | abpLocalization }}</div>
           }
         </div>
       </div>

@@ -31,18 +31,18 @@
             <input type="date" class="form-control" formControlName="requiredByDate" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ 'SourceWarehouse' | abpLocalization }}</label>
+            <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="sourceWarehouseId">
-              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ 'TargetWarehouse' | abpLocalization }}</label>
+            <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="targetWarehouseId">
-              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }
@@ -80,7 +80,7 @@
                 <th>{{ '::Item' | abpLocalization }}</th>
                 <th style="width: 120px;">{{ '::Quantity' | abpLocalization }}</th>
                 <th style="width: 100px;">{{ '::UOM' | abpLocalization }}</th>
-                <th style="width: 160px;">{{ 'Warehouse' | abpLocalization }}</th>
+                <th style="width: 160px;">{{ '::Warehouse' | abpLocalization }}</th>
                 <th style="width: 60px;"></th>
               </tr>
             </thead>
@@ -89,7 +89,7 @@
                 <tr [formGroup]="$any(row)">
                   <td>
                     <select class="form-select form-select-sm" formControlName="itemId" (change)="onItemSelected(i, $safeNavigationMigration($any(row).get('itemId')?.value))">
-                      <option value="">— {{ 'SelectItem' | abpLocalization }} —</option>
+                      <option value="">— {{ '::SelectItem' | abpLocalization }} —</option>
                       @for (item of availableItems(); track item.id) {
                         <option [value]="item.id">{{ item.itemCode || item.itemName }}</option>
                       }
@@ -103,7 +103,7 @@
                   </td>
                   <td>
                     <select class="form-select form-select-sm" formControlName="warehouseId">
-                      <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+                      <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
                       @for (w of warehouses(); track w.id) {
                         <option [value]="w.id">{{ w.name }}</option>
                       }

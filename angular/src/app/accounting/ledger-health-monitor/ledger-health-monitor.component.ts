@@ -15,31 +15,31 @@ import type { LedgerHealthRecordDto } from '../../proxy/accounting/models';
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="fas fa-heart-pulse me-2"></i>{{ 'LedgerHealthMonitor' | abpLocalization }}</h4>
+        <h4><i class="fas fa-heart-pulse me-2"></i>{{ '::LedgerHealthMonitor' | abpLocalization }}</h4>
       </div>
 
       <div class="card mb-3">
-        <div class="card-header"><h6 class="mb-0">{{ 'Settings' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="mb-0">{{ '::Settings' | abpLocalization }}</h6></div>
         <div class="card-body">
           <div class="row g-3 align-items-end">
             <div class="col-md-3">
               <div class="form-check form-switch mt-2">
                 <input class="form-check-input" type="checkbox" id="enabled" [(ngModel)]="settings.isEnabled" />
-                <label class="form-check-label" for="enabled">{{ 'Enabled' | abpLocalization }}</label>
+                <label class="form-check-label" for="enabled">{{ '::Enabled' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'LookbackPeriodDays' | abpLocalization }}</label>
+              <label class="form-label">{{ '::LookbackPeriodDays' | abpLocalization }}</label>
               <input type="number" class="form-control form-control-sm" [(ngModel)]="settings.lookbackPeriodDays" min="1" />
             </div>
             <div class="col-md-3">
               <button class="btn btn-primary btn-sm w-100" (click)="saveSettings()" [disabled]="isSaving()">
-                <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+                <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
               </button>
             </div>
             <div class="col-md-3">
               <button class="btn btn-warning btn-sm w-100" (click)="runCheck()" [disabled]="isRunning()">
-                <i class="fas fa-play me-1"></i>{{ 'RunCheckNow' | abpLocalization }}
+                <i class="fas fa-play me-1"></i>{{ '::RunCheckNow' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -49,28 +49,28 @@ import type { LedgerHealthRecordDto } from '../../proxy/accounting/models';
       @if (lastRunHealthy() !== null) {
         <div class="alert" [class.alert-success]="lastRunHealthy()" [class.alert-danger]="!lastRunHealthy()">
           @if (lastRunHealthy()) {
-            <i class="fa fa-check-circle me-1"></i>{{ 'LedgerIsHealthy' | abpLocalization }}
+            <i class="fa fa-check-circle me-1"></i>{{ '::LedgerIsHealthy' | abpLocalization }}
           } @else {
-            <i class="fa fa-exclamation-triangle me-1"></i>{{ 'LedgerIssuesDetected' | abpLocalization }}
+            <i class="fa fa-exclamation-triangle me-1"></i>{{ '::LedgerIssuesDetected' | abpLocalization }}
           }
         </div>
       }
 
       <div class="card">
-        <div class="card-header"><h6 class="mb-0">{{ 'DetectedIssues' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="mb-0">{{ '::DetectedIssues' | abpLocalization }}</h6></div>
         <div class="card-body p-0">
           @if (isLoading()) {
             <div class="text-center py-4"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
           } @else if (records().length === 0) {
-            <div class="text-center py-4 text-muted">{{ 'NoIssuesDetectedYet' | abpLocalization }}</div>
+            <div class="text-center py-4 text-muted">{{ '::NoIssuesDetectedYet' | abpLocalization }}</div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'CheckedAt' | abpLocalization }}</th>
-                <th>{{ 'CheckType' | abpLocalization }}</th>
-                <th>{{ 'Severity' | abpLocalization }}</th>
-                <th>{{ 'Description' | abpLocalization }}</th>
-                <th>{{ 'Difference' | abpLocalization }}</th>
+                <th>{{ '::CheckedAt' | abpLocalization }}</th>
+                <th>{{ '::CheckType' | abpLocalization }}</th>
+                <th>{{ '::Severity' | abpLocalization }}</th>
+                <th>{{ '::Description' | abpLocalization }}</th>
+                <th>{{ '::Difference' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (r of records(); track r.id) {

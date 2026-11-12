@@ -14,16 +14,16 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'HolidayLists' | abpLocalization">
+    <abp-page [title]="'::HolidayLists' | abpLocalization">
   <app-breadcrumb />
       @if (data) {
         <div class="card mb-3"><div class="card-body">
           <h5>{{ data.name }} ({{ data.year }})</h5>
-          <p><strong>{{ 'WeeklyOff' | abpLocalization }}:</strong> {{ data.weeklyOff ?? '—' }}</p>
+          <p><strong>{{ '::WeeklyOff' | abpLocalization }}:</strong> {{ data.weeklyOff ?? '—' }}</p>
         </div></div>
         <div class="card"><div class="card-body">
           <table class="table table-sm">
-            <thead><tr><th>{{ 'Date' | abpLocalization }}</th><th>{{ 'Description' | abpLocalization }}</th><th>{{ 'WeeklyOff' | abpLocalization }}</th></tr></thead>
+            <thead><tr><th>{{ '::Date' | abpLocalization }}</th><th>{{ '::Description' | abpLocalization }}</th><th>{{ '::WeeklyOff' | abpLocalization }}</th></tr></thead>
             <tbody>
               @for (h of data.holidays ?? []; track h.id) {
                 <tr><td>{{ h.holidayDate | date:'dd/MM/yyyy' }}</td><td>{{ h.description }}</td><td>{{ h.isWeeklyOff ? '✓' : '' }}</td></tr>

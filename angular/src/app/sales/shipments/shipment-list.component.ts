@@ -16,9 +16,9 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fas fa-truck me-2"></i>{{ 'Shipments' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fas fa-truck me-2"></i>{{ '::Shipments' | abpLocalization }}</h5>
           <a routerLink="new" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>{{ 'NewShipment' | abpLocalization }}
+            <i class="fas fa-plus me-1"></i>{{ '::NewShipment' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -29,31 +29,31 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-3">
               <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (change)="loadData()">
-                <option value="">{{ 'AllStatuses' | abpLocalization }}</option>
+                <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
                 <option value="Draft">Draft</option>
-                <option value="Booked">{{ 'Booked' | abpLocalization }}</option>
-                <option value="InTransit">{{ 'InTransit' | abpLocalization }}</option>
-                <option value="Delivered">{{ 'Delivered' | abpLocalization }}</option>
-                <option value="Cancelled">{{ 'Cancelled' | abpLocalization }}</option>
+                <option value="Booked">{{ '::Booked' | abpLocalization }}</option>
+                <option value="InTransit">{{ '::InTransit' | abpLocalization }}</option>
+                <option value="Delivered">{{ '::Delivered' | abpLocalization }}</option>
+                <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
               </select>
             </div>
           </div>
           @if (shipments().length === 0) {
             <div class="text-center py-4 text-muted">
               <i class="fas fa-truck fa-2x mb-2"></i>
-              <p>{{ 'NoShipmentsYet' | abpLocalization }}</p>
+              <p>{{ '::NoShipmentsYet' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'ShipmentNumber' | abpLocalization }}</th>
-                  <th>{{ 'Carrier' | abpLocalization }}</th>
-                  <th>{{ 'TrackingNumber' | abpLocalization }}</th>
-                  <th>{{ 'PickupDate' | abpLocalization }}</th>
-                  <th>{{ 'DeliveryNoteCount' | abpLocalization }}</th>
-                  <th>{{ 'ValueOfGoods' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::ShipmentNumber' | abpLocalization }}</th>
+                  <th>{{ '::Carrier' | abpLocalization }}</th>
+                  <th>{{ '::TrackingNumber' | abpLocalization }}</th>
+                  <th>{{ '::PickupDate' | abpLocalization }}</th>
+                  <th>{{ '::DeliveryNoteCount' | abpLocalization }}</th>
+                  <th>{{ '::ValueOfGoods' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -75,10 +75,10 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                     <td>
                       @switch (item.status) {
                         @case (0) { <span class="badge bg-secondary">Draft</span> }
-                        @case (1) { <span class="badge bg-primary">{{ 'Booked' | abpLocalization }}</span> }
-                        @case (2) { <span class="badge bg-info">{{ 'InTransit' | abpLocalization }}</span> }
-                        @case (3) { <span class="badge bg-success">{{ 'Delivered' | abpLocalization }}</span> }
-                        @case (4) { <span class="badge bg-dark">{{ 'Cancelled' | abpLocalization }}</span> }
+                        @case (1) { <span class="badge bg-primary">{{ '::Booked' | abpLocalization }}</span> }
+                        @case (2) { <span class="badge bg-info">{{ '::InTransit' | abpLocalization }}</span> }
+                        @case (3) { <span class="badge bg-success">{{ '::Delivered' | abpLocalization }}</span> }
+                        @case (4) { <span class="badge bg-dark">{{ '::Cancelled' | abpLocalization }}</span> }
                       }
                     </td>
                     <td>

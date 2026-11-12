@@ -14,13 +14,13 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
   imports: [CommonModule, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'RepostItemValuation' | abpLocalization">
+    <abp-page [title]="'::RepostItemValuation' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'RepostItemValuation' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::RepostItemValuation' | abpLocalization }}</h5>
           @if (pendingCount() > 0) {
             <span class="badge bg-warning">
-              {{ pendingCount() }} {{ 'Pending' | abpLocalization }}
+              {{ pendingCount() }} {{ '::Pending' | abpLocalization }}
             </span>
           }
         </div>
@@ -30,19 +30,19 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
           } @else if (entries().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fa fa-sync fa-3x mb-3 d-block"></i>
-              <p>{{ 'NoRepostEntriesYet' | abpLocalization }}</p>
+              <p>{{ '::NoRepostEntriesYet' | abpLocalization }}</p>
               <small class="text-muted">Repost entries are auto-created when backdated stock transactions are detected.</small>
             </div>
           } @else {
             <table class="table table-hover table-sm">
               <thead>
                 <tr>
-                  <th>{{ 'Date' | abpLocalization }}</th>
-                  <th>{{ 'Method' | abpLocalization }}</th>
-                  <th>{{ 'PostingDate' | abpLocalization }}</th>
-                  <th>{{ 'Progress' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
-                  <th>{{ 'GL' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::Method' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
+                  <th>{{ '::Progress' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th>{{ '::GL' | abpLocalization }}</th>
                   <th>{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>

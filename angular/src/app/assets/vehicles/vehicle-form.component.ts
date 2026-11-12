@@ -16,66 +16,66 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditVehicle' : 'NewVehicle') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditVehicle' : '::NewVehicle') | abpLocalization">
       <div class="card"><div class="card-body">
-        <h6 class="mb-2">{{ 'Vehicle' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Vehicle' | abpLocalization }}</h6>
         <div class="row g-3 mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'LicensePlate' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::LicensePlate' | abpLocalization }} *</label>
             <input class="form-control" [(ngModel)]="form.licensePlate" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Make' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Make' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.make" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Model' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Model' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.model" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'ChassisNumber' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ChassisNumber' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.chassisNumber" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Color' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Color' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.color" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'FuelType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FuelType' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.fuelType">
               @for (o of fuelTypeOptions; track o.value) { <option [ngValue]="o.value">{{ o.key }}</option> }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'FuelUom' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FuelUom' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.fuelUom" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'LastOdometer' | abpLocalization }}</label>
+            <label class="form-label">{{ '::LastOdometer' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.lastOdometer" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'CarryingCapacity' | abpLocalization }}</label>
+            <label class="form-label">{{ '::CarryingCapacity' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.carryingCapacity" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Wheels' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Wheels' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.wheels" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Doors' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Doors' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.doors" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'VehicleValue' | abpLocalization }}</label>
+            <label class="form-label">{{ '::VehicleValue' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.vehicleValue" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'AcquisitionDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::AcquisitionDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.acquisitionDate" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'AssignedDriver' | abpLocalization }}</label>
+            <label class="form-label">{{ '::AssignedDriver' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.driverId">
               <option value="">—</option>
               @for (d of drivers(); track d.id) { <option [value]="d.id">{{ d.fullName }}</option> }
@@ -83,30 +83,30 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Insurance' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Insurance' | abpLocalization }}</h6>
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'InsuranceCompany' | abpLocalization }}</label>
+            <label class="form-label">{{ '::InsuranceCompany' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.insuranceCompany" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'PolicyNumber' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PolicyNumber' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.policyNumber" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'InsuranceStartDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::InsuranceStartDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.insuranceStartDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'InsuranceEndDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::InsuranceEndDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.insuranceEndDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'RoadTaxExpiryDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::RoadTaxExpiryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.roadTaxExpiryDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'FitnessCertificateExpiryDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FitnessCertificateExpiryDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.fitnessCertificateExpiryDate" />
           </div>
         </div>
@@ -115,9 +115,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-primary" [disabled]="!form.licensePlate || isSaving()" (click)="save()">
             @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-            {{ 'Save' | abpLocalization }}
+            {{ '::Save' | abpLocalization }}
           </button>
-          <a class="btn btn-secondary" routerLink="/assets/vehicles">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/assets/vehicles">{{ '::Cancel' | abpLocalization }}</a>
         </div>
       </div></div>
     </abp-page>

@@ -26,7 +26,7 @@ interface PendingTransfer {
     <div class="container-fluid">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fa fa-truck-moving me-2"></i>{{ 'TransitTransfers' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fa fa-truck-moving me-2"></i>{{ '::TransitTransfers' | abpLocalization }}</h5>
           <div class="btn-group btn-group-sm">
             <a routerLink="/inventory/transit-transfers/new"
                class="btn btn-outline-primary">
@@ -45,8 +45,8 @@ interface PendingTransfer {
           } @else if (pendingTransfers().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fa fa-check-circle fa-3x mb-3 text-success"></i>
-              <p class="mb-0">{{ 'NoTransfersInTransit' | abpLocalization }}</p>
-              <small>{{ 'AllTransfersCompleted' | abpLocalization }}</small>
+              <p class="mb-0">{{ '::NoTransfersInTransit' | abpLocalization }}</p>
+              <small>{{ '::AllTransfersCompleted' | abpLocalization }}</small>
             </div>
           } @else {
             <div class="table-responsive">
@@ -122,7 +122,7 @@ interface PendingTransfer {
             </div>
             <div class="text-muted small mt-3">
               <i class="fa fa-info-circle me-1"></i>
-              {{ pendingTransfers().length }} {{ 'TransfersAwaitingReceipt' | abpLocalization }}
+              {{ pendingTransfers().length }} {{ '::TransfersAwaitingReceipt' | abpLocalization }}
             </div>
           }
         </div>

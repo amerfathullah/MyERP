@@ -1,11 +1,11 @@
-<abp-page [title]="'CompanySettings' | abpLocalization">
+<abp-page [title]="'::CompanySettings' | abpLocalization">
   <div class="card mb-4">
     <div class="card-body">
       <div class="row align-items-end">
         <div class="col-md-4">
-          <label class="form-label">{{ 'SelectCompany' | abpLocalization }}</label>
+          <label class="form-label">{{ '::SelectCompany' | abpLocalization }}</label>
           <select class="form-select" (change)="onCompanySelect($any($event.target).value)">
-            <option value="" disabled selected>{{ 'SelectCompany' | abpLocalization }}</option>
+            <option value="" disabled selected>{{ '::SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) {
               <option [value]="c.id">{{ c.name }}</option>
             }
@@ -20,14 +20,14 @@
       <div class="row">
         <div class="col-md-6">
           <div class="card mb-3">
-            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-cog me-2"></i>{{ 'General' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-cog me-2"></i>{{ '::General' | abpLocalization }}</h6></div>
             <div class="card-body">
               <div class="mb-3">
-                <label class="form-label">{{ 'DefaultCurrency' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DefaultCurrency' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="defaultCurrency" maxlength="3" />
               </div>
               <div class="mb-3">
-                <label class="form-label">{{ 'FiscalYearStartMonth' | abpLocalization }}</label>
+                <label class="form-label">{{ '::FiscalYearStartMonth' | abpLocalization }}</label>
                 <select class="form-select" formControlName="fiscalYearStartMonth">
                   <option [value]="1">January</option>
                   <option [value]="2">February</option>
@@ -44,7 +44,7 @@
                 </select>
               </div>
               <div class="mb-3">
-                <label class="form-label">{{ 'DefaultValuationMethod' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DefaultValuationMethod' | abpLocalization }}</label>
                 <select class="form-select" formControlName="defaultValuationMethod">
                   <option value="FIFO">FIFO</option>
                   <option value="WeightedAverage">{{ '::WeightedAverage' | abpLocalization }}</option>
@@ -58,30 +58,30 @@
 
         <div class="col-md-6">
           <div class="card mb-3">
-            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-lock me-2"></i>{{ 'FreezeSettings' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-lock me-2"></i>{{ '::FreezeSettings' | abpLocalization }}</h6></div>
             <div class="card-body">
               <div class="mb-3">
-                <label class="form-label">{{ 'StockFrozenUpto' | abpLocalization }}</label>
+                <label class="form-label">{{ '::StockFrozenUpto' | abpLocalization }}</label>
                 <input type="date" class="form-control" formControlName="stockFrozenUpto" />
-                <small class="form-text text-muted">{{ 'StockFrozenHelp' | abpLocalization }}</small>
+                <small class="form-text text-muted">{{ '::StockFrozenHelp' | abpLocalization }}</small>
               </div>
               <div class="mb-3">
-                <label class="form-label">{{ 'AccountsFrozenTillDate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::AccountsFrozenTillDate' | abpLocalization }}</label>
                 <input type="date" class="form-control" formControlName="accountsFrozenTillDate" />
-                <small class="form-text text-muted">{{ 'AccountsFrozenHelp' | abpLocalization }}</small>
+                <small class="form-text text-muted">{{ '::AccountsFrozenHelp' | abpLocalization }}</small>
               </div>
             </div>
           </div>
 
           <div class="card mb-3">
-            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-sliders me-2"></i>{{ 'Tolerances' | abpLocalization }}</h6></div>
+            <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-sliders me-2"></i>{{ '::Tolerances' | abpLocalization }}</h6></div>
             <div class="card-body">
               <div class="mb-3">
-                <label class="form-label">{{ 'OverDeliveryAllowance' | abpLocalization }} (%)</label>
+                <label class="form-label">{{ '::OverDeliveryAllowance' | abpLocalization }} (%)</label>
                 <input type="number" class="form-control" formControlName="overDeliveryAllowance" min="0" max="100" />
               </div>
               <div class="mb-3">
-                <label class="form-label">{{ 'OverBillingAllowance' | abpLocalization }} (%)</label>
+                <label class="form-label">{{ '::OverBillingAllowance' | abpLocalization }} (%)</label>
                 <input type="number" class="form-control" formControlName="overBillingAllowance" min="0" max="100" />
               </div>
             </div>
@@ -91,46 +91,46 @@
 
       <!-- Default Accounts -->
       <div class="card mb-3">
-        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-landmark me-2"></i>{{ 'DefaultAccounts' | abpLocalization }}</h6></div>
+        <div class="card-header"><h6 class="card-title mb-0"><i class="fa fa-landmark me-2"></i>{{ '::DefaultAccounts' | abpLocalization }}</h6></div>
         <div class="card-body">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultReceivableAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultReceivableAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultReceivableAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultPayableAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultPayableAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultPayableAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultIncomeAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultIncomeAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultIncomeAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultExpenseAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultExpenseAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultExpenseAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultTaxPayableAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultTaxPayableAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultTaxPayableAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultBankAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultBankAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultBankAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
@@ -142,51 +142,51 @@
               <small class="text-muted">Users in this role can still transact with frozen customers and suppliers.</small>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultInventoryAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultInventoryAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultInventoryAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DepreciationExpenseAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DepreciationExpenseAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="depreciationExpenseAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'AccumulatedDepreciationAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::AccumulatedDepreciationAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="accumulatedDepreciationAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'ExchangeGainLossAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ExchangeGainLossAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="exchangeGainLossAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'DefaultCostCenter' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DefaultCostCenter' | abpLocalization }}</label>
               <select class="form-select" formControlName="defaultCostCenterId">
                 <option value="">—</option>
                 @for (c of costCenters(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
               </select>
-              <small class="form-text text-muted">{{ 'DefaultCostCenterHint' | abpLocalization }}</small>
+              <small class="form-text text-muted">{{ '::DefaultCostCenterHint' | abpLocalization }}</small>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'RoundOffAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::RoundOffAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="roundOffAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
               </select>
-              <small class="form-text text-muted">{{ 'RoundOffAccountHint' | abpLocalization }}</small>
+              <small class="form-text text-muted">{{ '::RoundOffAccountHint' | abpLocalization }}</small>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">{{ 'RoundOffForOpeningAccount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::RoundOffForOpeningAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="roundOffForOpeningAccountId">
                 <option value="">—</option>
                 @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
@@ -198,7 +198,7 @@
 
       <div class="d-flex justify-content-end">
         <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
-          <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+          <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
         </button>
       </div>
     </form>

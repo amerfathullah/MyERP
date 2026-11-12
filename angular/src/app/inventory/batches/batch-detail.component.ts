@@ -24,27 +24,27 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
             <h5 class="mb-0">
               <i class="fas fa-layer-group me-2"></i>{{ b.batchNo }}
               @if (b.isDisabled) {
-                <span class="badge bg-danger ms-2">{{ 'Disabled' | abpLocalization }}</span>
+                <span class="badge bg-danger ms-2">{{ '::Disabled' | abpLocalization }}</span>
               } @else if (isExpired()) {
-                <span class="badge bg-warning text-dark ms-2">{{ 'Expired' | abpLocalization }}</span>
+                <span class="badge bg-warning text-dark ms-2">{{ '::Expired' | abpLocalization }}</span>
               } @else {
-                <span class="badge bg-success ms-2">{{ 'Active' | abpLocalization }}</span>
+                <span class="badge bg-success ms-2">{{ '::Active' | abpLocalization }}</span>
               }
             </h5>
             @if (!b.isDisabled) {
               <button class="btn btn-outline-danger btn-sm" (click)="disable()">
-                <i class="fas fa-ban me-1"></i>{{ 'Disable' | abpLocalization }}
+                <i class="fas fa-ban me-1"></i>{{ '::Disable' | abpLocalization }}
               </button>
             }
           </div>
           <div class="card-body">
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Item' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Item' | abpLocalization }}</small>
                 <div class="fw-bold">{{ b.itemId }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'ExpiryDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::ExpiryDate' | abpLocalization }}</small>
                 <div>
                   @if (b.expiryDate) {
                     <span [class]="isExpired() ? 'text-danger fw-bold' : ''">
@@ -56,22 +56,22 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                       </small>
                     }
                   } @else {
-                    <span class="text-muted">{{ 'NoExpiry' | abpLocalization }}</span>
+                    <span class="text-muted">{{ '::NoExpiry' | abpLocalization }}</span>
                   }
                 </div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'ManufacturingDate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::ManufacturingDate' | abpLocalization }}</small>
                 <div>{{ b.manufacturingDate ? (b.manufacturingDate | date:'dd/MM/yyyy') : '—' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'ShelfLifeDays' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::ShelfLifeDays' | abpLocalization }}</small>
                 <div>{{ b.shelfLifeInDays ?? '—' }}</div>
               </div>
             </div>
             <div class="row">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'SupplierBatchNo' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::SupplierBatchNo' | abpLocalization }}</small>
                 <div>{{ b.supplierBatchNo || '—' }}</div>
               </div>
             </div>
@@ -82,21 +82,21 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
         @if (stockBalance(); as sb) {
           <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fas fa-warehouse me-2"></i>{{ 'StockBalance' | abpLocalization }}</h6>
-              <span class="badge bg-primary">{{ 'Total' | abpLocalization }}: {{ sb.totalQuantity | number:'1.2-2' }}</span>
+              <h6 class="mb-0"><i class="fas fa-warehouse me-2"></i>{{ '::StockBalance' | abpLocalization }}</h6>
+              <span class="badge bg-primary">{{ '::Total' | abpLocalization }}: {{ sb.totalQuantity | number:'1.2-2' }}</span>
             </div>
             <div class="card-body p-0">
               @if ((sb.warehouseBalances ?? []).length === 0) {
-                <div class="text-center text-muted py-3">{{ 'NoStockAvailable' | abpLocalization }}</div>
+                <div class="text-center text-muted py-3">{{ '::NoStockAvailable' | abpLocalization }}</div>
               } @else {
                 <table class="table table-sm table-hover mb-0">
                   <thead><tr class="table-light">
-                    <th>{{ 'Warehouse' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ReservedQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
+                    <th>{{ '::Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReservedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AvailableQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
                     <th></th>
                   </tr></thead>
                   <tbody>
@@ -111,11 +111,11 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                         <td class="text-end">
                           <div class="btn-group">
                             <button class="btn btn-outline-secondary btn-sm" [disabled]="(wh.availableQuantity ?? wh.quantity ?? 0) <= 0"
-                              (click)="openSplitDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ 'SplitBatch' | abpLocalization }}">
+                              (click)="openSplitDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ '::SplitBatch' | abpLocalization }}">
                               <i class="fas fa-code-branch"></i>
                             </button>
                             <button class="btn btn-outline-primary btn-sm" [disabled]="(wh.availableQuantity ?? wh.quantity ?? 0) <= 0"
-                              (click)="openMoveDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ 'MoveBatch' | abpLocalization }}">
+                              (click)="openMoveDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ '::MoveBatch' | abpLocalization }}">
                               <i class="fas fa-exchange-alt"></i>
                             </button>
                           </div>
@@ -124,7 +124,7 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                     }
                   </tbody>
                   <tfoot><tr class="table-light fw-bold">
-                    <td>{{ 'Total' | abpLocalization }}</td>
+                    <td>{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end font-monospace">{{ sb.totalQuantity | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace text-warning">{{ (sb.totalReservedQuantity ?? 0) | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace text-success">{{ (sb.totalAvailableQuantity ?? 0) | number:'1.2-2' }}</td>
@@ -141,23 +141,23 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
         @if (showSplitDialog()) {
           <div class="card border-secondary mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fas fa-code-branch me-2"></i>{{ 'SplitBatch' | abpLocalization }}</h6>
+              <h6 class="mb-0"><i class="fas fa-code-branch me-2"></i>{{ '::SplitBatch' | abpLocalization }}</h6>
               <button type="button" class="btn-close btn-sm" (click)="showSplitDialog.set(false)"></button>
             </div>
             <div class="card-body">
               <div class="row g-2">
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'NewBatchNo' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::NewBatchNo' | abpLocalization }}</label>
                   <input class="form-control form-control-sm" [(ngModel)]="splitNewBatchNo" />
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'SplitQuantity' | abpLocalization }} ({{ 'Available' | abpLocalization }}: {{ splitAvailableQty() | number:'1.2-2' }})</label>
+                  <label class="form-label">{{ '::SplitQuantity' | abpLocalization }} ({{ '::Available' | abpLocalization }}: {{ splitAvailableQty() | number:'1.2-2' }})</label>
                   <input type="number" class="form-control form-control-sm" [(ngModel)]="splitQuantity" min="0" [max]="splitAvailableQty()" step="0.01" />
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
                   <button class="btn btn-sm btn-secondary" [disabled]="isSplitting() || !splitNewBatchNo || splitQuantity() <= 0" (click)="submitSplit()">
                     @if (isSplitting()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                    {{ 'SplitBatch' | abpLocalization }}
+                    {{ '::SplitBatch' | abpLocalization }}
                   </button>
                 </div>
               </div>
@@ -168,15 +168,15 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
         @if (showMoveDialog()) {
           <div class="card border-primary mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>{{ 'MoveBatch' | abpLocalization }}</h6>
+              <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>{{ '::MoveBatch' | abpLocalization }}</h6>
               <button type="button" class="btn-close btn-sm" (click)="showMoveDialog.set(false)"></button>
             </div>
             <div class="card-body">
               <div class="row g-2">
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'TargetWarehouse' | abpLocalization }}</label>
+                  <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
                   <select class="form-select form-select-sm" [(ngModel)]="moveTargetWarehouseId">
-                    <option value="">-- {{ 'SelectWarehouse' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectWarehouse' | abpLocalization }} --</option>
                     @for (w of warehouses(); track w.id) {
                       @if (w.id !== moveSourceWarehouseId()) {
                         <option [value]="w.id">{{ w.name }}</option>
@@ -185,13 +185,13 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                   </select>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">{{ 'MoveQuantity' | abpLocalization }} ({{ 'Available' | abpLocalization }}: {{ moveAvailableQty() | number:'1.2-2' }})</label>
+                  <label class="form-label">{{ '::MoveQuantity' | abpLocalization }} ({{ '::Available' | abpLocalization }}: {{ moveAvailableQty() | number:'1.2-2' }})</label>
                   <input type="number" class="form-control form-control-sm" [(ngModel)]="moveQuantity" min="0" [max]="moveAvailableQty()" step="0.01" />
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
                   <button class="btn btn-sm btn-primary" [disabled]="isMoving() || !moveTargetWarehouseId() || moveQuantity() <= 0" (click)="submitMove()">
                     @if (isMoving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                    {{ 'MoveBatch' | abpLocalization }}
+                    {{ '::MoveBatch' | abpLocalization }}
                   </button>
                 </div>
               </div>
@@ -203,19 +203,19 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
         @if (movementHistory(); as mh) {
           <div class="card mb-3">
             <div class="card-header">
-              <h6 class="mb-0"><i class="fas fa-history me-2"></i>{{ 'MovementHistory' | abpLocalization }}</h6>
+              <h6 class="mb-0"><i class="fas fa-history me-2"></i>{{ '::MovementHistory' | abpLocalization }}</h6>
             </div>
             <div class="card-body p-0">
               @if ((mh.entries ?? []).length === 0) {
-                <div class="text-center text-muted py-3">{{ 'NoMovementsRecorded' | abpLocalization }}</div>
+                <div class="text-center text-muted py-3">{{ '::NoMovementsRecorded' | abpLocalization }}</div>
               } @else {
                 <table class="table table-sm table-hover mb-0">
                   <thead><tr class="table-light">
-                    <th>{{ 'PostingDate' | abpLocalization }}</th>
-                    <th>{{ 'Warehouse' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
-                    <th>{{ 'VoucherType' | abpLocalization }}</th>
+                    <th>{{ '::PostingDate' | abpLocalization }}</th>
+                    <th>{{ '::Warehouse' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                    <th>{{ '::VoucherType' | abpLocalization }}</th>
                   </tr></thead>
                   <tbody>
                     @for (entry of mh.entries; track entry.id) {

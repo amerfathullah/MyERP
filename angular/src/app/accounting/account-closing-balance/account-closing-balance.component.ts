@@ -34,13 +34,13 @@ interface ClosingBalanceStatus {
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>{{ 'AccountClosingBalances' | abpLocalization }}</h4>
+        <h4>{{ '::AccountClosingBalances' | abpLocalization }}</h4>
         <div class="d-flex gap-2">
           <button class="btn btn-outline-primary btn-sm" (click)="exportCsv()" [disabled]="balances().length === 0">
-            <i class="fas fa-download me-1"></i> {{ 'ExportCSV' | abpLocalization }}
+            <i class="fas fa-download me-1"></i> {{ '::ExportCSV' | abpLocalization }}
           </button>
           <button class="btn btn-primary btn-sm" (click)="rebuild()" [disabled]="isRebuilding()">
-            <i class="fas fa-rotate me-1"></i> {{ 'Rebuild' | abpLocalization }}
+            <i class="fas fa-rotate me-1"></i> {{ '::Rebuild' | abpLocalization }}
           </button>
         </div>
       </div>
@@ -50,23 +50,23 @@ interface ClosingBalanceStatus {
         <div class="card-body">
           <div class="row text-center">
             <div class="col-md-2">
-              <div class="text-muted small">{{ 'Period' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Period' | abpLocalization }}</div>
               <div class="fw-bold">{{ status()?.latestPeriod || '—' }}</div>
             </div>
             <div class="col-md-2">
-              <div class="text-muted small">{{ 'ClosingDate' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::ClosingDate' | abpLocalization }}</div>
               <div class="fw-bold">{{ $safeNavigationMigration(status()?.latestClosingDate) | date:'dd/MM/yyyy' }}</div>
             </div>
             <div class="col-md-2">
-              <div class="text-muted small">{{ 'TotalAccounts' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::TotalAccounts' | abpLocalization }}</div>
               <div class="fw-bold">{{ status()?.totalBalances || 0 }}</div>
             </div>
             <div class="col-md-3">
-              <div class="text-muted small">{{ 'TotalDebit' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::TotalDebit' | abpLocalization }}</div>
               <div class="fw-bold text-success">{{ $safeNavigationMigration(status()?.totalDebit) | number:'1.2-2' }}</div>
             </div>
             <div class="col-md-3">
-              <div class="text-muted small">{{ 'TotalCredit' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::TotalCredit' | abpLocalization }}</div>
               <div class="fw-bold text-danger">{{ $safeNavigationMigration(status()?.totalCredit) | number:'1.2-2' }}</div>
             </div>
           </div>
@@ -83,17 +83,17 @@ interface ClosingBalanceStatus {
         <div class="card-body">
           <div class="row g-2 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Period' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Period' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="period"
                      [placeholder]="'YYYY-MM'" (keyup.enter)="loadBalances()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'ClosingDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::ClosingDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="closingDate">
             </div>
             <div class="col-md-2">
               <button class="btn btn-outline-secondary btn-sm w-100" (click)="loadBalances()">
-                <i class="fas fa-search me-1"></i> {{ 'Load' | abpLocalization }}
+                <i class="fas fa-search me-1"></i> {{ '::Load' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -107,12 +107,12 @@ interface ClosingBalanceStatus {
             <table class="table table-hover table-sm mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'AccountCode' | abpLocalization }}</th>
-                  <th>{{ 'AccountName' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Balance' | abpLocalization }}</th>
-                  <th>{{ 'CostCenter' | abpLocalization }}</th>
+                  <th>{{ '::AccountCode' | abpLocalization }}</th>
+                  <th>{{ '::AccountName' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+                  <th>{{ '::CostCenter' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +135,7 @@ interface ClosingBalanceStatus {
       } @else if (!isLoading()) {
         <div class="text-center text-muted py-4">
           <i class="fas fa-database fa-2x mb-2 d-block"></i>
-          {{ 'NoClosingBalancesForPeriod' | abpLocalization }}
+          {{ '::NoClosingBalancesForPeriod' | abpLocalization }}
         </div>
       }
     </div>

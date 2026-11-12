@@ -21,10 +21,10 @@ import type { SalesForecastDto } from '../../proxy/manufacturing/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SalesForecasts' | abpLocalization">
+    <abp-page [title]="'::SalesForecasts' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/manufacturing/sales-forecasts/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSalesForecast' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSalesForecast' | abpLocalization }}
         </button>
       </div>
 
@@ -35,7 +35,7 @@ import type { SalesForecastDto } from '../../proxy/manufacturing/models';
       @if (!isLoading && forecasts.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-chart-line fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSalesForecastsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSalesForecastsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card">
@@ -43,13 +43,13 @@ import type { SalesForecastDto } from '../../proxy/manufacturing/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'ForecastNumber' | abpLocalization }}</th>
-                  <th>{{ 'PostingDate' | abpLocalization }}</th>
-                  <th>{{ 'FromDate' | abpLocalization }}</th>
-                  <th>{{ 'Frequency' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'DemandRows' | abpLocalization }}</th>
-                  <th>{{ 'ForecastStatus' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::ForecastNumber' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
+                  <th>{{ '::FromDate' | abpLocalization }}</th>
+                  <th>{{ '::Frequency' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::DemandRows' | abpLocalization }}</th>
+                  <th>{{ '::ForecastStatus' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

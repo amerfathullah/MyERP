@@ -14,10 +14,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-chart-bar me-2"></i>{{ 'ProductionAnalytics' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="fa fa-chart-bar me-2"></i>{{ '::ProductionAnalytics' | abpLocalization }}</h5>
         @if (data()) {
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-            <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
         }
       </div>
@@ -25,16 +25,16 @@ import { exportToCsv } from '../../shared/utils/csv-export';
         <!-- Date Filters -->
         <div class="row g-2 mb-4">
           <div class="col-md-3">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
           </div>
           <div class="col-md-2 d-flex align-items-end">
             <button class="btn btn-primary btn-sm" (click)="loadData()" [disabled]="isLoading()">
-              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ 'Generate' | abpLocalization }}
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -45,25 +45,25 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
                 <div class="fs-3 fw-bold text-primary">{{ d.totalWorkOrders }}</div>
-                <small class="text-muted">{{ 'TotalWorkOrders' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::TotalWorkOrders' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
                 <div class="fs-3 fw-bold text-success">{{ d.completionRate }}%</div>
-                <small class="text-muted">{{ 'CompletionRate' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::CompletionRate' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center">
                 <div class="fs-3 fw-bold text-info">{{ d.productionEfficiency }}%</div>
-                <small class="text-muted">{{ 'PlannedVsActual' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::PlannedVsActual' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center" [class.border-danger]="d.overdueCount > 0">
                 <div class="fs-3 fw-bold" [class.text-danger]="d.overdueCount > 0">{{ d.overdueCount }}</div>
-                <small class="text-muted">{{ 'OverdueWorkOrders' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::OverdueWorkOrders' | abpLocalization }}</small>
               </div>
             </div>
           </div>
@@ -72,12 +72,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <!-- Status Breakdown -->
             <div class="col-md-6">
               <div class="card h-100">
-                <div class="card-header"><small class="fw-bold">{{ 'ByStatus' | abpLocalization }}</small></div>
+                <div class="card-header"><small class="fw-bold">{{ '::ByStatus' | abpLocalization }}</small></div>
                 <div class="card-body">
                   @for (s of d.statusBreakdown; track s.status) {
                     @if (s.count > 0) {
                       <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-{{ s.color }}">{{ s.status | abpLocalization }}</span>
+                        <span class="badge bg-{{ s.color }}">{{ ('::' + s.status) | abpLocalization }}</span>
                         <div class="d-flex align-items-center" style="width: 60%">
                           <div class="progress flex-grow-1 me-2" style="height: 8px">
                             <div class="progress-bar bg-{{ s.color }}" [style.width.%]="getStatusPct(s.count, d.totalWorkOrders)"></div>
@@ -94,11 +94,11 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <!-- Qty Comparison -->
             <div class="col-md-6">
               <div class="card h-100">
-                <div class="card-header"><small class="fw-bold">{{ 'ByQuantity' | abpLocalization }}</small></div>
+                <div class="card-header"><small class="fw-bold">{{ '::ByQuantity' | abpLocalization }}</small></div>
                 <div class="card-body">
                   <div class="mb-3">
                     <div class="d-flex justify-content-between mb-1">
-                      <small>{{ 'PlannedQty' | abpLocalization }}</small>
+                      <small>{{ '::PlannedQty' | abpLocalization }}</small>
                       <small class="fw-bold">{{ d.totalPlannedQty | number:'1.0-0' }}</small>
                     </div>
                     <div class="progress" style="height: 12px">
@@ -107,7 +107,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   </div>
                   <div class="mb-3">
                     <div class="d-flex justify-content-between mb-1">
-                      <small>{{ 'ProducedQty' | abpLocalization }}</small>
+                      <small>{{ '::ProducedQty' | abpLocalization }}</small>
                       <small class="fw-bold">{{ d.totalProducedQty | number:'1.0-0' }}</small>
                     </div>
                     <div class="progress" style="height: 12px">
@@ -127,8 +127,8 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <table class="table table-sm table-hover mb-0">
                   <thead class="table-light">
                     <tr>
-                      <th>{{ 'Item' | abpLocalization }}</th>
-                      <th class="text-end">{{ 'ProducedQty' | abpLocalization }}</th>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
                       <th class="text-end">Work Orders</th>
                     </tr>
                   </thead>
@@ -146,7 +146,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             </div>
           }
         } @else if (!isLoading()) {
-          <p class="text-muted text-center py-4">{{ 'NoWorkOrdersInPeriod' | abpLocalization }}</p>
+          <p class="text-muted text-center py-4">{{ '::NoWorkOrdersInPeriod' | abpLocalization }}</p>
         }
       </div>
     </div>

@@ -21,7 +21,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
         <div class="card mb-3"><div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">{{ 'Name' | abpLocalization }} *</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="name" maxlength="100">
             </div>
             <div class="col-md-3">
@@ -101,9 +101,9 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
         </div></div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/support/service-level-agreements">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/support/service-level-agreements">{{ '::Cancel' | abpLocalization }}</a>
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

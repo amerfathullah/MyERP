@@ -14,26 +14,26 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   imports: [PaginationComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SalesPartners' | abpLocalization">
+    <abp-page [title]="'::SalesPartners' | abpLocalization">
       <div class="d-flex justify-content-between mb-3">
         <input type="text" class="form-control form-control-sm" style="max-width: 300px"
           [placeholder]="'::Placeholder:Search' | abpLocalization"
           [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
         <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSalesPartner' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSalesPartner' | abpLocalization }}
         </button>
       </div>
 
       @if (showCreateForm) {
         <div class="card mb-3"><div class="card-body">
-          <h6>{{ 'NewSalesPartner' | abpLocalization }}</h6>
+          <h6>{{ '::NewSalesPartner' | abpLocalization }}</h6>
           <div class="row g-2">
             <div class="col-md-4">
-              <label class="form-label">{{ 'Name' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="newPartner.name">
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Type' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newPartner.partnerType">
                 <option [value]="0">Reseller</option>
                 <option [value]="1">Distributor</option>
@@ -44,21 +44,21 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">{{ 'CommissionRate' | abpLocalization }} (%)</label>
+              <label class="form-label">{{ '::CommissionRate' | abpLocalization }} (%)</label>
               <input type="number" class="form-control form-control-sm" min="0" max="100" step="0.01"
                 [(ngModel)]="newPartner.commissionRate">
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Website' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Website' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="newPartner.website">
             </div>
           </div>
           <div class="mt-2">
             <button class="btn btn-success btn-sm me-2" (click)="create()">
-              <i class="fa fa-check me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-check me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" (click)="showCreateForm = false">
-              {{ 'Cancel' | abpLocalization }}
+              {{ '::Cancel' | abpLocalization }}
             </button>
           </div>
         </div></div>
@@ -70,17 +70,17 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
       @if (!isLoading && partners.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-handshake fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSalesPartnersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSalesPartnersYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Name' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'CommissionRate' | abpLocalization }}</th>
-              <th>{{ 'Website' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::CommissionRate' | abpLocalization }}</th>
+              <th>{{ '::Website' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

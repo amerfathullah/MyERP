@@ -13,17 +13,17 @@ import type { SubcontractingBomDto } from '../../proxy/purchasing/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SubcontractingBoms' | abpLocalization">
+    <abp-page [title]="'::SubcontractingBoms' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/purchasing/subcontracting-boms/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSubcontractingBom' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSubcontractingBom' | abpLocalization }}
         </button>
       </div>
 
       @if (boms.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-diagram-project fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSubcontractingBomsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSubcontractingBomsYet' | abpLocalization }}</p>
         </div>
       } @else {
         <div class="card">
@@ -31,12 +31,12 @@ import type { SubcontractingBomDto } from '../../proxy/purchasing/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'FinishedGood' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'FinishedGoodQty' | abpLocalization }}</th>
-                  <th>{{ 'ServiceItem' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ServiceItemQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'ConversionFactor' | abpLocalization }}</th>
-                  <th>{{ 'IsActive' | abpLocalization }}</th>
+                  <th>{{ '::FinishedGood' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::FinishedGoodQty' | abpLocalization }}</th>
+                  <th>{{ '::ServiceItem' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ServiceItemQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ConversionFactor' | abpLocalization }}</th>
+                  <th>{{ '::IsActive' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -50,9 +50,9 @@ import type { SubcontractingBomDto } from '../../proxy/purchasing/models';
                     <td class="text-end">{{ b.conversionFactor | number:'1.2-6' }}</td>
                     <td>
                       @if (b.isActive) {
-                        <span class="badge bg-success-subtle text-success">{{ 'Yes' | abpLocalization }}</span>
+                        <span class="badge bg-success-subtle text-success">{{ '::Yes' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary-subtle text-secondary">{{ 'No' | abpLocalization }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary">{{ '::No' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

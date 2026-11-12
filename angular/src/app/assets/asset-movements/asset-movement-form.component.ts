@@ -17,13 +17,13 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewAssetMovement' | abpLocalization">
+    <abp-page [title]="'::NewAssetMovement' | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'Asset' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Asset' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="assetId">
                   <option value="">— Select Asset —</option>
                   @for (a of assets(); track a.id) {
@@ -32,7 +32,7 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Purpose' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Purpose' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="movementType">
                   <option value="Transfer">Transfer</option>
                   <option value="Issue">Issue</option>
@@ -40,11 +40,11 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Date' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Date' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="movementDate" />
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'FromLocation' | abpLocalization }}</label>
+                <label class="form-label">{{ '::FromLocation' | abpLocalization }}</label>
                 <select class="form-select" formControlName="sourceLocationId">
                   <option [ngValue]="null">—</option>
                   @for (loc of locations(); track loc.id) {
@@ -53,7 +53,7 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label">{{ 'ToLocation' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ToLocation' | abpLocalization }}</label>
                 <select class="form-select" formControlName="targetLocationId">
                   <option [ngValue]="null">—</option>
                   @for (loc of locations(); track loc.id) {
@@ -66,9 +66,9 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/assets/movements">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/assets/movements">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

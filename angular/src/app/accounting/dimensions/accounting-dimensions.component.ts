@@ -13,16 +13,16 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AccountingDimensions' | abpLocalization">
+    <abp-page [title]="'::AccountingDimensions' | abpLocalization">
       <!-- Create form -->
       <div class="card mb-4">
         <div class="card-header">
-          <h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ 'NewDimension' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0"><i class="fa fa-plus me-2"></i>{{ '::NewDimension' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="create()" class="row g-3 align-items-end">
             <div class="col-md-3">
-              <label class="form-label">{{ 'DocumentType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
               <select class="form-select" formControlName="documentType">
                 <option value="" disabled>Select...</option>
                 <option value="Branch">Branch</option>
@@ -35,18 +35,18 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">{{ 'Label' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Label' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="label" [placeholder]="'::Placeholder:DimensionExample' | abpLocalization" />
             </div>
             <div class="col-md-2">
               <div class="form-check mt-4">
                 <input class="form-check-input" type="checkbox" formControlName="isMandatory" id="isMandatory">
-                <label class="form-check-label" for="isMandatory">{{ 'Mandatory' | abpLocalization }}</label>
+                <label class="form-check-label" for="isMandatory">{{ '::Mandatory' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving()">
-                <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+                <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
               </button>
             </div>
           </form>
@@ -56,7 +56,7 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
       <!-- Dimensions list -->
       <div class="card">
         <div class="card-header">
-          <h6 class="card-title mb-0">{{ 'AccountingDimensions' | abpLocalization }}</h6>
+          <h6 class="card-title mb-0">{{ '::AccountingDimensions' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           @if (loading()) {
@@ -64,17 +64,17 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
           } @else if (dimensions().length === 0) {
             <div class="text-center text-muted p-4">
               <i class="fa fa-cubes fa-2x mb-2 d-block"></i>
-              {{ 'NoDimensionsYet' | abpLocalization }}
+              {{ '::NoDimensionsYet' | abpLocalization }}
             </div>
           } @else {
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>{{ 'DocumentType' | abpLocalization }}</th>
-                  <th>{{ 'Label' | abpLocalization }}</th>
-                  <th>{{ 'FieldName' | abpLocalization }}</th>
-                  <th>{{ 'Mandatory' | abpLocalization }}</th>
-                  <th>{{ 'Status' | abpLocalization }}</th>
+                  <th>{{ '::DocumentType' | abpLocalization }}</th>
+                  <th>{{ '::Label' | abpLocalization }}</th>
+                  <th>{{ '::FieldName' | abpLocalization }}</th>
+                  <th>{{ '::Mandatory' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -86,7 +86,7 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
                     <td><code>{{ dim.fieldName }}</code></td>
                     <td>
                       @if (dim.isMandatory) {
-                        <span class="badge bg-warning">{{ 'Mandatory' | abpLocalization }}</span>
+                        <span class="badge bg-warning">{{ '::Mandatory' | abpLocalization }}</span>
                       } @else {
                         <span class="badge bg-light text-dark">Optional</span>
                       }

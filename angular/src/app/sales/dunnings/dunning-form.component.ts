@@ -28,31 +28,31 @@ interface OverdueInvoice {
   imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, SaveShortcutDirective, AutoValidationDirective],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewDunning' | abpLocalization">
+    <abp-page [title]="'::NewDunning' | abpLocalization">
       <form [formGroup]="form" (appSaveShortcut)="save()">
       <div class="card mb-3"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Customer' | abpLocalization }} *</label>
+            <label class="form-label">{{ '::Customer' | abpLocalization }} *</label>
             <select class="form-select" formControlName="customerId" (change)="onCustomerChanged()">
-              <option value="">{{ 'Select' | abpLocalization }}...</option>
+              <option value="">{{ '::Select' | abpLocalization }}...</option>
               @for (c of customers(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="postingDate" />
           </div>
           <div class="col-md-2">
-            <label class="form-label">{{ 'Level' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Level' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="dunningLevel" min="1" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'DunningType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DunningType' | abpLocalization }}</label>
             <select class="form-select" formControlName="dunningTypeId" (change)="onDunningTypeChanged()">
-              <option value="">{{ 'None' | abpLocalization }}</option>
+              <option value="">{{ '::None' | abpLocalization }}</option>
               @for (dt of dunningTypes(); track dt.id) {
                 <option [value]="dt.id">{{ dt.dunningTypeName }}</option>
               }
@@ -62,11 +62,11 @@ interface OverdueInvoice {
 
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'Fee' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Fee' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="dunningFee" step="0.01" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'InterestRate' | abpLocalization }} (%)</label>
+            <label class="form-label">{{ '::InterestRate' | abpLocalization }} (%)</label>
             <input type="number" class="form-control" formControlName="interestRate" step="0.01" />
           </div>
         </div>
@@ -74,10 +74,10 @@ interface OverdueInvoice {
 
       <div class="card mb-3"><div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="mb-0">{{ 'OverdueInvoices' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::OverdueInvoices' | abpLocalization }}</h6>
           @if (form.get('customerId')?.value) {
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="fetchOverdueInvoices()" [disabled]="fetchingInvoices()">
-              <i class="fa fa-download me-1"></i>{{ 'GetOutstanding' | abpLocalization }}
+              <i class="fa fa-download me-1"></i>{{ '::GetOutstanding' | abpLocalization }}
             </button>
           }
         </div>
@@ -86,11 +86,11 @@ interface OverdueInvoice {
           <table class="table table-sm table-hover">
             <thead><tr>
               <th><input type="checkbox" (change)="toggleAll($event)" /></th>
-              <th>{{ 'Invoice' | abpLocalization }}</th>
-              <th>{{ 'DueDate' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
-              <th class="text-end">{{ 'DaysOverdue' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Interest' | abpLocalization }}</th>
+              <th>{{ '::Invoice' | abpLocalization }}</th>
+              <th>{{ '::DueDate' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+              <th class="text-end">{{ '::DaysOverdue' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Interest' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (inv of overdueInvoices(); track inv.id) {
@@ -105,29 +105,29 @@ interface OverdueInvoice {
               }
             </tbody>
             <tfoot><tr class="fw-bold">
-              <td colspan="3">{{ 'Total' | abpLocalization }}</td>
+              <td colspan="3">{{ '::Total' | abpLocalization }}</td>
               <td class="text-end text-danger">{{ totalOutstanding() | number:'1.2-2' }}</td>
               <td></td>
               <td class="text-end">{{ totalInterest() | number:'1.2-2' }}</td>
             </tr></tfoot>
           </table>
         } @else if (form.get('customerId')?.value) {
-          <p class="text-muted">{{ 'NoOutstandingInvoices' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoOutstandingInvoices' | abpLocalization }}</p>
         } @else {
-          <p class="text-muted">{{ 'SelectCustomerToViewOutstanding' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::SelectCustomerToViewOutstanding' | abpLocalization }}</p>
         }
       </div></div>
 
       <div class="card"><div class="card-body">
         <div class="row align-items-center">
           <div class="col-md-4">
-            <span class="fs-5 fw-bold text-danger">{{ 'GrandTotal' | abpLocalization }}: {{ grandTotal() | number:'1.2-2' }}</span>
-            <small class="d-block text-muted">{{ 'Outstanding' | abpLocalization }} + {{ 'Interest' | abpLocalization }} + {{ 'Fee' | abpLocalization }}</small>
+            <span class="fs-5 fw-bold text-danger">{{ '::GrandTotal' | abpLocalization }}: {{ grandTotal() | number:'1.2-2' }}</span>
+            <small class="d-block text-muted">{{ '::Outstanding' | abpLocalization }} + {{ '::Interest' | abpLocalization }} + {{ '::Fee' | abpLocalization }}</small>
           </div>
           <div class="col-md-8 text-end">
-            <a class="btn btn-secondary me-2" routerLink="/sales/dunnings">{{ 'Cancel' | abpLocalization }}</a>
+            <a class="btn btn-secondary me-2" routerLink="/sales/dunnings">{{ '::Cancel' | abpLocalization }}</a>
             <button type="submit" class="btn btn-primary" (click)="save()" [disabled]="saving || !hasSelectedInvoices()">
-              <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+              <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
           </div>
         </div>

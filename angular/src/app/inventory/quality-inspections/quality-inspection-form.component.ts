@@ -13,45 +13,45 @@ import { ItemService } from '../../proxy/inventory/item.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewInspection' | abpLocalization">
+    <abp-page [title]="'::NewInspection' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Item' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Item' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.itemId">
-              <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+              <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
               @for (i of availableItems(); track i.id) {
                 <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
               }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'InspectionType' | abpLocalization }}</label>
+            <label class="form-label">{{ '::InspectionType' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.inspectionType">
-              <option [ngValue]="0">{{ 'Incoming' | abpLocalization }}</option>
-              <option [ngValue]="1">{{ 'Outgoing' | abpLocalization }}</option>
-              <option [ngValue]="2">{{ 'InProcess' | abpLocalization }}</option>
+              <option [ngValue]="0">{{ '::Incoming' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::Outgoing' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::InProcess' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'InspectionDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::InspectionDate' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.inspectionDate" />
           </div>
         </div>
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'SampleSize' | abpLocalization }}</label>
+            <label class="form-label">{{ '::SampleSize' | abpLocalization }}</label>
             <input type="number" class="form-control" min="1" (ngModelChange)="isDirty=true" [(ngModel)]="form.sampleSize" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'BatchNo' | abpLocalization }}</label>
+            <label class="form-label">{{ '::BatchNo' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.batchNo" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Readings' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Readings' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Specification' | abpLocalization }}</th><th>{{ 'Min' | abpLocalization }}</th><th>{{ 'Max' | abpLocalization }}</th><th>{{ 'Reading' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Specification' | abpLocalization }}</th><th>{{ '::Min' | abpLocalization }}</th><th>{{ '::Max' | abpLocalization }}</th><th>{{ '::Reading' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (r of form.readings; track $index) {
               <tr>
@@ -64,11 +64,11 @@ import { ItemService } from '../../proxy/inventory/item.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addReading()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addReading()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/inventory/quality-inspections">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/inventory/quality-inspections">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

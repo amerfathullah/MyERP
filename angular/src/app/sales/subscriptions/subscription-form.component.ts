@@ -11,31 +11,31 @@ import { SubscriptionService } from '../../proxy/sales/subscription.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewSubscription' | abpLocalization">
+    <abp-page [title]="'::NewSubscription' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Party' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Party' | abpLocalization }}</label>
             <input class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.partyName" [placeholder]="'::Placeholder:CustomerName' | abpLocalization" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'BillingInterval' | abpLocalization }}</label>
+            <label class="form-label">{{ '::BillingInterval' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.billingInterval">
-              <option>{{ 'Monthly' | abpLocalization }}</option>
-              <option>{{ 'Quarterly' | abpLocalization }}</option>
+              <option>{{ '::Monthly' | abpLocalization }}</option>
+              <option>{{ '::Quarterly' | abpLocalization }}</option>
               <option>Half-Yearly</option>
-              <option>{{ 'Yearly' | abpLocalization }}</option>
+              <option>{{ '::Yearly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'StartDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::StartDate' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.startDate" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Plans' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Plans' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (p of form.plans; track $index) {
               <tr>
@@ -47,13 +47,13 @@ import { SubscriptionService } from '../../proxy/sales/subscription.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.plans.push({itemName:'',qty:1,rate:0})"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="form.plans.push({itemName:'',qty:1,rate:0})"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-between">
-          <span class="fw-bold">{{ 'Total' | abpLocalization }}: {{ getTotal() | number:'1.2-2' }} / {{ form.billingInterval }}</span>
+          <span class="fw-bold">{{ '::Total' | abpLocalization }}: {{ getTotal() | number:'1.2-2' }} / {{ form.billingInterval }}</span>
           <div class="d-flex gap-2">
-            <a class="btn btn-secondary" routerLink="/sales/subscriptions">{{ 'Cancel' | abpLocalization }}</a>
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <a class="btn btn-secondary" routerLink="/sales/subscriptions">{{ '::Cancel' | abpLocalization }}</a>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           </div>
         </div>
       </div></div>

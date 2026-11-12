@@ -28,10 +28,10 @@ interface PledgeRow extends InvoiceForDiscountingDto {
     <div class="container-fluid my-3">
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="fa fa-percent me-2"></i>{{ 'InvoiceDiscounting' | abpLocalization }}</h5>
+          <h5 class="mb-0"><i class="fa fa-percent me-2"></i>{{ '::InvoiceDiscounting' | abpLocalization }}</h5>
           @if (!showCreateForm) {
             <button class="btn btn-primary btn-sm" (click)="openCreateForm()">
-              <i class="fa fa-plus me-1"></i>{{ 'New' | abpLocalization }}
+              <i class="fa fa-plus me-1"></i>{{ '::New' | abpLocalization }}
             </button>
           }
         </div>
@@ -40,52 +40,52 @@ interface PledgeRow extends InvoiceForDiscountingDto {
       @if (showCreateForm) {
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">{{ 'NewInvoiceDiscounting' | abpLocalization }}</h6>
+            <h6 class="mb-0">{{ '::NewInvoiceDiscounting' | abpLocalization }}</h6>
             <button class="btn-close" (click)="showCreateForm = false"></button>
           </div>
           <div class="card-body">
             <div class="row g-3 mb-3">
               <div class="col-md-3">
-                <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+                <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
                 <input type="date" class="form-control" [(ngModel)]="draft.postingDate" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'ShortTermLoanAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::ShortTermLoanAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.shortTermLoanAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'BankAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::BankAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.bankAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'BankChargesAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::BankChargesAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.bankChargesAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'AccountsReceivableCreditAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::AccountsReceivableCreditAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.accountsReceivableCreditAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'AccountsReceivableDiscountedAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::AccountsReceivableDiscountedAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.accountsReceivableDiscountedAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">{{ 'AccountsReceivableUnpaidAccount' | abpLocalization }}</label>
+                <label class="form-label">{{ '::AccountsReceivableUnpaidAccount' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="draft.accountsReceivableUnpaidAccountId">
                   <option value="">-</option>
                   @for (a of accounts; track a.id) { <option [value]="a.id">{{ a.accountName }}</option> }
@@ -93,20 +93,20 @@ interface PledgeRow extends InvoiceForDiscountingDto {
               </div>
             </div>
 
-            <h6 class="mb-2">{{ 'EligibleInvoices' | abpLocalization }}</h6>
+            <h6 class="mb-2">{{ '::EligibleInvoices' | abpLocalization }}</h6>
             @if (loadingEligible) {
               <app-loading-overlay />
             } @else if (eligibleInvoices.length === 0) {
-              <p class="text-muted">{{ 'NoEligibleInvoices' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoEligibleInvoices' | abpLocalization }}</p>
             } @else {
               <table class="table table-sm table-hover mb-2">
                 <thead>
                   <tr>
                     <th style="width:40px"></th>
-                    <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                    <th>{{ 'Customer' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'OutstandingAmount' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'PledgeAmount' | abpLocalization }}</th>
+                    <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                    <th>{{ '::Customer' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::OutstandingAmount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::PledgeAmount' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -124,15 +124,15 @@ interface PledgeRow extends InvoiceForDiscountingDto {
                   }
                 </tbody>
               </table>
-              <p class="text-end fw-bold mb-3">{{ 'Total' | abpLocalization }}: {{ selectedTotal() | number:'1.2-2' }}</p>
+              <p class="text-end fw-bold mb-3">{{ '::Total' | abpLocalization }}: {{ selectedTotal() | number:'1.2-2' }}</p>
             }
 
             <div class="d-flex gap-2">
               <button class="btn btn-primary" [disabled]="creating || selectedTotal() <= 0" (click)="createDraft()">
                 @if (creating) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+                <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
               </button>
-              <button class="btn btn-secondary" (click)="showCreateForm = false">{{ 'Cancel' | abpLocalization }}</button>
+              <button class="btn btn-secondary" (click)="showCreateForm = false">{{ '::Cancel' | abpLocalization }}</button>
             </div>
           </div>
         </div>
@@ -143,17 +143,17 @@ interface PledgeRow extends InvoiceForDiscountingDto {
       @if (!isLoading && items.length === 0 && !showCreateForm) {
         <div class="text-center py-5">
           <i class="fa fa-percent fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoInvoiceDiscountingYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoInvoiceDiscountingYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading && items.length > 0) {
         <div class="card"><div class="card-body p-0">
           <table class="table table-hover mb-0">
             <thead><tr>
               <th></th>
-              <th>{{ 'PostingDate' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-              <th>{{ 'LoanPeriod' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::PostingDate' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+              <th>{{ '::LoanPeriod' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -187,7 +187,7 @@ interface PledgeRow extends InvoiceForDiscountingDto {
                       <div class="p-3">
                         @if (item.invoices?.length) {
                           <table class="table table-sm mb-3">
-                            <thead><tr><th>{{ 'InvoiceNumber' | abpLocalization }}</th><th>{{ 'Customer' | abpLocalization }}</th><th class="text-end">{{ 'PledgedAmount' | abpLocalization }}</th></tr></thead>
+                            <thead><tr><th>{{ '::InvoiceNumber' | abpLocalization }}</th><th>{{ '::Customer' | abpLocalization }}</th><th class="text-end">{{ '::PledgedAmount' | abpLocalization }}</th></tr></thead>
                             <tbody>
                               @for (inv of item.invoices; track inv.salesInvoiceId) {
                                 <tr><td>{{ inv.invoiceNumber }}</td><td>{{ inv.customerName }}</td><td class="text-end">{{ inv.outstandingAmount | number:'1.2-2' }}</td></tr>
@@ -199,16 +199,16 @@ interface PledgeRow extends InvoiceForDiscountingDto {
                         @if (submitTargetId === item.id) {
                           <div class="row g-2 align-items-end">
                             <div class="col-auto">
-                              <label class="form-label">{{ 'LoanStartDate' | abpLocalization }}</label>
+                              <label class="form-label">{{ '::LoanStartDate' | abpLocalization }}</label>
                               <input type="date" class="form-control form-control-sm" [(ngModel)]="submitForm.loanStartDate" />
                             </div>
                             <div class="col-auto">
-                              <label class="form-label">{{ 'LoanPeriodDays' | abpLocalization }}</label>
+                              <label class="form-label">{{ '::LoanPeriodDays' | abpLocalization }}</label>
                               <input type="number" class="form-control form-control-sm" [(ngModel)]="submitForm.loanPeriodDays" />
                             </div>
                             <div class="col-auto">
-                              <button class="btn btn-sm btn-success" (click)="submit(item)">{{ 'Confirm' | abpLocalization }}</button>
-                              <button class="btn btn-sm btn-secondary" (click)="submitTargetId = null">{{ 'Cancel' | abpLocalization }}</button>
+                              <button class="btn btn-sm btn-success" (click)="submit(item)">{{ '::Confirm' | abpLocalization }}</button>
+                              <button class="btn btn-sm btn-secondary" (click)="submitTargetId = null">{{ '::Cancel' | abpLocalization }}</button>
                             </div>
                           </div>
                         }
@@ -216,12 +216,12 @@ interface PledgeRow extends InvoiceForDiscountingDto {
                         @if (disburseTargetId === item.id) {
                           <div class="row g-2 align-items-end">
                             <div class="col-auto">
-                              <label class="form-label">{{ 'BankCharges' | abpLocalization }}</label>
+                              <label class="form-label">{{ '::BankCharges' | abpLocalization }}</label>
                               <input type="number" class="form-control form-control-sm" [(ngModel)]="disburseForm.bankCharges" />
                             </div>
                             <div class="col-auto">
-                              <button class="btn btn-sm btn-success" (click)="disburse(item)">{{ 'Confirm' | abpLocalization }}</button>
-                              <button class="btn btn-sm btn-secondary" (click)="disburseTargetId = null">{{ 'Cancel' | abpLocalization }}</button>
+                              <button class="btn btn-sm btn-success" (click)="disburse(item)">{{ '::Confirm' | abpLocalization }}</button>
+                              <button class="btn btn-sm btn-secondary" (click)="disburseTargetId = null">{{ '::Cancel' | abpLocalization }}</button>
                             </div>
                           </div>
                         }
@@ -291,7 +291,7 @@ export class InvoiceDiscountingComponent implements OnInit {
     this.expandedId = null;
     const cid = this.companyContext.currentCompanyId();
     if (!cid) {
-      this.toaster.warn('SelectCompanyFirst');
+      this.toaster.warn('::SelectCompanyFirst');
       return;
     }
     this.loadingEligible = true;
@@ -326,7 +326,7 @@ export class InvoiceDiscountingComponent implements OnInit {
       invoices: selected.map(r => ({ salesInvoiceId: r.invoiceId, outstandingAmount: r.pledgeAmount })),
     }).subscribe({
       next: () => {
-        this.toaster.success('SuccessfullyCreated');
+        this.toaster.success('::SuccessfullyCreated');
         this.creating = false;
         this.showCreateForm = false;
         this.loadData();
@@ -352,7 +352,7 @@ export class InvoiceDiscountingComponent implements OnInit {
 
   submit(item: InvoiceDiscountingDto) {
     this.invoiceDiscountingService.submit(item.id!, this.submitForm).subscribe({
-      next: () => { this.toaster.success('SuccessfullySubmitted'); this.submitTargetId = null; this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullySubmitted'); this.submitTargetId = null; this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
@@ -365,23 +365,23 @@ export class InvoiceDiscountingComponent implements OnInit {
 
   disburse(item: InvoiceDiscountingDto) {
     this.invoiceDiscountingService.disburse(item.id!, this.disburseForm).subscribe({
-      next: () => { this.toaster.success('SuccessfullyDisbursed'); this.disburseTargetId = null; this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyDisbursed'); this.disburseTargetId = null; this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
 
   settle(item: InvoiceDiscountingDto) {
     this.invoiceDiscountingService.settle(item.id!).subscribe({
-      next: () => { this.toaster.success('SuccessfullyClosed'); this.loadData(); },
+      next: () => { this.toaster.success('::SuccessfullyClosed'); this.loadData(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
 
   cancelDoc(item: InvoiceDiscountingDto) {
-    this.confirmation.warn('DeleteConfirmation', 'AreYouSure').subscribe(status => {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
       this.invoiceDiscountingService.cancel(item.id!).subscribe({
-        next: () => { this.toaster.success('SuccessfullyCancelled'); this.loadData(); },
+        next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadData(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
       });
     });

@@ -14,15 +14,15 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'Edit' : 'NewAssetMaintenanceTeam') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::Edit' : '::NewAssetMaintenanceTeam') | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <label class="form-label">{{ 'TeamName' | abpLocalization }}</label>
+            <label class="form-label">{{ '::TeamName' | abpLocalization }}</label>
             <input class="form-control" [(ngModel)]="form.teamName" />
           </div>
           <div class="col-md-6">
-            <label class="form-label">{{ 'MaintenanceManager' | abpLocalization }}</label>
+            <label class="form-label">{{ '::MaintenanceManager' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.maintenanceManagerId">
               <option value="">--</option>
               @for (e of employees(); track e.id) { <option [value]="e.id">{{ e.fullName }}</option> }
@@ -30,9 +30,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Members' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Members' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Employee' | abpLocalization }}</th><th>{{ 'Role' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Employee' | abpLocalization }}</th><th>{{ '::Role' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (m of form.members; track $index) {
               <tr>
@@ -47,11 +47,11 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addMember()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addMember()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/assets/maintenance-teams">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !form.teamName"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/assets/maintenance-teams">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !form.teamName"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

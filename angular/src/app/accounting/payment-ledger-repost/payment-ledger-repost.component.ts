@@ -17,18 +17,18 @@ const ALLOWED_TYPES = ['SalesInvoice', 'PurchaseInvoice', 'PaymentEntry', 'Journ
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="fas fa-rotate me-2"></i>{{ 'PaymentLedgerRepost' | abpLocalization }}</h4>
+        <h4><i class="fas fa-rotate me-2"></i>{{ '::PaymentLedgerRepost' | abpLocalization }}</h4>
       </div>
 
       <!-- Single Voucher Repost -->
       <div class="card mb-3">
         <div class="card-header">
-          <h6 class="mb-0">{{ 'RepostSingleVoucher' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::RepostSingleVoucher' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">{{ 'VoucherType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="voucherType">
                 @for (t of allowedTypes; track t) {
                   <option [value]="t">{{ t }}</option>
@@ -36,13 +36,13 @@ const ALLOWED_TYPES = ['SalesInvoice', 'PurchaseInvoice', 'PaymentEntry', 'Journ
               </select>
             </div>
             <div class="col-md-5">
-              <label class="form-label">{{ 'VoucherId' | abpLocalization }}</label>
+              <label class="form-label">{{ '::VoucherId' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="voucherId"
                      [placeholder]="'::Placeholder:EnterDocumentId' | abpLocalization">
             </div>
             <div class="col-md-3">
               <button class="btn btn-warning btn-sm w-100" (click)="repostSingle()" [disabled]="isProcessing()">
-                <i class="fas fa-rotate me-1"></i> {{ 'Repost' | abpLocalization }}
+                <i class="fas fa-rotate me-1"></i> {{ '::Repost' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -56,17 +56,17 @@ const ALLOWED_TYPES = ['SalesInvoice', 'PurchaseInvoice', 'PaymentEntry', 'Journ
       <!-- Company-wide Repost -->
       <div class="card mb-3">
         <div class="card-header">
-          <h6 class="mb-0">{{ 'RepostForCompany' | abpLocalization }}</h6>
+          <h6 class="mb-0">{{ '::RepostForCompany' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end">
             <div class="col-md-6">
-              <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
             </div>
             <div class="col-md-3">
               <button class="btn btn-warning btn-sm w-100" (click)="repostCompany()" [disabled]="isProcessing() || !fromDate">
-                <i class="fas fa-rotate me-1"></i> {{ 'RepostAll' | abpLocalization }}
+                <i class="fas fa-rotate me-1"></i> {{ '::RepostAll' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -82,15 +82,15 @@ const ALLOWED_TYPES = ['SalesInvoice', 'PurchaseInvoice', 'PaymentEntry', 'Journ
           <div class="card-body">
             <div class="row text-center">
               <div class="col-md-4">
-                <div class="text-muted small">{{ 'TotalVouchers' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::TotalVouchers' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ lastResult()!.totalVouchers }}</div>
               </div>
               <div class="col-md-4">
-                <div class="text-muted small">{{ 'Succeeded' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Succeeded' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-success">{{ lastResult()!.successCount }}</div>
               </div>
               <div class="col-md-4">
-                <div class="text-muted small">{{ 'Failed' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Failed' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-danger">{{ lastResult()!.failedCount }}</div>
               </div>
             </div>

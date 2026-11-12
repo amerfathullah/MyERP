@@ -14,12 +14,12 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ExchangeRateRevaluation' | abpLocalization">
+    <abp-page [title]="'::ExchangeRateRevaluation' | abpLocalization">
       <div class="card mb-3"><div class="card-body">
-        <h6 class="card-title">{{ 'CreateRevaluation' | abpLocalization }}</h6>
+        <h6 class="card-title">{{ '::CreateRevaluation' | abpLocalization }}</h6>
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="postingDate" />
           </div>
           <div class="col-md-4">
@@ -80,9 +80,9 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
           <h6 class="card-title">Previous Revaluations</h6>
           <table class="table table-sm mb-0">
             <thead><tr>
-              <th>{{ 'PostingDate' | abpLocalization }}</th>
+              <th>{{ '::PostingDate' | abpLocalization }}</th>
               <th class="text-end">Total Gain/Loss</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -100,7 +100,7 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
                   <td>
                     @if (r.status === 1) {
                       <button class="btn btn-sm btn-outline-warning" [disabled]="reversingId === r.id" (click)="reverse(r.id)">
-                        <i class="fa fa-rotate-left me-1"></i>{{ 'CreateReversal' | abpLocalization }}
+                        <i class="fa fa-rotate-left me-1"></i>{{ '::CreateReversal' | abpLocalization }}
                       </button>
                     }
                   </td>

@@ -23,12 +23,12 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
             <h5 class="mb-0">
               <i class="fas fa-sitemap me-2"></i>{{ b.itemName || b.itemId }}
               @if (b.isActive) {
-                <span class="badge bg-success ms-2">{{ 'Active' | abpLocalization }}</span>
+                <span class="badge bg-success ms-2">{{ '::Active' | abpLocalization }}</span>
               } @else {
-                <span class="badge bg-secondary ms-2">{{ 'Inactive' | abpLocalization }}</span>
+                <span class="badge bg-secondary ms-2">{{ '::Inactive' | abpLocalization }}</span>
               }
               @if (b.isDefault) {
-                <span class="badge bg-primary ms-2">{{ 'Default' | abpLocalization }}</span>
+                <span class="badge bg-primary ms-2">{{ '::Default' | abpLocalization }}</span>
               }
             </h5>
             <div class="btn-group btn-group-sm">
@@ -36,55 +36,55 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 @if (isUpdatingCost()) {
                   <span class="spinner-border spinner-border-sm me-1"></span>
                 }
-                <i class="fas fa-calculator me-1"></i>{{ 'UpdateCost' | abpLocalization }}
+                <i class="fas fa-calculator me-1"></i>{{ '::UpdateCost' | abpLocalization }}
               </button>
               <a [routerLink]="['/manufacturing/bom/explorer']" [queryParams]="{bomId: b.id}" class="btn btn-outline-secondary">
-                <i class="fas fa-sitemap me-1"></i>{{ 'Manufacturing:BOMExplorer' | abpLocalization }}
+                <i class="fas fa-sitemap me-1"></i>{{ '::Manufacturing:BOMExplorer' | abpLocalization }}
               </a>
               <a [routerLink]="['/manufacturing/bom', b.id, 'edit']" class="btn btn-outline-primary">
-                <i class="fas fa-edit me-1"></i>{{ 'Edit' | abpLocalization }}
+                <i class="fas fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}
               </a>
               <button class="btn btn-outline-danger" (click)="deleteBom()" [disabled]="isDeleting()">
                 @if (isDeleting()) {
                   <span class="spinner-border spinner-border-sm me-1"></span>
                 }
-                <i class="fas fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}
+                <i class="fas fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}
               </button>
             </div>
           </div>
           <div class="card-body">
             <div class="row mb-4">
               <div class="col-md-3">
-                <small class="text-muted">{{ 'Quantity' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::Quantity' | abpLocalization }}</small>
                 <div class="fw-bold fs-5">{{ b.quantity | number:'1.2-2' }}</div>
               </div>
               <div class="col-md-3">
-                <small class="text-muted">{{ 'MaterialCost' | abpLocalization }}</small>
+                <small class="text-muted">{{ '::MaterialCost' | abpLocalization }}</small>
                 <div class="fw-bold fs-5 text-primary">{{ b.totalCost | number:'1.2-2' }}</div>
               </div>
               @if ((b.operatingCost ?? 0) > 0) {
                 <div class="col-md-3">
-                  <small class="text-muted">{{ 'OperatingCost' | abpLocalization }}</small>
+                  <small class="text-muted">{{ '::OperatingCost' | abpLocalization }}</small>
                   <div class="fw-bold fs-5 text-info">{{ b.operatingCost | number:'1.2-2' }}</div>
                 </div>
                 <div class="col-md-3">
-                  <small class="text-muted">{{ 'TotalCost' | abpLocalization }}</small>
+                  <small class="text-muted">{{ '::TotalCost' | abpLocalization }}</small>
                   <div class="fw-bold fs-5 text-success">{{ ((b.totalCost ?? 0) + (b.operatingCost ?? 0)) | number:'1.2-2' }}</div>
                 </div>
               }
             </div>
 
             <!-- Materials -->
-            <h6 class="mb-3"><i class="fas fa-cube me-2"></i>{{ 'Materials' | abpLocalization }} ({{ b.items?.length || 0 }})</h6>
+            <h6 class="mb-3"><i class="fas fa-cube me-2"></i>{{ '::Materials' | abpLocalization }} ({{ b.items?.length || 0 }})</h6>
             @if ((b.items?.length ?? 0) > 0) {
               <table class="table table-hover table-sm mb-4">
                 <thead class="table-light">
                   <tr>
                     <th style="width: 40px">#</th>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 100px">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 120px">{{ 'Rate' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 120px">{{ 'Amount' | abpLocalization }}</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 100px">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 120px">{{ '::Rate' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 120px">{{ '::Amount' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -102,7 +102,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 </tbody>
                 <tfoot>
                   <tr class="table-light">
-                    <td colspan="4" class="text-end fw-bold">{{ 'Total' | abpLocalization }}</td>
+                    <td colspan="4" class="text-end fw-bold">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end fw-bold">{{ b.totalCost | number:'1.2-2' }}</td>
                   </tr>
                 </tfoot>
@@ -111,16 +111,16 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 
             <!-- Operations -->
             @if ((b.operations?.length ?? 0) > 0) {
-              <h6 class="mb-3"><i class="fas fa-cogs me-2"></i>{{ 'Operations' | abpLocalization }} ({{ b.operations?.length }})</h6>
+              <h6 class="mb-3"><i class="fas fa-cogs me-2"></i>{{ '::Operations' | abpLocalization }} ({{ b.operations?.length }})</h6>
               <table class="table table-hover table-sm mb-4">
                 <thead class="table-light">
                   <tr>
-                    <th style="width: 70px">{{ 'Sequence' | abpLocalization }}</th>
-                    <th>{{ 'Operation' | abpLocalization }}</th>
-                    <th>{{ 'Workstation' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 100px">{{ 'Time' | abpLocalization }} (min)</th>
-                    <th class="text-end" style="width: 100px">{{ 'BatchSize' | abpLocalization }}</th>
-                    <th class="text-end" style="width: 120px">{{ 'Cost' | abpLocalization }}</th>
+                    <th style="width: 70px">{{ '::Sequence' | abpLocalization }}</th>
+                    <th>{{ '::Operation' | abpLocalization }}</th>
+                    <th>{{ '::Workstation' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 100px">{{ '::Time' | abpLocalization }} (min)</th>
+                    <th class="text-end" style="width: 100px">{{ '::BatchSize' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 120px">{{ '::Cost' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,7 +137,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 </tbody>
                 <tfoot>
                   <tr class="table-light">
-                    <td colspan="5" class="text-end fw-bold">{{ 'TotalOperatingCost' | abpLocalization }}</td>
+                    <td colspan="5" class="text-end fw-bold">{{ '::TotalOperatingCost' | abpLocalization }}</td>
                     <td class="text-end fw-bold">{{ b.operatingCost | number:'1.2-2' }}</td>
                   </tr>
                 </tfoot>
@@ -146,16 +146,16 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 
             <!-- Secondary Items -->
             @if ((b.secondaryItems?.length ?? 0) > 0) {
-              <h6 class="mb-3"><i class="fas fa-recycle me-2"></i>{{ 'SecondaryItems' | abpLocalization }}</h6>
+              <h6 class="mb-3"><i class="fas fa-recycle me-2"></i>{{ '::SecondaryItems' | abpLocalization }}</h6>
               <table class="table table-hover table-sm">
                 <thead class="table-light">
                   <tr>
-                    <th>{{ 'Item' | abpLocalization }}</th>
-                    <th>{{ 'Type' | abpLocalization }}</th>
-                    <th>{{ 'ValuationType' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
-                    <th class="text-end">{{ 'CostAllocation' | abpLocalization }} %</th>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th>{{ '::Type' | abpLocalization }}</th>
+                    <th>{{ '::ValuationType' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::CostAllocation' | abpLocalization }} %</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,10 +171,10 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                       </td>
                       <td>
                         @switch (si.valuationType) {
-                          @case (0) { <span class="badge bg-secondary">{{ 'ValuationRate' | abpLocalization }}</span> }
-                          @case (1) { <span class="badge bg-primary">{{ 'PercentageOfComponentCost' | abpLocalization }}</span> }
-                          @case (2) { <span class="badge bg-dark">{{ 'Manual' | abpLocalization }}</span> }
-                          @default { <span class="badge bg-secondary">{{ 'ValuationRate' | abpLocalization }}</span> }
+                          @case (0) { <span class="badge bg-secondary">{{ '::ValuationRate' | abpLocalization }}</span> }
+                          @case (1) { <span class="badge bg-primary">{{ '::PercentageOfComponentCost' | abpLocalization }}</span> }
+                          @case (2) { <span class="badge bg-dark">{{ '::Manual' | abpLocalization }}</span> }
+                          @default { <span class="badge bg-secondary">{{ '::ValuationRate' | abpLocalization }}</span> }
                         }
                       </td>
                       <td class="text-end">{{ si.quantity | number:'1.2-2' }}</td>

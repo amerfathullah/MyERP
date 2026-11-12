@@ -15,27 +15,27 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'ExpenseClaims' | abpLocalization">
+    <abp-page [title]="'::ExpenseClaims' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/hr/expense-claims/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewExpenseClaim' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewExpenseClaim' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && items.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-receipt fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoExpenseClaimsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoExpenseClaimsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Employee' | abpLocalization }}</th>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Employee' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

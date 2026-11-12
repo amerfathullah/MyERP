@@ -13,24 +13,24 @@ import { AssetCategoryService } from '../../proxy/assets/asset-category.service'
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditAssetCategory' : 'NewAssetCategory') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditAssetCategory' : '::NewAssetCategory') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'CategoryName' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::CategoryName' | abpLocalization }} *</label>
                 <input class="form-control" formControlName="categoryName" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Depreciable' | abpLocalization }}</label>
+                <label class="form-label">{{ '::Depreciable' | abpLocalization }}</label>
                 <div class="form-check mt-2">
                   <input class="form-check-input" type="checkbox" formControlName="isDepreciable" id="isDepreciable" />
-                  <label class="form-check-label" for="isDepreciable">{{ 'EnableDepreciation' | abpLocalization }}</label>
+                  <label class="form-check-label" for="isDepreciable">{{ '::EnableDepreciation' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'DepreciationMethod' | abpLocalization }}</label>
+                <label class="form-label">{{ '::DepreciationMethod' | abpLocalization }}</label>
                 <select class="form-select" formControlName="defaultDepreciationMethod">
                   <option [value]="0">Straight Line</option>
                   <option [value]="1">Double Declining Balance</option>
@@ -39,11 +39,11 @@ import { AssetCategoryService } from '../../proxy/assets/asset-category.service'
                 </select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'UsefulLifeMonths' | abpLocalization }}</label>
+                <label class="form-label">{{ '::UsefulLifeMonths' | abpLocalization }}</label>
                 <input type="number" class="form-control" formControlName="defaultUsefulLifeMonths" min="1" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'DepreciationRate' | abpLocalization }} (%)</label>
+                <label class="form-label">{{ '::DepreciationRate' | abpLocalization }} (%)</label>
                 <input type="number" class="form-control" formControlName="defaultDepreciationRate" step="0.01" />
               </div>
             </div>
@@ -51,9 +51,9 @@ import { AssetCategoryService } from '../../proxy/assets/asset-category.service'
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/assets/categories">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/assets/categories">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

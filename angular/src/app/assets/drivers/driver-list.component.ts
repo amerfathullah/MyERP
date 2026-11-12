@@ -18,12 +18,12 @@ const STATUS_BADGE: Record<number, string> = { 0: 'bg-success', 1: 'bg-warning t
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Drivers' | abpLocalization">
+    <abp-page [title]="'::Drivers' | abpLocalization">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">{{ 'Drivers' | abpLocalization }}</h5>
+          <h5 class="mb-0">{{ '::Drivers' | abpLocalization }}</h5>
           <a class="btn btn-primary btn-sm" routerLink="/assets/drivers/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewDriver' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewDriver' | abpLocalization }}
           </a>
         </div>
         <div class="card-body">
@@ -32,19 +32,19 @@ const STATUS_BADGE: Record<number, string> = { 0: 'bg-success', 1: 'bg-warning t
           } @else if (items().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-id-badge fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">{{ 'NoDriversYet' | abpLocalization }}</p>
+              <p class="text-muted">{{ '::NoDriversYet' | abpLocalization }}</p>
               <a class="btn btn-primary" routerLink="/assets/drivers/new">
-                <i class="fa fa-plus me-1"></i>{{ 'NewDriver' | abpLocalization }}
+                <i class="fa fa-plus me-1"></i>{{ '::NewDriver' | abpLocalization }}
               </a>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>{{ 'FullName' | abpLocalization }}</th>
-                <th>{{ 'CellNumber' | abpLocalization }}</th>
-                <th>{{ 'LicenseNumber' | abpLocalization }}</th>
-                <th>{{ 'LicenseExpiryDate' | abpLocalization }}</th>
-                <th>{{ 'DriverStatus' | abpLocalization }}</th>
+                <th>{{ '::FullName' | abpLocalization }}</th>
+                <th>{{ '::CellNumber' | abpLocalization }}</th>
+                <th>{{ '::LicenseNumber' | abpLocalization }}</th>
+                <th>{{ '::LicenseExpiryDate' | abpLocalization }}</th>
+                <th>{{ '::DriverStatus' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>

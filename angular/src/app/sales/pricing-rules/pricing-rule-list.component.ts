@@ -15,28 +15,28 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'PricingRules' | abpLocalization">
+    <abp-page [title]="'::PricingRules' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/sales/pricing-rules/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewPricingRule' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewPricingRule' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && rules.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-tags fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoPricingRulesYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoPricingRulesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'Title' | abpLocalization }}</th>
-              <th>{{ 'Type' | abpLocalization }}</th>
-              <th>{{ 'ApplyOn' | abpLocalization }}</th>
-              <th>{{ 'Priority' | abpLocalization }}</th>
-              <th>{{ 'Discount' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::Title' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::ApplyOn' | abpLocalization }}</th>
+              <th>{{ '::Priority' | abpLocalization }}</th>
+              <th>{{ '::Discount' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (r of rules; track r.id) {

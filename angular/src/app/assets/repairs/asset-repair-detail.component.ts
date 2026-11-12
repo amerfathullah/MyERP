@@ -18,7 +18,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="'AssetRepairDetails' | abpLocalization">
+    <abp-page [title]="'::AssetRepairDetails' | abpLocalization">
       @if (!repair()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -29,7 +29,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 <div class="d-flex align-items-center gap-2">
                   @if (repair()!.status === 0) {
                     <a class="btn btn-sm btn-outline-secondary" [routerLink]="['/assets/repairs', repair()!.id, 'edit']">
-                      <i class="fa fa-pen me-1"></i>{{ 'Edit' | abpLocalization }}
+                      <i class="fa fa-pen me-1"></i>{{ '::Edit' | abpLocalization }}
                     </a>
                   }
                   <app-status-badge [status]="repair()!.status + ''" />
@@ -37,16 +37,16 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               </div>
               <div class="card-body">
                 <div class="row g-3">
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'FailureDate' | abpLocalization }}</small><strong>{{ repair()!.failureDate | date:'dd/MM/yyyy' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'CompletionDate' | abpLocalization }}</small><strong>{{ repair()!.completionDate ? (repair()!.completionDate | date:'dd/MM/yyyy') : '—' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'RepairCost' | abpLocalization }}</small><strong class="fs-5">{{ repair()!.repairCost | number:'1.2-2' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ 'Capitalize' | abpLocalization }}</small>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::FailureDate' | abpLocalization }}</small><strong>{{ repair()!.failureDate | date:'dd/MM/yyyy' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::CompletionDate' | abpLocalization }}</small><strong>{{ repair()!.completionDate ? (repair()!.completionDate | date:'dd/MM/yyyy') : '—' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::RepairCost' | abpLocalization }}</small><strong class="fs-5">{{ repair()!.repairCost | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-6"><small class="text-muted d-block">{{ '::Capitalize' | abpLocalization }}</small>
                     @if (repair()!.capitalizeRepairCost) {
                       <strong class="text-success">Yes (+{{ repair()!.increaseInAssetLife }} months)</strong>
                     } @else { <strong>No</strong> }
                   </div>
                   @if (repair()!.repairDescription) {
-                    <div class="col-12"><small class="text-muted d-block">{{ 'Description' | abpLocalization }}</small><p>{{ repair()!.repairDescription }}</p></div>
+                    <div class="col-12"><small class="text-muted d-block">{{ '::Description' | abpLocalization }}</small><p>{{ repair()!.repairDescription }}</p></div>
                   }
                 </div>
               </div>
@@ -86,7 +86,7 @@ export class AssetRepairDetailComponent implements OnInit {
     const reload = () => this.service.get(id).subscribe(r => this.repair.set(r));
     switch (name) {
       case 'complete': this.service.complete(id).subscribe(reload); break;
-      case 'cancel': this.confirmation.warn('CancelConfirmationMessage', 'Confirm').subscribe(s => {
+      case 'cancel': this.confirmation.warn('::CancelConfirmationMessage', '::Confirm').subscribe(s => {
         if (s === Confirmation.Status.confirm) this.service.cancel(id).subscribe(reload);
       }); break;
     }

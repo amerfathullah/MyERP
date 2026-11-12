@@ -13,23 +13,23 @@ import { AssetShiftFactorService } from '../../proxy/assets/asset-shift-factor.s
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? 'EditAssetShiftFactor' : 'NewAssetShiftFactor') | abpLocalization">
+    <abp-page [title]="(isEdit() ? '::EditAssetShiftFactor' : '::NewAssetShiftFactor') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label">{{ 'ShiftName' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::ShiftName' | abpLocalization }} *</label>
                 <input class="form-control" formControlName="shiftName" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">{{ 'Factor' | abpLocalization }} *</label>
+                <label class="form-label">{{ '::Factor' | abpLocalization }} *</label>
                 <input type="number" class="form-control" formControlName="factor" step="0.01" min="0.01" />
               </div>
               <div class="col-md-3">
                 <div class="form-check mt-4">
                   <input class="form-check-input" type="checkbox" formControlName="isDefault" id="isDefault" />
-                  <label class="form-check-label" for="isDefault">{{ 'Default' | abpLocalization }}</label>
+                  <label class="form-check-label" for="isDefault">{{ '::Default' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -37,9 +37,9 @@ import { AssetShiftFactorService } from '../../proxy/assets/asset-shift-factor.s
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
                 @if (isSaving()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                {{ 'Save' | abpLocalization }}
+                {{ '::Save' | abpLocalization }}
               </button>
-              <a class="btn btn-secondary" routerLink="/assets/shift-factors">{{ 'Cancel' | abpLocalization }}</a>
+              <a class="btn btn-secondary" routerLink="/assets/shift-factors">{{ '::Cancel' | abpLocalization }}</a>
             </div>
           </form>
         </div>

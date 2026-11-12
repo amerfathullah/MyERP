@@ -78,12 +78,12 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             <table class="table table-bordered table-sm">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 30%">{{ 'Item' | abpLocalization }} *</th>
-                  <th style="width: 15%">{{ 'Warehouse' | abpLocalization }}</th>
-                  <th style="width: 12%" class="text-end">{{ 'Quantity' | abpLocalization }} *</th>
-                  <th style="width: 12%" class="text-end">{{ 'Rate' | abpLocalization }} *</th>
-                  <th style="width: 15%" class="text-end">{{ 'ServiceCostPerQty' | abpLocalization }}</th>
-                  <th style="width: 12%" class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                  <th style="width: 30%">{{ '::Item' | abpLocalization }} *</th>
+                  <th style="width: 15%">{{ '::Warehouse' | abpLocalization }}</th>
+                  <th style="width: 12%" class="text-end">{{ '::Quantity' | abpLocalization }} *</th>
+                  <th style="width: 12%" class="text-end">{{ '::Rate' | abpLocalization }} *</th>
+                  <th style="width: 15%" class="text-end">{{ '::ServiceCostPerQty' | abpLocalization }}</th>
+                  <th style="width: 12%" class="text-end">{{ '::Amount' | abpLocalization }}</th>
                   <th style="width: 4%"></th>
                 </tr>
               </thead>
@@ -132,7 +132,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               </tbody>
               <tfoot>
                 <tr class="fw-bold table-light">
-                  <td colspan="5" class="text-end">{{ 'GrandTotal' | abpLocalization }}</td>
+                  <td colspan="5" class="text-end">{{ '::GrandTotal' | abpLocalization }}</td>
                   <td class="text-end">{{ grandTotal() | number:'1.2-2' }}</td>
                   <td></td>
                 </tr>

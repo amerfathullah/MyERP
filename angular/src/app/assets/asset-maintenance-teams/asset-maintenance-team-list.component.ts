@@ -13,17 +13,17 @@ import type { AssetMaintenanceTeamDto } from '../../proxy/assets/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'AssetMaintenanceTeams' | abpLocalization">
+    <abp-page [title]="'::AssetMaintenanceTeams' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/assets/maintenance-teams/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewAssetMaintenanceTeam' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewAssetMaintenanceTeam' | abpLocalization }}
         </button>
       </div>
 
       @if (teams.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-people-group fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoAssetMaintenanceTeamsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoAssetMaintenanceTeamsYet' | abpLocalization }}</p>
         </div>
       } @else {
         <div class="card">
@@ -31,8 +31,8 @@ import type { AssetMaintenanceTeamDto } from '../../proxy/assets/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'TeamName' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'Members' | abpLocalization }}</th>
+                  <th>{{ '::TeamName' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Members' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>

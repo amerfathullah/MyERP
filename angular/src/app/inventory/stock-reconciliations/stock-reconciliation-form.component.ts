@@ -13,32 +13,32 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewReconciliation' | abpLocalization">
+    <abp-page [title]="'::NewReconciliation' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'PostingDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Purpose' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Purpose' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.purpose">
-              <option value="Stock Count">{{ 'StockCount' | abpLocalization }}</option>
-              <option value="Opening Stock">{{ 'OpeningStock' | abpLocalization }}</option>
-              <option value="Adjustment">{{ 'Adjustment' | abpLocalization }}</option>
+              <option value="Stock Count">{{ '::StockCount' | abpLocalization }}</option>
+              <option value="Opening Stock">{{ '::OpeningStock' | abpLocalization }}</option>
+              <option value="Adjustment">{{ '::Adjustment' | abpLocalization }}</option>
             </select>
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Items' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Warehouse' | abpLocalization }}</th><th>{{ 'CurrentQty' | abpLocalization }}</th><th>{{ 'NewQty' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Warehouse' | abpLocalization }}</th><th>{{ '::CurrentQty' | abpLocalization }}</th><th>{{ '::NewQty' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
-                    <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
                     @for (i of availableItems(); track i.id) { <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option> }
                   </select>
                 </td>
@@ -56,11 +56,11 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
             }
           </tbody>
         </table>
-        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()"><i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}</button>
+        <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/inventory/stock-reconciliations">{{ 'Cancel' | abpLocalization }}</a>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <a class="btn btn-secondary" routerLink="/inventory/stock-reconciliations">{{ '::Cancel' | abpLocalization }}</a>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

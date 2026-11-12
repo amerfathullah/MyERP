@@ -15,37 +15,37 @@ import { ItemService } from '../../proxy/inventory/item.service';
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewSupplierQuotation' | abpLocalization">
+    <abp-page [title]="'::NewSupplierQuotation' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.supplierId">
-              <option value="">-- {{ 'Select' | abpLocalization }} --</option>
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
               @for (s of suppliers(); track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'Date' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Date' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.transactionDate" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">{{ 'ValidTill' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ValidTill' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.validTill" />
           </div>
         </div>
 
-        <h6 class="mb-2">{{ 'Items' | abpLocalization }}</h6>
+        <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
-                    <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
+                    <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
                     @for (i of availableItems(); track i.id) {
                       <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
                     }
@@ -59,12 +59,12 @@ import { ItemService } from '../../proxy/inventory/item.service';
           </tbody>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()">
-          <i class="fa fa-plus me-1"></i>{{ 'AddItem' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
         </button>
 
         <div class="d-flex justify-content-end gap-2">
-          <button class="btn btn-secondary" routerLink="/purchasing/supplier-quotations">{{ 'Cancel' | abpLocalization }}</button>
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          <button class="btn btn-secondary" routerLink="/purchasing/supplier-quotations">{{ '::Cancel' | abpLocalization }}</button>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
         </div>
       </div></div>
     </abp-page>

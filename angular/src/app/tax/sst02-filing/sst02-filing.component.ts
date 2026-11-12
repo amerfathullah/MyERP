@@ -44,14 +44,14 @@ interface Sst02FilingData {
   template: `
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fa fa-file-invoice me-2"></i>{{ 'SST02Filing' | abpLocalization }}</h5>
+        <h5 class="mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::SST02Filing' | abpLocalization }}</h5>
         @if (filing()) {
           <div>
             <button class="btn btn-sm btn-outline-secondary me-2" (click)="exportCsv()">
-              <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
             </button>
             <button class="btn btn-sm btn-outline-primary" (click)="printFiling()">
-              <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+              <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
             </button>
           </div>
         }
@@ -60,17 +60,17 @@ interface Sst02FilingData {
         <!-- Period Selector -->
         <div class="row g-3 mb-4">
           <div class="col-md-3">
-            <label class="form-label">{{ 'From' | abpLocalization }}</label>
+            <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="fromDate" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'To' | abpLocalization }}</label>
+            <label class="form-label">{{ '::To' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="toDate" />
           </div>
           <div class="col-md-3 d-flex align-items-end">
             <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
               @if (loading()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ 'GenerateReport' | abpLocalization }}
+              {{ '::GenerateReport' | abpLocalization }}
             </button>
           </div>
         </div>

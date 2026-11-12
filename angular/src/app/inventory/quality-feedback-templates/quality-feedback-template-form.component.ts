@@ -13,7 +13,7 @@ import type { CreateUpdateQualityFeedbackTemplateDto } from '../../proxy/invento
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'QualityFeedbackTemplate' | abpLocalization">
+    <abp-page [title]="'::QualityFeedbackTemplate' | abpLocalization">
       <div class="card"><div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
@@ -24,7 +24,7 @@ import type { CreateUpdateQualityFeedbackTemplateDto } from '../../proxy/invento
 
         <div class="card bg-light mb-3">
           <div class="card-header d-flex justify-content-between align-items-center py-2">
-            <span class="fw-semibold">{{ 'AddParameter' | abpLocalization }}</span>
+            <span class="fw-semibold">{{ '::AddParameter' | abpLocalization }}</span>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="parameters.push('')">
               <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
             </button>

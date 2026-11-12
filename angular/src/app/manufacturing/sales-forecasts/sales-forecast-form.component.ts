@@ -22,33 +22,33 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? $safeNavigationMigration(forecast?.forecastNumber) : 'NewSalesForecast') | abpLocalization">
+    <abp-page [title]="(isEdit() ? $safeNavigationMigration(forecast?.forecastNumber) : '::NewSalesForecast') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         @if (isEdit() && status !== 0) {
           <div class="alert" [class.alert-success]="status===1" [class.alert-secondary]="status===4">
-            {{ 'Status' | abpLocalization }}: {{ statusLabel() }}
+            {{ '::Status' | abpLocalization }}: {{ statusLabel() }}
             @if (forecast?.forecastStatus) { — {{ forecast?.forecastStatus }} }
           </div>
         }
 
         <div class="row mb-3">
           <div class="col-md-3">
-            <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
+            <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
             <input type="date" class="form-control" [(ngModel)]="form.fromDate" [disabled]="readOnly()" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'Frequency' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Frequency' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.frequency" [disabled]="readOnly()">
               <option [ngValue]="0">Weekly</option>
               <option [ngValue]="1">Monthly</option>
             </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'NumberOfWeeksMonths' | abpLocalization }}</label>
+            <label class="form-label">{{ '::NumberOfWeeksMonths' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="form.demandNumber" [disabled]="readOnly()" />
           </div>
           <div class="col-md-3">
-            <label class="form-label">{{ 'ParentWarehouse' | abpLocalization }}</label>
+            <label class="form-label">{{ '::ParentWarehouse' | abpLocalization }}</label>
             <select class="form-select" [(ngModel)]="form.parentWarehouseId" [disabled]="readOnly()">
               <option value="">--</option>
               @for (w of warehouses(); track w.id) { <option [value]="w.id">{{ w.warehouseName }}</option> }
@@ -56,7 +56,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
         </div>
 
-        <label class="form-label">{{ 'SelectItems' | abpLocalization }}</label>
+        <label class="form-label">{{ '::SelectItems' | abpLocalization }}</label>
         <div class="border rounded p-2 mb-3" style="max-height:220px; overflow-y:auto;">
           @for (i of items(); track i.id) {
             <div class="form-check">
@@ -71,31 +71,31 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         </div>
 
         <div class="d-flex justify-content-end gap-2">
-          <a class="btn btn-secondary" routerLink="/manufacturing/sales-forecasts">{{ 'Cancel' | abpLocalization }}</a>
+          <a class="btn btn-secondary" routerLink="/manufacturing/sales-forecasts">{{ '::Cancel' | abpLocalization }}</a>
           @if (!readOnly()) {
-            <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+            <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           }
           @if (isEdit() && status === 0) {
-            <button class="btn btn-outline-primary" (click)="generateDemand()" [disabled]="saving()"><i class="fa fa-calculator me-1"></i>{{ 'GenerateDemand' | abpLocalization }}</button>
-            <button class="btn btn-success" (click)="submit()" [disabled]="saving()"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
+            <button class="btn btn-outline-primary" (click)="generateDemand()" [disabled]="saving()"><i class="fa fa-calculator me-1"></i>{{ '::GenerateDemand' | abpLocalization }}</button>
+            <button class="btn btn-success" (click)="submit()" [disabled]="saving()"><i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}</button>
           }
           @if (isEdit() && status === 1 && forecast?.forecastStatus !== 'MpsGenerated') {
-            <button class="btn btn-outline-danger" (click)="cancelForecast()" [disabled]="saving()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
-            <button class="btn btn-primary" (click)="createMps()" [disabled]="saving()"><i class="fa fa-calendar-days me-1"></i>{{ 'CreateMPS' | abpLocalization }}</button>
+            <button class="btn btn-outline-danger" (click)="cancelForecast()" [disabled]="saving()"><i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
+            <button class="btn btn-primary" (click)="createMps()" [disabled]="saving()"><i class="fa fa-calendar-days me-1"></i>{{ '::CreateMPS' | abpLocalization }}</button>
           }
         </div>
       </div></div>
 
       @if (isEdit()) {
         <div class="card"><div class="card-body">
-          <h6 class="mb-2">{{ 'DemandRows' | abpLocalization }} ({{ forecast?.items?.length ?? 0 }})</h6>
+          <h6 class="mb-2">{{ '::DemandRows' | abpLocalization }} ({{ forecast?.items?.length ?? 0 }})</h6>
           @if ((forecast?.items?.length ?? 0) > 0) {
             <table class="table table-sm mb-0">
               <thead><tr>
-                <th>{{ 'Item' | abpLocalization }}</th>
-                <th>{{ 'DeliveryDate' | abpLocalization }}</th>
-                <th class="text-end">{{ 'DemandQty' | abpLocalization }}</th>
-                <th>{{ 'UOM' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::DeliveryDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::DemandQty' | abpLocalization }}</th>
+                <th>{{ '::UOM' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (item of forecast?.items; track item.id) {
@@ -109,7 +109,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
               </tbody>
             </table>
           } @else {
-            <p class="text-muted small mb-0">{{ 'NoDemandComputedYet' | abpLocalization }}</p>
+            <p class="text-muted small mb-0">{{ '::NoDemandComputedYet' | abpLocalization }}</p>
           }
         </div></div>
       }

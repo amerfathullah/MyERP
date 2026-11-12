@@ -17,65 +17,65 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'NewLoan' | abpLocalization">
+    <abp-page [title]="'::NewLoan' | abpLocalization">
       <form [formGroup]="form" (appSaveShortcut)="save()">
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ 'LoanDetails' | abpLocalization }}</h6>
+          <h6 class="card-title">{{ '::LoanDetails' | abpLocalization }}</h6>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">{{ 'Employee' | abpLocalization }}</label>
+              <label class="form-label">{{ '::Employee' | abpLocalization }}</label>
               <select class="form-select" formControlName="employeeId">
-                <option value="">{{ 'SelectEmployee' | abpLocalization }}</option>
+                <option value="">{{ '::SelectEmployee' | abpLocalization }}</option>
                 @for (emp of employees; track emp.id) {
                   <option [value]="emp.id">{{ emp.firstName }} {{ emp.lastName }}</option>
                 }
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'LoanType' | abpLocalization }}</label>
+              <label class="form-label">{{ '::LoanType' | abpLocalization }}</label>
               <select class="form-select" formControlName="loanType">
                 <option [value]="0">Term Loan</option>
                 <option [value]="1">Demand Loan</option>
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'LoanAmount' | abpLocalization }}</label>
+              <label class="form-label">{{ '::LoanAmount' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="loanAmount" step="0.01" />
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'InterestRate' | abpLocalization }} (%)</label>
+              <label class="form-label">{{ '::InterestRate' | abpLocalization }} (%)</label>
               <input type="number" class="form-control" formControlName="interestRate" step="0.01" />
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'InterestMethod' | abpLocalization }}</label>
+              <label class="form-label">{{ '::InterestMethod' | abpLocalization }}</label>
               <select class="form-select" formControlName="interestCalculationMethod">
                 <option [value]="0">Diminishing Balance</option>
                 <option [value]="1">Flat Rate</option>
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'Tenure' | abpLocalization }} (months)</label>
+              <label class="form-label">{{ '::Tenure' | abpLocalization }} (months)</label>
               <input type="number" class="form-control" formControlName="repaymentPeriodMonths" min="1" />
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'RepaymentStartDate' | abpLocalization }}</label>
+              <label class="form-label">{{ '::RepaymentStartDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="repaymentStartDate" />
             </div>
             <div class="col-md-4">
-              <label class="form-label">{{ 'GracePeriod' | abpLocalization }} (months)</label>
+              <label class="form-label">{{ '::GracePeriod' | abpLocalization }} (months)</label>
               <input type="number" class="form-control" formControlName="gracePeriodMonths" min="0" />
             </div>
             <div class="col-md-6">
-              <label class="form-label">{{ 'PenaltyRate' | abpLocalization }} (%)</label>
+              <label class="form-label">{{ '::PenaltyRate' | abpLocalization }} (%)</label>
               <input type="number" class="form-control" formControlName="penaltyInterestRate" step="0.01" />
             </div>
           </div>
         </div></div>
 
         <div class="d-flex justify-content-end gap-2">
-          <button type="button" class="btn btn-outline-secondary" routerLink="/hr/loans">{{ 'Cancel' | abpLocalization }}</button>
+          <button type="button" class="btn btn-outline-secondary" routerLink="/hr/loans">{{ '::Cancel' | abpLocalization }}</button>
           <button type="button" class="btn btn-primary" (click)="save()" [disabled]="!form.valid || saving">
-            <i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}
+            <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
           </button>
         </div>
       </form>

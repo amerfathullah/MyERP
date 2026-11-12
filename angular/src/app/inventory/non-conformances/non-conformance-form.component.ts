@@ -14,7 +14,7 @@ import { NonConformanceStatus } from '../../proxy/inventory/non-conformance-stat
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? '::EditNonConformance' : 'NewNonConformance') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditNonConformance' : '::NewNonConformance') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">

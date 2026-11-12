@@ -22,15 +22,15 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           <div class="btn-group">
             @if (order.status === 0) {
               <button class="btn btn-primary" (click)="submit()">
-                <i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}
+                <i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}
               </button>
             }
             @if (order.status === 1) {
               <button class="btn btn-warning" (click)="close()">
-                <i class="fa fa-lock me-1"></i>{{ 'Close' | abpLocalization }}
+                <i class="fa fa-lock me-1"></i>{{ '::Close' | abpLocalization }}
               </button>
               <button class="btn btn-outline-danger" (click)="cancel()">
-                <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
+                <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
               </button>
             }
             @if (order.status === 14) {
@@ -44,7 +44,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'Status' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <app-status-badge [status]="order.status" />
             </div></div>
           </div>
@@ -56,19 +56,19 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'From' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::From' | abpLocalization }}</div>
               <div>{{ order.fromDate | date:'dd/MM/yyyy' }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">{{ 'To' | abpLocalization }}</div>
+              <div class="text-muted small">{{ '::To' | abpLocalization }}</div>
               <div>{{ order.toDate | date:'dd/MM/yyyy' }}</div>
             </div></div>
           </div>
         </div>
 
-        <div class="card"><div class="card-header"><h6 class="mb-0">{{ 'Items' | abpLocalization }}</h6></div>
+        <div class="card"><div class="card-header"><h6 class="mb-0">{{ '::Items' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr>

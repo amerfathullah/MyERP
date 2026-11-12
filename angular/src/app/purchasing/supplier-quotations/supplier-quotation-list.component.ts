@@ -15,28 +15,28 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'SupplierQuotations' | abpLocalization">
+    <abp-page [title]="'::SupplierQuotations' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
         <button class="btn btn-primary btn-sm" routerLink="/purchasing/supplier-quotations/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewSupplierQuotation' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewSupplierQuotation' | abpLocalization }}
         </button>
       </div>
       @if (isLoading) { <app-loading-overlay /> }
       @if (!isLoading && quotations.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-file-invoice-dollar fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoSupplierQuotationsYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoSupplierQuotationsYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
-              <th>{{ 'QuotationNumber' | abpLocalization }}</th>
-              <th>{{ 'Supplier' | abpLocalization }}</th>
-              <th>{{ 'Date' | abpLocalization }}</th>
-              <th>{{ 'ValidTill' | abpLocalization }}</th>
-              <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-              <th>{{ 'Status' | abpLocalization }}</th>
+              <th>{{ '::QuotationNumber' | abpLocalization }}</th>
+              <th>{{ '::Supplier' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th>{{ '::ValidTill' | abpLocalization }}</th>
+              <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (sq of quotations; track sq.id) {

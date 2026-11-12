@@ -15,12 +15,12 @@ import type { ShareholderDto } from '../../proxy/accounting/models';
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="'Shareholders' | abpLocalization">
+    <abp-page [title]="'::Shareholders' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">
-        <a class="btn btn-outline-secondary btn-sm" routerLink="/accounting/share-types">{{ 'ShareTypes' | abpLocalization }}</a>
-        <a class="btn btn-outline-secondary btn-sm" routerLink="/accounting/share-transfers">{{ 'ShareTransfers' | abpLocalization }}</a>
+        <a class="btn btn-outline-secondary btn-sm" routerLink="/accounting/share-types">{{ '::ShareTypes' | abpLocalization }}</a>
+        <a class="btn btn-outline-secondary btn-sm" routerLink="/accounting/share-transfers">{{ '::ShareTransfers' | abpLocalization }}</a>
         <button class="btn btn-primary btn-sm" routerLink="/accounting/shareholders/new">
-          <i class="fa fa-plus me-1"></i>{{ 'NewShareholder' | abpLocalization }}
+          <i class="fa fa-plus me-1"></i>{{ '::NewShareholder' | abpLocalization }}
         </button>
       </div>
 
@@ -31,9 +31,9 @@ import type { ShareholderDto } from '../../proxy/accounting/models';
       @if (!isLoading && shareholders.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-users fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">{{ 'NoShareholdersYet' | abpLocalization }}</p>
+          <p class="text-muted">{{ '::NoShareholdersYet' | abpLocalization }}</p>
           <button class="btn btn-primary" routerLink="/accounting/shareholders/new">
-            <i class="fa fa-plus me-1"></i>{{ 'NewShareholder' | abpLocalization }}
+            <i class="fa fa-plus me-1"></i>{{ '::NewShareholder' | abpLocalization }}
           </button>
         </div>
       } @else if (!isLoading) {
@@ -42,16 +42,16 @@ import type { ShareholderDto } from '../../proxy/accounting/models';
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
-                  <th>{{ 'Title' | abpLocalization }}</th>
-                  <th>{{ 'FolioNo' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'TotalShares' | abpLocalization }}</th>
+                  <th>{{ '::Title' | abpLocalization }}</th>
+                  <th>{{ '::FolioNo' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TotalShares' | abpLocalization }}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 @for (s of shareholders; track s.id) {
                   <tr>
-                    <td>{{ s.title }} @if (s.isCompany) { <span class="badge bg-secondary ms-1">{{ 'Company' | abpLocalization }}</span> }</td>
+                    <td>{{ s.title }} @if (s.isCompany) { <span class="badge bg-secondary ms-1">{{ '::Company' | abpLocalization }}</span> }</td>
                     <td>{{ s.folioNo ?? '—' }}</td>
                     <td class="text-end fw-bold">{{ totalShares(s) }}</td>
                     <td>

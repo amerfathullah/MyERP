@@ -18,7 +18,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
         <span class="input-group-text bg-white border-end-0"><i class="fa fa-search text-muted"></i></span>
         <input #searchInput type="text"
           class="form-control border-start-0"
-          [placeholder]="'SearchDocuments' | abpLocalization"
+          [placeholder]="'::SearchDocuments' | abpLocalization"
           [(ngModel)]="searchTerm"
           (ngModelChange)="onSearch($event)"
           (focus)="showResults = true"
@@ -66,7 +66,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
       @if (showResults && searchTerm.length >= 2 && results().length === 0 && !loading()) {
         <div class="dropdown-menu show w-100 mt-1">
           <div class="dropdown-item text-muted text-center py-3">
-            <i class="fa fa-search me-1"></i> {{ 'NoResultsFound' | abpLocalization }}
+            <i class="fa fa-search me-1"></i> {{ '::NoResultsFound' | abpLocalization }}
           </div>
         </div>
       }

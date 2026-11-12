@@ -64,7 +64,7 @@
             </div>
           }
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>
+            <label class="form-label">{{ '::PriceList' | abpLocalization }}</label>
             <select class="form-select" formControlName="priceListId">
               <option value="">— {{ '::Default' | abpLocalization }} —</option>
               @for (pl of priceLists(); track pl.id) {
@@ -81,9 +81,9 @@
             <textarea class="form-control" formControlName="remarks" rows="2"></textarea>
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ 'Warehouse' | abpLocalization }}</label>
+            <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="warehouseId">
-              <option value="">— {{ 'SelectWarehouse' | abpLocalization }} —</option>
+              <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }

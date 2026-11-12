@@ -15,7 +15,7 @@ import { QualityActionType } from '../../proxy/inventory/quality-action-type.enu
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit ? '::EditQualityAction' : 'NewQualityAction') | abpLocalization">
+    <abp-page [title]="(isEdit ? '::EditQualityAction' : '::NewQualityAction') | abpLocalization">
       <div class="card">
         <div class="card-body">
           <form [formGroup]="form" (ngSubmit)="save()">

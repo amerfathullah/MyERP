@@ -37,8 +37,8 @@ interface CloseStatus {
     <div class="container-fluid">
       <div class="row mb-4">
         <div class="col">
-          <h4>{{ 'MonthEndClose' | abpLocalization }}</h4>
-          <p class="text-muted">{{ 'ValidateReadiness' | abpLocalization }}</p>
+          <h4>{{ '::MonthEndClose' | abpLocalization }}</h4>
+          <p class="text-muted">{{ '::ValidateReadiness' | abpLocalization }}</p>
         </div>
       </div>
 
@@ -47,14 +47,14 @@ interface CloseStatus {
         <div class="col-md-4">
           <div class="card">
             <div class="card-body">
-              <label class="form-label fw-bold">{{ 'PeriodEndDate' | abpLocalization }}</label>
+              <label class="form-label fw-bold">{{ '::PeriodEndDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="periodEndDate" />
               <div class="mt-3 d-flex gap-2">
                 <button class="btn btn-primary" (click)="validateReadiness()" [disabled]="loading()">
-                  <i class="fa fa-clipboard-check me-1"></i>{{ 'ValidateReadiness' | abpLocalization }}
+                  <i class="fa fa-clipboard-check me-1"></i>{{ '::ValidateReadiness' | abpLocalization }}
                 </button>
                 <button class="btn btn-outline-secondary" (click)="checkStatus()" [disabled]="loading()">
-                  <i class="fa fa-info-circle me-1"></i>{{ 'CloseStatus' | abpLocalization }}
+                  <i class="fa fa-info-circle me-1"></i>{{ '::CloseStatus' | abpLocalization }}
                 </button>
               </div>
             </div>
@@ -66,26 +66,26 @@ interface CloseStatus {
         <div class="col-md-4">
           <div class="card" [class.border-success]="closeStatus()!.isFullyClosed" [class.border-warning]="!closeStatus()!.isFullyClosed">
             <div class="card-header">
-              <i class="fa fa-lock me-2"></i>{{ 'CloseStatus' | abpLocalization }}
+              <i class="fa fa-lock me-2"></i>{{ '::CloseStatus' | abpLocalization }}
             </div>
             <div class="card-body">
               <ul class="list-unstyled mb-0">
                 <li class="mb-2">
                   <i class="fa" [class.fa-check-circle]="closeStatus()!.isTrialBalanceBalanced" [class.fa-times-circle]="!closeStatus()!.isTrialBalanceBalanced" [class.text-success]="closeStatus()!.isTrialBalanceBalanced" [class.text-danger]="!closeStatus()!.isTrialBalanceBalanced"></i>
-                  {{ 'TrialBalanceBalanced' | abpLocalization }}
+                  {{ '::TrialBalanceBalanced' | abpLocalization }}
                 </li>
                 <li class="mb-2">
                   <i class="fa" [class.fa-check-circle]="closeStatus()!.hasPeriodClosingVoucher" [class.fa-times-circle]="!closeStatus()!.hasPeriodClosingVoucher" [class.text-success]="closeStatus()!.hasPeriodClosingVoucher" [class.text-danger]="!closeStatus()!.hasPeriodClosingVoucher"></i>
-                  {{ 'PeriodClosingVoucher' | abpLocalization }}
+                  {{ '::PeriodClosingVoucher' | abpLocalization }}
                 </li>
                 <li>
                   <i class="fa" [class.fa-check-circle]="closeStatus()!.isPeriodClosed" [class.fa-times-circle]="!closeStatus()!.isPeriodClosed" [class.text-success]="closeStatus()!.isPeriodClosed" [class.text-danger]="!closeStatus()!.isPeriodClosed"></i>
-                  {{ 'PeriodClosed' | abpLocalization }}
+                  {{ '::PeriodClosed' | abpLocalization }}
                 </li>
               </ul>
               @if (closeStatus()!.isFullyClosed) {
               <div class="alert alert-success mt-3 mb-0 py-2">
-                <i class="fa fa-check-double me-1"></i>{{ 'FullyClosed' | abpLocalization }}
+                <i class="fa fa-check-double me-1"></i>{{ '::FullyClosed' | abpLocalization }}
               </div>
               }
             </div>
@@ -97,13 +97,13 @@ interface CloseStatus {
         <div class="col-md-4">
           <div class="card">
             <div class="card-header">
-              <i class="fa fa-snowflake me-2"></i>{{ 'FreezeAccounts' | abpLocalization }}
+              <i class="fa fa-snowflake me-2"></i>{{ '::FreezeAccounts' | abpLocalization }}
             </div>
             <div class="card-body">
-              <label class="form-label">{{ 'FreezeUpTo' | abpLocalization }}</label>
+              <label class="form-label">{{ '::FreezeUpTo' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="freezeDate" />
               <button class="btn btn-warning btn-sm mt-2" (click)="freezeAccounts()" [disabled]="!freezeDate">
-                <i class="fa fa-lock me-1"></i>{{ 'FreezeAccounts' | abpLocalization }}
+                <i class="fa fa-lock me-1"></i>{{ '::FreezeAccounts' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -116,9 +116,9 @@ interface CloseStatus {
         <div class="col-12">
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <span><i class="fa fa-list-check me-2"></i>{{ 'ValidateReadiness' | abpLocalization }}</span>
+              <span><i class="fa fa-list-check me-2"></i>{{ '::ValidateReadiness' | abpLocalization }}</span>
               <span class="badge" [class.bg-success]="readiness()!.isReady" [class.bg-danger]="!readiness()!.isReady">
-                {{ readiness()!.passedCount }}/{{ readiness()!.totalChecks }} {{ 'ChecksPassed' | abpLocalization }}
+                {{ readiness()!.passedCount }}/{{ readiness()!.totalChecks }} {{ '::ChecksPassed' | abpLocalization }}
               </span>
             </div>
             <div class="card-body p-0">
@@ -146,7 +146,7 @@ interface CloseStatus {
             @if (readiness()!.isReady) {
             <div class="card-footer">
               <div class="alert alert-success mb-0 py-2">
-                <i class="fa fa-check-double me-1"></i>{{ 'ReadyForClose' | abpLocalization }} — proceed with Period Closing Voucher creation.
+                <i class="fa fa-check-double me-1"></i>{{ '::ReadyForClose' | abpLocalization }} — proceed with Period Closing Voucher creation.
               </div>
             </div>
             }
