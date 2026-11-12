@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,8 +8,15 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 import { JournalEntryTemplateService } from '../../proxy/accounting/journal-entry-template.service';
+import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import type { AccountDto, JournalEntryTemplateDto } from '../../proxy/accounting/models';
+import type {
+  AccountDto,
+  CreateJournalEntryDto,
+  CreateJournalEntryLineDto,
+  JournalEntryTemplateDto,
+} from '../../proxy/accounting/models';
+import type { CompanyDto } from '../../proxy/core/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
@@ -62,31 +69,60 @@ export class JournalEntryFormComponent implements OnInit {
   private journalEntryService = inject(JournalEntryService);
   private templateService = inject(JournalEntryTemplateService);
   private companyService = inject(CompanyService);
+  private fiscalYearService = inject(FiscalYearService);
   private toaster = inject(ToasterService);
   private companyContext = inject(CompanyContextService);
+  private cdr = inject(ChangeDetectorRef);
 
-  companies = signal<any[]>([]);
+  companies = signal<CompanyDto[]>([]);
+  saving = signal(false);
   templates = signal<JournalEntryTemplateDto[]>([]);
   voucherTypes = VOUCHER_TYPES;
 
   form = this.fb.group({
     companyId: [''],
     voucherType: [0],
-    entryDate: [new Date(), Validators.required],
+    entryDate: [new Date().toISOString().split('T')[0], Validators.required],
     reference: [''],
     narration: [''],
+    // Per ERPNext Journal Entry: rows on an account in another currency need this switched on.
+    isMultiCurrency: [false],
     lines: this.fb.array([]),
   });
   get lines(): FormArray {
     return this.form.get('lines') as FormArray;
   }
 
+  /** Totals are in company currency: each row's amount in its account currency times its rate. */
   get totalDebit(): number {
-    return Math.round(this.lines.controls.reduce((sum, c) => sum + (c.get('debit')?.value || 0), 0) * 100) / 100;
+    return Math.round(this.lines.controls.reduce((sum, _, i) => sum + this.companyAmount(i, 'debit'), 0) * 100) / 100;
   }
 
   get totalCredit(): number {
-    return Math.round(this.lines.controls.reduce((sum, c) => sum + (c.get('credit')?.value || 0), 0) * 100) / 100;
+    return Math.round(this.lines.controls.reduce((sum, _, i) => sum + this.companyAmount(i, 'credit'), 0) * 100) / 100;
+  }
+
+  get companyCurrency(): string {
+    const companyId = this.form.get('companyId')?.value;
+    return this.companies().find(c => c.id === companyId)?.currencyCode || '';
+  }
+
+  get isMultiCurrency(): boolean {
+    return !!this.form.get('isMultiCurrency')?.value;
+  }
+
+  /** A row is foreign when its account's currency is known and differs from the company's. */
+  isForeignRow(index: number): boolean {
+    const currency = this.lines.at(index).get('accountCurrency')?.value;
+    return !!currency && !!this.companyCurrency && currency !== this.companyCurrency;
+  }
+
+  /** Company currency value of a row's debit or credit (ERPNext: amount in account currency x exchange rate). */
+  companyAmount(index: number, side: 'debit' | 'credit'): number {
+    const row = this.lines.at(index);
+    const amount = Number(row.get(side)?.value) || 0;
+    const rate = this.isForeignRow(index) ? Number(row.get('exchangeRate')?.value) || 0 : 1;
+    return Math.round(amount * rate * 100) / 100;
   }
 
   get difference(): number {
@@ -119,9 +155,12 @@ export class JournalEntryFormComponent implements OnInit {
         this.lines.push(this.fb.group({
           accountId: [line.accountId, Validators.required],
           accountName: [line.accountName ?? ''],
+          accountCurrency: [''],
+          exchangeRate: [1, [Validators.min(0)]],
           debit: [line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
           credit: [!line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
         }));
+        if (line.accountId) this.loadAccountDetails(this.lines.length - 1, line.accountId);
       }
     });
   }
@@ -130,6 +169,8 @@ export class JournalEntryFormComponent implements OnInit {
     this.lines.push(this.fb.group({
       accountId: ['', Validators.required],
       accountName: [''],
+      accountCurrency: [''],
+      exchangeRate: [1, [Validators.min(0)]],
       debit: [0, [Validators.min(0)]],
       credit: [0, [Validators.min(0)]],
     }));
@@ -146,7 +187,35 @@ export class JournalEntryFormComponent implements OnInit {
   accountDisplayFn = (a: AccountDto | null) => a ? `${a.accountCode} — ${a.accountName}` : '';
 
   onAccountLinkSelected(index: number, account: AccountDto | null): void {
-    this.lines.at(index).get('accountName')?.setValue(account?.accountName ?? '');
+    const row = this.lines.at(index);
+    row.get('accountName')?.setValue(account?.accountName ?? '');
+    if (account?.id) {
+      this.loadAccountDetails(index, account.id);
+    } else {
+      row.patchValue({ accountCurrency: '', exchangeRate: 1 });
+    }
+  }
+
+  /**
+   * Per ERPNext get_account_details_and_party_type: picking an account brings its currency and
+   * the exchange rate for the posting date. A foreign currency account switches Multi Currency on.
+   */
+  private loadAccountDetails(index: number, accountId: string): void {
+    const { companyId, entryDate } = this.form.getRawValue();
+    if (!companyId || !entryDate) return;
+    this.journalEntryService.getAccountDetails(companyId, accountId, entryDate).subscribe({
+      next: details => {
+        const row = this.lines.at(index);
+        if (!row || row.get('accountId')?.value !== accountId) return;
+        row.patchValue({ accountCurrency: details.accountCurrency ?? '', exchangeRate: details.exchangeRate ?? 1 });
+        if (details.accountCurrency && details.accountCurrency !== details.companyCurrency) {
+          this.form.patchValue({ isMultiCurrency: true });
+        }
+        // The form was patched from an HTTP callback; the grid columns and totals read it through getters.
+        this.cdr.markForCheck();
+      },
+      error: () => {},
+    });
   }
 
   save(): void {
@@ -154,18 +223,70 @@ export class JournalEntryFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+    const raw = this.form.getRawValue();
+    const rows = raw.lines as { accountId: string; debit: number; credit: number; exchangeRate: number }[];
+    if (rows.some(r => (Number(r.debit) || 0) > 0 && (Number(r.credit) || 0) > 0)) {
+      this.toaster.error('::CannotDebitAndCreditSameRow');
+      return;
+    }
+    if (rows.some(r => !(Number(r.debit) || 0) && !(Number(r.credit) || 0))) {
+      this.toaster.error('::EveryRowNeedsDebitOrCredit');
+      return;
+    }
     if (!this.isBalanced) {
       this.toaster.error('::JournalEntryMustBeBalanced');
       return;
     }
-    const dto = this.form.getRawValue() as any;
-    this.journalEntryService.create(dto).subscribe({
-      next: () => {
-        this.form.markAsPristine();
-        this.toaster.success('::SuccessfullyCreated');
-        this.router.navigate(['/accounting/journal-entries']);
+
+    const companyId = raw.companyId ?? '';
+    const postingDate = raw.entryDate ?? '';
+    this.saving.set(true);
+    this.fiscalYearService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: res => {
+        const day = postingDate.substring(0, 10);
+        const fiscalYear = (res.items ?? []).find(fy =>
+          fy.companyId === companyId
+          && (fy.startDate ?? '').substring(0, 10) <= day
+          && (fy.endDate ?? '').substring(0, 10) >= day);
+        if (!fiscalYear?.id) {
+          this.saving.set(false);
+          this.toaster.error('::NoFiscalYearForPostingDate');
+          return;
+        }
+
+        const lines: CreateJournalEntryLineDto[] = rows.map((r, index) => {
+          const isDebit = (Number(r.debit) || 0) > 0;
+          const amount = Number(isDebit ? r.debit : r.credit);
+          // A foreign currency row sends what was entered: the account currency amount and its rate.
+          return this.isForeignRow(index)
+            ? { accountId: r.accountId, isDebit, amountInAccountCurrency: amount, exchangeRate: Number(r.exchangeRate) || null }
+            : { accountId: r.accountId, isDebit, amount };
+        });
+        const dto: CreateJournalEntryDto = {
+          companyId,
+          fiscalYearId: fiscalYear.id,
+          postingDate,
+          voucherType: raw.voucherType ?? 0,
+          referenceNumber: raw.reference || null,
+          narration: raw.narration || null,
+          isMultiCurrency: !!raw.isMultiCurrency,
+          lines,
+        };
+
+        this.journalEntryService.create(dto).subscribe({
+          next: () => {
+            this.saving.set(false);
+            this.form.markAsPristine();
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/accounting/journal-entries']);
+          },
+          error: (err: any) => {
+            this.saving.set(false);
+            this.toaster.error(err?.error?.error?.message ?? '::CreateFailed');
+          },
+        });
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Create failed'),
+      error: () => this.saving.set(false),
     });
   }
 

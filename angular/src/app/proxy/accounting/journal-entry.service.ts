@@ -1,4 +1,4 @@
-import type { CreateJournalEntryDto, JournalEntryDto } from './models';
+import type { CreateJournalEntryDto, JournalEntryAccountDetailsDto, JournalEntryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -69,6 +69,17 @@ export class JournalEntryService {
       method: 'GET',
       headers: { Accept: 'application/json' },
       url: `/api/app/journal-entry/${id}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getAccountDetails = (companyId: string, accountId: string, postingDate: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JournalEntryAccountDetailsDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/journal-entry/account-details',
+      params: { companyId, accountId, postingDate },
     },
       { apiName: this.apiName,...config });
   

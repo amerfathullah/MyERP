@@ -564,6 +564,9 @@ public static class MyERPDomainErrorCodes
     public const string ProcessPaymentReconciliationAlreadyActive = "MyERP:02083";
     public const string DeferredRevenueBookedOnReturnedInvoice = "MyERP:02098";
     public const string PresentationCurrencyNotCompanyCurrency = "MyERP:02099";
+    public const string JournalMultiCurrencyNotChecked = "MyERP:02100";
+    public const string JournalLineAmountRequired = "MyERP:02101";
+    public const string JournalLineExchangeRateMandatory = "MyERP:02102";
 
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05062";

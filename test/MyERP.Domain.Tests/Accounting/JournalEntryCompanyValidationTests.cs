@@ -30,7 +30,8 @@ public class JournalEntryCompanyValidationTests
 
     private static void ConfigureLazyServiceProvider(
         Volo.Abp.Application.Services.ApplicationService service,
-        CompanyRestrictionValidationService companyRestriction)
+        CompanyRestrictionValidationService companyRestriction,
+        IRepository<Account, Guid> accountRepository)
     {
         var lazyProvider = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
         var guidGen = Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
@@ -61,6 +62,9 @@ public class JournalEntryCompanyValidationTests
         lazyProvider.LazyGetRequiredService<CompanyRestrictionValidationService>().Returns(companyRestriction);
         lazyProvider.LazyGetService<CompanyRestrictionValidationService>(Arg.Any<Func<IServiceProvider, object>>()).Returns(companyRestriction);
         lazyProvider.LazyGetService<CompanyRestrictionValidationService>().Returns(companyRestriction);
+
+        // Lines take their currency from their account.
+        lazyProvider.LazyGetRequiredService<IRepository<Account, Guid>>().Returns(accountRepository);
 
         service.LazyServiceProvider = lazyProvider;
     }
@@ -98,7 +102,9 @@ public class JournalEntryCompanyValidationTests
         jeRepo.GetAsync(existingJe.Id, includeDetails: true).Returns(Task.FromResult(existingJe));
 
         var appService = new JournalEntryAppService(jeRepo, numGen, compRepo, periodRepo, fyRepo);
-        ConfigureLazyServiceProvider(appService, companyRestriction);
+        // Rows are valued against the company's currency.
+        compRepo.GetAsync(_companyAId).Returns(Task.FromResult(new Company(_companyAId, "Company A")));
+        ConfigureLazyServiceProvider(appService, companyRestriction, acctRepo);
 
         // Update JE with lines including Account B1 (which belongs to Company B) for Company A JE
         var updateDto = new CreateJournalEntryDto
@@ -151,7 +157,9 @@ public class JournalEntryCompanyValidationTests
         jeRepo.GetAsync(existingJe.Id, includeDetails: true).Returns(Task.FromResult(existingJe));
 
         var appService = new JournalEntryAppService(jeRepo, numGen, compRepo, periodRepo, fyRepo);
-        ConfigureLazyServiceProvider(appService, companyRestriction);
+        // Rows are valued against the company's currency.
+        compRepo.GetAsync(_companyAId).Returns(Task.FromResult(new Company(_companyAId, "Company A")));
+        ConfigureLazyServiceProvider(appService, companyRestriction, acctRepo);
 
         var updateDto = new CreateJournalEntryDto
         {

@@ -17,4 +17,5 @@ public interface IJournalEntryAppService : IApplicationService
     Task<JournalEntryDto> AmendAsync(Guid id);
     Task<CreateJournalEntryDto> GetJournalEntryTemplateAsync(string documentType, Guid documentId);
     Task<JournalEntryDto> CreateReverseJournalEntryAsync(Guid sourceId);
+    Task<JournalEntryAccountDetailsDto> GetAccountDetailsAsync(Guid companyId, Guid accountId, DateTime postingDate);
 }

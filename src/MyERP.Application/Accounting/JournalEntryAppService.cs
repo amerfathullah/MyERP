@@ -49,8 +49,9 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         var accountIds = dto.Lines.Select(l => l.AccountId).Distinct().ToList();
         var accountQuery = await accountRepo.GetQueryableAsync();
         var accounts = accountQuery.Where(a => accountIds.Contains(a.Id))
-            .Select(a => new { a.Id, a.AccountCode, a.AccountName }).ToList()
+            .Select(a => new { a.Id, a.AccountCode, a.AccountName, a.Currency }).ToList()
             .ToDictionary(a => a.Id);
+        var companyCurrency = (await _companyRepository.GetAsync(entry.CompanyId)).CurrencyCode;
 
         foreach (var line in dto.Lines)
         {
@@ -58,6 +59,8 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             {
                 line.AccountCode = acct.AccountCode;
                 line.AccountName = acct.AccountName;
+                // Lines on a company currency account carry no currency of their own.
+                line.AccountCurrency ??= string.IsNullOrWhiteSpace(acct.Currency) ? companyCurrency : acct.Currency;
             }
         }
 
@@ -120,26 +123,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         entry.ReferenceNumber = input.ReferenceNumber;
         entry.Narration = input.Narration;
 
-        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
-        int createRowIdx = 1;
-        foreach (var line in input.Lines)
-        {
-            if (!string.IsNullOrWhiteSpace(line.PartyType))
-            {
-                await partyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {createRowIdx}: ");
-            }
-
-            entry.AddLine(
-                line.AccountId,
-                line.Amount,
-                line.IsDebit,
-                line.Description,
-                line.PartyId,
-                line.PartyType,
-                line.CostCenterId,
-                line.ProjectId);
-            createRowIdx++;
-        }
+        await AddLinesAsync(entry, input);
 
         var accountIds = input.Lines.Select(l => l.AccountId).ToArray();
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
@@ -176,26 +160,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         entry.Narration = input.Narration;
 
         entry.ClearLines();
-        var updatePartyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
-        int updateRowIdx = 1;
-        foreach (var line in input.Lines)
-        {
-            if (!string.IsNullOrWhiteSpace(line.PartyType))
-            {
-                await updatePartyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {updateRowIdx}: ");
-            }
-
-            entry.AddLine(
-                line.AccountId,
-                line.Amount,
-                line.IsDebit,
-                line.Description,
-                line.PartyId,
-                line.PartyType,
-                line.CostCenterId,
-                line.ProjectId);
-            updateRowIdx++;
-        }
+        await AddLinesAsync(entry, input);
 
         // Validate account heads belong to company on save (ERPNext PR #59655 / commit a7ee553218)
         var accountIds = input.Lines.Select(l => l.AccountId).ToArray();
@@ -207,6 +172,163 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
+    }
+
+    /// <summary>
+    /// Builds the entry's lines from the input. Port of ERPNext JournalEntry.validate_multi_currency(),
+    /// set_exchange_rate() and set_amounts_in_company_currency():
+    /// - a row's currency is its account's currency (company currency when the account has none);
+    /// - a company currency row has rate 1 and one amount;
+    /// - a foreign currency row needs the Multi Currency flag, takes the posting date rate when
+    ///   none (or 1) is given, and its company amount is account amount x rate;
+    /// - a row with no amount is rejected.
+    /// A foreign row sent with only the company amount (clients that predate the account-currency
+    /// fields) keeps that amount and gets its account amount from the rate.
+    /// </summary>
+    private async Task AddLinesAsync(JournalEntry entry, CreateJournalEntryDto input)
+    {
+        var company = await _companyRepository.GetAsync(entry.CompanyId);
+        var companyCurrency = string.IsNullOrWhiteSpace(company.CurrencyCode) ? "MYR" : company.CurrencyCode;
+
+        var accountIds = input.Lines.Select(l => l.AccountId).Distinct().ToList();
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accountCurrencies = (await accountRepo.GetQueryableAsync())
+            .Where(a => accountIds.Contains(a.Id))
+            .Select(a => new { a.Id, a.Currency })
+            .ToList()
+            .ToDictionary(a => a.Id, a => a.Currency);
+
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        var hasForeignCurrencyRow = false;
+        var rowIdx = 0;
+        foreach (var line in input.Lines)
+        {
+            rowIdx++;
+            if (!string.IsNullOrWhiteSpace(line.PartyType))
+            {
+                await partyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {rowIdx}: ");
+            }
+
+            accountCurrencies.TryGetValue(line.AccountId, out var accountCurrency);
+            if (string.IsNullOrWhiteSpace(accountCurrency)) accountCurrency = companyCurrency;
+
+            if (string.Equals(accountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                var amount = line.Amount > 0 ? line.Amount : line.AmountInAccountCurrency ?? 0m;
+                if (amount <= 0)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.JournalLineAmountRequired).WithData("row", rowIdx);
+                }
+
+                entry.AddLine(
+                    line.AccountId, amount, line.IsDebit, line.Description,
+                    line.PartyId, line.PartyType, line.CostCenterId, line.ProjectId);
+                continue;
+            }
+
+            hasForeignCurrencyRow = true;
+
+            // Per ERPNext _set_row_exchange_rate: a missing rate, or 1, on a foreign currency row
+            // means "not set" — take the rate for the posting date.
+            var exchangeRate = line.ExchangeRate ?? 0m;
+            if (exchangeRate <= 0 || exchangeRate == 1m)
+            {
+                var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+                exchangeRate = await exchangeService.GetExchangeRateAsync(accountCurrency, companyCurrency, entry.PostingDate);
+            }
+            if (exchangeRate <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.JournalLineExchangeRateMandatory).WithData("row", rowIdx);
+            }
+
+            decimal amountInAccountCurrency;
+            decimal amountInCompanyCurrency;
+            if (line.AmountInAccountCurrency is > 0)
+            {
+                amountInAccountCurrency = Math.Round(line.AmountInAccountCurrency.Value, 2);
+                amountInCompanyCurrency = Math.Round(amountInAccountCurrency * exchangeRate, 2);
+            }
+            else
+            {
+                amountInCompanyCurrency = line.Amount;
+                amountInAccountCurrency = Math.Round(line.Amount / exchangeRate, 2);
+            }
+
+            if (amountInCompanyCurrency <= 0 || amountInAccountCurrency <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.JournalLineAmountRequired).WithData("row", rowIdx);
+            }
+
+            entry.AddLine(new JournalEntryLine(
+                GuidGenerator.Create(), entry.Id, line.AccountId, amountInCompanyCurrency, line.IsDebit,
+                accountCurrency, amountInAccountCurrency, exchangeRate, line.Description)
+            {
+                PartyId = line.PartyId,
+                PartyType = line.PartyType,
+                CostCenterId = line.CostCenterId,
+                ProjectId = line.ProjectId,
+            });
+        }
+
+        if (hasForeignCurrencyRow && !input.IsMultiCurrency)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.JournalMultiCurrencyNotChecked);
+        }
+
+        entry.IsMultiCurrency = input.IsMultiCurrency;
+    }
+
+    /// <summary>
+    /// Account currency, posting date exchange rate and party type for a row's account.
+    /// Port of ERPNext get_account_details_and_party_type().
+    /// </summary>
+    public async Task<JournalEntryAccountDetailsDto> GetAccountDetailsAsync(Guid companyId, Guid accountId, DateTime postingDate)
+    {
+        var company = await _companyRepository.GetAsync(companyId);
+        var companyCurrency = string.IsNullOrWhiteSpace(company.CurrencyCode) ? "MYR" : company.CurrencyCode;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var account = await accountRepo.GetAsync(accountId);
+        var accountCurrency = string.IsNullOrWhiteSpace(account.Currency) ? companyCurrency : account.Currency;
+
+        var exchangeRate = 1m;
+        if (!string.Equals(accountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+            exchangeRate = await exchangeService.GetExchangeRateAsync(accountCurrency, companyCurrency, postingDate);
+        }
+
+        return new JournalEntryAccountDetailsDto
+        {
+            AccountCurrency = accountCurrency,
+            CompanyCurrency = companyCurrency,
+            ExchangeRate = exchangeRate,
+            PartyType = account.AccountSubType switch
+            {
+                AccountSubType.AccountsReceivable => "Customer",
+                AccountSubType.AccountsPayable => "Supplier",
+                _ => null,
+            },
+        };
+    }
+
+    /// <summary>
+    /// Copy of a line for a reversal or an amendment: same account, amounts in both currencies,
+    /// rate, party and dimensions. Only the direction and the description may differ.
+    /// </summary>
+    private JournalEntryLine CopyLine(JournalEntry target, JournalEntryLine source, bool isDebit, string? description)
+    {
+        return new JournalEntryLine(GuidGenerator.Create(), target.Id, source.AccountId, source.Amount, isDebit, description)
+        {
+            AccountCurrency = source.AccountCurrency,
+            AmountInAccountCurrency = source.AmountInAccountCurrency,
+            ExchangeRate = source.ExchangeRate,
+            PartyId = source.PartyId,
+            PartyType = source.PartyType,
+            CostCenterId = source.CostCenterId,
+            ProjectId = source.ProjectId,
+            FinanceBook = source.FinanceBook,
+        };
     }
 
     [Authorize(MyERPPermissions.JournalEntries.Post)]
@@ -418,11 +540,9 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         foreach (var line in source.Lines)
         {
             // Original debit → new credit; original credit → new debit
-            reversal.AddLine(
-                line.AccountId,
-                line.Amount,
-                !line.IsDebit, // flip direction
-                line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry");
+            reversal.AddLine(CopyLine(
+                reversal, line, !line.IsDebit, // flip direction
+                line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry"));
         }
 
         reversal.Post();
@@ -476,7 +596,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         foreach (var line in original.Lines)
         {
-            amended.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
+            amended.AddLine(CopyLine(amended, line, line.IsDebit, line.Description));
         }
 
         // Validate account heads belong to company on save (ERPNext PR #59655 / commit a7ee553218)
@@ -772,17 +892,14 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             ReferenceId = source.ReferenceId,
             ReferenceNumber = source.ReferenceNumber,
             ReversalOfId = source.Id,
+            IsMultiCurrency = source.IsMultiCurrency,
             Narration = $"Reversal of Journal Entry {source.EntryNumber}"
         };
 
         // Swap Debits and Credits
         foreach (var line in source.Lines)
         {
-            reverseEntry.AddLine(
-                line.AccountId,
-                line.Amount,
-                !line.IsDebit,
-                $"Reversal of line: {line.Description}");
+            reverseEntry.AddLine(CopyLine(reverseEntry, line, !line.IsDebit, $"Reversal of line: {line.Description}"));
         }
 
         await _repository.InsertAsync(reverseEntry, autoSave: true);

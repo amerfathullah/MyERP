@@ -1,4 +1,4 @@
-<abp-page [title]="'New Journal Entry'">
+<abp-page [title]="'::NewJournalEntry' | abpLocalization">
   <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <!-- Header -->
     <div class="card mb-4">
@@ -36,6 +36,12 @@
             <label class="form-label">{{ '::Narration' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="narration" [class.is-invalid]="form.get('narration')?.invalid && form.get('narration')?.touched" />
           </div>
+          <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="isMultiCurrency" formControlName="isMultiCurrency" />
+              <label class="form-check-label" for="isMultiCurrency">{{ '::MultiCurrency' | abpLocalization }}</label>
+            </div>
+          </div>
           @if (templates().length > 0) {
             <div class="col-12 col-md-3 mb-3">
               <label class="form-label">{{ '::LoadFromTemplate' | abpLocalization }}</label>
@@ -60,8 +66,16 @@
             <thead>
               <tr>
                 <th>{{ '::Account' | abpLocalization }}</th>
+                @if (isMultiCurrency) {
+                  <th style="width: 90px">{{ '::Currency' | abpLocalization }}</th>
+                  <th style="width: 130px">{{ '::ExchangeRate' | abpLocalization }}</th>
+                }
                 <th style="width: 140px">{{ '::Debit' | abpLocalization }}</th>
                 <th style="width: 140px">{{ '::Credit' | abpLocalization }}</th>
+                @if (isMultiCurrency) {
+                  <th class="text-end" style="width: 140px">{{ '::Debit' | abpLocalization }} ({{ companyCurrency }})</th>
+                  <th class="text-end" style="width: 140px">{{ '::Credit' | abpLocalization }} ({{ companyCurrency }})</th>
+                }
                 <th style="width: 50px"></th>
               </tr>
             </thead>
@@ -78,8 +92,27 @@
                       (linkSelected)="onAccountLinkSelected(i, $event)">
                     </app-link-picker>
                   </td>
+                  @if (isMultiCurrency) {
+                    <td class="align-middle">
+                      <span class="badge" [class.bg-info-subtle]="isForeignRow(i)" [class.text-info]="isForeignRow(i)"
+                            [class.bg-secondary-subtle]="!isForeignRow(i)" [class.text-secondary]="!isForeignRow(i)">
+                        {{ row.get('accountCurrency')?.value || companyCurrency }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (isForeignRow(i)) {
+                        <input type="number" step="any" class="form-control form-control-sm" formControlName="exchangeRate" />
+                      } @else {
+                        <span class="text-muted font-monospace">1</span>
+                      }
+                    </td>
+                  }
                   <td><input type="number" class="form-control form-control-sm" formControlName="debit" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="credit" /></td>
+                  @if (isMultiCurrency) {
+                    <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'debit') ? (companyAmount(i, 'debit') | number:'1.2-2') : '' }}</td>
+                    <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'credit') ? (companyAmount(i, 'credit') | number:'1.2-2') : '' }}</td>
+                  }
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeLine(i)">
                       <i class="fa fa-trash"></i>
@@ -90,9 +123,15 @@
             </tbody>
             <tfoot>
               <tr class="fw-semibold">
-                <td>{{ '::Total' | abpLocalization }}</td>
-                <td class="font-monospace">{{ totalDebit | number:'1.2-2' }}</td>
-                <td class="font-monospace">{{ totalCredit | number:'1.2-2' }}</td>
+                @if (isMultiCurrency) {
+                  <td colspan="5">{{ '::Total' | abpLocalization }} ({{ companyCurrency }})</td>
+                  <td class="text-end font-monospace">{{ totalDebit | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ totalCredit | number:'1.2-2' }}</td>
+                } @else {
+                  <td>{{ '::Total' | abpLocalization }}</td>
+                  <td class="font-monospace">{{ totalDebit | number:'1.2-2' }}</td>
+                  <td class="font-monospace">{{ totalCredit | number:'1.2-2' }}</td>
+                }
                 <td></td>
               </tr>
             </tfoot>
@@ -106,13 +145,13 @@
           @if (!isBalanced && lines.length > 0) {
             <span class="text-danger fw-medium small d-flex align-items-center gap-1">
               <i class="fa fa-exclamation-circle"></i>
-              Unbalanced: Difference {{ difference | number:'1.2-2' }}
+              {{ '::Unbalanced' | abpLocalization }}: {{ '::Difference' | abpLocalization }} {{ difference | number:'1.2-2' }}
             </span>
           }
           @if (isBalanced && lines.length > 0) {
             <span class="text-success fw-medium small d-flex align-items-center gap-1">
               <i class="fa fa-check-circle"></i>
-              Balanced
+              {{ '::Balanced' | abpLocalization }}
             </span>
           }
         </div>
@@ -124,8 +163,8 @@
       <button type="button" class="btn btn-outline-secondary" (click)="cancel()">
         <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
       <button type="submit" class="btn btn-primary"
-        [disabled]="form.invalid || !isBalanced || lines.length === 0">
-        <i class="fa fa-save me-1"></i> Save as Draft
+        [disabled]="form.invalid || !isBalanced || lines.length === 0 || saving()">
+        <i class="fa fa-save me-1"></i> {{ '::SaveAsDraft' | abpLocalization }}
       </button>
     </div>
   </form>

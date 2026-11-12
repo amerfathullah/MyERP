@@ -80,6 +80,9 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
                 <table class="table table-borderless table-sm mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ '::ReferenceType' | abpLocalization }}</td><td>{{ je()!.referenceType || '-' }}</td></tr>
                   <tr><td class="text-muted">{{ '::Notes' | abpLocalization }}</td><td>{{ je()!.narration || '-' }}</td></tr>
+                  @if (je()!.isMultiCurrency) {
+                    <tr><td class="text-muted">{{ '::MultiCurrency' | abpLocalization }}</td><td><i class="fa fa-check text-success"></i></td></tr>
+                  }
                 </table>
               </div>
             </div>
@@ -95,6 +98,11 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
                 <tr>
                   <th>#</th>
                   <th>{{ '::Account' | abpLocalization }}</th>
+                  @if (je()!.isMultiCurrency) {
+                    <th>{{ '::Currency' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::AmountInAccountCurrency' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ExchangeRate' | abpLocalization }}</th>
+                  }
                   <th class="text-end">{{ '::Debit' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Credit' | abpLocalization }}</th>
                   <th>{{ '::Description' | abpLocalization }}</th>
@@ -112,6 +120,11 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
                         {{ line.accountId }}
                       }
                     </td>
+                    @if (je()!.isMultiCurrency) {
+                      <td>{{ line.accountCurrency }}</td>
+                      <td class="text-end font-monospace">{{ line.amountInAccountCurrency | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ line.exchangeRate | number:'1.0-6' }}</td>
+                    }
                     <td class="text-end font-monospace">{{ line.isDebit ? (line.amount | number:'1.2-2') : '' }}</td>
                     <td class="text-end font-monospace">{{ !line.isDebit ? (line.amount | number:'1.2-2') : '' }}</td>
                     <td class="text-muted">{{ line.description || '-' }}</td>
@@ -120,7 +133,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
               </tbody>
               <tfoot class="table-light fw-bold">
                 <tr>
-                  <td colspan="2" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                  <td [attr.colspan]="je()!.isMultiCurrency ? 5 : 2" class="text-end">{{ '::Total' | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ totalDebit() | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ totalCredit() | number:'1.2-2' }}</td>
                   <td></td>

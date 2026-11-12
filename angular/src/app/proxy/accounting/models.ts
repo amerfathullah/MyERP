@@ -1026,12 +1026,15 @@ export interface CreateJournalEntryDto {
   referenceId?: string | null;
   referenceNumber?: string | null;
   narration?: string | null;
+  isMultiCurrency?: boolean;
   lines: CreateJournalEntryLineDto[];
 }
 
 export interface CreateJournalEntryLineDto {
   accountId: string;
-  amount: number;
+  amount?: number;
+  amountInAccountCurrency?: number | null;
+  exchangeRate?: number | null;
   isDebit: boolean;
   description?: string | null;
   partyId?: string | null;
@@ -1852,6 +1855,13 @@ export interface InvoiceForDiscountingDto {
   outstandingAmount?: number;
 }
 
+export interface JournalEntryAccountDetailsDto {
+  accountCurrency?: string;
+  companyCurrency?: string;
+  exchangeRate?: number;
+  partyType?: string | null;
+}
+
 export interface JournalEntryCreatedResultDto {
   journalEntryId?: string;
   entryNumber?: string;
@@ -1875,6 +1885,7 @@ export interface JournalEntryDto extends EntityDto<string> {
   totalDebit?: number;
   totalCredit?: number;
   difference?: number;
+  isMultiCurrency?: boolean;
   lines?: JournalEntryLineDto[];
 }
 
@@ -1890,6 +1901,9 @@ export interface JournalEntryLineDto {
   partyType?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
+  accountCurrency?: string | null;
+  amountInAccountCurrency?: number;
+  exchangeRate?: number;
 }
 
 export interface JournalEntryTemplateDto extends FullAuditedEntityDto<string> {
