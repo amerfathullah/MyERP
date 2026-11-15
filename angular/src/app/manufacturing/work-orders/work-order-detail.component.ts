@@ -109,9 +109,13 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             <button class="btn btn-primary btn-sm" (click)="start()"><i class="fa fa-play me-1"></i>{{ '::StartProduction' | abpLocalization }}</button>
           }
           @if (wo()!.status === 3) {
-            <button class="btn btn-success btn-sm" (click)="openProductionDialog()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
+            @if (hasRemainingProductionQty) {
+              <button class="btn btn-success btn-sm" (click)="openProductionDialog()"><i class="fa fa-check me-1"></i>{{ '::RecordProduction' | abpLocalization }}</button>
+            }
             <button class="btn btn-info btn-sm" (click)="recordConsumption()"><i class="fa fa-flask me-1"></i>{{ '::RecordConsumption' | abpLocalization }}</button>
-            <button class="btn btn-outline-primary btn-sm" (click)="openManufactureDialog()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
+            @if (hasRemainingProductionQty) {
+              <button class="btn btn-outline-primary btn-sm" (click)="openManufactureDialog()"><i class="fa fa-industry me-1"></i>{{ '::Manufacture' | abpLocalization }}</button>
+            }
             <button class="btn btn-warning btn-sm" (click)="stop()"><i class="fa fa-pause me-1"></i>{{ '::Stop' | abpLocalization }}</button>
           }
           @if (wo()!.status === 5) {
@@ -163,7 +167,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 </div>
                 <div class="col-md-4">
                   <label class="form-label small">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
-                  <input type="number" class="form-control" [min]="0.01" [max]="pendingProductionQty * 1.1"
+                  <input type="number" class="form-control" [min]="0.001" [max]="allowedProductionQty"
                          [value]="productionQty()" (input)="productionQty.set(+$any($event).target.value)">
                 </div>
                 <div class="col-md-4">
@@ -444,9 +448,9 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
               </div>
               <div class="modal-body">
                 <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
-                <input type="number" class="form-control" [min]="0.001" [max]="(wo()?.quantity ?? 0) - (wo()?.producedQuantity ?? 0)"
+                <input type="number" class="form-control" [min]="0.001" [max]="allowedProductionQty"
                        [ngModel]="manufactureQty()" (ngModelChange)="manufactureQty.set($event)" step="0.01">
-                <small class="text-muted">{{ '::Remaining' | abpLocalization }}: {{ (wo()?.quantity ?? 0) - (wo()?.producedQuantity ?? 0) | number:'1.2-2' }}</small>
+                <small class="text-muted">{{ '::Remaining' | abpLocalization }}: {{ allowedProductionQty | number:'1.2-2' }}</small>
               </div>
               <div class="modal-footer py-2">
                 <button class="btn btn-sm btn-secondary" (click)="showManufactureDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
@@ -654,9 +658,7 @@ export class WorkOrderDetailComponent implements OnInit {
   isRecordingProduction = signal(false);
 
   openProductionDialog() {
-    const wo = this.wo()!;
-    const pending = (wo.quantity ?? 0) - (wo.producedQuantity ?? 0);
-    this.productionQty.set(pending > 0 ? pending : 0);
+    this.productionQty.set(this.pendingProductionQty || this.allowedProductionQty);
     this.processLossQty.set(0);
     this.showProductionDialog.set(true);
   }
@@ -668,7 +670,21 @@ export class WorkOrderDetailComponent implements OnInit {
   get pendingProductionQty(): number {
     const wo = this.wo();
     if (!wo) return 0;
-    return Math.max(0, (wo.quantity ?? 0) - (wo.producedQuantity ?? 0));
+    return Math.max(0, Math.round(((wo.quantity ?? 0) - (wo.producedQuantity ?? 0)) * 1000) / 1000);
+  }
+
+  get allowedProductionQty(): number {
+    const wo = this.wo();
+    if (!wo) return 0;
+    const qty = wo.quantity ?? 0;
+    const produced = wo.producedQuantity ?? 0;
+    const overproductionPct = wo.overproductionPercentage ?? 5;
+    const maxAllowed = qty + (qty * overproductionPct) / 100;
+    return Math.max(0, Math.round((maxAllowed - produced) * 1000) / 1000);
+  }
+
+  get hasRemainingProductionQty(): boolean {
+    return this.allowedProductionQty > 0;
   }
 
   get totalFgQty(): number {
@@ -812,9 +828,7 @@ export class WorkOrderDetailComponent implements OnInit {
   manufactureQty = signal(0);
 
   openManufactureDialog() {
-    const wo = this.wo()!;
-    const remaining = (wo.quantity ?? 0) - (wo.producedQuantity ?? 0);
-    this.manufactureQty.set(remaining);
+    this.manufactureQty.set(this.pendingProductionQty || this.allowedProductionQty);
     this.showManufactureDialog.set(true);
   }
 

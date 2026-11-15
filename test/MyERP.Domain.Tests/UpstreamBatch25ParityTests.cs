@@ -276,6 +276,42 @@ public class UpstreamBatch25ParityTests
     }
 
     [Fact]
+    public void ProductionPlanMaterialPlanningService_BuildDownloadRows_SumsRequiredBomQtyAcrossMergedRows()
+    {
+        var rows = new List<RawMaterialPlanRow>
+        {
+            new()
+            {
+                ItemCode = "RM-BOM-SPLIT",
+                ItemName = "Split BOM Item",
+                StockUom = "Nos",
+                Warehouse = "Stores - TC",
+                RequiredBomQty = 12m,
+                Quantity = 12m,
+                Uom = "Nos",
+                ConversionFactor = 1m
+            },
+            new()
+            {
+                ItemCode = "RM-BOM-SPLIT",
+                ItemName = "Split BOM Item",
+                StockUom = "Nos",
+                Warehouse = "Stores - TC",
+                RequiredBomQty = 8m,
+                Quantity = 8m,
+                Uom = "Nos",
+                ConversionFactor = 1m
+            }
+        };
+
+        var download = ProductionPlanMaterialPlanningService.BuildDownloadRows(rows);
+
+        download.Count.ShouldBe(1);
+        download[0].RequiredBomQty.ShouldBe(20m);
+        download[0].RequiredQty.ShouldBe(20m);
+    }
+
+    [Fact]
     public void ProductionPlanMaterialPlanningService_GenerateCsv_ContainsUomHeaderAndValues()
     {
         var rows = new List<DownloadRawMaterialRow>

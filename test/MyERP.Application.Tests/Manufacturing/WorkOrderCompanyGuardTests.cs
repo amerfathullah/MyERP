@@ -363,4 +363,39 @@ public abstract class WorkOrderCompanyGuardTests<TStartupModule> : MyERPApplicat
             updated.FgWarehouseId.ShouldBe(fgWh.Id);
         });
     }
+
+    [Fact]
+    public async Task GetWorkOrderAsync_IncludesConfiguredOverproductionPercentage()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+            var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "WO Overprod Dto Co"), autoSave: true);
+            await settingsRepository.InsertAsync(new ManufacturingSettings(Guid.NewGuid(), company.Id)
+            {
+                OverproductionPercentage = 15m
+            }, autoSave: true);
+
+            var fgItem = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "WO-OP-FG", "Overprod FG", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "WO-OP-RM", "Overprod RM", ItemType.Goods), autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-OP", fgItem.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rmItem.Id, "Overprod RM", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-OP-001", fgItem.Id, bom.Id, 20m);
+            await woRepository.InsertAsync(wo, autoSave: true);
+
+            var dto = await manufacturingAppService.GetWorkOrderAsync(wo.Id);
+            dto.OverproductionPercentage.ShouldBe(15m);
+        });
+    }
 }

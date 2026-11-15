@@ -103,6 +103,7 @@ public class ProductionPlanMaterialPlanningService : DomainService
                 // Transfer rows in stock UOM, purchase rows in purchase UOM -> merge in first row's UOM
                 merged.Quantity += stockQty / merged.ConversionFactor;
                 merged.Row.RequiredQty = Math.Round(merged.Quantity, precision);
+                merged.Row.RequiredBomQty = Math.Round(merged.Row.RequiredBomQty + d.RequiredBomQty, precision);
                 duplicateMap[key] = merged;
                 continue;
             }

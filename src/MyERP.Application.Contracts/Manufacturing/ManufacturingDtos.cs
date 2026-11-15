@@ -270,6 +270,7 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public bool SkipTransfer { get; set; }
     public bool FromWipWarehouse { get; set; }
     public bool ReserveStock { get; set; }
+    public decimal OverproductionPercentage { get; set; }
     public List<WorkOrderItemDto> RequiredItems { get; set; } = new();
 }
 
