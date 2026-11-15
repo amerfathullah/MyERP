@@ -103,6 +103,8 @@ public class SubcontractingManager : DomainService
 
         foreach (var receiptItem in receipt.Items)
         {
+            if (IsSecondaryItem(receiptItem)) continue;
+
             var scoItem = sco.Items.FirstOrDefault(i => i.ItemId == receiptItem.ItemId);
             if (scoItem == null) continue;
 
@@ -135,6 +137,8 @@ public class SubcontractingManager : DomainService
 
         foreach (var receiptItem in receipt.Items)
         {
+            if (IsSecondaryItem(receiptItem)) continue;
+
             if (receipt.IsReturn && IsRejectedSubcontractingReturn(
                 receiptItem.ReturnQtyFromRejectedWarehouse,
                 receiptItem.WarehouseId,
@@ -223,6 +227,48 @@ public class SubcontractingManager : DomainService
             && returnWarehouseId.HasValue
             && originalRejectedWarehouseId.HasValue
             && returnWarehouseId.Value == originalRejectedWarehouseId.Value;
+    }
+
+    /// <summary>
+    /// Identifies secondary items (Co-Product, By-Product, Scrap, Additional Finished Good) on a Subcontracting Receipt.
+    /// </summary>
+    public static bool IsSecondaryItem(SubcontractingReceiptItem item)
+    {
+        return !string.IsNullOrWhiteSpace(item.SecondaryItemType)
+            || item.ValuationType.HasValue
+            || item.BomSecondaryItemId.HasValue;
+    }
+
+    /// <summary>
+    /// Calculates the secondary item quantity to include on a Subcontracting Receipt return row.
+    /// Per ERPNext PR #66400 (commits d3b20f2ccf, aa24a4f7e8, 7e75d6acdc):
+    /// - Partial returns round on the running finished-good return total so parts add up cleanly.
+    /// - Returns that round to zero are omitted (returns 0m).
+    /// - The final return covering all remaining finished-good qty takes the exact secondary qty left.
+    /// </summary>
+    public static decimal CalculateReturnSecondaryQty(
+        decimal originalFgQty,
+        decimal originalSecondaryQty,
+        decimal priorReturnedFgQty,
+        decimal currentReturnFgQty,
+        decimal priorReturnedSecondaryQty,
+        int precision = 4)
+    {
+        if (originalFgQty <= 0m || originalSecondaryQty <= 0m || currentReturnFgQty <= 0m)
+        {
+            return 0m;
+        }
+
+        if (Math.Round(priorReturnedFgQty + currentReturnFgQty, precision) >= Math.Round(originalFgQty, precision))
+        {
+            return Math.Max(0m, Math.Round(originalSecondaryQty - priorReturnedSecondaryQty, precision));
+        }
+
+        var perUnit = originalSecondaryQty / originalFgQty;
+        var before = Math.Round(priorReturnedFgQty * perUnit, precision);
+        var after = Math.Round((priorReturnedFgQty + currentReturnFgQty) * perUnit, precision);
+        var delta = Math.Round(after - before, precision);
+        return delta > 0m ? delta : 0m;
     }
 
     /// <summary>

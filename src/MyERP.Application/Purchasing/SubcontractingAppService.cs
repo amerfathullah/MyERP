@@ -700,6 +700,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         // Per ERPNext PR #46892 / commit 7479e1ec32: backflush setting is ignored on returns
         // Per ERPNext commit aeb5278994: return rows sending back rejected qty do not reverse RM consumption
         var totalReceivedFgQty = scr.Items
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
             .Where(i => !scr.IsReturn || !MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
                 i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .Sum(i => i.Qty);
@@ -843,8 +844,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var scManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.SubcontractingManager>();
         await scManager.UpdateOrderOnReceiptAsync(scr, reverse: true);
 
-        // Reverse RM consumption
-        var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
+        // Reverse RM consumption (exclude secondary items and rejected returns, matching SubmitReceiptAsync)
+        var totalReceivedFgQty = scr.Items
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
+            .Where(i => !scr.IsReturn || !MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
+            .Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
         var backflushSetting = await SettingProvider.GetOrNullAsync(
             MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
@@ -909,13 +914,15 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
         }
 
-        var allReceiptsQuery = await _scrRepository.GetQueryableAsync();
+        var allReceiptsQuery = await _scrRepository.WithDetailsAsync(r => r.Items)
+            ?? await _scrRepository.GetQueryableAsync();
         var priorReturns = allReceiptsQuery
             .Where(r => r.ReturnAgainstReceiptId == original.Id && r.Status != SubcontractingReceiptStatus.Cancelled)
             .ToList();
 
         var priorReturnedAcceptedByItem = priorReturns
             .SelectMany(r => r.Items)
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
             .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
                 i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .GroupBy(i => i.ItemId)
@@ -923,12 +930,16 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
         var priorReturnedRejectedByItem = priorReturns
             .SelectMany(r => r.Items)
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
             .Where(i => MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
                 i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Qty)));
 
-        var originalItemsByItem = original.Items.ToDictionary(i => i.ItemId);
+        var originalItemsByItem = original.Items
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         foreach (var retItem in input.Items)
         {
@@ -1002,6 +1013,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         // Per ERPNext PR #65109 (commit d7feab165b): return must keep original receipt's supplier warehouse
         returnReceipt.ValidateReturnSupplierWarehouse(original.SupplierWarehouseId, original.ReceiptNumber);
 
+        decimal currentNonRejectedReturnFgQty = 0m;
         foreach (var retItem in input.Items)
         {
             var origItem = originalItemsByItem[retItem.ItemId];
@@ -1016,6 +1028,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 retItem.ReturnQtyFromRejectedWarehouse,
                 candidateWarehouseId,
                 origItem.RejectedWarehouseId);
+
+            if (!isRejectedReturn)
+            {
+                currentNonRejectedReturnFgQty += Math.Abs(retItem.Qty);
+            }
 
             var returnRate = isRejectedReturn ? 0m : origItem.Rate;
 
@@ -1039,6 +1056,63 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 CostAllocationPercentage = origItem.CostAllocationPercentage,
                 BomSecondaryItemId = origItem.BomSecondaryItemId
             });
+        }
+
+        // Per ERPNext PR #66400: rebuild secondary items for accepted returns on running FG total;
+        // omit rows rounding to 0 and allocate exact remaining secondary qty on the final return.
+        var originalSecondaryItems = original.Items
+            .Where(MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem)
+            .ToList();
+        if (originalSecondaryItems.Count > 0 && currentNonRejectedReturnFgQty > 0m)
+        {
+            var originalTotalFgQty = original.Items
+                .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
+                .Sum(i => i.Qty);
+            var priorReturnedFgQty = priorReturnedAcceptedByItem.Values.Sum();
+            var priorSecondaryItems = priorReturns
+                .SelectMany(r => r.Items)
+                .Where(MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem)
+                .ToList();
+
+            foreach (var origSec in originalSecondaryItems)
+            {
+                var priorSecQty = priorSecondaryItems
+                    .Where(s => origSec.BomSecondaryItemId.HasValue
+                        ? s.BomSecondaryItemId == origSec.BomSecondaryItemId
+                        : s.ItemId == origSec.ItemId && s.SecondaryItemType == origSec.SecondaryItemType)
+                    .Sum(s => Math.Abs(s.Qty));
+
+                var secReturnQty = MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateReturnSecondaryQty(
+                    originalTotalFgQty,
+                    origSec.Qty,
+                    priorReturnedFgQty,
+                    currentNonRejectedReturnFgQty,
+                    priorSecQty);
+
+                if (secReturnQty <= 0m)
+                {
+                    continue;
+                }
+
+                returnReceipt.AddItem(new SubcontractingReceiptItem(
+                    Guid.NewGuid(),
+                    returnReceipt.Id,
+                    origSec.ItemId,
+                    origSec.ItemName,
+                    -secReturnQty,
+                    origSec.Rate,
+                    origSec.ProjectId)
+                {
+                    WarehouseId = input.WarehouseId ?? origSec.WarehouseId ?? original.WarehouseId,
+                    CostCenterId = origSec.CostCenterId,
+                    ExpenseAccountId = origSec.ExpenseAccountId,
+                    ServiceExpenseAccountId = origSec.ServiceExpenseAccountId,
+                    SecondaryItemType = origSec.SecondaryItemType,
+                    ValuationType = origSec.ValuationType,
+                    CostAllocationPercentage = origSec.CostAllocationPercentage,
+                    BomSecondaryItemId = origSec.BomSecondaryItemId
+                });
+            }
         }
 
         await _scrRepository.InsertAsync(returnReceipt, autoSave: true);

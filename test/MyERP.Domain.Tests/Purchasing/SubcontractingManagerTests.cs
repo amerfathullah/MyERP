@@ -337,4 +337,49 @@ public class SubcontractingAndWiringTests
             poReceivedQty, poConversionFactor, soConversionFactor);
         result.ShouldBe(expectedSoDeliveredQty);
     }
+
+    // =========================================================================
+    // ERPNext PR #66400: Secondary item return qty running-total rounding
+    // =========================================================================
+
+    [Fact]
+    public void CalculateReturnSecondaryQty_PartialReturnsAddUpToOriginalSecondaryQty()
+    {
+        // Original: 3 FG, 1 Secondary, precision 0 (e.g. integer UOM like Nos/Pcs)
+        // Return 1 (1 FG): running 1/3 = 0.333 -> 0 (omitted)
+        var r1 = SubcontractingManager.CalculateReturnSecondaryQty(
+            originalFgQty: 3m, originalSecondaryQty: 1m,
+            priorReturnedFgQty: 0m, currentReturnFgQty: 1m,
+            priorReturnedSecondaryQty: 0m, precision: 0);
+        r1.ShouldBe(0m);
+
+        // Return 2 (1 FG): running 2/3 = 0.667 -> 1; delta = 1 - 0 = 1
+        var r2 = SubcontractingManager.CalculateReturnSecondaryQty(
+            originalFgQty: 3m, originalSecondaryQty: 1m,
+            priorReturnedFgQty: 1m, currentReturnFgQty: 1m,
+            priorReturnedSecondaryQty: 0m, precision: 0);
+        r2.ShouldBe(1m);
+
+        // Return 3 (last 1 FG): remaining = 1 - 1 = 0 (already fully returned)
+        var r3 = SubcontractingManager.CalculateReturnSecondaryQty(
+            originalFgQty: 3m, originalSecondaryQty: 1m,
+            priorReturnedFgQty: 2m, currentReturnFgQty: 1m,
+            priorReturnedSecondaryQty: 1m, precision: 0);
+        r3.ShouldBe(0m);
+
+        (r1 + r2 + r3).ShouldBe(1m);
+    }
+
+    [Fact]
+    public void CalculateReturnSecondaryQty_LastReturnTakesExactRemainingRemainder()
+    {
+        // Original: 3 FG, 1 Secondary at precision 4: 1/3 = 0.3333
+        // Two prior returns took 0.3333 each (0.6666 total); final return takes 0.3334 so total == 1.0000
+        var last = SubcontractingManager.CalculateReturnSecondaryQty(
+            originalFgQty: 3m, originalSecondaryQty: 1m,
+            priorReturnedFgQty: 2m, currentReturnFgQty: 1m,
+            priorReturnedSecondaryQty: 0.6666m, precision: 4);
+        last.ShouldBe(0.3334m);
+        (0.6666m + last).ShouldBe(1m);
+    }
 }
