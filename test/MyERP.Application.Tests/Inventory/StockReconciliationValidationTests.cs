@@ -532,4 +532,113 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
             ex.Data["detail"]!.ToString()!.ShouldContain("cannot be a Stock account");
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_BackdatedReconciliationLoweringBatchQtyBelowLaterConsumption_Throws()
+    {
+        // Per ERPNext PR #65668: other batches keep warehouse total positive and another warehouse
+        // keeps global batch total positive, yet this batch in this warehouse would go negative on a later entry.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<MyERP.Core.Entities.DocumentSeries, Guid>>();
+            var batchRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Batch, Guid>>();
+            var bundleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.SerialAndBatchBundle, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var today = DateTime.Today;
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Backdated Batch Co"), autoSave: true);
+            await fyRepo.InsertAsync(new MyERP.Accounting.Entities.FiscalYear(
+                Guid.NewGuid(), company.Id, "FY-Batch", today.AddDays(-30), today.AddDays(30)), autoSave: true);
+            await seriesRepo.InsertAsync(new MyERP.Core.Entities.DocumentSeries(
+                Guid.NewGuid(), company.Id, "JE Batch Series", "JE", "JEBATCH-"), autoSave: true);
+
+            var stockAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1411", "Stock Assets", AccountType.Asset)
+            {
+                AccountSubType = AccountSubType.Stock
+            }, autoSave: true);
+            var diffAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5201", "Stock Adjustment", AccountType.Expense), autoSave: true);
+
+            var wh1 = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "WH 1")
+            {
+                DefaultAccountId = stockAccount.Id
+            }, autoSave: true);
+            var wh2 = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "WH 2")
+            {
+                DefaultAccountId = stockAccount.Id
+            }, autoSave: true);
+
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(
+                Guid.NewGuid(), company.Id, "BATCH-ITEM-1", "Batched Item", MyERP.Inventory.ItemType.Goods)
+            {
+                HasBatchNo = true
+            }, autoSave: true);
+
+            var batchA = await batchRepo.InsertAsync(new MyERP.Inventory.Entities.Batch(Guid.NewGuid(), item.Id, "BATCH-A"), autoSave: true);
+            var batchB = await batchRepo.InsertAsync(new MyERP.Inventory.Entities.Batch(Guid.NewGuid(), item.Id, "BATCH-B"), autoSave: true);
+
+            var tMinus3 = today.AddDays(-3);
+            var tMinus2 = today.AddDays(-2);
+            var tMinus1 = today.AddDays(-1);
+
+            // T-3: WH1 gets +10 Batch A, WH1 gets +10 Batch B (keeps WH total positive), WH2 gets +10 Batch A (keeps global batch positive)
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh1.Id, tMinus3, 10m, 100m, 10m, 1000m) { BatchId = batchA.Id }, autoSave: true);
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh1.Id, tMinus3, 10m, 100m, 20m, 2000m) { BatchId = batchB.Id }, autoSave: true);
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh2.Id, tMinus3, 10m, 100m, 10m, 1000m) { BatchId = batchA.Id }, autoSave: true);
+
+            // T-1: WH1 issues -6 Batch A
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh1.Id, tMinus1, -6m, 100m, 14m, 1400m) { BatchId = batchA.Id }, autoSave: true);
+
+            // Backdated T-2 reconciliation lowering Batch A in WH1 from 10 down to 5 (< 6 consumed at T-1)
+            var currentOutwardBundle = new MyERP.Inventory.Entities.SerialAndBatchBundle(
+                Guid.NewGuid(), company.Id, item.Id, wh1.Id,
+                MyERP.Inventory.Entities.BundleTransactionType.Outward,
+                "StockReconciliation", Guid.NewGuid(), tMinus2) { HasBatchNo = true };
+            currentOutwardBundle.AddEntry(new MyERP.Inventory.Entities.SerialAndBatchEntry(
+                Guid.NewGuid(), currentOutwardBundle.Id, 10m, 100m, batchId: batchA.Id));
+            await bundleRepo.InsertAsync(currentOutwardBundle, autoSave: true);
+
+            var newInwardBundle = new MyERP.Inventory.Entities.SerialAndBatchBundle(
+                Guid.NewGuid(), company.Id, item.Id, wh1.Id,
+                MyERP.Inventory.Entities.BundleTransactionType.Inward,
+                "StockReconciliation", Guid.NewGuid(), tMinus2) { HasBatchNo = true };
+            newInwardBundle.AddEntry(new MyERP.Inventory.Entities.SerialAndBatchEntry(
+                Guid.NewGuid(), newInwardBundle.Id, 5m, 100m, batchId: batchA.Id));
+            await bundleRepo.InsertAsync(newInwardBundle, autoSave: true);
+
+            var reco = await srAppService.CreateAsync(new CreateStockReconciliationDto
+            {
+                CompanyId = company.Id,
+                PostingDate = tMinus2,
+                Purpose = "Stock Reconciliation",
+                ExpenseAccountId = diffAccount.Id,
+                Items =
+                [
+                    new CreateStockReconciliationItemDto
+                    {
+                        ItemId = item.Id,
+                        WarehouseId = wh1.Id,
+                        CurrentQuantity = 10m,
+                        CurrentValuationRate = 100m,
+                        NewQuantity = 5m,
+                        NewValuationRate = 100m,
+                        CurrentSerialAndBatchBundleId = currentOutwardBundle.Id,
+                        SerialAndBatchBundleId = newInwardBundle.Id,
+                    }
+                ]
+            });
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => srAppService.SubmitAsync(reco.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.InsufficientStock);
+        });
+    }
 }

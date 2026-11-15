@@ -16,6 +16,7 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -359,6 +360,7 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 voucherType: "StockReconciliation",
                 voucherId: sr.Id,
                 tenantId: sr.TenantId,
+                serialAndBatchBundleId: item.SerialAndBatchBundleId ?? item.CurrentSerialAndBatchBundleId,
                 isAdjustmentEntry: isAdjustment);
 
             // Update Bin with the difference
@@ -401,6 +403,10 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 }
             }
         }
+
+        // Per ERPNext #65668 (validate_future_batch_quantity): block a backdated reconciliation from
+        // lowering a batch below what later entries already consumed (even if warehouse/global total stays >= 0).
+        await ValidateFutureBatchQuantityAsync(sr, bundleRepo);
 
         await _repository.UpdateAsync(sr);
 
@@ -770,6 +776,156 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 CurrentValuationRate = Math.Round(rate, 4),
                 StockUom = item.Uom
             };
+        }
+    }
+
+    /// <summary>
+    /// Validates that lowering batch quantities in a backdated reconciliation does not cause any
+    /// affected batch to go negative in later stock ledger or bundle movements.
+    /// Per ERPNext PR #65668 (validate_future_batch_quantity).
+    /// </summary>
+    private async Task ValidateFutureBatchQuantityAsync(
+        StockReconciliation sr,
+        IRepository<SerialAndBatchBundle, Guid> bundleRepo)
+    {
+        var referencedBundleIds = sr.Items
+            .SelectMany(i => new[] { i.CurrentSerialAndBatchBundleId, i.SerialAndBatchBundleId })
+            .Where(bId => bId.HasValue)
+            .Select(bId => bId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (referencedBundleIds.Count == 0)
+            return;
+
+        var settingProvider = LazyServiceProvider.LazyGetService<Volo.Abp.Settings.ISettingProvider>();
+        if (settingProvider != null && await settingProvider.IsTrueAsync(Settings.MyERPSettings.Stock.AllowNegativeStock))
+            return;
+
+        var bundleQueryable = await bundleRepo.WithDetailsAsync(b => b.Entries);
+        var referencedBundles = bundleQueryable
+            .Where(b => referencedBundleIds.Contains(b.Id))
+            .ToList();
+
+        var targetKeys = referencedBundles
+            .SelectMany(b => b.Entries
+                .Where(e => e.BatchId.HasValue)
+                .Select(e => (b.ItemId, b.WarehouseId, BatchId: e.BatchId!.Value)))
+            .Distinct()
+            .ToList();
+
+        if (targetKeys.Count == 0)
+            return;
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var targetItemIds = targetKeys.Select(k => k.ItemId).Distinct().ToList();
+        var itemMap = (await itemRepo.GetQueryableAsync())
+            .Where(i => targetItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.HasBatchNo, i.AllowNegativeStock })
+            .ToDictionary(i => i.Id);
+
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var sleQueryable = await sleRepo.GetQueryableAsync();
+
+        foreach (var itemWhGroup in targetKeys.GroupBy(k => (k.ItemId, k.WarehouseId)))
+        {
+            var itemId = itemWhGroup.Key.ItemId;
+            var warehouseId = itemWhGroup.Key.WarehouseId;
+            if (!itemMap.TryGetValue(itemId, out var itemInfo) || !itemInfo.HasBatchNo || itemInfo.AllowNegativeStock)
+                continue;
+
+            var targetBatchIds = itemWhGroup.Select(k => k.BatchId).ToHashSet();
+
+            // 1. Direct batch SLEs (those without a linked SABB, to avoid double counting)
+            var directSles = sleQueryable
+                .Where(s => s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && !s.IsCancelled
+                    && s.BatchId != null
+                    && s.SerialAndBatchBundleId == null
+                    && targetBatchIds.Contains(s.BatchId.Value))
+                .Select(s => new { BatchId = s.BatchId!.Value, s.PostingDate, s.CreationTime, Qty = s.QuantityChange })
+                .ToList();
+
+            // 2. Submitted Serial and Batch Bundle movements for this item & warehouse
+            // Include bundles referenced by this reconciliation even before UoW flush updates Status in SQL.
+            var bundles = bundleQueryable
+                .Where(b => b.ItemId == itemId
+                    && b.WarehouseId == warehouseId
+                    && !b.IsCancelled
+                    && (b.Status == DocumentStatus.Submitted || referencedBundleIds.Contains(b.Id)))
+                .ToList();
+
+            var movementsByBatch = new Dictionary<Guid, List<(DateTime PostingDate, DateTime CreationTime, decimal Qty, bool IsCurrentSr)>>();
+            foreach (var sle in directSles)
+            {
+                if (!movementsByBatch.TryGetValue(sle.BatchId, out var list))
+                {
+                    list = new List<(DateTime, DateTime, decimal, bool)>();
+                    movementsByBatch[sle.BatchId] = list;
+                }
+                list.Add((sle.PostingDate, sle.CreationTime, sle.Qty, false));
+            }
+
+            foreach (var bundle in bundles)
+            {
+                var isCurrentSr = referencedBundleIds.Contains(bundle.Id);
+                var sign = bundle.TypeOfTransaction == BundleTransactionType.Outward ? -1m : 1m;
+                foreach (var entry in bundle.Entries)
+                {
+                    if (!entry.BatchId.HasValue || !targetBatchIds.Contains(entry.BatchId.Value))
+                        continue;
+
+                    if (!movementsByBatch.TryGetValue(entry.BatchId.Value, out var list))
+                    {
+                        list = new List<(DateTime, DateTime, decimal, bool)>();
+                        movementsByBatch[entry.BatchId.Value] = list;
+                    }
+                    list.Add((bundle.PostingDate, bundle.CreationTime, sign * Math.Abs(entry.Qty), isCurrentSr));
+                }
+            }
+
+            foreach (var batchId in targetBatchIds)
+            {
+                if (!movementsByBatch.TryGetValue(batchId, out var movements))
+                    continue;
+
+                var priorBalance = movements
+                    .Where(m => m.PostingDate < sr.PostingDate)
+                    .Sum(m => m.Qty);
+
+                // Net all movements belonging to this reconciliation at sr.PostingDate simultaneously
+                var srNetChange = movements
+                    .Where(m => m.IsCurrentSr && m.PostingDate >= sr.PostingDate)
+                    .Sum(m => m.Qty);
+
+                var balanceAfterSr = priorBalance + srNetChange;
+                if (Math.Round(balanceAfterSr, 4) < 0m)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                        .WithData("itemId", itemId)
+                        .WithData("warehouseId", warehouseId)
+                        .WithData("batchId", batchId)
+                        .WithData("available", Math.Round(balanceAfterSr, 4));
+                }
+
+                var running = balanceAfterSr;
+                foreach (var future in movements
+                    .Where(m => !m.IsCurrentSr && m.PostingDate >= sr.PostingDate)
+                    .OrderBy(m => m.PostingDate)
+                    .ThenBy(m => m.CreationTime))
+                {
+                    running += future.Qty;
+                    if (Math.Round(running, 4) < 0m)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                            .WithData("itemId", itemId)
+                            .WithData("warehouseId", warehouseId)
+                            .WithData("batchId", batchId)
+                            .WithData("available", Math.Round(running, 4));
+                    }
+                }
+            }
         }
     }
 }

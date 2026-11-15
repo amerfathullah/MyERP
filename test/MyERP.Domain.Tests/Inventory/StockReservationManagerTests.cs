@@ -406,6 +406,66 @@ public class StockReservationManagerTests
         sres[0].VoucherId.ShouldBe(orderId);
     }
 
+    [Fact]
+    public async Task ConsumeAndRestore_FractionalBatchQty_LeavesNoRoundingResidue()
+    {
+        // Per ERPNext PR #66566: when delivered qty differs from available qty only beyond ledger precision
+        // (e.g. 0.3333 vs 0.33334), delivery closes the SRE completely and cancel leaves no residue.
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var sre = new StockReservationEntry(
+            Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "SalesOrder", orderId, reservedQty: 0.33334m)
+        {
+            BatchId = batchId
+        };
+        sre.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { sre });
+
+        var consumed = await manager.ConsumeOnDeliveryAsync(itemId, warehouseId, 0.3333m, orderId, batchId);
+        consumed.Length.ShouldBe(1);
+        consumed[0].ConsumedQty.ShouldBe(0.33334m);
+        sre.DeliveredQty.ShouldBe(0.33334m);
+        sre.AvailableQty.ShouldBe(0m);
+
+        var restored = await manager.RestoreOnCancelDeliveryAsync(itemId, warehouseId, 0.3333m, orderId, batchId);
+        restored.Length.ShouldBe(1);
+        restored[0].ConsumedQty.ShouldBe(0.33334m);
+        sre.DeliveredQty.ShouldBe(0m);
+        sre.AvailableQty.ShouldBe(0.33334m);
+    }
+
+    [Fact]
+    public async Task PartialThenFinalFractionalCancel_RestoresToExactFirstDeliveryQty()
+    {
+        // Per ERPNext PR #66566: partial 0.3m + closing 0.0333m (= 0.33334m SRE), cancelling closing leaves 0.3m.
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var sre = new StockReservationEntry(
+            Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "SalesOrder", orderId, reservedQty: 0.33334m)
+        {
+            BatchId = batchId
+        };
+        sre.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { sre });
+
+        await manager.ConsumeOnDeliveryAsync(itemId, warehouseId, 0.3m, orderId, batchId);
+        sre.DeliveredQty.ShouldBe(0.3m);
+
+        await manager.ConsumeOnDeliveryAsync(itemId, warehouseId, 0.0333m, orderId, batchId);
+        sre.DeliveredQty.ShouldBe(0.33334m);
+
+        await manager.RestoreOnCancelDeliveryAsync(itemId, warehouseId, 0.0333m, orderId, batchId);
+        sre.DeliveredQty.ShouldBe(0.3000m);
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,

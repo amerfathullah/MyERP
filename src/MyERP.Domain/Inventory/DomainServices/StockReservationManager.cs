@@ -197,6 +197,27 @@ public class StockReservationManager : DomainService
     /// Per ERPNext PR #49082 (commit dbaa44688e): filters delivered_qty < reserved_qty.
     /// Per ERPNext PR #59424 (commit dbada3f461): count only matched batches on reservations.
     /// Returns list of consumed SRE IDs with quantities.
+    /// <summary>
+    /// Returns <paramref name="fullQty"/> when <paramref name="qty"/> falls short of it only by ledger rounding residue.
+    /// Per ERPNext PR #66566 (get_qty_up_to_rounding).
+    /// </summary>
+    public static decimal GetQtyUpToRounding(decimal qty, decimal fullQty, int precision = 4)
+    {
+        return Math.Round(fullQty - qty, precision, MidpointRounding.AwayFromZero) == 0m ? fullQty : qty;
+    }
+
+    /// <summary>
+    /// Undelivers <paramref name="qtyToRestore"/> while leaving <paramref name="alreadyDeliveredQty"/>
+    /// aligned to ledger precision with no rounding residue. Per ERPNext PR #66566 (get_qty_to_undeliver).
+    /// </summary>
+    public static decimal GetQtyToUndeliver(decimal alreadyDeliveredQty, decimal qtyToRestore, int precision = 4)
+    {
+        var capped = Math.Min(alreadyDeliveredQty, qtyToRestore);
+        return alreadyDeliveredQty - Math.Round(alreadyDeliveredQty - capped, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Consumes reserved stock when a Delivery Note / update_stock SI is submitted.
     /// </summary>
     public async Task<ReservationConsumption[]> ConsumeOnDeliveryAsync(
         Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? salesOrderId = null, Guid? batchId = null)
@@ -223,7 +244,7 @@ public class StockReservationManager : DomainService
             var available = sre.AvailableQty;
             if (available <= 0) continue;
 
-            var consume = Math.Min(remaining, available);
+            var consume = GetQtyUpToRounding(Math.Min(remaining, available), available);
             sre.RecordDelivery(consume);
             await _sreRepository.UpdateAsync(sre);
 
@@ -233,7 +254,7 @@ public class StockReservationManager : DomainService
                 ConsumedQty = consume
             });
 
-            remaining -= consume;
+            remaining = Math.Max(0m, remaining - consume);
         }
 
         return consumed.ToArray();
@@ -267,7 +288,9 @@ public class StockReservationManager : DomainService
         {
             if (remaining <= 0) break;
 
-            var canRestore = Math.Min(remaining, sre.DeliveredQty);
+            var canRestore = GetQtyToUndeliver(sre.DeliveredQty, remaining);
+            if (canRestore <= 0) continue;
+
             sre.RevertDelivery(canRestore);
             await _sreRepository.UpdateAsync(sre);
 
@@ -277,7 +300,7 @@ public class StockReservationManager : DomainService
                 ConsumedQty = canRestore
             });
 
-            remaining -= canRestore;
+            remaining = Math.Max(0m, remaining - canRestore);
         }
 
         return restored.ToArray();
