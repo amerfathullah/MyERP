@@ -418,20 +418,30 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         };
 
         // Account for draft Purchase Orders in the system (per ERPNext PR #58617 / commit d8432d92c8)
+        // Sum draft PO quantities in stock UOM before converting back to MR UOM (per ERPNext PR #66281)
         var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
-        var draftPoItems = poQuery
+        var draftPoStockQtyMap = poQuery
             .Where(p => p.CompanyId == mr.CompanyId && p.Status == Core.DocumentStatus.Draft)
             .SelectMany(p => p.Items)
             .Where(i => i.MaterialRequestItemId.HasValue)
-            .GroupBy(i => i.MaterialRequestItemId!.Value)
-            .Select(g => new { MrItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
-            .ToList();
-        var draftPoQtyMap = draftPoItems.ToDictionary(x => x.MrItemId, x => x.Qty);
+            .Select(i => new
+            {
+                MrItemId = i.MaterialRequestItemId!.Value,
+                i.Quantity,
+                i.ConversionFactor
+            })
+            .ToList()
+            .GroupBy(i => i.MrItemId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m)));
 
         foreach (var mrItem in mr.Items)
         {
-            var draftQty = draftPoQtyMap.GetValueOrDefault(mrItem.Id, 0m);
-            var pendingQty = Math.Max(0, MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem) - draftQty);
+            var mrFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
+            var draftStockQty = draftPoStockQtyMap.GetValueOrDefault(mrItem.Id, 0m);
+            var pendingStockQty = Math.Max(0m, (MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem) * mrFactor) - draftStockQty);
+            var pendingQty = mrFactor == 1m ? pendingStockQty : pendingStockQty / mrFactor;
             if (pendingQty <= 0) continue;
 
             // Get item for buying price
@@ -443,8 +453,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             // Link PO item back to MR item
             var poItem = po.Items.Last();
             poItem.MaterialRequestItemId = mrItem.Id;
-            poItem.ConversionFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
-            poItem.StockUom = mrItem.Uom;
+            poItem.ConversionFactor = mrFactor;
+            poItem.StockUom = item?.Uom ?? mrItem.Uom;
         }
 
         if (!po.Items.Any())
@@ -534,7 +544,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 var poItem = po.Items.Last();
                 poItem.MaterialRequestItemId = mrItem.Id;
                 poItem.ConversionFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
-                poItem.StockUom = mrItem.Uom;
+                poItem.StockUom = item?.Uom ?? mrItem.Uom;
             }
 
             await _purchaseOrderRepository.InsertAsync(po, autoSave: true);

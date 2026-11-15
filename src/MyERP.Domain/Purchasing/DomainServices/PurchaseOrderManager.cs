@@ -108,7 +108,11 @@ public class PurchaseOrderManager : DomainService
                 var mrItem = mr.Items.FirstOrDefault(i => i.Id == poItem.MaterialRequestItemId!.Value);
                 if (mrItem != null)
                 {
-                    var delta = reverse ? -poItem.Quantity : poItem.Quantity;
+                    var mrFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
+                    var qtyInMrUom = poItem.ConversionFactor == mrFactor
+                        ? poItem.Quantity
+                        : poItem.StockQty / mrFactor;
+                    var delta = reverse ? -qtyInMrUom : qtyInMrUom;
                     mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity + delta);
                 }
             }

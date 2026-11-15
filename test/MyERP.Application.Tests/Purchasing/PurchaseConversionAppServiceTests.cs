@@ -63,6 +63,66 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
     }
 
     [Fact]
+    public async Task ConvertMaterialRequestToPurchaseOrder_Handles_CrossUom_Draft_And_Submitted_Parts()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var mrRepo = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var poManager = GetRequiredService<MyERP.Purchasing.DomainServices.PurchaseOrderManager>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Cross UOM MR Co"), autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Cross UOM Supplier"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-X-UOM", "Cross UOM Item", ItemType.Goods)
+            {
+                Uom = "Nos",
+                StandardBuyingPrice = 10m
+            }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "POS", "PurchaseOrder", "PO-"), autoSave: true);
+
+            // MR asks for 10 Box (ConversionFactor = 5 => 50 Nos in stock UOM)
+            var mr = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-XUOM-001", MaterialRequestType.Purchase, DateTime.UtcNow.Date, company.TenantId);
+            mr.AddItem(item.Id, "Cross UOM Item", quantity: 10m, uom: "Box", conversionFactor: 5m);
+            mr.Submit();
+            await mrRepo.InsertAsync(mr, autoSave: true);
+
+            var mrItem = mr.Items.Single();
+
+            // Partial PO #1 in Stock UOM: 15 Nos (ConversionFactor = 1 => 3 Boxes)
+            var partialSubmittedPo = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-XUOM-1", DateTime.UtcNow.Date, company.TenantId);
+            partialSubmittedPo.AddItem(item.Id, "Cross UOM Item", 15m, 2m, 0m, "Nos");
+            partialSubmittedPo.Items[0].MaterialRequestItemId = mrItem.Id;
+            partialSubmittedPo.Items[0].ConversionFactor = 1m;
+            partialSubmittedPo.Submit();
+            await poRepo.InsertAsync(partialSubmittedPo, autoSave: true);
+            await poManager.UpdateMaterialRequestOrderedQtyAsync(partialSubmittedPo);
+
+            var reloadedMr = await mrRepo.GetAsync(mr.Id);
+            reloadedMr.Items.Single().OrderedQuantity.ShouldBe(3m);
+
+            // Draft PO #2 in Stock UOM: 10 Nos (ConversionFactor = 1 => 2 Boxes)
+            var partialDraftPo = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-XUOM-2", DateTime.UtcNow.Date, company.TenantId);
+            partialDraftPo.AddItem(item.Id, "Cross UOM Item", 10m, 2m, 0m, "Nos");
+            partialDraftPo.Items[0].MaterialRequestItemId = mrItem.Id;
+            partialDraftPo.Items[0].ConversionFactor = 1m;
+            await poRepo.InsertAsync(partialDraftPo, autoSave: true);
+
+            // Convert remaining MR -> should yield 5 Boxes (10 - 3 submitted - 2 draft) and StockUom = Nos
+            var remainingPoDto = await conversionService.ConvertMaterialRequestToPurchaseOrderAsync(mr.Id, supplier.Id);
+            remainingPoDto.Items.Count.ShouldBe(1);
+            remainingPoDto.Items[0].Quantity.ShouldBe(5m);
+            remainingPoDto.Items[0].ConversionFactor.ShouldBe(5m);
+            remainingPoDto.Items[0].StockUom.ShouldBe("Nos");
+        });
+    }
+
+    [Fact]
     public async Task ConvertMaterialRequestToRfq_Filters_Fully_Ordered_Items_And_Maps_Pending_Qty()
     {
         await WithUnitOfWorkAsync(async () =>
