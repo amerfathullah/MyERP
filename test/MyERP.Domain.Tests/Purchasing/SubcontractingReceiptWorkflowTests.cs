@@ -61,10 +61,7 @@ public class SubcontractingReceiptWorkflowTests
         var origItem = new SubcontractingReceiptItem(
             Guid.NewGuid(), origReceiptId, _itemId, "Subcontracted Part", 100m, 25m, origProjectId)
         {
-            WarehouseId = _warehouseId,
-            SecondaryItemType = "Co-Product",
-            ValuationType = global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost,
-            CostAllocationPercentage = 25m
+            WarehouseId = _warehouseId
         };
         origReceipt.AddItem(origItem);
         origReceipt.Submit();
@@ -105,9 +102,81 @@ public class SubcontractingReceiptWorkflowTests
         Assert.Equal(-20m, returnItem.Qty);
         Assert.Equal(-500m, savedReturn.NetTotal);
         Assert.Equal(origProjectId, returnItem.ProjectId);
-        Assert.Equal("Co-Product", returnItem.SecondaryItemType);
-        Assert.Equal(global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, returnItem.ValuationType);
-        Assert.Equal(25m, returnItem.CostAllocationPercentage);
+        Assert.Null(returnItem.SecondaryItemType);
+    }
+
+    [Fact]
+    public async Task CreateReceiptReturnAsync_WithSecondaryItem_RebuildsSecondaryRowWithMetadata()
+    {
+        var origReceiptId = Guid.NewGuid();
+        var origProjectId = Guid.NewGuid();
+        var secItemId = Guid.NewGuid();
+        var bomSecId = Guid.NewGuid();
+        var origReceipt = new SubcontractingReceipt(
+            origReceiptId, _companyId, "SCR-2026-00002", new DateTime(2026, 6, 10), _supplierId, _scoId)
+        {
+            WarehouseId = _warehouseId,
+            ProjectId = origProjectId
+        };
+        var origFgItem = new SubcontractingReceiptItem(
+            Guid.NewGuid(), origReceiptId, _itemId, "Subcontracted Part", 100m, 25m, origProjectId)
+        {
+            WarehouseId = _warehouseId
+        };
+        var origSecItem = new SubcontractingReceiptItem(
+            Guid.NewGuid(), origReceiptId, secItemId, "Co-Product Part", 100m, 10m, origProjectId)
+        {
+            WarehouseId = _warehouseId,
+            SecondaryItemType = "Co-Product",
+            ValuationType = global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 25m,
+            BomSecondaryItemId = bomSecId
+        };
+        origReceipt.AddItem(origFgItem);
+        origReceipt.AddItem(origSecItem);
+        origReceipt.Submit();
+
+        _scrRepo.GetAsync(origReceiptId, includeDetails: true).Returns(Task.FromResult(origReceipt));
+
+        var emptyList = new List<SubcontractingReceipt>();
+        _scrRepo.GetQueryableAsync().Returns(Task.FromResult(emptyList.AsQueryable()));
+
+        SubcontractingReceipt? savedReturn = null;
+        await _scrRepo.InsertAsync(Arg.Do<SubcontractingReceipt>(r => savedReturn = r), autoSave: true);
+
+        var input = new CreateSubcontractingReceiptReturnDto
+        {
+            ReturnAgainstReceiptId = origReceiptId,
+            PostingDate = new DateTime(2026, 6, 15),
+            Items = new List<CreateScrReturnItemDto>
+            {
+                new CreateScrReturnItemDto
+                {
+                    ItemId = _itemId,
+                    ItemName = "Subcontracted Part",
+                    Qty = 20m,
+                    Rate = 25m,
+                    WarehouseId = _warehouseId
+                }
+            }
+        };
+
+        await _appService.CreateReceiptReturnAsync(input);
+
+        Assert.NotNull(savedReturn);
+        Assert.Equal(2, savedReturn.Items.Count);
+        var fgReturn = savedReturn.Items.Single(i => i.ItemId == _itemId);
+        Assert.Equal(-20m, fgReturn.Qty);
+        Assert.Null(fgReturn.SecondaryItemType);
+
+        var secReturn = savedReturn.Items.Single(i => i.ItemId == secItemId);
+        Assert.Equal(-20m, secReturn.Qty);
+        Assert.Equal(-700m, savedReturn.NetTotal);
+        Assert.Equal(origProjectId, secReturn.ProjectId);
+        Assert.Equal("Co-Product", secReturn.SecondaryItemType);
+        Assert.Equal(global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, secReturn.ValuationType);
+        Assert.Equal(25m, secReturn.CostAllocationPercentage);
+        Assert.Equal(bomSecId, secReturn.BomSecondaryItemId);
     }
 
     [Fact]
