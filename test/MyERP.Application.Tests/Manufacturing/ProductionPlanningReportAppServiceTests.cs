@@ -553,4 +553,58 @@ public class ProductionPlanningReportAppServiceTests
         result.TotalShortageQty.ShouldBe(3m);
         result.Rows.Count.ShouldBe(3); // WO-1 Store A (6), WO-1 Store B (4), WO-2 Store B (2 allotted / 5 required)
     }
+
+    [Fact]
+    public async Task GetReportAsync_TiedPlannedDates_OrdersByDocumentNumberDeterministically_PR66690()
+    {
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+        var tiedDate = DateTime.UtcNow.Date;
+
+        var fgItem = new Item(fgItemId, _companyId, "FG-TIE", "Tied FG", ItemType.Goods);
+        var rmItem = new Item(rmItemId, _companyId, "RM-TIE", "Tied Raw", ItemType.Goods);
+        var warehouse = new Warehouse(whId, _companyId, "Stores - TC");
+
+        // Supply WO-TIE-002 before WO-TIE-001 with identical PlannedStartDate
+        var wo2 = new WorkOrder(Guid.NewGuid(), _companyId, "WO-TIE-002", fgItemId, bomId, 5m)
+        {
+            FgWarehouseId = whId,
+            PlannedStartDate = tiedDate
+        };
+        wo2.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo2.Id, rmItemId, "Tied Raw", 5m) { SourceWarehouseId = whId });
+        wo2.Submit();
+
+        var wo1 = new WorkOrder(Guid.NewGuid(), _companyId, "WO-TIE-001", fgItemId, bomId, 5m)
+        {
+            FgWarehouseId = whId,
+            PlannedStartDate = tiedDate
+        };
+        wo1.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo1.Id, rmItemId, "Tied Raw", 5m) { SourceWarehouseId = whId });
+        wo1.Submit();
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }));
+        _woRepo.WithDetailsAsync(Arg.Any<Expression<Func<WorkOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<WorkOrder> { wo2, wo1 }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin>
+        {
+            new(Guid.NewGuid(), rmItemId, whId) { ActualQty = 5m }
+        }));
+
+        var result = await _appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "WorkOrder"
+        });
+
+        result.Rows.Count.ShouldBe(2);
+        result.Rows[0].OrderNo.ShouldBe("WO-TIE-001");
+        result.Rows[0].AllottedQty.ShouldBe(5m);
+        result.Rows[1].OrderNo.ShouldBe("WO-TIE-002");
+        result.Rows[1].AllottedQty.ShouldBe(0m);
+    }
 }

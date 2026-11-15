@@ -179,6 +179,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                         w.Status != WorkOrderStatus.Stopped &&
                         w.Status != WorkOrderStatus.Draft)
             .OrderBy(w => w.PlannedStartDate)
+            .ThenBy(w => w.WorkOrderNumber)
             .ToList();
 
         if (input.CompanyId.HasValue)
@@ -292,11 +293,15 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                         s.Status != DocumentStatus.Cancelled &&
                         s.Status != DocumentStatus.Closed &&
                         s.Status != DocumentStatus.Completed)
-            .OrderBy(s => s.OrderDate);
+            .OrderBy(s => s.OrderDate)
+            .ThenBy(s => s.OrderNumber);
 
         if (input.CompanyId.HasValue)
         {
-            salesOrderQuery = salesOrderQuery.Where(s => s.CompanyId == input.CompanyId.Value).OrderBy(s => s.OrderDate);
+            salesOrderQuery = salesOrderQuery
+                .Where(s => s.CompanyId == input.CompanyId.Value)
+                .OrderBy(s => s.OrderDate)
+                .ThenBy(s => s.OrderNumber);
         }
 
         var salesOrders = salesOrderQuery
@@ -432,11 +437,15 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                         m.Status != DocumentStatus.Closed &&
                         m.Status != DocumentStatus.Completed &&
                         m.RequestType == MaterialRequestType.Manufacture)
-            .OrderBy(m => m.RequiredByDate ?? m.RequestDate);
+            .OrderBy(m => m.RequiredByDate ?? m.RequestDate)
+            .ThenBy(m => m.RequestNumber);
 
         if (input.CompanyId.HasValue)
         {
-            requestQuery = requestQuery.Where(m => m.CompanyId == input.CompanyId.Value).OrderBy(m => m.RequiredByDate ?? m.RequestDate);
+            requestQuery = requestQuery
+                .Where(m => m.CompanyId == input.CompanyId.Value)
+                .OrderBy(m => m.RequiredByDate ?? m.RequestDate)
+                .ThenBy(m => m.RequestNumber);
         }
 
         var requests = requestQuery
