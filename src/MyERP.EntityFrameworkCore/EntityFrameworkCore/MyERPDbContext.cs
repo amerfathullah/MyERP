@@ -3235,6 +3235,8 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.BomNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ItemId, x.IsDefault });
             b.Property(x => x.BackflushBasedOn).HasMaxLength(50);
+            b.Property(x => x.FgCostAllocationPercentage)
+                .UsePropertyAccessMode(PropertyAccessMode.Property);
             b.Ignore(x => x.CostAllocationPercentage);
         });
 

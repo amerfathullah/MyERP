@@ -627,9 +627,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
-            // FG qty = sum of items going to target warehouse (finished goods)
+            // FG qty = sum of primary finished-good items going to target warehouse (excluding BOM secondary items)
             var fgQty = entry.Items
-                .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue
+                         && string.IsNullOrWhiteSpace(i.SecondaryItemType))
                 .Sum(i => i.Quantity);
             var processLoss = entry.ProcessLossQty > 0
                 ? entry.ProcessLossQty
@@ -893,7 +894,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             if (producingWorkOrder != null)
             {
                 var fgQty = entry.Items
-                    .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                    .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue
+                             && string.IsNullOrWhiteSpace(i.SecondaryItemType))
                     .Sum(i => i.Quantity);
                 var processLoss = entry.ProcessLossQty > 0
                     ? entry.ProcessLossQty

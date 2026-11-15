@@ -444,4 +444,224 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
         company.DefaultWipAccountId = wipAccount.Id;
         await companyRepository.UpdateAsync(company, autoSave: true);
     }
+
+    [Fact]
+    public async Task CreateManufactureStockEntryAsync_WithProcessLossAndSecondaryItem_AbsorbsCostIntoGoodFgAndExcludesSecondaryFromProducedQty()
+    {
+        var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+        var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+        var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+        var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+        var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+        var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Mfg ProcessLoss Test Co"), autoSave: true);
+        await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, "MPL1");
+        await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series MPL1", "SE", "SEMPL1-"), autoSave: true);
+        await fiscalYearRepository.InsertAsync(
+            new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-MPL1",
+                new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+            autoSave: true);
+
+        var fgItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "FG-MPL1", "Good Widget", ItemType.Goods), autoSave: true);
+        var scrapItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "SCRAP-MPL1", "Widget Scrap", ItemType.Goods), autoSave: true);
+        var rmItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "RM-MPL1", "Metal Sheet", ItemType.Goods), autoSave: true);
+
+        var sourceWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "RM Store MPL1"), autoSave: true);
+        var fgWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG Store MPL1"), autoSave: true);
+        var scrapWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Scrap Store MPL1"), autoSave: true);
+
+        await settingsRepository.InsertAsync(
+            new ManufacturingSettings(Guid.NewGuid(), company.Id) { MaterialConsumption = false }, autoSave: true);
+
+        var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-MPL1", fgItem.Id)
+        {
+            Quantity = 10m,
+            ScrapWarehouseId = scrapWarehouse.Id,
+        };
+        bom.SetFgCostAllocation(80m);
+        bom.AddItem(new BomItem(Guid.NewGuid(), bom.Id, rmItem.Id, "Metal Sheet", 10m, 10m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+        });
+        bom.AddSecondaryItem(new BomSecondaryItem(Guid.NewGuid(), bom.Id, scrapItem.Id, SecondaryItemType.Scrap, 2m)
+        {
+            ItemName = "Widget Scrap",
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 20m,
+            WarehouseId = scrapWarehouse.Id,
+        });
+        await bomRepository.InsertAsync(bom, autoSave: true);
+
+        var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-MPL1", fgItem.Id, bom.Id, quantity: 20m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            FgWarehouseId = fgWarehouse.Id,
+            ScrapWarehouseId = scrapWarehouse.Id,
+        };
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Metal Sheet", requiredQuantity: 20m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            TransferredQuantity = 20m,
+        });
+        wo.Submit();
+        wo.Start();
+        await woRepository.InsertAsync(wo, autoSave: true);
+
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+            DateTime.Today.AddDays(-1), quantityChange: 100m, valuationRate: 10m,
+            balanceQuantity: 100m, balanceValue: 1000m)
+        {
+            StockQueue = "[[100,10]]",
+        }, autoSave: true);
+
+        var result = await manufacturingAppService.CreateManufactureStockEntryAsync(new CreateManufactureStockEntryDto
+        {
+            WorkOrderId = wo.Id,
+            FgQuantity = 10m,
+            ProcessLossQty = 2m,
+        });
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var draftEntry = await seRepository.GetAsync(result.StockEntryId, includeDetails: true);
+            draftEntry.FgCompletedQty.ShouldBe(10m);
+            draftEntry.ProcessLossQty.ShouldBe(2m);
+
+            var fgLine = draftEntry.Items.Single(i => i.ItemId == fgItem.Id);
+            fgLine.Quantity.ShouldBe(8m);
+            fgLine.ValuationRate.ShouldBe(10m); // (100 RM * 80%) / 8 good units = 10
+
+            var scrapLine = draftEntry.Items.Single(i => i.ItemId == scrapItem.Id);
+            scrapLine.Quantity.ShouldBe(2m);
+            scrapLine.TargetWarehouseId.ShouldBe(scrapWarehouse.Id);
+            scrapLine.ValuationRate.ShouldBe(10m); // (100 RM * 20%) / 2 scrap units = 10
+        });
+
+        await stockEntryAppService.SubmitAsync(result.StockEntryId);
+        await stockEntryAppService.PostAsync(result.StockEntryId);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var woAfterPost = await woRepository.GetAsync(wo.Id);
+            woAfterPost.ProducedQuantity.ShouldBe(8m);
+            woAfterPost.ProcessLossQty.ShouldBe(2m);
+            woAfterPost.Status.ShouldBe(WorkOrderStatus.InProcess);
+        });
+
+        await stockEntryAppService.CancelAsync(result.StockEntryId);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var woAfterCancel = await woRepository.GetAsync(wo.Id);
+            woAfterCancel.ProducedQuantity.ShouldBe(0m);
+            woAfterCancel.ProcessLossQty.ShouldBe(0m);
+            woAfterCancel.Status.ShouldBe(WorkOrderStatus.InProcess);
+        });
+    }
+
+    [Fact]
+    public async Task RecordProductionAsync_WithProcessLoss_SetsFgCompletedQtyToTotalAndPassesBomValidation()
+    {
+        var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+        var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+        var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+        var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+        var fiscalYearRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+        var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+        var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+
+        var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "RecProd Loss Co"), autoSave: true);
+        await SeedStockEntryGlRulesAsync(companyRepository, accountRepository, company.Id, "RPL1");
+        await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series RPL1", "SE", "SERPL1-"), autoSave: true);
+        await fiscalYearRepository.InsertAsync(
+            new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-RPL1",
+                new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+            autoSave: true);
+
+        var fgItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "FG-RPL1", "Widget RPL", ItemType.Goods), autoSave: true);
+        var rmItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "RM-RPL1", "Raw RPL", ItemType.Goods), autoSave: true);
+        var sourceWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "RM Store RPL1"), autoSave: true);
+        var fgWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG Store RPL1"), autoSave: true);
+
+        await settingsRepository.InsertAsync(
+            new ManufacturingSettings(Guid.NewGuid(), company.Id) { MaterialConsumption = false }, autoSave: true);
+
+        var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-RPL1", fgItem.Id)
+        {
+            Quantity = 10m,
+        };
+        bom.AddItem(new BomItem(Guid.NewGuid(), bom.Id, rmItem.Id, "Raw RPL", 10m, 10m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+        });
+        await bomRepository.InsertAsync(bom, autoSave: true);
+
+        var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-RPL1", fgItem.Id, bom.Id, quantity: 10m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            FgWarehouseId = fgWarehouse.Id,
+        };
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Raw RPL", requiredQuantity: 10m)
+        {
+            SourceWarehouseId = sourceWarehouse.Id,
+            TransferredQuantity = 10m,
+        });
+        wo.Submit();
+        wo.Start();
+        await woRepository.InsertAsync(wo, autoSave: true);
+
+        await sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+            DateTime.Today.AddDays(-1), quantityChange: 100m, valuationRate: 10m,
+            balanceQuantity: 100m, balanceValue: 1000m)
+        {
+            StockQueue = "[[100,10]]",
+        }, autoSave: true);
+
+        // Produce 8 good + 2 process loss = 10 total manufactured against 10 BOM RM
+        await manufacturingAppService.RecordProductionAsync(wo.Id, quantity: 8m, processLossQty: 2m);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var woAfter = await woRepository.GetAsync(wo.Id);
+            woAfter.ProducedQuantity.ShouldBe(8m);
+            woAfter.ProcessLossQty.ShouldBe(2m);
+            woAfter.Status.ShouldBe(WorkOrderStatus.Completed);
+
+            var entry = (await seRepository.GetListAsync(
+                se => se.WorkOrderId == wo.Id && se.EntryType == StockEntryType.Manufacture, includeDetails: true))
+                .Single();
+            entry.FgCompletedQty.ShouldBe(10m);
+            entry.ProcessLossQty.ShouldBe(2m);
+
+            var reloadedBom = await bomRepository.GetAsync(bom.Id);
+            reloadedBom.FgCostAllocationPercentage.ShouldBe(100m);
+
+            var rmLine = entry.Items.Single(i => i.ItemId == rmItem.Id);
+            rmLine.ValuationRate.ShouldBe(10m);
+
+            var fgLine = entry.Items.Single(i => i.ItemId == fgItem.Id);
+            fgLine.Quantity.ShouldBe(8m);
+            fgLine.ValuationRate.ShouldBe(12.5m); // 100 RM cost absorbed over 8 good units
+        });
+    }
 }

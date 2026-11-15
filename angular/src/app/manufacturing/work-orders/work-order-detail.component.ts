@@ -447,14 +447,28 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                 <button type="button" class="btn-close" (click)="showManufactureDialog.set(false)"></button>
               </div>
               <div class="modal-body">
-                <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
-                <input type="number" class="form-control" [min]="0.001" [max]="allowedProductionQty"
-                       [ngModel]="manufactureQty()" (ngModelChange)="manufactureQty.set($event)" step="0.01">
-                <small class="text-muted">{{ '::Remaining' | abpLocalization }}: {{ allowedProductionQty | number:'1.2-2' }}</small>
+                <div class="mb-2">
+                  <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
+                  <input type="number" class="form-control" [min]="0.001" [max]="allowedProductionQty"
+                         [ngModel]="manufactureQty()" (ngModelChange)="manufactureQty.set($event)" step="0.01">
+                  <small class="text-muted">{{ '::Remaining' | abpLocalization }}: {{ allowedProductionQty | number:'1.2-2' }}</small>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">{{ '::ProcessLossQty' | abpLocalization }}</label>
+                  <input type="number" class="form-control" [min]="0" [max]="manufactureQty()"
+                         [ngModel]="manufactureProcessLossQty()" (ngModelChange)="manufactureProcessLossQty.set($event ?? 0)" step="0.01">
+                  <small class="text-muted">{{ '::ProcessLossHelp' | abpLocalization }}</small>
+                </div>
+                @if (manufactureProcessLossQty() > 0) {
+                  <div class="alert alert-info py-1 px-2 mb-0 small">
+                    {{ '::FinishedGoodQty' | abpLocalization }}: <strong>{{ netManufactureOutputQty | number:'1.2-2' }}</strong>
+                  </div>
+                }
               </div>
               <div class="modal-footer py-2">
                 <button class="btn btn-sm btn-secondary" (click)="showManufactureDialog.set(false)">{{ '::Cancel' | abpLocalization }}</button>
-                <button class="btn btn-sm btn-primary" (click)="createManufactureEntry()" [disabled]="!manufactureQty() || manufactureQty() <= 0">
+                <button class="btn btn-sm btn-primary" (click)="createManufactureEntry()"
+                        [disabled]="!manufactureQty() || manufactureQty() <= 0 || manufactureProcessLossQty() < 0 || manufactureQty() <= manufactureProcessLossQty()">
                   <i class="fa fa-check me-1"></i>{{ '::Manufacture' | abpLocalization }}
                 </button>
               </div>
@@ -670,17 +684,18 @@ export class WorkOrderDetailComponent implements OnInit {
   get pendingProductionQty(): number {
     const wo = this.wo();
     if (!wo) return 0;
-    return Math.max(0, Math.round(((wo.quantity ?? 0) - (wo.producedQuantity ?? 0)) * 1000) / 1000);
+    const manufactured = (wo.producedQuantity ?? 0) + (wo.processLossQty ?? 0);
+    return Math.max(0, Math.round(((wo.quantity ?? 0) - manufactured) * 1000) / 1000);
   }
 
   get allowedProductionQty(): number {
     const wo = this.wo();
     if (!wo) return 0;
     const qty = wo.quantity ?? 0;
-    const produced = wo.producedQuantity ?? 0;
+    const manufactured = (wo.producedQuantity ?? 0) + (wo.processLossQty ?? 0);
     const overproductionPct = wo.overproductionPercentage ?? 5;
     const maxAllowed = qty + (qty * overproductionPct) / 100;
-    return Math.max(0, Math.round((maxAllowed - produced) * 1000) / 1000);
+    return Math.max(0, Math.round((maxAllowed - manufactured) * 1000) / 1000);
   }
 
   get hasRemainingProductionQty(): boolean {
@@ -826,23 +841,30 @@ export class WorkOrderDetailComponent implements OnInit {
 
   showManufactureDialog = signal(false);
   manufactureQty = signal(0);
+  manufactureProcessLossQty = signal(0);
+
+  get netManufactureOutputQty(): number {
+    return Math.max(0, Math.round((this.manufactureQty() - this.manufactureProcessLossQty()) * 1000) / 1000);
+  }
 
   openManufactureDialog() {
     this.manufactureQty.set(this.pendingProductionQty || this.allowedProductionQty);
+    this.manufactureProcessLossQty.set(0);
     this.showManufactureDialog.set(true);
   }
 
   createManufactureEntry() {
     const wo = this.wo()!;
     const fgQty = this.manufactureQty();
-    if (!fgQty || fgQty <= 0) return;
+    const processLossQty = this.manufactureProcessLossQty();
+    if (!fgQty || fgQty <= 0 || processLossQty < 0 || fgQty <= processLossQty) return;
     this.showManufactureDialog.set(false);
 
     this.isLoading.set(true);
     this.manufacturingService.createManufactureStockEntry({
       workOrderId: wo.id,
       fgQuantity: fgQty,
-      processLossQty: 0,
+      processLossQty,
     }).subscribe({
       next: (se) => {
         this.isLoading.set(false);

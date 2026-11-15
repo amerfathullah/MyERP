@@ -2177,7 +2177,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             WorkOrderId = wo.Id,
             EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
-            FgCompletedQty = quantity,
+            FgCompletedQty = productionParams.TotalFgQty,
             ProcessLossQty = processLossQty,
             Notes = $"Production recorded — WO {wo.WorkOrderNumber}",
         };
@@ -2270,25 +2270,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var fgCostAllocationPct = bom.FgCostAllocationPercentage;
         var fgAllocatedCost = totalRmCost * (fgCostAllocationPct / 100m);
 
-        // Operating cost from BOM operations (ERPNext PR #59804 / commit 27a344c438)
-        var unitOperatingCost = (bom.Quantity > 0 && bom.OperatingCost > 0)
-            ? bom.OperatingCost / bom.Quantity
-            : 0m;
-        var operatingCost = Math.Round(unitOperatingCost * quantity, 4);
-        if (operatingCost > 0)
-        {
-            entry.TotalAdditionalCosts += operatingCost;
-        }
-
-        // Additional operating cost from Work Order (ERPNext PR #62257 / commit 454fbb3182)
-        if (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0)
-        {
-            var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * quantity, 4);
-            if (addlCost > 0)
-            {
-                entry.TotalAdditionalCosts += addlCost;
-            }
-        }
+        // Operating costs scale by total manufactured qty (including process loss)
+        entry.TotalAdditionalCosts += CalculateManufactureAdditionalCosts(wo, bom, productionParams.TotalFgQty);
 
         // Per PR #57334: when consumed RM cost is known to be zero (free inputs),
         // the FG rate should also be zero — don't fall back to BOM cost/valuation rate.
@@ -2316,29 +2299,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // Produce secondary items (co-products, by-products, scrap) when BOM defines them
         // Per gotcha #85: v16 secondary items replace v15 scrap items
         // Per gotcha #518: cost distributed by CostAllocationPercentage
-        foreach (var secItem in bom.SecondaryItems)
-        {
-            var secQty = secItem.EffectiveQuantity * (productionParams.TotalFgQty / bom.Quantity);
-            if (secQty <= 0) continue;
-
-            var secCost = totalRmCost * (secItem.CostAllocationPercentage / 100m);
-            var secRate = secCost / secQty;
-
-            // Scrap goes to scrap warehouse; co-products/by-products go to FG warehouse
-            var secWarehouseId = secItem.SecondaryItemType == SecondaryItemType.Scrap
-                ? (wo.ScrapWarehouseId ?? bom.ScrapWarehouseId ?? productionParams.TargetWarehouseId)
-                : productionParams.TargetWarehouseId;
-
-            if (secWarehouseId.HasValue)
-            {
-                entry.AddItem(
-                    itemId: secItem.ItemId, quantity: secQty,
-                    sourceWarehouseId: null, targetWarehouseId: secWarehouseId.Value,
-                    valuationRate: secRate,
-                    secondaryItemType: secItem.SecondaryItemType.ToString(),
-                    processLossPercentage: secItem.ProcessLossPercentage);
-            }
-        }
+        AddManufactureSecondaryItems(
+            entry, wo, bom, productionParams.TotalFgQty, totalRmCost, productionParams.TargetWarehouseId);
 
         // Distribute operating / additional costs to finished items
         if (entry.TotalAdditionalCosts > 0)
@@ -3040,6 +3002,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "FG Quantity");
 
+        if (input.ProcessLossQty < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Process Loss Qty cannot be negative.");
+        }
+
         // Per ERPNext PR #59567 / commit c625a6bafa: manufacture qty must exceed process loss to produce a finished good
         if (input.ProcessLossQty > 0 && (input.FgQuantity - input.ProcessLossQty) <= 0)
         {
@@ -3047,15 +3015,15 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("detail", $"Qty for Manufacture must be greater than the process loss of {input.ProcessLossQty} to produce a finished good.");
         }
 
-        // Overproduction check
+        // Overproduction check includes cumulative ProcessLossQty (ERPNext PR #58847)
         var settings = await GetManufacturingSettingsAsync(wo.CompanyId);
         var overproductionPct = settings?.OverproductionPercentage ?? 5m;
         var maxAllowed = wo.Quantity * (1 + overproductionPct / 100m);
-        if (wo.ProducedQuantity + input.FgQuantity > maxAllowed)
+        if (wo.ProducedQuantity + wo.ProcessLossQty + input.FgQuantity > maxAllowed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
                 .WithData("maxAllowed", maxAllowed)
-                .WithData("produced", wo.ProducedQuantity)
+                .WithData("produced", wo.ProducedQuantity + wo.ProcessLossQty)
                 .WithData("attempted", input.FgQuantity);
         }
 
@@ -3192,32 +3160,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // (so it isn't re-issued), but its value must still land in the FG's cost.
         totalRmCost += await GetPriorMaterialConsumptionValueAsync(wo.Id);
 
-        // Operating cost from BOM operations (ERPNext PR #59804 / commit 27a344c438)
+        // Operating cost from BOM operations and WO additional operating cost
         var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
-        var unitOperatingCost = (bom.Quantity > 0 && bom.OperatingCost > 0)
-            ? bom.OperatingCost / bom.Quantity
-            : 0m;
-        var operatingCost = Math.Round(unitOperatingCost * input.FgQuantity, 4);
-        if (operatingCost > 0)
-        {
-            entry.TotalAdditionalCosts += operatingCost;
-        }
+        entry.TotalAdditionalCosts += CalculateManufactureAdditionalCosts(wo, bom, input.FgQuantity);
 
-        // Add FG production item (incoming to FG warehouse)
-        // FG rate = total RM cost / fg_qty (absorbed costing)
+        // Add good FG production item (excluding process loss so process loss absorbs into FG rate)
         // Per PR #57334: when consumed cost is known (RM rows present) but zero (free inputs),
         // preserve zero rate — do NOT fall back to BOM cost or existing valuation rate.
-        // has_consumption_basis = true when any RM row has a source warehouse
+        var fgOutputQty = input.FgQuantity - input.ProcessLossQty;
+        var fgAllocatedCost = totalRmCost * (bom.FgCostAllocationPercentage / 100m);
         var hasConsumptionBasis = entry.Items.Any(i => i.SourceWarehouseId.HasValue);
-        var fgRate = input.FgQuantity > 0 ? totalRmCost / input.FgQuantity : 0m;
-        // If rate is zero but consumption basis exists, it's a REAL zero cost — don't override
+        var fgRate = fgOutputQty > 0 ? fgAllocatedCost / fgOutputQty : 0m;
         entry.AddItem(
             itemId: wo.ItemId,
-            quantity: input.FgQuantity,
+            quantity: fgOutputQty,
             sourceWarehouseId: null,
             targetWarehouseId: fgWarehouseId.Value,
             valuationRate: fgRate,
             isFinishedItem: true);
+
+        AddManufactureSecondaryItems(entry, wo, bom, input.FgQuantity, totalRmCost, fgWarehouseId);
 
         if (entry.TotalAdditionalCosts > 0)
         {
@@ -3241,6 +3203,57 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             ItemCount = entry.Items.Count,
             TotalValue = totalRmCost,
         };
+    }
+
+    private static decimal CalculateManufactureAdditionalCosts(
+        WorkOrder wo, BillOfMaterials bom, decimal totalManufacturedQty)
+    {
+        var unitOperatingCost = (bom.Quantity > 0 && bom.OperatingCost > 0)
+            ? bom.OperatingCost / bom.Quantity
+            : 0m;
+        var operatingCost = Math.Round(unitOperatingCost * totalManufacturedQty, 4);
+
+        var addlCost = (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0)
+            ? Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * totalManufacturedQty, 4)
+            : 0m;
+
+        return operatingCost + addlCost;
+    }
+
+    private static void AddManufactureSecondaryItems(
+        Inventory.Entities.StockEntry entry,
+        WorkOrder wo,
+        BillOfMaterials bom,
+        decimal totalManufacturedQty,
+        decimal totalRmCost,
+        Guid? fallbackTargetWarehouseId)
+    {
+        if (bom.Quantity <= 0 || totalManufacturedQty <= 0) return;
+
+        foreach (var secItem in bom.SecondaryItems)
+        {
+            var secQty = secItem.EffectiveQuantity * (totalManufacturedQty / bom.Quantity);
+            if (secQty <= 0) continue;
+
+            var secCost = totalRmCost * (secItem.CostAllocationPercentage / 100m);
+            var secRate = secCost / secQty;
+
+            var secWarehouseId = secItem.SecondaryItemType == SecondaryItemType.Scrap
+                ? (wo.ScrapWarehouseId ?? bom.ScrapWarehouseId ?? fallbackTargetWarehouseId)
+                : fallbackTargetWarehouseId;
+
+            if (secWarehouseId.HasValue)
+            {
+                entry.AddItem(
+                    itemId: secItem.ItemId,
+                    quantity: secQty,
+                    sourceWarehouseId: null,
+                    targetWarehouseId: secWarehouseId.Value,
+                    valuationRate: secRate,
+                    secondaryItemType: secItem.SecondaryItemType.ToString(),
+                    processLossPercentage: secItem.ProcessLossPercentage);
+            }
+        }
     }
 
     /// <summary>
