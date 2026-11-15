@@ -216,4 +216,87 @@ public class BatchAutoPickMultiRowTests
         // Only today's 5 qty is available; tomorrow's 10 qty is excluded by cutoff
         Assert.Equal(5m, available[0].AvailableQuantity);
     }
+
+    [Fact]
+    public async Task AutoPickBatches_RoundsFractionalRowStockQtyToEntryPrecision_PR66306()
+    {
+        // Per ERPNext PR #66306: each row consumes its stock qty rounded to Serial/Batch Entry precision (4dp).
+        // Batch1 has 1.0000; Row1=0.33336 (-> 0.3334), Row2=0.33336 (-> 0.3334), Row3=0.33326 (-> 0.3333).
+        // Raw sum 0.33336 + 0.33336 + 0.33326 = 0.99998 <= 1, so unrounded subtraction wrongly put Row3 on Batch1 (total entries = 1.0001 -> negative stock).
+        var batch1 = new Batch(Guid.NewGuid(), _itemId, "BATCH-FRAC-1", null) { CreationTime = DateTime.UtcNow.AddMinutes(-20) };
+        var batch2 = new Batch(Guid.NewGuid(), _itemId, "BATCH-FRAC-2", null) { CreationTime = DateTime.UtcNow.AddMinutes(-10) };
+
+        var warehouse = new Warehouse(_warehouseId, _companyId, "Stores");
+        _warehouseRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }.AsQueryable()));
+        _batchRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Batch> { batch1, batch2 }.AsQueryable()));
+
+        var item = new Item(Guid.NewGuid(), _companyId, "ITEM-FRAC", "Fractional Batch Item", ItemType.Goods) { HasBatchNo = true };
+        _itemRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 1m, 10m, 1m, 10m) { BatchId = batch1.Id },
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 1m, 10m, 1m, 10m) { BatchId = batch2.Id }
+        };
+        _sleRepository.GetQueryableAsync().Returns(Task.FromResult(sles.AsQueryable()));
+
+        var input = new AutoPickBatchesForDocumentDto
+        {
+            CompanyId = _companyId,
+            Rows = new List<AutoPickDocumentRowDto>
+            {
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33336m },
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33336m },
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33326m },
+            }
+        };
+
+        var result = await _appService.AutoPickBatchesForDocumentAsync(input);
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal(batch1.Id, result[0].BatchId);
+        Assert.Equal(batch1.Id, result[1].BatchId);
+        // Only 0.3332 remains on Batch1 (not enough for Row3's rounded 0.3333), so Batch1 is not over-allocated.
+        Assert.Null(result[2].BatchId);
+    }
+
+    [Fact]
+    public async Task AutoPickBatches_DepletedRoundedBatchMovesToNextBatch_PR66306()
+    {
+        // Batch1 has 0.6668 (2 * 0.3334). Raw sum of Row1+Row2 (0.66672) would leave 0.00008 on Batch1 and block Batch2.
+        var batch1 = new Batch(Guid.NewGuid(), _itemId, "BATCH-EXACT-1", null) { CreationTime = DateTime.UtcNow.AddMinutes(-20) };
+        var batch2 = new Batch(Guid.NewGuid(), _itemId, "BATCH-EXACT-2", null) { CreationTime = DateTime.UtcNow.AddMinutes(-10) };
+
+        var warehouse = new Warehouse(_warehouseId, _companyId, "Stores");
+        _warehouseRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }.AsQueryable()));
+        _batchRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Batch> { batch1, batch2 }.AsQueryable()));
+
+        var item = new Item(Guid.NewGuid(), _companyId, "ITEM-EXACT", "Exact Batch Item", ItemType.Goods) { HasBatchNo = true };
+        _itemRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 0.6668m, 10m, 0.6668m, 6.668m) { BatchId = batch1.Id },
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 1m, 10m, 1m, 10m) { BatchId = batch2.Id }
+        };
+        _sleRepository.GetQueryableAsync().Returns(Task.FromResult(sles.AsQueryable()));
+
+        var input = new AutoPickBatchesForDocumentDto
+        {
+            CompanyId = _companyId,
+            Rows = new List<AutoPickDocumentRowDto>
+            {
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33336m },
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33336m },
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 0.33326m },
+            }
+        };
+
+        var result = await _appService.AutoPickBatchesForDocumentAsync(input);
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal(batch1.Id, result[0].BatchId);
+        Assert.Equal(batch1.Id, result[1].BatchId);
+        Assert.Equal(batch2.Id, result[2].BatchId);
+    }
 }

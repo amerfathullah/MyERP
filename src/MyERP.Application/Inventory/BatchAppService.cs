@@ -788,20 +788,21 @@ public class BatchAppService : ApplicationService, IBatchAppService
             .Where(item => item.AvailableQuantity > 0)
             .ToList();
 
-        // Per ERPNext commit 199cae9496 & PR #60120:
-        // Subtract stock qty of same-document rows from batch availability.
-        // Scoped by warehouse when provided to prevent cross-warehouse depletion.
+        // Per ERPNext commit 199cae9496, PR #60120, & PR #66306:
+        // Subtract stock qty of same-document rows from batch availability, rounding each row's qty
+        // to the Serial and Batch Entry precision (4dp) so unrounded fractional UOM conversions don't leave negative batch stock.
+        const int entryQtyPrecision = 4;
         if (input.SameDocumentBatchQuantities != null && input.SameDocumentBatchQuantities.Count > 0)
         {
             var whGrouped = input.SameDocumentBatchQuantities
                 .Where(x => x.WarehouseId.HasValue)
                 .GroupBy(x => (x.BatchId, WarehouseId: x.WarehouseId!.Value))
-                .ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
+                .ToDictionary(g => g.Key, g => g.Sum(x => Math.Round(x.StockQty, entryQtyPrecision, MidpointRounding.AwayFromZero)));
 
             var globalGrouped = input.SameDocumentBatchQuantities
                 .Where(x => !x.WarehouseId.HasValue)
                 .GroupBy(x => x.BatchId)
-                .ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
+                .ToDictionary(g => g.Key, g => g.Sum(x => Math.Round(x.StockQty, entryQtyPrecision, MidpointRounding.AwayFromZero)));
 
             foreach (var item in list)
             {
@@ -817,7 +818,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
                 if (consumedQty > 0)
                 {
-                    item.AvailableQuantity -= consumedQty;
+                    item.AvailableQuantity = Math.Round(item.AvailableQuantity - consumedQty, entryQtyPrecision, MidpointRounding.AwayFromZero);
                 }
             }
 
@@ -854,8 +855,11 @@ public class BatchAppService : ApplicationService, IBatchAppService
         // Exclude expired batches
         var validBatches = availableBatches.Where(b => !b.IsExpired).ToList();
 
+        var roundedRequiredQty = Math.Round(input.RequiredStockQty, 4, MidpointRounding.AwayFromZero);
+        var effectiveRequiredQty = roundedRequiredQty > 0m ? roundedRequiredQty : input.RequiredStockQty;
+
         var firstBatch = validBatches.FirstOrDefault();
-        if (firstBatch != null && firstBatch.AvailableQuantity >= input.RequiredStockQty)
+        if (firstBatch != null && firstBatch.AvailableQuantity >= effectiveRequiredQty)
         {
             return firstBatch;
         }
@@ -866,7 +870,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
     /// <summary>
     /// Auto-picks batches for multiple document rows sequentially, preventing identical batch
     /// allocation when multiple rows require stock from the same item and warehouse.
-    /// Per ERPNext PR #60120 (commits d148eeebfd, 79d66532e2, bd1fa04508).
+    /// Per ERPNext PR #60120 (commits d148eeebfd, 79d66532e2, bd1fa04508) and PR #66306.
     /// </summary>
     public async Task<List<AutoPickedBatchAllocationDto>> AutoPickBatchesForDocumentAsync(AutoPickBatchesForDocumentDto input)
     {
@@ -890,14 +894,14 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 .ToDictionary(b => b.Id, b => b.BatchNo);
         }
 
-        // 1. Pre-register all rows with preselected batch into exclusions
+        // 1. Pre-register all rows with preselected batch into exclusions (rounded to entry qty precision)
         foreach (var row in input.Rows.Where(r => r.PreselectedBatchId.HasValue && r.RequiredStockQty > 0))
         {
             cumulativeExclusions.Add(new ExcludedBatchQtyDto
             {
                 BatchId = row.PreselectedBatchId!.Value,
                 WarehouseId = row.WarehouseId,
-                StockQty = row.RequiredStockQty,
+                StockQty = Math.Round(row.RequiredStockQty, 4, MidpointRounding.AwayFromZero),
             });
         }
 
@@ -957,7 +961,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 {
                     BatchId = picked.BatchId,
                     WarehouseId = row.WarehouseId,
-                    StockQty = row.RequiredStockQty,
+                    StockQty = Math.Round(row.RequiredStockQty, 4, MidpointRounding.AwayFromZero),
                 });
             }
             else
