@@ -331,7 +331,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         UpdateFulfillmentStatus();
     }
 
-    private void RecalculateTotals()
+    public void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.LineTotal);
         TaxAmount = _items.Sum(i => i.TaxAmount);

@@ -983,8 +983,12 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var previousGrandTotal = po.GrandTotal;
         var warnings = new List<string>();
         var updatedCount = 0;
+        var removedItemIds = input.RemovedItemIds ?? new List<Guid>();
+        var mrDeltas = new List<(Guid MaterialRequestItemId, decimal OldQuantity, decimal NewQuantity, decimal OldConversionFactor, decimal NewConversionFactor)>();
+        var soDeltas = new List<(Guid SalesOrderItemId, decimal DeltaStockQty)>();
+        var sqDeltas = new List<(Guid? SupplierQuotationItemId, Guid ItemId, decimal DeltaStockQty)>();
 
-        foreach (var removeId in input.RemovedItemIds)
+        foreach (var removeId in removedItemIds)
         {
             var poItemToRemove = po.Items.FirstOrDefault(i => i.Id == removeId);
             if (poItemToRemove == null)
@@ -1012,6 +1016,20 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                     boItem.UnrecordOrder(poItemToRemove.StockQty);
                     await boRepoForRemove.UpdateAsync(bo!);
                 }
+            }
+
+            if (poItemToRemove.MaterialRequestItemId.HasValue)
+            {
+                mrDeltas.Add((poItemToRemove.MaterialRequestItemId.Value, poItemToRemove.Quantity, 0m,
+                    poItemToRemove.ConversionFactor, poItemToRemove.ConversionFactor));
+            }
+            if (poItemToRemove.SalesOrderItemId.HasValue)
+            {
+                soDeltas.Add((poItemToRemove.SalesOrderItemId.Value, -poItemToRemove.StockQty));
+            }
+            if (poItemToRemove.SupplierQuotationItemId.HasValue || po.SupplierQuotationId.HasValue)
+            {
+                sqDeltas.Add((poItemToRemove.SupplierQuotationItemId, poItemToRemove.ItemId, -poItemToRemove.StockQty));
             }
 
             po.RemoveItem(removeId);
@@ -1062,7 +1080,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                         .WithData("requestedRate", update.UnitPrice);
             }
 
-            // Track old qty for Bin ordered qty adjustment
+            // Track old qty & conversion factor for Bin and upstream fulfillment adjustments
+            var oldQuantity = poItem.Quantity;
+            var oldConversionFactor = poItem.ConversionFactor;
             var oldStockQty = poItem.StockQty;
 
             // Update fields
@@ -1080,6 +1100,19 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             {
                 await _binService.UpdateOrderedQtyAsync(
                     poItem.ItemId, poItem.WarehouseId.Value, qtyDelta, po.TenantId);
+            }
+
+            if (poItem.MaterialRequestItemId.HasValue && (qtyDelta != 0 || update.Quantity != oldQuantity))
+            {
+                mrDeltas.Add((poItem.MaterialRequestItemId.Value, oldQuantity, update.Quantity, oldConversionFactor, newConversionFactor));
+            }
+            if (qtyDelta != 0 && poItem.SalesOrderItemId.HasValue)
+            {
+                soDeltas.Add((poItem.SalesOrderItemId.Value, qtyDelta));
+            }
+            if (qtyDelta != 0 && (poItem.SupplierQuotationItemId.HasValue || po.SupplierQuotationId.HasValue))
+            {
+                sqDeltas.Add((poItem.SupplierQuotationItemId, poItem.ItemId, qtyDelta));
             }
 
             // Adjust the linked Blanket Order's allocation for the same delta (validates allowance on increase)
@@ -1108,7 +1141,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         }
 
         // Per ERPNext PR #61904 / commit 67ebd725eb: validate Party Specific Item rules after updating items
-        var companyRestrictionForUpdate = LazyServiceProvider.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
+        var companyRestrictionForUpdate = LazyServiceProvider?.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
         if (companyRestrictionForUpdate != null && po.Items.Count > 0)
         {
             await companyRestrictionForUpdate.ValidateTransactionCompanyAsync(
@@ -1117,13 +1150,30 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 supplierIds: new[] { po.SupplierId });
         }
 
+        po.RecalculateTotals();
+        po.UpdateFulfillmentStatus();
+
+        await _purchaseOrderManager.AdjustMaterialRequestOrderedQtyAsync(mrDeltas);
+        if (soDeltas.Count > 0)
+        {
+            var soRepoForUpdate = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            if (soRepoForUpdate != null)
+                await _purchaseOrderManager.AdjustSalesOrderOrderedQtyAsync(soDeltas, soRepoForUpdate);
+        }
+        if (sqDeltas.Count > 0)
+        {
+            var sqRepoForUpdate = LazyServiceProvider?.LazyGetService<IRepository<SupplierQuotation, Guid>>();
+            if (sqRepoForUpdate != null)
+                await _purchaseOrderManager.AdjustSupplierQuotationOrderedQtyAsync(po.SupplierQuotationId, sqDeltas, sqRepoForUpdate);
+        }
+
         await _repository.UpdateAsync(po, autoSave: true);
 
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PurchaseOrder", po.Id, "ItemsUpdated",
             po.CompanyId, po.OrderNumber, po.Status.ToString(), po.Status.ToString(),
-            CurrentUser.Id, $"Updated {updatedCount} items, removed {input.RemovedItemIds.Count}. Grand total: {previousGrandTotal} → {po.GrandTotal}",
+            CurrentUser.Id, $"Updated {updatedCount} items, removed {removedItemIds.Count}. Grand total: {previousGrandTotal} → {po.GrandTotal}",
             tenantId: po.TenantId));
 
         return new UpdateOrderItemsResultDto

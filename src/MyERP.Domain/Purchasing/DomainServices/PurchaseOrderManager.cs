@@ -215,6 +215,145 @@ public class PurchaseOrderManager : DomainService
     }
 
     /// <summary>
+    /// Adjusts Material Request items' OrderedQuantity and fulfillment status when PO items
+    /// are updated or removed via Update Items. Converts deltas into MR UOM.
+    /// </summary>
+    public async Task AdjustMaterialRequestOrderedQtyAsync(
+        IReadOnlyList<(Guid MaterialRequestItemId, decimal OldQuantity, decimal NewQuantity, decimal OldConversionFactor, decimal NewConversionFactor)> deltas)
+    {
+        if (deltas.Count == 0) return;
+
+        var mrItemIds = deltas.Select(d => d.MaterialRequestItemId).Distinct().ToList();
+        var mrQuery = await _mrRepository.WithDetailsAsync(mr => mr.Items)
+            ?? await _mrRepository.GetQueryableAsync();
+        var affectedMRs = mrQuery
+            .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var mr in affectedMRs)
+        {
+            var touched = false;
+            foreach (var d in deltas)
+            {
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == d.MaterialRequestItemId);
+                if (mrItem == null) continue;
+
+                var mrFactor = mrItem.ConversionFactor > 0m ? mrItem.ConversionFactor : 1m;
+                var oldCf = d.OldConversionFactor > 0m ? d.OldConversionFactor : 1m;
+                var newCf = d.NewConversionFactor > 0m ? d.NewConversionFactor : 1m;
+
+                var deltaInMrUom = (oldCf == mrFactor && newCf == mrFactor)
+                    ? (d.NewQuantity - d.OldQuantity)
+                    : ((d.NewQuantity * newCf) - (d.OldQuantity * oldCf)) / mrFactor;
+
+                if (deltaInMrUom == 0m) continue;
+
+                mrItem.OrderedQuantity = Math.Max(0m, mrItem.OrderedQuantity + deltaInMrUom);
+                touched = true;
+            }
+
+            if (touched)
+            {
+                mr.UpdateFulfillmentStatus();
+                await _mrRepository.UpdateAsync(mr);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adjusts Sales Order items' OrderedQty (in stock UOM) when linked PO items are
+    /// updated or removed via Update Items (per ERPNext commit cf91622391).
+    /// </summary>
+    public async Task AdjustSalesOrderOrderedQtyAsync(
+        IReadOnlyList<(Guid SalesOrderItemId, decimal DeltaStockQty)> deltas,
+        IRepository<MyERP.Sales.Entities.SalesOrder, Guid> soRepository)
+    {
+        var nonZero = deltas.Where(d => d.DeltaStockQty != 0m).ToList();
+        if (nonZero.Count == 0) return;
+
+        var soItemIds = nonZero.Select(d => d.SalesOrderItemId).Distinct().ToList();
+        var soQuery = await soRepository.WithDetailsAsync(so => so.Items)
+            ?? await soRepository.GetQueryableAsync();
+        var affectedSOs = soQuery
+            .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var so in affectedSOs)
+        {
+            var touched = false;
+            foreach (var d in nonZero)
+            {
+                var soItem = so.Items.FirstOrDefault(i => i.Id == d.SalesOrderItemId);
+                if (soItem == null) continue;
+
+                soItem.OrderedQty = Math.Max(0m, soItem.OrderedQty + d.DeltaStockQty);
+                touched = true;
+            }
+
+            if (touched)
+            {
+                await soRepository.UpdateAsync(so);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adjusts Supplier Quotation items' OrderedQty and fulfillment status when linked PO items
+    /// are updated or removed via Update Items.
+    /// </summary>
+    public async Task AdjustSupplierQuotationOrderedQtyAsync(
+        Guid? orderSupplierQuotationId,
+        IReadOnlyList<(Guid? SupplierQuotationItemId, Guid ItemId, decimal DeltaStockQty)> deltas,
+        IRepository<SupplierQuotation, Guid> sqRepository)
+    {
+        var relevant = deltas
+            .Where(d => d.DeltaStockQty != 0m && (d.SupplierQuotationItemId.HasValue || orderSupplierQuotationId.HasValue))
+            .ToList();
+        if (relevant.Count == 0) return;
+
+        var sqItemIds = relevant
+            .Where(d => d.SupplierQuotationItemId.HasValue)
+            .Select(d => d.SupplierQuotationItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        var sqQuery = await sqRepository.WithDetailsAsync(sq => sq.Items)
+            ?? await sqRepository.GetQueryableAsync();
+        var affectedSQs = sqQuery
+            .Where(sq => (orderSupplierQuotationId.HasValue && sq.Id == orderSupplierQuotationId.Value)
+                      || sq.Items.Any(i => sqItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var sq in affectedSQs)
+        {
+            var touched = false;
+            foreach (var d in relevant)
+            {
+                SupplierQuotationItem? sqItem = null;
+                if (d.SupplierQuotationItemId.HasValue)
+                {
+                    sqItem = sq.Items.FirstOrDefault(i => i.Id == d.SupplierQuotationItemId.Value);
+                }
+                else if (orderSupplierQuotationId == sq.Id)
+                {
+                    sqItem = sq.Items.FirstOrDefault(i => i.ItemId == d.ItemId);
+                }
+
+                if (sqItem != null)
+                {
+                    sq.UpdateOrderedQty(sqItem.Id, d.DeltaStockQty);
+                    touched = true;
+                }
+            }
+
+            if (touched)
+            {
+                await sqRepository.UpdateAsync(sq);
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates a Purchase Receipt item does not exceed the PO's allowed receipt qty including tolerance.
     /// Per ERPNext: max_allowed = ordered_qty × (1 + allowance_pct / 100) - already_received.
     /// The allowance comes from Company.OverDeliveryReceiptAllowance (Stock Settings in ERPNext).
