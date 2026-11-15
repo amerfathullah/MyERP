@@ -43,7 +43,7 @@ interface OverdueInvoice {
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ '::Date' | abpLocalization }}</label>
-            <input type="date" class="form-control" formControlName="postingDate" />
+            <input type="date" class="form-control" formControlName="postingDate" (change)="onPostingDateChanged()" />
           </div>
           <div class="col-md-2">
             <label class="form-label">{{ '::Level' | abpLocalization }}</label>
@@ -63,11 +63,11 @@ interface OverdueInvoice {
         <div class="row mb-3">
           <div class="col-md-3">
             <label class="form-label">{{ '::Fee' | abpLocalization }}</label>
-            <input type="number" class="form-control" formControlName="dunningFee" step="0.01" />
+            <input type="number" class="form-control" formControlName="dunningFee" step="0.01" (input)="recalculate()" (change)="recalculate()" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ '::InterestRate' | abpLocalization }} (%)</label>
-            <input type="number" class="form-control" formControlName="interestRate" step="0.01" />
+            <input type="number" class="form-control" formControlName="interestRate" step="0.01" (input)="recalculate()" (change)="recalculate()" />
           </div>
         </div>
       </div></div>
@@ -183,6 +183,7 @@ export class DunningFormComponent implements OnInit {
     const dt = this.dunningTypes().find(t => t.id === id);
     if (!dt) return;
     this.form.patchValue({ dunningTypeId: id, dunningFee: dt.dunningFee, interestRate: dt.rateOfInterest });
+    this.recalculate();
   }
 
   onCustomerChanged() {
@@ -193,6 +194,47 @@ export class DunningFormComponent implements OnInit {
     }
   }
 
+  private rawOutstandingInvoices: any[] = [];
+
+  private getPostingDate(): Date {
+    const raw = this.form.value.postingDate;
+    if (raw) {
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  }
+
+  onPostingDateChanged() {
+    if (this.rawOutstandingInvoices.length > 0) {
+      const prevSelection = new Map(this.overdueInvoices().map(inv => [inv.id, inv.selected]));
+      this.overdueInvoices.set(this.mapOverdueInvoices(this.rawOutstandingInvoices, prevSelection));
+    }
+    this.recalculate();
+  }
+
+  private mapOverdueInvoices(raw: any[], prevSelection?: Map<string, boolean>): OverdueInvoice[] {
+    const postingDate = this.getPostingDate();
+    return raw
+      .map((inv: any) => {
+        const id = inv.invoiceId || inv.id;
+        const dueDate = new Date(inv.dueDate || inv.issueDate);
+        const overdueDays = Math.max(0, Math.floor((postingDate.getTime() - dueDate.getTime()) / 86400000));
+        return {
+          id,
+          invoiceNumber: inv.invoiceNumber || inv.voucherNumber || '—',
+          dueDate: inv.dueDate || inv.issueDate,
+          grandTotal: inv.grandTotal ?? 0,
+          outstandingAmount: inv.outstandingAmount ?? 0,
+          overdueDays,
+          selected: prevSelection?.has(id) ? prevSelection.get(id)! : overdueDays > 0,
+        };
+      })
+      .filter((inv: OverdueInvoice) => inv.overdueDays > 0);
+  }
+
   fetchOverdueInvoices() {
     const customerId = this.form.value.customerId;
     if (!customerId) return;
@@ -201,24 +243,8 @@ export class DunningFormComponent implements OnInit {
     this.paymentReconciliationService.getOutstandingInvoices('Customer', customerId)
       .subscribe({
         next: (res) => {
-          const today = new Date();
-          const invoices: OverdueInvoice[] = (res ?? [])
-            .filter((inv: any) => inv.outstandingAmount > 0)
-            .map((inv: any) => {
-              const dueDate = new Date(inv.dueDate || inv.issueDate);
-              const overdueDays = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / 86400000));
-              return {
-                id: inv.invoiceId || inv.id,
-                invoiceNumber: inv.invoiceNumber || inv.voucherNumber || '—',
-                dueDate: inv.dueDate || inv.issueDate,
-                grandTotal: inv.grandTotal ?? 0,
-                outstandingAmount: inv.outstandingAmount ?? 0,
-                overdueDays,
-                selected: overdueDays > 0,
-              };
-            })
-            .filter((inv: OverdueInvoice) => inv.overdueDays > 0);
-          this.overdueInvoices.set(invoices);
+          this.rawOutstandingInvoices = (res ?? []).filter((inv: any) => inv.outstandingAmount > 0);
+          this.overdueInvoices.set(this.mapOverdueInvoices(this.rawOutstandingInvoices));
           this.recalculate();
           this.fetchingInvoices.set(false);
         },
