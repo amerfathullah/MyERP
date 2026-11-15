@@ -32,6 +32,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<StockEntry, Guid>? _stockEntryRepository;
+    private readonly IRepository<ItemDefault, Guid>? _itemDefaultRepository;
 
     public ProductionPlanningReportAppService(
         IRepository<WorkOrder, Guid> workOrderRepository,
@@ -42,7 +43,8 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         IRepository<Bin, Guid> binRepository,
         IRepository<Item, Guid> itemRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
-        IRepository<StockEntry, Guid>? stockEntryRepository = null)
+        IRepository<StockEntry, Guid>? stockEntryRepository = null,
+        IRepository<ItemDefault, Guid>? itemDefaultRepository = null)
     {
         _workOrderRepository = workOrderRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -53,6 +55,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         _itemRepository = itemRepository;
         _warehouseRepository = warehouseRepository;
         _stockEntryRepository = stockEntryRepository;
+        _itemDefaultRepository = itemDefaultRepository;
     }
 
     public async Task<ProductionPlanningReportDto> GetReportAsync(ProductionPlanningReportFilterDto input)
@@ -62,6 +65,17 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
         var warehouses = await _warehouseRepository.GetListAsync();
         var warehouseMap = warehouses.ToDictionary(w => w.Id);
+
+        var itemDefaultRepo = _itemDefaultRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemDefault, Guid>>();
+        var defaultWarehouses = new Dictionary<(Guid ItemId, Guid CompanyId), Guid>();
+        if (itemDefaultRepo != null)
+        {
+            var allDefaults = await itemDefaultRepo.GetListAsync();
+            foreach (var d in allDefaults.Where(d => d.DefaultWarehouseId.HasValue))
+            {
+                defaultWarehouses[(d.ItemId, d.CompanyId)] = d.DefaultWarehouseId!.Value;
+            }
+        }
 
         var bins = await _binRepository.GetListAsync();
         // Simulation tracking dictionary for stock allotment: (ItemId, WarehouseId) -> available actual qty
@@ -91,24 +105,28 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
         if (basedOn.Equals("WorkOrder", StringComparison.OrdinalIgnoreCase))
         {
-            await ProcessWorkOrdersAsync(input, itemMap, warehouseMap, binTracker, openPOs, rows);
+            await ProcessWorkOrdersAsync(input, itemMap, warehouseMap, defaultWarehouses, binTracker, openPOs, rows);
         }
         else if (basedOn.Equals("SalesOrder", StringComparison.OrdinalIgnoreCase))
         {
-            await ProcessSalesOrdersAsync(input, itemMap, warehouseMap, binTracker, openPOs, rows);
+            await ProcessSalesOrdersAsync(input, itemMap, warehouseMap, defaultWarehouses, binTracker, openPOs, rows);
         }
         else if (basedOn.Equals("MaterialRequest", StringComparison.OrdinalIgnoreCase))
         {
-            await ProcessMaterialRequestsAsync(input, itemMap, warehouseMap, binTracker, openPOs, rows);
+            await ProcessMaterialRequestsAsync(input, itemMap, warehouseMap, defaultWarehouses, binTracker, openPOs, rows);
         }
 
-        // Apply filters
+        // Apply filters (expanding group warehouses so child leaf rows stay visible per ERPNext PR #65741)
         if (input.RawMaterialWarehouseId.HasValue)
         {
-            var targetWhName = warehouseMap.TryGetValue(input.RawMaterialWarehouseId.Value, out var wh) ? wh.Name : null;
-            if (targetWhName != null)
+            var allowedWhNames = GetExpandedWarehouseIds(input.RawMaterialWarehouseId.Value, warehouseMap)
+                .Select(id => warehouseMap.TryGetValue(id, out var w) ? w.Name : null)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (allowedWhNames.Count > 0)
             {
-                rows = rows.Where(r => r.RawMaterialWarehouse.Equals(targetWhName, StringComparison.OrdinalIgnoreCase)).ToList();
+                rows = rows.Where(r => allowedWhNames.Contains(r.RawMaterialWarehouse)).ToList();
             }
         }
 
@@ -148,6 +166,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         ProductionPlanningReportFilterDto input,
         Dictionary<Guid, Item> itemMap,
         Dictionary<Guid, Warehouse> warehouseMap,
+        Dictionary<(Guid ItemId, Guid CompanyId), Guid> defaultWarehouses,
         Dictionary<(Guid, Guid), decimal> binTracker,
         List<PurchaseOrder> openPOs,
         List<ProductionPlanningReportRowDto> rows)
@@ -221,12 +240,12 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
             foreach (var rm in items)
             {
-                var rmWhId = input.RawMaterialWarehouseId ?? rm.SourceWarehouseId ?? wo.SourceWarehouseId ?? wo.FgWarehouseId;
-                var rmWhName = GetWarehouseName(rmWhId, warehouseMap);
-
                 var rawItem = itemMap.TryGetValue(rm.ItemId, out var ri) ? ri : null;
-                var rawCode = rawItem?.ItemCode ?? string.Empty;
-                var rawName = rawItem?.ItemName ?? rm.ItemName;
+                var fallbackWhId = rm.SourceWarehouseId
+                    ?? ResolveDefaultWarehouseId(rm.ItemId, wo.CompanyId, defaultWarehouses, rawItem)
+                    ?? wo.SourceWarehouseId
+                    ?? wo.FgWarehouseId;
+                var candidateWhIds = ResolveCandidateWarehouseIds(input.RawMaterialWarehouseId, fallbackWhId, warehouseMap);
 
                 var returnedQty = returnQtyMap.GetValueOrDefault((wo.Id, rm.ItemId));
                 // Per ERPNext PR #61431 (commit 843035248a): count returned materials as needed in planning report.
@@ -235,28 +254,25 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 var grossIssued = Math.Max(grossTransferred, rm.ConsumedQuantity);
                 var issuedQty = Math.Max(0m, grossIssued - returnedQty);
                 var netRequiredQty = Math.Max(rm.RequiredQuantity - issuedQty, 0m);
-                var allotted = AllotStock(rm.ItemId, rmWhId, netRequiredQty, binTracker);
-                var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, rm.ItemId, rmWhId);
 
-                rows.Add(new ProductionPlanningReportRowDto
-                {
-                    RowId = Guid.NewGuid(),
-                    OrderNo = wo.WorkOrderNumber,
-                    OrderType = "Work Order",
-                    ProductionItemCode = prodItemCode,
-                    ProductionItemName = prodItemName,
-                    ForWarehouse = fgWhName,
-                    QtyToManufacture = wo.Quantity,
-                    AvailableProductionQty = fgAvailable,
-                    PlannedDate = wo.PlannedStartDate,
-                    RawMaterialCode = rawCode,
-                    RawMaterialName = rawName,
-                    RawMaterialWarehouse = rmWhName,
-                    RequiredQty = netRequiredQty,
-                    AllottedQty = allotted,
-                    ExpectedArrivalDate = arrivalDate,
-                    ExpectedArrivalQty = arrivalQty
-                });
+                EmitRawMaterialRows(
+                    rows,
+                    orderNo: wo.WorkOrderNumber,
+                    orderType: "Work Order",
+                    prodItemCode: prodItemCode,
+                    prodItemName: prodItemName,
+                    forWarehouse: fgWhName,
+                    qtyToManufacture: wo.Quantity,
+                    availableProductionQty: fgAvailable,
+                    plannedDate: wo.PlannedStartDate,
+                    rawItem: rawItem,
+                    fallbackRawName: rm.ItemName,
+                    itemId: rm.ItemId,
+                    requiredQty: netRequiredQty,
+                    candidateWarehouseIds: candidateWhIds,
+                    warehouseMap: warehouseMap,
+                    binTracker: binTracker,
+                    openPOs: openPOs);
             }
         }
     }
@@ -265,6 +281,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         ProductionPlanningReportFilterDto input,
         Dictionary<Guid, Item> itemMap,
         Dictionary<Guid, Warehouse> warehouseMap,
+        Dictionary<(Guid ItemId, Guid CompanyId), Guid> defaultWarehouses,
         Dictionary<(Guid, Guid), decimal> binTracker,
         List<PurchaseOrder> openPOs,
         List<ProductionPlanningReportRowDto> rows)
@@ -330,35 +347,28 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                                 // In ProductBundle, bItem.Qty is the component quantity per bundle unit.
                                 // PR #64317 / commit 007b7f3162: pending demand = bItem.Qty * pendingQty (netting delivered bundles)
                                 var reqQty = Math.Round(bItem.Qty * pendingQty, 4);
-                                var rmWhId = input.RawMaterialWarehouseId;
-                                var rmWhName = GetWarehouseName(rmWhId, warehouseMap);
-
                                 var rawItem = itemMap.TryGetValue(bItem.ComponentItemId, out var ri) ? ri : null;
-                                var rawCode = rawItem?.ItemCode ?? string.Empty;
-                                var rawName = rawItem?.ItemName ?? bItem.ItemName;
+                                var fallbackWhId = ResolveDefaultWarehouseId(bItem.ComponentItemId, so.CompanyId, defaultWarehouses, rawItem);
+                                var candidateWhIds = ResolveCandidateWarehouseIds(input.RawMaterialWarehouseId, fallbackWhId, warehouseMap);
 
-                                var allotted = AllotStock(bItem.ComponentItemId, rmWhId, reqQty, binTracker);
-                                var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, bItem.ComponentItemId, rmWhId);
-
-                                rows.Add(new ProductionPlanningReportRowDto
-                                {
-                                    RowId = Guid.NewGuid(),
-                                    OrderNo = so.OrderNumber,
-                                    OrderType = "Sales Order",
-                                    ProductionItemCode = prodItemCode,
-                                    ProductionItemName = prodItemName,
-                                    ForWarehouse = string.Empty,
-                                    QtyToManufacture = pendingQty,
-                                    AvailableProductionQty = bundleFgAvailable,
-                                    PlannedDate = soItem.DeliveryDate ?? so.OrderDate,
-                                    RawMaterialCode = rawCode,
-                                    RawMaterialName = rawName ?? string.Empty,
-                                    RawMaterialWarehouse = rmWhName,
-                                    RequiredQty = reqQty,
-                                    AllottedQty = allotted,
-                                    ExpectedArrivalDate = arrivalDate,
-                                    ExpectedArrivalQty = arrivalQty
-                                });
+                                EmitRawMaterialRows(
+                                    rows,
+                                    orderNo: so.OrderNumber,
+                                    orderType: "Sales Order",
+                                    prodItemCode: prodItemCode,
+                                    prodItemName: prodItemName,
+                                    forWarehouse: string.Empty,
+                                    qtyToManufacture: pendingQty,
+                                    availableProductionQty: bundleFgAvailable,
+                                    plannedDate: soItem.DeliveryDate ?? so.OrderDate,
+                                    rawItem: rawItem,
+                                    fallbackRawName: bItem.ItemName,
+                                    itemId: bItem.ComponentItemId,
+                                    requiredQty: reqQty,
+                                    candidateWarehouseIds: candidateWhIds,
+                                    warehouseMap: warehouseMap,
+                                    binTracker: binTracker,
+                                    openPOs: openPOs);
                             }
                             continue;
                         }
@@ -376,35 +386,31 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 {
                     var reqQty = bom.Quantity > 0 ? (bomItem.Quantity / bom.Quantity) * pendingQty : bomItem.Quantity * pendingQty;
 
-                    var rmWhId = input.RawMaterialWarehouseId ?? bomItem.SourceWarehouseId ?? bom.SourceWarehouseId ?? fgWhId;
-                    var rmWhName = GetWarehouseName(rmWhId, warehouseMap);
-
                     var rawItem = itemMap.TryGetValue(bomItem.ItemId, out var ri) ? ri : null;
-                    var rawCode = rawItem?.ItemCode ?? string.Empty;
-                    var rawName = rawItem?.ItemName ?? bomItem.ItemName;
+                    var fallbackWhId = bomItem.SourceWarehouseId
+                        ?? bom.SourceWarehouseId
+                        ?? ResolveDefaultWarehouseId(bomItem.ItemId, so.CompanyId, defaultWarehouses, rawItem)
+                        ?? fgWhId;
+                    var candidateWhIds = ResolveCandidateWarehouseIds(input.RawMaterialWarehouseId, fallbackWhId, warehouseMap);
 
-                    var allotted = AllotStock(bomItem.ItemId, rmWhId, reqQty, binTracker);
-                    var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, bomItem.ItemId, rmWhId);
-
-                    rows.Add(new ProductionPlanningReportRowDto
-                    {
-                        RowId = Guid.NewGuid(),
-                        OrderNo = so.OrderNumber,
-                        OrderType = "Sales Order",
-                        ProductionItemCode = prodItemCode,
-                        ProductionItemName = prodItemName,
-                        ForWarehouse = fgWhName,
-                        QtyToManufacture = pendingQty,
-                        AvailableProductionQty = fgAvailable,
-                        PlannedDate = soItem.DeliveryDate ?? so.OrderDate,
-                        RawMaterialCode = rawCode,
-                        RawMaterialName = rawName,
-                        RawMaterialWarehouse = rmWhName,
-                        RequiredQty = reqQty,
-                        AllottedQty = allotted,
-                        ExpectedArrivalDate = arrivalDate,
-                        ExpectedArrivalQty = arrivalQty
-                    });
+                    EmitRawMaterialRows(
+                        rows,
+                        orderNo: so.OrderNumber,
+                        orderType: "Sales Order",
+                        prodItemCode: prodItemCode,
+                        prodItemName: prodItemName,
+                        forWarehouse: fgWhName,
+                        qtyToManufacture: pendingQty,
+                        availableProductionQty: fgAvailable,
+                        plannedDate: soItem.DeliveryDate ?? so.OrderDate,
+                        rawItem: rawItem,
+                        fallbackRawName: bomItem.ItemName,
+                        itemId: bomItem.ItemId,
+                        requiredQty: reqQty,
+                        candidateWarehouseIds: candidateWhIds,
+                        warehouseMap: warehouseMap,
+                        binTracker: binTracker,
+                        openPOs: openPOs);
                 }
             }
         }
@@ -414,6 +420,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         ProductionPlanningReportFilterDto input,
         Dictionary<Guid, Item> itemMap,
         Dictionary<Guid, Warehouse> warehouseMap,
+        Dictionary<(Guid ItemId, Guid CompanyId), Guid> defaultWarehouses,
         Dictionary<(Guid, Guid), decimal> binTracker,
         List<PurchaseOrder> openPOs,
         List<ProductionPlanningReportRowDto> rows)
@@ -465,37 +472,230 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 {
                     var reqQty = bom.Quantity > 0 ? (bomItem.Quantity / bom.Quantity) * pendingQty : bomItem.Quantity * pendingQty;
 
-                    var rmWhId = input.RawMaterialWarehouseId ?? bomItem.SourceWarehouseId ?? mr.SourceWarehouseId ?? bom.SourceWarehouseId;
-                    var rmWhName = GetWarehouseName(rmWhId, warehouseMap);
-
                     var rawItem = itemMap.TryGetValue(bomItem.ItemId, out var ri) ? ri : null;
-                    var rawCode = rawItem?.ItemCode ?? string.Empty;
-                    var rawName = rawItem?.ItemName ?? bomItem.ItemName;
+                    var fallbackWhId = bomItem.SourceWarehouseId
+                        ?? ResolveDefaultWarehouseId(bomItem.ItemId, mr.CompanyId, defaultWarehouses, rawItem)
+                        ?? mr.SourceWarehouseId
+                        ?? bom.SourceWarehouseId;
+                    var candidateWhIds = ResolveCandidateWarehouseIds(input.RawMaterialWarehouseId, fallbackWhId, warehouseMap);
 
-                    var allotted = AllotStock(bomItem.ItemId, rmWhId, reqQty, binTracker);
-                    var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, bomItem.ItemId, rmWhId);
-
-                    rows.Add(new ProductionPlanningReportRowDto
-                    {
-                        RowId = Guid.NewGuid(),
-                        OrderNo = mr.RequestNumber,
-                        OrderType = "Material Request",
-                        ProductionItemCode = prodItemCode,
-                        ProductionItemName = prodItemName,
-                        ForWarehouse = fgWhName,
-                        QtyToManufacture = pendingQty,
-                        AvailableProductionQty = fgAvailable,
-                        PlannedDate = mr.RequiredByDate ?? mr.RequestDate,
-                        RawMaterialCode = rawCode,
-                        RawMaterialName = rawName,
-                        RawMaterialWarehouse = rmWhName,
-                        RequiredQty = reqQty,
-                        AllottedQty = allotted,
-                        ExpectedArrivalDate = arrivalDate,
-                        ExpectedArrivalQty = arrivalQty
-                    });
+                    EmitRawMaterialRows(
+                        rows,
+                        orderNo: mr.RequestNumber,
+                        orderType: "Material Request",
+                        prodItemCode: prodItemCode,
+                        prodItemName: prodItemName,
+                        forWarehouse: fgWhName,
+                        qtyToManufacture: pendingQty,
+                        availableProductionQty: fgAvailable,
+                        plannedDate: mr.RequiredByDate ?? mr.RequestDate,
+                        rawItem: rawItem,
+                        fallbackRawName: bomItem.ItemName,
+                        itemId: bomItem.ItemId,
+                        requiredQty: reqQty,
+                        candidateWarehouseIds: candidateWhIds,
+                        warehouseMap: warehouseMap,
+                        binTracker: binTracker,
+                        openPOs: openPOs);
                 }
             }
+        }
+    }
+
+    private static Guid? ResolveDefaultWarehouseId(
+        Guid itemId,
+        Guid? companyId,
+        Dictionary<(Guid ItemId, Guid CompanyId), Guid> defaultWarehouses,
+        Item? item)
+    {
+        if (companyId.HasValue && defaultWarehouses.TryGetValue((itemId, companyId.Value), out var defaultWhId))
+        {
+            return defaultWhId;
+        }
+
+        return item?.DefaultWarehouseId;
+    }
+
+    private static List<Guid> ResolveCandidateWarehouseIds(
+        Guid? filterWarehouseId,
+        Guid? fallbackWarehouseId,
+        Dictionary<Guid, Warehouse> warehouseMap)
+    {
+        var rootWhId = filterWarehouseId ?? fallbackWarehouseId;
+        if (!rootWhId.HasValue)
+        {
+            return [];
+        }
+
+        return GetExpandedWarehouseIds(rootWhId.Value, warehouseMap);
+    }
+
+    private static List<Guid> GetExpandedWarehouseIds(
+        Guid rootWarehouseId,
+        Dictionary<Guid, Warehouse> warehouseMap)
+    {
+        if (!warehouseMap.TryGetValue(rootWarehouseId, out var rootWarehouse) || !rootWarehouse.IsGroup)
+        {
+            return [rootWarehouseId];
+        }
+
+        var childrenByParent = warehouseMap.Values
+            .Where(w => w.ParentWarehouseId.HasValue)
+            .GroupBy(w => w.ParentWarehouseId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(w => w.Name).ThenBy(w => w.Id).ToList());
+
+        var leafIds = new List<Guid>();
+        var visited = new HashSet<Guid> { rootWarehouseId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootWarehouseId);
+
+        while (queue.Count > 0)
+        {
+            var currentId = queue.Dequeue();
+            if (!childrenByParent.TryGetValue(currentId, out var children))
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                if (!visited.Add(child.Id))
+                {
+                    continue;
+                }
+
+                if (child.IsGroup)
+                {
+                    queue.Enqueue(child.Id);
+                }
+                else
+                {
+                    leafIds.Add(child.Id);
+                }
+            }
+        }
+
+        return leafIds.Count > 0 ? leafIds : [rootWarehouseId];
+    }
+
+    private static void EmitRawMaterialRows(
+        List<ProductionPlanningReportRowDto> rows,
+        string orderNo,
+        string orderType,
+        string prodItemCode,
+        string prodItemName,
+        string forWarehouse,
+        decimal qtyToManufacture,
+        decimal availableProductionQty,
+        DateTime? plannedDate,
+        Item? rawItem,
+        string? fallbackRawName,
+        Guid itemId,
+        decimal requiredQty,
+        List<Guid> candidateWarehouseIds,
+        Dictionary<Guid, Warehouse> warehouseMap,
+        Dictionary<(Guid, Guid), decimal> binTracker,
+        List<PurchaseOrder> openPOs)
+    {
+        var rawCode = rawItem?.ItemCode ?? string.Empty;
+        var rawName = rawItem?.ItemName ?? fallbackRawName ?? string.Empty;
+
+        if (candidateWarehouseIds.Count == 0)
+        {
+            var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, itemId, null);
+            rows.Add(new ProductionPlanningReportRowDto
+            {
+                RowId = Guid.NewGuid(),
+                OrderNo = orderNo,
+                OrderType = orderType,
+                ProductionItemCode = prodItemCode,
+                ProductionItemName = prodItemName,
+                ForWarehouse = forWarehouse,
+                QtyToManufacture = qtyToManufacture,
+                AvailableProductionQty = availableProductionQty,
+                PlannedDate = plannedDate,
+                RawMaterialCode = rawCode,
+                RawMaterialName = rawName,
+                RawMaterialWarehouse = string.Empty,
+                RequiredQty = requiredQty,
+                AllottedQty = 0m,
+                ExpectedArrivalDate = arrivalDate,
+                ExpectedArrivalQty = arrivalQty
+            });
+            return;
+        }
+
+        // Track remaining demand across child warehouses so group selection never over-allots in total
+        var remainingQty = requiredQty;
+        var allocations = new List<(Guid WarehouseId, decimal AllottedQty)>();
+
+        foreach (var whId in candidateWarehouseIds)
+        {
+            if (remainingQty <= 0m)
+            {
+                break;
+            }
+
+            var allotted = AllotStock(itemId, whId, remainingQty, binTracker);
+            if (allotted > 0m)
+            {
+                remainingQty -= allotted;
+                allocations.Add((whId, allotted));
+            }
+        }
+
+        if (allocations.Count == 0)
+        {
+            var fallbackWhId = candidateWarehouseIds[^1];
+            var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, itemId, fallbackWhId);
+            rows.Add(new ProductionPlanningReportRowDto
+            {
+                RowId = Guid.NewGuid(),
+                OrderNo = orderNo,
+                OrderType = orderType,
+                ProductionItemCode = prodItemCode,
+                ProductionItemName = prodItemName,
+                ForWarehouse = forWarehouse,
+                QtyToManufacture = qtyToManufacture,
+                AvailableProductionQty = availableProductionQty,
+                PlannedDate = plannedDate,
+                RawMaterialCode = rawCode,
+                RawMaterialName = rawName,
+                RawMaterialWarehouse = GetWarehouseName(fallbackWhId, warehouseMap),
+                RequiredQty = requiredQty,
+                AllottedQty = 0m,
+                ExpectedArrivalDate = arrivalDate,
+                ExpectedArrivalQty = arrivalQty
+            });
+            return;
+        }
+
+        for (var i = 0; i < allocations.Count; i++)
+        {
+            var (whId, allotted) = allocations[i];
+            var isLast = i == allocations.Count - 1;
+            var rowRequired = isLast ? allotted + remainingQty : allotted;
+            var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, itemId, whId);
+
+            rows.Add(new ProductionPlanningReportRowDto
+            {
+                RowId = Guid.NewGuid(),
+                OrderNo = orderNo,
+                OrderType = orderType,
+                ProductionItemCode = prodItemCode,
+                ProductionItemName = prodItemName,
+                ForWarehouse = forWarehouse,
+                QtyToManufacture = qtyToManufacture,
+                AvailableProductionQty = availableProductionQty,
+                PlannedDate = plannedDate,
+                RawMaterialCode = rawCode,
+                RawMaterialName = rawName,
+                RawMaterialWarehouse = GetWarehouseName(whId, warehouseMap),
+                RequiredQty = rowRequired,
+                AllottedQty = allotted,
+                ExpectedArrivalDate = arrivalDate,
+                ExpectedArrivalQty = arrivalQty
+            });
         }
     }
 

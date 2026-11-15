@@ -421,4 +421,136 @@ public class ProductionPlanningReportAppServiceTests
             validator.ValidateItemsForTransactionAsync(new[] { templateId }));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemHasVariants);
     }
+
+    [Fact]
+    public async Task GetReportAsync_SalesOrder_UsesItemDefaultWarehouse_WhenBomSourceNotSet()
+    {
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var fgWhId = Guid.NewGuid();
+        var rmDefaultWhId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var fgItem = new Item(fgItemId, _companyId, "FG-DEF", "Finished Product", ItemType.Goods);
+        var rmItem = new Item(rmItemId, _companyId, "RM-DEF", "Default Wh Material", ItemType.Goods)
+        {
+            DefaultWarehouseId = rmDefaultWhId
+        };
+
+        var fgWh = new Warehouse(fgWhId, _companyId, "Finished Goods - TC");
+        var rmWh = new Warehouse(rmDefaultWhId, _companyId, "Raw Material Default - TC");
+
+        var bom = new BillOfMaterials(bomId, _companyId, "BOM-DEF", fgItemId)
+        {
+            Quantity = 1m,
+            IsActive = true,
+            TargetWarehouseId = fgWhId
+        };
+        bom.Items.Add(new BomItem(Guid.NewGuid(), bomId, rmItemId, "Default Wh Material", 2m, 5m, "Nos"));
+
+        var so = new SalesOrder(Guid.NewGuid(), _companyId, customerId, "SO-DEF-001", DateTime.UtcNow.Date);
+        so.AddItem(fgItemId, "Finished Product", 5m, 100m, 0m);
+        so.Submit();
+
+        var itemDefaultRepo = Substitute.For<IRepository<ItemDefault, Guid>>();
+        itemDefaultRepo.GetListAsync().Returns(Task.FromResult(new List<ItemDefault>
+        {
+            new(Guid.NewGuid(), rmItemId, _companyId) { DefaultWarehouseId = rmDefaultWhId }
+        }));
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { fgWh, rmWh }));
+        _bomRepo.WithDetailsAsync(Arg.Any<Expression<Func<BillOfMaterials, object>>[]>())
+            .Returns(Task.FromResult(new List<BillOfMaterials> { bom }.AsQueryable()));
+        _soRepo.WithDetailsAsync(Arg.Any<Expression<Func<SalesOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<SalesOrder> { so }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin>
+        {
+            new(Guid.NewGuid(), rmItemId, rmDefaultWhId) { ActualQty = 7m }
+        }));
+
+        var appService = new ProductionPlanningReportAppService(
+            _woRepo, _soRepo, _mrRepo, _bomRepo, _poRepo, _binRepo, _itemRepo, _warehouseRepo,
+            itemDefaultRepository: itemDefaultRepo);
+
+        var result = await appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "SalesOrder"
+        });
+
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].RawMaterialWarehouse.ShouldBe("Raw Material Default - TC");
+        result.Rows[0].RequiredQty.ShouldBe(10m);
+        result.Rows[0].AllottedQty.ShouldBe(7m);
+        result.Rows[0].ShortageQty.ShouldBe(3m);
+    }
+
+    [Fact]
+    public async Task GetReportAsync_GroupRawMaterialWarehouse_AllotsRemainingAcrossChildrenWithoutOverAllotting()
+    {
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var parentWhId = Guid.NewGuid();
+        var childWh1Id = Guid.NewGuid();
+        var childWh2Id = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var fgItem = new Item(fgItemId, _companyId, "FG-GRP", "Group Filtered FG", ItemType.Goods);
+        var rmItem = new Item(rmItemId, _companyId, "RM-GRP", "Shared Raw", ItemType.Goods);
+
+        var parentWh = new Warehouse(parentWhId, _companyId, "All Stores - TC") { IsGroup = true };
+        var childWh1 = new Warehouse(childWh1Id, _companyId, "Store A - TC") { ParentWarehouseId = parentWhId };
+        var childWh2 = new Warehouse(childWh2Id, _companyId, "Store B - TC") { ParentWarehouseId = parentWhId };
+
+        var wo1 = new WorkOrder(Guid.NewGuid(), _companyId, "WO-GRP-1", fgItemId, bomId, 10m)
+        {
+            FgWarehouseId = childWh1Id,
+            PlannedStartDate = DateTime.UtcNow.Date
+        };
+        wo1.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo1.Id, rmItemId, "Shared Raw", 10m)
+        {
+            SourceWarehouseId = childWh1Id
+        });
+        wo1.Submit();
+
+        var wo2 = new WorkOrder(Guid.NewGuid(), _companyId, "WO-GRP-2", fgItemId, bomId, 5m)
+        {
+            FgWarehouseId = childWh1Id,
+            PlannedStartDate = DateTime.UtcNow.Date.AddDays(1)
+        };
+        wo2.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo2.Id, rmItemId, "Shared Raw", 5m)
+        {
+            SourceWarehouseId = childWh1Id
+        });
+        wo2.Submit();
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { parentWh, childWh1, childWh2 }));
+        _woRepo.WithDetailsAsync(Arg.Any<Expression<Func<WorkOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<WorkOrder> { wo1, wo2 }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+        // Store A has 6, Store B has 6 (12 total vs 15 required across 2 WOs -> WO-1 gets 6+4=10, WO-2 gets 2 from Store B and 3 short)
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin>
+        {
+            new(Guid.NewGuid(), rmItemId, childWh1Id) { ActualQty = 6m },
+            new(Guid.NewGuid(), rmItemId, childWh2Id) { ActualQty = 6m }
+        }));
+
+        var result = await _appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "WorkOrder",
+            RawMaterialWarehouseId = parentWhId
+        });
+
+        result.TotalRequiredQty.ShouldBe(15m);
+        result.TotalAllottedQty.ShouldBe(12m);
+        result.TotalShortageQty.ShouldBe(3m);
+        result.Rows.Count.ShouldBe(3); // WO-1 Store A (6), WO-1 Store B (4), WO-2 Store B (2 allotted / 5 required)
+    }
 }
