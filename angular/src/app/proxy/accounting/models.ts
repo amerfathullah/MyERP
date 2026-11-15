@@ -440,6 +440,7 @@ export interface BankTransactionDto extends EntityDto<string> {
   transactionDate?: string;
   description?: string;
   amount?: number;
+  currencyCode?: string;
   referenceNumber?: string | null;
   isReconciled?: boolean;
   paymentEntryId?: string | null;
@@ -3003,6 +3004,11 @@ export interface VoucherCreatedResultDto {
   paymentEntryId?: string;
   paymentNumber?: string;
   amount?: number;
+  bankCurrencyCode?: string | null;
+  paidAmount?: number;
+  paidCurrencyCode?: string;
+  receivedAmount?: number;
+  receivedCurrencyCode?: string;
   paymentType?: string;
   bankTransactionId?: string;
   isReconciled?: boolean;

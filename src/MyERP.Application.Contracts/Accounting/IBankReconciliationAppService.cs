@@ -79,6 +79,7 @@ public class BankTransactionDto : EntityDto<Guid>
     public DateTime TransactionDate { get; set; }
     public string Description { get; set; } = null!;
     public decimal Amount { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
     public string? ReferenceNumber { get; set; }
     public bool IsReconciled { get; set; }
     public Guid? PaymentEntryId { get; set; }
@@ -234,6 +235,11 @@ public class VoucherCreatedResultDto
     public Guid PaymentEntryId { get; set; }
     public string PaymentNumber { get; set; } = null!;
     public decimal Amount { get; set; }
+    public string? BankCurrencyCode { get; set; }
+    public decimal PaidAmount { get; set; }
+    public string PaidCurrencyCode { get; set; } = "MYR";
+    public decimal ReceivedAmount { get; set; }
+    public string ReceivedCurrencyCode { get; set; } = "MYR";
     public string PaymentType { get; set; } = null!;
     public Guid BankTransactionId { get; set; }
     public bool IsReconciled { get; set; }

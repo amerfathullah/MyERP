@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
@@ -327,6 +328,186 @@ public abstract class BankTransactionManualImportTests<TStartupModule> : MyERPAp
             }
 
             numbers[0].ShouldNotBe(numbers[1]);
+        });
+    }
+
+    [Fact]
+    public async Task CreatePaymentEntryFromTransactionAsync_MultiCurrencyAndBankGlResolution_RoundsPartyAmount()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var bankAccountRepo = GetRequiredService<IRepository<BankAccount, Guid>>();
+            var txRepo = GetRequiredService<IRepository<BankTransaction, Guid>>();
+            var peRepo = GetRequiredService<IRepository<PaymentEntry, Guid>>();
+            var fxRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CurrencyExchange, Guid>>();
+            var app = GetRequiredService<IBankReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(
+                new Company(Guid.NewGuid(), "FX Recon Co") { CurrencyCode = "MYR" }, autoSave: true);
+
+            var usdBankGl = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1140", "USD Bank GL", AccountType.Asset) { Currency = "USD" },
+                autoSave: true);
+            var eurPartyGl = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1240", "EUR Receivable GL", AccountType.Asset) { Currency = "EUR" },
+                autoSave: true);
+
+            var bankAccount = await bankAccountRepo.InsertAsync(
+                new BankAccount(Guid.NewGuid(), company.Id, "USD HSBC", usdBankGl.Id, "HSBC") { CurrencyCode = "USD" },
+                autoSave: true);
+
+            var txDate = DateTime.Today;
+            await fxRepo.InsertAsync(
+                new MyERP.Accounting.Entities.CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.42m, txDate),
+                autoSave: true);
+            await fxRepo.InsertAsync(
+                new MyERP.Accounting.Entities.CurrencyExchange(Guid.NewGuid(), "EUR", "MYR", 4.80m, txDate),
+                autoSave: true);
+
+            // Deposit 100 USD: base = 442 MYR, EUR paid = Round(442 / 4.80, 2) = 92.08 EUR
+            // Also pass BankAccount.Id (not GL Account.Id) like the UI does to verify GL resolution.
+            var depositTx = await txRepo.InsertAsync(new BankTransaction(
+                Guid.NewGuid(), company.Id, bankAccount.Id, txDate, "EUR Customer USD Wire", 100m)
+            {
+                CurrencyCode = "USD",
+                Deposit = 100m,
+            }, autoSave: true);
+
+            var result = await app.CreatePaymentEntryFromTransactionAsync(new CreatePEFromTransactionDto
+            {
+                BankTransactionId = depositTx.Id,
+                CompanyId = company.Id,
+                PartyType = "Customer",
+                PartyId = Guid.NewGuid(),
+                BankAccountId = bankAccount.Id,
+                PartyAccountId = eurPartyGl.Id,
+            });
+
+            result.IsReconciled.ShouldBeTrue();
+            result.Amount.ShouldBe(100m);
+            result.BankCurrencyCode.ShouldBe("USD");
+            result.ReceivedAmount.ShouldBe(100m);
+            result.ReceivedCurrencyCode.ShouldBe("USD");
+            result.PaidAmount.ShouldBe(92.08m);
+            result.PaidCurrencyCode.ShouldBe("EUR");
+
+            var pe = await peRepo.GetAsync(result.PaymentEntryId);
+            pe.PaidFromAccountId.ShouldBe(eurPartyGl.Id);
+            pe.PaidToAccountId.ShouldBe(usdBankGl.Id);
+            pe.PaidAmount.ShouldBe(92.08m);
+            pe.ReceivedAmount.ShouldBe(100m);
+            pe.SourceExchangeRate.ShouldBe(4.80m);
+            pe.TargetExchangeRate.ShouldBe(4.42m);
+            pe.ClearanceDate.ShouldBe(txDate);
+        });
+    }
+
+    [Fact]
+    public async Task CreatePaymentEntryFromTransactionAsync_PayCrossCurrency_And_PostsGlAndPle()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var bankAccountRepo = GetRequiredService<IRepository<BankAccount, Guid>>();
+            var txRepo = GetRequiredService<IRepository<BankTransaction, Guid>>();
+            var peRepo = GetRequiredService<IRepository<PaymentEntry, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var pleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentLedgerEntry, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var fxRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CurrencyExchange, Guid>>();
+            var app = GetRequiredService<IBankReconciliationAppService>();
+
+            var txDate = DateTime.Today;
+            var company = await companyRepo.InsertAsync(
+                new Company(Guid.NewGuid(), "Recon GL Post Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await fyRepo.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY-Recon", txDate.AddDays(-30), txDate.AddDays(30)), autoSave: true);
+
+            var myrBankGl = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1150", "MYR Bank GL", AccountType.Asset) { Currency = "MYR" },
+                autoSave: true);
+            var arGl = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1250", "MYR AR GL", AccountType.Asset) { Currency = "MYR" },
+                autoSave: true);
+            var usdPayableGl = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2150", "USD AP GL", AccountType.Liability) { Currency = "USD" },
+                autoSave: true);
+
+            var myrBankAccount = await bankAccountRepo.InsertAsync(
+                new BankAccount(Guid.NewGuid(), company.Id, "MYR Main Bank", myrBankGl.Id, "Maybank") { CurrencyCode = "MYR" },
+                autoSave: true);
+
+            await fxRepo.InsertAsync(
+                new MyERP.Accounting.Entities.CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.42m, txDate),
+                autoSave: true);
+
+            // 1. Pay withdrawal of 1000 MYR to USD supplier -> receivedAmount = Round(1000 / 4.42, 2) = 226.24 USD
+            var payTx = await txRepo.InsertAsync(new BankTransaction(
+                Guid.NewGuid(), company.Id, myrBankAccount.Id, txDate, "Pay USD supplier", -1000m)
+            {
+                CurrencyCode = "MYR",
+                Withdrawal = 1000m,
+            }, autoSave: true);
+
+            var payResult = await app.CreatePaymentEntryFromTransactionAsync(new CreatePEFromTransactionDto
+            {
+                BankTransactionId = payTx.Id,
+                CompanyId = company.Id,
+                PartyType = "Supplier",
+                PartyId = Guid.NewGuid(),
+                BankAccountId = myrBankAccount.Id,
+                PartyAccountId = usdPayableGl.Id,
+            });
+
+            payResult.PaidAmount.ShouldBe(1000m);
+            payResult.PaidCurrencyCode.ShouldBe("MYR");
+            payResult.ReceivedAmount.ShouldBe(226.24m);
+            payResult.ReceivedCurrencyCode.ShouldBe("USD");
+
+            var payPe = await peRepo.GetAsync(payResult.PaymentEntryId);
+            payPe.PaidFromAccountId.ShouldBe(myrBankGl.Id);
+            payPe.PaidToAccountId.ShouldBe(usdPayableGl.Id);
+
+            // 2. Deposit linked to SalesInvoice -> posts GL JE, PLE, and increments si.AmountPaid
+            var customer = await customerRepo.InsertAsync(
+                new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "Recon Cust"), autoSave: true);
+            var si = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SINV-RECON-1", txDate);
+            si.AddItem(Guid.NewGuid(), "Service", 1m, 500m, 0m);
+            si.Submit();
+            si.Post();
+            await siRepo.InsertAsync(si, autoSave: true);
+
+            var recvTx = await txRepo.InsertAsync(new BankTransaction(
+                Guid.NewGuid(), company.Id, myrBankAccount.Id, txDate, "Customer partial payment", 300m)
+            {
+                CurrencyCode = "MYR",
+                Deposit = 300m,
+            }, autoSave: true);
+
+            var recvResult = await app.CreatePaymentEntryFromTransactionAsync(new CreatePEFromTransactionDto
+            {
+                BankTransactionId = recvTx.Id,
+                CompanyId = company.Id,
+                PartyType = "Customer",
+                PartyId = customer.Id,
+                BankAccountId = myrBankAccount.Id,
+                PartyAccountId = arGl.Id,
+                AgainstInvoiceId = si.Id,
+            });
+
+            var updatedSi = await siRepo.GetAsync(si.Id);
+            updatedSi.AmountPaid.ShouldBe(300m);
+
+            var jeQuery = await jeRepo.GetQueryableAsync();
+            jeQuery.Any(j => j.ReferenceType == "PaymentEntry" && j.ReferenceId == recvResult.PaymentEntryId).ShouldBeTrue();
+
+            var pleQuery = await pleRepo.GetQueryableAsync();
+            pleQuery.Any(p => p.VoucherId == recvResult.PaymentEntryId && p.AgainstVoucherId == si.Id).ShouldBeTrue();
         });
     }
 }

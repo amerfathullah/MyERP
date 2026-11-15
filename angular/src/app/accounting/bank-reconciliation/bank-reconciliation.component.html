@@ -279,7 +279,7 @@
           <div class="alert alert-light border">
             <strong>{{ tx.description }}</strong>
             <span class="ms-2 badge" [class]="(tx.amount ?? 0) > 0 ? 'bg-success' : 'bg-danger'">
-              {{ "" | companyCurrency }} {{ tx.amount | number:'1.2-2' }}
+              {{ tx.currencyCode || ("" | companyCurrency) }} {{ tx.amount | number:'1.2-2' }}
             </span>
             <span class="ms-2 text-muted">{{ tx.transactionDate | date:'dd/MM/yyyy' }}</span>
           </div>
@@ -360,7 +360,7 @@
           <div class="alert alert-light border">
             <strong>{{ tx.description }}</strong>
             <span class="ms-2 badge" [class]="(tx.amount ?? 0) > 0 ? 'bg-success' : 'bg-danger'">
-              {{ "" | companyCurrency }} {{ tx.amount | number:'1.2-2' }}
+              {{ tx.currencyCode || ("" | companyCurrency) }} {{ tx.amount | number:'1.2-2' }}
             </span>
             <span class="ms-2 text-muted">{{ tx.transactionDate | date:'dd/MM/yyyy' }}</span>
           </div>

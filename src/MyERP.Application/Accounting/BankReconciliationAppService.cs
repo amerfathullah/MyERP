@@ -319,30 +319,62 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 .WithData("transactionId", tx.Id);
         }
 
-        // Determine payment type from transaction direction
-        // Positive amount (deposit) = money received → Receive type
-        // Negative amount (withdrawal) = money paid → Pay type
-        var isDeposit = tx.Amount > 0;
+        // input.BankAccountId may be either the BankAccount entity Id (e.g. from UI) or the bank GL Account Id.
+        var bankAccountEntity = await _bankAccountRepository.FindAsync(input.BankAccountId)
+            ?? await _bankAccountRepository.FindAsync(tx.BankAccountId);
+        var bankGlAccountId = bankAccountEntity != null && input.BankAccountId == bankAccountEntity.Id
+            ? bankAccountEntity.AccountId
+            : input.BankAccountId;
+
+        // Positive amount / deposit = money received → Receive type
+        // Negative amount / withdrawal = money paid → Pay type
+        var isDeposit = tx.Deposit > 0 || (tx.Withdrawal == 0 && tx.Amount > 0);
         var paymentType = isDeposit ? PaymentType.Receive : PaymentType.Pay;
-        var amount = Math.Abs(tx.Amount);
+        var bankSideAmount = tx.Deposit > 0
+            ? tx.Deposit
+            : (tx.Withdrawal > 0 ? tx.Withdrawal : Math.Abs(tx.Amount));
 
-        // Resolve paid-from and paid-to based on direction:
-        // Receive: paid_from = party account (customer), paid_to = bank account
-        // Pay: paid_from = bank account, paid_to = party account (supplier)
-        var paidFromAccountId = isDeposit ? input.PartyAccountId : input.BankAccountId;
-        var paidToAccountId = isDeposit ? input.BankAccountId : input.PartyAccountId;
+        // Receive: paid_from = party account (customer), paid_to = bank GL account
+        // Pay: paid_from = bank GL account, paid_to = party account (supplier)
+        var paidFromAccountId = isDeposit ? input.PartyAccountId : bankGlAccountId;
+        var paidToAccountId = isDeposit ? bankGlAccountId : input.PartyAccountId;
 
-        // Generate PE number
-        var numberGenerator = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.IDocumentNumberGenerator>();
-        var peNumber = await numberGenerator.GenerateAsync("PE", input.CompanyId, tx.TransactionDate);
+        // Per ERPNext #65814 (set_multi_currency_amounts): resolve bank GL & party GL currencies
+        // and derive the rounded party-side amount from the authoritative bank-side amount.
+        var amounts = await ResolveMultiCurrencyPaymentAmountsAsync(
+            input.CompanyId, tx, bankAccountEntity, bankGlAccountId, input.PartyAccountId, isDeposit, bankSideAmount);
 
-        // Create the Payment Entry
+        var numberGenerator = LazyServiceProvider?.LazyGetService<Core.DomainServices.IDocumentNumberGenerator>();
+        string peNumber;
+        if (numberGenerator == null)
+        {
+            peNumber = $"PE-{tx.TransactionDate:yyyyMMdd}-{GuidGenerator.Create().ToString("N")[..6].ToUpperInvariant()}";
+        }
+        else
+        {
+            try
+            {
+                peNumber = await numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId, tx.TransactionDate);
+            }
+            catch (BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+            {
+                try
+                {
+                    peNumber = await numberGenerator.GenerateAsync("PE", input.CompanyId, tx.TransactionDate);
+                }
+                catch (BusinessException innerEx) when (innerEx.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+                {
+                    peNumber = $"PE-{tx.TransactionDate:yyyyMMdd}-{GuidGenerator.Create().ToString("N")[..6].ToUpperInvariant()}";
+                }
+            }
+        }
+
         var pe = new PaymentEntry(
             GuidGenerator.Create(),
             input.CompanyId,
             paymentType,
             tx.TransactionDate,
-            amount,
+            amounts.PaidAmount,
             paidFromAccountId,
             paidToAccountId,
             CurrentTenant.Id)
@@ -352,10 +384,13 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             PartyType = input.PartyType,
             PartyId = input.PartyId,
             ModeOfPaymentId = input.ModeOfPaymentId,
-            CurrencyCode = tx.CurrencyCode ?? "MYR",
+            CurrencyCode = amounts.PaidFromCurrency,
+            ExchangeRate = amounts.SourceExchangeRate,
+            SourceExchangeRate = amounts.SourceExchangeRate,
+            TargetExchangeRate = amounts.TargetExchangeRate,
+            ReceivedAmount = amounts.ReceivedAmount,
         };
 
-        // Link to invoice if specified (enables outstanding reduction on post)
         if (input.AgainstInvoiceId.HasValue)
         {
             pe.AgainstInvoiceId = input.AgainstInvoiceId.Value;
@@ -368,27 +403,187 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         pe.SetClearanceDate(tx.TransactionDate);
         await _paymentEntryRepository.InsertAsync(pe);
 
+        // Post GL + PLE when running with DI and an open FiscalYear is configured
+        await TryPostCreatedPaymentEntryAsync(pe, input.PartyAccountId, amounts.PartyCurrency, amounts.PartySideAmount);
+
         // Auto-reconcile: link bank transaction to the newly created PE
         tx.Reconcile(pe.Id, pe.PaymentNumber);
         await _repository.UpdateAsync(tx);
 
-        // Audit trail
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "PaymentEntry", pe.Id, "Posted",
-            input.CompanyId, peNumber, "Draft", "Posted",
-            CurrentUser.Id, details: $"Created from bank transaction: {tx.Description}",
-            tenantId: CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "PaymentEntry", pe.Id, "Posted",
+                input.CompanyId, peNumber, "Draft", "Posted",
+                CurrentUser.Id, details: $"Created from bank transaction: {tx.Description}",
+                tenantId: CurrentTenant.Id));
+        }
 
         return new VoucherCreatedResultDto
         {
             PaymentEntryId = pe.Id,
             PaymentNumber = peNumber,
-            Amount = amount,
+            Amount = bankSideAmount,
+            BankCurrencyCode = amounts.BankCurrency,
+            PaidAmount = pe.PaidAmount,
+            PaidCurrencyCode = amounts.PaidFromCurrency,
+            ReceivedAmount = pe.ReceivedAmount,
+            ReceivedCurrencyCode = amounts.PaidToCurrency,
             PaymentType = paymentType.ToString(),
             BankTransactionId = tx.Id,
             IsReconciled = true,
         };
+    }
+
+    private async Task<(
+        string BankCurrency,
+        string PartyCurrency,
+        string PaidFromCurrency,
+        string PaidToCurrency,
+        decimal SourceExchangeRate,
+        decimal TargetExchangeRate,
+        decimal PaidAmount,
+        decimal ReceivedAmount,
+        decimal PartySideAmount)> ResolveMultiCurrencyPaymentAmountsAsync(
+        Guid companyId,
+        BankTransaction tx,
+        BankAccount? bankAccountEntity,
+        Guid bankGlAccountId,
+        Guid partyAccountId,
+        bool isDeposit,
+        decimal bankSideAmount)
+    {
+        var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.Company, Guid>>();
+        var accountRepo = LazyServiceProvider?.LazyGetService<IRepository<Account, Guid>>();
+        var fxService = LazyServiceProvider?.LazyGetService<CurrencyExchangeService>();
+
+        var company = companyRepo != null ? await companyRepo.FindAsync(companyId) : null;
+        var companyCurrency = company?.CurrencyCode ?? tx.CurrencyCode ?? "MYR";
+
+        var bankGlAccount = accountRepo != null ? await accountRepo.FindAsync(bankGlAccountId) : null;
+        var partyAccount = accountRepo != null ? await accountRepo.FindAsync(partyAccountId) : null;
+
+        var bankCurrency = !string.IsNullOrWhiteSpace(bankGlAccount?.Currency)
+            ? bankGlAccount!.Currency!
+            : (!string.IsNullOrWhiteSpace(bankAccountEntity?.CurrencyCode)
+                ? bankAccountEntity!.CurrencyCode
+                : (!string.IsNullOrWhiteSpace(tx.CurrencyCode) ? tx.CurrencyCode! : companyCurrency));
+
+        var partyCurrency = !string.IsNullOrWhiteSpace(partyAccount?.Currency)
+            ? partyAccount!.Currency!
+            : companyCurrency;
+
+        var paidFromCurrency = isDeposit ? partyCurrency : bankCurrency;
+        var paidToCurrency = isDeposit ? bankCurrency : partyCurrency;
+
+        var sourceRate = string.Equals(paidFromCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase)
+            ? 1m
+            : (fxService != null ? await fxService.GetExchangeRateAsync(paidFromCurrency, companyCurrency, tx.TransactionDate) : 1m);
+        var targetRate = string.Equals(paidToCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase)
+            ? 1m
+            : (fxService != null ? await fxService.GetExchangeRateAsync(paidToCurrency, companyCurrency, tx.TransactionDate) : 1m);
+
+        if (sourceRate <= 0) sourceRate = 1m;
+        if (targetRate <= 0) targetRate = 1m;
+
+        decimal paidAmount;
+        decimal receivedAmount;
+        var sameCurrency = string.Equals(paidFromCurrency, paidToCurrency, StringComparison.OrdinalIgnoreCase);
+
+        if (isDeposit)
+        {
+            receivedAmount = bankSideAmount;
+            paidAmount = sameCurrency
+                ? receivedAmount
+                : Math.Round(receivedAmount * targetRate / sourceRate, 2, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            paidAmount = bankSideAmount;
+            receivedAmount = sameCurrency
+                ? paidAmount
+                : Math.Round(paidAmount * sourceRate / targetRate, 2, MidpointRounding.AwayFromZero);
+        }
+
+        var partySideAmount = isDeposit ? paidAmount : receivedAmount;
+        return (bankCurrency, partyCurrency, paidFromCurrency, paidToCurrency, sourceRate, targetRate, paidAmount, receivedAmount, partySideAmount);
+    }
+
+    private async Task TryPostCreatedPaymentEntryAsync(
+        PaymentEntry pe,
+        Guid partyAccountId,
+        string partyCurrency,
+        decimal partySideAmount)
+    {
+        var postingOrchestrator = LazyServiceProvider?.LazyGetService<DocumentPostingOrchestrator>();
+        var fyRepo = LazyServiceProvider?.LazyGetService<IRepository<FiscalYear, Guid>>();
+        if (postingOrchestrator == null || fyRepo == null)
+            return;
+
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var hasOpenFy = fyQuery.Any(f => f.CompanyId == pe.CompanyId
+            && !f.IsClosed
+            && f.StartDate <= pe.PostingDate
+            && f.EndDate >= pe.PostingDate);
+        if (!hasOpenFy)
+            return;
+
+        var allocations = pe.AgainstInvoiceId.HasValue
+            ? new[]
+            {
+                new PaymentAllocation
+                {
+                    VoucherType = pe.AgainstInvoiceType ?? (pe.PartyType == "Customer" ? "SalesInvoice" : "PurchaseInvoice"),
+                    VoucherId = pe.AgainstInvoiceId.Value,
+                    AllocatedAmount = pe.PaymentType == PaymentType.Receive ? partySideAmount : pe.PaidAmount,
+                }
+            }
+            : Array.Empty<PaymentAllocation>();
+
+        if (!string.IsNullOrWhiteSpace(pe.PartyType) && pe.PartyId.HasValue)
+        {
+            await postingOrchestrator.PostPaymentEntryAsync(
+                pe,
+                partyAccountId: partyAccountId,
+                partyType: pe.PartyType,
+                partyId: pe.PartyId.Value,
+                accountCurrency: pe.CurrencyCode,
+                exchangeRate: pe.ExchangeRate,
+                allocations: allocations,
+                paidFromAccountId: pe.PaidFromAccountId,
+                paidToAccountId: pe.PaidToAccountId);
+        }
+
+        if (!pe.AgainstInvoiceId.HasValue)
+            return;
+
+        if (pe.AgainstInvoiceType == "SalesInvoice")
+        {
+            var siRepo = LazyServiceProvider?.LazyGetService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            if (siRepo != null)
+            {
+                var si = await siRepo.FindAsync(pe.AgainstInvoiceId.Value);
+                if (si != null)
+                {
+                    si.AmountPaid = Math.Max(0, si.AmountPaid + partySideAmount);
+                    await siRepo.UpdateAsync(si);
+                }
+            }
+        }
+        else if (pe.AgainstInvoiceType == "PurchaseInvoice")
+        {
+            var piRepo = LazyServiceProvider?.LazyGetService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            if (piRepo != null)
+            {
+                var pi = await piRepo.FindAsync(pe.AgainstInvoiceId.Value);
+                if (pi != null)
+                {
+                    pi.AmountPaid = Math.Max(0, pi.AmountPaid + partySideAmount);
+                    await piRepo.UpdateAsync(pi);
+                }
+            }
+        }
     }
 
     /// <summary>
