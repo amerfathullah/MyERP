@@ -490,4 +490,43 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             debitNote.Items[0].UnitPrice.ShouldBe(50m);
         });
     }
+
+    [Fact]
+    public async Task ConvertMaterialRequestToRfq_RespectsMrUom_WhenConversionFactorGreaterThanOne()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var mrRepo = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MR RFQ CrossUom Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "RFQS", "RFQ", "RFQ-"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-RFQ-UOM", "Box Item", ItemType.Goods), autoSave: true);
+
+            // 10 Boxes (cf=5 => StockQty=50), 4 Boxes already ordered -> remaining must be 6 Boxes (NOT (50-4)/5 = 9.2)
+            var mrPartial = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-RFQ-PART", MaterialRequestType.Purchase, DateTime.UtcNow.Date, company.TenantId);
+            mrPartial.AddItem(item.Id, "Box Item", quantity: 10m, uom: "Box", conversionFactor: 5m);
+            mrPartial.Items.Single().OrderedQuantity = 4m;
+            mrPartial.Submit();
+            await mrRepo.InsertAsync(mrPartial, autoSave: true);
+
+            var rfqDto = await conversionService.ConvertMaterialRequestToRfqAsync(mrPartial.Id);
+            rfqDto.Items.Count.ShouldBe(1);
+            rfqDto.Items[0].Qty.ShouldBe(6m);
+
+            // Fully ordered in MR UOM (10 Boxes of 10, StockQty=50) -> must block conversion
+            var mrFull = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-RFQ-FULL", MaterialRequestType.Purchase, DateTime.UtcNow.Date, company.TenantId);
+            mrFull.AddItem(item.Id, "Box Item", quantity: 10m, uom: "Box", conversionFactor: 5m);
+            mrFull.Items.Single().OrderedQuantity = 10m;
+            mrFull.Submit();
+            await mrRepo.InsertAsync(mrFull, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+                await conversionService.ConvertMaterialRequestToRfqAsync(mrFull.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+        });
+    }
 }

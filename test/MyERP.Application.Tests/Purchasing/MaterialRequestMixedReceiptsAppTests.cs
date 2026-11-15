@@ -32,7 +32,7 @@ public abstract class MaterialRequestMixedReceiptsAppTests<TStartupModule> : MyE
         MaterialRequest MaterialRequest,
         MaterialRequestItem MrItem);
 
-    private async Task<Fixture> SeedAsync(string tag, decimal requestQty = 20m)
+    private async Task<Fixture> SeedAsync(string tag, decimal requestQty = 20m, string uom = "Unit", decimal conversionFactor = 1m)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
         var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
@@ -98,7 +98,7 @@ public abstract class MaterialRequestMixedReceiptsAppTests<TStartupModule> : MyE
             new Item(Guid.NewGuid(), company.Id, $"ITEM-MR-{tag}", "Mixed MR Item", ItemType.Goods), autoSave: true);
 
         var mr = new MaterialRequest(Guid.NewGuid(), company.Id, $"MR-{tag}-001", MaterialRequestType.Purchase, DateTime.UtcNow.Date, company.TenantId);
-        mr.AddItem(item.Id, "Mixed MR Item", quantity: requestQty, uom: "Unit", warehouseId: warehouse.Id);
+        mr.AddItem(item.Id, "Mixed MR Item", quantity: requestQty, uom: uom, warehouseId: warehouse.Id, conversionFactor: conversionFactor);
         var mrItem = mr.Items.Single();
         mr.Submit();
         await mrRepository.InsertAsync(mr, autoSave: true);
@@ -266,6 +266,46 @@ public abstract class MaterialRequestMixedReceiptsAppTests<TStartupModule> : MyE
             mrItemAfterPrCancel.ReceivedQuantity.ShouldBe(0m);
             mrAfterPrCancel.PerReceived.ShouldBe(0m);
             mrAfterPrCancel.Status.ShouldBe(DocumentStatus.Submitted);
+        });
+    }
+
+    [Fact]
+    public async Task MixedReceipts_CrossUomMr_ConvertsPrStockQtyToMrUom()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var f = await SeedAsync("CROSSUOM", requestQty: 2m, uom: "Box", conversionFactor: 10m);
+            var prAppService = GetRequiredService<IPurchaseReceiptAppService>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+
+            // Receive 10 stock Units = 1 Box against 2 Box MR (50% received)
+            var pr = await prAppService.CreateAsync(new CreatePurchaseReceiptDto
+            {
+                CompanyId = f.Company.Id,
+                SupplierId = f.Supplier.Id,
+                WarehouseId = f.Warehouse.Id,
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<CreatePurchaseReceiptItemDto>
+                {
+                    new()
+                    {
+                        ItemId = f.Item.Id,
+                        Description = "Mixed MR Item",
+                        Quantity = 10m,
+                        UnitPrice = 10m,
+                        Uom = "Unit",
+                        WarehouseId = f.Warehouse.Id,
+                        MaterialRequestItemId = f.MrItem.Id,
+                    },
+                },
+            });
+            await prAppService.SubmitAsync(pr.Id);
+
+            var mr = await mrRepository.GetAsync(f.MaterialRequest.Id);
+            var mrItem = mr.Items.Single(i => i.Id == f.MrItem.Id);
+            mrItem.ReceivedQuantity.ShouldBe(1m);
+            mr.PerReceived.ShouldBe(50m);
+            mr.Status.ShouldBe(DocumentStatus.Submitted);
         });
     }
 }

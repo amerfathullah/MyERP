@@ -68,10 +68,7 @@ public class MaterialRequestManager : DomainService
         if (!lineList.Any()) return;
 
         var mrItemIds = lineList.Select(l => l.MaterialRequestItemId).Distinct().ToList();
-        var mrQuery = await _mrRepository.GetQueryableAsync();
-        var affectedMRs = mrQuery
-            .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
-            .ToList();
+        var affectedMRs = await FindAffectedMaterialRequestsAsync(mrItemIds);
 
         var binService = LazyServiceProvider?.LazyGetService<MyERP.Inventory.DomainServices.BinService>();
 
@@ -113,10 +110,7 @@ public class MaterialRequestManager : DomainService
         if (!lineList.Any()) return;
 
         var mrItemIds = lineList.Select(l => l.MaterialRequestItemId).Distinct().ToList();
-        var mrQuery = await _mrRepository.GetQueryableAsync();
-        var affectedMRs = mrQuery
-            .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
-            .ToList();
+        var affectedMRs = await FindAffectedMaterialRequestsAsync(mrItemIds);
 
         foreach (var mr in affectedMRs)
         {
@@ -125,7 +119,11 @@ public class MaterialRequestManager : DomainService
                 var mrItem = mr.Items.FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
                 if (mrItem == null) continue;
 
-                var delta = reverse ? -line.Quantity : line.Quantity;
+                // Callers pass StockQty delta; convert back to MR transaction UOM so
+                // ReceivedQuantity aligns with mrItem.Quantity and PerReceived calculation.
+                var mrFactor = mrItem.ConversionFactor > 0m ? mrItem.ConversionFactor : 1m;
+                var qtyInMrUom = mrFactor == 1m ? line.Quantity : line.Quantity / mrFactor;
+                var delta = reverse ? -qtyInMrUom : qtyInMrUom;
                 mrItem.ReceivedQuantity = Math.Max(0, mrItem.ReceivedQuantity + delta);
             }
             mr.UpdateFulfillmentStatus();
@@ -183,7 +181,7 @@ public class MaterialRequestManager : DomainService
     /// </summary>
     public static decimal GetPendingQty(MaterialRequestItem item)
     {
-        var orderedOrReceived = item.OrderedQuantity > 0 ? item.OrderedQuantity : item.ReceivedQuantity;
+        var orderedOrReceived = Math.Max(item.OrderedQuantity, item.ReceivedQuantity);
         return Math.Max(0, item.Quantity - orderedOrReceived);
     }
 
@@ -257,5 +255,27 @@ public class MaterialRequestManager : DomainService
                 }
             }
         }
+    }
+
+    private async Task<List<MaterialRequest>> FindAffectedMaterialRequestsAsync(List<Guid> mrItemIds)
+    {
+        var mrQuery = await _mrRepository.WithDetailsAsync(mr => mr.Items);
+        var affectedMRs = mrQuery != null
+            ? mrQuery.Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id))).ToList()
+            : new List<MaterialRequest>();
+
+        // Fallback when unit tests stub GetQueryableAsync() on NSubstitute mocks
+        if (affectedMRs.Count == 0)
+        {
+            var fallbackQuery = await _mrRepository.GetQueryableAsync();
+            if (fallbackQuery != null)
+            {
+                affectedMRs = fallbackQuery
+                    .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
+                    .ToList();
+            }
+        }
+
+        return affectedMRs;
     }
 }

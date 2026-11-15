@@ -732,9 +732,9 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             .ToList();
         var draftRfqQtyMap = draftRfqItems.ToDictionary(x => x.MrItemId, x => x.Qty);
 
-        // Per ERPNext commit c93815b4ae: filter out items where ordered_qty or received_qty covers stock_qty
+        // Per ERPNext commit c93815b4ae: filter out items where ordered_qty or received_qty covers MR qty (both in MR UOM)
         var pendingItems = mr.Items
-            .Where(i => Math.Max(i.OrderedQuantity, i.ReceivedQuantity) < i.StockQty)
+            .Where(i => Math.Max(i.OrderedQuantity, i.ReceivedQuantity) < i.Quantity)
             .ToList();
 
         if (!pendingItems.Any())
@@ -756,11 +756,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         foreach (var mrItem in pendingItems)
         {
-            var fulfilledQty = Math.Max(mrItem.OrderedQuantity, mrItem.ReceivedQuantity);
-            var remainingStockQty = mrItem.StockQty - fulfilledQty;
-            var remainingQty = mrItem.ConversionFactor > 0
-                ? remainingStockQty / mrItem.ConversionFactor
-                : remainingStockQty;
+            var remainingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem);
 
             var draftQty = draftRfqQtyMap.GetValueOrDefault(mrItem.Id, 0m);
             var finalQty = remainingQty - draftQty;

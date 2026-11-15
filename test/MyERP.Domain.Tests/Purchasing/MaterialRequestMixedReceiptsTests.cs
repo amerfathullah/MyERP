@@ -145,4 +145,38 @@ public class MaterialRequestMixedReceiptsTests
         mr.PerReceived.ShouldBe(60m);
         mr.Status.ShouldBe(DocumentStatus.Submitted);
     }
+
+    [Fact]
+    public async Task UpdateReceiptFulfillmentForItemsAsync_ConvertsStockQtyToMrUom_AndGetPendingQtyUsesMax()
+    {
+        var mr = new MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-BOX-01", MaterialRequestType.Purchase, DateTime.UtcNow);
+        mr.AddItem(Guid.NewGuid(), "Boxed Bolts", 2m, "Box", conversionFactor: 10m);
+        mr.Submit();
+        var mrItem = mr.Items[0];
+
+        var mrList = new List<MaterialRequest> { mr };
+        _mrRepository.GetQueryableAsync().Returns(Task.FromResult(mrList.AsQueryable()));
+
+        // Receipt passes StockQty = 10 Units (1 Box of 10)
+        await _mrManager.UpdateReceiptFulfillmentForItemsAsync(new[] { (mrItem.Id, 10m) }, reverse: false);
+        mrItem.ReceivedQuantity.ShouldBe(1m);
+        mr.PerReceived.ShouldBe(50m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+
+        // If OrderedQuantity = 0.5 Box and ReceivedQuantity = 1 Box, pending is 2 - max(0.5, 1) = 1 Box
+        mrItem.OrderedQuantity = 0.5m;
+        MaterialRequestManager.GetPendingQty(mrItem).ShouldBe(1m);
+
+        // Receipt 2 passes StockQty = 10 Units -> total 2 Boxes -> Completed
+        await _mrManager.UpdateReceiptFulfillmentForItemsAsync(new[] { (mrItem.Id, 10m) }, reverse: false);
+        mrItem.ReceivedQuantity.ShouldBe(2m);
+        mr.PerReceived.ShouldBe(100m);
+        mr.Status.ShouldBe(DocumentStatus.Completed);
+
+        // Reverse 10 Units -> back to 1 Box
+        await _mrManager.UpdateReceiptFulfillmentForItemsAsync(new[] { (mrItem.Id, 10m) }, reverse: true);
+        mrItem.ReceivedQuantity.ShouldBe(1m);
+        mr.PerReceived.ShouldBe(50m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+    }
 }
