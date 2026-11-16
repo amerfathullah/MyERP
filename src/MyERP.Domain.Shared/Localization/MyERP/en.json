@@ -6370,7 +6370,12 @@
     "CheckBin": "Check Bin",
     "Published": "Published",
     "Scorecard": "Supplier Scorecard",
-    "AlreadyReserved": "Already Reserved"
+    "AlreadyReserved": "Already Reserved",
+    "AvailableBatches": "Available Batches",
+    "NoAvailableBatches": "No available batches found matching the selected filters",
+    "MatchingAccounts": "Matching Accounts",
+    "NoMatchingAccounts": "No accounts match the selected filter",
+    "AllRootTypes": "All Root Types"
   }
 }
 

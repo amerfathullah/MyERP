@@ -7,6 +7,8 @@ import { FinancialReportTemplateService } from '../../proxy/accounting/financial
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 import type {
+  AccountFilterRowDto,
+  FilteredAccountDto,
   FinancialReportTemplateDto,
   FinancialReportResultDto,
   FinancialReportResultRowDto,
@@ -32,6 +34,19 @@ export class FinancialReportExecuteComponent implements OnInit {
   toDate = '';
   loading = signal(false);
   result = signal<FinancialReportResultDto | null>(null);
+  showAccountsPreview = signal(false);
+  loadingAccounts = signal(false);
+  filteredAccounts = signal<FilteredAccountDto[]>([]);
+  accountRootTypeFilter = '';
+  accountCategoryFilter = '';
+
+  templateCategories = computed(() => {
+    const tmpl = this.templates().find(t => t.id === this.selectedTemplateId);
+    const cats = (tmpl?.rows ?? [])
+      .map(r => r.accountCategoryFilter)
+      .filter((c): c is string => !!c && c.trim().length > 0);
+    return Array.from(new Set(cats));
+  });
 
   visibleRows = computed(() => {
     const r = this.result();
@@ -106,6 +121,39 @@ export class FinancialReportExecuteComponent implements OnInit {
 
   printReport(): void {
     window.print();
+  }
+
+  toggleAccountsPreview(): void {
+    const next = !this.showAccountsPreview();
+    this.showAccountsPreview.set(next);
+    if (next) {
+      this.loadFilteredAccounts();
+    }
+  }
+
+  loadFilteredAccounts(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+
+    const accountRows: AccountFilterRowDto[] = [];
+    if (this.accountRootTypeFilter) {
+      accountRows.push({ field: 'root_type', operator: '=', value: this.accountRootTypeFilter });
+    }
+    if (this.accountCategoryFilter) {
+      accountRows.push({ field: 'account_category', operator: '=', value: this.accountCategoryFilter });
+    }
+
+    this.loadingAccounts.set(true);
+    this.service.getFilteredAccounts({ companyId, accountRows }).subscribe({
+      next: accounts => {
+        this.filteredAccounts.set(accounts ?? []);
+        this.loadingAccounts.set(false);
+      },
+      error: () => {
+        this.toaster.error(this.l('::FailedToLoad'));
+        this.loadingAccounts.set(false);
+      },
+    });
   }
 
   getIndentClass(row: FinancialReportResultRowDto): string {

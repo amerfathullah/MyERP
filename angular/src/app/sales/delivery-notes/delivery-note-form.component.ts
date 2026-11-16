@@ -12,6 +12,8 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
+import { BatchService } from '../../proxy/inventory/batch.service';
+import type { AutoPickedBatchAllocationDto } from '../../proxy/inventory/models';
 import type { SalesOrderDto } from '../../proxy/sales/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -43,6 +45,7 @@ export class DeliveryNoteFormComponent implements OnInit {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   private pickListService = inject(PickListService);
+  private batchService = inject(BatchService);
 
   customers = signal<any[]>([]);
   warehouses = signal<any[]>([]);
@@ -52,6 +55,8 @@ export class DeliveryNoteFormComponent implements OnInit {
   availablePickLists = signal<any[]>([]);
   isLoadingSOItems = signal(false);
   isLoadingPickListItems = signal(false);
+  isAutoPickingBatches = signal(false);
+  pickedBatches = signal<Record<number, AutoPickedBatchAllocationDto>>({});
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -279,6 +284,49 @@ export class DeliveryNoteFormComponent implements OnInit {
 
   removeItem(index: number): void {
     this.items.removeAt(index);
+    this.pickedBatches.set({});
+  }
+
+  /** Preview FEFO batch allocation for line items via BatchService.autoPickBatchesForDocument. */
+  autoPickBatches(): void {
+    const warehouseId = this.form.get('warehouseId')?.value;
+    const companyId = this.form.get('companyId')?.value || this.companyContext.currentCompanyId();
+    if (!warehouseId) {
+      this.toaster.warn(this.l.instant('::SelectWarehouse'));
+      return;
+    }
+    const rowIdToIndex: Record<string, number> = {};
+    const rows = this.items.controls
+      .map((ctrl, idx) => {
+        const itemId = ctrl.get('itemId')?.value as string;
+        const qty = Number(ctrl.get('quantity')?.value ?? 0);
+        if (!itemId || qty <= 0) return null;
+        const rowId = `00000000-0000-4000-8000-${String(idx).padStart(12, '0')}`;
+        rowIdToIndex[rowId] = idx;
+        return { rowId, itemId, warehouseId, requiredStockQty: qty };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (rows.length === 0) return;
+
+    this.isAutoPickingBatches.set(true);
+    this.batchService.autoPickBatchesForDocument({ companyId: companyId || undefined, rows }).subscribe({
+      next: allocations => {
+        const mapped: Record<number, AutoPickedBatchAllocationDto> = {};
+        for (const alloc of allocations ?? []) {
+          const idx = alloc.rowId ? rowIdToIndex[alloc.rowId] : undefined;
+          if (idx !== undefined) {
+            mapped[idx] = alloc;
+          }
+        }
+        this.pickedBatches.set(mapped);
+        this.isAutoPickingBatches.set(false);
+      },
+      error: () => {
+        this.toaster.error(this.l.instant('::FailedToLoad'));
+        this.isAutoPickingBatches.set(false);
+      },
+    });
   }
 
   save(): void {

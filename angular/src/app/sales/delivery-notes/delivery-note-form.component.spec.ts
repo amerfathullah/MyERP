@@ -1,5 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { DeliveryNoteFormComponent } from './delivery-note-form.component';
+import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { CompanyService } from '../../proxy/core/company.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { PickListService } from '../../proxy/inventory/pick-list.service';
+import { BatchService } from '../../proxy/inventory/batch.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 /**
  * Tests for the Delivery Note form DTO mapping.
@@ -155,5 +170,62 @@ describe('Invoice item grid DTO field mapping', () => {
     const items = [{ itemId: 'x', qty: 1 }];
     const dto = mapGridItemsToDto(items);
     expect(dto[0].description).toBe('');
+  });
+});
+
+describe('DeliveryNoteFormComponent autoPickBatches', () => {
+  function createComponent(batchMock: any, toasterMock = { warn: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() }) {
+    const injector = Injector.create({
+      providers: [
+        FormBuilder,
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: { get: () => null } } } },
+        { provide: DeliveryNoteService, useValue: {} },
+        { provide: SalesOrderService, useValue: {} },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: ItemService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PickListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: BatchService, useValue: batchMock },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+      ],
+    });
+    return { comp: runInInjectionContext(injector, () => new DeliveryNoteFormComponent()), toasterMock };
+  }
+
+  it('calls BatchService.autoPickBatchesForDocument and maps returned allocations by row index', () => {
+    const batchMock = {
+      autoPickBatchesForDocument: vi.fn().mockImplementation((input: any) =>
+        of([
+          { rowId: input.rows[0].rowId, batchId: 'b-1', batchNo: 'BATCH-FEFO', allocatedQty: 5, isAllocated: true },
+        ])
+      ),
+    };
+    const { comp } = createComponent(batchMock);
+    comp.form.patchValue({ companyId: 'comp-1', warehouseId: 'wh-1' });
+    comp.addItemRow({ itemId: 'item-1', description: 'Widget', quantity: 5, unitPrice: 10 });
+
+    comp.autoPickBatches();
+
+    expect(batchMock.autoPickBatchesForDocument).toHaveBeenCalledTimes(1);
+    const callArg = batchMock.autoPickBatchesForDocument.mock.calls[0][0];
+    expect(callArg.companyId).toBe('comp-1');
+    expect(callArg.rows[0].warehouseId).toBe('wh-1');
+    expect(callArg.rows[0].requiredStockQty).toBe(5);
+    expect(comp.pickedBatches()[0]).toMatchObject({ batchNo: 'BATCH-FEFO', allocatedQty: 5, isAllocated: true });
+  });
+
+  it('warns when warehouseId is missing before calling autoPickBatchesForDocument', () => {
+    const batchMock = { autoPickBatchesForDocument: vi.fn() };
+    const { comp, toasterMock } = createComponent(batchMock);
+    comp.addItemRow({ itemId: 'item-1', description: 'Widget', quantity: 2, unitPrice: 10 });
+
+    comp.autoPickBatches();
+
+    expect(toasterMock.warn).toHaveBeenCalledWith('::SelectWarehouse');
+    expect(batchMock.autoPickBatchesForDocument).not.toHaveBeenCalled();
   });
 });
