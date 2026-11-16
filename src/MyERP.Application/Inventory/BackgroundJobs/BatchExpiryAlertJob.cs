@@ -61,6 +61,7 @@ public class BatchExpiryAlertJob : AsyncBackgroundJob<BatchExpiryAlertJobArgs>, 
         var queryable = await _batchRepository.GetQueryableAsync();
         var expiringBatches = queryable
             .Where(b => !b.IsDisabled
+                && !b.IsCancelled
                 && b.ExpiryDate != null
                 && b.ExpiryDate <= alertCutoff)
             .OrderBy(b => b.ExpiryDate)

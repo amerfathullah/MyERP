@@ -131,11 +131,11 @@ public class TaxesAndTotalsService : DomainService
             tax.Total = 0;
         }
 
-        // Per ERPNext commit 0ca4c81ea3: split "Actual" tax over applicable items only
-        // (excluding items marked N/A via decimal.MinValue in ItemTaxRateOverrides),
-        // absorb any divisional/rounding remainder on the last applicable item, and fall back
-        // to placing the full Actual amount on the last applicable item when applicable net total is 0.
+        // Per ERPNext commit 0ca4c81ea3 & PR #66403 (dbe1167e07): split "Actual" tax over applicable
+        // items by NetAmount, falling back to chargeable qty when all applicable NetAmounts are zero,
+        // and assigning any rounding remainder to the last applicable item carrying a share.
         var actualApplicableNetTotals = new decimal[orderedTaxes.Count];
+        var actualApplicableQtyTotals = new decimal[orderedTaxes.Count];
         var actualLastApplicableIdx = new int[orderedTaxes.Count];
         var actualRemaining = new decimal[orderedTaxes.Count];
         for (int i = 0; i < orderedTaxes.Count; i++)
@@ -145,16 +145,29 @@ public class TaxesAndTotalsService : DomainService
             if (tax.ChargeType != "Actual") continue;
 
             actualRemaining[i] = tax.Rate;
-            decimal applicableSum = 0m;
+            decimal applicableNetSum = 0m;
+            decimal applicableQtySum = 0m;
+            int lastByNet = -1;
+            int lastByQty = -1;
+            int lastApplicable = -1;
             for (int idx = 0; idx < items.Count; idx++)
             {
                 if (!IsTaxNotApplicableForItem(items[idx], tax))
                 {
-                    applicableSum += items[idx].NetAmount;
-                    actualLastApplicableIdx[i] = idx;
+                    var itemNet = items[idx].NetAmount;
+                    var itemQty = GetActualChargeBasisQty(items[idx]);
+                    applicableNetSum += itemNet;
+                    applicableQtySum += itemQty;
+                    if (itemNet != 0m) lastByNet = idx;
+                    if (itemQty != 0m) lastByQty = idx;
+                    lastApplicable = idx;
                 }
             }
-            actualApplicableNetTotals[i] = applicableSum;
+            actualApplicableNetTotals[i] = applicableNetSum;
+            actualApplicableQtyTotals[i] = applicableQtySum;
+            actualLastApplicableIdx[i] = applicableNetSum != 0m
+                ? lastByNet
+                : (applicableQtySum != 0m ? lastByQty : lastApplicable);
         }
 
         // Track per-item running totals for cascade
@@ -188,20 +201,33 @@ public class TaxesAndTotalsService : DomainService
                 else if (tax.ChargeType == "Actual")
                 {
                     var applicableNet = actualApplicableNetTotals[i];
+                    var applicableQty = actualApplicableQtyTotals[i];
                     var lastIdx = actualLastApplicableIdx[i];
 
-                    currentTaxAmount = applicableNet != 0m
-                        ? (item.NetAmount / applicableNet) * tax.Rate
-                        : (itemIdx == lastIdx ? tax.Rate : 0m);
+                    if (applicableNet != 0m)
+                    {
+                        currentTaxAmount = (item.NetAmount / applicableNet) * tax.Rate;
+                    }
+                    else if (applicableQty != 0m)
+                    {
+                        currentTaxAmount = (GetActualChargeBasisQty(item) / applicableQty) * tax.Rate;
+                    }
+                    else
+                    {
+                        currentTaxAmount = itemIdx == lastIdx ? tax.Rate : 0m;
+                    }
 
                     if (roundRowWiseTax)
                         currentTaxAmount = Math.Round(currentTaxAmount, 2);
 
-                    actualRemaining[i] -= currentTaxAmount;
-                    if (itemIdx == lastIdx)
+                    if (itemIdx <= lastIdx)
                     {
-                        currentTaxAmount += actualRemaining[i];
-                        actualRemaining[i] = 0m;
+                        actualRemaining[i] -= currentTaxAmount;
+                        if (itemIdx == lastIdx)
+                        {
+                            currentTaxAmount += actualRemaining[i];
+                            actualRemaining[i] = 0m;
+                        }
                     }
                 }
                 else
@@ -334,6 +360,15 @@ public class TaxesAndTotalsService : DomainService
         && tax.AccountId.HasValue
         && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate)
         && overrideRate == decimal.MinValue;
+
+    private static decimal GetActualChargeBasisQty(TransactionItem item)
+    {
+        var billed = Math.Abs(item.BilledQty);
+        if (billed > 0m) return billed;
+        var qty = Math.Abs(item.Qty);
+        if (qty > 0m) return qty;
+        return Math.Abs(item.RejectedQty);
+    }
 
     private static decimal CalculateTaxForItem(
         TransactionTaxRow tax,

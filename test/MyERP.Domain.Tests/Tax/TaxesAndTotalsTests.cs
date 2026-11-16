@@ -526,4 +526,45 @@ public class TaxesAndTotalsTests
         result.DiscountAmount.ShouldBe(40m);
         result.NetTotal.ShouldBe(360m);
     }
+
+    [Fact]
+    public void Calculate_ActualCharge_ZeroNetAmount_DistributesProportionallyByQty_PR66403()
+    {
+        var accFreightId = Guid.NewGuid();
+        var accSstId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 3m, Rate = 0m, NetAmount = 0m },
+            new()
+            {
+                ItemId = Guid.NewGuid(),
+                Qty = 7m,
+                Rate = 0m,
+                NetAmount = 0m,
+                ItemTaxRateOverrides = new Dictionary<Guid, decimal> { [accSstId] = decimal.MinValue }
+            },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "PurchaseReceipt", docId, 1, "Freight", "Actual", 100m)
+            {
+                AccountId = accFreightId,
+                TaxCategory = "Valuation and Total"
+            },
+            new(Guid.NewGuid(), "PurchaseReceipt", docId, 2, "Tax on Item1 Freight", "On Previous Row Amount", 10m)
+            {
+                AccountId = accSstId,
+                ReferenceRowIndex = 1
+            },
+        };
+
+        var result = _service.Calculate(items, taxes);
+
+        result.NetTotal.ShouldBe(0m);
+        // Item 1 (qty 3/10) gets 30 (10% of 30 = 3), not 0 as before PR #66403
+        taxes[0].TaxAmount.ShouldBe(100m);
+        taxes[1].TaxAmount.ShouldBe(3m);
+        result.TotalTax.ShouldBe(103m);
+    }
 }
