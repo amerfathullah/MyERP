@@ -6244,7 +6244,16 @@
     "IgnoreEmptyStock": "Ignore Empty Stock",
     "FetchFromDeliveryNotes": "Fetch from Delivery Notes",
     "FulfillmentStatus": "Fulfillment Status",
-    "CurrentValuationRate": "Current Valuation Rate"
+    "CurrentValuationRate": "Current Valuation Rate",
+    "ApplyTemplate": "Apply Template",
+    "ContractTemplate": "Contract Template",
+    "TemplateApplied": "Template applied",
+    "CreateBom": "Create BOM",
+    "ReturnExcessMaterials": "Return Excess Materials",
+    "ReturnExcessMaterialsConfirmation": "Create a Material Return Stock Entry for unconsumed WIP materials?",
+    "CancelReason": "Cancellation Reason",
+    "CancelEInvoiceWarning": "Cancel this e-invoice submission in LHDN MyInvois? This must be done within 72 hours of validation and cannot be undone.",
+    "LhdnCancelReasonPlaceholder": "Enter reason (e.g., Wrong buyer details, Incorrect amount, Duplicate submission)"
   }
 }
 

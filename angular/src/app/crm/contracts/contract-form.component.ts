@@ -1,9 +1,11 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ContractService } from '../../proxy/crm/contract.service';
+import { ContractTemplateService } from '../../proxy/crm/contract-template.service';
+import type { ContractTemplateDto } from '../../proxy/crm/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
@@ -12,7 +14,7 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, LocalizationPipe],
+  imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -61,6 +63,23 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 
           <div class="row mb-3">
             <div class="col-md-8">
+              <label class="form-label">{{ 'MyERP::ContractTemplate' | abpLocalization }}</label>
+              <div class="input-group mb-2">
+                <select class="form-select" [ngModel]="selectedTemplateId()" (ngModelChange)="selectedTemplateId.set($event)" [ngModelOptions]="{ standalone: true }">
+                  <option value="">{{ '::SelectTemplate' | abpLocalization }}</option>
+                  @for (t of templates(); track t.id) {
+                    <option [value]="t.id">{{ t.title }}</option>
+                  }
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  (click)="applyTemplate()"
+                  [disabled]="!selectedTemplateId() || isRenderingTemplate()">
+                  @if (isRenderingTemplate()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  <i class="fa fa-file-lines me-1"></i>{{ '::ApplyTemplate' | abpLocalization }}
+                </button>
+              </div>
               <label class="form-label">{{ 'MyERP::ContractTerms' | abpLocalization }}</label>
               <textarea class="form-control" formControlName="notes" rows="4"></textarea>
             </div>
@@ -101,6 +120,8 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 export class ContractFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(ContractService);
+  private contractTemplateService = inject(ContractTemplateService);
+  private l = inject(LocalizationService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private companyContext = inject(CompanyContextService);
@@ -109,6 +130,9 @@ export class ContractFormComponent implements OnInit {
   private customerService = inject(CustomerService);
 
   parties = signal<any[]>([]);
+  templates = signal<ContractTemplateDto[]>([]);
+  selectedTemplateId = signal('');
+  isRenderingTemplate = signal(false);
 
   form!: FormGroup;
   saving = false;
@@ -133,6 +157,11 @@ export class ContractFormComponent implements OnInit {
     this.form.get('partyType')!.valueChanges.subscribe(t => {
       this.form.patchValue({ partyId: null });
       this.loadParties(t);
+    });
+
+    this.contractTemplateService.getList({ maxResultCount: 100, skipCount: 0 }).subscribe({
+      next: res => this.templates.set(res.items ?? []),
+      error: () => {},
     });
 
     this.editId = this.route.snapshot.paramMap.get('id');
@@ -169,6 +198,50 @@ export class ContractFormComponent implements OnInit {
         error: () => {}
       });
     }
+  }
+
+  applyTemplate(): void {
+    const templateId = this.selectedTemplateId();
+    if (!templateId || this.isRenderingTemplate()) return;
+
+    this.isRenderingTemplate.set(true);
+    const context = this.buildTemplateContext();
+    this.contractTemplateService.renderContractTerms({ templateId, context }).subscribe({
+      next: res => {
+        this.isRenderingTemplate.set(false);
+        this.form.patchValue({ notes: res.contractTerms ?? '' });
+        const tpl = this.templates().find(t => t.id === templateId);
+        if (tpl?.requiresFulfilment && !this.form.get('requiresFulfilment')!.value) {
+          this.form.patchValue({ requiresFulfilment: true });
+        }
+        this.toaster.success(this.l.instant('::TemplateApplied'));
+      },
+      error: (err: any) => {
+        this.isRenderingTemplate.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
+  }
+
+  buildTemplateContext(): Record<string, string> {
+    const val = this.form.getRawValue();
+    const party = this.parties().find(p => p.id === val.partyId);
+    const partyName = party?.name ?? '';
+    const contractValue = val.contractValue != null ? String(val.contractValue) : '';
+    return {
+      contract_number: val.contractNumber ?? '',
+      contractNumber: val.contractNumber ?? '',
+      party_type: val.partyType ?? '',
+      partyType: val.partyType ?? '',
+      party_name: partyName,
+      partyName,
+      start_date: val.startDate ?? '',
+      startDate: val.startDate ?? '',
+      end_date: val.endDate ?? '',
+      endDate: val.endDate ?? '',
+      contract_value: contractValue,
+      contractValue,
+    };
   }
 
   save() {

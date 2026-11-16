@@ -100,7 +100,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           }
         }
 
-        <div class="d-flex gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2 mb-3">
           @if (wo()!.status === 0) {
             <button class="btn btn-primary btn-sm" (click)="submit()"><i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}</button>
             <button class="btn btn-outline-danger btn-sm" (click)="deleteWorkOrder()"><i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}</button>
@@ -125,6 +125,18 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             <button class="btn btn-outline-warning btn-sm" (click)="disassemble()" [disabled]="isDisassembling()">
               @if (isDisassembling()) { <span class="spinner-border spinner-border-sm me-1"></span> }
               <i class="fa fa-rotate-left me-1"></i>{{ '::Disassemble' | abpLocalization }}
+            </button>
+          }
+          @if (wo()!.status === 4 || (wo()!.status! >= 1 && (wo()!.producedQuantity ?? 0) > 0)) {
+            <button class="btn btn-outline-success btn-sm" (click)="createBomFromWorkOrder()" [disabled]="isCreatingBom()">
+              @if (isCreatingBom()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-sitemap me-1"></i>{{ '::CreateBom' | abpLocalization }}
+            </button>
+          }
+          @if (hasReturnableMaterials) {
+            <button class="btn btn-outline-warning btn-sm" (click)="returnExcessMaterials()" [disabled]="isReturningMaterials()">
+              @if (isReturningMaterials()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-undo me-1"></i>{{ '::ReturnExcessMaterials' | abpLocalization }}
             </button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
@@ -547,6 +559,8 @@ export class WorkOrderDetailComponent implements OnInit {
   isCheckingMaterials = signal(false);
   isDisassembling = signal(false);
   isCreatingJobCards = signal(false);
+  isCreatingBom = signal(false);
+  isReturningMaterials = signal(false);
   qiRequired = signal(false);
   qiStatus = signal<string>('');
   costBreakdown = signal<ProductionCostBreakdownDto | null>(null);
@@ -616,6 +630,51 @@ export class WorkOrderDetailComponent implements OnInit {
 
   get hasHeldStockReservation(): boolean {
     return this.stockReservations().some(sre => this.getHeldQty(sre) > 0);
+  }
+
+  get hasReturnableMaterials(): boolean {
+    const w = this.wo();
+    if (!w || (w.status !== 4 && w.status !== 7)) return false;
+    return (w.requiredItems ?? []).some(i => ((i.transferredQuantity ?? 0) - (i.consumedQuantity ?? 0)) > 0);
+  }
+
+  createBomFromWorkOrder(): void {
+    const w = this.wo();
+    if (!w?.id || this.isCreatingBom()) return;
+    this.isCreatingBom.set(true);
+    this.manufacturingService.createBomFromWorkOrder(w.id).subscribe({
+      next: bom => {
+        this.isCreatingBom.set(false);
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        if (bom?.id) {
+          this.router.navigate(['/manufacturing/bom/detail', bom.id]);
+        }
+      },
+      error: (err: any) => {
+        this.isCreatingBom.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
+  }
+
+  returnExcessMaterials(): void {
+    const w = this.wo();
+    if (!w?.id || this.isReturningMaterials()) return;
+    this.confirmation.warn('::ReturnExcessMaterialsConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.isReturningMaterials.set(true);
+      this.manufacturingService.createMaterialReturnForManufacture(w.id!).subscribe({
+        next: se => {
+          this.isReturningMaterials.set(false);
+          this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+          this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
+        },
+        error: (err: any) => {
+          this.isReturningMaterials.set(false);
+          this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+        },
+      });
+    });
   }
 
   unreserve(sre: StockReservationEntryDto): void {

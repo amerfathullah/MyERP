@@ -1,9 +1,10 @@
 import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
-import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 import { PaginationComponent, type PageEvent } from '../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../shared/services/company-context.service';
@@ -13,7 +14,7 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
 @Component({
   selector: 'app-einvoice-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent, LhdnStatusBadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent, LhdnStatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::EInvoiceSubmissions' | abpLocalization">
@@ -120,7 +121,7 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
                           <i class="fa fa-refresh"></i>
                         </button>
                         @if (inv.status === 'Valid' || inv.status === 'Submitted') {
-                          <button class="btn btn-outline-danger" title="Cancel" (click)="cancelInv(inv)">
+                          <button class="btn btn-outline-danger" [title]="'::CancelEInvoice' | abpLocalization" (click)="openCancelModal(inv)">
                             <i class="fa fa-times"></i>
                           </button>
                         }
@@ -135,22 +136,72 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
       </div>
       <app-pagination [totalCount]="totalCount()" [pageSize]="pageSize"
         [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+
+      @if (cancelTarget(); as target) {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.45)">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header py-2">
+                <h6 class="modal-title text-danger">
+                  <i class="fa fa-triangle-exclamation me-1"></i>{{ '::CancelEInvoice' | abpLocalization }}
+                </h6>
+                <button type="button" class="btn-close" (click)="closeCancelModal()" [disabled]="isCancelling()"></button>
+              </div>
+              <div class="modal-body">
+                <div class="alert alert-warning small py-2 mb-3">
+                  {{ '::CancelEInvoiceWarning' | abpLocalization }}
+                </div>
+                <div class="small text-muted mb-2">
+                  <strong>{{ target.sourceDocumentType }}</strong> · {{ target.documentUuid || target.sourceDocumentId }}
+                </div>
+                <label class="form-label small fw-semibold">{{ '::CancelReason' | abpLocalization }} *</label>
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                  @for (preset of cancelPresets; track preset) {
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" (click)="cancelReason.set(preset)">
+                      {{ preset }}
+                    </button>
+                  }
+                </div>
+                <textarea
+                  class="form-control form-control-sm"
+                  rows="3"
+                  [ngModel]="cancelReason()"
+                  (ngModelChange)="cancelReason.set($event)"
+                  [placeholder]="'::LhdnCancelReasonPlaceholder' | abpLocalization"></textarea>
+              </div>
+              <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" (click)="closeCancelModal()" [disabled]="isCancelling()">
+                  {{ '::Close' | abpLocalization }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" (click)="confirmCancel()" [disabled]="!cancelReason().trim() || isCancelling()">
+                  @if (isCancelling()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  {{ '::ConfirmCancel' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </abp-page>
   `,
 })
 export class EInvoiceListComponent implements OnInit {
   private service = inject(EInvoiceService);
-  private confirmation = inject(ConfirmationService);
+  private l = inject(LocalizationService);
   private toaster = inject(ToasterService);
 
   items = signal<EInvoiceSubmissionDto[]>([]);
   totalCount = signal(0);
   isLoading = signal(false);
   filterStatus = signal('');
+  cancelTarget = signal<EInvoiceSubmissionDto | null>(null);
+  cancelReason = signal('');
+  isCancelling = signal(false);
   currentPage = 0;
   pageSize = 50;
 
   statuses = ['', 'Pending', 'Submitted', 'Valid', 'Invalid', 'Cancelled'];
+  cancelPresets = ['Wrong buyer details', 'Incorrect invoice amount', 'Duplicate submission', 'Order cancelled'];
 
   filtered = computed(() => {
     const s = this.filterStatus();
@@ -184,16 +235,35 @@ export class EInvoiceListComponent implements OnInit {
     });
   }
 
-  cancelInv(inv: EInvoiceSubmissionDto): void {
-    this.confirmation.warn('Cancel this e-invoice submission? This cannot be undone within 72 hours.', 'Cancel E-Invoice').subscribe(status => {
-      if (status !== Confirmation.Status.confirm) return;
-      this.service.cancel({ submissionId: inv.id!, reason: 'Cancelled by user' }).subscribe({
-        next: updated => {
-          this.items.update(list => list.map(i => i.id === updated.id ? updated : i));
-          this.toaster.success('Cancelled successfully');
-        },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Cancel failed'),
-      });
+  openCancelModal(inv: EInvoiceSubmissionDto): void {
+    this.cancelTarget.set(inv);
+    this.cancelReason.set('');
+  }
+
+  closeCancelModal(): void {
+    if (this.isCancelling()) return;
+    this.cancelTarget.set(null);
+    this.cancelReason.set('');
+  }
+
+  confirmCancel(): void {
+    const target = this.cancelTarget();
+    const reason = this.cancelReason().trim();
+    if (!target?.id || !reason || this.isCancelling()) return;
+
+    this.isCancelling.set(true);
+    this.service.cancel({ submissionId: target.id, reason }).subscribe({
+      next: updated => {
+        this.isCancelling.set(false);
+        this.cancelTarget.set(null);
+        this.cancelReason.set('');
+        this.items.update(list => list.map(i => i.id === updated.id ? updated : i));
+        this.toaster.success(this.l.instant('::SuccessfullyCancelled'));
+      },
+      error: (err: any) => {
+        this.isCancelling.set(false);
+        this.toaster.error(err?.error?.error?.message ?? 'Cancel failed');
+      },
     });
   }
 
