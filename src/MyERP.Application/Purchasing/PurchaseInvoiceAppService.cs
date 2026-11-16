@@ -1141,6 +1141,67 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // as outstanding amount is entered inclusive of tax.
         if (!invoice.IsOpening)
         {
+            PurchaseInvoice? returnAgainstForTax = null;
+            if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+            {
+                returnAgainstForTax = await _repository.FindAsync(invoice.ReturnAgainstId.Value, includeDetails: true);
+                if (returnAgainstForTax != null)
+                {
+                    var taxQuery = await _taxRowRepository.GetQueryableAsync();
+                    var returnTaxRows = taxQuery
+                        .Where(t => t.ParentType == "PurchaseInvoice" && t.ParentId == invoice.Id)
+                        .OrderBy(t => t.RowIndex)
+                        .ToList();
+                    var origTaxRows = taxQuery
+                        .Where(t => t.ParentType == "PurchaseInvoice" && t.ParentId == returnAgainstForTax.Id)
+                        .OrderBy(t => t.RowIndex)
+                        .ToList();
+
+                    if (returnTaxRows.Count > 0 && origTaxRows.Count > 0)
+                    {
+                        var returnValItems = invoice.Items.Select(ret =>
+                        {
+                            var origRow = returnAgainstForTax.Items.FirstOrDefault(o => o.ItemId == ret.ItemId);
+                            return new ReturnValuationChargeItem
+                            {
+                                OriginalDetailId = origRow?.Id,
+                                Qty = ret.Quantity,
+                                RejectedQty = ret.RejectedQty,
+                                ConversionFactor = ret.ConversionFactor,
+                                ReturnQtyFromRejectedWarehouse = ret.Quantity == 0m && ret.RejectedQty != 0m,
+                            };
+                        }).ToList();
+
+                        var origValItems = returnAgainstForTax.Items.Select(o =>
+                        {
+                            var factor = o.ConversionFactor > 0 ? o.ConversionFactor : 1m;
+                            return new OriginalValuationChargeItem
+                            {
+                                DetailId = o.Id,
+                                Qty = o.Quantity,
+                                StockQty = o.StockQty > 0 ? o.StockQty : o.Quantity * factor,
+                                ValuedStockQty = o.Quantity * factor + (billsRejectedQuantity ? o.RejectedQty * factor : 0m),
+                                RejectedStockQty = o.RejectedQty * factor,
+                                BaseNetAmount = o.LineTotal * (returnAgainstForTax.ExchangeRate > 0 ? returnAgainstForTax.ExchangeRate : 1m),
+                            };
+                        }).ToList();
+
+                        TaxesAndTotalsService.CalculateReturnedActualValuationCharges(
+                            returnTaxRows,
+                            returnValItems,
+                            origTaxRows,
+                            origValItems,
+                            invoice.ExchangeRate,
+                            billsRejectedQuantity);
+
+                        foreach (var scaledRow in TaxesAndTotalsService.GetActualValuationCharges(returnTaxRows))
+                        {
+                            await _taxRowRepository.UpdateAsync(scaledRow);
+                        }
+                    }
+                }
+            }
+
             var taxRecalcService = LazyServiceProvider.LazyGetRequiredService<TransactionTaxRecalculationService>();
             var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
             var discountAmt = invoice.DiscountAmount;
@@ -1158,9 +1219,21 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             {
                 DocumentType = "PurchaseInvoice",
                 DocumentId = invoice.Id,
-                Items = invoice.Items.Select(i => new TaxItemInput
+                Items = invoice.Items.Select(i =>
                 {
-                    ItemId = i.ItemId, Quantity = i.BilledQuantity, UnitPrice = i.UnitPrice
+                    var origRow = returnAgainstForTax?.Items.FirstOrDefault(o => o.ItemId == i.ItemId);
+                    var canChargeRejected = !isInternalTransfer && setValuationForRejected
+                        && (returnAgainstForTax == null || (origRow != null && origRow.Quantity == 0m && origRow.TaxAmount != 0m));
+                    return new TaxItemInput
+                    {
+                        ItemId = i.ItemId,
+                        Quantity = i.BilledQuantity,
+                        UnitPrice = i.UnitPrice,
+                        ConversionFactor = i.ConversionFactor,
+                        RejectedQty = i.RejectedQty,
+                        BillsRejectedQuantity = i.BillsRejectedQuantity,
+                        AllowChargeOnRejectedQty = canChargeRejected,
+                    };
                 }).ToList(),
                 ExchangeRate = invoice.ExchangeRate,
                 DiscountAmount = discountAmt,

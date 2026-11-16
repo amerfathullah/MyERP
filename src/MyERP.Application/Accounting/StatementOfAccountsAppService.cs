@@ -65,13 +65,14 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
     {
         var siQuery = await _siRepository.GetQueryableAsync();
         var peQuery = await GetPaymentQueryableWithTaxesAsync();
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         // Get all posted invoices for this customer in the date range
         var invoices = siQuery
             .Where(si => si.CustomerId == customerId
                 && si.CompanyId == companyId
                 && si.Status == Core.DocumentStatus.Posted
-                && si.IssueDate >= fromDate && si.IssueDate <= toDate)
+                && si.IssueDate >= fromDate && si.IssueDate < toDateExclusive)
             .OrderBy(si => si.IssueDate)
             .Select(si => new
             {
@@ -94,7 +95,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 && pe.PartyId == customerId
                 && pe.CompanyId == companyId
                 && pe.Status == Core.DocumentStatus.Posted
-                && pe.PostingDate >= fromDate && pe.PostingDate <= toDate)
+                && pe.PostingDate >= fromDate && pe.PostingDate < toDateExclusive)
             .OrderBy(pe => pe.PostingDate)
             .ToList();
 
@@ -199,13 +200,14 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
     {
         var piQuery = await _piRepository.GetQueryableAsync();
         var peQuery = await GetPaymentQueryableWithTaxesAsync();
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         // Invoices in period
         var invoices = piQuery
             .Where(pi => pi.SupplierId == supplierId
                 && pi.CompanyId == companyId
                 && pi.Status == Core.DocumentStatus.Posted
-                && pi.IssueDate >= fromDate && pi.IssueDate <= toDate)
+                && pi.IssueDate >= fromDate && pi.IssueDate < toDateExclusive)
             .OrderBy(pi => pi.IssueDate)
             .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.GrandTotal, pi.AmountPaid, pi.IsReturn, pi.CurrencyCode })
             .ToList();
@@ -216,7 +218,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 && pe.PartyId == supplierId
                 && pe.CompanyId == companyId
                 && pe.Status == Core.DocumentStatus.Posted
-                && pe.PostingDate >= fromDate && pe.PostingDate <= toDate)
+                && pe.PostingDate >= fromDate && pe.PostingDate < toDateExclusive)
             .OrderBy(pe => pe.PostingDate)
             .ToList();
 

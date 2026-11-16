@@ -62,6 +62,9 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     if (this.receipt.status === 'Submitted') {
       actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
       actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
+      if ((this.receipt.items ?? []).some(i => (i.rejectedQty ?? 0) > 0)) {
+        actions.push({ name: 'returnRejected', label: 'Return Rejected Qty', icon: 'rotate-left', color: 'danger' });
+      }
       actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
@@ -157,9 +160,10 @@ export class PurchaseReceiptDetailComponent implements OnInit {
         });
         break;
       case 'return':
+      case 'returnRejected':
         this.confirmation.warn('::ReturnConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
-            this.conversionService.makePurchaseReceiptReturn(id).subscribe({
+            this.conversionService.makePurchaseReceiptReturn(id, action === 'returnRejected').subscribe({
               next: (ret) => {
                 this.toaster.success('::ReturnCreated');
                 this.router.navigate(['/purchasing/receipts', ret.id]);

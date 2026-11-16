@@ -617,4 +617,45 @@ public class TaxesAndTotalsTests
         returnTaxes[0].TaxAmount.ShouldBe(-10m);
         returnTaxes[0].BaseTaxAmount.ShouldBe(-10m);
     }
+
+    [Fact]
+    public void Calculate_ZeroNetAmount_ActualChargeSkipsUnvaluedRejectedQtyRows()
+    {
+        // ERPNext PR #66403: when zero net amount rows exist and rejected material is not valued,
+        // Actual charges spread only over chargeable rows rather than unvalued rejected qty.
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 0m, RejectedQty = 5m, Rate = 0m, NetAmount = 0m, AllowChargeOnRejectedQty = false },
+            new() { ItemId = Guid.NewGuid(), Qty = 10m, Rate = 0m, NetAmount = 0m, AllowChargeOnRejectedQty = false },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "PurchaseInvoice", Guid.NewGuid(), 1, "Freight", "Actual", 100m)
+        };
+
+        var result = _service.Calculate(items, taxes);
+
+        result.TotalTax.ShouldBe(100m);
+        taxes[0].TaxAmount.ShouldBe(100m);
+    }
+
+    [Fact]
+    public void Calculate_ZeroNetAmount_ActualChargeSplitsByRejectedQtyWhenAllowed()
+    {
+        // ERPNext PR #66403: when rejected qty is valued/chargeable, zero-accepted rows share Actual charges.
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 0m, RejectedQty = 10m, Rate = 0m, NetAmount = 0m, AllowChargeOnRejectedQty = true },
+            new() { ItemId = Guid.NewGuid(), Qty = 10m, Rate = 0m, NetAmount = 0m, AllowChargeOnRejectedQty = true },
+        };
+        var taxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "PurchaseInvoice", Guid.NewGuid(), 1, "Freight", "Actual", 100m)
+        };
+
+        var result = _service.Calculate(items, taxes);
+
+        result.TotalTax.ShouldBe(100m);
+        taxes[0].TaxAmount.ShouldBe(100m);
+    }
 }

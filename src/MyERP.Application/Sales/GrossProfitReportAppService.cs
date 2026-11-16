@@ -64,6 +64,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
         var groupBy = (input.GroupBy ?? "Invoice").Trim();
 
         var query = await _invoiceRepository.GetQueryableAsync();
@@ -71,7 +72,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             .Where(si => si.CompanyId == input.CompanyId
                       && si.Status == Core.DocumentStatus.Posted
                       && si.IssueDate >= from
-                      && si.IssueDate <= to);
+                      && si.IssueDate < toExclusive);
 
         if (input.CustomerId.HasValue)
         {
@@ -158,7 +159,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             var pis = await _purchaseInvoiceRepository.GetListAsync(
                 pi => pi.CompanyId == input.CompanyId
                    && pi.Status == Core.DocumentStatus.Posted
-                   && pi.IssueDate <= to);
+                   && pi.IssueDate < toExclusive);
 
             foreach (var pi in pis)
             {
@@ -184,7 +185,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
                 po => po.CompanyId == input.CompanyId
                    && po.Status != Core.DocumentStatus.Draft
                    && po.Status != Core.DocumentStatus.Cancelled
-                   && po.OrderDate <= to);
+                   && po.OrderDate < toExclusive);
 
             foreach (var po in pos)
             {
@@ -214,7 +215,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
                 var pastPis = (await _purchaseInvoiceRepository.GetListAsync(
                     pi => pi.CompanyId == input.CompanyId
                        && pi.Status == Core.DocumentStatus.Posted
-                       && pi.IssueDate <= to))
+                       && pi.IssueDate < toExclusive))
                     .OrderByDescending(pi => pi.IssueDate)
                     .ToList();
 

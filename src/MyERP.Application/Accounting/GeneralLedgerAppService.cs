@@ -42,12 +42,13 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var jeQuery = await _journalRepository.GetQueryableAsync();
         var journalsQuery = jeQuery
             .Where(je => je.CompanyId == input.CompanyId
                       && je.PostingDate >= from
-                      && je.PostingDate <= to
+                      && je.PostingDate < toExclusive
                       && je.Status == Core.DocumentStatus.Posted);
 
         // Filter by voucher number if specified

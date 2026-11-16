@@ -82,6 +82,7 @@ public class TransactionTaxRecalculationService : DomainService
             ConversionFactor = i.ConversionFactor,
             RejectedQty = i.RejectedQty,
             BillsRejectedQuantity = i.BillsRejectedQuantity,
+            AllowChargeOnRejectedQty = i.AllowChargeOnRejectedQty,
             MappedAdditionalDiscountAmount = i.MappedAdditionalDiscountAmount,
         }).ToList();
 
@@ -150,6 +151,7 @@ public class TaxItemInput
     public decimal ConversionFactor { get; set; } = 1m;
     public decimal RejectedQty { get; set; }
     public bool BillsRejectedQuantity { get; set; }
+    public bool AllowChargeOnRejectedQty { get; set; } = true;
     public decimal MappedAdditionalDiscountAmount { get; set; }
 }
 

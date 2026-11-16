@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 // PurchaseReceiptDetailComponent — workflow actions + navigation tests
 
-function getWorkflowActions(status: string): { name: string; label: string; color: string }[] {
+function getWorkflowActions(status: string, hasRejectedQty = false): { name: string; label: string; color: string }[] {
   const actions: { name: string; label: string; color: string }[] = [];
   switch (status) {
     case 'Draft':
@@ -11,6 +11,9 @@ function getWorkflowActions(status: string): { name: string; label: string; colo
     case 'Submitted':
       actions.push({ name: 'invoice', label: 'Make Invoice', color: 'primary' });
       actions.push({ name: 'return', label: 'Create Return', color: 'warning' });
+      if (hasRejectedQty) {
+        actions.push({ name: 'returnRejected', label: 'Return Rejected Qty', color: 'danger' });
+      }
       actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
       break;
     case 'Cancelled':
@@ -41,6 +44,11 @@ describe('PurchaseReceiptDetailComponent', () => {
       const actions = getWorkflowActions('Submitted');
       expect(actions).toHaveLength(3);
       expect(actions.map(a => a.name)).toEqual(['invoice', 'return', 'cancel']);
+    });
+
+    it('should show Return Rejected Qty when Submitted receipt has rejected items', () => {
+      const actions = getWorkflowActions('Submitted', true);
+      expect(actions.map(a => a.name)).toEqual(['invoice', 'return', 'returnRejected', 'cancel']);
     });
 
     it('should show Amend for Cancelled', () => {

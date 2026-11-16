@@ -367,7 +367,9 @@ public class TaxesAndTotalsService : DomainService
         if (billed > 0m) return billed;
         var qty = Math.Abs(item.Qty);
         if (qty > 0m) return qty;
-        return Math.Abs(item.RejectedQty);
+        // Per ERPNext PR #66403 (get_chargeable_qty): zero-accepted rows only carry charges on
+        // rejected qty when rejected material is valued and was charged on the source row.
+        return item.AllowChargeOnRejectedQty ? Math.Abs(item.RejectedQty) : 0m;
     }
 
     private static decimal CalculateTaxForItem(
@@ -762,6 +764,9 @@ public class TransactionItem
 
     /// <summary>Rejected quantity (damaged, wrong spec).</summary>
     public decimal RejectedQty { get; set; }
+
+    /// <summary>When true, zero-accepted rows may allocate Actual charges over RejectedQty (ERPNext PR #66403).</summary>
+    public bool AllowChargeOnRejectedQty { get; set; } = true;
 
     /// <summary>When true, this item bills rejected quantity on a stock updating invoice.</summary>
     public bool BillsRejectedQuantity { get; set; }

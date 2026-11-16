@@ -105,13 +105,14 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoicesQuery = query
             .Where(si => si.CompanyId == input.CompanyId
                       && si.Status == DocumentStatus.Posted
                       && si.IssueDate >= from
-                      && si.IssueDate <= to);
+                      && si.IssueDate < toExclusive);
 
         if (input.CustomerId.HasValue)
         {

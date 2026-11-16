@@ -142,13 +142,14 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoicesQuery = query
             .Where(pi => pi.CompanyId == input.CompanyId
                       && pi.Status == DocumentStatus.Posted
                       && pi.IssueDate >= from
-                      && pi.IssueDate <= to);
+                      && pi.IssueDate < toExclusive);
 
         if (input.SupplierId.HasValue)
         {
@@ -507,13 +508,14 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.WithDetailsAsync(pi => pi.Items);
         var invoicesQuery = query
             .Where(pi => pi.CompanyId == input.CompanyId
                       && pi.Status == DocumentStatus.Posted
                       && pi.IssueDate >= from
-                      && pi.IssueDate <= to);
+                      && pi.IssueDate < toExclusive);
 
         if (input.SupplierId.HasValue)
         {

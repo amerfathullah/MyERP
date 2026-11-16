@@ -51,12 +51,13 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
     {
         var siQuery = await _siRepository.GetQueryableAsync();
         var piQuery = await _piRepository.GetQueryableAsync();
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         // Output Tax: total tax collected on posted sales invoices (excluding returns/credit notes)
         var salesInvoices = siQuery
             .Where(si => si.CompanyId == companyId
                 && si.Status == Core.DocumentStatus.Posted
-                && si.IssueDate >= fromDate && si.IssueDate <= toDate)
+                && si.IssueDate >= fromDate && si.IssueDate < toDateExclusive)
             .ToList();
 
         decimal outputTax = salesInvoices
@@ -77,7 +78,7 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
         var purchaseInvoices = piQuery
             .Where(pi => pi.CompanyId == companyId
                 && pi.Status == Core.DocumentStatus.Posted
-                && pi.IssueDate >= fromDate && pi.IssueDate <= toDate)
+                && pi.IssueDate >= fromDate && pi.IssueDate < toDateExclusive)
             .ToList();
 
         decimal inputTax = purchaseInvoices
@@ -207,17 +208,18 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
     {
         var siQuery = await _siRepository.GetQueryableAsync();
         var piQuery = await _piRepository.GetQueryableAsync();
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var salesInvoices = siQuery
             .Where(si => si.CompanyId == companyId
                 && si.Status == Core.DocumentStatus.Posted
-                && si.IssueDate >= fromDate && si.IssueDate <= toDate)
+                && si.IssueDate >= fromDate && si.IssueDate < toDateExclusive)
             .ToList();
 
         var purchaseInvoices = piQuery
             .Where(pi => pi.CompanyId == companyId
                 && pi.Status == Core.DocumentStatus.Posted
-                && pi.IssueDate >= fromDate && pi.IssueDate <= toDate)
+                && pi.IssueDate >= fromDate && pi.IssueDate < toDateExclusive)
             .ToList();
 
         // Categorize sales by effective tax rate
