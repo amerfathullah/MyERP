@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { ChequePrintTemplateService } from '../../proxy/accounting/cheque-print-template.service';
 import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
@@ -9,7 +11,7 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
 @Component({
   selector: 'app-cheque-print-template-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -31,7 +33,7 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
               <th>Cheque Size</th>
               <th>Dimensions (W × H cm)</th>
               <th>Acc. Payee Badge</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th class="text-end" style="width: 240px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -52,6 +54,9 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
                   }
                 </td>
                 <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="preview(item)">
+                    <i class="fa fa-eye me-1"></i>{{ '::Preview' | abpLocalization }}
+                  </button>
                   <a [routerLink]="['/accounting/cheque-print-templates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
                   <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
                 </td>
@@ -63,6 +68,24 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
             }
           </tbody>
         </table>
+
+        @if (previewTemplate(); as tpl) {
+          <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+              <span class="fw-semibold">
+                <i class="fa fa-eye me-1"></i>{{ '::ChequePreview' | abpLocalization }} — {{ tpl.bankName }}
+              </span>
+              <button type="button" class="btn-close" aria-label="Close" (click)="closePreview()"></button>
+            </div>
+            <div class="card-body bg-light">
+              @if (isLoadingPreview()) {
+                <div class="text-center py-4"><i class="fa fa-spinner fa-spin"></i></div>
+              } @else if (previewHtml()) {
+                <iframe sandbox="" [srcdoc]="previewHtml()" class="w-100 border rounded bg-white" style="min-height: 280px;" title="Cheque Layout Preview"></iframe>
+              }
+            </div>
+          </div>
+        }
       </div>
     </div>
   `
@@ -71,9 +94,14 @@ export class ChequePrintTemplateListComponent implements OnInit {
   private service = inject(ChequePrintTemplateService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private sanitizer = inject(DomSanitizer);
 
   items: ChequePrintTemplateDto[] = [];
   filter = '';
+  previewTemplate = signal<ChequePrintTemplateDto | null>(null);
+  previewRawHtml = signal('');
+  previewHtml = signal<SafeHtml | null>(null);
+  isLoadingPreview = signal(false);
 
   ngOnInit() {
     this.load();
@@ -83,6 +111,34 @@ export class ChequePrintTemplateListComponent implements OnInit {
     this.service.getList({ filter: this.filter, maxResultCount: 200, skipCount: 0 } as any).subscribe(res => {
       this.items = res.items ?? [];
     });
+  }
+
+  preview(item: ChequePrintTemplateDto): void {
+    if (!item.id) return;
+    if (this.previewTemplate()?.id === item.id) {
+      this.closePreview();
+      return;
+    }
+    this.previewTemplate.set(item);
+    this.isLoadingPreview.set(true);
+    this.service.generatePreview(item.id).subscribe({
+      next: res => {
+        const html = res?.htmlContent ?? '';
+        this.previewRawHtml.set(html);
+        this.previewHtml.set(this.sanitizer.bypassSecurityTrustHtml(html));
+        this.isLoadingPreview.set(false);
+      },
+      error: (err: any) => {
+        this.isLoadingPreview.set(false);
+        this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+      },
+    });
+  }
+
+  closePreview(): void {
+    this.previewTemplate.set(null);
+    this.previewRawHtml.set('');
+    this.previewHtml.set(null);
   }
 
   delete(item: ChequePrintTemplateDto): void {

@@ -1,18 +1,19 @@
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../proxy/core/company.service';
 import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { CompanyDto } from '../../proxy/core/models';
 import type { FiscalYearDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-fiscal-year-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::FiscalYears' | abpLocalization">
@@ -49,6 +50,30 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
         </div>
       </div>
 
+      <!-- Current Fiscal Year Banner -->
+      @if (companies().length > 0) {
+        <div class="card mb-4 border-primary">
+          <div class="card-body py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <i class="fa fa-calendar-check text-primary"></i>
+              <strong>{{ '::CurrentFiscalYear' | abpLocalization }}:</strong>
+              @if (currentFiscalYear(); as cur) {
+                <span class="badge bg-primary">{{ cur.name }}</span>
+                <span class="text-muted small">{{ cur.startDate | date:'dd/MM/yyyy' }} - {{ cur.endDate | date:'dd/MM/yyyy' }}</span>
+              } @else {
+                <span class="text-muted small">—</span>
+              }
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <select class="form-select form-select-sm" style="min-width: 200px;"
+                [ngModel]="selectedCompanyId()" (ngModelChange)="loadCurrentFiscalYear($event)">
+                @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+              </select>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- List -->
       @if (isLoading()) {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
@@ -72,7 +97,12 @@ import type { FiscalYearDto } from '../../proxy/accounting/models';
               <tbody>
                 @for (fy of fiscalYears(); track fy.id) {
                   <tr>
-                    <td class="ps-3 fw-bold">{{ fy.name }}</td>
+                    <td class="ps-3 fw-bold">
+                      {{ fy.name }}
+                      @if (currentFiscalYear()?.id === fy.id) {
+                        <span class="badge bg-primary ms-1">{{ '::CurrentFiscalYear' | abpLocalization }}</span>
+                      }
+                    </td>
                     <td>{{ fy.startDate | date:'dd/MM/yyyy' }}</td>
                     <td>{{ fy.endDate | date:'dd/MM/yyyy' }}</td>
                     <td class="text-center">
@@ -100,11 +130,14 @@ export class FiscalYearListComponent implements OnInit {
   private fb = inject(FormBuilder);
   private fiscalYearService = inject(FiscalYearService);
   private companyService = inject(CompanyService);
+  private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
   companies = signal<CompanyDto[]>([]);
   fiscalYears = signal<FiscalYearDto[]>([]);
+  selectedCompanyId = signal('');
+  currentFiscalYear = signal<FiscalYearDto | null>(null);
   isLoading = signal(true);
 
   form = this.fb.group({
@@ -115,9 +148,29 @@ export class FiscalYearListComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const contextId = this.companyContext.currentCompanyId();
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
-      .subscribe(res => this.companies.set(res.items ?? []));
+      .subscribe(res => {
+        const list = res.items ?? [];
+        this.companies.set(list);
+        const initialId = contextId || list[0]?.id || '';
+        if (initialId) {
+          this.loadCurrentFiscalYear(initialId);
+        }
+      });
     this.loadFiscalYears();
+  }
+
+  loadCurrentFiscalYear(companyId: string): void {
+    this.selectedCompanyId.set(companyId);
+    if (!companyId) {
+      this.currentFiscalYear.set(null);
+      return;
+    }
+    this.fiscalYearService.getCurrent(companyId).subscribe({
+      next: fy => this.currentFiscalYear.set(fy ?? null),
+      error: () => this.currentFiscalYear.set(null),
+    });
   }
 
   loadFiscalYears(): void {
@@ -131,7 +184,12 @@ export class FiscalYearListComponent implements OnInit {
   create(): void {
     if (this.form.invalid) return;
     this.fiscalYearService.create(this.form.getRawValue() as any).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyCreated'); this.loadFiscalYears(); this.form.reset(); },
+      next: () => {
+        this.toaster.success('::SuccessfullyCreated');
+        this.loadFiscalYears();
+        if (this.selectedCompanyId()) this.loadCurrentFiscalYear(this.selectedCompanyId());
+        this.form.reset();
+      },
       error: () => this.toaster.error('::FailedToCreate'),
     });
   }
@@ -140,7 +198,11 @@ export class FiscalYearListComponent implements OnInit {
     this.confirmation.warn('::CloseConfirmation', '::AreYouSure').subscribe(status => {
       if (status !== Confirmation.Status.confirm) return;
       this.fiscalYearService.close(id).subscribe({
-        next: () => { this.toaster.success('::SuccessfullyUpdated'); this.loadFiscalYears(); },
+        next: () => {
+          this.toaster.success('::SuccessfullyUpdated');
+          this.loadFiscalYears();
+          if (this.selectedCompanyId()) this.loadCurrentFiscalYear(this.selectedCompanyId());
+        },
         error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
       });
     });

@@ -6307,7 +6307,11 @@
     "TreeView": "Tree View",
     "DefaultTaxLinesPreview": "Default Tax Lines Preview",
     "TaxType": "Tax Type",
-    "TaxName": "Tax Name"
+    "TaxName": "Tax Name",
+    "Validate": "Validate",
+    "TemplateValid": "Template validation passed with no errors.",
+    "ValidationErrors": "Validation Errors",
+    "CurrentFiscalYear": "Current Fiscal Year"
   }
 }
 

@@ -52,6 +52,20 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
           </div>
         }
 
+        @if (validationErrors(); as errors) {
+          <div class="alert alert-warning m-3 d-flex justify-content-between align-items-start">
+            <div>
+              <strong><i class="fa fa-exclamation-triangle me-1"></i>{{ '::ValidationErrors' | abpLocalization }} — {{ validationTemplateName() }}</strong>
+              <ul class="mb-0 mt-1 ps-3 small">
+                @for (err of errors; track $index) {
+                  <li>{{ err }}</li>
+                }
+              </ul>
+            </div>
+            <button type="button" class="btn-close" aria-label="Close" (click)="clearValidation()"></button>
+          </div>
+        }
+
         <div class="card-body p-0">
           @if (templates().length === 0) {
             <div class="text-center py-5 text-muted">
@@ -88,6 +102,11 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
                     </td>
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-info" (click)="validateTemplate(t)"
+                          [disabled]="validatingId() === t.id"
+                          [title]="'::Validate' | abpLocalization">
+                          <i class="fa fa-check-circle"></i>
+                        </button>
                         <button class="btn btn-outline-secondary" (click)="toggle(t)" [title]="t.isEnabled ? 'Disable' : 'Enable'">
                           <i class="fa" [class.fa-toggle-on]="t.isEnabled" [class.fa-toggle-off]="!t.isEnabled"></i>
                         </button>
@@ -122,6 +141,9 @@ export class FinancialReportTemplateListComponent implements OnInit {
 
   templates = signal<FinancialReportTemplateDto[]>([]);
   totalCount = signal(0);
+  validatingId = signal<string | null>(null);
+  validationTemplateName = signal('');
+  validationErrors = signal<string[] | null>(null);
   currentPage = 0;
   showCreateForm = false;
 
@@ -166,6 +188,34 @@ export class FinancialReportTemplateListComponent implements OnInit {
       next: () => this.load(),
       error: () => {}
     });
+  }
+
+  validateTemplate(t: FinancialReportTemplateDto) {
+    if (!t.id) return;
+    this.validatingId.set(t.id);
+    this.templateService.validate(t.id).subscribe({
+      next: (errors) => {
+        this.validatingId.set(null);
+        const list = errors ?? [];
+        if (list.length === 0) {
+          this.clearValidation();
+          this.toaster.success('::TemplateValid');
+        } else {
+          this.validationTemplateName.set(t.name ?? '');
+          this.validationErrors.set(list);
+          this.toaster.warn('::ValidationErrors');
+        }
+      },
+      error: () => {
+        this.validatingId.set(null);
+        this.toaster.error('::OperationFailed');
+      }
+    });
+  }
+
+  clearValidation() {
+    this.validationErrors.set(null);
+    this.validationTemplateName.set('');
   }
 
   remove(t: FinancialReportTemplateDto) {
