@@ -173,6 +173,49 @@
       </div>
     }
 
+    <!-- Production Plan Visualizer -->
+    @if (visualizerData(); as vis) {
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold"><i class="fa fa-chart-gantt me-2"></i>{{ '::ProductionVisualizer' | abpLocalization }}</span>
+          <span class="badge bg-primary">{{ '::Completion' | abpLocalization }}: {{ (vis.completionPercentage ?? 0) | number:'1.1-1' }}%</span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>{{ '::TotalPlanned' | abpLocalization }}: <strong class="font-monospace">{{ (vis.totalPlannedQty ?? 0) | number:'1.2-2' }}</strong></span>
+            <span>{{ '::TotalProduced' | abpLocalization }}: <strong class="font-monospace text-success">{{ (vis.totalProducedQty ?? 0) | number:'1.2-2' }}</strong></span>
+          </div>
+          <div class="progress mb-3" style="height: 10px;">
+            <div class="progress-bar bg-success" role="progressbar" [style.width.%]="vis.completionPercentage ?? 0"></div>
+          </div>
+
+          @if ((vis.finishedGoods?.length ?? 0) > 0) {
+            <div class="row g-2">
+              @for (fg of vis.finishedGoods ?? []; track fg.itemId ?? $index) {
+                <div class="col-md-6">
+                  <div class="border rounded p-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="fw-semibold small">{{ fg.itemName }}</span>
+                      <span class="font-monospace small">{{ (fg.producedQty ?? 0) | number:'1.0-2' }} / {{ (fg.plannedQty ?? 0) | number:'1.0-2' }}</span>
+                    </div>
+                    @if ((fg.workOrders?.length ?? 0) > 0) {
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        @for (wo of fg.workOrders ?? []; track wo.id ?? $index) {
+                          <a [routerLink]="['/manufacturing/work-orders', wo.id]" class="badge bg-light text-dark border text-decoration-none">
+                            {{ wo.documentNumber }} ({{ wo.status }})
+                          </a>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
     <!-- Production Plan Summary (ERPNext PR #58541) -->
     @if (summaryReport()?.rows && summaryReport()!.rows!.length > 0) {
       <div class="card mb-4">

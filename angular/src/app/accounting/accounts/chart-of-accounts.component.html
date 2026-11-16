@@ -22,6 +22,9 @@
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="collapseAll()">
           <i class="fa fa-angles-up me-1"></i>{{ '::CollapseAll' | abpLocalization }}
         </button>
+        <button type="button" class="btn btn-outline-warning btn-sm" (click)="toggleMergePanel()">
+          <i class="fa fa-code-merge me-1"></i>{{ '::MergeAccounts' | abpLocalization }}
+        </button>
         <button type="button" class="btn btn-outline-primary btn-sm" (click)="toggleImportPanel()">
           <i class="fa fa-file-import me-1"></i>{{ '::ImportChartOfAccounts' | abpLocalization }}
         </button>
@@ -30,6 +33,48 @@
         </button>
       </div>
     </div>
+
+    @if (showMergePanel()) {
+      <div class="card-body border-bottom bg-light">
+        <h6 class="fw-semibold mb-3"><i class="fa fa-code-merge me-1"></i>{{ '::MergeAccounts' | abpLocalization }}</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-5">
+            <label class="form-label small">{{ '::SourceAccount' | abpLocalization }}</label>
+            <select class="form-select form-select-sm"
+              [value]="mergeOldAccountId()"
+              (change)="mergeOldAccountId.set($any($event.target).value)">
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (a of flatAccounts(); track a.id) {
+                <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label small">{{ '::TargetAccount' | abpLocalization }}</label>
+            <select class="form-select form-select-sm"
+              [value]="mergeNewAccountId()"
+              (change)="mergeNewAccountId.set($any($event.target).value)">
+              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (a of flatAccounts(); track a.id) {
+                <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-2">
+            <button type="button" class="btn btn-sm btn-warning w-100"
+              [disabled]="merging() || !mergeOldAccountId() || !mergeNewAccountId() || mergeOldAccountId() === mergeNewAccountId()"
+              (click)="mergeAccounts()">
+              @if (merging()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="fa fa-code-merge me-1"></i>
+              }
+              {{ '::Merge' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (showImportPanel()) {
       <div class="card-body border-bottom bg-light">

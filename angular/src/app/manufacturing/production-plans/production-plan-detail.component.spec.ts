@@ -27,6 +27,14 @@ describe('ProductionPlanDetailComponent', () => {
   }])) {
     const planServiceMock = {
       getSummaryReport: vi.fn().mockReturnValue(of({ rows: [] })),
+      getVisualizerData: vi.fn().mockReturnValue(of({
+        planId: 'plan-1',
+        totalPlannedQty: 10,
+        totalProducedQty: 5,
+        completionPercentage: 50,
+        finishedGoods: [],
+        rawMaterials: [],
+      })),
       downloadRawMaterials: vi.fn().mockReturnValue(downloadObs),
     };
     const storeMock = {

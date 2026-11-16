@@ -10,7 +10,7 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
-import type { ProductionPlanSummaryDto } from '../../proxy/manufacturing/models';
+import type { ProductionPlanSummaryDto, ProductionPlanVisualizerDto } from '../../proxy/manufacturing/models';
 
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -31,13 +31,24 @@ export class ProductionPlanDetailComponent implements OnInit {
   downloadingMaterials = signal(false);
   summaryReport = signal<ProductionPlanSummaryDto | null>(null);
   loadingSummary = signal(false);
+  visualizerData = signal<ProductionPlanVisualizerDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.store.loadOne(id);
       this.loadSummary(id);
+      this.loadVisualizer(id);
     }
+  }
+
+  loadVisualizer(id?: string): void {
+    const targetId = id ?? this.plan?.id;
+    if (!targetId || !this.planService.getVisualizerData) return;
+    this.planService.getVisualizerData(targetId).subscribe({
+      next: res => this.visualizerData.set(res),
+      error: () => {},
+    });
   }
 
   loadSummary(id?: string): void {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FormBuilder, Validators } from '@angular/forms';
 import { AccountType } from '../../proxy/accounting/account-type.enum';
-import { parseCoaCsv } from './chart-of-accounts.component';
+import { flattenAccountNodes, parseCoaCsv, type AccountNode } from './chart-of-accounts.component';
 
 describe('Chart of Accounts logic', () => {
   const fb = new FormBuilder();
@@ -65,6 +65,27 @@ describe('Chart of Accounts logic', () => {
       expect(form.valid).toBe(true);
       expect(form.getRawValue().companyId).toBe('comp-1');
       expect(form.getRawValue().parentAccountId).toBe('acc-root');
+    });
+  });
+
+  describe('flattenAccountNodes', () => {
+    it('flattens hierarchical COA nodes for account merge selection', () => {
+      const tree: AccountNode[] = [
+        {
+          id: '1',
+          accountCode: '1000',
+          accountName: 'Assets',
+          accountType: 'Asset',
+          isGroup: true,
+          children: [
+            { id: '2', accountCode: '1100', accountName: 'Cash', accountType: 'Asset', isGroup: false },
+            { id: '3', accountCode: '1110', accountName: 'Petty Cash', accountType: 'Asset', isGroup: false },
+          ],
+        },
+      ];
+
+      const flat = flattenAccountNodes(tree);
+      expect(flat.map(a => a.accountCode)).toEqual(['1000', '1100', '1110']);
     });
   });
 });

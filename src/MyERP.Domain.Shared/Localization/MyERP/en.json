@@ -6229,7 +6229,14 @@
     "Revise": "Revise",
     "ConvertToInvoice": "Convert to Invoice",
     "PONumber": "PO Number",
-    "PRNumber": "PR Number"
+    "PRNumber": "PR Number",
+    "MergeAccounts": "Merge Accounts",
+    "SourceAccount": "Source Account",
+    "TargetAccount": "Target Account",
+    "Merge": "Merge",
+    "ProductionVisualizer": "Production Plan Visualizer",
+    "Completion": "Completion",
+    "TotalPlanned": "Total Planned"
   }
 }
 

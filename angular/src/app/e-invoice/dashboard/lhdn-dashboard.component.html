@@ -8,7 +8,7 @@
     <div class="row g-3 mb-4">
       @for (stat of statusCards; track stat.label) {
         <div class="col-6 col-md-4 col-lg-2">
-          <div class="card card-clickable text-center">
+          <div class="card card-clickable text-center" role="button" (click)="openStatusReport(stat.statusFilter)">
             <div class="card-body py-3">
               <i class="fa fs-2 mb-1" [class]="stat.textClass + ' ' + stat.icon"></i>
               <h3 class="fs-3 fw-bold" [class]="stat.textClass">{{ stat.count }}</h3>

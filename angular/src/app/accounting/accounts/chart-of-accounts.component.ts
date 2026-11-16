@@ -33,6 +33,20 @@ const ACCOUNT_TYPE_NAMES: Record<number, string> = {
   [AccountType.Expense]: 'Expense',
 };
 
+export function flattenAccountNodes(nodes: AccountNode[]): AccountNode[] {
+  const result: AccountNode[] = [];
+  const walk = (list: AccountNode[]) => {
+    for (const n of list) {
+      result.push(n);
+      if (n.children?.length) {
+        walk(n.children);
+      }
+    }
+  };
+  walk(nodes);
+  return result;
+}
+
 export function parseCoaCsv(csvText: string): CoaTemplateRowDto[] {
   const lines = csvText
     .split(/\r?\n/)
@@ -102,6 +116,13 @@ export class ChartOfAccountsComponent implements OnInit {
   previewRows = signal<CoaTemplateRowDto[]>([]);
   loadingTemplate = signal<boolean>(false);
   importing = signal<boolean>(false);
+
+  // Merge Accounts state
+  showMergePanel = signal<boolean>(false);
+  mergeOldAccountId = signal<string>('');
+  mergeNewAccountId = signal<string>('');
+  merging = signal<boolean>(false);
+  flatAccounts = computed(() => flattenAccountNodes(this.accounts()));
 
   filteredAccounts = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -204,9 +225,42 @@ export class ChartOfAccountsComponent implements OnInit {
   toggleImportPanel(): void {
     const next = !this.showImportPanel();
     this.showImportPanel.set(next);
+    if (next) {
+      this.showMergePanel.set(false);
+    }
     if (next && this.previewRows().length === 0 && this.importTemplate() !== 'CSV') {
       this.loadTemplatePreview();
     }
+  }
+
+  toggleMergePanel(): void {
+    const next = !this.showMergePanel();
+    this.showMergePanel.set(next);
+    if (next) {
+      this.showImportPanel.set(false);
+    }
+  }
+
+  mergeAccounts(): void {
+    const oldAccountId = this.mergeOldAccountId();
+    const newAccountId = this.mergeNewAccountId();
+    if (!oldAccountId || !newAccountId || oldAccountId === newAccountId) return;
+
+    this.merging.set(true);
+    this.accountService.mergeAccount({ oldAccountId, newAccountId }).subscribe({
+      next: () => {
+        this.merging.set(false);
+        this.showMergePanel.set(false);
+        this.mergeOldAccountId.set('');
+        this.mergeNewAccountId.set('');
+        this.toaster.success(this.l.instant('::SuccessfullySaved'));
+        this.loadAccounts();
+      },
+      error: (err: any) => {
+        this.merging.set(false);
+        this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+      },
+    });
   }
 
   onTemplateChanged(mode: string): void {

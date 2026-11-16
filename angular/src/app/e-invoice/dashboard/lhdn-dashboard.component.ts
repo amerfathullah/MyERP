@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LhdnDashboardStore } from '../store/lhdn-dashboard.store';
@@ -12,6 +13,7 @@ interface StatCard {
   count: number;
   textClass: string;
   icon: string;
+  statusFilter: string;
 }
 
 @Component({
@@ -27,6 +29,7 @@ interface StatCard {
 })
 export class LhdnDashboardComponent implements OnInit, AfterViewInit {
   readonly store = inject(LhdnDashboardStore);
+  private router = inject(Router);
 
   @ViewChild('pieCanvas') pieCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('barCanvas') barCanvas!: ElementRef<HTMLCanvasElement>;
@@ -39,12 +42,18 @@ export class LhdnDashboardComponent implements OnInit, AfterViewInit {
   get statusCards(): StatCard[] {
     const stats = this.store.salesStats();
     return [
-      { label: 'Valid', count: stats.valid, textClass: 'text-success', icon: 'fa-circle-check' },
-      { label: 'Invalid', count: stats.invalid, textClass: 'text-danger', icon: 'fa-circle-xmark' },
-      { label: 'Submitted', count: stats.submitted, textClass: 'text-primary', icon: 'fa-clock' },
-      { label: 'Cancelled', count: stats.cancelled, textClass: 'text-secondary', icon: 'fa-ban' },
-      { label: 'Failed', count: stats.failed, textClass: 'text-warning', icon: 'fa-triangle-exclamation' },
-      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-muted', icon: 'fa-file' }];
+      { label: 'Valid', count: stats.valid, textClass: 'text-success', icon: 'fa-circle-check', statusFilter: 'Valid' },
+      { label: 'Invalid', count: stats.invalid, textClass: 'text-danger', icon: 'fa-circle-xmark', statusFilter: 'Invalid' },
+      { label: 'Submitted', count: stats.submitted, textClass: 'text-primary', icon: 'fa-clock', statusFilter: 'Pending' },
+      { label: 'Cancelled', count: stats.cancelled, textClass: 'text-secondary', icon: 'fa-ban', statusFilter: 'Cancelled' },
+      { label: 'Failed', count: stats.failed, textClass: 'text-warning', icon: 'fa-triangle-exclamation', statusFilter: 'Invalid' },
+      { label: 'Not Submitted', count: stats.notSubmitted, textClass: 'text-muted', icon: 'fa-file', statusFilter: 'NotSubmitted' }];
+  }
+
+  openStatusReport(statusFilter: string): void {
+    this.router.navigate(['/e-invoice/reports'], {
+      queryParams: { status: statusFilter },
+    });
   }
 
   constructor() {

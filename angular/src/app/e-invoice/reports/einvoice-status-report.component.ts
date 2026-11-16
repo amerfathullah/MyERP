@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
@@ -18,6 +19,7 @@ import type { LhdnStatusReportItemDto, LhdnVatReportDto } from '../../proxy/einv
 export class EinvoiceStatusReportComponent implements OnInit {
   private fb = new FormBuilder();
   private einvoiceService = inject(EInvoiceService);
+  private route = inject(ActivatedRoute);
 
   filters = this.fb.group({
     fromDate: [new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]],
@@ -31,6 +33,10 @@ export class EinvoiceStatusReportComponent implements OnInit {
   isLoading = signal(false);
 
   ngOnInit(): void {
+    const status = this.route.snapshot.queryParamMap.get('status');
+    if (status) {
+      this.filters.patchValue({ status });
+    }
     this.generate();
   }
 
