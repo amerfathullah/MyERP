@@ -29,7 +29,7 @@ import type { QualityProcedureDto } from '../../proxy/inventory/models';
                   <option [ngValue]="null">{{ '::None' | abpLocalization }} (Root)</option>
                   @for (p of parentProcedures; track p.id) {
                     @if (!id || p.id !== id) {
-                      <option [value]="p.id">{{ p.name }}</option>
+                      <option [ngValue]="p.id">{{ p.name }}</option>
                     }
                   }
                 </select>
@@ -86,7 +86,7 @@ import type { QualityProcedureDto } from '../../proxy/inventory/models';
                             <option [ngValue]="null">{{ '::None' | abpLocalization }}</option>
                             @for (p of parentProcedures; track p.id) {
                               @if (!id || p.id !== id) {
-                                <option [value]="p.id">{{ p.name }}</option>
+                                <option [ngValue]="p.id">{{ p.name }}</option>
                               }
                             }
                           </select>
