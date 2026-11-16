@@ -69,17 +69,7 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
             itemIds: itemIds.Length > 0 ? itemIds : null,
             customerIds: new[] { input.CustomerId });
 
-        if (input.MaintenanceScheduleId.HasValue)
-        {
-            var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaintenanceSchedule, Guid>>();
-            var schedule = await scheduleRepo.FindAsync(input.MaintenanceScheduleId.Value);
-            if (schedule != null && schedule.CompanyId != input.CompanyId)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("scheduleCompany", schedule.CompanyId)
-                    .WithData("visitCompany", input.CompanyId);
-            }
-        }
+        await ValidateVisitReferencesAsync(input.CompanyId, input.CustomerId, input.MaintenanceScheduleId, input.WarrantyClaimId);
 
         var typeStr = input.MaintenanceType switch
         {
@@ -95,7 +85,8 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
         {
             CustomerId = input.CustomerId,
             ContactId = input.ContactId,
-            MaintenanceScheduleId = input.MaintenanceScheduleId
+            MaintenanceScheduleId = input.MaintenanceScheduleId,
+            WarrantyClaimId = input.WarrantyClaimId
         };
 
         foreach (var purposeDto in input.Purposes)
@@ -127,10 +118,66 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
     public async Task<MaintenanceVisitDto> UpdateAsync(Guid id, CreateMaintenanceVisitDto input)
     {
         var entity = await _visitRepository.GetAsync(id);
+        await ValidateVisitReferencesAsync(entity.CompanyId, input.CustomerId, input.MaintenanceScheduleId, input.WarrantyClaimId);
         entity.VisitDate = input.VisitDate;
         entity.ContactId = input.ContactId;
+        entity.CustomerId = input.CustomerId;
+        entity.MaintenanceScheduleId = input.MaintenanceScheduleId;
+        entity.WarrantyClaimId = input.WarrantyClaimId;
         await _visitRepository.UpdateAsync(entity, autoSave: true);
         return MapToDto(entity);
+    }
+
+    /// <summary>
+    /// Ensures linked Maintenance Schedule and Warranty Claim belong to the same Company and Customer.
+    /// Per ERPNext PR #65964.
+    /// </summary>
+    private async Task ValidateVisitReferencesAsync(
+        Guid companyId,
+        Guid customerId,
+        Guid? maintenanceScheduleId,
+        Guid? warrantyClaimId)
+    {
+        if (maintenanceScheduleId.HasValue)
+        {
+            var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaintenanceSchedule, Guid>>();
+            var schedule = await scheduleRepo.FindAsync(maintenanceScheduleId.Value);
+            if (schedule != null)
+            {
+                if (schedule.CompanyId != companyId)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("scheduleCompany", schedule.CompanyId)
+                        .WithData("visitCompany", companyId);
+                }
+
+                if (schedule.CustomerId.HasValue && schedule.CustomerId.Value != customerId)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Customer does not match the Maintenance Schedule customer.");
+                }
+            }
+        }
+
+        if (warrantyClaimId.HasValue)
+        {
+            var claim = await _warrantyClaimRepository.FindAsync(warrantyClaimId.Value);
+            if (claim != null)
+            {
+                if (claim.CompanyId != companyId)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("warrantyClaimCompany", claim.CompanyId)
+                        .WithData("visitCompany", companyId);
+                }
+
+                if (claim.CustomerId != customerId)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Warranty Claim does not belong to the selected Customer.");
+                }
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.MaintenanceVisits.Delete)]

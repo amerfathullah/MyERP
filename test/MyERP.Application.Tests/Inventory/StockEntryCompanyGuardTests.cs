@@ -361,4 +361,55 @@ public abstract class StockEntryCompanyGuardTests<TStartupModule> : MyERPApplica
             result.Items[0].SerialNumber.ShouldBe("SN-IGN-B");
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_JobCardOrPickListFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var jcRepo = GetRequiredService<IRepository<JobCard, Guid>>();
+            var plRepo = GetRequiredService<IRepository<PickList, Guid>>();
+            var seAppService = GetRequiredService<IStockEntryAppService>();
+
+            var ownerCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SE Ref Owner Co"), autoSave: true);
+            var otherCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SE Ref Other Co"), autoSave: true);
+
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "SE-REF-ITEM", "SE Ref Item", ItemType.Goods), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), ownerCompany.Id, "SE Ref Wh"), autoSave: true);
+            var otherJc = await jcRepo.InsertAsync(new JobCard(Guid.NewGuid(), otherCompany.Id, Guid.NewGuid(), Guid.NewGuid(), 5m, 1), autoSave: true);
+            var otherPl = await plRepo.InsertAsync(new PickList(Guid.NewGuid(), otherCompany.Id, "Material Transfer"), autoSave: true);
+
+            var jcEx = await Should.ThrowAsync<BusinessException>(() =>
+                seAppService.CreateAsync(new CreateStockEntryDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    EntryType = StockEntryType.MaterialTransfer,
+                    JobCardId = otherJc.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateStockEntryItemDto>
+                    {
+                        new() { ItemId = item.Id, Quantity = 1m, TargetWarehouseId = wh.Id }
+                    }
+                }));
+            jcEx.Code.ShouldBe(MyERPDomainErrorCodes.CompanyMismatch);
+
+            var plEx = await Should.ThrowAsync<BusinessException>(() =>
+                seAppService.CreateAsync(new CreateStockEntryDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    EntryType = StockEntryType.MaterialTransfer,
+                    ReferenceType = "PickList",
+                    ReferenceId = otherPl.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateStockEntryItemDto>
+                    {
+                        new() { ItemId = item.Id, Quantity = 1m, TargetWarehouseId = wh.Id }
+                    }
+                }));
+            plEx.Code.ShouldBe(MyERPDomainErrorCodes.CompanyMismatch);
+        });
+    }
 }

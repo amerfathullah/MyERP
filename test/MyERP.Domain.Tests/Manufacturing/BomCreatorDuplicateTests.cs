@@ -1,7 +1,12 @@
 using System;
+using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Manufacturing;
@@ -42,5 +47,27 @@ public class BomCreatorDuplicateTests
         creator.AddItem(commonNutId, "Nut M6", subFgId, 2, 0.5m);
 
         Should.NotThrow(() => creator.Validate());
+    }
+
+    [Fact]
+    public async Task CreateBomsAsync_ExceedsMaxDesignParts_ThrowsValidationFailed()
+    {
+        var fgItemId = Guid.NewGuid();
+        var subId = Guid.NewGuid();
+        var leafId1 = Guid.NewGuid();
+        var leafId2 = Guid.NewGuid();
+        var creator = new BomCreator(Guid.NewGuid(), Guid.NewGuid(), fgItemId, 1m);
+
+        creator.AddItem(subId, "Sub Assembly", fgItemId, 1m, 0m, isExpandable: true);
+        creator.AddItem(leafId1, "Leaf 1", subId, 1m, 5m);
+        creator.AddItem(leafId2, "Leaf 2", subId, 1m, 5m);
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var service = new BomCreatorService(bomRepo);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            service.CreateBomsAsync(creator, _ => Task.FromResult("BOM-001"), maxParts: 3));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        creator.Status.ShouldBe(BomCreatorStatus.Failed);
     }
 }

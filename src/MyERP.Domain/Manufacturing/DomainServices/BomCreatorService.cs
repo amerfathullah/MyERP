@@ -22,6 +22,9 @@ namespace MyERP.Manufacturing.DomainServices;
 /// </summary>
 public class BomCreatorService : DomainService
 {
+    /// <summary>Maximum number of design parts permitted in a BOM Creator hierarchy (ERPNext PR #65966).</summary>
+    public const int MaxDesignParts = 5000;
+
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
 
     public BomCreatorService(IRepository<BillOfMaterials, Guid> bomRepository)
@@ -30,15 +33,21 @@ public class BomCreatorService : DomainService
     }
 
     /// <summary>Generates the full BOM tree from a draft BOM Creator. Marks it Completed or Failed.</summary>
-    public async Task CreateBomsAsync(BomCreator creator, Func<Guid, Task<string>> generateBomNumberAsync)
+    public Task CreateBomsAsync(BomCreator creator, Func<Guid, Task<string>> generateBomNumberAsync)
+        => CreateBomsAsync(creator, generateBomNumberAsync, MaxDesignParts);
+
+    /// <summary>Generates the full BOM tree with an explicit maximum part count limit.</summary>
+    public async Task CreateBomsAsync(BomCreator creator, Func<Guid, Task<string>> generateBomNumberAsync, int maxParts)
     {
         creator.Validate();
 
         var createdBomIds = new Dictionary<Guid, Guid>();
+        var partCounter = new int[1];
         try
         {
             await CreateBomForItemAsync(creator, creator.FinishedGoodItemId, creator.Qty, creator.Uom,
-                creator.RoutingId, createdBomIds, generateBomNumberAsync, new HashSet<Guid> { creator.FinishedGoodItemId });
+                creator.RoutingId, createdBomIds, generateBomNumberAsync, new HashSet<Guid> { creator.FinishedGoodItemId },
+                partCounter, maxParts);
             creator.RecalculateCost();
             creator.MarkCompleted();
         }
@@ -51,8 +60,15 @@ public class BomCreatorService : DomainService
 
     private async Task<Guid> CreateBomForItemAsync(BomCreator creator, Guid fgItemId, decimal qty, string? uom,
         Guid? routingId, Dictionary<Guid, Guid> createdBomIds, Func<Guid, Task<string>> generateBomNumberAsync,
-        HashSet<Guid> ancestorItemIds)
+        HashSet<Guid> ancestorItemIds, int[] partCounter, int maxParts)
     {
+        partCounter[0]++;
+        if (partCounter[0] > maxParts)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"BOM Creator design hierarchy exceeds maximum limit of {maxParts} parts.");
+        }
+
         if (createdBomIds.TryGetValue(fgItemId, out var existingBomId))
             return existingBomId;
 
@@ -83,9 +99,18 @@ public class BomCreatorService : DomainService
 
                 // Sub-assemblies are recipes for 1 unit; the parent BomItem.Qty carries the consumed quantity.
                 subBomId = await CreateBomForItemAsync(creator, child.ItemId, 1m, child.Uom,
-                    null, createdBomIds, generateBomNumberAsync, ancestorItemIds);
+                    null, createdBomIds, generateBomNumberAsync, ancestorItemIds, partCounter, maxParts);
 
                 ancestorItemIds.Remove(child.ItemId);
+            }
+            else
+            {
+                partCounter[0]++;
+                if (partCounter[0] > maxParts)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"BOM Creator design hierarchy exceeds maximum limit of {maxParts} parts.");
+                }
             }
 
             var bomItem = new BomItem(Guid.NewGuid(), bom.Id, child.ItemId, child.ItemName,

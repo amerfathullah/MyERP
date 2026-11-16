@@ -1836,6 +1836,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        if (input.JobCardId.HasValue)
+        {
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+            var jc = await jcRepo.FindAsync(input.JobCardId.Value);
+            if (jc != null && jc.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("jobCardCompany", jc.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
         if (input.ReferenceId.HasValue && !string.IsNullOrWhiteSpace(input.ReferenceType))
         {
             if (string.Equals(input.ReferenceType, "SalesOrder", StringComparison.OrdinalIgnoreCase))
@@ -1868,6 +1880,71 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                         .WithData("materialRequestCompany", mr.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "JobCard", StringComparison.OrdinalIgnoreCase))
+            {
+                var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+                var jc = await jcRepo.FindAsync(input.ReferenceId.Value);
+                if (jc != null && jc.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("jobCardCompany", jc.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "PickList", StringComparison.OrdinalIgnoreCase))
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PickList, Guid>>();
+                var pl = await plRepo.FindAsync(input.ReferenceId.Value);
+                if (pl != null && pl.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("pickListCompany", pl.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+            {
+                var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+                var po = await poRepo.FindAsync(input.ReferenceId.Value);
+                if (po != null && po.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("purchaseOrderCompany", po.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+            {
+                var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+                var pr = await prRepo.FindAsync(input.ReferenceId.Value);
+                if (pr != null && pr.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("purchaseReceiptCompany", pr.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "DeliveryNote", StringComparison.OrdinalIgnoreCase))
+            {
+                var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+                var dn = await dnRepo.FindAsync(input.ReferenceId.Value);
+                if (dn != null && dn.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("deliveryNoteCompany", dn.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "StockEntry", StringComparison.OrdinalIgnoreCase))
+            {
+                var refSe = await _repository.FindAsync(input.ReferenceId.Value);
+                if (refSe != null && refSe.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("referenceStockEntryCompany", refSe.CompanyId)
                         .WithData("stockEntryCompany", companyId);
                 }
             }

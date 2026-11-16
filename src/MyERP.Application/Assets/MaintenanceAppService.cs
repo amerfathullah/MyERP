@@ -129,22 +129,7 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
     public async Task<MaintenanceVisitDto> CreateVisitAsync(CreateMaintenanceVisitDto input)
     {
         var visitItemIds = input.Purposes.Where(p => p.ItemId.HasValue).Select(p => p.ItemId!.Value).Distinct().ToArray();
-        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync(
-            "MaintenanceVisit", input.CompanyId,
-            itemIds: visitItemIds.Length > 0 ? visitItemIds : null,
-            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
-
-        if (input.MaintenanceScheduleId.HasValue)
-        {
-            var ms = await _scheduleRepo.FindAsync(input.MaintenanceScheduleId.Value);
-            if (ms != null && ms.CompanyId != input.CompanyId)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("scheduleCompany", ms.CompanyId)
-                    .WithData("visitCompany", input.CompanyId);
-            }
-        }
+        await ValidateVisitReferencesAsync(input.CompanyId, input.CustomerId, input.MaintenanceScheduleId, visitItemIds);
 
         var visit = new MaintenanceVisit(GuidGenerator.Create(), input.CompanyId,
             input.VisitDate, input.MaintenanceType, CurrentTenant.Id)
@@ -181,6 +166,9 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
                 .WithData("message", "Cannot edit a completed or cancelled visit.");
         }
 
+        var visitItemIds = input.Purposes.Where(p => p.ItemId.HasValue).Select(p => p.ItemId!.Value).Distinct().ToArray();
+        await ValidateVisitReferencesAsync(visit.CompanyId, input.CustomerId, input.MaintenanceScheduleId, visitItemIds);
+
         visit.VisitDate = input.VisitDate;
         visit.MaintenanceType = input.MaintenanceType;
         visit.MaintenanceScheduleId = input.MaintenanceScheduleId;
@@ -189,6 +177,39 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
 
         await _visitRepo.UpdateAsync(visit);
         return ObjectMapper.Map<MaintenanceVisit, MaintenanceVisitDto>(visit);
+    }
+
+    private async Task ValidateVisitReferencesAsync(
+        Guid companyId,
+        Guid? customerId,
+        Guid? maintenanceScheduleId,
+        Guid[] itemIds)
+    {
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaintenanceVisit", companyId,
+            itemIds: itemIds.Length > 0 ? itemIds : null,
+            customerIds: customerId.HasValue ? new[] { customerId.Value } : null);
+
+        if (maintenanceScheduleId.HasValue)
+        {
+            var ms = await _scheduleRepo.FindAsync(maintenanceScheduleId.Value);
+            if (ms != null)
+            {
+                if (ms.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("scheduleCompany", ms.CompanyId)
+                        .WithData("visitCompany", companyId);
+                }
+
+                if (ms.CustomerId.HasValue && customerId.HasValue && ms.CustomerId.Value != customerId.Value)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Customer does not match the Maintenance Schedule customer.");
+                }
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]

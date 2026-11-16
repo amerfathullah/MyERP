@@ -75,4 +75,58 @@ public abstract class MaintenanceVisitCompanyGuardTests<TStartupModule> : MyERPA
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_WarrantyClaimDifferentCompanyOrCustomer_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var claimRepository = GetRequiredService<IRepository<Entities.WarrantyClaim, Guid>>();
+            var visitAppService = GetRequiredService<IMaintenanceVisitAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MV WC Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MV WC Other Co"), autoSave: true);
+            var customerA = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), ownerCompany.Id, "MV WC Cust A"), autoSave: true);
+            var customerB = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), ownerCompany.Id, "MV WC Cust B"), autoSave: true);
+            var otherCustomer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), otherCompany.Id, "MV WC Other Cust"), autoSave: true);
+            var item = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "MV-WC-ITEM", "MV WC Item", ItemType.Goods), autoSave: true);
+            var otherItem = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), otherCompany.Id, "MV-WC-OTHER-ITEM", "MV WC Other Item", ItemType.Goods), autoSave: true);
+
+            var otherCoClaim = await claimRepository.InsertAsync(
+                new Entities.WarrantyClaim(Guid.NewGuid(), otherCompany.Id, otherCustomer.Id, otherItem.Id, DateTime.UtcNow.Date)
+                {
+                    ClaimNumber = "WC-GUARD-1"
+                },
+                autoSave: true);
+            var otherCustClaim = await claimRepository.InsertAsync(
+                new Entities.WarrantyClaim(Guid.NewGuid(), ownerCompany.Id, customerB.Id, item.Id, DateTime.UtcNow.Date)
+                {
+                    ClaimNumber = "WC-GUARD-2"
+                },
+                autoSave: true);
+
+            var coEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                visitAppService.CreateAsync(new CreateMaintenanceVisitDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    CustomerId = customerA.Id,
+                    WarrantyClaimId = otherCoClaim.Id,
+                    VisitDate = DateTime.UtcNow,
+                }));
+            coEx.Code.ShouldBe(MyERPDomainErrorCodes.CompanyMismatch);
+
+            var custEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                visitAppService.CreateAsync(new CreateMaintenanceVisitDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    CustomerId = customerA.Id,
+                    WarrantyClaimId = otherCustClaim.Id,
+                    VisitDate = DateTime.UtcNow,
+                }));
+            custEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }
