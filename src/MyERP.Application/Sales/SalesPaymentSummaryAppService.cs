@@ -37,6 +37,7 @@ public class SalesPaymentSummaryAppService : ApplicationService, ISalesPaymentSu
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoices = query
@@ -44,7 +45,7 @@ public class SalesPaymentSummaryAppService : ApplicationService, ISalesPaymentSu
                       && si.IsPos
                       && si.Status == DocumentStatus.Posted
                       && si.IssueDate >= from
-                      && si.IssueDate <= to)
+                      && si.IssueDate < toExclusive)
             .WhereIf(input.WarehouseId.HasValue, si => si.WarehouseId == input.WarehouseId!.Value)
             .WhereIf(input.PosProfileId.HasValue, si => si.PosProfileId == input.PosProfileId!.Value)
             .WhereIf(input.CustomerId.HasValue, si => si.CustomerId == input.CustomerId!.Value)

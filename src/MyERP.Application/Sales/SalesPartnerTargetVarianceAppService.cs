@@ -144,6 +144,7 @@ public class SalesPartnerTargetVarianceAppService : ApplicationService, ISalesPa
         }
 
         // Query actual sales transactions scoped by Company and date range (PR #62324 / commit 7d493a6678)
+        var toDateExclusive = toDate!.Value.Date.AddDays(1);
         var actualRows = new List<(Guid SalesPartnerId, Guid ItemId, Guid? ItemGroupId, decimal Qty, decimal Amount)>();
 
         if (docType == "Sales Order")
@@ -154,7 +155,7 @@ public class SalesPartnerTargetVarianceAppService : ApplicationService, ISalesPa
                           && so.Status == DocumentStatus.Submitted
                           && so.SalesPartnerId.HasValue
                           && so.OrderDate >= fromDate!.Value
-                          && so.OrderDate <= toDate!.Value)
+                          && so.OrderDate < toDateExclusive)
                 .ToList();
 
             foreach (var so in orders)
@@ -177,7 +178,7 @@ public class SalesPartnerTargetVarianceAppService : ApplicationService, ISalesPa
                           && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted)
                           && si.SalesPartnerId.HasValue
                           && si.IssueDate >= fromDate!.Value
-                          && si.IssueDate <= toDate!.Value)
+                          && si.IssueDate < toDateExclusive)
                 .ToList();
 
             foreach (var si in invoices)

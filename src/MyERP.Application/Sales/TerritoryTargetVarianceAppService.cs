@@ -195,7 +195,7 @@ public class TerritoryTargetVarianceAppService : ApplicationService, ITerritoryT
             if (fromDate.HasValue)
                 orders = orders.Where(so => so.OrderDate >= fromDate.Value).ToList();
             if (toDate.HasValue)
-                orders = orders.Where(so => so.OrderDate <= toDate.Value).ToList();
+                orders = orders.Where(so => so.OrderDate < toDate.Value.Date.AddDays(1)).ToList();
 
             foreach (var order in orders)
             {
@@ -228,7 +228,7 @@ public class TerritoryTargetVarianceAppService : ApplicationService, ITerritoryT
             if (fromDate.HasValue)
                 invoices = invoices.Where(si => si.IssueDate >= fromDate.Value).ToList();
             if (toDate.HasValue)
-                invoices = invoices.Where(si => si.IssueDate <= toDate.Value).ToList();
+                invoices = invoices.Where(si => si.IssueDate < toDate.Value.Date.AddDays(1)).ToList();
 
             foreach (var inv in invoices)
             {

@@ -42,6 +42,7 @@ public class LostQuotationsAppService : ApplicationService, ILostQuotationsAppSe
     public async Task<LostQuotationsReportDto> GetReportAsync(GetLostQuotationsReportInput input)
     {
         var (fromDate, toDate) = ResolveTimespan(input.Timespan, input.FromDate, input.ToDate);
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var company = await _companyRepository.FindAsync(input.CompanyId);
         var currency = company?.CurrencyCode ?? "MYR";
@@ -52,7 +53,7 @@ public class LostQuotationsAppService : ApplicationService, ILostQuotationsAppSe
                 && q.Status == DocumentStatus.Rejected
                 && q.IsActive
                 && q.IssueDate >= fromDate
-                && q.IssueDate <= toDate)
+                && q.IssueDate < toDateExclusive)
             .Select(q => new
             {
                 q.Id,

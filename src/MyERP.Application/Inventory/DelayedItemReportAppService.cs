@@ -57,6 +57,7 @@ public class DelayedItemReportAppService : ApplicationService, IDelayedItemRepor
         {
             (fromDate, toDate) = (toDate, fromDate);
         }
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var candidateVouchers = new List<(
             string VoucherType,
@@ -77,7 +78,7 @@ public class DelayedItemReportAppService : ApplicationService, IDelayedItemRepor
                 d.Status == DocumentStatus.Submitted &&
                 !d.IsReturn &&
                 d.PostingDate >= fromDate &&
-                d.PostingDate <= toDate);
+                d.PostingDate < toDateExclusive);
 
             if (input.CustomerId.HasValue)
                 dnQuery = dnQuery.Where(d => d.CustomerId == input.CustomerId.Value);
@@ -117,7 +118,7 @@ public class DelayedItemReportAppService : ApplicationService, IDelayedItemRepor
                 !s.IsReturn &&
                 s.UpdateStock &&
                 s.IssueDate >= fromDate &&
-                s.IssueDate <= toDate);
+                s.IssueDate < toDateExclusive);
 
             if (input.CustomerId.HasValue)
                 siQuery = siQuery.Where(s => s.CustomerId == input.CustomerId.Value);

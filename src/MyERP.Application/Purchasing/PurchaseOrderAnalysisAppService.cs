@@ -58,6 +58,7 @@ public class PurchaseOrderAnalysisAppService : ApplicationService, IPurchaseOrde
 
         var fromDate = input.FromDate ?? DateTime.UtcNow.Date.AddDays(-30);
         var toDate = input.ToDate ?? DateTime.UtcNow.Date;
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var poQuery = await _purchaseOrderRepository.WithDetailsAsync(po => po.Items);
         var orders = poQuery
@@ -65,7 +66,7 @@ public class PurchaseOrderAnalysisAppService : ApplicationService, IPurchaseOrde
                          && po.Status != DocumentStatus.Draft
                          && po.Status != DocumentStatus.Cancelled
                          && po.OrderDate >= fromDate
-                         && po.OrderDate <= toDate)
+                         && po.OrderDate < toDateExclusive)
             .WhereIf(input.SupplierId.HasValue, po => po.SupplierId == input.SupplierId!.Value)
             .WhereIf(input.PurchaseOrderId.HasValue, po => po.Id == input.PurchaseOrderId!.Value)
             .ToList();

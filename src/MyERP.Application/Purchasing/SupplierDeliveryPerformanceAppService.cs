@@ -31,12 +31,13 @@ public class SupplierDeliveryPerformanceAppService : ApplicationService, ISuppli
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-6).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
         var today = DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _poRepository.GetQueryableAsync();
         var orders = query
             .Where(po => po.CompanyId == input.CompanyId
                       && po.OrderDate >= from
-                      && po.OrderDate <= to
+                      && po.OrderDate < toExclusive
                       && po.Status != DocumentStatus.Draft
                       && po.Status != DocumentStatus.Cancelled)
             .ToList();

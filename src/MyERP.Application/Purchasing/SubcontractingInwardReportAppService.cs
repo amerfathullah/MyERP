@@ -48,6 +48,7 @@ public class SubcontractingInwardReportAppService : ApplicationService, ISubcont
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _orderRepository.GetQueryableAsync();
         var orders = query
@@ -56,7 +57,7 @@ public class SubcontractingInwardReportAppService : ApplicationService, ISubcont
                      && o.Status != SubcontractingInwardOrderStatus.Closed
                      && o.Status != SubcontractingInwardOrderStatus.Cancelled
                      && o.OrderDate >= from
-                     && o.OrderDate <= to)
+                     && o.OrderDate < toExclusive)
             .WhereIf(input.SubcontractingInwardOrderId.HasValue, o => o.Id == input.SubcontractingInwardOrderId!.Value)
             .WhereIf(input.SupplierId.HasValue, o => o.SupplierId == input.SupplierId!.Value)
             .ToList();
@@ -158,12 +159,13 @@ public class SubcontractingInwardReportAppService : ApplicationService, ISubcont
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _orderRepository.GetQueryableAsync();
         var ordersQuery = query
             .Where(o => o.CompanyId == input.CompanyId
                      && o.OrderDate >= from
-                     && o.OrderDate <= to)
+                     && o.OrderDate < toExclusive)
             .WhereIf(input.SubcontractingInwardOrderId.HasValue, o => o.Id == input.SubcontractingInwardOrderId!.Value)
             .WhereIf(input.SupplierId.HasValue, o => o.SupplierId == input.SupplierId!.Value);
 
@@ -276,6 +278,7 @@ public class SubcontractingInwardReportAppService : ApplicationService, ISubcont
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _orderRepository.GetQueryableAsync();
         var orders = query
@@ -284,7 +287,7 @@ public class SubcontractingInwardReportAppService : ApplicationService, ISubcont
                      && o.Status != SubcontractingInwardOrderStatus.Closed
                      && o.Status != SubcontractingInwardOrderStatus.Cancelled
                      && o.OrderDate >= from
-                     && o.OrderDate <= to)
+                     && o.OrderDate < toExclusive)
             .WhereIf(input.SubcontractingInwardOrderId.HasValue, o => o.Id == input.SubcontractingInwardOrderId!.Value)
             .WhereIf(input.SupplierId.HasValue, o => o.SupplierId == input.SupplierId!.Value)
             .ToList();

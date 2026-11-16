@@ -55,13 +55,14 @@ public class ItemWisePurchaseHistoryAppService : ApplicationService, IItemWisePu
 
         var fromDate = input.FromDate ?? DateTime.UtcNow.Date.AddDays(-30);
         var toDate = input.ToDate ?? DateTime.UtcNow.Date;
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var poQuery = await _purchaseOrderRepository.WithDetailsAsync(po => po.Items);
         var orders = poQuery
             .Where(po => po.Status != DocumentStatus.Draft
                 && po.Status != DocumentStatus.Cancelled
                 && po.OrderDate >= fromDate
-                && po.OrderDate <= toDate)
+                && po.OrderDate < toDateExclusive)
             .WhereIf(input.CompanyId.HasValue, po => po.CompanyId == input.CompanyId!.Value)
             .WhereIf(input.SupplierId.HasValue, po => po.SupplierId == input.SupplierId!.Value)
             .ToList();

@@ -487,7 +487,9 @@ public class CustomerAppService :
         var company = await companyRepo.GetAsync(input.CompanyId);
 
         var asOfDate = DateTime.UtcNow.Date;
+        var asOfExclusive = asOfDate.AddDays(1);
         var (fromDate, toDate) = await ResolvePeriodAsync(input.Period, input.CompanyId, asOfDate);
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
         var siQ = await siRepo.GetQueryableAsync();
@@ -501,14 +503,14 @@ public class CustomerAppService :
 
         // 1. Position: Net Sales, Outstanding, Overdue, Credit
         var currentPeriodInvoices = customerInvoices
-            .Where(si => !si.IsReturn && si.IssueDate >= fromDate && si.IssueDate <= toDate)
+            .Where(si => !si.IsReturn && si.IssueDate >= fromDate && si.IssueDate < toDateExclusive)
             .ToList();
         var currentNetSales = currentPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
 
         var prevFromDate = fromDate.AddYears(-1);
-        var prevToDate = toDate.AddYears(-1);
+        var prevToDateExclusive = toDate.AddYears(-1).Date.AddDays(1);
         var prevPeriodInvoices = customerInvoices
-            .Where(si => !si.IsReturn && si.IssueDate >= prevFromDate && si.IssueDate <= prevToDate)
+            .Where(si => !si.IsReturn && si.IssueDate >= prevFromDate && si.IssueDate < prevToDateExclusive)
             .ToList();
         var prevNetSales = prevPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
 
@@ -520,7 +522,7 @@ public class CustomerAppService :
         // Days to pay (DSO) = outstanding / (trailing annual sales / 365)
         var trailing365Start = asOfDate.AddDays(-365);
         var trailingSales = customerInvoices
-            .Where(si => !si.IsReturn && si.IssueDate >= trailing365Start && si.IssueDate <= asOfDate)
+            .Where(si => !si.IsReturn && si.IssueDate >= trailing365Start && si.IssueDate < asOfExclusive)
             .Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
         int? daysToPay = null;
         if (trailingSales > 0)

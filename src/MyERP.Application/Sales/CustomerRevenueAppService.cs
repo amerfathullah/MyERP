@@ -33,6 +33,7 @@ public class CustomerRevenueAppService : ApplicationService, ICustomerRevenueApp
     {
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-3).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoices = query
@@ -40,7 +41,7 @@ public class CustomerRevenueAppService : ApplicationService, ICustomerRevenueApp
                       && si.Status == DocumentStatus.Posted
                       && !si.IsReturn
                       && si.IssueDate >= from
-                      && si.IssueDate <= to)
+                      && si.IssueDate < toExclusive)
             .ToList();
 
         // Load customer names

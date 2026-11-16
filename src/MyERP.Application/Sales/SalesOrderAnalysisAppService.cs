@@ -58,6 +58,7 @@ public class SalesOrderAnalysisAppService : ApplicationService, ISalesOrderAnaly
 
         var fromDate = input.FromDate ?? DateTime.UtcNow.Date.AddDays(-30);
         var toDate = input.ToDate ?? DateTime.UtcNow.Date;
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var soQuery = await _salesOrderRepository.WithDetailsAsync(so => so.Items);
         var orders = soQuery
@@ -65,7 +66,7 @@ public class SalesOrderAnalysisAppService : ApplicationService, ISalesOrderAnaly
                          && so.Status != DocumentStatus.Draft
                          && so.Status != DocumentStatus.Cancelled
                          && so.OrderDate >= fromDate
-                         && so.OrderDate <= toDate)
+                         && so.OrderDate < toDateExclusive)
             .WhereIf(input.CustomerId.HasValue, so => so.CustomerId == input.CustomerId!.Value)
             .WhereIf(input.SalesOrderId.HasValue, so => so.Id == input.SalesOrderId!.Value)
             .ToList();

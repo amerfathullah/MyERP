@@ -198,7 +198,7 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                           && pe.PartyId == customerId
                           && pe.Status == DocumentStatus.Posted
                           && pe.PostingDate >= from
-                          && pe.PostingDate <= to)
+                          && pe.PostingDate < toExclusive)
                 .ToList();
 
             var lines = new List<SalesRegisterLineDto>();
@@ -268,7 +268,7 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                     .Where(j => j.CompanyId == input.CompanyId
                              && j.Status == DocumentStatus.Posted
                              && j.PostingDate >= from
-                             && j.PostingDate <= to
+                             && j.PostingDate < toExclusive
                              && j.Lines.Any(l => l.PartyType == "Customer" && l.PartyId == customerId))
                     .ToList();
 

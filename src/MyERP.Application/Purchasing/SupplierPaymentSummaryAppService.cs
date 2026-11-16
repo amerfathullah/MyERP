@@ -36,6 +36,7 @@ public class SupplierPaymentSummaryAppService : ApplicationService, ISupplierPay
         var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-3).Date;
         var to = input.ToDate ?? DateTime.UtcNow.Date;
         var today = DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
 
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoices = query
@@ -43,7 +44,7 @@ public class SupplierPaymentSummaryAppService : ApplicationService, ISupplierPay
                       && pi.Status == DocumentStatus.Posted
                       && !pi.IsReturn
                       && pi.IssueDate >= from
-                      && pi.IssueDate <= to)
+                      && pi.IssueDate < toExclusive)
             .ToList();
 
         // Load supplier names

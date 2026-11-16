@@ -28,13 +28,14 @@ public class SalesCommissionReportAppService : ApplicationService, ISalesCommiss
 
     public async Task<SalesCommissionReportDto> GetReportAsync(Guid companyId, DateTime fromDate, DateTime toDate)
     {
+        var toDateExclusive = toDate.Date.AddDays(1);
         var invoiceQuery = await _invoiceRepo.GetQueryableAsync();
         var postedInvoices = invoiceQuery
             .Where(si => si.CompanyId == companyId
                          && si.Status == DocumentStatus.Posted
                          && !si.IsReturn
                          && si.IssueDate >= fromDate
-                         && si.IssueDate <= toDate)
+                         && si.IssueDate < toDateExclusive)
             .ToList();
 
         if (postedInvoices.Count == 0)

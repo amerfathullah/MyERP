@@ -243,6 +243,8 @@ public class SupplierAppService :
 
         var asOfDate = DateTime.UtcNow.Date;
         var (fromDate, toDate) = await ResolvePeriodAsync(input.Period, input.CompanyId, asOfDate);
+        var asOfExclusive = asOfDate.AddDays(1);
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseInvoice, Guid>>();
         var piQ = await piRepo.GetQueryableAsync();
@@ -257,14 +259,14 @@ public class SupplierAppService :
 
         // 1. Position: Net Purchases, Outstanding, Overdue, Advances
         var currentPeriodInvoices = supplierInvoices
-            .Where(pi => !pi.IsReturn && pi.IssueDate >= fromDate && pi.IssueDate <= toDate)
+            .Where(pi => !pi.IsReturn && pi.IssueDate >= fromDate && pi.IssueDate < toDateExclusive)
             .ToList();
         var currentNetPurchases = currentPeriodInvoices.Sum(pi => pi.BaseNetTotal > 0 ? pi.BaseNetTotal : (pi.NetTotal > 0 ? pi.NetTotal : pi.GrandTotal));
 
         var prevFromDate = fromDate.AddYears(-1);
-        var prevToDate = toDate.AddYears(-1);
+        var prevToDateExclusive = toDate.AddYears(-1).Date.AddDays(1);
         var prevPeriodInvoices = supplierInvoices
-            .Where(pi => !pi.IsReturn && pi.IssueDate >= prevFromDate && pi.IssueDate <= prevToDate)
+            .Where(pi => !pi.IsReturn && pi.IssueDate >= prevFromDate && pi.IssueDate < prevToDateExclusive)
             .ToList();
         var prevNetPurchases = prevPeriodInvoices.Sum(pi => pi.BaseNetTotal > 0 ? pi.BaseNetTotal : (pi.NetTotal > 0 ? pi.NetTotal : pi.GrandTotal));
 
@@ -276,7 +278,7 @@ public class SupplierAppService :
         // Days to pay (DPO) = outstanding / (trailing annual purchases / 365)
         var trailing365Start = asOfDate.AddDays(-365);
         var trailingPurchases = supplierInvoices
-            .Where(pi => !pi.IsReturn && pi.IssueDate >= trailing365Start && pi.IssueDate <= asOfDate)
+            .Where(pi => !pi.IsReturn && pi.IssueDate >= trailing365Start && pi.IssueDate < asOfExclusive)
             .Sum(pi => pi.BaseNetTotal > 0 ? pi.BaseNetTotal : (pi.NetTotal > 0 ? pi.NetTotal : pi.GrandTotal));
         int? daysToPay = null;
         if (trailingPurchases > 0)
@@ -319,7 +321,7 @@ public class SupplierAppService :
             .Where(je => je.CompanyId == input.CompanyId
                 && je.Status == DocumentStatus.Posted
                 && (je.VoucherType == JournalEntryVoucherType.BankEntry || je.VoucherType == JournalEntryVoucherType.CashEntry)
-                && je.PostingDate >= fromDate && je.PostingDate <= toDate)
+                && je.PostingDate >= fromDate && je.PostingDate < toDateExclusive)
             .ToList();
 
         var points = new List<SupplierTrendPointDto>();

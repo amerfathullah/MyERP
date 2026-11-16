@@ -244,7 +244,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             var dnList = await dnRepo.GetListAsync(d =>
                 d.CompanyId == input.CompanyId
                 && (d.Status == Core.DocumentStatus.Submitted || d.Status == Core.DocumentStatus.Posted)
-                && d.PostingDate <= to);
+                && d.PostingDate < toExclusive);
 
             foreach (var dn in dnList)
             {

@@ -236,7 +236,7 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                           && pe.PartyId == supplierId
                           && pe.Status == DocumentStatus.Posted
                           && pe.PostingDate >= from
-                          && pe.PostingDate <= to)
+                          && pe.PostingDate < toExclusive)
                 .ToList();
 
             var lines = new List<PurchaseRegisterLineDto>();
@@ -307,7 +307,7 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                     .Where(j => j.CompanyId == input.CompanyId
                              && j.Status == DocumentStatus.Posted
                              && j.PostingDate >= from
-                             && j.PostingDate <= to
+                             && j.PostingDate < toExclusive
                              && j.Lines.Any(l => l.PartyType == "Supplier" && l.PartyId == supplierId))
                     .ToList();
 
