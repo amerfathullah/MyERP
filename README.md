@@ -1,6 +1,6 @@
 # MyERP
 
-A full-featured, modular Enterprise Resource Planning system built with [ABP Framework](https://abp.io/) 10.6, .NET 10, Angular 21, and PostgreSQL. Designed for Malaysian businesses with built-in LHDN e-Invoice (MyInvois) integration, SST tax engine, and payroll compliance (EPF, SOCSO, EIS, PCB).
+A full-featured, modular Enterprise Resource Planning system built with [ABP Framework](https://abp.io/) 10.7, .NET 10, Angular 22, and PostgreSQL. Designed for Malaysian businesses with built-in LHDN e-Invoice (MyInvois) integration, SST tax engine, and payroll compliance (EPF, SOCSO, EIS, PCB).
 
 [![CI](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml/badge.svg)](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml)
 
@@ -65,11 +65,11 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | Layer | Technology |
 |-------|-----------|
 | Runtime | .NET 10, C# 13 |
-| Framework | ABP.IO 10.6 (DDD, multi-tenancy, permissions, audit) |
+| Framework | ABP.IO 10.7 (DDD, multi-tenancy, permissions, audit) |
 | Database | PostgreSQL 16 + Entity Framework Core |
 | Cache | Redis 7 |
 | Auth | OpenIddict (OAuth 2.0 / OIDC) |
-| Frontend | Angular 21.2, NgRx SignalStore 21, Bootstrap 5 (LeptonX Lite) |
+| Frontend | Angular 22, NgRx SignalStore 22, Bootstrap 5 (LeptonX Lite) |
 | Unit Tests | xUnit (backend), Vitest 5 (frontend) |
 | E2E Tests | Playwright |
 | Charts | Chart.js 4 |
@@ -283,7 +283,7 @@ src/
 ├── MyERP.HttpApi.Client       → HTTP client proxies for service-to-service calls
 └── MyERP.DbMigrator           → Database migration console app
 
-angular/                       → Angular 21 SPA (standalone components, NgRx SignalStore)
+angular/                       → Angular 22 SPA (standalone components, NgRx SignalStore)
 ├── src/app/
 │   ├── accounting/            → GL, Journal Entries/Templates, Payments, Payment Requests,
 │   │                            Payment Orders, Bank Reconciliation, Bank Statement Import,
