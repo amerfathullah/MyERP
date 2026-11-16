@@ -11,8 +11,14 @@
         </div>
         <div class="card-body pt-3">
           <form [formGroup]="importForm" (ngSubmit)="startImport()">
-            <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
-            <select class="form-select"></select>
+            <div class="mb-3">
+              <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
+              <select class="form-select" formControlName="entityType">
+                @for (t of entityTypes; track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </div>
 
             <div class="mb-3">
               <input type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)" class="d-none" #fileInput />
@@ -47,8 +53,14 @@
           </h5>
         </div>
         <div class="card-body pt-3">
-          <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
-            <select class="form-select"></select>
+          <div class="mb-3">
+            <label class="form-label">{{ '::EntityType' | abpLocalization }}</label>
+            <select class="form-select" [(ngModel)]="exportEntityType">
+              @for (t of entityTypes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+          </div>
 
           @if (isExporting()) {
             <div class="progress mb-3"><div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div></div>
@@ -76,6 +88,7 @@
                 <th>{{ '::Status' | abpLocalization }}</th>
                 <th>{{ '::Results' | abpLocalization }}</th>
                 <th>{{ '::CreatedDate' | abpLocalization }}</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -91,6 +104,15 @@
                     }
                   </td>
                   <td>{{ row.creationTime | date:'short' }}</td>
+                  <td class="text-end">
+                    @if (row.id) {
+                      <button type="button" class="btn btn-sm btn-outline-secondary"
+                        [disabled]="refreshingJobId() === row.id"
+                        (click)="refreshJobStatus(row.id!)">
+                        <i class="fa fa-sync" [class.fa-spin]="refreshingJobId() === row.id"></i>
+                      </button>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>

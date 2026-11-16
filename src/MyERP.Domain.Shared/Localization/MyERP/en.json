@@ -6367,7 +6367,8 @@
     "AllowedCompanies": "Allowed Companies",
     "EditSalesTeam": "Edit Sales Team",
     "SalesTeamMustEqual100": "Total allocated percentage must equal 100%",
-    "CheckBin": "Check Bin"
+    "CheckBin": "Check Bin",
+    "Published": "Published"
   }
 }
 

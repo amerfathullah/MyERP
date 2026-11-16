@@ -120,8 +120,19 @@ export class QualityFeedbackFormComponent implements OnInit {
   }
 
   onTemplateChange() {
-    const template = this.templates().find((t) => t.id === this.templateId);
-    this.parameterRows = (template?.parameters ?? []).map((p) => ({ parameter: p.parameter, rating: 3, remarks: '' }));
+    if (!this.templateId) {
+      this.parameterRows = [];
+      return;
+    }
+    this.service.getFeedbackTemplate(this.templateId).subscribe({
+      next: (template) => {
+        this.parameterRows = (template?.parameters ?? []).map((p) => ({ parameter: p.parameter, rating: 3, remarks: '' }));
+      },
+      error: () => {
+        const fallback = this.templates().find((t) => t.id === this.templateId);
+        this.parameterRows = (fallback?.parameters ?? []).map((p) => ({ parameter: p.parameter, rating: 3, remarks: '' }));
+      },
+    });
   }
 
   canSave(): boolean {

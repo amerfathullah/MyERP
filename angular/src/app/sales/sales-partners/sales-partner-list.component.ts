@@ -15,10 +15,16 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::SalesPartners' | abpLocalization">
-      <div class="d-flex justify-content-between mb-3">
-        <input type="text" class="form-control form-control-sm" style="max-width: 300px"
-          [placeholder]="'::Placeholder:Search' | abpLocalization"
-          [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+      <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <input type="text" class="form-control form-control-sm" style="max-width: 300px"
+            [placeholder]="'::Placeholder:Search' | abpLocalization"
+            [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+          <button type="button" class="btn btn-sm" [class]="publishedOnly ? 'btn-info' : 'btn-outline-secondary'"
+            (click)="togglePublishedFilter()">
+            <i class="fa fa-globe me-1"></i>{{ '::Published' | abpLocalization }}
+          </button>
+        </div>
         <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
           <i class="fa fa-plus me-1"></i>{{ '::NewSalesPartner' | abpLocalization }}
         </button>
@@ -131,6 +137,7 @@ export class SalesPartnerListComponent implements OnInit {
   pageSize = 50;
   currentPage = 0;
   searchTerm = '';
+  publishedOnly = false;
   showCreateForm = false;
 
   newPartner = { name: '', partnerType: 0, commissionRate: 0, website: '' };
@@ -139,10 +146,32 @@ export class SalesPartnerListComponent implements OnInit {
 
   ngOnInit() { this.loadData(); }
 
+  togglePublishedFilter(): void {
+    this.publishedOnly = !this.publishedOnly;
+    this.currentPage = 0;
+    this.loadData();
+  }
+
   loadData() {
     this.isLoading = true;
-    const params: any = { skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize };
-    if (this.searchTerm) params.filter = this.searchTerm;
+    if (this.publishedOnly) {
+      this.partnerService.getPublishedPartners({
+        skipCount: this.currentPage * this.pageSize,
+        maxResultCount: this.pageSize,
+        sorting: '',
+      }).subscribe({
+        next: res => {
+          const items = res.items ?? [];
+          const term = this.searchTerm.trim().toLowerCase();
+          const filtered = term ? items.filter(p => (p.name ?? '').toLowerCase().includes(term)) : items;
+          this.partners = filtered;
+          this.totalCount = res.totalCount ?? filtered.length;
+          this.isLoading = false;
+        },
+        error: () => { this.isLoading = false; }
+      });
+      return;
+    }
     this.partnerService.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize, sorting: '', filter: this.searchTerm || undefined } as any).subscribe({
       next: res => { this.partners = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; }

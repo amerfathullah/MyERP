@@ -38,6 +38,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                     <th>{{ '::DocumentName' | abpLocalization }}</th>
                     <th>{{ '::AverageRating' | abpLocalization }}</th>
                     <th>{{ '::Remarks' | abpLocalization }}</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -47,6 +48,13 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                       <td class="fw-semibold">{{ f.documentName }}</td>
                       <td>{{ averageRating(f) }}</td>
                       <td class="text-muted">{{ f.remarks }}</td>
+                      <td class="text-end">
+                        @if (f.id) {
+                          <button type="button" class="btn btn-sm btn-outline-primary" (click)="inspectFeedback(f.id!)">
+                            <i class="fa fa-eye"></i>
+                          </button>
+                        }
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -54,6 +62,28 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             </div>
           }
         </div>
+        @if (selectedFeedback; as fb) {
+          <div class="card-body border-top bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">{{ fb.documentName }} — {{ '::Rating' | abpLocalization }}</h6>
+              <button type="button" class="btn-close btn-sm" (click)="selectedFeedback = null"></button>
+            </div>
+            @if ((fb.parameters ?? []).length > 0) {
+              <table class="table table-sm mb-0">
+                <thead><tr><th>Parameter</th><th>{{ '::Rating' | abpLocalization }}</th><th>{{ '::Remarks' | abpLocalization }}</th></tr></thead>
+                <tbody>
+                  @for (p of fb.parameters ?? []; track $index) {
+                    <tr>
+                      <td>{{ p.parameter }}</td>
+                      <td>{{ p.rating }}/5</td>
+                      <td class="text-muted">{{ p.remarks || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
         <div class="card-footer d-flex justify-content-between align-items-center">
           <span class="text-muted small">Total: {{ totalCount }}</span>
           <app-pagination [totalCount]="totalCount" [currentPage]="currentPage" [pageSize]="pageSize"
@@ -67,6 +97,7 @@ export class QualityFeedbackListComponent implements OnInit {
   private service = inject(QualityManagementService);
 
   feedbacks: QualityFeedbackDto[] = [];
+  selectedFeedback: QualityFeedbackDto | null = null;
   totalCount = 0;
   isLoading = false;
   currentPage = 0;
@@ -81,6 +112,13 @@ export class QualityFeedbackListComponent implements OnInit {
     this.service.getFeedbackList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize } as any).subscribe({
       next: (res) => { this.feedbacks = res.items ?? []; this.totalCount = res.totalCount ?? 0; this.isLoading = false; },
       error: () => { this.isLoading = false; },
+    });
+  }
+
+  inspectFeedback(id: string) {
+    this.service.getFeedback(id).subscribe({
+      next: (res) => { this.selectedFeedback = res; },
+      error: () => {},
     });
   }
 

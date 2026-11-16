@@ -31,6 +31,7 @@ export class ImportExportComponent implements OnInit {
   importHistory = signal<ImportJobDto[]>([]);
   isImporting = signal(false);
   isExporting = signal(false);
+  refreshingJobId = signal<string | null>(null);
 
   selectedFileName = '';
 
@@ -105,6 +106,21 @@ export class ImportExportComponent implements OnInit {
     this.service.getImportHistory({ skipCount: 0, maxResultCount: 10, sorting: '' }).subscribe({
       next: (result) => {
         this.importHistory.set(result.items ?? []);
+      },
+    });
+  }
+
+  refreshJobStatus(jobId: string): void {
+    if (!jobId) return;
+    this.refreshingJobId.set(jobId);
+    this.service.getImportStatus(jobId).subscribe({
+      next: (updated) => {
+        this.refreshingJobId.set(null);
+        this.importHistory.update(list => list.map(j => j.id === jobId ? updated : j));
+      },
+      error: (err) => {
+        this.refreshingJobId.set(null);
+        this.toaster.error(err?.error?.error?.message ?? 'Failed to refresh status');
       },
     });
   }
