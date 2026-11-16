@@ -3102,6 +3102,18 @@ export interface StockGlComparisonDto {
   itemCount?: number;
   asOfDate?: string;
   perWarehouse?: StockGlWarehouseComparisonDto[];
+  mismatchedVouchers?: StockGlVoucherComparisonDto[];
+}
+
+export interface StockGlVoucherComparisonDto {
+  ledgerType?: string;
+  voucherType?: string;
+  voucherId?: string;
+  voucherNumber?: string | null;
+  postingDate?: string;
+  stockValue?: number;
+  glBalance?: number;
+  difference?: number;
 }
 
 export interface StockGlComparisonRequestDto {

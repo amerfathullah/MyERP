@@ -6380,7 +6380,14 @@
     "SelectItemGroup": "Select item group...",
     "TargetQty": "Target Qty",
     "TargetAmount": "Target Amount",
-    "NoTargetsYet": "No targets configured yet"
+    "NoTargetsYet": "No targets configured yet",
+    "MismatchedVouchers": "Mismatched Vouchers",
+    "LedgerType": "Ledger Type",
+    "RepostFromDate": "Repost From Date",
+    "CreateGlRepostingEntries": "Create GL Reposting Entries",
+    "PickListCreated": "Pick List created",
+    "Manufacturing:EditWorkOrder": "Edit Work Order",
+    "AutoResolved": "Auto-resolved"
   }
 }
 

@@ -1,12 +1,12 @@
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { StockGlComparisonService } from '../../../proxy/inventory/stock-gl-comparison.service';
 import { CompanyService } from '../../../proxy/core/company.service';
-import type { StockGlComparisonDto } from '../../../proxy/inventory/models';
+import type { StockGlComparisonDto, StockGlVoucherComparisonDto } from '../../../proxy/inventory/models';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
 import { exportToCsv } from '../../../shared/utils/csv-export';
@@ -14,7 +14,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
 @Component({
   selector: 'app-stock-gl-comparison',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, CompanyCurrencyPipe],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, CompanyCurrencyPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::StockGlComparison' | abpLocalization">
@@ -156,6 +156,93 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             </div>
           </div>
         }
+
+        <!-- Mismatched Vouchers & GL-Only Reposting (per ERPNext PR #59307) -->
+        @if ((res.mismatchedVouchers?.length ?? 0) > 0) {
+          <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span class="fw-bold">
+                <i class="fa fa-file-invoice-dollar me-2 text-warning"></i>{{ '::MismatchedVouchers' | abpLocalization }}
+                <span class="badge bg-warning text-dark ms-2">{{ res.mismatchedVouchers!.length }}</span>
+              </span>
+              <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 small text-muted" for="repostFromDate">{{ '::RepostFromDate' | abpLocalization }}</label>
+                <input
+                  id="repostFromDate"
+                  type="date"
+                  class="form-control form-control-sm"
+                  style="width: auto"
+                  [ngModel]="repostFromDate()"
+                  (ngModelChange)="repostFromDate.set($event)" />
+                <button
+                  class="btn btn-sm btn-warning"
+                  [disabled]="selectedVoucherKeys().size === 0 || isReposting()"
+                  (click)="createGlRepostingEntries()">
+                  @if (isReposting()) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                  } @else {
+                    <i class="fa fa-rotate-right me-1"></i>
+                  }
+                  {{ '::CreateGlRepostingEntries' | abpLocalization }}
+                  @if (selectedVoucherKeys().size > 0) {
+                    <span class="badge bg-dark ms-1">{{ selectedVoucherKeys().size }}</span>
+                  }
+                </button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width: 36px">
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          [checked]="allSelectableSelected()"
+                          [disabled]="selectableVouchers().length === 0"
+                          (change)="toggleAllVouchers($any($event.target).checked)"
+                          [title]="'::SelectAll' | abpLocalization" />
+                      </th>
+                      <th>{{ '::LedgerType' | abpLocalization }}</th>
+                      <th>{{ '::VoucherType' | abpLocalization }}</th>
+                      <th>{{ '::Voucher' | abpLocalization }}</th>
+                      <th>{{ '::PostingDate' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::GLBalance' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Difference' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (v of res.mismatchedVouchers ?? []; track voucherKey(v)) {
+                      <tr>
+                        <td>
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            [checked]="isVoucherSelected(v)"
+                            [disabled]="v.ledgerType !== 'Stock Ledger Entry'"
+                            (change)="toggleVoucher(v, $any($event.target).checked)" />
+                        </td>
+                        <td>
+                          <span class="badge" [class.bg-info]="v.ledgerType === 'Stock Ledger Entry'" [class.text-dark]="v.ledgerType === 'Stock Ledger Entry'" [class.bg-secondary]="v.ledgerType !== 'Stock Ledger Entry'">
+                            {{ v.ledgerType }}
+                          </span>
+                        </td>
+                        <td>{{ v.voucherType }}</td>
+                        <td class="font-monospace small">{{ v.voucherNumber || v.voucherId }}</td>
+                        <td>{{ v.postingDate | date:'yyyy-MM-dd' }}</td>
+                        <td class="text-end font-monospace">{{ v.stockValue | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ v.glBalance | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace text-danger fw-bold">{{ v.difference | number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        }
       } @else if (!isLoading()) {
         <div class="text-center py-5 text-muted">
           <i class="fa fa-balance-scale fa-3x mb-3 opacity-25"></i>
@@ -178,6 +265,21 @@ export class StockGlComparisonComponent implements OnInit {
   companies = signal<any[]>([]);
   result = signal<StockGlComparisonDto | null>(null);
   isLoading = signal(false);
+  isReposting = signal(false);
+  repostFromDate = signal(new Date().toISOString().split('T')[0]);
+  selectedVoucherKeys = signal<Set<string>>(new Set());
+
+  selectableVouchers = computed(() =>
+    (this.result()?.mismatchedVouchers ?? []).filter(
+      v => v.ledgerType === 'Stock Ledger Entry' && !!v.voucherType && !!v.voucherId
+    )
+  );
+
+  allSelectableSelected = computed(() => {
+    const selectable = this.selectableVouchers();
+    const selected = this.selectedVoucherKeys();
+    return selectable.length > 0 && selectable.every(v => selected.has(this.voucherKey(v)));
+  });
 
   ngOnInit(): void {
     this.companyService.getList({ skipCount: 0, maxResultCount: 100 })
@@ -197,12 +299,22 @@ export class StockGlComparisonComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
+    this.selectedVoucherKeys.set(new Set());
     this.stockGlService.getComparison({
       companyId: this.companyId.value,
       asOfDate: this.asOfDate.value || undefined,
     }).subscribe({
       next: data => {
         this.result.set(data);
+        const earliestDate = (data.mismatchedVouchers ?? [])
+          .map(v => v.postingDate?.split('T')[0])
+          .filter((d): d is string => !!d)
+          .sort()[0];
+        if (earliestDate) {
+          this.repostFromDate.set(earliestDate);
+        } else if (this.asOfDate.value) {
+          this.repostFromDate.set(this.asOfDate.value);
+        }
         this.isLoading.set(false);
         if (!data.isMatched) {
           this.toaster.warn('::StockGlMismatchDetected');
@@ -211,6 +323,67 @@ export class StockGlComparisonComponent implements OnInit {
         }
       },
       error: () => this.isLoading.set(false),
+    });
+  }
+
+  voucherKey(v: StockGlVoucherComparisonDto): string {
+    return `${v.voucherType ?? ''}::${v.voucherId ?? ''}`;
+  }
+
+  isVoucherSelected(v: StockGlVoucherComparisonDto): boolean {
+    return this.selectedVoucherKeys().has(this.voucherKey(v));
+  }
+
+  toggleVoucher(v: StockGlVoucherComparisonDto, checked: boolean): void {
+    const next = new Set(this.selectedVoucherKeys());
+    const key = this.voucherKey(v);
+    if (checked) {
+      next.add(key);
+    } else {
+      next.delete(key);
+    }
+    this.selectedVoucherKeys.set(next);
+  }
+
+  toggleAllVouchers(checked: boolean): void {
+    if (!checked) {
+      this.selectedVoucherKeys.set(new Set());
+      return;
+    }
+    const next = new Set(this.selectableVouchers().map(v => this.voucherKey(v)));
+    this.selectedVoucherKeys.set(next);
+  }
+
+  createGlRepostingEntries(): void {
+    const companyId = this.companyId.value;
+    if (!companyId || this.isReposting()) return;
+
+    const selected = this.selectableVouchers().filter(v => this.selectedVoucherKeys().has(this.voucherKey(v)));
+    if (selected.length === 0) return;
+
+    this.isReposting.set(true);
+    this.stockGlService.createGlRepostingEntries({
+      companyId,
+      fromDate: this.repostFromDate() || this.asOfDate.value || new Date().toISOString().split('T')[0],
+      vouchers: selected.map(v => ({
+        voucherType: v.voucherType!,
+        voucherId: v.voucherId!,
+      })),
+    }).subscribe({
+      next: res => {
+        this.isReposting.set(false);
+        this.selectedVoucherKeys.set(new Set());
+        if ((res.createdCount ?? 0) > 0) {
+          this.toaster.success(res.message || '::SuccessfullyCreated');
+          this.runComparison();
+        } else {
+          this.toaster.warn(res.message || '::OperationFailed');
+        }
+      },
+      error: (err: any) => {
+        this.isReposting.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 

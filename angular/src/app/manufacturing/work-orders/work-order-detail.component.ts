@@ -102,6 +102,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 
         <div class="d-flex flex-wrap gap-2 mb-3">
           @if (wo()!.status === 0) {
+            <a class="btn btn-outline-primary btn-sm" [routerLink]="['/manufacturing/work-orders', wo()!.id, 'edit']"><i class="fa fa-edit me-1"></i>{{ '::Edit' | abpLocalization }}</a>
             <button class="btn btn-primary btn-sm" (click)="submit()"><i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}</button>
             <button class="btn btn-outline-danger btn-sm" (click)="deleteWorkOrder()"><i class="fa fa-trash me-1"></i>{{ '::Delete' | abpLocalization }}</button>
           }

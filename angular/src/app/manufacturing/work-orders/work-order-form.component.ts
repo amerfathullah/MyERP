@@ -38,6 +38,8 @@ export class WorkOrderFormComponent implements OnInit {
   boms = signal<any[]>([]);
   bomMaterials = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  entityId: string | null = null;
+  isEditMode = false;
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -55,6 +57,55 @@ export class WorkOrderFormComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.entityId = this.route.snapshot.paramMap.get('id');
+    this.isEditMode = !!this.entityId;
+
+    // Load items for dropdown
+    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'itemCode asc' } as any)
+      .subscribe(res => this.items.set(res.items ?? []));
+
+    // Load BOMs (all — filtered client-side when item changes)
+    this.service.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
+      .subscribe(res => {
+        this.boms.set(res.items ?? []);
+        if (this.isEditMode && this.form.get('bomId')?.value && this.bomMaterials().length === 0) {
+          this.onBomChanged();
+        }
+      });
+
+    // Load warehouses for selection
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'name asc' } as any)
+      .subscribe(res => this.warehouses.set(res.items ?? []));
+
+    if (this.isEditMode && this.entityId) {
+      this.service.getWorkOrder(this.entityId).subscribe({
+        next: (wo: any) => {
+          this.form.patchValue({
+            companyId: wo.companyId ?? '',
+            itemId: wo.itemId ?? '',
+            bomId: wo.bomId ?? '',
+            quantity: wo.quantity ?? 1,
+            batchSize: wo.batchSize ?? 0,
+            salesOrderId: wo.salesOrderId ?? '',
+            sourceWarehouseId: wo.sourceWarehouseId ?? '',
+            wipWarehouseId: wo.wipWarehouseId ?? '',
+            fgWarehouseId: wo.fgWarehouseId ?? '',
+            plannedStartDate: wo.plannedStartDate ? String(wo.plannedStartDate).split('T')[0] : '',
+            plannedEndDate: wo.plannedEndDate ? String(wo.plannedEndDate).split('T')[0] : '',
+            notes: wo.notes ?? '',
+          });
+          if (wo.requiredItems?.length) {
+            this.bomMaterials.set(wo.requiredItems);
+          } else if (wo.bomId) {
+            this.onBomChanged();
+          }
+          this.form.markAsPristine();
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+      });
+      return;
+    }
+
     // Pre-fill from query params (when navigating from SO "Make Work Order")
     const params = this.route.snapshot.queryParams;
     if (params['salesOrderId']) {
@@ -68,18 +119,6 @@ export class WorkOrderFormComponent implements OnInit {
       const cid = this.companyContext.currentCompanyId();
       if (cid) this.form.patchValue({ companyId: cid });
     }
-
-    // Load items for dropdown
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'itemCode asc' } as any)
-      .subscribe(res => this.items.set(res.items ?? []));
-
-    // Load BOMs (all — filtered client-side when item changes)
-    this.service.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any)
-      .subscribe(res => this.boms.set(res.items ?? []));
-
-    // Load warehouses for selection
-    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'name asc' } as any)
-      .subscribe(res => this.warehouses.set(res.items ?? []));
 
     this.setDefaultWarehouses();
   }
@@ -167,6 +206,17 @@ export class WorkOrderFormComponent implements OnInit {
       plannedEndDate: raw.plannedEndDate || undefined,
       notes: raw.notes || undefined,
     } as any;
+    if (this.isEditMode && this.entityId) {
+      this.service.updateWorkOrder(this.entityId, dto).subscribe({
+        next: () => {
+          this.form.markAsPristine();
+          this.toaster.success('::SuccessfullyUpdated');
+          this.router.navigate(['/manufacturing/work-orders', this.entityId]);
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+      });
+      return;
+    }
     this.service.createWorkOrder(dto).subscribe({
       next: () => {
         this.form.markAsPristine();
@@ -178,6 +228,10 @@ export class WorkOrderFormComponent implements OnInit {
   }
 
   cancel(): void {
+    if (this.isEditMode && this.entityId) {
+      this.router.navigate(['/manufacturing/work-orders', this.entityId]);
+      return;
+    }
     this.router.navigate(['/manufacturing/work-orders']);
   }
 

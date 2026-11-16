@@ -2590,6 +2590,13 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing.Create' },
   },
   {
+    path: 'manufacturing/work-orders/:id/edit',
+    loadComponent: () => import('./manufacturing/work-orders/work-order-form.component').then(c => c.WorkOrderFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing.Edit' },
+  },
+  {
     path: 'manufacturing/work-orders/:id',
     loadComponent: () => import('./manufacturing/work-orders/work-order-detail.component').then(c => c.WorkOrderDetailComponent),
     canActivate: [authGuard, permissionGuard],

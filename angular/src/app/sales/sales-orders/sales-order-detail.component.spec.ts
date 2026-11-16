@@ -312,6 +312,7 @@ describe('SalesOrderDetailComponent Logic', () => {
       const conversionMock = {
         convertSalesOrderToPurchaseOrders: vi.fn().mockReturnValue(of(createdPoIds)),
         convertSalesOrderToDeliveryNoteByDate: vi.fn().mockReturnValue(of({ id: 'dn-by-date' })),
+        convertSalesOrderToPickList: vi.fn().mockReturnValue(of('"pl-42"')),
       };
       const supplierMock = {
         getList: vi.fn().mockReturnValue(of({ items: [{ id: 'sup-1', name: 'Vendor A' }, { id: 'sup-2', name: 'Vendor B' }] })),
@@ -467,6 +468,17 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(maintenanceScheduleMock.create).toHaveBeenCalled();
       expect(toasterMock.success).toHaveBeenCalledWith('::MaintenanceScheduleCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/maintenance/schedules', 'ms-55']);
+    });
+
+    it('creates pick list from sales order via DocumentConversionService.convertSalesOrderToPickList', () => {
+      const { comp, conversionMock, routerMock, toasterMock } = createComponent();
+      expect(comp.workflowActions.some(a => a.name === 'pick_list')).toBe(true);
+
+      comp.onWorkflowAction('pick_list');
+
+      expect(conversionMock.convertSalesOrderToPickList).toHaveBeenCalledWith('so-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::PickListCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/inventory/pick-lists', 'pl-42']);
     });
   });
 });

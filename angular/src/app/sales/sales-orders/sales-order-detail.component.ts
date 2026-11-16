@@ -416,8 +416,12 @@ export class SalesOrderDetailComponent implements OnInit {
         });
         break;
       case 'pick_list':
-        this.router.navigate(['/inventory/pick-lists/new'], {
-          queryParams: { salesOrderId: id, customerId: this.order!.customerId, companyId: this.order!.companyId }
+        this.conversionService.convertSalesOrderToPickList(id).subscribe({
+          next: (pickListId) => {
+            this.toaster.success('::PickListCreated');
+            this.router.navigate(['/inventory/pick-lists', pickListId.replace(/^"|"$/g, '')]);
+          },
+          error: (err) => this.toaster.error(err?.error?.error?.message || '::ConversionFailed'),
         });
         break;
       case 'purchase_order':

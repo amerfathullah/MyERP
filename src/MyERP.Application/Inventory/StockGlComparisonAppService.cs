@@ -27,22 +27,26 @@ public class StockGlComparisonAppService : ApplicationService, IStockGlCompariso
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<StockLedgerEntry, Guid>? _stockLedgerEntryRepository;
 
     public StockGlComparisonAppService(
         IRepository<Bin, Guid> binRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<Account, Guid> accountRepository,
-        IRepository<JournalEntry, Guid> journalEntryRepository)
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<StockLedgerEntry, Guid>? stockLedgerEntryRepository = null)
     {
         _binRepository = binRepository;
         _warehouseRepository = warehouseRepository;
         _accountRepository = accountRepository;
         _journalEntryRepository = journalEntryRepository;
+        _stockLedgerEntryRepository = stockLedgerEntryRepository;
     }
 
     public async Task<StockGlComparisonDto> GetComparisonAsync(StockGlComparisonRequestDto input)
     {
         var asOfDate = input.AsOfDate ?? DateTime.UtcNow.Date;
+        var asOfEnd = asOfDate.Date.AddDays(1).AddTicks(-1);
 
         // 1. Stock value from Bins (ActualQty × ValuationRate per warehouse)
         var binQuery = await _binRepository.GetQueryableAsync();
@@ -77,12 +81,28 @@ public class StockGlComparisonAppService : ApplicationService, IStockGlCompariso
         var stockAccountMap = stockAccounts.ToDictionary(a => a.Id, a => $"{a.AccountCode} {a.AccountName}");
 
         var jeQuery = await _journalEntryRepository.GetQueryableAsync();
-        var postedJournalLines = jeQuery
+        var postedJournalEntries = jeQuery
             .Where(je => je.CompanyId == input.CompanyId &&
                          je.Status == DocumentStatus.Posted &&
-                         je.PostingDate <= asOfDate)
-            .SelectMany(je => je.Lines)
-            .Where(line => stockAccountIds.Contains(line.AccountId))
+                         je.PostingDate <= asOfEnd)
+            .Select(je => new
+            {
+                je.Id,
+                je.ReferenceType,
+                je.ReferenceId,
+                je.ReferenceNumber,
+                je.EntryNumber,
+                je.PostingDate,
+                StockLines = je.Lines
+                    .Where(l => stockAccountIds.Contains(l.AccountId))
+                    .Select(l => new { l.AccountId, l.IsDebit, l.Amount })
+                    .ToList()
+            })
+            .Where(je => je.StockLines.Any())
+            .ToList();
+
+        var postedJournalLines = postedJournalEntries
+            .SelectMany(je => je.StockLines)
             .ToList();
 
         var totalGlBalance = postedJournalLines.Sum(l => l.IsDebit ? l.Amount : -l.Amount);
@@ -122,6 +142,90 @@ public class StockGlComparisonAppService : ApplicationService, IStockGlCompariso
             });
         }
 
+        // 4. Voucher-level comparison (SLE vs GL on Stock accounts, per ERPNext stock_and_account_value_comparison)
+        var sleRepo = _stockLedgerEntryRepository ?? LazyServiceProvider?.LazyGetService<IRepository<StockLedgerEntry, Guid>>();
+        var mismatchedVouchers = new List<StockGlVoucherComparisonDto>();
+        if (sleRepo != null)
+        {
+            var sleQuery = await sleRepo.GetQueryableAsync();
+            var sleGroups = sleQuery
+                .Where(s => s.CompanyId == input.CompanyId &&
+                            !s.IsCancelled &&
+                            s.PostingDate <= asOfEnd &&
+                            s.VoucherId.HasValue &&
+                            !string.IsNullOrEmpty(s.VoucherType))
+                .GroupBy(s => new { s.VoucherType, VoucherId = s.VoucherId!.Value })
+                .Select(g => new
+                {
+                    VoucherType = g.Key.VoucherType!,
+                    g.Key.VoucherId,
+                    StockValue = g.Sum(s => s.StockValueDifference != 0 ? s.StockValueDifference : s.QuantityChange * s.ValuationRate),
+                    PostingDate = g.Max(s => s.PostingDate)
+                })
+                .ToList();
+
+            var glByVoucher = postedJournalEntries
+                .GroupBy(je => (
+                    NormalizedType: NormalizeVoucherType(string.IsNullOrEmpty(je.ReferenceType) ? "JournalEntry" : je.ReferenceType),
+                    VoucherId: je.ReferenceId ?? je.Id))
+                .ToDictionary(
+                    g => g.Key,
+                    g => new
+                    {
+                        VoucherType = g.Select(x => string.IsNullOrEmpty(x.ReferenceType) ? "JournalEntry" : x.ReferenceType!).First(),
+                        VoucherId = g.Key.VoucherId,
+                        VoucherNumber = g.Select(x => x.ReferenceNumber ?? x.EntryNumber).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
+                        PostingDate = g.Max(x => x.PostingDate),
+                        GlBalance = g.SelectMany(x => x.StockLines).Sum(l => l.IsDebit ? l.Amount : -l.Amount)
+                    });
+
+            foreach (var sle in sleGroups)
+            {
+                var key = (NormalizeVoucherType(sle.VoucherType), sle.VoucherId);
+                glByVoucher.TryGetValue(key, out var glEntry);
+                var glBalance = glEntry?.GlBalance ?? 0m;
+                var diff = sle.StockValue - glBalance;
+
+                if (Math.Abs(diff) > 0.1m)
+                {
+                    mismatchedVouchers.Add(new StockGlVoucherComparisonDto
+                    {
+                        LedgerType = "Stock Ledger Entry",
+                        VoucherType = sle.VoucherType,
+                        VoucherId = sle.VoucherId,
+                        VoucherNumber = glEntry?.VoucherNumber,
+                        PostingDate = sle.PostingDate,
+                        StockValue = sle.StockValue,
+                        GlBalance = glBalance,
+                        Difference = diff,
+                    });
+                }
+
+                if (glEntry != null)
+                {
+                    glByVoucher.Remove(key);
+                }
+            }
+
+            foreach (var orphanGl in glByVoucher.Values)
+            {
+                if (Math.Abs(orphanGl.GlBalance) > 0.1m)
+                {
+                    mismatchedVouchers.Add(new StockGlVoucherComparisonDto
+                    {
+                        LedgerType = "GL Entry",
+                        VoucherType = orphanGl.VoucherType,
+                        VoucherId = orphanGl.VoucherId,
+                        VoucherNumber = orphanGl.VoucherNumber,
+                        PostingDate = orphanGl.PostingDate,
+                        StockValue = 0m,
+                        GlBalance = orphanGl.GlBalance,
+                        Difference = -orphanGl.GlBalance,
+                    });
+                }
+            }
+        }
+
         var totalDifference = totalStockValue - totalGlBalance;
 
         return new StockGlComparisonDto
@@ -134,8 +238,16 @@ public class StockGlComparisonAppService : ApplicationService, IStockGlCompariso
             ItemCount = relevantBins.Select(b => b.ItemId).Distinct().Count(),
             AsOfDate = asOfDate,
             PerWarehouse = perWarehouse.OrderByDescending(w => Math.Abs(w.Difference)).ToList(),
+            MismatchedVouchers = mismatchedVouchers
+                .OrderBy(v => v.PostingDate)
+                .ThenBy(v => v.VoucherType)
+                .ThenBy(v => v.VoucherId)
+                .ToList(),
         };
     }
+
+    private static string NormalizeVoucherType(string? voucherType) =>
+        (voucherType ?? string.Empty).Replace(" ", string.Empty).Trim();
 
     /// <summary>
     /// Repost only the accounting ledgers for the selected vouchers posted on or after FromDate.

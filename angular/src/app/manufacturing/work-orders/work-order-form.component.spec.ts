@@ -1,5 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FormBuilder, Validators } from '@angular/forms';
+import { WorkOrderFormComponent } from './work-order-form.component';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 /**
  * Work Order Form Component — Manufacturing workflow tests.
@@ -268,6 +278,67 @@ describe('WorkOrderFormComponent', () => {
     it('accepts positive batchSize', () => {
       form.patchValue({ batchSize: 50 });
       expect(form.get('batchSize')?.valid).toBe(true);
+    });
+  });
+
+  describe('Edit Mode (updateWorkOrder)', () => {
+    it('loads existing draft work order on init and saves via updateWorkOrder', () => {
+      const mfgMock = {
+        getBomList: vi.fn().mockReturnValue(of({ items: [] })),
+        getBom: vi.fn().mockReturnValue(of({ items: [] })),
+        getWorkOrder: vi.fn().mockReturnValue(of({
+          id: 'wo-1',
+          companyId: 'comp-1',
+          itemId: 'item-1',
+          bomId: 'bom-1',
+          quantity: 12,
+          batchSize: 4,
+          plannedStartDate: '2026-11-16T00:00:00Z',
+          plannedEndDate: '2026-11-20T00:00:00Z',
+          notes: 'Urgent batch',
+          requiredItems: [{ itemName: 'Steel', quantity: 24, rate: 5, amount: 120 }],
+        })),
+        updateWorkOrder: vi.fn().mockReturnValue(of({ id: 'wo-1' })),
+        createWorkOrder: vi.fn(),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          FormBuilder,
+          { provide: Router, useValue: routerMock },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => k === 'id' ? 'wo-1' : null }, queryParams: {} } } },
+          { provide: ManufacturingService, useValue: mfgMock },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ItemService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new WorkOrderFormComponent());
+      comp.ngOnInit();
+
+      expect(comp.isEditMode).toBe(true);
+      expect(mfgMock.getWorkOrder).toHaveBeenCalledWith('wo-1');
+      expect(comp.form.get('quantity')?.value).toBe(12);
+      expect(comp.form.get('plannedStartDate')?.value).toBe('2026-11-16');
+      expect(comp.bomMaterials()).toHaveLength(1);
+
+      comp.form.patchValue({ quantity: 15 });
+      comp.save();
+
+      expect(mfgMock.updateWorkOrder).toHaveBeenCalledWith('wo-1', expect.objectContaining({
+        companyId: 'comp-1',
+        itemId: 'item-1',
+        bomId: 'bom-1',
+        quantity: 15,
+      }));
+      expect(mfgMock.createWorkOrder).not.toHaveBeenCalled();
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/manufacturing/work-orders', 'wo-1']);
     });
   });
 });
