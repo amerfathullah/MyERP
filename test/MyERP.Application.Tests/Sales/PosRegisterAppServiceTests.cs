@@ -217,4 +217,48 @@ public class PosRegisterAppServiceTests
         };
         await Should.ThrowAsync<BusinessException>(() => _appService.GetReportAsync(conflictGroup));
     }
+
+    [Fact]
+    public async Task GetReportAsync_IncludesSameDayAfternoonInvoice_AndFiltersModeOfPayment()
+    {
+        var afternoonInv = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "POS-EVENING-001", new DateTime(2026, 6, 15, 17, 45, 0))
+        {
+            IsPos = true,
+            IsConsolidated = false,
+            PosProfileId = _posProfileId,
+            AmountPaid = 220m,
+            Notes = "QR Pay"
+        };
+        afternoonInv.AddItem(Guid.NewGuid(), "Item 1", 1, 220m, 0m);
+        afternoonInv.Submit();
+        afternoonInv.Post();
+
+        var cashInv = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "POS-CASH-001", new DateTime(2026, 6, 15, 9, 0, 0))
+        {
+            IsPos = true,
+            IsConsolidated = false,
+            PosProfileId = _posProfileId,
+            AmountPaid = 100m,
+            Notes = "Cash"
+        };
+        cashInv.AddItem(Guid.NewGuid(), "Item 2", 1, 100m, 0m);
+        cashInv.Submit();
+        cashInv.Post();
+
+        var invoices = new List<SalesInvoice> { afternoonInv, cashInv };
+        _invoiceRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(invoices.AsQueryable()));
+
+        var report = await _appService.GetReportAsync(new PosRegisterRequestDto
+        {
+            CompanyId = _companyId,
+            FromDate = new DateTime(2026, 6, 15),
+            ToDate = new DateTime(2026, 6, 15),
+            ModeOfPayment = "QR Pay"
+        });
+
+        report.Rows.Count.ShouldBe(1);
+        report.Rows[0].InvoiceNumber.ShouldBe("POS-EVENING-001");
+        report.TotalGrandTotal.ShouldBe(220m);
+    }
 }

@@ -778,6 +778,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/pos-register',
+    loadComponent: () => import('./sales/reports/pos-register/pos-register.component').then(c => c.PosRegisterComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/analytics',
     loadComponent: () => import('./sales/reports/sales-analytics/sales-analytics.component').then(c => c.SalesAnalyticsComponent),
     canActivate: [authGuard, permissionGuard],
@@ -2102,6 +2108,24 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./crm/reports/campaign-efficiency/campaign-efficiency.component').then(c => c.CampaignEfficiencyComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/reports/opportunity-summary',
+    loadComponent: () => import('./crm/reports/opportunity-summary/opportunity-summary.component').then(c => c.OpportunitySummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/reports/first-response-time',
+    loadComponent: () => import('./crm/reports/first-response-time/first-response-time.component').then(c => c.FirstResponseTimeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/reports/lost-opportunity',
+    loadComponent: () => import('./crm/reports/lost-opportunity/lost-opportunity.component').then(c => c.LostOpportunityComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
   },
   // Sales — Shipments
   {

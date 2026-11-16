@@ -176,8 +176,16 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
         if (input.OpportunityType.HasValue) oppQuery = oppQuery.Where(o => o.OpportunityType == input.OpportunityType.Value);
         if (!string.IsNullOrWhiteSpace(input.OpportunitySource)) oppQuery = oppQuery.Where(o => o.UtmSource == input.OpportunitySource);
         if (input.Statuses != null && input.Statuses.Count > 0) oppQuery = oppQuery.Where(o => input.Statuses.Contains(o.Status));
-        if (input.FromDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime >= input.FromDate.Value);
-        if (input.ToDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime <= input.ToDate.Value);
+        if (input.FromDate.HasValue)
+        {
+            var fromDate = input.FromDate.Value.Date;
+            oppQuery = oppQuery.Where(o => o.CreationTime >= fromDate);
+        }
+        if (input.ToDate.HasValue)
+        {
+            var toDateExclusive = input.ToDate.Value.Date.AddDays(1);
+            oppQuery = oppQuery.Where(o => o.CreationTime < toDateExclusive);
+        }
 
         var opps = oppQuery.ToList();
 

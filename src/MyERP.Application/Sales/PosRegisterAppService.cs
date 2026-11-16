@@ -45,14 +45,17 @@ public class PosRegisterAppService : ApplicationService, IPosRegisterAppService
     {
         ValidateFilters(input);
 
+        var fromDate = input.FromDate.Date;
+        var toDateExclusive = input.ToDate.Date.AddDays(1);
+
         var query = await _invoiceRepository.GetQueryableAsync();
         var invoices = query
             .Where(si => si.CompanyId == input.CompanyId
                 && si.IsPos
                 && !si.IsConsolidated // Skip consolidated invoices (PR #59990)
                 && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted)
-                && si.IssueDate >= input.FromDate
-                && si.IssueDate <= input.ToDate)
+                && si.IssueDate >= fromDate
+                && si.IssueDate < toDateExclusive)
             .ToList();
 
         if (input.PosProfileId.HasValue)
@@ -127,6 +130,14 @@ public class PosRegisterAppService : ApplicationService, IPosRegisterAppService
                 IsReturn = inv.IsReturn,
                 IsSubtotal = false
             });
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.ModeOfPayment))
+        {
+            var mode = input.ModeOfPayment.Trim();
+            rawRows = rawRows
+                .Where(r => string.Equals(r.ModeOfPayment, mode, StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         if (string.IsNullOrWhiteSpace(input.GroupBy))
@@ -205,7 +216,7 @@ public class PosRegisterAppService : ApplicationService, IPosRegisterAppService
 
     private static void ValidateFilters(PosRegisterRequestDto input)
     {
-        if (input.FromDate > input.ToDate)
+        if (input.FromDate.Date > input.ToDate.Date)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
         }
