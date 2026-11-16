@@ -121,11 +121,13 @@ public class ItemSalesAppService : ApplicationService, IItemSalesAppService
 
         if (input.FromDate.HasValue)
         {
-            ordersQuery = ordersQuery.Where(so => so.OrderDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            ordersQuery = ordersQuery.Where(so => so.OrderDate >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            ordersQuery = ordersQuery.Where(so => so.OrderDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            ordersQuery = ordersQuery.Where(so => so.OrderDate < toDateExclusive);
         }
         if (input.CustomerId.HasValue)
         {

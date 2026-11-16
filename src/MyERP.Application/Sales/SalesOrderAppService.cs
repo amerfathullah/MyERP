@@ -237,10 +237,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             query = query.Where(x => x.Status == status);
 
         if (input.FromDate.HasValue)
-            query = query.Where(x => x.OrderDate >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.OrderDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            query = query.Where(x => x.OrderDate <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.OrderDate < toDateExclusive);
+        }
 
         var totalCount = query.Count();
         // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable sales orders oldest first

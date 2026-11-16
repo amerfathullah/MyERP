@@ -76,9 +76,15 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
                 so.Status != DocumentStatus.Cancelled);
 
             if (input.FromDate.HasValue)
-                ordersQueryable = ordersQueryable.Where(so => so.OrderDate >= input.FromDate.Value);
+            {
+                var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+                ordersQueryable = ordersQueryable.Where(so => so.OrderDate >= fromDate);
+            }
             if (input.ToDate.HasValue)
-                ordersQueryable = ordersQueryable.Where(so => so.OrderDate <= input.ToDate.Value);
+            {
+                var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+                ordersQueryable = ordersQueryable.Where(so => so.OrderDate < toDateExclusive);
+            }
             if (input.CustomerId.HasValue)
                 ordersQueryable = ordersQueryable.Where(so => so.CustomerId == input.CustomerId.Value);
 
@@ -141,9 +147,15 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
                 si.Status != DocumentStatus.Cancelled);
 
             if (input.FromDate.HasValue)
-                invoicesQueryable = invoicesQueryable.Where(si => si.IssueDate >= input.FromDate.Value);
+            {
+                var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+                invoicesQueryable = invoicesQueryable.Where(si => si.IssueDate >= fromDate);
+            }
             if (input.ToDate.HasValue)
-                invoicesQueryable = invoicesQueryable.Where(si => si.IssueDate <= input.ToDate.Value);
+            {
+                var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+                invoicesQueryable = invoicesQueryable.Where(si => si.IssueDate < toDateExclusive);
+            }
             if (input.CustomerId.HasValue)
                 invoicesQueryable = invoicesQueryable.Where(si => si.CustomerId == input.CustomerId.Value);
 

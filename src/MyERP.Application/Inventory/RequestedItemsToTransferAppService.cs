@@ -41,12 +41,14 @@ public class RequestedItemsToTransferAppService : ApplicationService, IRequested
 
         if (input.FromDate.HasValue)
         {
-            mrQuery = mrQuery.Where(mr => mr.RequestDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            mrQuery = mrQuery.Where(mr => mr.RequestDate >= fromDate);
         }
 
         if (input.ToDate.HasValue)
         {
-            mrQuery = mrQuery.Where(mr => mr.RequestDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            mrQuery = mrQuery.Where(mr => mr.RequestDate < toDateExclusive);
         }
 
         if (input.WarehouseId.HasValue && input.WarehouseId != Guid.Empty)

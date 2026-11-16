@@ -58,12 +58,14 @@ public class TerritoryWiseSalesAppService : ApplicationService, ITerritoryWiseSa
 
         if (input.FromDate.HasValue)
         {
-            oppQueryable = oppQueryable.Where(o => o.CreationTime >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            oppQueryable = oppQueryable.Where(o => o.CreationTime >= fromDate);
         }
 
         if (input.ToDate.HasValue)
         {
-            oppQueryable = oppQueryable.Where(o => o.CreationTime <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            oppQueryable = oppQueryable.Where(o => o.CreationTime < toDateExclusive);
         }
 
         var opportunities = oppQueryable.ToList();

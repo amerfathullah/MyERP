@@ -274,10 +274,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             query = query.Where(x => x.Status == status);
 
         if (input.FromDate.HasValue)
-            query = query.Where(x => x.IssueDate >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.IssueDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            query = query.Where(x => x.IssueDate <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.IssueDate < toDateExclusive);
+        }
 
         var totalCount = query.Count();
         var sorted = SortingHelper.ApplySorting(query, input.Sorting,

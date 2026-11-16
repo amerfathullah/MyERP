@@ -99,9 +99,15 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                 so.Status != DocumentStatus.Draft).ToList();
 
             if (input.FromDate.HasValue)
-                orders = orders.Where(so => so.OrderDate >= input.FromDate.Value).ToList();
+            {
+                var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+                orders = orders.Where(so => so.OrderDate >= fromDate).ToList();
+            }
             if (input.ToDate.HasValue)
-                orders = orders.Where(so => so.OrderDate <= input.ToDate.Value).ToList();
+            {
+                var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+                orders = orders.Where(so => so.OrderDate < toDateExclusive).ToList();
+            }
             if (input.CustomerId.HasValue)
                 orders = orders.Where(so => so.CustomerId == input.CustomerId.Value).ToList();
 
@@ -190,9 +196,15 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                 dn.Status != DocumentStatus.Draft).ToList();
 
             if (input.FromDate.HasValue)
-                deliveryNotes = deliveryNotes.Where(dn => dn.PostingDate >= input.FromDate.Value).ToList();
+            {
+                var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+                deliveryNotes = deliveryNotes.Where(dn => dn.PostingDate >= fromDate).ToList();
+            }
             if (input.ToDate.HasValue)
-                deliveryNotes = deliveryNotes.Where(dn => dn.PostingDate <= input.ToDate.Value).ToList();
+            {
+                var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+                deliveryNotes = deliveryNotes.Where(dn => dn.PostingDate < toDateExclusive).ToList();
+            }
             if (input.CustomerId.HasValue)
                 deliveryNotes = deliveryNotes.Where(dn => dn.CustomerId == input.CustomerId.Value).ToList();
 
@@ -280,9 +292,15 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                 si.Status != DocumentStatus.Draft).ToList();
 
             if (input.FromDate.HasValue)
-                invoices = invoices.Where(si => si.IssueDate >= input.FromDate.Value).ToList();
+            {
+                var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+                invoices = invoices.Where(si => si.IssueDate >= fromDate).ToList();
+            }
             if (input.ToDate.HasValue)
-                invoices = invoices.Where(si => si.IssueDate <= input.ToDate.Value).ToList();
+            {
+                var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+                invoices = invoices.Where(si => si.IssueDate < toDateExclusive).ToList();
+            }
             if (input.CustomerId.HasValue)
                 invoices = invoices.Where(si => si.CustomerId == input.CustomerId.Value).ToList();
 
