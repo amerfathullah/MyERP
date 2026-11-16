@@ -72,6 +72,23 @@ export class StockClosingDetailComponent implements OnInit {
     });
   }
 
+  regenerate(): void {
+    if (!this.entry?.id) return;
+    this.confirmation.warn('::RegenerateConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.actionLoading.set(true);
+      this.service.regenerate(this.entry!.id!).subscribe({
+        next: (result) => {
+          this.toaster.success('::SuccessfullyUpdated');
+          this.entry = result;
+          this.actionLoading.set(false);
+          this.loadEntry();
+        },
+        error: () => this.actionLoading.set(false),
+      });
+    });
+  }
+
   submit(): void {
     if (!this.entry) return;
     this.confirmation.warn('::StockClosingSubmitConfirmation', '::AreYouSure').subscribe(status => {

@@ -34,8 +34,15 @@ interface RepostResultDto {
         <div class="card-body">
           <div class="row g-2 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
-              <select class="form-select form-select-sm" [(ngModel)]="voucherType">
+              <label class="form-label d-flex justify-content-between align-items-center">
+                <span>{{ '::VoucherType' | abpLocalization }}</span>
+                @if (isVoucherTypeAllowed() !== null) {
+                  <span class="badge" [class.bg-success]="isVoucherTypeAllowed()" [class.bg-danger]="!isVoucherTypeAllowed()">
+                    {{ (isVoucherTypeAllowed() ? '::Allowed' : '::NotAllowed') | abpLocalization }}
+                  </span>
+                }
+              </label>
+              <select class="form-select form-select-sm" [(ngModel)]="voucherType" (ngModelChange)="checkRepostAllowed($event)">
                 @for (t of allowedTypes(); track t) {
                   <option [value]="t">{{ t }}</option>
                 }
@@ -47,7 +54,7 @@ interface RepostResultDto {
                      [placeholder]="'::Placeholder:EnterDocumentId' | abpLocalization">
             </div>
             <div class="col-md-3">
-              <button class="btn btn-warning btn-sm w-100" (click)="repostSingle()" [disabled]="isProcessing()">
+              <button class="btn btn-warning btn-sm w-100" (click)="repostSingle()" [disabled]="isProcessing() || isVoucherTypeAllowed() === false">
                 <i class="fas fa-rotate me-1"></i> {{ '::Repost' | abpLocalization }}
               </button>
             </div>
@@ -173,6 +180,7 @@ export class GlRepostComponent {
   private companyContext = inject(CompanyContextService);
 
   allowedTypes = signal<string[]>([]);
+  isVoucherTypeAllowed = signal<boolean | null>(null);
   lastResult = signal<RepostResultDto | null>(null);
   isProcessing = signal(false);
   voucherType = 'SalesInvoice';
@@ -184,6 +192,18 @@ export class GlRepostComponent {
 
   constructor() {
     this.loadAllowedTypes();
+    this.checkRepostAllowed(this.voucherType);
+  }
+
+  checkRepostAllowed(type: string): void {
+    if (!type) {
+      this.isVoucherTypeAllowed.set(null);
+      return;
+    }
+    this.glRepostService.isRepostAllowed(type).subscribe({
+      next: allowed => this.isVoucherTypeAllowed.set(allowed),
+      error: () => this.isVoucherTypeAllowed.set(null),
+    });
   }
 
   loadAllowedTypes(): void {

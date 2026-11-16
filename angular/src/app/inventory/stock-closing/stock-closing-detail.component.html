@@ -32,13 +32,16 @@
               </a>
             }
           </div>
-          <div class="col-md-2 text-end">
+          <div class="col-md-2 text-end d-flex flex-wrap justify-content-end gap-1">
             @if (isDraft && !hasBalances) {
               <button class="btn btn-sm btn-outline-primary" (click)="generate()" [disabled]="actionLoading()">
                 <i class="fa fa-cogs me-1"></i>{{ '::GenerateBalances' | abpLocalization }}
               </button>
             }
             @if (isDraft && hasBalances) {
+              <button class="btn btn-sm btn-outline-secondary" (click)="regenerate()" [disabled]="actionLoading()">
+                <i class="fa fa-sync me-1"></i>{{ '::RegenerateBalances' | abpLocalization }}
+              </button>
               <button class="btn btn-sm btn-primary" (click)="submit()" [disabled]="actionLoading()">
                 <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
               </button>

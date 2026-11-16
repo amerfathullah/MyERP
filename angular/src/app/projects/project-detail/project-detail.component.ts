@@ -194,6 +194,33 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
             </div>
           </div>
         }
+        @if (dependencyTask(); as depTask) {
+          <div class="card-body border-bottom bg-light">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-5">
+                <label class="form-label">{{ '::Task' | abpLocalization }}</label>
+                <input type="text" class="form-control form-control-sm" [value]="depTask.taskNumber + ' — ' + depTask.subject" readonly />
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">{{ '::SelectDependentTask' | abpLocalization }} *</label>
+                <select class="form-select form-select-sm" [ngModel]="dependsOnTaskId()" (ngModelChange)="dependsOnTaskId.set($event)">
+                  <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+                  @for (candidate of tasks(); track candidate.id) {
+                    @if (candidate.id !== depTask.id) {
+                      <option [value]="candidate.id">{{ candidate.taskNumber }} — {{ candidate.subject }}</option>
+                    }
+                  }
+                </select>
+              </div>
+              <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" [disabled]="!dependsOnTaskId() || addingDependency()" (click)="addTaskDependency()">
+                  <i class="fas fa-link me-1"></i>{{ '::Save' | abpLocalization }}
+                </button>
+                <button class="btn btn-secondary btn-sm" (click)="dependencyTask.set(null)">{{ '::Cancel' | abpLocalization }}</button>
+              </div>
+            </div>
+          </div>
+        }
         @if (tasks().length > 0) {
           @if (taskViewMode() === 'table') {
             <div class="card-body p-0">
@@ -241,6 +268,11 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
                             @if (task.status !== 4) {
                               <button class="btn btn-outline-danger" title="{{ '::Cancel' | abpLocalization }}" (click)="cancelTask(task)">
                                 <i class="fas fa-ban"></i>
+                              </button>
+                            }
+                            @if (tasks().length > 1) {
+                              <button class="btn btn-outline-info" [title]="'::AddDependency' | abpLocalization" (click)="openDependencyForm(task)">
+                                <i class="fas fa-link"></i>
                               </button>
                             }
                             @if (task.status === 0) {
@@ -410,6 +442,9 @@ export class ProjectDetailComponent implements OnInit {
   newTask: { subject: string; priority: number; expectedStartDate: string; expectedEndDate: string } = {
     subject: '', priority: 1, expectedStartDate: '', expectedEndDate: '',
   };
+  dependencyTask = signal<ProjectTaskDto | null>(null);
+  dependsOnTaskId = signal('');
+  addingDependency = signal(false);
 
   statusLabel = computed(() => {
     const s = this.project()?.status;
@@ -590,6 +625,32 @@ export class ProjectDetailComponent implements OnInit {
         this.loadTasks(this.project()!.id!);
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  openDependencyForm(task: ProjectTaskDto): void {
+    this.dependencyTask.set(task);
+    this.dependsOnTaskId.set('');
+  }
+
+  addTaskDependency(): void {
+    const task = this.dependencyTask();
+    const dependsOnId = this.dependsOnTaskId();
+    if (!task?.id || !dependsOnId || task.id === dependsOnId || this.addingDependency()) return;
+
+    this.addingDependency.set(true);
+    this.service.addTaskDependency(task.id, dependsOnId).subscribe({
+      next: () => {
+        this.addingDependency.set(false);
+        this.dependencyTask.set(null);
+        this.dependsOnTaskId.set('');
+        this.toaster.success('::DependencyAdded');
+        if (this.project()?.id) this.loadTasks(this.project()!.id!);
+      },
+      error: (err: any) => {
+        this.addingDependency.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 

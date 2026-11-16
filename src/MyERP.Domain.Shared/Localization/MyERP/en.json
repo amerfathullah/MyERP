@@ -6290,7 +6290,14 @@
     "CreateStockReservation": "Create Reservation",
     "CancelStockReservation": "Cancel Reservation",
     "StockReservationCreated": "Stock reservation entries created.",
-    "StockReservationCancelled": "Stock reservation entries cancelled."
+    "StockReservationCancelled": "Stock reservation entries cancelled.",
+    "RegenerateBalances": "Regenerate Balances",
+    "RegenerateConfirmation": "Recalculate closing stock balances from current ledger entries?",
+    "AddDependency": "Add Dependency",
+    "SelectDependentTask": "Prerequisite Task",
+    "DependencyAdded": "Task dependency added.",
+    "Allowed": "Allowed",
+    "NotAllowed": "Not Allowed"
   }
 }
 
