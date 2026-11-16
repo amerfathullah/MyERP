@@ -6297,7 +6297,17 @@
     "SelectDependentTask": "Prerequisite Task",
     "DependencyAdded": "Task dependency added.",
     "Allowed": "Allowed",
-    "NotAllowed": "Not Allowed"
+    "NotAllowed": "Not Allowed",
+    "ExecutionLogs": "Execution Logs",
+    "NoExecutionLogs": "No execution logs recorded for this rule.",
+    "ViewLogs": "View Logs",
+    "SourceDocument": "Source Document",
+    "Duration": "Duration",
+    "Success": "Success",
+    "TreeView": "Tree View",
+    "DefaultTaxLinesPreview": "Default Tax Lines Preview",
+    "TaxType": "Tax Type",
+    "TaxName": "Tax Name"
   }
 }
 

@@ -1,10 +1,12 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { RouterModule } from '@angular/router';
 import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
 import { AutomationRuleStore } from '../store/automation-rule.store';
+import { AutomationRuleService } from '../../proxy/automation/automation-rule.service';
+import type { AutomationExecutionLogDto, AutomationRuleDto } from '../../proxy/automation/dtos/models';
 import { PaginationComponent, type PageEvent } from '../../shared/components/pagination/pagination.component';
 
 @Component({
@@ -18,7 +20,12 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 })
 export class AutomationRuleListComponent implements OnInit {
   readonly store = inject(AutomationRuleStore);
+  private ruleService = inject(AutomationRuleService);
   private confirmation = inject(ConfirmationService);
+
+  selectedRule = signal<AutomationRuleDto | null>(null);
+  executionLogs = signal<AutomationExecutionLogDto[]>([]);
+  isLoadingLogs = signal(false);
   readonly triggerLabels: Record<number, string> = {
     0: 'Document Submitted',
     1: 'Document Approved',
@@ -63,6 +70,31 @@ export class AutomationRuleListComponent implements OnInit {
 
   toggleActive(id: string): void {
     this.store.toggleActive(id);
+  }
+
+  viewExecutionLogs(rule: AutomationRuleDto): void {
+    if (!rule.id) return;
+    if (this.selectedRule()?.id === rule.id) {
+      this.closeExecutionLogs();
+      return;
+    }
+    this.selectedRule.set(rule);
+    this.isLoadingLogs.set(true);
+    this.ruleService.getExecutionLogs(rule.id, { skipCount: 0, maxResultCount: 20, sorting: '' }).subscribe({
+      next: (res) => {
+        this.executionLogs.set(res.items ?? []);
+        this.isLoadingLogs.set(false);
+      },
+      error: () => {
+        this.executionLogs.set([]);
+        this.isLoadingLogs.set(false);
+      },
+    });
+  }
+
+  closeExecutionLogs(): void {
+    this.selectedRule.set(null);
+    this.executionLogs.set([]);
   }
 
   delete(id: string): void {

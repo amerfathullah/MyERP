@@ -7,7 +7,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
-import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
+import type { DefaultTaxLineDto, TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
+import { TaxType, taxTypeOptions } from '../../proxy/tax/tax-type.enum';
 
 @Component({
   selector: 'app-tax-categories',
@@ -25,9 +26,14 @@ export class TaxCategoriesComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private fb = inject(FormBuilder);
 
+  readonly taxTypeOptions = taxTypeOptions;
+
   categories = signal<TaxCategoryDto[]>([]);
   rulesMap = signal<Record<string, TaxRuleDto[]>>({});
+  defaultTaxLines = signal<DefaultTaxLineDto[]>([]);
+  previewTransactionType = signal<'Sales' | 'Purchase'>('Sales');
   isLoading = signal(false);
+  isLoadingDefaultLines = signal(false);
   showCategoryForm = false;
   showRuleForm: string | null = null;
   editingRuleId: string | null = null;
@@ -36,7 +42,7 @@ export class TaxCategoriesComponent implements OnInit {
     code: ['', [Validators.required, Validators.maxLength(20)]],
     name: ['', [Validators.required, Validators.maxLength(128)]],
     description: [''],
-    taxType: ['Sales', Validators.required],
+    taxType: [TaxType.Sales, Validators.required],
     isActive: [true],
   });
 
@@ -54,6 +60,27 @@ export class TaxCategoriesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCategories();
+    this.loadDefaultTaxLines();
+  }
+
+  getTaxTypeLabel(type: TaxType | string | undefined): string {
+    if (type === undefined || type === null) return '';
+    if (typeof type === 'number') {
+      return this.taxTypeOptions.find(o => o.value === type)?.key ?? String(type);
+    }
+    return this.taxTypeOptions.find(o => o.key === type || String(o.value) === type)?.key ?? type;
+  }
+
+  loadDefaultTaxLines(transactionType: 'Sales' | 'Purchase' = this.previewTransactionType()): void {
+    this.previewTransactionType.set(transactionType);
+    this.isLoadingDefaultLines.set(true);
+    this.categoryService.getDefaultTaxLines(transactionType).subscribe({
+      next: lines => {
+        this.defaultTaxLines.set(lines ?? []);
+        this.isLoadingDefaultLines.set(false);
+      },
+      error: () => this.isLoadingDefaultLines.set(false),
+    });
   }
 
   loadCategories(): void {
@@ -76,8 +103,9 @@ export class TaxCategoriesComponent implements OnInit {
       next: () => {
         this.toaster.success('::SuccessfullyCreated');
         this.showCategoryForm = false;
-        this.categoryForm.reset({ taxType: 'Sales', isActive: true });
+        this.categoryForm.reset({ taxType: TaxType.Sales, isActive: true });
         this.loadCategories();
+        this.loadDefaultTaxLines();
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
@@ -87,7 +115,7 @@ export class TaxCategoriesComponent implements OnInit {
     this.confirmation.warn('::AreYouSureToDelete', '::AreYouSure').subscribe(status => {
       if (status === Confirmation.Status.confirm) {
         this.categoryService.delete(id).subscribe({
-          next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadCategories(); },
+          next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadCategories(); this.loadDefaultTaxLines(); },
           error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
         });
       }
@@ -126,6 +154,7 @@ export class TaxCategoriesComponent implements OnInit {
       next: () => {
         this.toaster.success(this.editingRuleId ? '::SuccessfullyUpdated' : '::SuccessfullyCreated');
         this.loadRules(this.showRuleForm!);
+        this.loadDefaultTaxLines();
         this.showRuleForm = null;
         this.editingRuleId = null;
       },
@@ -135,7 +164,7 @@ export class TaxCategoriesComponent implements OnInit {
 
   deleteRule(id: string, categoryId: string): void {
     this.ruleService.delete(id).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadRules(categoryId); },
+      next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadRules(categoryId); this.loadDefaultTaxLines(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')
     });
   }

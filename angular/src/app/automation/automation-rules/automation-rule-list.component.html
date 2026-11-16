@@ -48,6 +48,10 @@
                 </td>
                 <td>
                   <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-info" (click)="viewExecutionLogs(row)"
+                      [title]="'::ViewLogs' | abpLocalization" [attr.aria-label]="'::ViewLogs' | abpLocalization">
+                      <i class="fa fa-history"></i>
+                    </button>
                     <button class="btn btn-outline-primary" [routerLink]="[row.id, 'edit']"
                       title="Edit" aria-label="Edit">
                       <i class="fa fa-pencil"></i>
@@ -77,4 +81,53 @@
   </div>
 
   <app-pagination [totalCount]="store.totalCount()" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
+
+  @if (selectedRule(); as rule) {
+    <div class="card mt-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+          <i class="fa fa-history me-2"></i>{{ '::ExecutionLogs' | abpLocalization }} — {{ rule.name }}
+        </h6>
+        <button class="btn btn-sm btn-outline-secondary" (click)="closeExecutionLogs()">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="card-body p-0">
+        @if (isLoadingLogs()) {
+          <div class="text-center py-3"><i class="fa fa-spinner fa-spin"></i></div>
+        } @else if (executionLogs().length === 0) {
+          <div class="text-center text-muted small py-4">{{ '::NoExecutionLogs' | abpLocalization }}</div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::SourceDocument' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Duration' | abpLocalization }}</th>
+                  <th>{{ '::Description' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (log of executionLogs(); track log.id ?? $index) {
+                  <tr>
+                    <td class="small">{{ log.creationTime | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+                    <td class="small font-monospace">{{ log.sourceDocumentType || '—' }} {{ log.sourceDocumentId ? ('(' + log.sourceDocumentId + ')') : '' }}</td>
+                    <td>
+                      <span class="badge" [class.bg-success]="log.isSuccess" [class.bg-danger]="!log.isSuccess">
+                        {{ (log.isSuccess ? '::Success' : '::Failed') | abpLocalization }}
+                      </span>
+                    </td>
+                    <td class="text-end small">{{ log.executionDurationMs ?? 0 }} ms</td>
+                    <td class="small text-danger">{{ log.errorMessage || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
 </abp-page>
