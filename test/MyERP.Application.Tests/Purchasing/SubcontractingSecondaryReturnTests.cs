@@ -275,4 +275,136 @@ public abstract class SubcontractingSecondaryReturnTests<TStartupModule> : MyERP
         sec2.Qty.ShouldBe(-0.3333m);
         (Math.Abs(sec1.Qty) + Math.Abs(sec2.Qty)).ShouldBe(1m);
     }
+
+    [Fact]
+    public async Task SubmitAndCancelReturn_ReturnsActualReceiptConsumedRm_AndCapsAcrossPartialReturns()
+    {
+        Guid scrId = default, scoId = default, rmItemId = default, fgItemId = default, whId = default, suppWhId = default;
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+            var scrRepo = GetRequiredService<IRepository<SubcontractingReceipt, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SCR PR66545 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await SetupAccountingDefaultsAsync(accountRepo, fyRepo, ruleRepo, company.Id, "SCR66545");
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCR Series", "SubcontractingReceipt", "SCR66545-"), autoSave: true);
+
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "SCR 66545 Supp"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG Wh 66545"), autoSave: true);
+            var suppWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Supp Wh 66545"), autoSave: true);
+            whId = wh.Id;
+            suppWhId = suppWh.Id;
+
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-66545", "FG 66545", ItemType.Goods) { MaintainStock = false, AllowNegativeStock = true }, autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-66545", "RM 66545", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true }, autoSave: true);
+            fgItemId = fgItem.Id;
+            rmItemId = rmItem.Id;
+
+            // SCO BOM requires 10 RM for 10 FG, but actual receipt consumed 20 RM (e.g. extra transfer / non-BOM consumption)
+            var sco = new SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-66545-01", new DateTime(2026, 6, 1), supplier.Id, company.TenantId)
+            {
+                SupplierWarehouseId = suppWhId
+            };
+            sco.AddItem(new SubcontractingOrderItem(Guid.NewGuid(), sco.Id, fgItemId, "FG 66545", 10m, 100m));
+            var suppRow = new SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmItemId, "RM 66545", 10m)
+            {
+                ReserveWarehouseId = suppWhId,
+                ConsumedQty = 20m
+            };
+            sco.AddSuppliedItem(suppRow);
+            sco.Submit();
+            scoId = sco.Id;
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var scr = new SubcontractingReceipt(Guid.NewGuid(), company.Id, "SCR-66545-01", new DateTime(2026, 6, 2), supplier.Id, sco.Id, company.TenantId)
+            {
+                WarehouseId = whId,
+                SupplierWarehouseId = suppWhId
+            };
+            scr.AddItem(new SubcontractingReceiptItem(Guid.NewGuid(), scr.Id, fgItemId, "FG 66545", 10m, 100m) { WarehouseId = whId });
+            scr.Submit();
+            scrId = scr.Id;
+            await scrRepo.InsertAsync(scr, autoSave: true);
+
+            // Original receipt actually consumed 20 RM (not SCO BOM 10 RM)
+            await sleRepo.InsertAsync(new StockLedgerEntry(
+                Guid.NewGuid(), company.Id, rmItemId, suppWhId,
+                new DateTime(2026, 6, 2), TimeSpan.Zero, -20m, 5m, -20m, -100m,
+                "SubcontractingReceipt", scr.Id, tenantId: company.TenantId), autoSave: true);
+        });
+
+        var subAppService = GetRequiredService<ISubcontractingAppService>();
+
+        // Partial return of 4 out of 10 FG must take back 40% of receipt's 20 consumed RM = +8 RM (not BOM's 4 RM)
+        var ret1 = await subAppService.CreateReceiptReturnAsync(new CreateSubcontractingReceiptReturnDto
+        {
+            ReturnAgainstReceiptId = scrId,
+            PostingDate = new DateTime(2026, 6, 3),
+            WarehouseId = whId,
+            SupplierWarehouseId = suppWhId,
+            Items = new List<CreateScrReturnItemDto>
+            {
+                new() { ItemId = fgItemId, ItemName = "FG Ret 1", Qty = 4m, Rate = 100m, WarehouseId = whId }
+            }
+        });
+        await subAppService.SubmitReceiptAsync(ret1.Id);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var sleRepo = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+
+            var ret1RmSle = (await sleRepo.GetListAsync(s => s.VoucherId == ret1.Id && s.ItemId == rmItemId)).Single();
+            ret1RmSle.QuantityChange.ShouldBe(8m);
+
+            var sco = await scoRepo.GetAsync(scoId);
+            sco.SuppliedItems.Single(i => i.ItemId == rmItemId).ConsumedQty.ShouldBe(12m);
+        });
+
+        // Second partial return of 6 FG takes remaining 12 RM -> SCO ConsumedQty becomes 0
+        var ret2 = await subAppService.CreateReceiptReturnAsync(new CreateSubcontractingReceiptReturnDto
+        {
+            ReturnAgainstReceiptId = scrId,
+            PostingDate = new DateTime(2026, 6, 4),
+            WarehouseId = whId,
+            SupplierWarehouseId = suppWhId,
+            Items = new List<CreateScrReturnItemDto>
+            {
+                new() { ItemId = fgItemId, ItemName = "FG Ret 2", Qty = 6m, Rate = 100m, WarehouseId = whId }
+            }
+        });
+        await subAppService.SubmitReceiptAsync(ret2.Id);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var sleRepo = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+
+            var ret2RmSle = (await sleRepo.GetListAsync(s => s.VoucherId == ret2.Id && s.ItemId == rmItemId)).Single();
+            ret2RmSle.QuantityChange.ShouldBe(12m);
+
+            var sco = await scoRepo.GetAsync(scoId);
+            sco.SuppliedItems.Single(i => i.ItemId == rmItemId).ConsumedQty.ShouldBe(0m);
+        });
+
+        // Cancelling ret2 must reverse the exact 12 RM it returned (restoring ConsumedQty to 12m)
+        await subAppService.CancelReceiptAsync(ret2.Id);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var scoRepo = GetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+            var sco = await scoRepo.GetAsync(scoId);
+            sco.SuppliedItems.Single(i => i.ItemId == rmItemId).ConsumedQty.ShouldBe(12m);
+        });
+    }
 }

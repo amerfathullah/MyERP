@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService, PermissionService } from '@abp/ng.core';
 import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { describe, it, expect, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { PurchaseOrderDetailComponent } from './purchase-order-detail.component';
 import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
@@ -204,6 +204,42 @@ describe('PurchaseOrderDetailComponent Logic', () => {
       expect(poServiceMock.createInterCompanySalesOrder).toHaveBeenCalledWith('po-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/orders', 'ic-so-1']);
+    });
+
+    it('surfaces toaster error when amend or load fails', () => {
+      const poServiceMock = {
+        get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Order load failed' } } }))),
+        amend: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Order amend failed' } } }))),
+        getOrderReceipts: vi.fn().mockReturnValue(of([])),
+        getOrderPayments: vi.fn().mockReturnValue(of([])),
+      };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'po-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: PurchaseOrderService, useValue: poServiceMock },
+          { provide: PurchaseConversionService, useValue: {} },
+          { provide: PurchaseOrderStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: DocumentPrintService, useValue: {} },
+          { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseOrderDetailComponent());
+      comp.ngOnInit();
+      expect(toasterMock.error).toHaveBeenCalledWith('Order load failed');
+
+      comp.order = { id: 'po-1', status: 'Cancelled' } as any;
+      comp.onWorkflowAction('amend');
+      expect(toasterMock.error).toHaveBeenCalledWith('Order amend failed');
     });
   });
 });

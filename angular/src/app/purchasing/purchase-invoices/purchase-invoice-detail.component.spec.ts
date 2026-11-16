@@ -3,7 +3,7 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService, PermissionService } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { PurchaseInvoiceDetailComponent } from './purchase-invoice-detail.component';
 import { CompanyService } from '../../proxy/core/company.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
@@ -231,6 +231,8 @@ describe('PurchaseInvoiceDetailComponent', () => {
         getPayments: vi.fn().mockReturnValue(of([])),
         createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-pi-1' })),
         createInterCompanySalesInvoice: vi.fn().mockReturnValue(of({ id: 'ic-si-1' })),
+        writeOff: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Write-off blocked' } } }))),
+        amend: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Amend blocked' } } }))),
       };
       const conversionMock = {
         convertPurchaseInvoiceToReceipt: vi.fn().mockReturnValue(of({ id: 'pr-1' })),
@@ -303,6 +305,17 @@ describe('PurchaseInvoiceDetailComponent', () => {
       // PR #66937 symmetry: show button when pending qty remains even if a link exists
       comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: 'ic-si-1', canCreateInterCompanySalesInvoice: true } as any;
       expect(comp.workflowActions.some(a => a.name === 'createSalesInvoice')).toBe(true);
+    });
+
+    it('surfaces toaster error on writeOff and amend failures', () => {
+      const { comp, toasterMock } = createComponent();
+      comp.invoice = { id: 'pi-1', status: 'Cancelled' } as any;
+
+      comp.onWorkflowAction('writeOff');
+      expect(toasterMock.error).toHaveBeenCalledWith('Write-off blocked');
+
+      comp.amend();
+      expect(toasterMock.error).toHaveBeenCalledWith('Amend blocked');
     });
   });
 });

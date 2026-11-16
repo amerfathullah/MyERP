@@ -127,6 +127,42 @@ public class SubcontractingAndWiringTests
     }
 
     [Fact]
+    public void CalculateReturnRmFromReceipt_ProportionalToReceiptConsumed_AndCapsRemainingAcrossReturns()
+    {
+        var rmItemId = Guid.NewGuid();
+        var wholeItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var origConsumed = new (Guid ItemId, Guid? BatchId, Guid? WarehouseId, decimal ConsumedQty)[]
+        {
+            (rmItemId, null, whId, 30m),
+            (wholeItemId, null, whId, 2m)
+        };
+        var wholeSet = new System.Collections.Generic.HashSet<Guid> { wholeItemId };
+
+        // First partial return: -3 of 10 FG -> rmItem returns -9, wholeItem returns ceiling(0.6) = -1
+        var firstReturn = SubcontractingManager.CalculateReturnRmFromReceipt(
+            origConsumed, originalReceiptFgQty: 10m, returnReceiptFgQty: -3m,
+            priorReturnedByRm: null, wholeUnitRmItemIds: wholeSet);
+
+        firstReturn.Single(r => r.ItemId == rmItemId).ConsumedQty.ShouldBe(-9m);
+        firstReturn.Single(r => r.ItemId == wholeItemId).ConsumedQty.ShouldBe(-1m);
+
+        // Second partial return: -5 of 10 FG -> rmItem returns -15, wholeItem proportional ceiling(1.0)=1
+        // Simulate prior return already took 2m of wholeItemId -> second return takes back nothing for wholeItemId
+        var prior = new System.Collections.Generic.Dictionary<(Guid, Guid?), decimal>
+        {
+            [(rmItemId, null)] = 25m,
+            [(wholeItemId, null)] = 2m
+        };
+        var cappedReturn = SubcontractingManager.CalculateReturnRmFromReceipt(
+            origConsumed, originalReceiptFgQty: 10m, returnReceiptFgQty: -5m,
+            priorReturnedByRm: prior, wholeUnitRmItemIds: wholeSet);
+
+        cappedReturn.Single(r => r.ItemId == rmItemId).ConsumedQty.ShouldBe(-5m); // capped at 30 - 25 = 5
+        cappedReturn.Any(r => r.ItemId == wholeItemId).ShouldBeFalse(); // exhausted, never negative/consumed
+    }
+
+    [Fact]
     public void SubcontractingOrder_PerReceived_DefaultsZero()
     {
         var sco = CreateSco();

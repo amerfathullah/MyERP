@@ -226,6 +226,75 @@ public class SubcontractingManager : DomainService
     }
 
     /// <summary>
+    /// Computes raw material return quantities (negative ConsumedQty = stock returned to supplier warehouse)
+    /// from what the original Subcontracting Receipt actually consumed, in proportion to returned FG qty.
+    /// Per ERPNext PR #66545:
+    /// - Returns the RM quantities that the receipt actually consumed (ignoring current BOM/backflush changes).
+    /// - Caps cumulative RM returns across all non-cancelled returns at what the original receipt consumed.
+    /// - Never consumes raw materials on a Subcontract Return (ConsumedQty &lt;= 0m).
+    /// - Rounds partial returns of whole-number UOM or serialized RM items up to whole units (capped at remaining).
+    /// </summary>
+    public static SubcontractingRmConsumption[] CalculateReturnRmFromReceipt(
+        IReadOnlyList<(Guid ItemId, Guid? BatchId, Guid? WarehouseId, decimal ConsumedQty)> originalConsumedRms,
+        decimal originalReceiptFgQty,
+        decimal returnReceiptFgQty,
+        IReadOnlyDictionary<(Guid ItemId, Guid? BatchId), decimal>? priorReturnedByRm = null,
+        IReadOnlySet<Guid>? wholeUnitRmItemIds = null)
+    {
+        var returnedFgAbs = Math.Abs(returnReceiptFgQty);
+        if (originalReceiptFgQty <= 0m || returnedFgAbs <= 0m || originalConsumedRms.Count == 0)
+        {
+            return Array.Empty<SubcontractingRmConsumption>();
+        }
+
+        var ratio = returnedFgAbs / originalReceiptFgQty;
+        var returnedTracker = priorReturnedByRm != null
+            ? new Dictionary<(Guid ItemId, Guid? BatchId), decimal>(priorReturnedByRm)
+            : new Dictionary<(Guid ItemId, Guid? BatchId), decimal>();
+
+        var result = new List<SubcontractingRmConsumption>(originalConsumedRms.Count);
+        foreach (var rm in originalConsumedRms)
+        {
+            if (rm.ConsumedQty <= 0m)
+            {
+                continue;
+            }
+
+            var key = (rm.ItemId, rm.BatchId);
+            var priorReturned = returnedTracker.GetValueOrDefault(key, 0m);
+            var remainingReturnable = Math.Max(0m, Math.Round(rm.ConsumedQty - priorReturned, 4, MidpointRounding.AwayFromZero));
+            if (remainingReturnable <= 0m)
+            {
+                continue;
+            }
+
+            var targetReturn = Math.Round(rm.ConsumedQty * ratio, 4, MidpointRounding.AwayFromZero);
+            if (wholeUnitRmItemIds != null && wholeUnitRmItemIds.Contains(rm.ItemId) && targetReturn > 0m)
+            {
+                targetReturn = Math.Ceiling(targetReturn);
+            }
+
+            var cappedReturn = Math.Max(0m, Math.Min(targetReturn, remainingReturnable));
+            if (cappedReturn <= 0m)
+            {
+                continue;
+            }
+
+            returnedTracker[key] = priorReturned + cappedReturn;
+            result.Add(new SubcontractingRmConsumption
+            {
+                ItemId = rm.ItemId,
+                RequiredQty = rm.ConsumedQty,
+                ConsumedQty = -cappedReturn,
+                WarehouseId = rm.WarehouseId,
+                BatchId = rm.BatchId
+            });
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
     /// Determines whether a Subcontracting Receipt return row sends back rejected qty.
     /// Per ERPNext commit aeb5278994:
     /// A Subcontracting Receipt return row sends back rejected qty ONLY while it is flagged

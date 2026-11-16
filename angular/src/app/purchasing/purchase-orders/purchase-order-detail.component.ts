@@ -123,22 +123,25 @@ export class PurchaseOrderDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => {
-      this.order = result;
-      if (result.status !== 'Draft') {
-        this.loadReceiptsAndPayments(id);
-      }
-      // Load supplier performance metrics + contact info
-      if ((result as any).supplierId) {
-        this.partyPerformanceService.getSupplierPerformance((result as any).supplierId).subscribe({
-          next: (perf: any) => this.supplierPerformance.set(perf),
-          error: () => {}
-        });
-        this.supplierProxyService.get((result as any).supplierId).subscribe({
-          next: (s: any) => this.supplierContact.set({ phone: s?.phone, email: s?.email, contactPerson: s?.contactPerson }),
-          error: () => {}
-        });
-      }
+    this.service.get(id).subscribe({
+      next: (result) => {
+        this.order = result;
+        if (result.status !== 'Draft') {
+          this.loadReceiptsAndPayments(id);
+        }
+        // Load supplier performance metrics + contact info
+        if ((result as any).supplierId) {
+          this.partyPerformanceService.getSupplierPerformance((result as any).supplierId).subscribe({
+            next: (perf: any) => this.supplierPerformance.set(perf),
+            error: (err: any) => this.handleError(err),
+          });
+          this.supplierProxyService.get((result as any).supplierId).subscribe({
+            next: (s: any) => this.supplierContact.set({ phone: s?.phone, email: s?.email, contactPerson: s?.contactPerson }),
+            error: (err: any) => this.handleError(err),
+          });
+        }
+      },
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -161,11 +164,11 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private loadReceiptsAndPayments(orderId: string): void {
     this.service.getOrderReceipts(orderId).subscribe({
       next: (receipts) => this.orderReceipts.set(receipts ?? []),
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
     this.service.getOrderPayments(orderId).subscribe({
       next: (payments) => this.orderPayments.set(payments ?? []),
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -232,6 +235,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/orders', amended.id]),
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'sendEmail':
@@ -243,8 +247,12 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private reloadAfterAction(): void {
     this.service.get(this.order!.id!).subscribe({
       next: (r) => { this.order = r; },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   private initiateConversion(targetDocType: 'PurchaseReceipt' | 'PurchaseInvoice', action: () => void): void {

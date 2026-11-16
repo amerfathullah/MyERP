@@ -326,7 +326,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
           if (status === Confirmation.Status.confirm) {
             this.service.writeOff(id).subscribe({
               next: () => { this.toaster.success('::SuccessfullyWrittenOff'); this.reloadAfterAction(); },
-              error: () => {},
+              error: (err: any) => this.handleError(err),
             });
           }
         });
@@ -334,7 +334,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/invoices', amended.id]),
-          error: () => {},
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'block':
@@ -435,7 +435,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     if (this.modesOfPayment().length === 0) {
       this.masterDataService.getModesOfPayment().subscribe({
         next: (res: any) => this.modesOfPayment.set(res.items ?? res ?? []),
-        error: () => {},
+        error: (err: any) => this.handleError(err),
       });
     }
   }
@@ -549,8 +549,12 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
     const id = this.invoice!.id!;
     this.service.get(id).subscribe({
       next: (r) => { this.invoice = r; this.loadLinkedPayments(id); },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   printInvoice(): void {
@@ -562,6 +566,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       next: (amended) => {
         this.router.navigate(['/purchasing/invoices', amended.id]);
       },
+      error: (err: any) => this.handleError(err),
     });
   }
 

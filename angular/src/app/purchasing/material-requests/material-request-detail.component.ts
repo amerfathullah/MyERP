@@ -89,11 +89,11 @@ export class MaterialRequestDetailComponent implements OnInit {
         if (result.status !== 0 && this.service.getFulfillmentStatus) {
           this.service.getFulfillmentStatus(id).subscribe({
             next: fs => this.fulfillmentStatus.set(fs),
-            error: () => {},
+            error: (err: any) => this.handleError(err),
           });
         }
       },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -101,7 +101,7 @@ export class MaterialRequestDetailComponent implements OnInit {
     if (this.suppliers().length) return;
     this.supplierService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: res => this.suppliers.set(res.items ?? []),
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -310,7 +310,11 @@ export class MaterialRequestDetailComponent implements OnInit {
   private reload(): void {
     this.service.get(this.entity!.id!).subscribe({
       next: (result) => { this.entity = result; },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }

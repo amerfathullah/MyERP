@@ -705,32 +705,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
-        var backflushSetting = await SettingProvider.GetOrNullAsync(
-            MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
-
-        HashSet<Guid>? wholeUnitRmItemIds = null;
-        if (scr.IsReturn && sco.SuppliedItems.Any())
-        {
-            var rmItemIds = sco.SuppliedItems.Select(si => si.ItemId).Distinct().ToList();
-            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
-            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
-            if (itemRepo != null)
-            {
-                var rmItems = await itemRepo.GetListAsync(i => rmItemIds.Contains(i.Id));
-                var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (uomRepo != null)
-                {
-                    var uoms = await uomRepo.GetListAsync(u => u.MustBeWholeNumber);
-                    foreach (var u in uoms) wholeNumberUoms.Add(u.Name);
-                }
-                wholeUnitRmItemIds = rmItems
-                    .Where(i => i.HasSerialNo || wholeNumberUoms.Contains(i.Uom))
-                    .Select(i => i.Id)
-                    .ToHashSet();
-            }
-        }
-
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn, wholeUnitRmItemIds);
+        var rmConsumptions = await ResolveRmConsumptionsAsync(scManager, scr, sco, totalReceivedFgQty, isCancel: false);
 
         // Per ERPNext PR #61505: validate batches on Subcontracting Receipt items and supplied items.
         // Supplied items only check for disabled/cancelled batches (expiry is not checked for raw material return/consumption).
@@ -874,32 +849,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
-        var backflushSetting = await SettingProvider.GetOrNullAsync(
-            MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
-
-        HashSet<Guid>? wholeUnitRmItemIds = null;
-        if (scr.IsReturn && sco.SuppliedItems.Any())
-        {
-            var rmItemIds = sco.SuppliedItems.Select(si => si.ItemId).Distinct().ToList();
-            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
-            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
-            if (itemRepo != null)
-            {
-                var rmItems = await itemRepo.GetListAsync(i => rmItemIds.Contains(i.Id));
-                var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (uomRepo != null)
-                {
-                    var uoms = await uomRepo.GetListAsync(u => u.MustBeWholeNumber);
-                    foreach (var u in uoms) wholeNumberUoms.Add(u.Name);
-                }
-                wholeUnitRmItemIds = rmItems
-                    .Where(i => i.HasSerialNo || wholeNumberUoms.Contains(i.Uom))
-                    .Select(i => i.Id)
-                    .ToHashSet();
-            }
-        }
-
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn, wholeUnitRmItemIds);
+        var rmConsumptions = await ResolveRmConsumptionsAsync(scManager, scr, sco, totalReceivedFgQty, isCancel: true);
 
         foreach (var rm in rmConsumptions)
         {
@@ -914,7 +864,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             // Reverse SLE for RM consumption (stock back in / out)
             await _stockValuationService.CreateLedgerEntryAsync(
                 scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
-                rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
+                rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                batchId: rm.BatchId);
 
             await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, rm.ConsumedQty, 0);
         }
@@ -1272,5 +1223,132 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             ReturnAgainstReceiptId = scr.ReturnAgainstReceiptId,
             ReturnAgainstReceiptNumber = returnAgainstNumber
         };
+    }
+
+    private async Task<MyERP.Purchasing.DomainServices.SubcontractingRmConsumption[]> ResolveRmConsumptionsAsync(
+        MyERP.Purchasing.DomainServices.SubcontractingManager scManager,
+        SubcontractingReceipt scr,
+        SubcontractingOrder sco,
+        decimal totalReceivedFgQty,
+        bool isCancel)
+    {
+        var backflushSetting = await SettingProvider.GetOrNullAsync(
+            MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
+
+        var scoRmItemIds = sco.SuppliedItems.Select(si => si.ItemId).Distinct().ToHashSet();
+        var sleRepo = LazyServiceProvider.LazyGetService<IRepository<StockLedgerEntry, Guid>>();
+
+        if (isCancel && scr.IsReturn && sleRepo != null && scoRmItemIds.Count > 0)
+        {
+            var postedReturnSles = await sleRepo.GetListAsync(s =>
+                s.VoucherType == "SubcontractingReceipt" &&
+                s.VoucherId == scr.Id &&
+                !s.IsCancelled &&
+                s.QuantityChange > 0 &&
+                scoRmItemIds.Contains(s.ItemId));
+
+            if (postedReturnSles.Count > 0)
+            {
+                return postedReturnSles
+                    .GroupBy(s => (s.ItemId, s.BatchId, (Guid?)s.WarehouseId))
+                    .Select(g => new MyERP.Purchasing.DomainServices.SubcontractingRmConsumption
+                    {
+                        ItemId = g.Key.ItemId,
+                        BatchId = g.Key.BatchId,
+                        WarehouseId = g.Key.Item3,
+                        ConsumedQty = -g.Sum(s => s.QuantityChange)
+                    })
+                    .ToArray();
+            }
+        }
+
+        var wholeUnitRmItemIds = scr.IsReturn && sco.SuppliedItems.Any()
+            ? await GetWholeUnitRmItemIdsAsync(scoRmItemIds)
+            : null;
+
+        // Per ERPNext PR #66545: Subcontracting Receipt returns take back the RM quantities
+        // actually consumed on the original receipt in proportion to the returned FG qty,
+        // capped at remaining unreturned qty across prior submitted returns.
+        if (scr.IsReturn && scr.ReturnAgainstReceiptId.HasValue && sleRepo != null && scoRmItemIds.Count > 0)
+        {
+            var origScr = await _scrRepository.FindAsync(scr.ReturnAgainstReceiptId.Value, includeDetails: true);
+            var origReceiptFgQty = origScr?.Items
+                .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem(i))
+                .Sum(i => i.Qty) ?? 0m;
+
+            if (origReceiptFgQty > 0m)
+            {
+                var origSles = await sleRepo.GetListAsync(s =>
+                    s.VoucherType == "SubcontractingReceipt" &&
+                    s.VoucherId == scr.ReturnAgainstReceiptId.Value &&
+                    !s.IsCancelled &&
+                    s.QuantityChange < 0 &&
+                    scoRmItemIds.Contains(s.ItemId));
+
+                if (origSles.Count > 0)
+                {
+                    var originalConsumedRms = origSles
+                        .GroupBy(s => (s.ItemId, s.BatchId, (Guid?)s.WarehouseId))
+                        .Select(g => (g.Key.ItemId, g.Key.BatchId, g.Key.Item3, g.Sum(s => -s.QuantityChange)))
+                        .ToList();
+
+                    var otherReturns = await _scrRepository.GetListAsync(r =>
+                        r.IsReturn &&
+                        r.ReturnAgainstReceiptId == scr.ReturnAgainstReceiptId.Value &&
+                        r.Id != scr.Id &&
+                        r.Status == SubcontractingReceiptStatus.Submitted);
+                    var otherReturnIds = otherReturns.Select(r => r.Id).ToList();
+
+                    var priorReturnedByRm = new Dictionary<(Guid ItemId, Guid? BatchId), decimal>();
+                    if (otherReturnIds.Count > 0)
+                    {
+                        var priorSles = await sleRepo.GetListAsync(s =>
+                            s.VoucherType == "SubcontractingReceipt" &&
+                            s.VoucherId.HasValue &&
+                            otherReturnIds.Contains(s.VoucherId.Value) &&
+                            !s.IsCancelled &&
+                            s.QuantityChange > 0 &&
+                            scoRmItemIds.Contains(s.ItemId));
+
+                        foreach (var g in priorSles.GroupBy(s => (s.ItemId, s.BatchId)))
+                        {
+                            priorReturnedByRm[g.Key] = g.Sum(s => s.QuantityChange);
+                        }
+                    }
+
+                    return MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateReturnRmFromReceipt(
+                        originalConsumedRms,
+                        origReceiptFgQty,
+                        totalReceivedFgQty,
+                        priorReturnedByRm,
+                        wholeUnitRmItemIds);
+                }
+            }
+        }
+
+        return scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn, wholeUnitRmItemIds);
+    }
+
+    private async Task<HashSet<Guid>?> GetWholeUnitRmItemIdsAsync(IReadOnlyCollection<Guid> rmItemIds)
+    {
+        var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
+        var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        if (itemRepo == null || rmItemIds.Count == 0)
+        {
+            return null;
+        }
+
+        var rmItems = await itemRepo.GetListAsync(i => rmItemIds.Contains(i.Id));
+        var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uoms = await uomRepo.GetListAsync(u => u.MustBeWholeNumber);
+            foreach (var u in uoms) wholeNumberUoms.Add(u.Name);
+        }
+
+        return rmItems
+            .Where(i => i.HasSerialNo || wholeNumberUoms.Contains(i.Uom))
+            .Select(i => i.Id)
+            .ToHashSet();
     }
 }

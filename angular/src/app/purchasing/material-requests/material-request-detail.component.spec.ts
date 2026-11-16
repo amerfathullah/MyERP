@@ -1,5 +1,14 @@
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { describe, it, expect, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { MaterialRequestDetailComponent } from './material-request-detail.component';
+import { MaterialRequestStore } from '../store/material-request.store';
+import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 interface WorkflowAction {
   name: string;
@@ -117,6 +126,38 @@ describe('MaterialRequestDetailComponent Logic', () => {
 
       expect(mockService.raiseWorkOrders).toHaveBeenCalledWith(entityId);
       expect(mockToaster.success).toHaveBeenCalledWith('Successfully created 2 Work Order(s).');
+    });
+
+    it('surfaces toaster error when loading material request or suppliers fails', () => {
+      const mrServiceMock = {
+        get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'MR load failed' } } }))),
+        getFulfillmentStatus: vi.fn().mockReturnValue(of(null)),
+      };
+      const supplierServiceMock = {
+        getList: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Supplier load failed' } } }))),
+      };
+      const toasterMock = { success: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'mr-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: PurchaseConversionService, useValue: {} },
+          { provide: MaterialRequestStore, useValue: {} },
+          { provide: MaterialRequestService, useValue: mrServiceMock },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: SupplierService, useValue: supplierServiceMock },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new MaterialRequestDetailComponent());
+      comp.ngOnInit();
+      expect(toasterMock.error).toHaveBeenCalledWith('MR load failed');
+
+      comp.loadSuppliers();
+      expect(toasterMock.error).toHaveBeenCalledWith('Supplier load failed');
     });
   });
 });
