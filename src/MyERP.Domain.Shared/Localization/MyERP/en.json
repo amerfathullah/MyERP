@@ -6375,7 +6375,12 @@
     "NoAvailableBatches": "No available batches found matching the selected filters",
     "MatchingAccounts": "Matching Accounts",
     "NoMatchingAccounts": "No accounts match the selected filter",
-    "AllRootTypes": "All Root Types"
+    "AllRootTypes": "All Root Types",
+    "MaintenanceScheduleCreated": "Maintenance Schedule created",
+    "SelectItemGroup": "Select item group...",
+    "TargetQty": "Target Qty",
+    "TargetAmount": "Target Amount",
+    "NoTargetsYet": "No targets configured yet"
   }
 }
 

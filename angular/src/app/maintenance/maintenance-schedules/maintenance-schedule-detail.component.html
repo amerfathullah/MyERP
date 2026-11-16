@@ -126,6 +126,9 @@
                   <th>{{ '::ScheduledDate' | abpLocalization }}</th>
                   <th>{{ '::ActualDate' | abpLocalization }}</th>
                   <th>{{ '::Status' | abpLocalization }}</th>
+                  @if ((s.status ?? 0) === 1) {
+                    <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -141,6 +144,15 @@
                         <span class="badge bg-warning text-dark"><i class="fa fa-clock me-1"></i>{{ '::Pending' | abpLocalization }}</span>
                       }
                     </td>
+                    @if ((s.status ?? 0) === 1) {
+                      <td class="text-end">
+                        @if (!d.isCompleted) {
+                          <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="actionLoading()" (click)="makeVisit(d.id)">
+                            <i class="fa fa-wrench me-1"></i>{{ '::CreateMaintenanceVisit' | abpLocalization }}
+                          </button>
+                        }
+                      </td>
+                    }
                   </tr>
                 }
               </tbody>

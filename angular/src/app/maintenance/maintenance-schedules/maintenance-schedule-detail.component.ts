@@ -1,10 +1,12 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { switchMap } from 'rxjs';
 import { LocalizationPipe } from '@abp/ng.core';
 import { MaintenanceService } from '../../proxy/assets/maintenance.service';
 import { MaintenanceScheduleDto } from '../../proxy/assets/models';
 import { MaintenanceScheduleService } from '../../proxy/maintenance/maintenance-schedule.service';
+import { MaintenanceVisitService } from '../../proxy/maintenance/maintenance-visit.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -20,8 +22,10 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 })
 export class MaintenanceScheduleDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private service = inject(MaintenanceService);
   private scheduleService = inject(MaintenanceScheduleService);
+  private visitService = inject(MaintenanceVisitService);
   private itemService = inject(ItemService);
   private customerService = inject(CustomerService);
   private toaster = inject(ToasterService);
@@ -94,6 +98,23 @@ export class MaintenanceScheduleDetailComponent implements OnInit {
         },
         error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
       });
+    });
+  }
+
+  makeVisit(detailId?: string) {
+    this.actionLoading.set(true);
+    this.scheduleService.makeMaintenanceVisit(this.id, { scheduleDetailId: detailId || undefined }).pipe(
+      switchMap(visitDto => this.visitService.create(visitDto))
+    ).subscribe({
+      next: created => {
+        this.actionLoading.set(false);
+        this.toaster.success('::SuccessfullyCreated');
+        this.router.navigate(['/maintenance/visits', created.id]);
+      },
+      error: (err: any) => {
+        this.actionLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 

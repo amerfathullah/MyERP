@@ -18,6 +18,7 @@ import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { CompanyService } from '../../proxy/core/company.service';
+import { MaintenanceScheduleService } from '../../proxy/maintenance/maintenance-schedule.service';
 
 interface WorkflowAction {
   name: string;
@@ -333,6 +334,10 @@ describe('SalesOrderDetailComponent Logic', () => {
       getOrderPayments: vi.fn().mockReturnValue(of([])),
       updateSalesTeam: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [], salesTeam: [{ salesPersonId: 'sp-1', allocatedPercentage: 100 }], totalCommission: 15 })),
     };
+    const maintenanceScheduleMock = {
+      createFromSalesOrder: vi.fn().mockReturnValue(of({ companyId: 'comp-1', customerId: 'cust-1', salesOrderId: 'so-1', items: [{ itemId: 'item-1', startDate: '2026-11-16', endDate: '2027-11-16' }] })),
+      create: vi.fn().mockReturnValue(of({ id: 'ms-55' })),
+    };
 
       const injector = Injector.create({
         providers: [
@@ -352,6 +357,7 @@ describe('SalesOrderDetailComponent Logic', () => {
           { provide: SalesOrderAmendmentService, useValue: {} },
           { provide: DocumentPrintService, useValue: {} },
           { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: MaintenanceScheduleService, useValue: maintenanceScheduleMock },
           { provide: LocalizationService, useValue: { instant: (k: string) => k } },
           { provide: ToasterService, useValue: toasterMock },
         ],
@@ -366,7 +372,7 @@ describe('SalesOrderDetailComponent Logic', () => {
           { id: 'soi-2', itemId: 'item-2', description: 'Closed Item', quantity: 2, orderedQty: 0, isClosed: true },
         ],
       } as any;
-      return { comp, conversionMock, supplierMock, stockReservationMock, proformaMock, approvalMock, routerMock, toasterMock, soServiceMock };
+      return { comp, conversionMock, supplierMock, stockReservationMock, proformaMock, approvalMock, routerMock, toasterMock, soServiceMock, maintenanceScheduleMock };
     }
 
     it('exposes purchase_order workflow action for active sales orders', () => {
@@ -449,6 +455,18 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(comp.editingSalesTeam()).toBe(false);
       expect(comp.order?.totalCommission).toBe(15);
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+    });
+
+    it('creates maintenance schedule from sales order via MaintenanceScheduleService', () => {
+      const { comp, maintenanceScheduleMock, routerMock, toasterMock } = createComponent();
+      expect(comp.workflowActions.some(a => a.name === 'maintenance_schedule')).toBe(true);
+
+      comp.onWorkflowAction('maintenance_schedule');
+
+      expect(maintenanceScheduleMock.createFromSalesOrder).toHaveBeenCalledWith('so-1');
+      expect(maintenanceScheduleMock.create).toHaveBeenCalled();
+      expect(toasterMock.success).toHaveBeenCalledWith('::MaintenanceScheduleCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/maintenance/schedules', 'ms-55']);
     });
   });
 });

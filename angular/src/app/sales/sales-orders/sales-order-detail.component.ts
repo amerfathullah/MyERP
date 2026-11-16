@@ -1,6 +1,8 @@
 import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { switchMap } from 'rxjs';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { MaintenanceScheduleService } from '../../proxy/maintenance/maintenance-schedule.service';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -60,6 +62,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private documentPrintService = inject(DocumentPrintService);
   private companyService = inject(CompanyService);
   private salesOrderService = inject(SalesOrderService);
+  private maintenanceScheduleService = inject(MaintenanceScheduleService);
   private l = inject(LocalizationService);
 
   order: SalesOrderDto | null = null;
@@ -217,6 +220,7 @@ export class SalesOrderDetailComponent implements OnInit {
       actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
       actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
       actions.push({ name: 'purchase_order', label: this.l.instant('::CreatePurchaseOrder'), icon: 'cart-plus', color: 'info' });
+      actions.push({ name: 'maintenance_schedule', label: this.l.instant('::MaintenanceSchedule'), icon: 'wrench', color: 'info' });
       actions.push({ name: 'cancel_reservations', label: this.l.instant('::CancelStockReservations'), icon: 'unlock', color: 'outline-danger' });
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
@@ -418,6 +422,17 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'purchase_order':
         this.openPoSelection();
+        break;
+      case 'maintenance_schedule':
+        this.maintenanceScheduleService.createFromSalesOrder(id).pipe(
+          switchMap(dto => this.maintenanceScheduleService.create(dto))
+        ).subscribe({
+          next: created => {
+            this.toaster.success(this.l.instant('::MaintenanceScheduleCreated'));
+            this.router.navigate(['/maintenance/schedules', created.id]);
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+        });
         break;
       case 'cancel_reservations':
         this.confirmation.warn('::CancelReservationsConfirmation', '::AreYouSure').subscribe((status) => {
