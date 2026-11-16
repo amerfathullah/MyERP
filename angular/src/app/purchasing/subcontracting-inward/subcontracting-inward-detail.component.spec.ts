@@ -1,7 +1,7 @@
 import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { SubcontractingInwardDetailComponent } from './subcontracting-inward-detail.component';
 import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcontracting-inward-order.service';
@@ -48,5 +48,43 @@ describe('SubcontractingInwardDetailComponent Action Summary', () => {
     expect(comp.actionSummary()?.pendingItemCount).toBe(3);
     expect(comp.actionSummary()?.canClose).toBe(true);
     expect(comp.actionSummary()?.canCancel).toBe(true);
+  });
+
+  it('surfaces toaster error when submit, close, or cancel fails', () => {
+    const scioMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'scio-1', status: 1, items: [] })),
+      getActionSummary: vi.fn().mockReturnValue(of(null)),
+      submit: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Submit failed' } } }))),
+      close: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Close failed' } } }))),
+      cancel: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Cancel failed' } } }))),
+    };
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+    const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
+
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'scio-1' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ConfirmationService, useValue: confirmationMock },
+        { provide: SubcontractingInwardOrderService, useValue: scioMock },
+        { provide: SubcontractingService, useValue: {} },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        { provide: ItemService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new SubcontractingInwardDetailComponent());
+    comp.ngOnInit();
+
+    comp.submit();
+    expect(toasterMock.error).toHaveBeenCalledWith('Submit failed');
+
+    comp.close();
+    expect(toasterMock.error).toHaveBeenCalledWith('Close failed');
+
+    comp.cancelOrder();
+    expect(toasterMock.error).toHaveBeenCalledWith('Cancel failed');
   });
 });

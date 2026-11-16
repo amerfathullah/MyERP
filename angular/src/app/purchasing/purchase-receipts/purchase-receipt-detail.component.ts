@@ -79,16 +79,19 @@ export class PurchaseReceiptDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe(r => {
-      this.receipt = r;
-      if (r.status !== 'Draft') {
-        this.loadQiStatus(r);
-      }
+    this.service.get(id).subscribe({
+      next: (r) => {
+        this.receipt = r;
+        if (r.status !== 'Draft') {
+          this.loadQiStatus(r);
+        }
+      },
+      error: (err: any) => this.handleError(err),
     });
     this.loadCompanyData();
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
       next: res => (res.items ?? []).forEach((w: any) => this.warehouseNames[w.id] = w.name),
-      error: () => {},
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -108,7 +111,10 @@ export class PurchaseReceiptDetailComponent implements OnInit {
         this.qiStatus.set(map);
         this.qiLoading.set(false);
       },
-      error: () => { this.qiLoading.set(false); }
+      error: (err: any) => {
+        this.qiLoading.set(false);
+        this.handleError(err);
+      }
     });
   }
 
@@ -121,16 +127,20 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   }
 
   private loadCompanyData(): void {
-    this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' }).subscribe((res: any) => { const companies = res.items || [];
-      if (companies?.length > 0) {
-        const c = companies[0];
-        this.companyData = {
-          name: c.name || c.companyName || '',
-          tin: c.tin || '',
-          sst: c.sstRegistrationNumber || '',
-          address: c.address || '',
-        };
-      }
+    this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' }).subscribe({
+      next: (res: any) => {
+        const companies = res.items || [];
+        if (companies?.length > 0) {
+          const c = companies[0];
+          this.companyData = {
+            name: c.name || c.companyName || '',
+            tin: c.tin || '',
+            sst: c.sstRegistrationNumber || '',
+            address: c.address || '',
+          };
+        }
+      },
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -142,8 +152,9 @@ export class PurchaseReceiptDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'invoice':
-        this.conversionService.convertPurchaseReceiptToInvoice(id).subscribe((inv) => {
-          this.router.navigate(['/purchasing/invoices', inv.id]);
+        this.conversionService.convertPurchaseReceiptToInvoice(id).subscribe({
+          next: (inv) => this.router.navigate(['/purchasing/invoices', inv.id]),
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'cancel':
@@ -157,6 +168,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/purchasing/receipts', amended.id]),
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'return':
@@ -168,10 +180,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
                 this.toaster.success('::ReturnCreated');
                 this.router.navigate(['/purchasing/receipts', ret.id]);
               },
-              error: (err: any) => {
-                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
-                this.toaster.error(reason || '::OperationFailed');
-              }
+              error: (err: any) => this.handleError(err),
             });
           }
         });
@@ -179,13 +188,13 @@ export class PurchaseReceiptDetailComponent implements OnInit {
       case 'close':
         this.service.close(id).subscribe({
           next: () => this.reloadAfterAction(),
-          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'reopen':
         this.service.reopen(id).subscribe({
           next: () => this.reloadAfterAction(),
-          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+          error: (err: any) => this.handleError(err),
         });
         break;
     }
@@ -194,7 +203,12 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private reloadAfterAction(): void {
     this.service.get(this.receipt!.id!).subscribe({
       next: (r) => { this.receipt = r; },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
   }
 }

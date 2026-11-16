@@ -1,4 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { describe, it, expect, vi } from 'vitest';
+import { of, throwError } from 'rxjs';
+import { PurchaseReceiptDetailComponent } from './purchase-receipt-detail.component';
+import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
+import { PurchaseReceiptStore } from '../store/purchase-receipt.store';
+import { CompanyService } from '../../proxy/core/company.service';
+import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
 // PurchaseReceiptDetailComponent — workflow actions + navigation tests
 
@@ -141,6 +152,45 @@ describe('PurchaseReceiptDetailComponent', () => {
     it('should fallback to supplierId when name missing', () => {
       const pr = { supplierName: null, supplierId: 'sup-123' };
       expect(pr.supplierName || pr.supplierId).toBe('sup-123');
+    });
+  });
+
+  describe('error handling', () => {
+    it('surfaces toaster errors when load or workflow actions fail', () => {
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+      const serviceMock = {
+        get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'PR load failed' } } }))),
+        amend: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'PR amend failed' } } }))),
+      };
+      const conversionMock = {
+        convertPurchaseReceiptToInvoice: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Invoice conversion failed' } } }))),
+      };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'pr-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: PurchaseReceiptService, useValue: serviceMock },
+          { provide: PurchaseConversionService, useValue: conversionMock },
+          { provide: PurchaseReceiptStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: QualityInspectionService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseReceiptDetailComponent());
+      comp.ngOnInit();
+      expect(toasterMock.error).toHaveBeenCalledWith('PR load failed');
+
+      comp.receipt = { id: 'pr-1', status: 'Submitted' } as any;
+      comp.onWorkflowAction('invoice');
+      expect(toasterMock.error).toHaveBeenCalledWith('Invoice conversion failed');
+
+      comp.onWorkflowAction('amend');
+      expect(toasterMock.error).toHaveBeenCalledWith('PR amend failed');
     });
   });
 });

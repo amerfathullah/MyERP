@@ -101,8 +101,68 @@ public class UpstreamBatch19ParityTests
         splitInvoice.ShouldNotBeNull();
         splitInvoice!.BuyerTin.ShouldBe(EInvoiceConsts.GenericBuyerTin);
         splitInvoice.IsConsolidated.ShouldBeFalse();
+        splitInvoice.IsSubmitToLhdn.ShouldBeTrue();
         splitInvoice.EInvoiceDocType.ShouldBe(EInvoiceDocumentType.Invoice);
         splitInvoice.EInvoiceStatus.ShouldBe(EInvoiceStatus.NotSubmitted);
+
+        var consolidated = insertedInvoices.Single(i => i.IsConsolidated);
+        consolidated.IsSubmitToLhdn.ShouldBeTrue();
+        consolidated.Items.ShouldAllBe(it => it.ClassificationCode == EInvoiceConsts.ConsolidatedClassificationCode);
+    }
+
+    [Fact]
+    public async Task EInvoiceConsolidationService_PreservesItemClassificationTaxAndExchangeRate_OnSplitAndConsolidatedInvoices()
+    {
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var consolRepo = Substitute.For<IRepository<EInvoiceConsolidation, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var guidGen = Substitute.For<IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+
+        var taxCatId1 = Guid.NewGuid();
+        var taxCatId2 = Guid.NewGuid();
+        var inv1 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-FX-1", DateTime.UtcNow)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.5m
+        };
+        // $3,000 * 4.5 = RM 13,500 > RM 10,000 threshold -> excluded split invoice
+        inv1.AddItem(Guid.NewGuid(), "Luxury FX Item", 1, 3000m, 0m);
+        inv1.Items.Last().ClassificationCode = "022";
+        inv1.Items.Last().TaxCategoryId = taxCatId1;
+
+        var inv2 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-FX-2", DateTime.UtcNow)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.5m
+        };
+        inv2.AddItem(Guid.NewGuid(), "Small FX Item", 1, 100m, 8m);
+        inv2.Items.Last().ClassificationCode = "022";
+        inv2.Items.Last().TaxCategoryId = taxCatId2;
+
+        var invoices = new List<SalesInvoice> { inv1, inv2 };
+        invoiceRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesInvoice, object>>[]>())
+            .Returns(Task.FromResult(invoices.AsQueryable()));
+        customerRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+        consolRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<EInvoiceConsolidation, bool>>>())
+            .Returns(Task.FromResult(new List<EInvoiceConsolidation>()));
+
+        var inserted = new List<SalesInvoice>();
+        await invoiceRepo.InsertAsync(Arg.Do<SalesInvoice>(si => inserted.Add(si)));
+
+        var service = new EInvoiceConsolidationService(invoiceRepo, consolRepo, customerRepo, guidGen);
+        var result = await service.ConsolidateInvoicesAsync(new List<Guid> { inv1.Id, inv2.Id }, CompanyId);
+
+        result.Count.ShouldBe(2);
+        var split = inserted.Single(i => !i.IsConsolidated);
+        split.ExchangeRate.ShouldBe(4.5m);
+        split.Items.Single().ClassificationCode.ShouldBe("022");
+        split.Items.Single().TaxCategoryId.ShouldBe(taxCatId1);
+
+        var consol = inserted.Single(i => i.IsConsolidated);
+        consol.ExchangeRate.ShouldBe(4.5m);
+        consol.Items.Single().ClassificationCode.ShouldBe(EInvoiceConsts.ConsolidatedClassificationCode);
+        consol.Items.Single().TaxCategoryId.ShouldBe(taxCatId2);
     }
 
     [Fact]

@@ -258,7 +258,10 @@ export class SubcontractingInwardDetailComponent implements OnInit {
         this.resolveNames(o);
         this.loadActionSummary();
       },
-      error: () => { this.isLoading.set(false); }
+      error: (err: any) => {
+        this.isLoading.set(false);
+        this.handleError(err);
+      }
     });
   }
 
@@ -278,19 +281,19 @@ export class SubcontractingInwardDetailComponent implements OnInit {
     if (o.supplierId) {
       this.supplierService.get(o.supplierId).subscribe({
         next: (s: any) => this.supplierName.set(s.name || s.supplierName || ''),
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     }
     if (o.salesOrderId) {
       this.salesOrderProxyService.get(o.salesOrderId).subscribe({
         next: (so: any) => this.soNumber.set(so.orderNumber || ''),
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     }
     if (o.subcontractingOrderId) {
       this.subcontractingService.getOrder(o.subcontractingOrderId).subscribe({
         next: (sco: any) => this.scoNumber.set(sco.orderNumber || ''),
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     }
     // Resolve item names
@@ -302,7 +305,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
           (res.items || []).forEach((item: any) => map[item.id] = item.itemName || item.itemCode || item.id);
           this.itemNames.set(map);
         },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     }
   }
@@ -313,7 +316,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
   submit() {
     this.scioService.submit(this.orderId).subscribe({
       next: () => { this.toaster.success('::SuccessfullySubmitted'); this.loadOrder(); },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -322,7 +325,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.scioService.close(this.orderId).subscribe({
         next: () => { this.toaster.success('::SuccessfullyClosed'); this.loadOrder(); },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     });
   }
@@ -332,9 +335,13 @@ export class SubcontractingInwardDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.scioService.cancel(this.orderId).subscribe({
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.loadOrder(); },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   openReceiptDialog(): void {

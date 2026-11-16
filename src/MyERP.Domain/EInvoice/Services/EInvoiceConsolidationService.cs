@@ -96,24 +96,26 @@ public class EInvoiceConsolidationService : DomainService
         {
             DueDate = latestDueDate,
             CurrencyCode = baseInvoice.CurrencyCode,
+            ExchangeRate = baseInvoice.ExchangeRate > 0 ? baseInvoice.ExchangeRate : 1m,
             Notes = $"Merged from {invoices.Count} invoices",
             BuyerTin = EInvoiceConsts.GenericBuyerTin,
             IsConsolidated = true,
+            IsSubmitToLhdn = true,
             EInvoiceDocType = EInvoiceDocumentType.Invoice,
             EInvoiceStatus = EInvoiceStatus.NotSubmitted
         };
 
-        var consolidatedItems = new Dictionary<string, SalesInvoiceItem>();
         var singleInvoicesToCreate = new List<(SalesInvoice singleInvoice, Guid originalInvoiceId)>();
 
         foreach (var inv in invoices)
         {
+            var invRate = inv.ExchangeRate > 0 ? inv.ExchangeRate : 1m;
             foreach (var item in inv.Items)
             {
-                var itemTotal = item.Quantity * item.UnitPrice;
-                
-                // Rule: amount > 10,000 cannot be consolidated
-                if (itemTotal > 10000)
+                var itemBaseTotal = item.Quantity * item.UnitPrice * invRate;
+
+                // LHDN rule (consolidate_invoice.py): line items exceeding RM 10,000 cannot be consolidated
+                if (itemBaseTotal > 10000m)
                 {
                     var singleInvoice = new SalesInvoice(
                         _guidGenerator.Create(),
@@ -125,51 +127,22 @@ public class EInvoiceConsolidationService : DomainService
                     {
                         DueDate = inv.DueDate,
                         CurrencyCode = inv.CurrencyCode,
+                        ExchangeRate = invRate,
                         Notes = "Auto-created from item exceeding 10,000 in original invoice",
                         BuyerTin = !string.IsNullOrWhiteSpace(inv.BuyerTin) ? inv.BuyerTin : EInvoiceConsts.GenericBuyerTin,
                         IsConsolidated = false,
+                        IsSubmitToLhdn = true,
                         EInvoiceDocType = EInvoiceDocumentType.Invoice,
                         EInvoiceStatus = EInvoiceStatus.NotSubmitted
                     };
-                    
-                    singleInvoice.AddItem(
-                        item.ItemId,
-                        item.Description,
-                        item.Quantity,
-                        item.UnitPrice,
-                        item.TaxAmount,
-                        item.Uom
-                    );
-                    
+
+                    AddCopiedItem(singleInvoice, item, item.ClassificationCode);
                     singleInvoicesToCreate.Add((singleInvoice, inv.Id));
                     continue;
                 }
 
-                // Group by ItemId + UnitPrice
-                var key = $"{item.ItemId}_{item.UnitPrice}";
-                if (consolidatedItems.TryGetValue(key, out var existingItem))
-                {
-                    consolidatedInvoice.AddItem(
-                        item.ItemId,
-                        item.Description,
-                        item.Quantity,
-                        item.UnitPrice,
-                        item.TaxAmount,
-                        item.Uom
-                    );
-                }
-                else
-                {
-                    consolidatedInvoice.AddItem(
-                        item.ItemId,
-                        item.Description,
-                        item.Quantity,
-                        item.UnitPrice,
-                        item.TaxAmount,
-                        item.Uom
-                    );
-                    consolidatedItems[key] = item;
-                }
+                // Consolidated B2C lines always carry LHDN classification code "004" (consolidate_invoice.py line 837)
+                AddCopiedItem(consolidatedInvoice, item, EInvoiceConsts.ConsolidatedClassificationCode);
             }
         }
 
@@ -218,5 +191,22 @@ public class EInvoiceConsolidationService : DomainService
         }
 
         return createdInvoiceIds;
+    }
+
+    private static void AddCopiedItem(SalesInvoice target, SalesInvoiceItem source, string? classificationCode)
+    {
+        target.AddItem(
+            source.ItemId,
+            source.Description,
+            source.Quantity,
+            source.UnitPrice,
+            source.TaxAmount,
+            source.Uom);
+        var added = target.Items.Last();
+        added.TaxCategoryId = source.TaxCategoryId;
+        if (!string.IsNullOrWhiteSpace(classificationCode))
+        {
+            added.ClassificationCode = classificationCode;
+        }
     }
 }
