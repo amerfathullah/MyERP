@@ -1,7 +1,7 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type LhdnStatus = 'Valid' | 'Invalid' | 'Submitted' | 'Cancelled' | 'Failed' | 'NotSubmitted' | 'Consolidated';
+export type LhdnStatus = 'Valid' | 'Invalid' | 'Pending' | 'Submitted' | 'Cancelled' | 'Rejected' | 'Failed' | 'NotSubmitted' | 'Consolidated';
 
 interface LhdnStatusConfig {
   icon: string;
@@ -13,8 +13,10 @@ const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
   Consolidated: { icon: 'fa fa-layer-group', badgeClass: 'bg-primary-subtle text-primary border border-primary-subtle', label: 'Consolidated' },
   Valid: { icon: 'fa fa-check-circle', badgeClass: 'bg-success', label: 'Valid' },
   Invalid: { icon: 'fa fa-times-circle', badgeClass: 'bg-danger', label: 'Invalid' },
+  Pending: { icon: 'fa fa-clock', badgeClass: 'bg-info', label: 'Pending' },
   Submitted: { icon: 'fa fa-clock', badgeClass: 'bg-info', label: 'Submitted' },
   Cancelled: { icon: 'fa fa-ban', badgeClass: 'bg-secondary', label: 'Cancelled' },
+  Rejected: { icon: 'fa fa-ban', badgeClass: 'bg-danger', label: 'Rejected' },
   Failed: { icon: 'fa fa-exclamation-triangle', badgeClass: 'bg-warning text-dark', label: 'Failed' },
   NotSubmitted: { icon: 'fa fa-minus-circle', badgeClass: 'bg-secondary', label: 'Not Submitted' },
 };

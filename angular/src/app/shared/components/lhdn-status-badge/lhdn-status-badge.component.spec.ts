@@ -56,7 +56,7 @@ describe('LhdnStatusBadgeComponent', () => {
   });
 
   it('should handle all LHDN statuses', () => {
-    const statuses = ['Valid', 'Invalid', 'Submitted', 'Cancelled', 'Failed', 'NotSubmitted', 'Consolidated'];
+    const statuses = ['Valid', 'Invalid', 'Pending', 'Submitted', 'Cancelled', 'Rejected', 'Failed', 'NotSubmitted', 'Consolidated'];
     for (const status of statuses) {
       const comp = createComponent(status);
       expect(comp.config).toBeDefined();
@@ -64,5 +64,9 @@ describe('LhdnStatusBadgeComponent', () => {
       expect(comp.config.badgeClass).toBeTruthy();
       expect(comp.config.label).toBeTruthy();
     }
+    expect(createComponent('Pending').config.badgeClass).toBe('bg-info');
+    expect(createComponent('Pending').config.label).toBe('Pending');
+    expect(createComponent('Rejected').config.badgeClass).toBe('bg-danger');
+    expect(createComponent('Rejected').config.label).toBe('Rejected');
   });
 });

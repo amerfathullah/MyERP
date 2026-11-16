@@ -1529,12 +1529,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         }
                     }
 
-                    // Internal transfer return (PR #59260 / #59280): puts returned material back into in-transit warehouse
+                    // Internal transfer return (PR #59260 / #59280 / #66692): puts combined rounded qty back into in-transit warehouse
                     var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                     if (fromWarehouseId.HasValue)
                     {
-                        var returnedToSourceQty = (item.Quantity < 0 ? Math.Abs(item.StockQty) : 0m)
-                            + (item.RejectedQty < 0 ? Math.Abs(item.RejectedStockQty) : 0m);
+                        var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
 
                         if (returnedToSourceQty > 0)
                         {
@@ -1555,10 +1554,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     // Use StockQty for SLE (respects UOM conversion)
                     var stockQty = item.StockQty;
 
-                    // Source warehouse for internal transfer (in-transit warehouse)
+                    // Source warehouse for internal transfer (in-transit warehouse, PR #66692)
                     if (item.FromWarehouseId.HasValue)
                     {
-                        var sourceStockQty = stockQty + item.RejectedStockQty;
+                        var sourceStockQty = item.TotalReceivedStockQty;
                         if (sourceStockQty > 0)
                         {
                             await _valuationService.CreateLedgerEntryAsync(
@@ -1975,12 +1974,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         }
                     }
 
-                    // Reverse internal transfer return: deduct from in-transit warehouse
+                    // Reverse internal transfer return: deduct combined rounded qty from in-transit warehouse (PR #66692)
                     var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                     if (fromWarehouseId.HasValue)
                     {
-                        var returnedToSourceQty = (item.Quantity < 0 ? Math.Abs(item.StockQty) : 0m)
-                            + (item.RejectedQty < 0 ? Math.Abs(item.RejectedStockQty) : 0m);
+                        var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
 
                         if (returnedToSourceQty > 0)
                         {
@@ -2000,10 +1998,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 {
                     var stockQty = item.StockQty;
 
-                    // Reverse internal transfer source
+                    // Reverse internal transfer source (PR #66692)
                     if (item.FromWarehouseId.HasValue)
                     {
-                        var sourceStockQty = stockQty + item.RejectedStockQty;
+                        var sourceStockQty = item.TotalReceivedStockQty;
                         if (sourceStockQty > 0)
                         {
                             await _valuationService.CreateLedgerEntryAsync(
