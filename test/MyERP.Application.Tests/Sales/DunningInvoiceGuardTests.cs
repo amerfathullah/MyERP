@@ -128,4 +128,36 @@ public abstract class DunningInvoiceGuardTests<TStartupModule> : MyERPApplicatio
             dto.Id.ShouldNotBe(Guid.Empty);
         });
     }
+
+    [Fact]
+    public async Task CreateFromSalesInvoiceAsync_PostedInvoice_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var invoiceRepository = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var dunningAppService = GetRequiredService<IDunningAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Dunning Posted Co"), autoSave: true);
+            var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Dunning Posted Customer"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "DUN-ITEM-4", "Dunning Posted Item", ItemType.Goods), autoSave: true);
+
+            var invoice = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-DUN-004", DateTime.Today.AddDays(-15))
+            {
+                DueDate = DateTime.Today.AddDays(-5)
+            };
+            invoice.AddItem(item.Id, "Widget", quantity: 1m, unitPrice: 120m, taxAmount: 0m);
+            invoice.Submit();
+            invoice.Post();
+            await invoiceRepository.InsertAsync(invoice, autoSave: true);
+
+            var dto = await dunningAppService.CreateFromSalesInvoiceAsync(invoice.Id);
+            dto.Id.ShouldNotBe(Guid.Empty);
+            dto.OverduePayments.Count.ShouldBe(1);
+            dto.OverduePayments[0].SalesInvoiceId.ShouldBe(invoice.Id);
+        });
+    }
 }

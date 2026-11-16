@@ -129,7 +129,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} belongs to a different company.");
                 }
-                if (invoice.Status != DocumentStatus.Submitted)
+                if (invoice.Status != DocumentStatus.Submitted && invoice.Status != DocumentStatus.Posted)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} must be submitted.");
@@ -287,7 +287,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
         var si = await siRepo.GetAsync(salesInvoiceId, includeDetails: true);
 
-        if (si.Status != DocumentStatus.Submitted)
+        if (si.Status != DocumentStatus.Submitted && si.Status != DocumentStatus.Posted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         var today = DateTime.UtcNow.Date;
@@ -595,7 +595,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var siQuery = await siRepo.GetQueryableAsync();
         var overdueInvoices = siQuery
             .Where(si => si.CompanyId == input.CompanyId
-                      && si.Status == DocumentStatus.Submitted
+                      && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted)
                       && !si.IsReturn
                       && (si.DueDate.HasValue ? si.DueDate.Value < today : si.IssueDate < today)
                       && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
