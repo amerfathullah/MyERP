@@ -6271,7 +6271,12 @@
     "AvailableToConvert": "Available to Convert",
     "ReorderPriorities": "Reorder Priorities",
     "PrioritiesReordered": "Rule priorities reordered successfully.",
-    "NextPriority": "Next Priority"
+    "NextPriority": "Next Priority",
+    "MarkReplied": "Mark Replied",
+    "MarkQuotation": "Mark Quotation",
+    "LinkLead": "Link Lead",
+    "SelectLead": "Select Lead",
+    "LeadLinked": "Lead linked to prospect."
   }
 }
 

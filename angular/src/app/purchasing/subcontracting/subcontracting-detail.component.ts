@@ -10,7 +10,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
-import type { SubcontractingOrderDto, SubcontractingReceiptSummaryDto } from '../../proxy/purchasing/models';
+import type { SubcontractingOrderDto, SubcontractingOrderSummaryDto, SubcontractingReceiptSummaryDto } from '../../proxy/purchasing/models';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
 @Component({
@@ -36,6 +36,15 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::Supplier' | abpLocalization }}</small><strong>{{ order()!.supplierName ?? '—' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::Date' | abpLocalization }}</small><strong>{{ order()!.orderDate | date:'dd/MM/yyyy' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::GrandTotal' | abpLocalization }}</small><strong class="fs-5">{{ order()!.grandTotal | number:'1.2-2' }}</strong></div>
+                  @if (orderSummary(); as os) {
+                    <div class="col-md-6">
+                      <small class="text-muted d-block">{{ '::Received' | abpLocalization }}</small>
+                      <strong>{{ os.totalReceivedQty ?? 0 | number:'1.0-2' }} / {{ os.totalOrderedQty ?? 0 | number:'1.0-2' }} ({{ os.perReceived ?? 0 | number:'1.0-0' }}%)</strong>
+                      <div class="progress mt-1" style="height: 5px;">
+                        <div class="progress-bar bg-success" [style.width.%]="os.perReceived ?? 0"></div>
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
             </div>
@@ -242,6 +251,7 @@ export class SubcontractingDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private warehouseService = inject(WarehouseService);
   order = signal<SubcontractingOrderDto | null>(null);
+  orderSummary = signal<SubcontractingOrderSummaryDto | null>(null);
   isTransferring = signal(false);
   warehouses = signal<{ id: string; warehouseName: string }[]>([]);
 
@@ -261,11 +271,19 @@ export class SubcontractingDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.service.getOrder(id).subscribe(o => this.order.set(o));
+      this.loadOrderSummary(id);
       this.loadReceipts(id);
     }
     this.warehouseService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r: any) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, warehouseName: w.name ?? w.id }))),
       error: () => {}
+    });
+  }
+
+  loadOrderSummary(subcontractingOrderId: string): void {
+    this.service.getOrderSummary(subcontractingOrderId).subscribe({
+      next: summary => this.orderSummary.set(summary),
+      error: () => this.orderSummary.set(null),
     });
   }
 

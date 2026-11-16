@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Router } from '@angular/router';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { CompetitorService } from '../../proxy/crm/competitor.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
-import type { CompetitorDto, OpportunityDto } from '../../proxy/crm/models';
+import type { CompetitorDto, CrmNoteDto, OpportunityDto } from '../../proxy/crm/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
@@ -37,6 +37,16 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           @if (!o.customerId) {
             <button class="btn btn-outline-success btn-sm" [disabled]="isConverting()" (click)="convertToCustomer()">
               <i class="fa fa-user-plus me-1"></i>{{ '::CRM:ConvertToCustomer' | abpLocalization }}
+            </button>
+          }
+          @if (o.status === 0) {
+            <button class="btn btn-outline-info btn-sm" [disabled]="isUpdatingStatus()" (click)="markReplied()">
+              <i class="fa fa-reply me-1"></i>{{ '::MarkReplied' | abpLocalization }}
+            </button>
+          }
+          @if (o.status === 0 || o.status === 1) {
+            <button class="btn btn-outline-primary btn-sm" [disabled]="isUpdatingStatus()" (click)="markQuotation()">
+              <i class="fa fa-file-signature me-1"></i>{{ '::MarkQuotation' | abpLocalization }}
             </button>
           }
           @if (o.status === 0 || o.status === 1 || o.status === 2) {
@@ -160,6 +170,51 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
           </div>
         </div>
+
+        <!-- Note Thread -->
+        <div class="card mt-3">
+          <div class="card-header fw-bold"><i class="fa fa-comments me-2"></i>{{ '::NoteThread' | abpLocalization }}</div>
+          <div class="card-body">
+            <div class="input-group input-group-sm mb-3">
+              <input type="text" class="form-control" [ngModel]="newNoteText()" (ngModelChange)="newNoteText.set($event)"
+                (keyup.enter)="addNote()" [placeholder]="'::AddNoteHint' | abpLocalization" />
+              <button type="button" class="btn btn-primary" (click)="addNote()" [disabled]="!newNoteText().trim()">
+                <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
+              </button>
+            </div>
+            @if (notes().length === 0) {
+              <p class="text-muted mb-0">{{ '::NoNotesYet' | abpLocalization }}</p>
+            } @else {
+              <ul class="list-group list-group-flush">
+                @for (note of notes(); track note.id) {
+                  <li class="list-group-item px-0">
+                    @if (editingNoteId() === note.id) {
+                      <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" [ngModel]="editingNoteText()" (ngModelChange)="editingNoteText.set($event)"
+                          (keyup.enter)="saveEditNote(note.id!)" />
+                        <button type="button" class="btn btn-success" (click)="saveEditNote(note.id!)"><i class="fa fa-check"></i></button>
+                        <button type="button" class="btn btn-outline-secondary" (click)="cancelEditNote()"><i class="fa fa-times"></i></button>
+                      </div>
+                    } @else {
+                      <div class="d-flex justify-content-between align-items-start gap-2">
+                        <span>{{ note.noteText }}</span>
+                        <div class="d-flex align-items-center gap-2 text-nowrap">
+                          <small class="text-muted">{{ note.addedOn | date:'dd/MM/yyyy HH:mm' }}</small>
+                          <button type="button" class="btn btn-link btn-sm p-0 text-secondary" [title]="'::Edit' | abpLocalization" (click)="startEditNote(note)">
+                            <i class="fa fa-pen"></i>
+                          </button>
+                          <button type="button" class="btn btn-link btn-sm p-0 text-danger" [title]="'::Delete' | abpLocalization" (click)="deleteNote(note.id!)">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
       }
     </abp-page>
   `,
@@ -170,6 +225,8 @@ export class OpportunityDetailComponent implements OnInit {
   private service = inject(OpportunityService);
   private competitorService = inject(CompetitorService);
   private conversionService = inject(DocumentConversionService);
+  private confirmation = inject(ConfirmationService);
+  private l = inject(LocalizationService);
   private toaster = inject(ToasterService);
 
   opp = signal<OpportunityDto | null>(null);
@@ -179,6 +236,10 @@ export class OpportunityDetailComponent implements OnInit {
   showLostReasonPrompt = signal(false);
   competitors = signal<CompetitorDto[]>([]);
   selectedCompetitorId = '';
+  notes = signal<CrmNoteDto[]>([]);
+  newNoteText = signal('');
+  editingNoteId = signal<string | null>(null);
+  editingNoteText = signal('');
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -188,6 +249,7 @@ export class OpportunityDetailComponent implements OnInit {
         next: o => { this.opp.set(o); this.isLoading.set(false); },
         error: () => this.isLoading.set(false),
       });
+      this.loadNotes(id);
     }
     this.competitorService.getList({ maxResultCount: 1000, skipCount: 0 }).subscribe({
       next: (res: any) => this.competitors.set(res?.items ?? []),
@@ -293,6 +355,83 @@ export class OpportunityDetailComponent implements OnInit {
     this.service.reopen(id).subscribe({
       next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success('::SuccessfullyUpdated'); },
       error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'); },
+    });
+  }
+
+  markReplied(): void {
+    const id = this.opp()?.id;
+    if (!id || this.isUpdatingStatus()) return;
+    this.isUpdatingStatus.set(true);
+    this.service.markReplied(id).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success(this.l.instant('::SuccessfullyUpdated')); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? this.l.instant('::OperationFailed')); },
+    });
+  }
+
+  markQuotation(): void {
+    const id = this.opp()?.id;
+    if (!id || this.isUpdatingStatus()) return;
+    this.isUpdatingStatus.set(true);
+    this.service.markQuotation(id).subscribe({
+      next: (o) => { this.opp.set(o); this.isUpdatingStatus.set(false); this.toaster.success(this.l.instant('::SuccessfullyUpdated')); },
+      error: (err) => { this.isUpdatingStatus.set(false); this.toaster.error(err?.error?.error?.message ?? this.l.instant('::OperationFailed')); },
+    });
+  }
+
+  loadNotes(id: string): void {
+    this.service.getNotes(id).subscribe({
+      next: list => this.notes.set(list ?? []),
+      error: () => {},
+    });
+  }
+
+  addNote(): void {
+    const id = this.opp()?.id;
+    const text = this.newNoteText().trim();
+    if (!id || !text) return;
+    this.service.addNote(id, { noteText: text }).subscribe({
+      next: () => { this.newNoteText.set(''); this.loadNotes(id); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? this.l.instant('::OperationFailed')),
+    });
+  }
+
+  startEditNote(note: CrmNoteDto): void {
+    if (!note.id) return;
+    this.editingNoteId.set(note.id);
+    this.editingNoteText.set(note.noteText ?? '');
+  }
+
+  cancelEditNote(): void {
+    this.editingNoteId.set(null);
+    this.editingNoteText.set('');
+  }
+
+  saveEditNote(noteId: string): void {
+    const id = this.opp()?.id;
+    const text = this.editingNoteText().trim();
+    if (!id || !text) return;
+    this.service.editNote(id, noteId, { noteText: text }).subscribe({
+      next: () => {
+        this.editingNoteId.set(null);
+        this.editingNoteText.set('');
+        this.loadNotes(id);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? this.l.instant('::OperationFailed')),
+    });
+  }
+
+  deleteNote(noteId: string): void {
+    const id = this.opp()?.id;
+    if (!id) return;
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.deleteNote(id, noteId).subscribe({
+        next: () => {
+          this.toaster.success(this.l.instant('::SuccessfullyDeleted'));
+          this.loadNotes(id);
+        },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? this.l.instant('::OperationFailed')),
+      });
     });
   }
 }
