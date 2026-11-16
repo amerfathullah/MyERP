@@ -1,0 +1,163 @@
+<abp-page [title]="'::ProfitabilityAnalysis' | abpLocalization">
+  <!-- KPI Summary -->
+  @if (report()) {
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <div class="card border-start border-success border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::TotalIncome' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-success">{{ '' | companyCurrency }} {{ (report()!.totalIncome ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-danger border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::TotalExpense' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-danger">{{ '' | companyCurrency }} {{ (report()!.totalExpense ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::GrossProfitOrLoss' | abpLocalization }}</div>
+            <div class="h5 mb-0"
+                 [class.text-success]="(report()!.totalGrossProfitOrLoss ?? 0) >= 0"
+                 [class.text-danger]="(report()!.totalGrossProfitOrLoss ?? 0) < 0">
+              {{ '' | companyCurrency }} {{ (report()!.totalGrossProfitOrLoss ?? 0) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-info border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::GrossMargin' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-info">{{ grossMarginPercent() | number:'1.2-2' }}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Filters -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form [formGroup]="filters" class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="companyId">
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::BasedOn' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="basedOn" (change)="generate()">
+            <option value="CostCenter">{{ '::CostCenter' | abpLocalization }}</option>
+            <option value="Project">{{ '::Project' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::From' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::To' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::FinanceBook' | abpLocalization }}</label>
+          <input type="text" class="form-control form-control-sm" formControlName="financeBook" />
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="isLoading()">
+            @if (isLoading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+        <div class="col-md-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="includeDefaultBook" formControlName="includeDefaultBookEntries" />
+            <label class="form-check-label small" for="includeDefaultBook">{{ '::IncludeDefaultBookEntries' | abpLocalization }}</label>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="showZeroProfit" formControlName="showZeroValues" />
+            <label class="form-check-label small" for="showZeroProfit">{{ '::ShowZeroValues' | abpLocalization }}</label>
+          </div>
+        </div>
+        @if (rows().length > 0) {
+          <div class="col-md-2 ms-auto">
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          </div>
+        }
+      </form>
+    </div>
+  </div>
+
+  <!-- Table -->
+  @if (rows().length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 140px">{{ '::DimensionCode' | abpLocalization }}</th>
+                <th>{{ '::DimensionName' | abpLocalization }}</th>
+                <th class="text-end" style="width: 150px">{{ '::Income' | abpLocalization }}</th>
+                <th class="text-end" style="width: 150px">{{ '::Expense' | abpLocalization }}</th>
+                <th class="text-end" style="width: 170px">{{ '::GrossProfitOrLoss' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.dimensionId ?? $index) {
+                <tr [class.fw-bold]="row.isGroup === true" [class.table-light]="row.isGroup === true">
+                  <td class="font-monospace small">{{ row.dimensionCode }}</td>
+                  <td [class]="getIndentClass(row)">
+                    @if (row.isGroup === true) {
+                      <i class="fa fa-folder-open text-muted me-1 small"></i>
+                    }
+                    {{ row.dimensionName }}
+                  </td>
+                  <td class="text-end font-monospace text-success">{{ (row.income ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace text-danger">{{ (row.expense ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-semibold"
+                      [class.text-success]="(row.grossProfitOrLoss ?? 0) >= 0"
+                      [class.text-danger]="(row.grossProfitOrLoss ?? 0) < 0">
+                    {{ (row.grossProfitOrLoss ?? 0) | number:'1.2-2' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-dark">
+              <tr class="fw-bold">
+                <td colspan="2" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalIncome ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalExpense ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalGrossProfitOrLoss ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (!isLoading()) {
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="fa fa-chart-pie fa-2x mb-3 d-block"></i>
+        {{ '::SelectCompanyAndGenerate' | abpLocalization }}
+      </div>
+    </div>
+  }
+</abp-page>

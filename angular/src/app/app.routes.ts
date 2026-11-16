@@ -463,6 +463,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/trial-balance-for-party',
+    loadComponent: () => import('./accounting/reports/trial-balance-for-party/trial-balance-for-party.component').then(c => c.TrialBalanceForPartyComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/reports/profitability-analysis',
+    loadComponent: () => import('./accounting/reports/profitability-analysis/profitability-analysis.component').then(c => c.ProfitabilityAnalysisComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
+    path: 'accounting/reports/general-payment-ledger-comparison',
+    loadComponent: () => import('./accounting/reports/general-payment-ledger-comparison/general-payment-ledger-comparison.component').then(c => c.GeneralPaymentLedgerComparisonComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],
@@ -2130,6 +2148,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'crm/reports/lost-opportunity',
     loadComponent: () => import('./crm/reports/lost-opportunity/lost-opportunity.component').then(c => c.LostOpportunityComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
+  {
+    path: 'crm/reports/sales-funnel',
+    loadComponent: () => import('./crm/reports/sales-funnel/sales-funnel.component').then(c => c.SalesFunnelComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Opportunities' },
   },

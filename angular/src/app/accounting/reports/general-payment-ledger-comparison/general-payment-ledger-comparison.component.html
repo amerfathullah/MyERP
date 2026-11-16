@@ -1,0 +1,185 @@
+<abp-page [title]="'::GeneralAndPaymentLedgerComparison' | abpLocalization">
+  <!-- KPI Summary -->
+  @if (report()) {
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <div class="card border-start border-4"
+             [class.border-success]="discrepancyCount() === 0"
+             [class.border-warning]="discrepancyCount() > 0">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::Discrepancies' | abpLocalization }}</div>
+            <div class="h5 mb-0"
+                 [class.text-success]="discrepancyCount() === 0"
+                 [class.text-warning]="discrepancyCount() > 0">
+              {{ discrepancyCount() }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::GLBalance' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-primary">{{ '' | companyCurrency }} {{ (report()!.totalGLBalance ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-info border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::PLBalance' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-info">{{ '' | companyCurrency }} {{ (report()!.totalPLBalance ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card border-start border-danger border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::NetDifference' | abpLocalization }}</div>
+            <div class="h5 mb-0"
+                 [class.text-success]="(report()!.totalDifference ?? 0) === 0"
+                 [class.text-danger]="(report()!.totalDifference ?? 0) !== 0">
+              {{ '' | companyCurrency }} {{ (report()!.totalDifference ?? 0) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Filters -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form [formGroup]="filters" class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="companyId" (change)="onCompanyChange()">
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::PeriodStartDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="periodStartDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::PeriodEndDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="periodEndDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Account' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="accountId">
+            <option value="">{{ '::AllAccounts' | abpLocalization }}</option>
+            @for (a of accounts(); track a.id) {
+              <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::PartyType' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="partyType">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+            <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::VoucherType' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="voucherType">
+            <option value="">{{ '::AllVoucherTypes' | abpLocalization }}</option>
+            <option value="SalesInvoice">SalesInvoice</option>
+            <option value="PurchaseInvoice">PurchaseInvoice</option>
+            <option value="PaymentEntry">PaymentEntry</option>
+            <option value="JournalEntry">JournalEntry</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">{{ '::VoucherNo' | abpLocalization }}</label>
+          <input type="text" class="form-control form-control-sm" formControlName="voucherNo" />
+        </div>
+        <div class="col-md-2 ms-auto">
+          <button type="button" class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="isLoading()">
+            @if (isLoading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+        @if (rows().length > 0) {
+          <div class="col-md-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          </div>
+        }
+      </form>
+    </div>
+  </div>
+
+  <!-- Table / Empty State -->
+  @if (rows().length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::Account' | abpLocalization }}</th>
+                <th>{{ '::VoucherType' | abpLocalization }}</th>
+                <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                <th>{{ '::Party' | abpLocalization }}</th>
+                <th>{{ '::AgainstVoucher' | abpLocalization }}</th>
+                <th class="text-end">{{ '::GLBalance' | abpLocalization }}</th>
+                <th class="text-end">{{ '::PLBalance' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Difference' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track $index) {
+                <tr>
+                  <td>
+                    <span class="font-monospace small text-muted me-1">{{ row.accountCode }}</span>
+                    {{ row.accountName }}
+                  </td>
+                  <td><span class="badge bg-light text-dark">{{ row.voucherType }}</span></td>
+                  <td class="font-monospace small">{{ row.voucherNo }}</td>
+                  <td>
+                    <span class="small text-muted me-1">{{ row.partyType }}:</span>
+                    {{ row.partyName || row.partyId }}
+                  </td>
+                  <td class="font-monospace small">{{ row.againstVoucherNo }}</td>
+                  <td class="text-end font-monospace">{{ (row.glBalance ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (row.plBalance ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold text-danger">{{ (row.difference ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-dark">
+              <tr class="fw-bold">
+                <td colspan="5" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalGLBalance ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalPLBalance ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalDifference ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (report() && !isLoading()) {
+    <div class="alert alert-success d-flex align-items-center">
+      <i class="fa fa-check-circle me-2 fs-5"></i>
+      <span>{{ '::NoDiscrepanciesFound' | abpLocalization }}</span>
+    </div>
+  } @else if (!isLoading()) {
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="fa fa-balance-scale-right fa-2x mb-3 d-block"></i>
+        {{ '::SelectCompanyAndGenerate' | abpLocalization }}
+      </div>
+    </div>
+  }
+</abp-page>
