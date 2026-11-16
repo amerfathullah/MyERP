@@ -19,6 +19,9 @@ import { DocumentConversionService } from '../../proxy/sales/document-conversion
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
+import { ProformaInvoiceService } from '../../proxy/sales/proforma-invoice.service';
+import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
+import type { ApprovalRequestDto } from '../../proxy/workflow/dtos/models';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
@@ -26,7 +29,7 @@ import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
-import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
+import type { ProformaInvoiceDto, ProformedTotalsDto, SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-order-detail',
@@ -49,6 +52,8 @@ export class SalesOrderDetailComponent implements OnInit {
   private documentEmailService = inject(DocumentEmailService);
   private stockBalanceService = inject(StockBalanceService);
   private stockReservationService = inject(StockReservationService);
+  private proformaService = inject(ProformaInvoiceService);
+  private approvalWorkflowService = inject(ApprovalWorkflowService);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
   private documentPrintService = inject(DocumentPrintService);
@@ -59,6 +64,9 @@ export class SalesOrderDetailComponent implements OnInit {
   order: SalesOrderDto | null = null;
   deliverySchedule = signal<any[]>([]);
   orderPayments = signal<any[]>([]);
+  proformaInvoices = signal<ProformaInvoiceDto[]>([]);
+  proformedTotals = signal<ProformedTotalsDto[]>([]);
+  documentApprovals = signal<ApprovalRequestDto[]>([]);
   itemStock = signal<Record<string, number>>({});
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
@@ -244,7 +252,30 @@ export class SalesOrderDetailComponent implements OnInit {
       if (result.status !== 'Draft' && result.status !== 'Cancelled' && result.items?.length) {
         this.loadItemStockAvailability(result.items);
       }
+      // Load Proforma Invoices, Proformed Totals & Approvals
+      this.proformaService.getForSalesOrder(id).subscribe({
+        next: (list) => this.proformaInvoices.set(list ?? []),
+        error: () => this.proformaInvoices.set([]),
+      });
+      this.proformaService.getProformedTotals(id).subscribe({
+        next: (totals) => this.proformedTotals.set(totals ?? []),
+        error: () => this.proformedTotals.set([]),
+      });
+      this.approvalWorkflowService.getDocumentApprovals('SalesOrder', id).subscribe({
+        next: (res) => this.documentApprovals.set(res?.items ?? []),
+        error: () => this.documentApprovals.set([]),
+      });
     });
+  }
+
+  approvalStatusLabel(status: number | undefined): string {
+    const map: Record<number, string> = { 0: 'Pending', 1: 'Approved', 2: 'Rejected', 3: 'Cancelled' };
+    return map[status ?? 0] ?? 'Unknown';
+  }
+
+  approvalStatusBadge(status: number | undefined): string {
+    const map: Record<number, string> = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-danger', 3: 'bg-secondary' };
+    return map[status ?? 0] ?? 'bg-secondary';
   }
 
   printOrder(): void {

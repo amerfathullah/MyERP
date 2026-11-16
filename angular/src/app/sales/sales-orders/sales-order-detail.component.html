@@ -479,6 +479,84 @@
       </div>
     }
 
+    @if (proformaInvoices().length > 0 || proformedTotals().length > 0) {
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="card-title mb-0"><i class="fa fa-file-invoice me-2"></i>{{ '::ProformaInvoices' | abpLocalization }}</h6>
+          <span class="badge bg-info text-dark">{{ proformaInvoices().length }}</span>
+        </div>
+        <div class="card-body">
+          @if (proformaInvoices().length > 0) {
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              @for (pf of proformaInvoices(); track pf.id) {
+                <a [routerLink]="['/sales/proforma-invoices', pf.id]" class="btn btn-sm btn-outline-primary">
+                  {{ pf.proformaNumber }} ({{ pf.grandTotal | number:'1.2-2' }})
+                </a>
+              }
+            </div>
+          }
+          @if (proformedTotals().length > 0) {
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ProformedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::RemainingQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ProformedAmount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::RemainingAmount' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (pt of proformedTotals(); track pt.salesOrderItemId ?? $index) {
+                    <tr>
+                      <td>{{ pt.itemCode ? (pt.itemCode + ' — ') : '' }}{{ pt.itemName }}</td>
+                      <td class="text-end">{{ pt.orderedQty | number:'1.0-2' }}</td>
+                      <td class="text-end">{{ pt.proformedQty | number:'1.0-2' }}</td>
+                      <td class="text-end">{{ pt.remainingQty | number:'1.0-2' }}</td>
+                      <td class="text-end font-monospace">{{ pt.proformedAmount | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ pt.remainingAmount | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (documentApprovals().length > 0) {
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0"><i class="fa fa-stamp me-2"></i>{{ '::DocumentApprovals' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::ApprovalLevel' | abpLocalization }}</th>
+                <th>{{ '::Name' | abpLocalization }}</th>
+                <th>{{ '::ApprovalStatus' | abpLocalization }}</th>
+                <th>{{ '::Notes' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (apr of documentApprovals(); track apr.id ?? $index) {
+                <tr>
+                  <td>#{{ apr.level ?? 1 }}</td>
+                  <td>{{ apr.ruleName || '—' }}</td>
+                  <td><span class="badge" [class]="approvalStatusBadge(apr.status)">{{ approvalStatusLabel(apr.status) }}</span></td>
+                  <td class="text-muted small">{{ apr.remarks || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
     <app-activity-log [documentType]="'SalesOrder'" [documentId]="order.id!"></app-activity-log>
 
     <!-- Delivery Schedule Generator (when no schedule exists and order is active) -->

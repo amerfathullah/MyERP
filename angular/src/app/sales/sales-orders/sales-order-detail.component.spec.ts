@@ -13,6 +13,8 @@ import { SalesOrderStore } from '../store/sales-order.store';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
+import { ProformaInvoiceService } from '../../proxy/sales/proforma-invoice.service';
+import { ApprovalWorkflowService } from '../../proxy/workflow/approval-workflow.service';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -315,13 +317,20 @@ describe('SalesOrderDetailComponent Logic', () => {
       const routerMock = { navigate: vi.fn() };
       const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() };
       const stockReservationMock = { cancelForOrder: vi.fn().mockReturnValue(of(void 0)) };
+      const proformaMock = {
+        getForSalesOrder: vi.fn().mockReturnValue(of([{ id: 'pf-1', proformaNumber: 'PF-001', grandTotal: 500 }])),
+        getProformedTotals: vi.fn().mockReturnValue(of([{ salesOrderItemId: 'soi-1', orderedQty: 5, proformedQty: 2, remainingQty: 3 }])),
+      };
+      const approvalMock = {
+        getDocumentApprovals: vi.fn().mockReturnValue(of({ items: [{ id: 'apr-1', level: 1, ruleName: 'Director Approval', status: 1 }] })),
+      };
       const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
 
       const injector = Injector.create({
         providers: [
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'so-1' } } } },
           { provide: Router, useValue: routerMock },
-          { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of(null)), getDeliverySchedule: vi.fn().mockReturnValue(of([])), getOrderPayments: vi.fn().mockReturnValue(of([])) } },
+          { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [] })), getDeliverySchedule: vi.fn().mockReturnValue(of([])), getOrderPayments: vi.fn().mockReturnValue(of([])) } },
           { provide: DocumentConversionService, useValue: conversionMock },
           { provide: SupplierService, useValue: supplierMock },
           { provide: ManufacturingService, useValue: {} },
@@ -330,6 +339,8 @@ describe('SalesOrderDetailComponent Logic', () => {
           { provide: DocumentEmailService, useValue: {} },
           { provide: StockBalanceService, useValue: { getStockBalance: vi.fn().mockReturnValue(of({ items: [] })) } },
           { provide: StockReservationService, useValue: stockReservationMock },
+          { provide: ProformaInvoiceService, useValue: proformaMock },
+          { provide: ApprovalWorkflowService, useValue: approvalMock },
           { provide: SalesOrderAmendmentService, useValue: {} },
           { provide: DocumentPrintService, useValue: {} },
           { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
@@ -347,7 +358,7 @@ describe('SalesOrderDetailComponent Logic', () => {
           { id: 'soi-2', itemId: 'item-2', description: 'Closed Item', quantity: 2, orderedQty: 0, isClosed: true },
         ],
       } as any;
-      return { comp, conversionMock, supplierMock, stockReservationMock, routerMock, toasterMock };
+      return { comp, conversionMock, supplierMock, stockReservationMock, proformaMock, approvalMock, routerMock, toasterMock };
     }
 
     it('exposes purchase_order workflow action for active sales orders', () => {
@@ -395,6 +406,19 @@ describe('SalesOrderDetailComponent Logic', () => {
 
       expect(stockReservationMock.cancelForOrder).toHaveBeenCalledWith('so-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::ReservationsCancelled');
+    });
+
+    it('loads proforma invoices, proformed totals, and document approvals on init', () => {
+      const { comp, proformaMock, approvalMock } = createComponent();
+      comp.ngOnInit();
+
+      expect(proformaMock.getForSalesOrder).toHaveBeenCalledWith('so-1');
+      expect(proformaMock.getProformedTotals).toHaveBeenCalledWith('so-1');
+      expect(approvalMock.getDocumentApprovals).toHaveBeenCalledWith('SalesOrder', 'so-1');
+      expect(comp.proformaInvoices()).toHaveLength(1);
+      expect(comp.proformedTotals()).toHaveLength(1);
+      expect(comp.documentApprovals()).toHaveLength(1);
+      expect(comp.approvalStatusLabel(1)).toBe('Approved');
     });
   });
 });

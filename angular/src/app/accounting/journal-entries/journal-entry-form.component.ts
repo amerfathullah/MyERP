@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -53,6 +53,7 @@ const VOUCHER_TYPES: { value: number; key: string; label: string }[] = [
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     PageModule,
     LocalizationPipe,
     AutoValidationDirective,
@@ -64,6 +65,7 @@ const VOUCHER_TYPES: { value: number; key: string; label: string }[] = [
 })
 export class JournalEntryFormComponent implements OnInit {
   private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
   private router = inject(Router);
   private accountService = inject(AccountService);
   private journalEntryService = inject(JournalEntryService);
@@ -76,8 +78,11 @@ export class JournalEntryFormComponent implements OnInit {
 
   companies = signal<CompanyDto[]>([]);
   saving = signal(false);
+  loadingDocTemplate = signal(false);
   templates = signal<JournalEntryTemplateDto[]>([]);
   voucherTypes = VOUCHER_TYPES;
+  sourceDocType = 'SalesInvoice';
+  sourceDocId = '';
 
   form = this.fb.group({
     companyId: [''],
@@ -144,6 +149,49 @@ export class JournalEntryFormComponent implements OnInit {
       this.templateService.getList({ companyId: cid, maxResultCount: 100 } as any)
         .subscribe({ next: (res) => this.templates.set((res.items ?? []).filter(t => t.isActive)), error: () => {} });
     }
+
+    const qType = this.route.snapshot.queryParamMap.get('documentType');
+    const qId = this.route.snapshot.queryParamMap.get('documentId');
+    if (qType && qId) {
+      this.sourceDocType = qType;
+      this.sourceDocId = qId;
+      this.loadFromSourceDocument(qType, qId);
+    }
+  }
+
+  loadFromSourceDocument(documentType: string = this.sourceDocType, documentId: string = this.sourceDocId): void {
+    const id = documentId.trim();
+    if (!documentType || !id) return;
+    this.loadingDocTemplate.set(true);
+    this.journalEntryService.getJournalEntryTemplate(documentType, id).subscribe({
+      next: (tpl) => {
+        this.loadingDocTemplate.set(false);
+        this.form.patchValue({
+          companyId: tpl.companyId || this.form.get('companyId')?.value,
+          voucherType: tpl.voucherType ?? 0,
+          entryDate: tpl.postingDate ? tpl.postingDate.substring(0, 10) : this.form.get('entryDate')?.value,
+          reference: tpl.referenceNumber ?? '',
+          narration: tpl.narration ?? '',
+        });
+        while (this.lines.length) this.lines.removeAt(0);
+        for (const line of tpl.lines ?? []) {
+          this.lines.push(this.fb.group({
+            accountId: [line.accountId ?? '', Validators.required],
+            accountName: [''],
+            accountCurrency: [''],
+            exchangeRate: [1, [Validators.min(0)]],
+            debit: [line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
+            credit: [!line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
+          }));
+          if (line.accountId) this.loadAccountDetails(this.lines.length - 1, line.accountId);
+        }
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => {
+        this.loadingDocTemplate.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail ?? err?.error?.error?.message ?? '::OperationFailed');
+      },
+    });
   }
 
   loadTemplate(templateId: string): void {

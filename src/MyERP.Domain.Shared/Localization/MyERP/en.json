@@ -6346,7 +6346,14 @@
     "ItemsWithoutPrice": "Items Without Price",
     "OpenWorkOrders": "Open Work Orders",
     "ActiveSubscriptions": "Active Subscriptions",
-    "TransactionTimeline": "Transaction Activity Timeline"
+    "TransactionTimeline": "Transaction Activity Timeline",
+    "ProformedQty": "Proformed Qty",
+    "ProformedAmount": "Proformed Amount",
+    "ProformedTotals": "Proformed Totals",
+    "LoadFromDocument": "Load From Document",
+    "DocumentApprovals": "Document Approvals",
+    "ApprovalLevel": "Level",
+    "ApprovalStatus": "Approval Status"
   }
 }
 

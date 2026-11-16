@@ -51,6 +51,21 @@
               </select>
             </div>
           }
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::LoadFromDocument' | abpLocalization }}</label>
+            <div class="input-group">
+              <select class="form-select" style="max-width: 170px;" [(ngModel)]="sourceDocType" [ngModelOptions]="{ standalone: true }">
+                <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+                <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+                <option value="SalesOrder">{{ '::SalesOrder' | abpLocalization }}</option>
+                <option value="PurchaseOrder">{{ '::PurchaseOrder' | abpLocalization }}</option>
+              </select>
+              <input type="text" class="form-control" [(ngModel)]="sourceDocId" [ngModelOptions]="{ standalone: true }" placeholder="Document ID" />
+              <button type="button" class="btn btn-outline-primary" [disabled]="loadingDocTemplate() || !sourceDocId.trim()" (click)="loadFromSourceDocument()">
+                <i class="fa fa-download me-1"></i>{{ '::LoadFromDocument' | abpLocalization }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

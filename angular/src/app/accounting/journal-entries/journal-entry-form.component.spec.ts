@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { ChangeDetectorRef, Injector, runInInjectionContext } from '@angular/core';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { JournalEntryFormComponent } from './journal-entry-form.component';
+import { AccountService } from '../../proxy/accounting/account.service';
+import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
+import { JournalEntryTemplateService } from '../../proxy/accounting/journal-entry-template.service';
+import { CompanyService } from '../../proxy/core/company.service';
+import { FiscalYearService } from '../../proxy/accounting/fiscal-year.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 describe('JournalEntry form logic', () => {
   const fb = new FormBuilder();
@@ -171,6 +182,50 @@ describe('JournalEntry form logic', () => {
       addLine(lines, { accountId: 'revenue', credit: 1000 });
       addLine(lines, { accountId: 'tax-payable', credit: 60 });
       expect(isBalanced(lines)).toBe(true);
+    });
+  });
+
+  describe('JournalEntryFormComponent source document template', () => {
+    it('loads balanced journal lines from getJournalEntryTemplate query params', () => {
+      const jeMock = {
+        getAccountDetails: vi.fn().mockReturnValue(of({ accountCurrency: 'MYR', accountBalance: 0 })),
+        getJournalEntryTemplate: vi.fn().mockReturnValue(of({
+          companyId: 'comp-1',
+          postingDate: '2026-11-16T00:00:00',
+          voucherType: 2,
+          referenceNumber: 'SI-001',
+          narration: 'Payment against Sales Invoice SI-001',
+          lines: [
+            { accountId: 'acc-bank', amount: 500, isDebit: true },
+            { accountId: 'acc-ar', amount: 500, isDebit: false },
+          ],
+        })),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'documentType' ? 'SalesInvoice' : k === 'documentId' ? 'si-1' : null) } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: AccountService, useValue: { get: vi.fn().mockReturnValue(of({ currencyCode: 'MYR' })) } },
+          { provide: JournalEntryService, useValue: jeMock },
+          { provide: JournalEntryTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'comp-1', currencyCode: 'MYR' }] })) } },
+          { provide: FiscalYearService, useValue: {} },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ChangeDetectorRef, useValue: { detectChanges: vi.fn(), markForCheck: vi.fn() } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new JournalEntryFormComponent());
+      comp.ngOnInit();
+
+      expect(jeMock.getJournalEntryTemplate).toHaveBeenCalledWith('SalesInvoice', 'si-1');
+      expect(comp.form.get('reference')?.value).toBe('SI-001');
+      expect(comp.lines.length).toBe(2);
+      expect(comp.totalDebit).toBe(500);
+      expect(comp.totalCredit).toBe(500);
+      expect(comp.isBalanced).toBe(true);
     });
   });
 });
