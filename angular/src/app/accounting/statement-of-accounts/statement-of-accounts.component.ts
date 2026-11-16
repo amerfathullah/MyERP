@@ -10,7 +10,30 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
-import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/accounting/models';
+import type {
+  BatchStatementOfAccountsResultDto,
+  PartyStatementSummaryDto,
+  StatementOfAccountsDto,
+  SupplierStatementDto,
+} from '../../proxy/accounting/models';
+
+export function buildBatchStatementCsvRows(
+  statements: PartyStatementSummaryDto[] | undefined,
+): Record<string, string | number>[] {
+  return (statements ?? []).map(s => ({
+    Party: s.partyName ?? '',
+    'Party Type': s.partyType ?? '',
+    Opening: (s.openingBalance ?? 0).toFixed(2),
+    Invoiced: (s.invoicedAmount ?? 0).toFixed(2),
+    Paid: (s.paidAmount ?? 0).toFixed(2),
+    Closing: (s.closingBalance ?? 0).toFixed(2),
+    '0-30': (s.aging?.current_0_30 ?? 0).toFixed(2),
+    '31-60': (s.aging?.age_31_60 ?? 0).toFixed(2),
+    '61-90': (s.aging?.age_61_90 ?? 0).toFixed(2),
+    '91-120': (s.aging?.age_91_120 ?? 0).toFixed(2),
+    '120+': (s.aging?.age_120_Plus ?? 0).toFixed(2),
+  }));
+}
 
 @Component({
   standalone: true,
@@ -20,52 +43,83 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fa fa-file-contract me-2"></i>{{ '::StatementOfAccounts' | abpLocalization }}</h5>
-        @if (customerResult() || supplierResult()) {
+        @if ((viewMode === 'single' && (customerResult() || supplierResult())) || (viewMode === 'batch' && batchResult())) {
           <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" (click)="exportCsv()">
+            <button class="btn btn-outline-secondary" (click)="viewMode === 'batch' ? exportBatchCsv() : exportCsv()">
               <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
             </button>
-            <button class="btn btn-outline-success" (click)="openEmailDialog()">
-              <i class="fa fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}
-            </button>
-            <button class="btn btn-outline-primary" (click)="printStatement()">
-              <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
-            </button>
+            @if (viewMode === 'single') {
+              <button class="btn btn-outline-success" (click)="openEmailDialog()">
+                <i class="fa fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-primary" (click)="printStatement()">
+                <i class="fa fa-print me-1"></i>{{ '::Print' | abpLocalization }}
+              </button>
+            }
           </div>
         }
       </div>
       <div class="card-body">
-        <!-- Party Type Tabs -->
-        <ul class="nav nav-tabs mb-3">
-          <li class="nav-item">
-            <a class="nav-link" [class.active]="partyType === 'Customer'" (click)="switchPartyType('Customer')" role="button">
-              <i class="fa fa-users me-1"></i>{{ '::Receivables' | abpLocalization }}
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" [class.active]="partyType === 'Supplier'" (click)="switchPartyType('Supplier')" role="button">
-              <i class="fa fa-building me-1"></i>{{ '::Payables' | abpLocalization }}
-            </a>
-          </li>
-        </ul>
+        <!-- View Mode & Party Type Tabs -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <ul class="nav nav-tabs mb-0">
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="partyType === 'Customer'" (click)="switchPartyType('Customer')" role="button">
+                <i class="fa fa-users me-1"></i>{{ '::Receivables' | abpLocalization }}
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="partyType === 'Supplier'" (click)="switchPartyType('Supplier')" role="button">
+                <i class="fa fa-building me-1"></i>{{ '::Payables' | abpLocalization }}
+              </a>
+            </li>
+          </ul>
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn"
+                    [class.btn-primary]="viewMode === 'single'"
+                    [class.btn-outline-primary]="viewMode !== 'single'"
+                    (click)="viewMode = 'single'">
+              {{ '::Party' | abpLocalization }}
+            </button>
+            <button type="button" class="btn"
+                    [class.btn-primary]="viewMode === 'batch'"
+                    [class.btn-outline-primary]="viewMode !== 'batch'"
+                    (click)="viewMode = 'batch'">
+              {{ '::BatchStatements' | abpLocalization }}
+            </button>
+          </div>
+        </div>
 
         <!-- Filters -->
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <label class="form-label">{{ partyType === 'Customer' ? ('::Customer' | abpLocalization) : ('::Supplier' | abpLocalization) }}</label>
-            <select class="form-select form-select-sm" [(ngModel)]="partyId" (ngModelChange)="onPartyChanged()">
-              <option value="">-- {{ '::Select' | abpLocalization }} --</option>
-              @if (partyType === 'Customer') {
-                @for (c of customers(); track c.id) {
-                  <option [value]="c.id">{{ c.customerName }}</option>
+        <div class="row g-2 mb-3 align-items-end">
+          @if (viewMode === 'single') {
+            <div class="col-md-4">
+              <label class="form-label">{{ partyType === 'Customer' ? ('::Customer' | abpLocalization) : ('::Supplier' | abpLocalization) }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="partyId" (ngModelChange)="onPartyChanged()">
+                <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+                @if (partyType === 'Customer') {
+                  @for (c of customers(); track c.id) {
+                    <option [value]="c.id">{{ c.name }}</option>
+                  }
+                } @else {
+                  @for (s of suppliers(); track s.id) {
+                    <option [value]="s.id">{{ s.name }}</option>
+                  }
                 }
-              } @else {
-                @for (s of suppliers(); track s.id) {
-                  <option [value]="s.id">{{ s.name }}</option>
-                }
-              }
-            </select>
-          </div>
+              </select>
+            </div>
+          } @else {
+            <div class="col-md-4 d-flex gap-3 align-items-center pb-1">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="includeZeroBal" [(ngModel)]="includeZeroBalance" />
+                <label class="form-check-label small" for="includeZeroBal">{{ '::IncludeZeroBalance' | abpLocalization }}</label>
+              </div>
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="includeAgingCheck" [(ngModel)]="includeAging" />
+                <label class="form-check-label small" for="includeAgingCheck">{{ '::IncludeAging' | abpLocalization }}</label>
+              </div>
+            </div>
+          }
           <div class="col-md-3">
             <label class="form-label">{{ '::From' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
@@ -75,28 +129,120 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
           </div>
           <div class="col-md-2 d-flex align-items-end">
-            <button class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="!partyId || isLoading()">
-              @if (isLoading()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              {{ '::GenerateReport' | abpLocalization }}
-            </button>
+            @if (viewMode === 'single') {
+              <button class="btn btn-primary btn-sm w-100" (click)="generate()" [disabled]="!partyId || isLoading()">
+                @if (isLoading()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                {{ '::GenerateReport' | abpLocalization }}
+              </button>
+            } @else {
+              <button class="btn btn-primary btn-sm w-100" (click)="generateBatch()" [disabled]="isLoading()">
+                @if (isLoading()) { <i class="fa fa-spinner fa-spin me-1"></i> }
+                {{ '::GenerateReport' | abpLocalization }}
+              </button>
+            }
           </div>
         </div>
 
-        <!-- Customer Statement -->
-        @if (partyType === 'Customer' && customerResult(); as r) {
-          <ng-container *ngTemplateOutlet="statementView; context: { $implicit: r }"></ng-container>
-        }
+        @if (viewMode === 'single') {
+          <!-- Customer Statement -->
+          @if (partyType === 'Customer' && customerResult(); as r) {
+            <ng-container *ngTemplateOutlet="statementView; context: { $implicit: r }"></ng-container>
+          }
 
-        <!-- Supplier Statement -->
-        @if (partyType === 'Supplier' && supplierResult(); as r) {
-          <ng-container *ngTemplateOutlet="statementView; context: { $implicit: r }"></ng-container>
-        }
+          <!-- Supplier Statement -->
+          @if (partyType === 'Supplier' && supplierResult(); as r) {
+            <ng-container *ngTemplateOutlet="statementView; context: { $implicit: r }"></ng-container>
+          }
 
-        @if (!customerResult() && !supplierResult()) {
-          <div class="text-center text-muted py-5">
-            <i class="fa fa-file-contract fa-3x mb-3 opacity-25"></i>
-            <p>{{ '::SelectCustomerToGenerateStatement' | abpLocalization }}</p>
-          </div>
+          @if (!customerResult() && !supplierResult()) {
+            <div class="text-center text-muted py-5">
+              <i class="fa fa-file-contract fa-3x mb-3 opacity-25"></i>
+              <p>{{ '::SelectCustomerToGenerateStatement' | abpLocalization }}</p>
+            </div>
+          }
+        } @else {
+          @if (batchResult(); as batch) {
+            <div class="row g-2 mb-3">
+              <div class="col-md-2">
+                <div class="border rounded p-2 text-center">
+                  <small class="text-muted">{{ '::Parties' | abpLocalization }}</small>
+                  <div class="fw-bold">{{ batch.statements?.length ?? 0 }}</div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="border rounded p-2 text-center">
+                  <small class="text-muted">{{ '::OpeningBalance' | abpLocalization }}</small>
+                  <div class="fw-bold">{{ (batch.totalOpeningBalance ?? 0) | number:'1.2-2' }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 text-center">
+                  <small class="text-muted">{{ '::TotalInvoiced' | abpLocalization }}</small>
+                  <div class="fw-bold text-primary">{{ (batch.totalInvoiced ?? 0) | number:'1.2-2' }}</div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="border rounded p-2 text-center">
+                  <small class="text-muted">{{ '::TotalPaid' | abpLocalization }}</small>
+                  <div class="fw-bold text-success">{{ (batch.totalPaid ?? 0) | number:'1.2-2' }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 text-center bg-light">
+                  <small class="text-muted">{{ '::ClosingBalance' | abpLocalization }}</small>
+                  <div class="fw-bold" [class.text-danger]="(batch.totalClosingBalance ?? 0) > 0">
+                    {{ (batch.totalClosingBalance ?? 0) | number:'1.2-2' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>{{ '::Party' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::OpeningBalance' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::InvoicedAmount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::PaidAmount' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ClosingBalance' | abpLocalization }}</th>
+                    @if (includeAging) {
+                      <th class="text-end">0-30</th>
+                      <th class="text-end">31-60</th>
+                      <th class="text-end">61-90</th>
+                      <th class="text-end">91-120</th>
+                      <th class="text-end">120+</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of batch.statements ?? []; track s.partyId ?? $index) {
+                    <tr style="cursor: pointer;" (click)="openPartyFromBatch(s)">
+                      <td class="fw-medium">{{ s.partyName }}</td>
+                      <td class="text-end font-monospace">{{ (s.openingBalance ?? 0) | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace">{{ (s.invoicedAmount ?? 0) | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace text-success">{{ (s.paidAmount ?? 0) | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-bold" [class.text-danger]="(s.closingBalance ?? 0) > 0">
+                        {{ (s.closingBalance ?? 0) | number:'1.2-2' }}
+                      </td>
+                      @if (includeAging) {
+                        <td class="text-end font-monospace">{{ (s.aging?.current_0_30 ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ (s.aging?.age_31_60 ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ (s.aging?.age_61_90 ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ (s.aging?.age_91_120 ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ (s.aging?.age_120_Plus ?? 0) | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="text-center text-muted py-5">
+              <i class="fa fa-layer-group fa-3x mb-3 opacity-25"></i>
+              <p>{{ '::GenerateReport' | abpLocalization }}</p>
+            </div>
+          }
         }
       </div>
     </div>
@@ -303,10 +449,14 @@ export class StatementOfAccountsComponent implements OnInit {
   suppliers = signal<any[]>([]);
   customerResult = signal<StatementOfAccountsDto | null>(null);
   supplierResult = signal<SupplierStatementDto | null>(null);
+  batchResult = signal<BatchStatementOfAccountsResultDto | null>(null);
   isLoading = signal(false);
 
+  viewMode: 'single' | 'batch' = 'single';
   partyType: 'Customer' | 'Supplier' = 'Customer';
   partyId = '';
+  includeZeroBalance = false;
+  includeAging = true;
   fromDate = new Date(new Date().getFullYear(), 0, 1).toISOString().substring(0, 10);
   toDate = new Date().toISOString().substring(0, 10);
   today = new Date();
@@ -341,11 +491,52 @@ export class StatementOfAccountsComponent implements OnInit {
     this.partyId = '';
     this.customerResult.set(null);
     this.supplierResult.set(null);
+    this.batchResult.set(null);
   }
 
   onPartyChanged(): void {
     this.customerResult.set(null);
     this.supplierResult.set(null);
+  }
+
+  generateBatch(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+    this.isLoading.set(true);
+    this.statementService.processBatchStatement({
+      companyId,
+      partyType: this.partyType,
+      fromDate: this.fromDate,
+      toDate: this.toDate,
+      includeZeroBalance: this.includeZeroBalance,
+      includeAging: this.includeAging,
+    }).subscribe({
+      next: res => {
+        this.batchResult.set(res);
+        this.isLoading.set(false);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.error?.message || err?.message || '::FailedToLoad';
+        this.toaster.error(msg);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  openPartyFromBatch(summary: PartyStatementSummaryDto): void {
+    if (!summary.partyId) return;
+    this.viewMode = 'single';
+    this.partyId = summary.partyId;
+    this.generate();
+  }
+
+  exportBatchCsv(): void {
+    const batch = this.batchResult();
+    if (!batch?.statements?.length) return;
+    const rows = buildBatchStatementCsvRows(batch.statements);
+    exportToCsv(`batch-statements-${this.partyType.toLowerCase()}-${this.fromDate}-to-${this.toDate}.csv`, rows, [
+      'Party', 'Party Type', 'Opening', 'Invoiced', 'Paid', 'Closing', '0-30', '31-60', '61-90', '91-120', '120+',
+    ]);
   }
 
   generate(): void {
@@ -380,7 +571,7 @@ export class StatementOfAccountsComponent implements OnInit {
 
   getPartyName(): string {
     if (this.partyType === 'Customer') {
-      return this.customers().find(c => c.id === this.partyId)?.customerName ?? '';
+      return this.customers().find(c => c.id === this.partyId)?.name ?? '';
     }
     return this.suppliers().find(s => s.id === this.partyId)?.name ?? '';
   }

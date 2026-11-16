@@ -10,7 +10,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
-import type { SubcontractingOrderDto } from '../../proxy/purchasing/models';
+import type { SubcontractingOrderDto, SubcontractingReceiptSummaryDto } from '../../proxy/purchasing/models';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
 @Component({
@@ -103,13 +103,30 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
                       <td><app-status-badge [status]="r.status + ''" /></td>
                       <td class="text-end">{{ r.netTotal | number:'1.2-2' }}</td>
                       <td>
-                        @if (r.status === 1 && !r.isReturn) {
-                          <button class="btn btn-sm btn-outline-danger" (click)="openReturnDialog(r)">
-                            <i class="fa fa-rotate-left me-1"></i>{{ '::Return' | abpLocalization }}
+                        <div class="d-flex gap-1">
+                          <button class="btn btn-sm btn-outline-info" (click)="toggleReceiptSummary(r.id)">
+                            <i class="fa fa-list-check me-1"></i>{{ '::Summary' | abpLocalization }}
                           </button>
-                        }
+                          @if (r.status === 1 && !r.isReturn) {
+                            <button class="btn btn-sm btn-outline-danger" (click)="openReturnDialog(r)">
+                              <i class="fa fa-rotate-left me-1"></i>{{ '::Return' | abpLocalization }}
+                            </button>
+                          }
+                        </div>
                       </td>
                     </tr>
+                    @if (selectedReceiptSummary()?.id === r.id) {
+                      <tr class="table-light">
+                        <td colspan="5" class="small">
+                          <span class="me-3"><strong>{{ '::Items' | abpLocalization }}:</strong> {{ selectedReceiptSummary()!.totalItemsCount ?? 0 }}</span>
+                          <span class="me-3"><strong>{{ '::TotalReceivedQty' | abpLocalization }}:</strong> {{ selectedReceiptSummary()!.totalReceivedQty ?? 0 | number:'1.0-2' }}</span>
+                          <span class="me-3"><strong>{{ '::NetTotal' | abpLocalization }}:</strong> {{ selectedReceiptSummary()!.netTotal ?? 0 | number:'1.2-2' }}</span>
+                          @if (selectedReceiptSummary()!.returnAgainstReceiptNumber) {
+                            <span><strong>{{ '::Return' | abpLocalization }}:</strong> {{ selectedReceiptSummary()!.returnAgainstReceiptNumber }}</span>
+                          }
+                        </td>
+                      </tr>
+                    }
                   }
                 </tbody>
               </table>
@@ -234,6 +251,7 @@ export class SubcontractingDetailComponent implements OnInit {
   isCreatingReceipt = signal(false);
 
   receipts = signal<any[]>([]);
+  selectedReceiptSummary = signal<SubcontractingReceiptSummaryDto | null>(null);
   showReturnDialog = signal(false);
   returnAgainst = signal<any>(null);
   returnItems = signal<{ itemId: string; itemName: string; qty: number; rejectedQty: number; rate: number; returnQty: number; warehouseId?: string; rejectedWarehouseId?: string; returnQtyFromRejectedWarehouse?: boolean }[]>([]);
@@ -255,6 +273,17 @@ export class SubcontractingDetailComponent implements OnInit {
     this.service.getReceiptsForOrder(subcontractingOrderId).subscribe({
       next: (r: any) => this.receipts.set(r ?? []),
       error: () => {}
+    });
+  }
+
+  toggleReceiptSummary(receiptId: string): void {
+    if (this.selectedReceiptSummary()?.id === receiptId) {
+      this.selectedReceiptSummary.set(null);
+      return;
+    }
+    this.service.getReceiptSummary(receiptId).subscribe({
+      next: summary => this.selectedReceiptSummary.set(summary),
+      error: () => this.toaster.error('::FailedToLoad'),
     });
   }
 

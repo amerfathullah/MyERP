@@ -8,6 +8,22 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../../shared/components/breadcrumb/breadcrumb.component';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
+import type { StockBalanceReportDto, StockBalanceReportRowDto } from '../../../proxy/inventory/models';
+
+export function filterMovementRows(
+  rows: StockBalanceReportRowDto[] | undefined,
+  searchText: string,
+): StockBalanceReportRowDto[] {
+  const list = rows ?? [];
+  const term = searchText.trim().toLowerCase();
+  if (!term) return list;
+  return list.filter(
+    r =>
+      (r.itemCode ?? '').toLowerCase().includes(term) ||
+      (r.itemName ?? '').toLowerCase().includes(term) ||
+      (r.batchNo ?? '').toLowerCase().includes(term),
+  );
+}
 
 interface StockBalanceRow {
   itemId: string;
@@ -48,10 +64,24 @@ interface StockBalanceRow {
     <app-breadcrumb />
     <div class="container-fluid my-3">
       <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h5 class="mb-0"><i class="fas fa-boxes-stacked me-2"></i>{{ '::Inventory:StockBalance' | abpLocalization }}</h5>
-          <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="!data().length">
+          <div class="d-flex gap-2 align-items-center">
+            <div class="btn-group btn-group-sm">
+              <button type="button" class="btn"
+                      [class.btn-primary]="reportMode === 'snapshot'"
+                      [class.btn-outline-primary]="reportMode !== 'snapshot'"
+                      (click)="switchMode('snapshot')">
+                {{ '::CurrentSnapshot' | abpLocalization }}
+              </button>
+              <button type="button" class="btn"
+                      [class.btn-primary]="reportMode === 'movement'"
+                      [class.btn-outline-primary]="reportMode !== 'movement'"
+                      (click)="switchMode('movement')">
+                {{ '::PeriodMovement' | abpLocalization }}
+              </button>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="reportMode === 'snapshot' ? !data().length : !filteredMovementData().length">
               <i class="fas fa-download me-1"></i>Export CSV
             </button>
             <button class="btn btn-primary btn-sm" (click)="loadReport()" [disabled]="loading()">
@@ -72,30 +102,47 @@ interface StockBalanceRow {
                 }
               </select>
             </div>
-            <div class="col-md-3">
-              <label class="form-label small">{{ '::ItemGroup' | abpLocalization }}</label>
-              <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup">
-                <option value="">All Groups</option>
-                @for (g of itemGroups(); track g) {
-                  <option [value]="g">{{ g }}</option>
-                }
-              </select>
-            </div>
+            @if (reportMode === 'snapshot') {
+              <div class="col-md-3">
+                <label class="form-label small">{{ '::ItemGroup' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup">
+                  <option value="">All Groups</option>
+                  @for (g of itemGroups(); track g) {
+                    <option [value]="g">{{ g }}</option>
+                  }
+                </select>
+              </div>
+            } @else {
+              <div class="col-md-2">
+                <label class="form-label small">{{ '::FromDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">{{ '::ToDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
+              </div>
+            }
             <div class="col-md-3">
               <label class="form-label small">{{ '::Search' | abpLocalization }}</label>
               <input class="form-control form-control-sm" [(ngModel)]="filterText" [placeholder]="'::Placeholder:ItemCodeOrName' | abpLocalization" (keyup.enter)="loadReport()" />
             </div>
-            <div class="col-md-3 d-flex align-items-end gap-2">
+            <div class="col-md-3 d-flex align-items-end gap-3 flex-wrap">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="showZero" [(ngModel)]="includeZeroStock" />
                 <label class="form-check-label small" for="showZero">Show Zero Stock</label>
               </div>
+              @if (reportMode === 'movement') {
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="showDimWise" [(ngModel)]="showDimensionWiseStock" />
+                  <label class="form-check-label small" for="showDimWise">{{ '::BatchWise' | abpLocalization }}</label>
+                </div>
+              }
             </div>
           </div>
         </div>
 
         <!-- Summary Cards -->
-        @if (data().length > 0) {
+        @if (reportMode === 'snapshot' && data().length > 0) {
           <div class="card-body border-bottom">
             <div class="row text-center">
               <div class="col-md-3">
@@ -117,11 +164,91 @@ interface StockBalanceRow {
             </div>
           </div>
         }
+        @if (reportMode === 'movement' && movementReport(); as mr) {
+          <div class="card-body border-bottom">
+            <div class="row text-center">
+              <div class="col-md">
+                <div class="fw-bold text-secondary fs-5">{{ (mr.totalOpeningQty ?? 0) | number:'1.0-2' }}</div>
+                <small class="text-muted">{{ '::OpeningQty' | abpLocalization }}</small>
+              </div>
+              <div class="col-md">
+                <div class="fw-bold text-success fs-5">{{ (mr.totalInQty ?? 0) | number:'1.0-2' }}</div>
+                <small class="text-muted">{{ '::InQty' | abpLocalization }}</small>
+              </div>
+              <div class="col-md">
+                <div class="fw-bold text-danger fs-5">{{ (mr.totalOutQty ?? 0) | number:'1.0-2' }}</div>
+                <small class="text-muted">{{ '::OutQty' | abpLocalization }}</small>
+              </div>
+              <div class="col-md">
+                <div class="fw-bold text-primary fs-5">{{ (mr.totalBalanceQty ?? 0) | number:'1.0-2' }}</div>
+                <small class="text-muted">{{ '::BalanceQty' | abpLocalization }}</small>
+              </div>
+              <div class="col-md">
+                <div class="fw-bold text-info fs-5">{{ (mr.totalBalanceValue ?? 0) | number:'1.2-2' }}</div>
+                <small class="text-muted">{{ '::BalanceValue' | abpLocalization }}</small>
+              </div>
+            </div>
+          </div>
+        }
 
         <!-- Data Table -->
         <div class="card-body p-0">
           @if (loading()) {
             <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+          } @else if (reportMode === 'movement') {
+            @if (filteredMovementData().length === 0) {
+              <div class="text-center py-5 text-muted">
+                <i class="fas fa-box-open fa-3x mb-3 d-block opacity-50"></i>
+                <p>No stock movement data. Click Refresh to load.</p>
+              </div>
+            } @else {
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-dark sticky-top">
+                    <tr>
+                      <th>{{ '::ItemCode' | abpLocalization }}</th>
+                      <th>{{ '::ItemName' | abpLocalization }}</th>
+                      <th>{{ '::Warehouse' | abpLocalization }}</th>
+                      @if (showDimensionWiseStock) {
+                        <th>{{ '::BatchNo' | abpLocalization }}</th>
+                      }
+                      <th class="text-end">{{ '::OpeningQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::OpeningValue' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::InQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::InValue' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::OutQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::OutValue' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::BalanceQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::BalanceValue' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of filteredMovementData(); track (row.itemId ?? '') + (row.warehouseId ?? '') + (row.batchId ?? '')) {
+                      <tr [class.table-danger]="(row.balanceQty ?? 0) < 0">
+                        <td class="font-monospace small">
+                          <a [routerLink]="['/inventory/items', row.itemId]" class="text-primary">{{ row.itemCode }}</a>
+                        </td>
+                        <td>{{ row.itemName }}</td>
+                        <td><span class="badge bg-light text-dark">{{ row.warehouseName }}</span></td>
+                        @if (showDimensionWiseStock) {
+                          <td class="font-monospace small">{{ row.batchNo || '-' }}</td>
+                        }
+                        <td class="text-end font-monospace">{{ (row.openingQty ?? 0) | number:'1.0-2' }}</td>
+                        <td class="text-end font-monospace">{{ (row.openingValue ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace text-success">{{ (row.inQty ?? 0) | number:'1.0-2' }}</td>
+                        <td class="text-end font-monospace text-success">{{ (row.inValue ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace text-danger">{{ (row.outQty ?? 0) | number:'1.0-2' }}</td>
+                        <td class="text-end font-monospace text-danger">{{ (row.outValue ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace fw-bold">{{ (row.balanceQty ?? 0) | number:'1.0-2' }}</td>
+                        <td class="text-end font-monospace fw-semibold">{{ (row.balanceValue ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace">{{ (row.valuationRate ?? 0) | number:'1.2-4' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
           } @else if (data().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fas fa-box-open fa-3x mb-3 d-block opacity-50"></i>
@@ -213,16 +340,23 @@ export class StockBalanceReportComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
 
   data = signal<StockBalanceRow[]>([]);
+  movementReport = signal<StockBalanceReportDto | null>(null);
   warehouses = signal<{ id: string; name: string }[]>([]);
   itemGroups = signal<string[]>([]);
   loading = signal(false);
 
+  reportMode: 'snapshot' | 'movement' = 'snapshot';
+  fromDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  toDate = new Date().toISOString().split('T')[0];
+  showDimensionWiseStock = false;
   filterWarehouseId = '';
   filterItemGroup = '';
   filterText = '';
   includeZeroStock = false;
   sortField = 'itemCode';
   sortDir: 'asc' | 'desc' = 'asc';
+
+  filteredMovementData = computed(() => filterMovementRows(this.movementReport()?.rows, this.filterText));
 
   // Computed summaries
   totalItems = computed(() => new Set(this.filteredData().map(r => r.itemId)).size);
@@ -265,11 +399,35 @@ export class StockBalanceReportComponent implements OnInit {
       .subscribe({ next: res => this.warehouses.set((res.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))), error: () => {} });
   }
 
+  switchMode(mode: 'snapshot' | 'movement'): void {
+    this.reportMode = mode;
+    this.loadReport();
+  }
+
   loadReport(): void {
     this.loading.set(true);
+    const companyId = this.companyContext.currentCompanyId();
+
+    if (this.reportMode === 'movement') {
+      this.stockBalanceService.getStockBalanceReport({
+        companyId: companyId || undefined,
+        warehouseId: this.filterWarehouseId || undefined,
+        fromDate: this.fromDate || undefined,
+        toDate: this.toDate || undefined,
+        showDimensionWiseStock: this.showDimensionWiseStock,
+        excludeZeroStock: !this.includeZeroStock,
+      }).subscribe({
+        next: res => {
+          this.movementReport.set(res);
+          this.loading.set(false);
+        },
+        error: () => { this.loading.set(false); this.toaster.error('::FailedToLoad'); },
+      });
+      return;
+    }
+
     const params: any = { skipCount: '0', maxResultCount: '5000' };
     if (this.filterWarehouseId) params.warehouseId = this.filterWarehouseId;
-    const companyId = this.companyContext.currentCompanyId();
     if (companyId) params.companyId = companyId;
 
     this.stockBalanceService.getStockBalance({ skipCount: 0, maxResultCount: 5000, warehouseId: this.filterWarehouseId || undefined, companyId } as any).subscribe({
@@ -314,6 +472,28 @@ export class StockBalanceReportComponent implements OnInit {
   }
 
   exportCsv(): void {
+    if (this.reportMode === 'movement') {
+      const mRows = this.filteredMovementData();
+      if (!mRows.length) return;
+      const headers = ['Item Code', 'Item Name', 'Warehouse', 'Batch No', 'Opening Qty', 'Opening Value', 'In Qty', 'In Value', 'Out Qty', 'Out Value', 'Balance Qty', 'Balance Value', 'Valuation Rate'];
+      const csvRows = [headers.join(',')];
+      for (const r of mRows) {
+        csvRows.push([
+          `"${r.itemCode ?? ''}"`, `"${r.itemName ?? ''}"`, `"${r.warehouseName ?? ''}"`, `"${r.batchNo ?? ''}"`,
+          r.openingQty ?? 0, r.openingValue ?? 0, r.inQty ?? 0, r.inValue ?? 0,
+          r.outQty ?? 0, r.outValue ?? 0, r.balanceQty ?? 0, r.balanceValue ?? 0, r.valuationRate ?? 0,
+        ].join(','));
+      }
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `stock-balance-movement-${this.fromDate}-to-${this.toDate}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const rows = this.filteredData();
     if (!rows.length) return;
     const headers = ['Item Code', 'Item Name', 'Warehouse', 'UOM', 'Actual Qty', 'Reserved', 'Ordered', 'Projected', 'Rate', 'Value'];

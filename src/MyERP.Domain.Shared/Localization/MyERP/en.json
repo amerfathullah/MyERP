@@ -6214,7 +6214,15 @@
     "AllParties": "All Parties",
     "AllVoucherTypes": "All Voucher Types",
     "DimensionName": "Dimension Name",
-    "DimensionCode": "Dimension Code"
+    "DimensionCode": "Dimension Code",
+    "BatchStatements": "Batch Statements",
+    "IncludeAging": "Include Aging",
+    "CurrentSnapshot": "Current Snapshot",
+    "PeriodMovement": "Period Movement",
+    "OpeningValue": "Opening Value",
+    "InValue": "In Value",
+    "OutValue": "Out Value",
+    "BatchWise": "Batch-wise"
   }
 }
 
