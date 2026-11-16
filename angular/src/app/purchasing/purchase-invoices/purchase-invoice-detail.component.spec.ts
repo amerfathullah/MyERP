@@ -231,6 +231,9 @@ describe('PurchaseInvoiceDetailComponent', () => {
         getPayments: vi.fn().mockReturnValue(of([])),
         createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-pi-1' })),
       };
+      const conversionMock = {
+        convertPurchaseInvoiceToReceipt: vi.fn().mockReturnValue(of({ id: 'pr-1' })),
+      };
       const routerMock = { navigate: vi.fn() };
       const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
       const toasterMock = { success: vi.fn(), error: vi.fn() };
@@ -241,7 +244,7 @@ describe('PurchaseInvoiceDetailComponent', () => {
           { provide: Router, useValue: routerMock },
           { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
           { provide: PurchaseInvoiceService, useValue: piServiceMock },
-          { provide: PurchaseConversionService, useValue: {} },
+          { provide: PurchaseConversionService, useValue: conversionMock },
           { provide: PurchaseInvoiceStore, useValue: {} },
           { provide: ConfirmationService, useValue: confirmationMock },
           { provide: ToasterService, useValue: toasterMock },
@@ -255,7 +258,7 @@ describe('PurchaseInvoiceDetailComponent', () => {
       });
 
       const comp = runInInjectionContext(injector, () => new PurchaseInvoiceDetailComponent());
-      return { comp, piServiceMock, routerMock, toasterMock };
+      return { comp, piServiceMock, conversionMock, routerMock, toasterMock };
     }
 
     it('calls PurchaseInvoiceService.createDebitNote and navigates on confirmation', () => {
@@ -268,6 +271,18 @@ describe('PurchaseInvoiceDetailComponent', () => {
       expect(piServiceMock.createDebitNote).toHaveBeenCalledWith('pi-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::DebitNoteCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/invoices', 'dn-pi-1']);
+    });
+
+    it('converts posted PI without updateStock directly to Purchase Receipt via PurchaseConversionService', () => {
+      const { comp, conversionMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'pi-1', status: 'Posted', perReceived: 0, updateStock: false } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createReceipt')).toBe(true);
+
+      comp.onWorkflowAction('createReceipt');
+
+      expect(conversionMock.convertPurchaseInvoiceToReceipt).toHaveBeenCalledWith('pi-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/receipts', 'pr-1']);
     });
   });
 });

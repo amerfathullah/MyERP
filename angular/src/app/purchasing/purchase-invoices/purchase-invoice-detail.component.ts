@@ -296,8 +296,15 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'createReceipt':
-        this.router.navigate(['/purchasing/receipts/new'], {
-          queryParams: { purchaseInvoiceId: id }
+        this.conversionService.convertPurchaseInvoiceToReceipt(id).subscribe({
+          next: (pr) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/purchasing/receipts', pr.id]);
+          },
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
         });
         break;
       case 'createLCV':

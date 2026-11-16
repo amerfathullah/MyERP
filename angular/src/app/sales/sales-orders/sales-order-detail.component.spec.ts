@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService } from '@abp/ng.core';
-import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { of } from 'rxjs';
 import { SalesOrderDetailComponent } from './sales-order-detail.component';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
@@ -12,6 +12,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
 import { SalesOrderStore } from '../store/sales-order.store';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -313,6 +314,8 @@ describe('SalesOrderDetailComponent Logic', () => {
       };
       const routerMock = { navigate: vi.fn() };
       const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() };
+      const stockReservationMock = { cancelForOrder: vi.fn().mockReturnValue(of(void 0)) };
+      const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
 
       const injector = Injector.create({
         providers: [
@@ -323,9 +326,10 @@ describe('SalesOrderDetailComponent Logic', () => {
           { provide: SupplierService, useValue: supplierMock },
           { provide: ManufacturingService, useValue: {} },
           { provide: SalesOrderStore, useValue: {} },
-          { provide: ConfirmationService, useValue: {} },
+          { provide: ConfirmationService, useValue: confirmationMock },
           { provide: DocumentEmailService, useValue: {} },
           { provide: StockBalanceService, useValue: { getStockBalance: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: StockReservationService, useValue: stockReservationMock },
           { provide: SalesOrderAmendmentService, useValue: {} },
           { provide: DocumentPrintService, useValue: {} },
           { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
@@ -343,7 +347,7 @@ describe('SalesOrderDetailComponent Logic', () => {
           { id: 'soi-2', itemId: 'item-2', description: 'Closed Item', quantity: 2, orderedQty: 0, isClosed: true },
         ],
       } as any;
-      return { comp, conversionMock, supplierMock, routerMock, toasterMock };
+      return { comp, conversionMock, supplierMock, stockReservationMock, routerMock, toasterMock };
     }
 
     it('exposes purchase_order workflow action for active sales orders', () => {
@@ -381,6 +385,16 @@ describe('SalesOrderDetailComponent Logic', () => {
 
       expect(toasterMock.success).toHaveBeenCalledWith('::PurchaseOrdersCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/orders']);
+    });
+
+    it('cancels active stock reservations for the order on confirmation', () => {
+      const { comp, stockReservationMock, toasterMock } = createComponent();
+      expect(comp.workflowActions.some(a => a.name === 'cancel_reservations')).toBe(true);
+
+      comp.onWorkflowAction('cancel_reservations');
+
+      expect(stockReservationMock.cancelForOrder).toHaveBeenCalledWith('so-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::ReservationsCancelled');
     });
   });
 });

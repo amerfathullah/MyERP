@@ -18,6 +18,7 @@ import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendm
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
@@ -47,6 +48,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private documentEmailService = inject(DocumentEmailService);
   private stockBalanceService = inject(StockBalanceService);
+  private stockReservationService = inject(StockReservationService);
   private amendmentService = inject(SalesOrderAmendmentService);
   private toaster = inject(ToasterService);
   private documentPrintService = inject(DocumentPrintService);
@@ -205,6 +207,7 @@ export class SalesOrderDetailComponent implements OnInit {
       actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
       actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
       actions.push({ name: 'purchase_order', label: this.l.instant('::CreatePurchaseOrder'), icon: 'cart-plus', color: 'info' });
+      actions.push({ name: 'cancel_reservations', label: this.l.instant('::CancelStockReservations'), icon: 'unlock', color: 'outline-danger' });
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
@@ -362,6 +365,18 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'purchase_order':
         this.openPoSelection();
+        break;
+      case 'cancel_reservations':
+        this.confirmation.warn('::CancelReservationsConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status !== Confirmation.Status.confirm) return;
+          this.stockReservationService.cancelForOrder(id).subscribe({
+            next: () => {
+              this.toaster.success('::ReservationsCancelled');
+              this.reloadAfterAction();
+            },
+            error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+          });
+        });
         break;
       case 'close':
         this.service.close(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });

@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { StockEntryDetailComponent } from './stock-entry-detail.component';
+import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 /**
  * stock-entry-detail.component.spec.ts
@@ -159,5 +166,34 @@ describe('StockEntryDetail entry types', () => {
 
   it('Disassemble is a valid type', () => {
     expect(SE_TYPES).toContain('Disassemble');
+  });
+});
+
+describe('StockEntryDetailComponent autoPickBatches', () => {
+  it('exposes autoPickBatches for Draft entries and calls service.autoPickBatches', () => {
+    const seMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'se-1', status: 'Draft', items: [] })),
+      autoPickBatches: vi.fn().mockReturnValue(of({ id: 'se-1', status: 'Draft', items: [] })),
+    };
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'se-1' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: StockEntryService, useValue: seMock },
+        { provide: ConfirmationService, useValue: {} },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+      ],
+    });
+    const comp = runInInjectionContext(injector, () => new StockEntryDetailComponent());
+    comp.ngOnInit();
+
+    expect(comp.workflowActions.some(a => a.name === 'autoPickBatches')).toBe(true);
+    comp.onAction('autoPickBatches');
+
+    expect(seMock.autoPickBatches).toHaveBeenCalledWith('se-1');
+    expect(toasterMock.success).toHaveBeenCalledWith('::BatchesPicked');
+    expect(seMock.get).toHaveBeenCalledTimes(2);
   });
 });

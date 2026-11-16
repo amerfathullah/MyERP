@@ -155,6 +155,7 @@ export class StockEntryDetailComponent implements OnInit {
     const actions: WorkflowAction[] = [];
     if (e.status === 'Draft') {
       actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'autoPickBatches', label: 'AutoPickBatches', icon: 'wand-magic-sparkles', color: 'info' });
     }
     if (e.status === 'Submitted') {
       actions.push({ name: 'post', label: 'Post', icon: 'check-double', color: 'success' });
@@ -186,6 +187,12 @@ export class StockEntryDetailComponent implements OnInit {
     switch (action) {
       case 'submit':
         this.service.submit(id).subscribe({ next: () => this.reload(), error: () => {} });
+        break;
+      case 'autoPickBatches':
+        this.service.autoPickBatches(id).subscribe({
+          next: () => { this.toaster.success('::BatchesPicked'); this.reload(); },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+        });
         break;
       case 'post':
         this.service.post(id).subscribe({ next: () => { this.toaster.success('::SuccessfullyPosted'); this.reload(); }, error: () => {} });

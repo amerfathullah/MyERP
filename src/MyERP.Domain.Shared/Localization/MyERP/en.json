@@ -6324,7 +6324,11 @@
     "Message": "Message",
     "RawMaterials": "Raw Materials",
     "MapFromSalesOrder": "Populate From Sales Order",
-    "SubcontractingBomRawMaterials": "Required Raw Materials (BOM)"
+    "SubcontractingBomRawMaterials": "Required Raw Materials (BOM)",
+    "BatchesPicked": "Batches picked automatically.",
+    "CancelStockReservations": "Cancel Reservations",
+    "CancelReservationsConfirmation": "Cancel all active stock reservations for this sales order?",
+    "ReservationsCancelled": "Stock reservations cancelled."
   }
 }
 
