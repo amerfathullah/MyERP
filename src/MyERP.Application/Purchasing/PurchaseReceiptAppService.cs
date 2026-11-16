@@ -737,12 +737,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     }
                 }
 
-                // Internal transfer return (PR #59280): puts returned material back into in-transit warehouse
+                // Internal transfer return (PR #59280 & PR #66692): puts combined rounded accepted + rejected qty back into in-transit warehouse
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
-                    var returnedToSourceQty = (item.Quantity < 0 ? Math.Abs(item.StockQty) : 0m)
-                        + (item.RejectedQty < 0 ? Math.Abs(item.RejectedStockQty) : 0m);
+                    var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
 
                     if (returnedToSourceQty > 0)
                     {
@@ -806,10 +805,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     : item.UnitPrice;
 
                 // Source warehouse for internal transfer (in-transit warehouse)
-                // Per ERPNext PR #59251 / #59256: deduct accepted + rejected qty from in-transit warehouse
+                // Per ERPNext PR #59251 / #59256 / #66692: deduct combined rounded accepted + rejected qty from in-transit warehouse
                 if (item.FromWarehouseId.HasValue)
                 {
-                    var sourceStockQty = stockQty + item.RejectedStockQty;
+                    var sourceStockQty = item.TotalReceivedStockQty;
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(
@@ -1147,10 +1146,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         item.ItemId, cancelWarehouseId, stockQty, receipt.TenantId);
                 }
 
-                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256)
+                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256 / #66692)
                 if (item.FromWarehouseId.HasValue)
                 {
-                    var sourceStockQty = stockQty + item.RejectedStockQty;
+                    var sourceStockQty = item.TotalReceivedStockQty;
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(

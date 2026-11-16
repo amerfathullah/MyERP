@@ -39,6 +39,7 @@ export interface AutoPickDocumentRowDto {
   warehouseId?: string;
   requiredStockQty?: number;
   preselectedBatchId?: string | null;
+  serialAndBatchBundleId?: string | null;
 }
 
 export interface AutoPickedBatchAllocationDto {
@@ -1225,6 +1226,8 @@ export interface GetSerialNoListDto extends PagedAndSortedResultRequestDto {
   itemId?: string | null;
   warehouseId?: string | null;
   filter?: string | null;
+  status?: SerialNoStatus | null;
+  ignoreSerialNos?: string[] | null;
 }
 
 export interface GetShipmentParcelTemplateListDto extends PagedAndSortedResultRequestDto {

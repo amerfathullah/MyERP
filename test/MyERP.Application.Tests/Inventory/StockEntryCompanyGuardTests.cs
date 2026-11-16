@@ -326,4 +326,39 @@ public abstract class StockEntryCompanyGuardTests<TStartupModule> : MyERPApplica
             ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedSubcontractingOrderClosed);
         });
     }
+
+    [Fact]
+    public async Task SerialNoAppService_GetListAsync_ExcludesIgnoreSerialNos_PR66488()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var serialRepo = GetRequiredService<IRepository<SerialNo, Guid>>();
+            var serialAppService = GetRequiredService<ISerialNoAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Serial Ignore Co"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SN-IGN-01", "Serial Ignore Item", ItemType.Goods) { HasSerialNo = true }, autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Serial Wh"), autoSave: true);
+
+            await serialRepo.InsertAsync(new SerialNo(Guid.NewGuid(), item.Id, "SN-IGN-A", company.Id, wh.Id), autoSave: true);
+            await serialRepo.InsertAsync(new SerialNo(Guid.NewGuid(), item.Id, "SN-IGN-B", company.Id, wh.Id), autoSave: true);
+            await serialRepo.InsertAsync(new SerialNo(Guid.NewGuid(), item.Id, "SN-IGN-C", company.Id, wh.Id)
+            {
+                Status = SerialNoStatus.Delivered
+            }, autoSave: true);
+
+            var result = await serialAppService.GetListAsync(new GetSerialNoListDto
+            {
+                ItemId = item.Id,
+                Status = SerialNoStatus.Active,
+                IgnoreSerialNos = new List<string> { "SN-IGN-A" }
+            });
+
+            result.TotalCount.ShouldBe(1);
+            result.Items.Count.ShouldBe(1);
+            result.Items[0].SerialNumber.ShouldBe("SN-IGN-B");
+        });
+    }
 }

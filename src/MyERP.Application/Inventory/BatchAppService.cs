@@ -23,17 +23,20 @@ public class BatchAppService : ApplicationService, IBatchAppService
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IStockEntryAppService _stockEntryAppService;
+    private readonly IRepository<SerialAndBatchBundle, Guid>? _bundleRepository;
 
     public BatchAppService(
         IRepository<Batch, Guid> repository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
-        IStockEntryAppService stockEntryAppService)
+        IStockEntryAppService stockEntryAppService,
+        IRepository<SerialAndBatchBundle, Guid>? bundleRepository = null)
     {
         _repository = repository;
         _sleRepository = sleRepository;
         _warehouseRepository = warehouseRepository;
         _stockEntryAppService = stockEntryAppService;
+        _bundleRepository = bundleRepository;
     }
 
     public async Task<BatchDto> GetAsync(Guid id)
@@ -894,7 +897,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 .ToDictionary(b => b.Id, b => b.BatchNo);
         }
 
-        // 1. Pre-register all rows with preselected batch into exclusions (rounded to entry qty precision)
+        // 1. Pre-register all rows with preselected batch or SerialAndBatchBundle (PR #66306)
         foreach (var row in input.Rows.Where(r => r.PreselectedBatchId.HasValue && r.RequiredStockQty > 0))
         {
             cumulativeExclusions.Add(new ExcludedBatchQtyDto
@@ -903,6 +906,38 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 WarehouseId = row.WarehouseId,
                 StockQty = Math.Round(row.RequiredStockQty, 4, MidpointRounding.AwayFromZero),
             });
+        }
+
+        var bundleRows = input.Rows
+            .Where(r => !r.PreselectedBatchId.HasValue && r.SerialAndBatchBundleId.HasValue)
+            .ToList();
+        if (bundleRows.Any())
+        {
+            var bundleRepo = _bundleRepository ?? LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+            if (bundleRepo != null)
+            {
+                var bundleIds = bundleRows.Select(r => r.SerialAndBatchBundleId!.Value).Distinct().ToList();
+                var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
+                var bundleMap = bundleQuery
+                    .Where(b => bundleIds.Contains(b.Id))
+                    .ToDictionary(b => b.Id);
+
+                foreach (var row in bundleRows)
+                {
+                    if (!bundleMap.TryGetValue(row.SerialAndBatchBundleId!.Value, out var bundle))
+                        continue;
+
+                    foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && e.Qty != 0m))
+                    {
+                        cumulativeExclusions.Add(new ExcludedBatchQtyDto
+                        {
+                            BatchId = entry.BatchId!.Value,
+                            WarehouseId = row.WarehouseId,
+                            StockQty = Math.Round(Math.Abs(entry.Qty), 4, MidpointRounding.AwayFromZero),
+                        });
+                    }
+                }
+            }
         }
 
         // 2. Iterate through rows in order
@@ -917,6 +952,20 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     WarehouseId = row.WarehouseId,
                     BatchId = row.PreselectedBatchId,
                     BatchNo = batchNoMap.GetValueOrDefault(row.PreselectedBatchId.Value),
+                    AllocatedQty = row.RequiredStockQty,
+                });
+                continue;
+            }
+
+            if (row.SerialAndBatchBundleId.HasValue)
+            {
+                result.Add(new AutoPickedBatchAllocationDto
+                {
+                    RowId = row.RowId,
+                    ItemId = row.ItemId,
+                    WarehouseId = row.WarehouseId,
+                    BatchId = null,
+                    BatchNo = null,
                     AllocatedQty = row.RequiredStockQty,
                 });
                 continue;

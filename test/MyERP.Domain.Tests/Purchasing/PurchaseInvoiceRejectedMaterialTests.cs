@@ -274,4 +274,19 @@ public class PurchaseInvoiceRejectedMaterialTests
         returnInvoice.Submit();
         returnInvoice.Status.ShouldBe(DocumentStatus.Submitted);
     }
+
+    [Fact]
+    public void PurchaseReceiptItem_TotalReceivedStockQty_RoundsCombinedQtyOnce_PR66692()
+    {
+        var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-RND-001", DateTime.UtcNow);
+        pr.AddItem(
+            Guid.NewGuid(), "Fractional Item",
+            quantity: 0.33333m, unitPrice: 100m, taxAmount: 0m, uom: "Box",
+            rejectedQty: 0.33334m, rejectedWarehouseId: _rejectedWarehouseId, fromWarehouseId: Guid.NewGuid());
+        var item = pr.Items[0];
+        item.ConversionFactor = 1.5m;
+
+        // (0.33333 + 0.33334) * 1.5 = 0.66667 * 1.5 = 1.000005 -> 1.0000m (rounded once at 4dp)
+        item.TotalReceivedStockQty.ShouldBe(1.0000m);
+    }
 }

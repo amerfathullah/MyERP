@@ -39,6 +39,13 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Rejected quantity in stock UOM = RejectedQty × ConversionFactor (PR #51968 / commit 343ee9695b).</summary>
     public decimal RejectedStockQty => RejectedQty * ConversionFactor;
 
+    /// <summary>
+    /// Combined accepted + rejected quantity in stock UOM rounded once at 4 decimals
+    /// per ERPNext PR #66692 (get_stock_qty(row, row.qty + row.rejected_qty)) so
+    /// fractional UOM splits leave no residual balance in the in-transit warehouse.
+    /// </summary>
+    public decimal TotalReceivedStockQty => Math.Round((Quantity + RejectedQty) * ConversionFactor, 4);
+
     /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
     public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
 

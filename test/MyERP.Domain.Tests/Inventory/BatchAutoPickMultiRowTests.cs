@@ -299,4 +299,60 @@ public class BatchAutoPickMultiRowTests
         Assert.Equal(batch1.Id, result[1].BatchId);
         Assert.Equal(batch2.Id, result[2].BatchId);
     }
+
+    [Fact]
+    public async Task AutoPickBatches_BundleRowExcludesBundleBatchesFromNextRow_PR66306()
+    {
+        var batch1 = new Batch(Guid.NewGuid(), _itemId, "BATCH-SBB-1", null) { CreationTime = DateTime.UtcNow.AddMinutes(-20) };
+        var batch2 = new Batch(Guid.NewGuid(), _itemId, "BATCH-SBB-2", null) { CreationTime = DateTime.UtcNow.AddMinutes(-10) };
+
+        var warehouse = new Warehouse(_warehouseId, _companyId, "Stores");
+        _warehouseRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }.AsQueryable()));
+        _batchRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Batch> { batch1, batch2 }.AsQueryable()));
+
+        var item = new Item(Guid.NewGuid(), _companyId, "ITEM-SBB", "SBB Batch Item", ItemType.Goods) { HasBatchNo = true };
+        _itemRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 5m, 10m, 5m, 50m) { BatchId = batch1.Id },
+            new(Guid.NewGuid(), _companyId, _itemId, _warehouseId, DateTime.UtcNow, 5m, 10m, 5m, 50m) { BatchId = batch2.Id }
+        };
+        _sleRepository.GetQueryableAsync().Returns(Task.FromResult(sles.AsQueryable()));
+
+        var bundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseId,
+            BundleTransactionType.Outward, "DeliveryNote", Guid.NewGuid(), DateTime.UtcNow);
+        bundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), bundle.Id, -5m, 10m, batchId: batch1.Id));
+
+        var bundleRepo = Substitute.For<IRepository<SerialAndBatchBundle, Guid>>();
+        bundleRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SerialAndBatchBundle, object>>[]>())
+            .Returns(Task.FromResult(new List<SerialAndBatchBundle> { bundle }.AsQueryable()));
+
+        var service = new BatchAppService(
+            _batchRepository,
+            _sleRepository,
+            _warehouseRepository,
+            _stockEntryAppService,
+            bundleRepo)
+        {
+            LazyServiceProvider = _lazyProvider
+        };
+
+        var input = new AutoPickBatchesForDocumentDto
+        {
+            CompanyId = _companyId,
+            Rows = new List<AutoPickDocumentRowDto>
+            {
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 5m, SerialAndBatchBundleId = bundle.Id },
+                new() { RowId = Guid.NewGuid(), ItemId = _itemId, WarehouseId = _warehouseId, RequiredStockQty = 5m },
+            }
+        };
+
+        var result = await service.AutoPickBatchesForDocumentAsync(input);
+
+        Assert.Equal(2, result.Count);
+        Assert.Null(result[0].BatchId); // keeps bundle rather than single batch
+        Assert.Equal(batch2.Id, result[1].BatchId); // batch1 excluded by bundle, so batch2 picked
+    }
 }

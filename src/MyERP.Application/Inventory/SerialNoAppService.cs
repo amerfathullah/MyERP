@@ -45,6 +45,22 @@ public class SerialNoAppService : ApplicationService, ISerialNoAppService
             var f = input.Filter;
             query = query.Where(s => s.SerialNumber.Contains(f));
         }
+        if (input.Status.HasValue)
+        {
+            var status = input.Status.Value;
+            query = query.Where(s => s.Status == status);
+        }
+        if (input.IgnoreSerialNos != null && input.IgnoreSerialNos.Count > 0)
+        {
+            var ignored = input.IgnoreSerialNos
+                .Where(sn => !string.IsNullOrWhiteSpace(sn))
+                .Select(sn => sn.Trim())
+                .ToList();
+            if (ignored.Count > 0)
+            {
+                query = query.Where(s => !ignored.Contains(s.SerialNumber));
+            }
+        }
         var totalCount = query.Count();
         var items = query.OrderByDescending(s => s.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();

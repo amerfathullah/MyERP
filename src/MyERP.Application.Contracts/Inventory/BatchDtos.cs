@@ -206,6 +206,7 @@ public class AutoPickDocumentRowDto
     public Guid WarehouseId { get; set; }
     public decimal RequiredStockQty { get; set; }
     public Guid? PreselectedBatchId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
 }
 
 public class AutoPickBatchesForDocumentDto

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Inventory;
@@ -24,4 +25,7 @@ public class GetSerialNoListDto : PagedAndSortedResultRequestDto
     public Guid? ItemId { get; set; }
     public Guid? WarehouseId { get; set; }
     public string? Filter { get; set; }
+    public SerialNoStatus? Status { get; set; }
+    /// <summary>Serial numbers already held by other rows/packed items in the same document (ERPNext PR #66488).</summary>
+    public List<string>? IgnoreSerialNos { get; set; }
 }
