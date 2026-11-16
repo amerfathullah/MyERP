@@ -71,6 +71,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
                   </span>
                 </td>
                 <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="openStatsEditor(item)">Stats</button>
                   <a [routerLink]="['/utilities/videos', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
                   <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
                 </td>
@@ -82,6 +83,35 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
             }
           </tbody>
         </table>
+        @if (editingStatsVideo; as vid) {
+          <div class="card mt-3 bg-light">
+            <div class="card-body">
+              <h6 class="mb-2">Update Stats: {{ vid.title }}</h6>
+              <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                  <label class="form-label small">Views</label>
+                  <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.viewCount">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small">Likes</label>
+                  <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.likeCount">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small">Dislikes</label>
+                  <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.dislikeCount">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label small">Comments</label>
+                  <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.commentCount">
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-primary" (click)="saveStats()">Save Stats</button>
+                  <button type="button" class="btn btn-sm btn-secondary" (click)="editingStatsVideo = null">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
       </div>
     </div>
   `
@@ -94,9 +124,33 @@ export class VideoListComponent implements OnInit {
   items: VideoDto[] = [];
   filter = '';
   selectedProvider: VideoProvider | null = null;
+  editingStatsVideo: VideoDto | null = null;
+  statsForm = { viewCount: 0, likeCount: 0, dislikeCount: 0, commentCount: 0 };
 
   ngOnInit() {
     this.load();
+  }
+
+  openStatsEditor(item: VideoDto): void {
+    this.editingStatsVideo = item;
+    this.statsForm = {
+      viewCount: item.viewCount ?? 0,
+      likeCount: item.likeCount ?? 0,
+      dislikeCount: item.dislikeCount ?? 0,
+      commentCount: item.commentCount ?? 0,
+    };
+  }
+
+  saveStats(): void {
+    if (!this.editingStatsVideo?.id) return;
+    this.service.updateStats(this.editingStatsVideo.id, this.statsForm).subscribe({
+      next: updated => {
+        this.items = this.items.map(v => v.id === updated.id ? updated : v);
+        this.editingStatsVideo = null;
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
   }
 
   load(): void {

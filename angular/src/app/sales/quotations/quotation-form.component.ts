@@ -70,12 +70,15 @@ export class QuotationFormComponent implements OnInit {
     // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
     const oppId = this.route.snapshot.queryParamMap.get('opportunityId');
     const custId = this.route.snapshot.queryParamMap.get('customerId');
+    const prospectId = this.route.snapshot.queryParamMap.get('prospectId');
     if (oppId) {
       this.form.patchValue({ opportunityId: oppId });
       if (custId) {
         this.form.patchValue({ customerId: custId });
       }
       this.form.get('customerId')?.disable();
+    } else if (prospectId) {
+      this.resolveProspectDetails(prospectId);
     }
 
     // Detect edit mode from route param
@@ -128,6 +131,19 @@ export class QuotationFormComponent implements OnInit {
       next: (details) => {
         // Price list fallback reset (ERPNext PR #58893)
         this.form.patchValue({ priceListId: details.priceListId ?? '' });
+      },
+      error: () => {},
+    });
+  }
+
+  resolveProspectDetails(prospectId: string): void {
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getProspectDetails({ partyId: prospectId, companyId }).subscribe({
+      next: (details) => {
+        this.form.patchValue({
+          customerName: details.partyName ?? '',
+          priceListId: details.priceListId ?? '',
+        });
       },
       error: () => {},
     });

@@ -1,5 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { of } from 'rxjs';
+import { QuotationFormComponent } from './quotation-form.component';
+import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
+import { QuotationService } from '../../proxy/sales/quotation.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
 
 /**
  * Tests for the Quotation form DTO mapping.
@@ -120,5 +130,34 @@ describe('Quotation expiry logic', () => {
 
   it('should not be expired for future date', () => {
     expect(isExpired('2099-12-31')).toBe(false);
+  });
+});
+
+describe('QuotationFormComponent Prospect Details', () => {
+  it('prefills prospect name and price list from PartyDetailsService.getProspectDetails', () => {
+    const partyMock = {
+      getProspectDetails: vi.fn().mockReturnValue(of({ partyName: 'Prospect Corp', priceListId: 'pl-retail' })),
+      getCustomerDetails: vi.fn().mockReturnValue(of({})),
+    };
+    const injector = Injector.create({
+      providers: [
+        { provide: FormBuilder, useValue: new FormBuilder() },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: { get: (k: string) => (k === 'prospectId' ? 'pros-1' : null) } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+        { provide: QuotationService, useValue: {} },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyDetailsService, useValue: partyMock },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new QuotationFormComponent());
+    comp.ngOnInit();
+
+    expect(partyMock.getProspectDetails).toHaveBeenCalledWith({ partyId: 'pros-1', companyId: 'comp-1' });
+    expect(comp.form.get('customerName')?.value).toBe('Prospect Corp');
+    expect(comp.form.get('priceListId')?.value).toBe('pl-retail');
   });
 });
