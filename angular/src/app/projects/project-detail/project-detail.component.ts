@@ -7,7 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectService } from '../../proxy/projects/project.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
-import type { ProjectDto, ProjectTaskDto, ProjectUserDto } from '../../proxy/projects/models';
+import type { ProjectDto, ProjectTaskDto, ProjectUserDto, UpdateProjectTaskDto } from '../../proxy/projects/models';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
@@ -212,11 +212,47 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
                   }
                 </select>
               </div>
-              <div class="col-md-2 d-flex gap-2">
+              <div class="col-md-3 d-flex gap-2">
                 <button class="btn btn-primary btn-sm" [disabled]="!dependsOnTaskId() || addingDependency()" (click)="addTaskDependency()">
                   <i class="fas fa-link me-1"></i>{{ '::Save' | abpLocalization }}
                 </button>
+                <button class="btn btn-outline-danger btn-sm" [disabled]="!dependsOnTaskId() || addingDependency()" (click)="removeTaskDependency()">
+                  <i class="fas fa-unlink me-1"></i>{{ '::Remove' | abpLocalization }}
+                </button>
                 <button class="btn btn-secondary btn-sm" (click)="dependencyTask.set(null)">{{ '::Cancel' | abpLocalization }}</button>
+              </div>
+            </div>
+          </div>
+        }
+        @if (editingTask(); as editTask) {
+          <div class="card-body border-bottom bg-light">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">{{ '::Subject' | abpLocalization }} *</label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="editTaskDraft.subject" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::Priority' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="editTaskDraft.priority">
+                  <option [ngValue]="0">{{ '::Low' | abpLocalization }}</option>
+                  <option [ngValue]="1">{{ '::Medium' | abpLocalization }}</option>
+                  <option [ngValue]="2">{{ '::High' | abpLocalization }}</option>
+                  <option [ngValue]="3">{{ '::Urgent' | abpLocalization }}</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::Progress' | abpLocalization }} (%)</label>
+                <input type="number" class="form-control form-control-sm" min="0" max="100" [(ngModel)]="editTaskDraft.progress" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">{{ '::ExpectedEndDate' | abpLocalization }}</label>
+                <input type="date" class="form-control form-control-sm" [(ngModel)]="editTaskDraft.expectedEndDate" />
+              </div>
+              <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" [disabled]="!editTaskDraft.subject || savingTask()" (click)="saveTaskEdit()">
+                  {{ '::Save' | abpLocalization }}
+                </button>
+                <button class="btn btn-secondary btn-sm" (click)="editingTask.set(null)">{{ '::Cancel' | abpLocalization }}</button>
               </div>
             </div>
           </div>
@@ -275,6 +311,9 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
                                 <i class="fas fa-link"></i>
                               </button>
                             }
+                            <button class="btn btn-outline-secondary" [title]="'::Edit' | abpLocalization" (click)="openEditTask(task)">
+                              <i class="fas fa-pencil-alt"></i>
+                            </button>
                             @if (task.status === 0) {
                               <button class="btn btn-outline-danger" title="{{ '::Delete' | abpLocalization }}" (click)="deleteTask(task)">
                                 <i class="fas fa-trash"></i>
@@ -445,6 +484,9 @@ export class ProjectDetailComponent implements OnInit {
   dependencyTask = signal<ProjectTaskDto | null>(null);
   dependsOnTaskId = signal('');
   addingDependency = signal(false);
+  editingTask = signal<ProjectTaskDto | null>(null);
+  savingTask = signal(false);
+  editTaskDraft: UpdateProjectTaskDto = { subject: '', priority: 1, progress: 0 };
 
   statusLabel = computed(() => {
     const s = this.project()?.status;
@@ -631,6 +673,57 @@ export class ProjectDetailComponent implements OnInit {
   openDependencyForm(task: ProjectTaskDto): void {
     this.dependencyTask.set(task);
     this.dependsOnTaskId.set('');
+  }
+
+  openEditTask(task: ProjectTaskDto): void {
+    this.editingTask.set(task);
+    this.editTaskDraft = {
+      subject: task.subject ?? '',
+      priority: task.priority ?? 1,
+      progress: task.progress ?? 0,
+      expectedStartDate: task.expectedStartDate?.substring(0, 10) || undefined,
+      expectedEndDate: task.expectedEndDate?.substring(0, 10) || undefined,
+      expectedHours: task.expectedHours,
+      description: task.description,
+    };
+  }
+
+  saveTaskEdit(): void {
+    const task = this.editingTask();
+    if (!task?.id || !this.editTaskDraft.subject || this.savingTask()) return;
+    this.savingTask.set(true);
+    this.service.updateTask(task.id, this.editTaskDraft).subscribe({
+      next: () => {
+        this.savingTask.set(false);
+        this.editingTask.set(null);
+        this.toaster.success('::SuccessfullyUpdated');
+        if (this.project()?.id) this.loadTasks(this.project()!.id!);
+      },
+      error: (err: any) => {
+        this.savingTask.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
+    });
+  }
+
+  removeTaskDependency(): void {
+    const task = this.dependencyTask();
+    const dependsOnId = this.dependsOnTaskId();
+    if (!task?.id || !dependsOnId || this.addingDependency()) return;
+    this.addingDependency.set(true);
+    this.service.removeTaskDependency(task.id, dependsOnId).subscribe({
+      next: () => {
+        this.addingDependency.set(false);
+        this.dependencyTask.set(null);
+        this.dependsOnTaskId.set('');
+        this.toaster.success('::SuccessfullyDeleted');
+        if (this.project()?.id) this.loadTasks(this.project()!.id!);
+      },
+      error: (err: any) => {
+        this.addingDependency.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
+    });
   }
 
   addTaskDependency(): void {

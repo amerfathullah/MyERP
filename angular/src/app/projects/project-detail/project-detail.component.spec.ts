@@ -17,6 +17,8 @@ describe('ProjectDetailComponent Task Dependencies', () => {
       addTaskDependency: options?.cycleError
         ? vi.fn().mockReturnValue(throwError(() => ({ error: { error: { data: { detail: 'Cyclic dependency detected' } } } })))
         : vi.fn().mockReturnValue(of({ id: 't-2' })),
+      removeTaskDependency: vi.fn().mockReturnValue(of({ id: 't-2' })),
+      updateTask: vi.fn().mockReturnValue(of({ id: 't-1', subject: 'Updated Schema', progress: 50 })),
     };
     const toasterMock = { success: vi.fn(), error: vi.fn() };
 
@@ -61,5 +63,26 @@ describe('ProjectDetailComponent Task Dependencies', () => {
 
     expect(comp.addingDependency()).toBe(false);
     expect(toasterMock.error).toHaveBeenCalledWith('Cyclic dependency detected');
+  });
+
+  it('updates task fields and removes dependency via ProjectService', () => {
+    const { comp, projectMock, toasterMock } = createComponent();
+
+    comp.openEditTask(comp.tasks()[0]);
+    comp.editTaskDraft.subject = 'Updated Schema';
+    comp.editTaskDraft.progress = 50;
+    comp.saveTaskEdit();
+
+    expect(projectMock.updateTask).toHaveBeenCalledWith('t-1', expect.objectContaining({ subject: 'Updated Schema', progress: 50 }));
+    expect(comp.editingTask()).toBeNull();
+    expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+
+    comp.openDependencyForm(comp.tasks()[1]);
+    comp.dependsOnTaskId.set('t-1');
+    comp.removeTaskDependency();
+
+    expect(projectMock.removeTaskDependency).toHaveBeenCalledWith('t-2', 't-1');
+    expect(comp.dependencyTask()).toBeNull();
+    expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyDeleted');
   });
 });

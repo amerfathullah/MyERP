@@ -8,7 +8,7 @@ import { CustomerService } from '../../proxy/sales/customer.service';
 import type { MaintenanceVisitDto } from '../../proxy/assets/models';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { ToasterService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 
 @Component({
   selector: 'app-maintenance-visit-list',
@@ -69,9 +69,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
                     <app-status-badge [status]="getStatusLabel(visit.completionStatus ?? 0)" />
                   </td>
                   <td class="text-end">
-                    <a [routerLink]="[visit.id]" class="btn btn-sm btn-outline-primary">
+                    <a [routerLink]="[visit.id]" class="btn btn-sm btn-outline-primary me-1">
                       <i class="bi bi-eye"></i>
                     </a>
+                    @if ((visit.completionStatus ?? 0) === 0 && visit.id) {
+                      <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteVisit(visit.id!)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    }
                   </td>
                 </tr>
               } @empty {
@@ -98,6 +103,7 @@ export class MaintenanceVisitListComponent implements OnInit {
   private service = inject(MaintenanceService);
   private customerService = inject(CustomerService);
   private toaster = inject(ToasterService);
+  private confirmation = inject(ConfirmationService);
 
   visits = signal<MaintenanceVisitDto[]>([]);
   totalCount = signal(0);
@@ -153,6 +159,19 @@ export class MaintenanceVisitListComponent implements OnInit {
 
   getStatusVariant(status: number): string {
     return ['warning', 'info', 'success', 'danger'][status] ?? 'secondary';
+  }
+
+  deleteVisit(id: string) {
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.deleteVisit(id).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.loadData();
+        },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      });
+    });
   }
 
   getTypeBadgeClass(type: string): string {
