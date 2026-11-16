@@ -110,7 +110,9 @@ export class SalesInvoiceFormComponent implements OnInit {
     exchangeRate: [1],
     notes: [''],
     isReturn: [false],
-    eInvoiceDocType: [null as number | null],
+    isDebitNote: [false],
+    isReturnRefund: [false],
+    eInvoiceDocType: [1 as number | null],
     isSubmitToLhdn: [true],
     returnAgainstId: [null as string | null],
     originalInvoiceNumber: [''],
@@ -146,25 +148,40 @@ export class SalesInvoiceFormComponent implements OnInit {
       if (companyId) this.form.patchValue({ companyId });
     }
 
-    // Auto-sync e-Invoice doc type based on isReturn (01/03 vs 02/04)
+    // Auto-sync e-Invoice doc type based on isReturn (01/03 vs 02/04) and transaction flags
     this.form.get('isReturn')?.valueChanges.subscribe((isRet) => {
       const current = this.form.get('eInvoiceDocType')?.value;
       if (isRet) {
         if (current !== 2 && current !== 4) {
-          this.form.patchValue({ eInvoiceDocType: 2 });
+          this.form.patchValue({ eInvoiceDocType: 2, isDebitNote: false });
         }
       } else {
         if (current !== 1 && current !== 3) {
-          this.form.patchValue({ eInvoiceDocType: 1 });
+          this.form.patchValue({ eInvoiceDocType: 1, isReturnRefund: false });
         }
       }
     });
 
     this.form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
-      const numType = docType ? Number(docType) : null;
+      const numType = docType != null ? Number(docType) : null;
       const isRet = numType === 2 || numType === 4;
+      const isDebit = numType === 3;
+      const isRefund = numType === 4;
+      const patch: Record<string, unknown> = {};
       if (this.form.get('isReturn')?.value !== isRet) {
-        this.form.patchValue({ isReturn: isRet });
+        patch['isReturn'] = isRet;
+      }
+      if (this.form.get('isDebitNote')?.value !== isDebit) {
+        patch['isDebitNote'] = isDebit;
+      }
+      if (this.form.get('isReturnRefund')?.value !== isRefund) {
+        patch['isReturnRefund'] = isRefund;
+      }
+      if (isDebit && this.form.get('updateStock')?.value) {
+        patch['updateStock'] = false;
+      }
+      if (Object.keys(patch).length > 0) {
+        this.form.patchValue(patch);
       }
     });
 
@@ -216,7 +233,9 @@ export class SalesInvoiceFormComponent implements OnInit {
           currencyCode: invoice.currencyCode,
           priceListId: invoice.priceListId ?? '',
           isReturn: invoice.isReturn ?? false,
-          eInvoiceDocType: invoice.eInvoiceDocType ?? null,
+          isDebitNote: invoice.isDebitNote ?? false,
+          isReturnRefund: invoice.isReturnRefund ?? false,
+          eInvoiceDocType: invoice.eInvoiceDocType ?? (invoice.isDebitNote ? 3 : (invoice.isReturn ? (invoice.isReturnRefund ? 4 : 2) : 1)),
           isSubmitToLhdn: invoice.isSubmitToLhdn ?? true,
           returnAgainstId: invoice.returnAgainstId ?? null,
           originalInvoiceNumber: invoice.originalInvoiceNumber ?? '',
@@ -259,6 +278,9 @@ export class SalesInvoiceFormComponent implements OnInit {
             currencyCode: source.currencyCode,
             notes: `Credit Note against ${source.invoiceNumber}`,
             isReturn: true,
+            isDebitNote: false,
+            isReturnRefund: false,
+            eInvoiceDocType: 2,
             returnAgainstId: returnAgainst,
             priceListId: source.priceListId ?? '',
           });
@@ -669,7 +691,9 @@ export class SalesInvoiceFormComponent implements OnInit {
     // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
     const dto: CreateSalesInvoiceDto = {
       ...raw,
-      eInvoiceDocType: raw.eInvoiceDocType ? Number(raw.eInvoiceDocType) : undefined,
+      eInvoiceDocType: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) : undefined,
+      isDebitNote: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 3 : (raw.isDebitNote ?? false),
+      isReturnRefund: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 4 : (raw.isReturnRefund ?? false),
       paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,

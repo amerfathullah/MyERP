@@ -156,12 +156,12 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       }
     });
 
-    // Auto-sync Self-Billed e-Invoice doc type based on isReturn (11/13 vs 12/14)
+    // Auto-sync Self-Billed e-Invoice doc type based on isReturn (11/13 vs 12/14) and flags
     this.form.get('isReturn')?.valueChanges.subscribe((isRet) => {
       const current = this.form.get('eInvoiceDocType')?.value;
       if (isRet) {
         if (current !== 12 && current !== 14) {
-          this.form.patchValue({ eInvoiceDocType: 12 });
+          this.form.patchValue({ eInvoiceDocType: 12, isDebitNote: false });
         }
       } else {
         if (current !== 11 && current !== 13) {
@@ -173,13 +173,20 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     this.form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
       const numType = docType != null ? Number(docType) : null;
       const isRet = numType === 12 || numType === 14;
+      const isDebit = numType === 13;
       const isRefund = numType === 14;
       const patch: Record<string, unknown> = {};
       if (this.form.get('isReturn')?.value !== isRet) {
         patch['isReturn'] = isRet;
       }
+      if (this.form.get('isDebitNote')?.value !== isDebit) {
+        patch['isDebitNote'] = isDebit;
+      }
       if (this.form.get('isReturnRefund')?.value !== isRefund) {
         patch['isReturnRefund'] = isRefund;
+      }
+      if (isDebit && this.form.get('updateStock')?.value) {
+        patch['updateStock'] = false;
       }
       if (Object.keys(patch).length > 0) {
         this.form.patchValue(patch);
@@ -490,6 +497,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     const dto: CreatePurchaseInvoiceDto = {
       ...raw,
       eInvoiceDocType: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) : undefined,
+      isDebitNote: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 13 : (raw.isDebitNote ?? false),
       isReturnRefund: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 14 : (raw.isReturnRefund ?? false),
       paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
       dueDate: raw.dueDate || undefined,

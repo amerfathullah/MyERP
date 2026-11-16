@@ -174,7 +174,7 @@
         <div class="row align-items-center">
           <div class="col-auto">
             <div class="form-check">
-              <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" [attr.disabled]="hasDeliveryNoteItems() ? true : null" />
+              <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" [attr.disabled]="(hasDeliveryNoteItems() || form.get('isDebitNote')?.value) ? true : null" />
               <label class="form-check-label" for="updateStock">{{ '::UpdateStock' | abpLocalization }}</label>
               @if (hasDeliveryNoteItems()) {
                 <small class="form-text text-warning d-block">{{ '::UpdateStockDisabledForDeliveryNote' | abpLocalization }}</small>

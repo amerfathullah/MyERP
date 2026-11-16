@@ -217,5 +217,39 @@ describe('SalesInvoice form calculations', () => {
       form.patchValue({ isSubmitToLhdn: false });
       expect(form.getRawValue().isSubmitToLhdn).toBe(false);
     });
+
+    it('should sync eInvoiceDocType (01/02/03/04) with isReturn, isDebitNote, isReturnRefund, and updateStock', () => {
+      const form = fb.group({
+        isReturn: [false],
+        isDebitNote: [false],
+        isReturnRefund: [false],
+        eInvoiceDocType: [1 as number | null],
+        updateStock: [true],
+      });
+
+      form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
+        const numType = docType != null ? Number(docType) : null;
+        const isRet = numType === 2 || numType === 4;
+        const isDebit = numType === 3;
+        const isRefund = numType === 4;
+        const patch: Record<string, unknown> = {};
+        if (form.get('isReturn')?.value !== isRet) patch['isReturn'] = isRet;
+        if (form.get('isDebitNote')?.value !== isDebit) patch['isDebitNote'] = isDebit;
+        if (form.get('isReturnRefund')?.value !== isRefund) patch['isReturnRefund'] = isRefund;
+        if (isDebit && form.get('updateStock')?.value) patch['updateStock'] = false;
+        if (Object.keys(patch).length > 0) form.patchValue(patch);
+      });
+
+      form.patchValue({ eInvoiceDocType: 4 });
+      expect(form.get('isReturn')?.value).toBe(true);
+      expect(form.get('isReturnRefund')?.value).toBe(true);
+      expect(form.get('isDebitNote')?.value).toBe(false);
+
+      form.patchValue({ eInvoiceDocType: 3 });
+      expect(form.get('isReturn')?.value).toBe(false);
+      expect(form.get('isReturnRefund')?.value).toBe(false);
+      expect(form.get('isDebitNote')?.value).toBe(true);
+      expect(form.get('updateStock')?.value).toBe(false);
+    });
   });
 });

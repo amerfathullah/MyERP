@@ -482,6 +482,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "As per LHDN Regulation, choose the e-Invoice document type as 'Self-Billed Refund Note'.");
         }
+
+        if (!IsReturn && !IsDebitNote && EInvoiceDocType is EInvoiceDocumentType.SelfBilledCreditNote or EInvoiceDocumentType.SelfBilledDebitNote or EInvoiceDocumentType.SelfBilledRefundNote or EInvoiceDocumentType.CreditNote or EInvoiceDocumentType.DebitNote or EInvoiceDocumentType.RefundNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Standard Purchase Invoice cannot use Self-Billed Credit Note, Debit Note, or Refund Note e-Invoice document type.");
+        }
     }
 
     public void Post()

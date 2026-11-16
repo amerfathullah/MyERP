@@ -15,6 +15,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
       currencyCode: ['MYR'],
       notes: [''],
       isReturn: [false],
+      isDebitNote: [false],
       isReturnRefund: [false],
       eInvoiceDocType: [11 as number | null],
       isSubmitToLhdn: [true],
@@ -42,7 +43,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
       const current = form.get('eInvoiceDocType')?.value;
       if (isRet) {
         if (current !== 12 && current !== 14) {
-          form.patchValue({ eInvoiceDocType: 12 });
+          form.patchValue({ eInvoiceDocType: 12, isDebitNote: false });
         }
       } else {
         if (current !== 11 && current !== 13) {
@@ -54,13 +55,20 @@ describe('PurchaseInvoice form DTO mapping', () => {
     form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
       const numType = docType != null ? Number(docType) : null;
       const isRet = numType === 12 || numType === 14;
+      const isDebit = numType === 13;
       const isRefund = numType === 14;
       const patch: Record<string, unknown> = {};
       if (form.get('isReturn')?.value !== isRet) {
         patch['isReturn'] = isRet;
       }
+      if (form.get('isDebitNote')?.value !== isDebit) {
+        patch['isDebitNote'] = isDebit;
+      }
       if (form.get('isReturnRefund')?.value !== isRefund) {
         patch['isReturnRefund'] = isRefund;
+      }
+      if (isDebit && form.get('updateStock')?.value) {
+        patch['updateStock'] = false;
       }
       if (Object.keys(patch).length > 0) {
         form.patchValue(patch);
@@ -74,6 +82,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
     return {
       ...raw,
       eInvoiceDocType: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) : undefined,
+      isDebitNote: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 13 : (raw.isDebitNote ?? false),
       isReturnRefund: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 14 : (raw.isReturnRefund ?? false),
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
@@ -250,9 +259,11 @@ describe('PurchaseInvoice form DTO mapping', () => {
       expect(refundDto.isReturnRefund).toBe(true);
       expect(refundDto.eInvoiceDocType).toBe(14);
 
-      form.patchValue({ eInvoiceDocType: 13 });
+      form.patchValue({ updateStock: true, eInvoiceDocType: 13 });
       const dnDto = mapDtoFromForm(form);
       expect(dnDto.isReturn).toBe(false);
+      expect(dnDto.isDebitNote).toBe(true);
+      expect(dnDto.updateStock).toBe(false);
       expect(dnDto.isReturnRefund).toBe(false);
       expect(dnDto.eInvoiceDocType).toBe(13);
     });

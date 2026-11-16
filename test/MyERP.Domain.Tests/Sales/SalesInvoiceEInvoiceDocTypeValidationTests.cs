@@ -131,4 +131,20 @@ public class SalesInvoiceEInvoiceDocTypeValidationTests
         pi.EInvoiceDocType = EInvoiceDocumentType.SelfBilledRefundNote;
         pi.ValidateEInvoiceDocumentType();
     }
+
+    [Fact]
+    public void PurchaseInvoice_ValidateEInvoiceDocumentType_RejectsStandardPiWithNoteTypeAndAcceptsDebitNote()
+    {
+        var pi = CreatePurchaseInvoice();
+        pi.IsReturn = false;
+        pi.IsDebitNote = false;
+        pi.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote;
+
+        var ex = Should.Throw<BusinessException>(() => pi.ValidateEInvoiceDocumentType());
+        ex.Data["detail"]!.ToString()!.ShouldContain("Standard Purchase Invoice cannot use Self-Billed Credit Note");
+
+        pi.IsDebitNote = true;
+        pi.EInvoiceDocType = EInvoiceDocumentType.SelfBilledDebitNote;
+        pi.ValidateEInvoiceDocumentType();
+    }
 }
