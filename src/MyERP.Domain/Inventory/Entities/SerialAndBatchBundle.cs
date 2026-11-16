@@ -266,6 +266,100 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         Recalculate();
     }
+
+    /// <summary>
+    /// Adjusts the final non-serial entry's quantity so all entries sum to the exact rounded stock quantity
+    /// posted on the ledger entry (preventing rounding residue on internal transfers / rejected returns).
+    /// Per ERPNext PR #66747 (set_entries_total_qty): no-op when HasSerialNo is true or entries are empty.
+    /// </summary>
+    public void SetEntriesTotalQty(decimal totalQty, int precision = 4)
+    {
+        if (HasSerialNo || Entries.Count == 0)
+        {
+            return;
+        }
+
+        var entryList = Entries.ToList();
+        var absTotal = Math.Abs(totalQty);
+        var sign = TypeOfTransaction == BundleTransactionType.Outward && entryList.Any(e => e.Qty < 0m)
+            ? -1m
+            : 1m;
+
+        var prefixSum = entryList.Take(entryList.Count - 1).Sum(e => Math.Abs(e.Qty));
+        var lastMagnitude = Math.Max(0m, Math.Round(absTotal - prefixSum, precision));
+        entryList[^1].Qty = sign * lastMagnitude;
+
+        Recalculate();
+    }
+
+    /// <summary>
+    /// Creates an internal-transfer or reversal Serial and Batch Bundle sized to the exact posted stock quantity.
+    /// Per ERPNext PR #66747 and PR #66762:
+    /// - Optionally excludes serial numbers (e.g. rejected serials on accepted bundle or vice versa).
+    /// - Caps non-serial bundle entry total to <paramref name="targetStockQty"/> via <see cref="SetEntriesTotalQty"/>.
+    /// </summary>
+    public static SerialAndBatchBundle CreateTransferPackage(
+        Guid id,
+        Guid companyId,
+        Guid itemId,
+        Guid warehouseId,
+        BundleTransactionType typeOfTransaction,
+        string voucherType,
+        Guid voucherId,
+        DateTime postingDate,
+        IEnumerable<SerialAndBatchEntry> sourceEntries,
+        decimal? targetStockQty = null,
+        bool hasSerialNo = false,
+        bool hasBatchNo = false,
+        IEnumerable<string>? excludeSerialNos = null,
+        Guid? tenantId = null,
+        int precision = 4)
+    {
+        var excluded = excludeSerialNos != null
+            ? new HashSet<string>(
+                excludeSerialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+                StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        var bundle = new SerialAndBatchBundle(
+            id, companyId, itemId, warehouseId, typeOfTransaction,
+            voucherType, voucherId, postingDate, tenantId)
+        {
+            HasSerialNo = hasSerialNo,
+            HasBatchNo = hasBatchNo
+        };
+
+        var sign = typeOfTransaction == BundleTransactionType.Outward ? -1m : 1m;
+        foreach (var src in sourceEntries)
+        {
+            if (!string.IsNullOrWhiteSpace(src.SerialNo) && excluded?.Contains(src.SerialNo.Trim()) == true)
+            {
+                continue;
+            }
+
+            var qtyMagnitude = hasSerialNo ? Math.Abs(src.Qty) : Math.Abs(src.Qty);
+            bundle.AddEntry(new SerialAndBatchEntry(
+                Guid.NewGuid(),
+                bundle.Id,
+                sign * qtyMagnitude,
+                src.IncomingRate,
+                src.SerialNo,
+                src.BatchId,
+                tenantId,
+                src.FgSerialNo,
+                src.FgBatchNo)
+            {
+                WarehouseId = warehouseId
+            });
+        }
+
+        if (targetStockQty.HasValue && targetStockQty.Value != 0m && !hasSerialNo)
+        {
+            bundle.SetEntriesTotalQty(targetStockQty.Value, precision);
+        }
+
+        return bundle;
+    }
 }
 
 /// <summary>

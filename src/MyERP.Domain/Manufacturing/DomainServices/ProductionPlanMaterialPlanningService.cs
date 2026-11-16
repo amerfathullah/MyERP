@@ -165,6 +165,116 @@ public class ProductionPlanMaterialPlanningService : DomainService
     }
 
     /// <summary>
+    /// Shares a raw material row's RequiredBomQty across split transfer/purchase rows so it is reserved once.
+    /// Per ERPNext PR #66580 (_split_required_bom_qty):
+    /// Each leading split row receives min(row.Quantity, remaining), and the final row takes the remaining BOM qty.
+    /// </summary>
+    public static void SplitRequiredBomQty(
+        decimal totalRequiredBomQty,
+        IReadOnlyList<RawMaterialPlanRow> splitRows,
+        int precision = 4)
+    {
+        if (splitRows.Count == 0)
+        {
+            return;
+        }
+
+        var remaining = totalRequiredBomQty;
+        for (var i = 0; i < splitRows.Count - 1; i++)
+        {
+            var allocated = Math.Round(Math.Min(Math.Max(0m, splitRows[i].Quantity), Math.Max(0m, remaining)), precision);
+            splitRows[i].RequiredBomQty = allocated;
+            remaining -= allocated;
+        }
+
+        splitRows[^1].RequiredBomQty = Math.Round(Math.Max(0m, remaining), precision);
+    }
+
+    /// <summary>
+    /// Splits a raw material requirement across transfer locations and a fallback purchase row,
+    /// allocating RequiredBomQty once across the resulting rows.
+    /// Per ERPNext PR #66580 (get_materials_from_other_locations).
+    /// </summary>
+    public static List<RawMaterialPlanRow> AllocateMaterialsFromOtherLocations(
+        RawMaterialPlanRow item,
+        IReadOnlyList<(string Warehouse, Guid? WarehouseId, decimal AvailableStockQty)> otherLocations,
+        decimal purchaseConversionFactor = 1m,
+        decimal minOrderQty = 0m,
+        bool roundUpWholeUom = true,
+        bool considerMinOrderQty = false,
+        int precision = 4)
+    {
+        var factor = item.ConversionFactor > 0m ? item.ConversionFactor : 1m;
+        var remainingStockQty = Math.Max(0m, item.Quantity * factor);
+        var splitRows = new List<RawMaterialPlanRow>();
+
+        foreach (var loc in otherLocations)
+        {
+            if (remainingStockQty <= 0m)
+            {
+                break;
+            }
+
+            if (loc.AvailableStockQty <= 0m)
+            {
+                continue;
+            }
+
+            var transferQty = Math.Min(remainingStockQty, loc.AvailableStockQty);
+            remainingStockQty -= transferQty;
+
+            splitRows.Add(new RawMaterialPlanRow
+            {
+                ItemCode = item.ItemCode,
+                ItemName = item.ItemName,
+                Description = item.Description,
+                StockUom = item.StockUom,
+                Warehouse = loc.Warehouse,
+                ItemId = item.ItemId,
+                WarehouseId = loc.WarehouseId,
+                ActualQty = loc.AvailableStockQty,
+                SafetyStock = item.SafetyStock,
+                Quantity = Math.Round(transferQty, precision),
+                Uom = string.IsNullOrEmpty(item.StockUom) ? item.Uom : item.StockUom,
+                ConversionFactor = 1m
+            });
+        }
+
+        if (remainingStockQty > 0m)
+        {
+            var purchaseFactor = purchaseConversionFactor > 0m ? purchaseConversionFactor : 1m;
+            var purchaseQty = remainingStockQty / purchaseFactor;
+            if (considerMinOrderQty && minOrderQty > 0m && purchaseQty < minOrderQty)
+            {
+                purchaseQty = minOrderQty;
+            }
+
+            purchaseQty = roundUpWholeUom
+                ? Math.Ceiling(purchaseQty)
+                : Math.Round(purchaseQty, precision);
+
+            splitRows.Add(new RawMaterialPlanRow
+            {
+                ItemCode = item.ItemCode,
+                ItemName = item.ItemName,
+                Description = item.Description,
+                StockUom = item.StockUom,
+                Warehouse = item.Warehouse,
+                ItemId = item.ItemId,
+                WarehouseId = item.WarehouseId,
+                ActualQty = item.ActualQty,
+                SafetyStock = item.SafetyStock,
+                Quantity = purchaseQty,
+                Uom = item.Uom,
+                ConversionFactor = purchaseFactor
+            });
+        }
+
+        SplitRequiredBomQty(item.RequiredBomQty, splitRows, precision);
+        return splitRows;
+    }
+
+    /// <summary>
     /// Generates CSV content from download rows.
     /// </summary>
     public static string GenerateCsv(IEnumerable<DownloadRawMaterialRow> rows)

@@ -28,6 +28,7 @@ export class ProductionPlanDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
   actionLoading = signal(false);
+  downloadingMaterials = signal(false);
   summaryReport = signal<ProductionPlanSummaryDto | null>(null);
   loadingSummary = signal(false);
 
@@ -135,5 +136,43 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.store.cancel(this.plan.id);
     this.actionLoading.set(false);
     this.loadSummary();
+  }
+
+  downloadRawMaterials(): void {
+    if (!this.plan?.id || this.downloadingMaterials()) return;
+    this.downloadingMaterials.set(true);
+    this.planService.downloadRawMaterials(this.plan.id).subscribe({
+      next: (rows) => {
+        const headers = [
+          'Item Code', 'Item Name', 'Description', 'Stock UOM', 'Warehouse',
+          'Required Qty as per BOM', 'Projected Qty', 'Available Qty In Hand',
+          'Ordered Qty', 'Planned Qty', 'Reserved Qty for Production',
+          'Safety Stock', 'Required Qty', 'UOM',
+        ];
+        const escapeCell = (v: string | number | undefined): string =>
+          `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const lines = [
+          headers.map(escapeCell).join(','),
+          ...rows.map((r) => [
+            r.itemCode, r.itemName, r.description, r.stockUom, r.warehouse,
+            r.requiredBomQty ?? 0, r.projectedQty ?? 0, r.actualQty ?? 0,
+            r.orderedQty ?? 0, r.plannedQty ?? 0, r.reservedQtyForProduction ?? 0,
+            r.safetyStock ?? 0, r.requiredQty ?? 0, r.uom,
+          ].map(escapeCell).join(',')),
+        ];
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${this.plan?.planNumber ?? 'production-plan'}-raw-materials.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        this.downloadingMaterials.set(false);
+      },
+      error: () => {
+        this.toaster.error('Failed to download raw materials');
+        this.downloadingMaterials.set(false);
+      },
+    });
   }
 }

@@ -382,4 +382,30 @@ public class SubcontractingAndWiringTests
         last.ShouldBe(0.3334m);
         (0.6666m + last).ShouldBe(1m);
     }
+
+    [Fact]
+    public void PickAvailableSerialNosForRow_SkipsSerialsHeldByEarlierSuppliedRows()
+    {
+        // Per ERPNext PR #66525: multiple supplied rows sharing rm_item_code must not pick overlapping serials
+        var availablePool = new[] { "SN-001", "SN-002", "SN-003", "SN-004" };
+        var existingRows = new[] { "SN-001\nSN-002", string.Empty };
+
+        var usedSerials = SubcontractingManager.GetUsedSerialNos(existingRows);
+        var pickedForRow2 = SubcontractingManager.PickAvailableSerialNosForRow(availablePool, usedSerials, requiredCount: 2);
+
+        pickedForRow2.ShouldBe(new[] { "SN-003", "SN-004" });
+        usedSerials.ShouldContain("SN-003");
+        usedSerials.ShouldContain("SN-004");
+    }
+
+    [Fact]
+    public void PickAvailableSerialNosForRow_CaseInsensitiveDeduplicationAndCommaMultiline()
+    {
+        var usedSerials = SubcontractingManager.GetUsedSerialNos(new[] { "sn-001, SN-002" });
+        var availablePool = new[] { "SN-001", "sn-002", "SN-005" };
+
+        var picked = SubcontractingManager.PickAvailableSerialNosForRow(availablePool, usedSerials, requiredCount: 2);
+
+        picked.ShouldBe(new[] { "SN-005" });
+    }
 }

@@ -118,7 +118,16 @@
     <!-- Material Requirements with shortage highlighting -->
     @if (plan.materialRequirements && plan.materialRequirements.length > 0) {
       <div class="card mb-4">
-        <div class="card-header fw-bold"><i class="fa fa-boxes-stacked me-2"></i>{{ '::MaterialRequirements' | abpLocalization }}</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold"><i class="fa fa-boxes-stacked me-2"></i>{{ '::MaterialRequirements' | abpLocalization }}</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            (click)="downloadRawMaterials()"
+            [disabled]="downloadingMaterials()">
+            <i class="fa fa-download me-1" [class.fa-spin]="downloadingMaterials()"></i>{{ '::DownloadRawMaterials' | abpLocalization }}
+          </button>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm mb-0">

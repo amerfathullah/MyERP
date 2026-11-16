@@ -465,6 +465,88 @@ public class SubcontractingManager : DomainService
 
         return standardCostRate;
     }
+
+    /// <summary>
+    /// Splits a multiline or comma-separated serial number string into trimmed, distinct serial numbers (case-insensitive order preserved).
+    /// </summary>
+    public static List<string> ParseSerialNos(string? serialNoText)
+    {
+        if (string.IsNullOrWhiteSpace(serialNoText))
+        {
+            return new List<string>();
+        }
+
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var parts = serialNoText.Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var part in parts)
+        {
+            if (seen.Add(part))
+            {
+                result.Add(part);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Collects all serial numbers currently held across existing supplied item rows so subsequent rows
+    /// for the same raw material item do not re-pick already assigned serial numbers.
+    /// Per ERPNext PR #66525 (get_used_serial_nos).
+    /// </summary>
+    public static HashSet<string> GetUsedSerialNos(IEnumerable<string?> serialNoFields)
+    {
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in serialNoFields)
+        {
+            foreach (var sn in ParseSerialNos(field))
+            {
+                used.Add(sn);
+            }
+        }
+
+        return used;
+    }
+
+    /// <summary>
+    /// Picks up to <paramref name="requiredCount"/> available serial numbers for a supplied item row,
+    /// skipping serial numbers already held in <paramref name="usedSerialNos"/> and recording newly picked serials.
+    /// Per ERPNext PR #66525 (test_supplied_row_skips_serial_nos_held_by_another_row).
+    /// </summary>
+    public static List<string> PickAvailableSerialNosForRow(
+        IEnumerable<string> availableSerialNos,
+        ISet<string> usedSerialNos,
+        int requiredCount)
+    {
+        if (requiredCount <= 0)
+        {
+            return new List<string>();
+        }
+
+        var picked = new List<string>(requiredCount);
+        foreach (var rawSn in availableSerialNos)
+        {
+            if (picked.Count >= requiredCount)
+            {
+                break;
+            }
+
+            var sn = rawSn?.Trim();
+            if (string.IsNullOrEmpty(sn) || usedSerialNos.Contains(sn))
+            {
+                continue;
+            }
+
+            if (usedSerialNos.Add(sn))
+            {
+                picked.Add(sn);
+            }
+        }
+
+        return picked;
+    }
 }
 
 public class SubcontractingRmConsumption

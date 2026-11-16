@@ -7,20 +7,13 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 import { PaginationComponent, type PageEvent } from '../shared/components/pagination/pagination.component';
 import { CompanyContextService } from '../shared/services/company-context.service';
+import { LhdnStatusBadgeComponent } from '../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
-
-const STATUS_BADGE: Record<string, string> = {
-  Pending:   'bg-warning text-dark',
-  Submitted: 'bg-primary',
-  Valid:     'bg-success',
-  Invalid:   'bg-danger',
-  Cancelled: 'bg-secondary',
-};
 
 @Component({
   selector: 'app-einvoice-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
+  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent, LhdnStatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::EInvoiceSubmissions' | abpLocalization">
@@ -112,7 +105,7 @@ const STATUS_BADGE: Record<string, string> = {
                       {{ (inv.documentUuid ?? '') | slice:0:16 }}{{ inv.documentUuid ? '…' : '' }}
                     </td>
                     <td>
-                      <span class="badge {{ badgeClass(inv.status) }}">{{ inv.status }}</span>
+                      <app-lhdn-status-badge [status]="inv.status || 'NotSubmitted'" />
                     </td>
                     <td>
                       @if (inv.qrCodeUrl) {
@@ -180,8 +173,6 @@ export class EInvoiceListComponent implements OnInit {
   }
 
   setFilter(status: string): void { this.filterStatus.set(status); }
-
-  badgeClass(status?: string): string { return STATUS_BADGE[status ?? ''] ?? 'bg-secondary'; }
 
   refreshStatus(inv: EInvoiceSubmissionDto): void {
     this.service.getStatus(inv.id!).subscribe({
