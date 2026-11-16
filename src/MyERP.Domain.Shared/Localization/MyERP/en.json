@@ -6239,7 +6239,12 @@
     "TotalPlanned": "Total Planned",
     "FetchCandidates": "Fetch Candidates",
     "AddSelected": "Add Selected",
-    "SemiFgStockEntry": "Semi-FG Stock Entry"
+    "SemiFgStockEntry": "Semi-FG Stock Entry",
+    "FetchItemsFromWarehouse": "Fetch Items from Warehouse",
+    "IgnoreEmptyStock": "Ignore Empty Stock",
+    "FetchFromDeliveryNotes": "Fetch from Delivery Notes",
+    "FulfillmentStatus": "Fulfillment Status",
+    "CurrentValuationRate": "Current Valuation Rate"
   }
 }
 

@@ -11,7 +11,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
-import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
+import type { MaterialRequestDto, MrFulfillmentStatusDto } from '../../proxy/purchasing/dtos/models';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -36,6 +36,7 @@ export class MaterialRequestDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
 
   entity: MaterialRequestDto | null = null;
+  fulfillmentStatus = signal<MrFulfillmentStatusDto | null>(null);
   actionLoading = signal(false);
   suppliers = signal<any[]>([]);
   showConvertPanel = signal(false);
@@ -83,7 +84,15 @@ export class MaterialRequestDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({
-      next: (result) => { this.entity = result; },
+      next: (result) => {
+        this.entity = result;
+        if (result.status !== 0 && this.service.getFulfillmentStatus) {
+          this.service.getFulfillmentStatus(id).subscribe({
+            next: fs => this.fulfillmentStatus.set(fs),
+            error: () => {},
+          });
+        }
+      },
       error: () => {}
     });
   }

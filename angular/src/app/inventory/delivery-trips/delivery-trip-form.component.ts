@@ -4,6 +4,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { DeliveryTripService } from '../../proxy/inventory/delivery-trip.service';
+import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
+import type { DeliveryNoteDto } from '../../proxy/sales/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
@@ -64,10 +66,52 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <h6 class="mb-0 text-muted">
               <i class="bi bi-geo-alt me-2"></i>{{ 'MyERP::DeliveryStops' | abpLocalization }}
             </h6>
-            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addStop()">
-              <i class="bi bi-plus-lg me-1"></i>{{ 'MyERP::AddStop' | abpLocalization }}
-            </button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-info btn-sm" (click)="toggleDnPicker()">
+                <i class="bi bi-box-seam me-1"></i>{{ '::FetchFromDeliveryNotes' | abpLocalization }}
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm" (click)="addStop()">
+                <i class="bi bi-plus-lg me-1"></i>{{ 'MyERP::AddStop' | abpLocalization }}
+              </button>
+            </div>
           </div>
+
+          @if (showDnPicker) {
+            <div class="border rounded p-2 mb-3 bg-light">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong class="small">{{ '::FetchFromDeliveryNotes' | abpLocalization }}</strong>
+                <button type="button" class="btn btn-success btn-sm" (click)="addStopsFromSelectedDns()" [disabled]="selectedDnIds.size === 0 || loadingStops">
+                  <i class="bi bi-check-lg me-1"></i>{{ '::AddSelected' | abpLocalization }}
+                </button>
+              </div>
+              <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                <table class="table table-sm table-bordered bg-white mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width: 36px;"></th>
+                      <th>{{ '::DeliveryNote' | abpLocalization }}</th>
+                      <th>{{ '::Customer' | abpLocalization }}</th>
+                      <th>{{ '::Date' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (dn of availableDeliveryNotes; track dn.id) {
+                      <tr>
+                        <td class="text-center">
+                          <input type="checkbox" class="form-check-input" [checked]="selectedDnIds.has(dn.id!)" (change)="toggleDnSelection(dn.id!)" />
+                        </td>
+                        <td class="font-monospace small">{{ dn.deliveryNumber }}</td>
+                        <td class="small">{{ dn.customerName }}</td>
+                        <td class="small">{{ dn.postingDate | date:'dd/MM/yyyy' }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="4" class="text-center text-muted small py-2">{{ '::NoRecordsFound' | abpLocalization }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
 
           <div formArrayName="deliveryStops">
             <div class="table-responsive">
@@ -141,12 +185,17 @@ export class DeliveryTripFormComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(DeliveryTripService);
+  private readonly deliveryNoteService = inject(DeliveryNoteService);
   private readonly companyContext = inject(CompanyContextService);
   private readonly toaster = inject(ToasterService);
 
   id?: string;
   isEditMode = false;
   isSaving = false;
+  showDnPicker = false;
+  loadingStops = false;
+  availableDeliveryNotes: DeliveryNoteDto[] = [];
+  selectedDnIds = new Set<string>();
 
   form: FormGroup = this.fb.group({
     companyId: ['', Validators.required],
@@ -220,6 +269,60 @@ export class DeliveryTripFormComponent implements OnInit {
 
   removeStop(index: number): void {
     this.deliveryStops.removeAt(index);
+  }
+
+  toggleDnPicker(): void {
+    this.showDnPicker = !this.showDnPicker;
+    if (this.showDnPicker && this.availableDeliveryNotes.length === 0) {
+      const companyId = this.form.get('companyId')?.value || this.companyContext.selectedCompanyId();
+      this.deliveryNoteService.getList({
+        companyId: companyId || undefined,
+        status: 'Submitted',
+        skipCount: 0,
+        maxResultCount: 100,
+      }).subscribe({
+        next: res => { this.availableDeliveryNotes = res.items ?? []; },
+        error: () => {},
+      });
+    }
+  }
+
+  toggleDnSelection(id: string): void {
+    if (this.selectedDnIds.has(id)) {
+      this.selectedDnIds.delete(id);
+    } else {
+      this.selectedDnIds.add(id);
+    }
+  }
+
+  addStopsFromSelectedDns(): void {
+    const companyId = this.form.get('companyId')?.value || this.companyContext.selectedCompanyId();
+    if (!companyId || this.selectedDnIds.size === 0) return;
+    this.loadingStops = true;
+    this.service.getStopsFromDeliveryNotes({
+      companyId,
+      deliveryNoteIds: Array.from(this.selectedDnIds),
+    }).subscribe({
+      next: stops => {
+        if (this.deliveryStops.length === 1 && !this.deliveryStops.at(0).get('address')?.value) {
+          this.deliveryStops.removeAt(0);
+        }
+        for (const stop of stops ?? []) {
+          this.deliveryStops.push(this.fb.group({
+            id: [null],
+            address: [stop.address || stop.customerAddress || '', Validators.required],
+            customerName: [stop.customerName || ''],
+            deliveryNoteNumber: [stop.deliveryNoteNumber || ''],
+            distance: [stop.distance ?? 0],
+            estimatedArrival: [stop.estimatedArrival ? stop.estimatedArrival.substring(0, 16) : ''],
+          }));
+        }
+        this.loadingStops = false;
+        this.showDnPicker = false;
+        this.selectedDnIds.clear();
+      },
+      error: () => { this.loadingStops = false; },
+    });
   }
 
   save(): void {

@@ -5,9 +5,32 @@ import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { StockReconciliationService } from '../../proxy/inventory';
+import type { StockReconciliationItemPreviewDto } from '../../proxy/dtos/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+
+export interface ReconciliationFormRow {
+  itemId: string;
+  warehouseId: string;
+  currentQuantity: number;
+  currentValuationRate: number;
+  newQuantity: number;
+  newValuationRate: number;
+}
+
+export function mapReconciliationPreviewRows(
+  items: StockReconciliationItemPreviewDto[] | undefined,
+): ReconciliationFormRow[] {
+  return (items ?? []).filter(i => !!i.itemId && !!i.warehouseId).map(i => ({
+    itemId: i.itemId!,
+    warehouseId: i.warehouseId!,
+    currentQuantity: i.currentQuantity ?? 0,
+    currentValuationRate: i.currentValuationRate ?? 0,
+    newQuantity: i.currentQuantity ?? 0,
+    newValuationRate: i.currentValuationRate ?? 0,
+  }));
+}
 @Component({
   selector: 'app-sr-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
@@ -15,12 +38,12 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
   template: `
     <abp-page [title]="'::NewReconciliation' | abpLocalization">
       <div class="card"><div class="card-body">
-        <div class="row mb-3">
-          <div class="col-md-4">
+        <div class="row mb-3 align-items-end">
+          <div class="col-md-3">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label">{{ '::Purpose' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true" [(ngModel)]="form.purpose">
               <option value="Stock Count">{{ '::StockCount' | abpLocalization }}</option>
@@ -28,27 +51,45 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
               <option value="Adjustment">{{ '::Adjustment' | abpLocalization }}</option>
             </select>
           </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+            <select class="form-select" [(ngModel)]="fetchWarehouseId">
+              <option value="">-- {{ '::SelectWarehouse' | abpLocalization }} --</option>
+              @for (w of warehouses(); track w.id) { <option [value]="w.id">{{ w.name }}</option> }
+            </select>
+          </div>
+          <div class="col-md-3">
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" id="ignoreEmpty" [(ngModel)]="ignoreEmptyStock" />
+              <label class="form-check-label small" for="ignoreEmpty">{{ '::IgnoreEmptyStock' | abpLocalization }}</label>
+            </div>
+            <button type="button" class="btn btn-outline-info btn-sm w-100"
+              [disabled]="!fetchWarehouseId || fetchingItems" (click)="fetchItemsFromWarehouse()">
+              <i class="fa fa-warehouse me-1"></i>{{ '::FetchItemsFromWarehouse' | abpLocalization }}
+            </button>
+          </div>
         </div>
 
         <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Warehouse' | abpLocalization }}</th><th>{{ '::CurrentQty' | abpLocalization }}</th><th>{{ '::NewQty' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Warehouse' | abpLocalization }}</th><th>{{ '::CurrentQty' | abpLocalization }}</th><th>{{ '::CurrentValuationRate' | abpLocalization }}</th><th>{{ '::NewQty' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
                 <td>
-                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
+                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true; onRowSelectionChanged(item)" [(ngModel)]="item.itemId">
                     <option value="">-- {{ '::SelectItem' | abpLocalization }} --</option>
                     @for (i of availableItems(); track i.id) { <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option> }
                   </select>
                 </td>
                 <td>
-                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.warehouseId">
+                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true; onRowSelectionChanged(item)" [(ngModel)]="item.warehouseId">
                     <option value="">-- --</option>
                     @for (w of warehouses(); track w.id) { <option [value]="w.id">{{ w.name }}</option> }
                   </select>
                 </td>
                 <td><input type="number" class="form-control form-control-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.currentQuantity" /></td>
+                <td><input type="number" class="form-control form-control-sm" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.currentValuationRate" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" (ngModelChange)="isDirty=true" [(ngModel)]="item.newQuantity" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.newValuationRate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1); isDirty=true"><i class="fa fa-trash"></i></button></td>
@@ -74,13 +115,16 @@ export class StockReconciliationFormComponent implements OnInit {
   private warehouseService = inject(WarehouseService);
 
   saving = false;
+  fetchingItems = false;
+  ignoreEmptyStock = true;
+  fetchWarehouseId = '';
   isDirty = false;
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   warehouses = signal<{ id: string; name: string }[]>([]);
 
   form: any = {
     postingDate: new Date().toISOString().split('T')[0], purpose: 'Stock Count',
-    items: [{ itemId: '', warehouseId: '', currentQuantity: 0, newQuantity: 0, newValuationRate: 0 }]
+    items: [{ itemId: '', warehouseId: '', currentQuantity: 0, currentValuationRate: 0, newQuantity: 0, newValuationRate: 0 }]
   };
 
   ngOnInit(): void {
@@ -92,7 +136,59 @@ export class StockReconciliationFormComponent implements OnInit {
     );
   }
 
-  addItem() { this.form.items.push({ itemId: '', warehouseId: '', currentQuantity: 0, newQuantity: 0, newValuationRate: 0 }); this.isDirty = true; }
+  addItem() {
+    this.form.items.push({
+      itemId: '',
+      warehouseId: this.fetchWarehouseId || '',
+      currentQuantity: 0,
+      currentValuationRate: 0,
+      newQuantity: 0,
+      newValuationRate: 0,
+    });
+    this.isDirty = true;
+  }
+
+  fetchItemsFromWarehouse(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId || !this.fetchWarehouseId) return;
+    this.fetchingItems = true;
+    this.stockReconciliationService.getItemsForReconciliation({
+      companyId,
+      warehouseId: this.fetchWarehouseId,
+      postingDate: this.form.postingDate,
+      ignoreEmptyStock: this.ignoreEmptyStock,
+    }).subscribe({
+      next: items => {
+        const mapped = mapReconciliationPreviewRows(items);
+        if (mapped.length > 0) {
+          this.form.items = mapped;
+          this.isDirty = true;
+        }
+        this.fetchingItems = false;
+      },
+      error: () => { this.fetchingItems = false; },
+    });
+  }
+
+  onRowSelectionChanged(row: ReconciliationFormRow): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId || !row.itemId || !row.warehouseId) return;
+    this.stockReconciliationService.getStockBalanceFor({
+      companyId,
+      itemId: row.itemId,
+      warehouseId: row.warehouseId,
+      postingDate: this.form.postingDate,
+    }).subscribe({
+      next: preview => {
+        row.currentQuantity = preview.currentQuantity ?? 0;
+        row.currentValuationRate = preview.currentValuationRate ?? 0;
+        if (!row.newValuationRate) {
+          row.newValuationRate = preview.currentValuationRate ?? 0;
+        }
+      },
+      error: () => {},
+    });
+  }
 
   save() {
     this.saving = true;
@@ -104,7 +200,7 @@ export class StockReconciliationFormComponent implements OnInit {
         .filter((i: any) => i.itemId && i.warehouseId)
         .map((i: any) => ({
           itemId: i.itemId, warehouseId: i.warehouseId,
-          currentQuantity: i.currentQuantity || 0, currentValuationRate: 0,
+          currentQuantity: i.currentQuantity || 0, currentValuationRate: i.currentValuationRate || 0,
           newQuantity: i.newQuantity || 0, newValuationRate: i.newValuationRate || 0,
         }))
     };
