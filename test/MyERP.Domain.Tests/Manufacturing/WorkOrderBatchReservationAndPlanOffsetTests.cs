@@ -453,4 +453,105 @@ public class WorkOrderBatchReservationAndPlanOffsetTests
         sourceSre.TransferredQty.ShouldBe(0m);
         wipSre.Status.ShouldBe(DocumentStatus.Cancelled);
     }
+
+    [Fact]
+    public async Task ApplySubcontractingTransferAsync_SharesBatchPool_AndExcludesSupplierWarehouse()
+    {
+        var scoId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var stockEntryId = Guid.NewGuid();
+
+        var sourceSre1 = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "Subcontracting Order", scoId, 6m)
+        { BatchId = batchId };
+        sourceSre1.Submit();
+
+        var sourceSre2 = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "Subcontracting Order", scoId, 6m)
+        { BatchId = batchId };
+        sourceSre2.Submit();
+
+        var supplierSre = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseB,
+            "Subcontracting Order", scoId, 6m)
+        { BatchId = batchId };
+        supplierSre.Submit();
+
+        var sres = new List<StockReservationEntry> { sourceSre1, sourceSre2, supplierSre };
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(sres.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(s => sres.Add(s)))
+            .Returns(call => Task.FromResult(call.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+        var sharedBatchPool = new Dictionary<Guid, decimal> { [batchId] = 8m };
+
+        await manager.ApplySubcontractingTransferAsync(
+            scoId, _itemId, _warehouseA, 5m,
+            batchId: batchId,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId,
+            sharedBatchRemaining: sharedBatchPool);
+
+        await manager.ApplySubcontractingTransferAsync(
+            scoId, _itemId, _warehouseA, 5m,
+            batchId: batchId,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId,
+            sharedBatchRemaining: sharedBatchPool);
+
+        // Total transferred across source SREs is capped by the shared batch qty (8m), not 10m
+        (sourceSre1.TransferredQty + sourceSre2.TransferredQty).ShouldBe(8m);
+        sharedBatchPool[batchId].ShouldBe(0m);
+        // Supplier warehouse reservation is never touched by transfer
+        supplierSre.TransferredQty.ShouldBe(0m);
+
+        // Same-warehouse attempt into supplier warehouse skips reservation consumption
+        var skipped = await manager.ApplySubcontractingTransferAsync(
+            scoId, _itemId, _warehouseB, 3m,
+            batchId: batchId,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId);
+        skipped.ShouldBeEmpty();
+        supplierSre.TransferredQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task RevertSubcontractingTransferAsync_RevertsSourceTransfer_AndCancelsTargetSre()
+    {
+        var scoId = Guid.NewGuid();
+        var stockEntryId = Guid.NewGuid();
+
+        var sourceSre = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "SubcontractingOrder", scoId, 10m);
+        sourceSre.Submit();
+
+        var sres = new List<StockReservationEntry> { sourceSre };
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(sres.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(s => sres.Add(s)))
+            .Returns(call => Task.FromResult(call.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        await manager.ApplySubcontractingTransferAsync(
+            scoId, _itemId, _warehouseA, 5m,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId);
+
+        sourceSre.TransferredQty.ShouldBe(5m);
+        var supplierTargetSre = sres.First(s => s.WarehouseId == _warehouseB && s.FromVoucherId == stockEntryId);
+        supplierTargetSre.Status.ShouldBe(DocumentStatus.Submitted);
+
+        await manager.RevertSubcontractingTransferAsync(
+            scoId, _itemId, _warehouseA, 5m,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId);
+
+        sourceSre.TransferredQty.ShouldBe(0m);
+        supplierTargetSre.Status.ShouldBe(DocumentStatus.Cancelled);
+    }
 }

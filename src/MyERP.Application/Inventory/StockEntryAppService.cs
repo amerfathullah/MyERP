@@ -517,6 +517,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         : null;
                     var disallowAdditionalItems = mfgSettings?.ValidateComponentsQuantitiesPerBom ?? false;
 
+                    var woBatchPool = BuildBatchQuantityPool(entry.Items);
                     foreach (var seItem in entry.Items)
                     {
                         var hasExisting = wo.RequiredItems.Any(ri => ri.ItemId == seItem.ItemId);
@@ -551,7 +552,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                             await sreManager.ApplyWorkOrderTransferAsync(
                                 wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.StockQty, seItem.BatchId,
-                                targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id, stockEntryItemId: seItem.Id);
+                                targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id, stockEntryItemId: seItem.Id,
+                                sharedBatchRemaining: woBatchPool);
                         }
                     }
 
@@ -620,6 +622,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 .GroupBy(i => i.ItemId)
                 .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
             await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines);
+
+            var scoBatchPool = BuildBatchQuantityPool(entry.Items);
+            var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+            foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue))
+            {
+                await sreManager.ApplySubcontractingTransferAsync(
+                    entry.SubcontractingOrderId.Value,
+                    seItem.ItemId,
+                    seItem.SourceWarehouseId!.Value,
+                    seItem.StockQty,
+                    seItem.BatchId,
+                    targetWarehouseId: seItem.TargetWarehouseId,
+                    stockEntryId: entry.Id,
+                    stockEntryItemId: seItem.Id,
+                    sharedBatchRemaining: scoBatchPool);
+            }
         }
 
         // Update Work Order produced qty for manufacture entries
@@ -1109,6 +1127,19 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 .GroupBy(i => i.ItemId)
                 .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
             await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines, reverse: true);
+
+            var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+            foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue))
+            {
+                await sreManager.RevertSubcontractingTransferAsync(
+                    entry.SubcontractingOrderId.Value,
+                    seItem.ItemId,
+                    seItem.SourceWarehouseId!.Value,
+                    seItem.StockQty,
+                    seItem.BatchId,
+                    targetWarehouseId: seItem.TargetWarehouseId,
+                    stockEntryId: entry.Id);
+            }
         }
 
         // Reverse SLE entries + Bin balances
@@ -2143,4 +2174,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
     }
+
+    private static Dictionary<Guid, decimal> BuildBatchQuantityPool(IEnumerable<StockEntryItem> items) =>
+        items
+            .Where(i => i.BatchId.HasValue)
+            .GroupBy(i => i.BatchId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.StockQty));
 }

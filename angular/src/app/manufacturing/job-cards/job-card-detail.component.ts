@@ -305,7 +305,7 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
     // job card is still Work In Progress), then to "now" as a last resort so the log is never
     // rejected for an invalid range.
     const fromTime = this.timerStartTime()
-      ?? (this.d?.startedAt ? new Date(this.d.startedAt) : toTime);
+      ?? (this.d?.startedAt ? this.parseServerUtcDate(this.d.startedAt) : toTime);
     this.clearTimer();
 
     // JobCard.CompletedQty is derived entirely from the sum of its time logs (see
@@ -417,4 +417,13 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
 
   statusLabel(s: number | undefined) { return ['Open', 'Work In Progress', 'Material Transferred', 'Completed', 'On Hold', 'Cancelled'][s ?? 0]; }
   statusClass(s: number | undefined) { return ['bg-secondary', 'bg-primary', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger'][s ?? 0]; }
+
+  /** Parses server ISO timestamp as UTC when timezone offset/Z is omitted (PR #66764 browser/server parity). */
+  private parseServerUtcDate(value: string): Date {
+    const trimmed = value.trim();
+    if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)) {
+      return new Date(trimmed);
+    }
+    return new Date(`${trimmed}Z`);
+  }
 }

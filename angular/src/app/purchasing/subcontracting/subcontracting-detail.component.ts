@@ -260,17 +260,20 @@ export class SubcontractingDetailComponent implements OnInit {
 
   openReturnDialog(receipt: any): void {
     this.returnAgainst.set(receipt);
-    this.returnItems.set((receipt.items ?? []).map((i: any) => ({
-      itemId: i.itemId,
-      itemName: i.itemName,
-      qty: i.qty,
-      rejectedQty: i.rejectedQty ?? 0,
-      rate: i.rate,
-      returnQty: i.qty,
-      warehouseId: i.warehouseId ?? '',
-      rejectedWarehouseId: i.rejectedWarehouseId ?? '',
-      returnQtyFromRejectedWarehouse: false,
-    })));
+    // Exclude backend-derived secondary items (Co-Product, By-Product, Scrap) so return UI only collects FG rows
+    this.returnItems.set((receipt.items ?? [])
+      .filter((i: any) => !i.secondaryItemType && (i.valuationType === undefined || i.valuationType === null) && !i.bomSecondaryItemId)
+      .map((i: any) => ({
+        itemId: i.itemId,
+        itemName: i.itemName,
+        qty: i.qty,
+        rejectedQty: i.rejectedQty ?? 0,
+        rate: i.rate,
+        returnQty: i.qty,
+        warehouseId: i.warehouseId ?? '',
+        rejectedWarehouseId: i.rejectedWarehouseId ?? '',
+        returnQtyFromRejectedWarehouse: false,
+      })));
     this.showReturnDialog.set(true);
   }
 

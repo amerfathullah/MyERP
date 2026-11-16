@@ -722,31 +722,44 @@ public class StockReservationManager : DomainService
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the transferred batch.
     /// Per ERPNext PR #60647 / commit 260b828b09: creates WIP warehouse reservations linked to the transfer stock entry.
     /// </summary>
-    public async Task<ReservationConsumption[]> ApplyWorkOrderTransferAsync(
-        Guid workOrderId,
+    private static bool IsWorkOrderVoucher(string? voucherType) =>
+        voucherType is "WorkOrder" or "Work Order";
+
+    private static bool IsSubcontractingOrderVoucher(string? voucherType) =>
+        voucherType is "SubcontractingOrder" or "Subcontracting Order";
+
+    private async Task<ReservationConsumption[]> ApplyOrderTransferAsync(
+        Func<string?, bool> matchVoucherType,
+        Guid voucherId,
         Guid itemId,
         Guid sourceWarehouseId,
         decimal transferredQty,
-        Guid? batchId = null,
-        Guid? workOrderItemId = null,
-        Guid? targetWarehouseId = null,
-        Guid? stockEntryId = null,
-        Guid? stockEntryItemId = null)
+        Guid? batchId,
+        Guid? voucherDetailId,
+        Guid? targetWarehouseId,
+        Guid? stockEntryId,
+        Guid? stockEntryItemId,
+        IDictionary<Guid, decimal>? sharedBatchRemaining)
     {
         if (transferredQty <= 0) return Array.Empty<ReservationConsumption>();
+        // PR #66749: supplier/target warehouse reservations belong to the receipt, never the transfer.
+        if (targetWarehouseId.HasValue && sourceWarehouseId == targetWarehouseId.Value)
+            return Array.Empty<ReservationConsumption>();
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
-                && s.VoucherId == workOrderId
+            .Where(s => s.VoucherId == voucherId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
+                && (!targetWarehouseId.HasValue || s.WarehouseId != targetWarehouseId.Value)
                 && (s.Status == DocumentStatus.Submitted || s.TransferredQty > 0)
-                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (voucherDetailId == null || s.VoucherDetailId == voucherDetailId)
                 && (s.ReservedQty - s.TransferredQty - s.ConsumedQty) > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.BatchId == batchId && batchId != null)
             .ThenBy(s => s.CreationTime)
+            .ToList()
+            .Where(s => matchVoucherType(s.VoucherType))
             .ToList();
 
         var consumed = new System.Collections.Generic.List<ReservationConsumption>();
@@ -758,9 +771,26 @@ public class StockReservationManager : DomainService
             var available = sre.AvailableQty;
             if (available <= 0) continue;
 
-            var transfer = Math.Min(remaining, available);
-            sre.TransferredQty += transfer;
+            var maxAllowed = Math.Min(remaining, available);
+            // PR #66645: share a batch's transferred qty across reservations so no batch is counted twice.
+            var trackedBatchId = sre.BatchId ?? batchId;
+            if (trackedBatchId.HasValue && sharedBatchRemaining != null
+                && sharedBatchRemaining.TryGetValue(trackedBatchId.Value, out var batchPool))
+            {
+                if (batchPool <= 0m) continue;
+                maxAllowed = Math.Min(maxAllowed, batchPool);
+            }
+
+            if (maxAllowed <= 0m) continue;
+
+            sre.TransferredQty = Math.Round(sre.TransferredQty + maxAllowed, 4);
             await _sreRepository.UpdateAsync(sre);
+
+            if (trackedBatchId.HasValue && sharedBatchRemaining != null
+                && sharedBatchRemaining.TryGetValue(trackedBatchId.Value, out var currentPool))
+            {
+                sharedBatchRemaining[trackedBatchId.Value] = Math.Max(0m, Math.Round(currentPool - maxAllowed, 4));
+            }
 
             if (targetWarehouseId.HasValue)
             {
@@ -771,11 +801,11 @@ public class StockReservationManager : DomainService
                     targetWarehouseId.Value,
                     sre.VoucherType,
                     sre.VoucherId,
-                    transfer,
-                    voucherQty: transfer,
+                    maxAllowed,
+                    voucherQty: maxAllowed,
                     tenantId: sre.TenantId)
                 {
-                    VoucherDetailId = sre.VoucherDetailId ?? workOrderItemId,
+                    VoucherDetailId = sre.VoucherDetailId ?? voucherDetailId,
                     BatchId = sre.BatchId ?? batchId,
                     FromVoucherType = "StockEntry",
                     FromVoucherId = stockEntryId ?? sre.Id,
@@ -788,28 +818,25 @@ public class StockReservationManager : DomainService
             consumed.Add(new ReservationConsumption
             {
                 StockReservationEntryId = sre.Id,
-                ConsumedQty = transfer
+                ConsumedQty = maxAllowed
             });
 
-            remaining -= transfer;
+            remaining -= maxAllowed;
         }
 
         return consumed.ToArray();
     }
 
-    /// <summary>
-    /// Reverts transferred quantity on Work Order reservations when a Material Transfer is cancelled.
-    /// Per ERPNext PR #60647: cancels WIP reservations created by the transfer.
-    /// </summary>
-    public async Task RevertWorkOrderTransferAsync(
-        Guid workOrderId,
+    private async Task RevertOrderTransferAsync(
+        Func<string?, bool> matchVoucherType,
+        Guid voucherId,
         Guid itemId,
         Guid sourceWarehouseId,
         decimal revertedQty,
-        Guid? batchId = null,
-        Guid? workOrderItemId = null,
-        Guid? targetWarehouseId = null,
-        Guid? stockEntryId = null)
+        Guid? batchId,
+        Guid? voucherDetailId,
+        Guid? targetWarehouseId,
+        Guid? stockEntryId)
     {
         if (revertedQty <= 0) return;
 
@@ -818,12 +845,13 @@ public class StockReservationManager : DomainService
         if (targetWarehouseId.HasValue || stockEntryId.HasValue)
         {
             var targetSres = queryable
-                .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
-                    && s.VoucherId == workOrderId
+                .Where(s => s.VoucherId == voucherId
                     && s.ItemId == itemId
                     && (targetWarehouseId == null || s.WarehouseId == targetWarehouseId.Value)
                     && s.Status == DocumentStatus.Submitted
                     && (stockEntryId == null || s.FromVoucherId == stockEntryId.Value))
+                .ToList()
+                .Where(s => matchVoucherType(s.VoucherType))
                 .ToList();
 
             var remainingTargetRevert = revertedQty;
@@ -849,15 +877,17 @@ public class StockReservationManager : DomainService
         }
 
         var activeSres = queryable
-            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
-                && s.VoucherId == workOrderId
+            .Where(s => s.VoucherId == voucherId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
+                && (!targetWarehouseId.HasValue || s.WarehouseId != targetWarehouseId.Value)
                 && (s.Status == DocumentStatus.Submitted || s.TransferredQty > 0)
-                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (voucherDetailId == null || s.VoucherDetailId == voucherDetailId)
                 && s.TransferredQty > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.CreationTime)
+            .ToList()
+            .Where(s => matchVoucherType(s.VoucherType))
             .ToList();
 
         var remaining = revertedQty;
@@ -865,11 +895,78 @@ public class StockReservationManager : DomainService
         {
             if (remaining <= 0) break;
             var canRevert = Math.Min(remaining, sre.TransferredQty);
-            sre.TransferredQty = Math.Max(0, sre.TransferredQty - canRevert);
+            sre.TransferredQty = Math.Round(Math.Max(0m, sre.TransferredQty - canRevert), 4);
             await _sreRepository.UpdateAsync(sre);
             remaining -= canRevert;
         }
     }
+
+    public Task<ReservationConsumption[]> ApplyWorkOrderTransferAsync(
+        Guid workOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal transferredQty,
+        Guid? batchId = null,
+        Guid? workOrderItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null,
+        Guid? stockEntryItemId = null,
+        IDictionary<Guid, decimal>? sharedBatchRemaining = null)
+        => ApplyOrderTransferAsync(
+            IsWorkOrderVoucher, workOrderId, itemId, sourceWarehouseId, transferredQty,
+            batchId, workOrderItemId, targetWarehouseId, stockEntryId, stockEntryItemId, sharedBatchRemaining);
+
+    /// <summary>
+    /// Updates transferred quantity on active Subcontracting Order reservations during SendToSubcontractor transfer
+    /// (PR #66645 &amp; PR #66749): shares transferred batch qty and skips supplier warehouse reservations.
+    /// </summary>
+    public Task<ReservationConsumption[]> ApplySubcontractingTransferAsync(
+        Guid subcontractingOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal transferredQty,
+        Guid? batchId = null,
+        Guid? subcontractingSuppliedItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null,
+        Guid? stockEntryItemId = null,
+        IDictionary<Guid, decimal>? sharedBatchRemaining = null)
+        => ApplyOrderTransferAsync(
+            IsSubcontractingOrderVoucher, subcontractingOrderId, itemId, sourceWarehouseId, transferredQty,
+            batchId, subcontractingSuppliedItemId, targetWarehouseId, stockEntryId, stockEntryItemId, sharedBatchRemaining);
+
+    /// <summary>
+    /// Reverts transferred quantity on Work Order reservations when a Material Transfer is cancelled.
+    /// Per ERPNext PR #60647: cancels WIP reservations created by the transfer.
+    /// </summary>
+    public Task RevertWorkOrderTransferAsync(
+        Guid workOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal revertedQty,
+        Guid? batchId = null,
+        Guid? workOrderItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null)
+        => RevertOrderTransferAsync(
+            IsWorkOrderVoucher, workOrderId, itemId, sourceWarehouseId, revertedQty,
+            batchId, workOrderItemId, targetWarehouseId, stockEntryId);
+
+    /// <summary>
+    /// Reverts transferred quantity on Subcontracting Order reservations when a SendToSubcontractor entry is cancelled.
+    /// </summary>
+    public Task RevertSubcontractingTransferAsync(
+        Guid subcontractingOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal revertedQty,
+        Guid? batchId = null,
+        Guid? subcontractingSuppliedItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null)
+        => RevertOrderTransferAsync(
+            IsSubcontractingOrderVoucher, subcontractingOrderId, itemId, sourceWarehouseId, revertedQty,
+            batchId, subcontractingSuppliedItemId, targetWarehouseId, stockEntryId);
 
     /// <summary>
     /// Updates consumed quantity on active Work Order reservations during Manufacture / Material Consumption.
