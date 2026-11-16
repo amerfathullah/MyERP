@@ -766,6 +766,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/sales-partner-target-variance',
+    loadComponent: () => import('./sales/reports/sales-partner-target-variance/sales-partner-target-variance.component').then(c => c.SalesPartnerTargetVarianceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
+    path: 'sales/reports/territory-target-variance',
+    loadComponent: () => import('./sales/reports/territory-target-variance/territory-target-variance.component').then(c => c.TerritoryTargetVarianceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/reports/analytics',
     loadComponent: () => import('./sales/reports/sales-analytics/sales-analytics.component').then(c => c.SalesAnalyticsComponent),
     canActivate: [authGuard, permissionGuard],
