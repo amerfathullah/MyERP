@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
-import type { SupplierDto, SupplierOverviewDto, SupplierTransactionDto } from '../proxy/purchasing/models';
+import { SupplierScorecardService } from '../proxy/purchasing/supplier-scorecard.service';
+import type { ScorecardDto, SupplierDto, SupplierOverviewDto, SupplierTransactionDto } from '../proxy/purchasing/models';
 import { SupplierHoldType } from '../proxy/purchasing/supplier-hold-type.enum';
 import { CompanyService } from '../proxy/core/company.service';
 import type { CompanyDto } from '../proxy/core/models';
@@ -750,6 +751,34 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
           </div>
         }
 
+        <!-- Supplier Scorecard -->
+        @if (scorecard(); as sc) {
+          <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="fas fa-award me-2"></i>{{ '::Scorecard' | abpLocalization }}</span>
+              <a [routerLink]="['/purchasing/scorecards', sc.id]" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-eye me-1"></i>{{ '::View' | abpLocalization }}
+              </a>
+            </div>
+            <div class="card-body">
+              <div class="row text-center">
+                <div class="col-md-4">
+                  <div class="text-muted small">{{ '::Score' | abpLocalization }}</div>
+                  <div class="fs-4 fw-bold text-primary">{{ sc.score | number:'1.1-1' }}</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-muted small">{{ '::Standing' | abpLocalization }}</div>
+                  <div class="fw-semibold">{{ sc.currentStanding || '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-muted small">{{ '::Period' | abpLocalization }}</div>
+                  <div class="fw-semibold">{{ sc.periodType || '—' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Addresses & Contacts -->
         <div class="row mb-4">
           <div class="col-md-6">
@@ -834,6 +863,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
 export class SupplierDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private supplierService = inject(SupplierService);
+  private scorecardService = inject(SupplierScorecardService);
   private companyService = inject(CompanyService);
   private reconciliationService = inject(PaymentReconciliationService);
   private partyPerformanceService = inject(PartyPerformanceService);
@@ -866,6 +896,7 @@ export class SupplierDetailComponent implements OnInit {
   performanceLoading = signal(true);
   performance = signal<any>(null);
   dashboard = signal<any>(null);
+  scorecard = signal<ScorecardDto | null>(null);
 
   ngOnInit() {
     this.entityId = this.route.snapshot.params['id'];
@@ -873,6 +904,14 @@ export class SupplierDetailComponent implements OnInit {
     this.loadOutstanding();
     this.loadPerformance();
     this.loadDashboard();
+    this.loadScorecard();
+  }
+
+  private loadScorecard(): void {
+    this.scorecardService.getBySupplierIdBySupplierId(this.entityId).subscribe({
+      next: sc => this.scorecard.set(sc ?? null),
+      error: () => this.scorecard.set(null),
+    });
   }
 
   private loadDashboard(): void {

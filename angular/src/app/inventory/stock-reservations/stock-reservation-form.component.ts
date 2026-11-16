@@ -55,7 +55,12 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
                 <label class="form-label">{{ '::ReservedQty' | abpLocalization }} *</label>
                 <input type="number" min="0.0001" step="0.01" class="form-control" formControlName="reservedQty" />
                 @if (selectedSoItem()) {
-                  <small class="text-muted">{{ '::PendingQty' | abpLocalization }}: {{ pendingQty(selectedSoItem()!) | number:'1.2-2' }}</small>
+                  <small class="text-muted">
+                    {{ '::PendingQty' | abpLocalization }}: {{ pendingQty(selectedSoItem()!) | number:'1.2-2' }}
+                    @if (existingReservedQty() !== null) {
+                      · {{ '::AlreadyReserved' | abpLocalization }}: {{ existingReservedQty() | number:'1.2-2' }}
+                    }
+                  </small>
                 }
               </div>
             </div>
@@ -85,6 +90,7 @@ export class StockReservationFormComponent implements OnInit {
   salesOrders = signal<SalesOrderDto[]>([]);
   soItems = signal<SalesOrderItemDto[]>([]);
   warehouses = signal<WarehouseDto[]>([]);
+  existingReservedQty = signal<number | null>(null);
   isSaving = signal(false);
 
   form = this.fb.group({
@@ -124,6 +130,7 @@ export class StockReservationFormComponent implements OnInit {
     const soId = this.form.get('salesOrderId')?.value;
     this.form.patchValue({ soItemId: '', reservedQty: 0 });
     this.soItems.set([]);
+    this.existingReservedQty.set(null);
     if (!soId) return;
 
     this.salesOrderService.get(soId).subscribe(so => {
@@ -134,6 +141,13 @@ export class StockReservationFormComponent implements OnInit {
   onSoItemChange(): void {
     const item = this.selectedSoItem();
     this.form.patchValue({ reservedQty: item ? this.pendingQty(item) : 0 });
+    this.existingReservedQty.set(null);
+    if (item?.itemId && item?.warehouseId) {
+      this.service.getReservedQty(item.itemId, item.warehouseId).subscribe({
+        next: qty => this.existingReservedQty.set(qty ?? 0),
+        error: () => this.existingReservedQty.set(null),
+      });
+    }
   }
 
   save(): void {

@@ -4,6 +4,7 @@ import { of } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { SupplierDetailComponent } from './supplier-detail.component';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
+import { SupplierScorecardService } from '../proxy/purchasing/supplier-scorecard.service';
 import { CompanyService } from '../proxy/core/company.service';
 import { PaymentReconciliationService } from '../proxy/accounting/payment-reconciliation.service';
 import { PartyPerformanceService } from '../proxy/core/party-performance.service';
@@ -16,6 +17,9 @@ describe('SupplierDetailComponent Allowed Companies', () => {
       getSupplierCompanyIds: vi.fn().mockReturnValue(of(['comp-2'])),
       getSupplierOverview: vi.fn().mockReturnValue(of(null)),
       getSupplierTransactions: vi.fn().mockReturnValue(of([])),
+    };
+    const scorecardMock = {
+      getBySupplierIdBySupplierId: vi.fn().mockReturnValue(of({ id: 'sc-1', score: 92.5, currentStanding: 'Very Good', periodType: 'Monthly' })),
     };
     const companyMock = {
       getList: vi.fn().mockReturnValue(of({
@@ -30,6 +34,7 @@ describe('SupplierDetailComponent Allowed Companies', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 'sup-1' } } } },
         { provide: SupplierService, useValue: supplierMock },
+        { provide: SupplierScorecardService, useValue: scorecardMock },
         { provide: CompanyService, useValue: companyMock },
         { provide: PaymentReconciliationService, useValue: { getOutstandingInvoices: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
@@ -41,6 +46,8 @@ describe('SupplierDetailComponent Allowed Companies', () => {
     comp.ngOnInit();
 
     expect(supplierMock.getSupplierCompanyIds).toHaveBeenCalledWith('sup-1');
+    expect(scorecardMock.getBySupplierIdBySupplierId).toHaveBeenCalledWith('sup-1');
+    expect(comp.scorecard()?.score).toBe(92.5);
     expect(comp.allowedCompanies()).toEqual([{ id: 'comp-2', name: 'Trading Co' }]);
     expect(comp.companies()).toEqual([{ id: 'comp-2', name: 'Trading Co' }]);
     expect(comp.selectedCompanyId()).toBe('comp-2');

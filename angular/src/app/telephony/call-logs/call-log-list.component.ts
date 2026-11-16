@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { CallLogService } from '../../proxy/telephony/call-log.service';
+import { CallStatus } from '../../proxy/telephony/call-status.enum';
 import { CallLogDto } from '../../proxy/telephony/models';
 
 @Component({
@@ -65,6 +66,9 @@ import { CallLogDto } from '../../proxy/telephony/models';
                   }
                   @if (item.status === 1) {
                     <button class="btn btn-sm btn-outline-warning me-1" (click)="completeCall(item)">End</button>
+                  }
+                  @if (item.status === 0 || item.status === 1) {
+                    <button class="btn btn-sm btn-outline-danger me-1" (click)="failCall(item)">Fail</button>
                   }
                   <a [routerLink]="['/telephony/call-logs', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-1">Edit</a>
                   <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
@@ -139,6 +143,16 @@ export class CallLogListComponent implements OnInit {
     this.service.completeCall(item.id!, 60).subscribe({
       next: () => {
         this.toaster.success('Call completed');
+        this.load();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
+  }
+
+  failCall(item: CallLogDto, status: CallStatus = CallStatus.Failed): void {
+    this.service.failCall(item.id!, status).subscribe({
+      next: () => {
+        this.toaster.warn('Call marked failed');
         this.load();
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
