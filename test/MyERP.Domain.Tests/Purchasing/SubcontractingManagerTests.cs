@@ -408,4 +408,25 @@ public class SubcontractingAndWiringTests
 
         picked.ShouldBe(new[] { "SN-005" });
     }
+
+    [Fact]
+    public void ResolveReturnedFinishedGoodRate_PreservesOriginalSecondaryItemsCostAndZerosRejected()
+    {
+        // Per ERPNext PR #66571: accepted return retains original receipt's net rate after secondary cost; rejected returns 0
+        var acceptedRate = SubcontractingManager.ResolveReturnedFinishedGoodRate(
+            isRejectedReturn: false,
+            receiptServiceCostPerQty: 30m,
+            receiptRmCostPerQty: 100m,
+            receiptSecondaryItemsCostPerQty: 15m);
+
+        acceptedRate.ShouldBe(115m);
+
+        var rejectedRate = SubcontractingManager.ResolveReturnedFinishedGoodRate(
+            isRejectedReturn: true,
+            receiptServiceCostPerQty: 30m,
+            receiptRmCostPerQty: 100m,
+            receiptSecondaryItemsCostPerQty: 15m);
+
+        rejectedRate.ShouldBe(0m);
+    }
 }

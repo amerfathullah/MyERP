@@ -276,6 +276,68 @@ public class ProductBundleDecompositionService : DomainService
         var remaining = packedComponentQty - Math.Max(componentPickedQty, deliveredQty);
         return Math.Max(0m, Math.Round(remaining, precision));
     }
+
+    /// <summary>
+    /// Preserves existing serial numbers on a packed bundle row, tops up from pending Pick List
+    /// serial numbers (excluding delivered component serials), and truncates to the packed quantity.
+    /// Per ERPNext PR #66490 (get_packed_serial_nos).
+    /// </summary>
+    public static List<string> GetPackedSerialNos(
+        string? existingPackedSerialNos,
+        decimal packedQty,
+        IEnumerable<string>? pendingPickListSerialNos = null,
+        IEnumerable<string>? deliveredComponentSerialNos = null)
+    {
+        var targetCount = Math.Max(0, (int)Math.Truncate(packedQty));
+        if (targetCount == 0)
+        {
+            return new List<string>();
+        }
+
+        var serialNos = new List<string>();
+        var kept = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(existingPackedSerialNos))
+        {
+            foreach (var raw in existingPackedSerialNos.Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (kept.Add(raw))
+                {
+                    serialNos.Add(raw);
+                }
+            }
+        }
+
+        if (serialNos.Count < targetCount && pendingPickListSerialNos != null)
+        {
+            var delivered = deliveredComponentSerialNos != null
+                ? new HashSet<string>(
+                    deliveredComponentSerialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+                    StringComparer.OrdinalIgnoreCase)
+                : null;
+
+            foreach (var raw in pendingPickListSerialNos)
+            {
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    continue;
+                }
+
+                var trimmed = raw.Trim();
+                if (delivered?.Contains(trimmed) == true)
+                {
+                    continue;
+                }
+
+                if (kept.Add(trimmed))
+                {
+                    serialNos.Add(trimmed);
+                }
+            }
+        }
+
+        return serialNos.Take(targetCount).ToList();
+    }
 }
 
 /// <summary>

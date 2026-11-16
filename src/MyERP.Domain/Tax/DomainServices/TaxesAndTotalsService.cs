@@ -583,6 +583,168 @@ public class TaxesAndTotalsService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Selects Actual taxes whose category contributes to stock valuation ("Valuation" or "Valuation and Total").
+    /// Per ERPNext PR #66553.
+    /// </summary>
+    public static List<TransactionTaxRow> GetActualValuationCharges(IEnumerable<TransactionTaxRow> taxRows)
+        => taxRows
+            .Where(t => string.Equals(t.ChargeType, "Actual", StringComparison.OrdinalIgnoreCase)
+                     && (string.Equals(t.TaxCategory, "Valuation", StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(t.TaxCategory, "Valuation and Total", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+    /// <summary>
+    /// Computes each Actual valuation charge on a stock-updating return so it reverses only the portion
+    /// carried by the returned stock rather than copying the full original charge.
+    /// Per ERPNext PR #66553 (erpnext/stock/services/return_charges.py):
+    /// - Skips adjustment unless all return rows link to an original row (OriginalDetailId != null).
+    /// - Matches return charges to original charges FIFO by (AccountId, Description).
+    /// - Computes returned share in company currency from original BaseTaxAmount and converts by exchangeRate.
+    /// </summary>
+    public static void CalculateReturnedActualValuationCharges(
+        IReadOnlyList<TransactionTaxRow> returnTaxRows,
+        IReadOnlyList<ReturnValuationChargeItem> returnItems,
+        IReadOnlyList<TransactionTaxRow> originalTaxRows,
+        IReadOnlyList<OriginalValuationChargeItem> originalItems,
+        decimal returnExchangeRate = 1m,
+        bool billsRejectedQuantity = false,
+        int precision = 2)
+    {
+        var returnCharges = GetActualValuationCharges(returnTaxRows);
+        if (returnCharges.Count == 0 || returnItems.Count == 0)
+        {
+            return;
+        }
+
+        // Only rows linked to the original row tell which charge the returned stock carried.
+        if (returnItems.Any(r => !r.OriginalDetailId.HasValue || r.OriginalDetailId.Value == Guid.Empty))
+        {
+            return;
+        }
+
+        var originalChargeQueues = new Dictionary<(Guid? AccountId, string Description), Queue<TransactionTaxRow>>();
+        foreach (var origTax in GetActualValuationCharges(originalTaxRows))
+        {
+            var key = (origTax.AccountId, origTax.Description ?? string.Empty);
+            if (!originalChargeQueues.TryGetValue(key, out var queue))
+            {
+                queue = new Queue<TransactionTaxRow>();
+                originalChargeQueues[key] = queue;
+            }
+
+            queue.Enqueue(origTax);
+        }
+
+        // Aggregate returned accepted & rejected stock qty by original detail row id
+        var returnedByOrig = new Dictionary<Guid, (decimal Accepted, decimal Rejected)>();
+        foreach (var ret in returnItems)
+        {
+            var origId = ret.OriginalDetailId!.Value;
+            var factor = ret.ConversionFactor > 0m ? ret.ConversionFactor : 1m;
+            var accepted = ret.ReturnQtyFromRejectedWarehouse ? 0m : Math.Abs(ret.Qty) * factor;
+            var rejected = ret.ReturnQtyFromRejectedWarehouse
+                ? Math.Abs(ret.Qty) * factor
+                : Math.Abs(ret.RejectedQty) * factor;
+
+            returnedByOrig.TryGetValue(origId, out var prev);
+            returnedByOrig[origId] = (prev.Accepted + accepted, prev.Rejected + rejected);
+        }
+
+        var rate = returnExchangeRate > 0m ? returnExchangeRate : 1m;
+        foreach (var charge in returnCharges)
+        {
+            var key = (charge.AccountId, charge.Description ?? string.Empty);
+            if (!originalChargeQueues.TryGetValue(key, out var queue) || queue.Count == 0)
+            {
+                continue;
+            }
+
+            var originalCharge = queue.Dequeue();
+            var baseAmount = originalCharge.BaseTaxAmount != 0m ? originalCharge.BaseTaxAmount : originalCharge.TaxAmount;
+            var eligibleItems = originalItems
+                .Where(i => i.AllocateStockOnlyMatches ? i.IsStockOrAssetItem : true)
+                .ToList();
+
+            if (eligibleItems.Count == 0)
+            {
+                eligibleItems = originalItems.ToList();
+            }
+
+            var totalWeight = eligibleItems.Sum(i => Math.Abs(i.BaseNetAmount));
+            var useQtyWeight = totalWeight == 0m;
+            if (useQtyWeight)
+            {
+                totalWeight = eligibleItems.Sum(i => Math.Abs(i.StockQty > 0m ? i.StockQty : i.Qty));
+            }
+
+            if (totalWeight == 0m)
+            {
+                continue;
+            }
+
+            decimal baseShare = 0m;
+            foreach (var origItem in eligibleItems)
+            {
+                if (!returnedByOrig.TryGetValue(origItem.DetailId, out var retQty))
+                {
+                    continue;
+                }
+
+                var weight = useQtyWeight
+                    ? Math.Abs(origItem.StockQty > 0m ? origItem.StockQty : origItem.Qty)
+                    : Math.Abs(origItem.BaseNetAmount);
+                var itemCharge = baseAmount * (weight / totalWeight);
+
+                decimal carriedQty;
+                decimal returnedQty;
+                if (origItem.Qty != 0m)
+                {
+                    carriedQty = origItem.ValuedStockQty != 0m ? Math.Abs(origItem.ValuedStockQty) : Math.Abs(origItem.StockQty);
+                    returnedQty = retQty.Accepted + (billsRejectedQuantity ? retQty.Rejected : 0m);
+                }
+                else
+                {
+                    carriedQty = Math.Abs(origItem.RejectedStockQty);
+                    returnedQty = retQty.Rejected;
+                }
+
+                if (carriedQty > 0m)
+                {
+                    baseShare += itemCharge * (returnedQty / carriedQty);
+                }
+            }
+
+            var reversed = -Math.Round(baseShare / rate, precision);
+            charge.Rate = reversed;
+            charge.TaxAmount = reversed;
+            charge.BaseTaxAmount = -Math.Round(baseShare, precision);
+        }
+    }
+}
+
+/// <summary>Return row input for Actual valuation charge scaling (ERPNext PR #66553).</summary>
+public class ReturnValuationChargeItem
+{
+    public Guid? OriginalDetailId { get; set; }
+    public decimal Qty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public bool ReturnQtyFromRejectedWarehouse { get; set; }
+}
+
+/// <summary>Original receipt/invoice row metadata for Actual valuation charge allocation (ERPNext PR #66553).</summary>
+public class OriginalValuationChargeItem
+{
+    public Guid DetailId { get; set; }
+    public decimal Qty { get; set; }
+    public decimal StockQty { get; set; }
+    public decimal ValuedStockQty { get; set; }
+    public decimal RejectedStockQty { get; set; }
+    public decimal BaseNetAmount { get; set; }
+    public bool IsStockOrAssetItem { get; set; } = true;
+    public bool AllocateStockOnlyMatches { get; set; }
 }
 
 /// <summary>Represents an item line for tax calculation input.</summary>

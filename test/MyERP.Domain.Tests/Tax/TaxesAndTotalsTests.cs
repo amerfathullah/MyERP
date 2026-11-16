@@ -567,4 +567,54 @@ public class TaxesAndTotalsTests
         taxes[1].TaxAmount.ShouldBe(3m);
         result.TotalTax.ShouldBe(103m);
     }
+
+    [Fact]
+    public void CalculateReturnedActualValuationCharges_ScalesByReturnedStockShare()
+    {
+        // Per ERPNext PR #66553: return with partial qty / omitted rows reverses only returned stock's valuation charge share
+        var freightAcc = Guid.NewGuid();
+        var origDocId = Guid.NewGuid();
+        var retDocId = Guid.NewGuid();
+        var row1Id = Guid.NewGuid();
+        var row2Id = Guid.NewGuid();
+
+        var originalTaxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "PurchaseReceipt", origDocId, 1, "Freight", "Actual", 100m)
+            {
+                AccountId = freightAcc,
+                TaxCategory = "Valuation and Total",
+                TaxAmount = 100m,
+                BaseTaxAmount = 100m
+            }
+        };
+
+        var originalItems = new List<OriginalValuationChargeItem>
+        {
+            new() { DetailId = row1Id, Qty = 10m, StockQty = 10m, ValuedStockQty = 10m, BaseNetAmount = 500m },
+            new() { DetailId = row2Id, Qty = 10m, StockQty = 10m, ValuedStockQty = 10m, BaseNetAmount = 500m },
+        };
+
+        // Return only 2 out of 10 from row1 (50% of 100 = 50 base charge -> 2/10 = 10 reversed)
+        var returnTaxes = new List<TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "PurchaseReceipt", retDocId, 1, "Freight", "Actual", -100m)
+            {
+                AccountId = freightAcc,
+                TaxCategory = "Valuation and Total",
+                TaxAmount = -100m,
+                BaseTaxAmount = -100m
+            }
+        };
+        var returnItems = new List<ReturnValuationChargeItem>
+        {
+            new() { OriginalDetailId = row1Id, Qty = -2m, ConversionFactor = 1m }
+        };
+
+        TaxesAndTotalsService.CalculateReturnedActualValuationCharges(
+            returnTaxes, returnItems, originalTaxes, originalItems);
+
+        returnTaxes[0].TaxAmount.ShouldBe(-10m);
+        returnTaxes[0].BaseTaxAmount.ShouldBe(-10m);
+    }
 }

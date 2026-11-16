@@ -607,4 +607,55 @@ public class ProductionPlanningReportAppServiceTests
         result.Rows[1].OrderNo.ShouldBe("WO-TIE-002");
         result.Rows[1].AllottedQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task WorkOrderChildRows_TiedDocument_OrderedDeterministicallyByChildId()
+    {
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+        var tiedDate = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var fgItem = new Item(fgItemId, _companyId, "FG-CHILD", "FG Child", ItemType.Goods);
+        var rmItem = new Item(rmItemId, _companyId, "RM-CHILD", "RM Child", ItemType.Goods);
+        var warehouse = new Warehouse(whId, _companyId, "Stores - TC");
+
+        var smallerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var largerId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-CHILD-001", fgItemId, bomId, 6m)
+        {
+            FgWarehouseId = whId,
+            PlannedStartDate = tiedDate
+        };
+        // Insert larger Id before smaller Id; allocation must still go to smaller Id first
+        wo.RequiredItems.Add(new WorkOrderItem(largerId, wo.Id, rmItemId, "Second Row", 5m) { SourceWarehouseId = whId });
+        wo.RequiredItems.Add(new WorkOrderItem(smallerId, wo.Id, rmItemId, "First Row", 3m) { SourceWarehouseId = whId });
+        wo.Submit();
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }));
+        _woRepo.WithDetailsAsync(Arg.Any<Expression<Func<WorkOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin>
+        {
+            new(Guid.NewGuid(), rmItemId, whId) { ActualQty = 4m }
+        }));
+
+        var result = await _appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "WorkOrder"
+        });
+
+        result.Rows.Count.ShouldBe(2);
+        result.Rows[0].RequiredQty.ShouldBe(3m);
+        result.Rows[0].AllottedQty.ShouldBe(3m);
+        result.Rows[1].RequiredQty.ShouldBe(5m);
+        result.Rows[1].AllottedQty.ShouldBe(1m);
+        result.Rows[1].ShortageQty.ShouldBe(4m);
+    }
 }

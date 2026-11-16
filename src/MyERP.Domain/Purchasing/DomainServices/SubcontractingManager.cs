@@ -547,6 +547,50 @@ public class SubcontractingManager : DomainService
 
         return picked;
     }
+
+    /// <summary>
+    /// Computes net finished good valuation rate after deducting allocated secondary items cost per unit.
+    /// Per ERPNext PR #66571.
+    /// </summary>
+    public static decimal CalculateFinishedGoodRateWithSecondaryCost(
+        decimal serviceCostPerQty,
+        decimal rawMaterialCostPerQty,
+        decimal secondaryItemsCostPerQty,
+        int precision = 4)
+    {
+        return Math.Max(0m, Math.Round(serviceCostPerQty + rawMaterialCostPerQty - secondaryItemsCostPerQty, precision));
+    }
+
+    /// <summary>
+    /// Resolves finished good rate for a Subcontracting Receipt return using the original receipt's
+    /// service cost and secondary items cost per unit (rather than current item valuation rates),
+    /// while zeroing service cost on rejected returns.
+    /// Per ERPNext PR #66571 (get_returned_costs).
+    /// </summary>
+    public static decimal ResolveReturnedFinishedGoodRate(
+        bool isRejectedReturn,
+        decimal receiptServiceCostPerQty,
+        decimal receiptRmCostPerQty,
+        decimal receiptSecondaryItemsCostPerQty,
+        decimal fallbackReceiptRate = 0m,
+        int precision = 4)
+    {
+        if (isRejectedReturn)
+        {
+            return 0m;
+        }
+
+        if (receiptServiceCostPerQty != 0m || receiptRmCostPerQty != 0m || receiptSecondaryItemsCostPerQty != 0m)
+        {
+            return CalculateFinishedGoodRateWithSecondaryCost(
+                receiptServiceCostPerQty,
+                receiptRmCostPerQty,
+                receiptSecondaryItemsCostPerQty,
+                precision);
+        }
+
+        return Math.Round(fallbackReceiptRate, precision);
+    }
 }
 
 public class SubcontractingRmConsumption

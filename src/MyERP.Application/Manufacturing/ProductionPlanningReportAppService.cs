@@ -219,7 +219,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
             // FG available qty in FG warehouse
             var fgAvailable = AllotStock(wo.ItemId, wo.FgWarehouseId, wo.Quantity, binTracker);
 
-            var items = wo.RequiredItems.ToList();
+            var items = wo.RequiredItems.OrderBy(i => i.Id).ToList();
             if (!items.Any())
             {
                 rows.Add(new ProductionPlanningReportRowDto
@@ -314,7 +314,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
         foreach (var so in salesOrders)
         {
-            foreach (var soItem in so.Items)
+            foreach (var soItem in so.Items.OrderBy(i => i.Id))
             {
                 var prodItem = itemMap.TryGetValue(soItem.ItemId, out var pi) ? pi : null;
                 var prodItemCode = prodItem?.ItemCode ?? string.Empty;
@@ -387,7 +387,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
                 var fgAvailable = AllotStock(soItem.ItemId, fgWhId, pendingQty, binTracker);
 
-                foreach (var bomItem in bom.Items)
+                foreach (var bomItem in bom.Items.OrderBy(i => i.Id))
                 {
                     var reqQty = bom.Quantity > 0 ? (bomItem.Quantity / bom.Quantity) * pendingQty : bomItem.Quantity * pendingQty;
 
@@ -458,7 +458,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
         foreach (var mr in requests)
         {
-            foreach (var mrItem in mr.Items)
+            foreach (var mrItem in mr.Items.OrderBy(i => i.Id))
             {
                 var prodItem = itemMap.TryGetValue(mrItem.ItemId, out var pi) ? pi : null;
                 var prodItemCode = prodItem?.ItemCode ?? string.Empty;
@@ -477,7 +477,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
                 var fgAvailable = AllotStock(mrItem.ItemId, fgWhId, pendingQty, binTracker);
 
-                foreach (var bomItem in bom.Items)
+                foreach (var bomItem in bom.Items.OrderBy(i => i.Id))
                 {
                     var reqQty = bom.Quantity > 0 ? (bomItem.Quantity / bom.Quantity) * pendingQty : bomItem.Quantity * pendingQty;
 

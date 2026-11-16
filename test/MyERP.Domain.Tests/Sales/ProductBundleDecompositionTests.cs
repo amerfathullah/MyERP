@@ -376,4 +376,27 @@ public class ProductBundleDecompositionTests
         decomposed[1].Qty.ShouldBe(5m); // 2.5 * 2
         decomposed[1].ProductBundleItemId.ShouldBe(bundle.Items[1].Id);
     }
+
+    [Fact]
+    public void GetPackedSerialNos_LoweredBundleQty_TruncatesPickedSerialsToTargetQty()
+    {
+        // Per ERPNext PR #66490: lowering bundle qty trims already-picked serials instead of carrying extra serials
+        var result = ProductBundleDecompositionService.GetPackedSerialNos(
+            existingPackedSerialNos: "SN-01\nSN-02\nSN-03",
+            packedQty: 2m);
+
+        result.ShouldBe(new[] { "SN-01", "SN-02" });
+    }
+
+    [Fact]
+    public void GetPackedSerialNos_PartialPacked_TopsUpExcludingDeliveredAndDeduplicates()
+    {
+        var result = ProductBundleDecompositionService.GetPackedSerialNos(
+            existingPackedSerialNos: "SN-01",
+            packedQty: 3m,
+            pendingPickListSerialNos: new[] { "sn-01", "SN-02", "SN-03", "SN-04" },
+            deliveredComponentSerialNos: new[] { "SN-02" });
+
+        result.ShouldBe(new[] { "SN-01", "SN-03", "SN-04" });
+    }
 }
