@@ -8,7 +8,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto, ProductionCostBreakdownDto } from '../../proxy/manufacturing/models';
+import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto, ProductionCostBreakdownDto, AlternativeFinishedGoodsDetailsDto } from '../../proxy/manufacturing/models';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import type { StockReservationEntryDto } from '../../proxy/inventory/models';
@@ -137,6 +137,11 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             <button class="btn btn-outline-warning btn-sm" (click)="returnExcessMaterials()" [disabled]="isReturningMaterials()">
               @if (isReturningMaterials()) { <span class="spinner-border spinner-border-sm me-1"></span> }
               <i class="fa fa-undo me-1"></i>{{ '::ReturnExcessMaterials' | abpLocalization }}
+            </button>
+          }
+          @if ((fgConversionDetails()?.alternativeItems?.length ?? 0) > 0 && (fgConversionDetails()?.availableQty ?? 0) > 0) {
+            <button class="btn btn-outline-primary btn-sm" (click)="openFgConversionModal()">
+              <i class="fa fa-exchange-alt me-1"></i>{{ '::ConvertFinishedGoods' | abpLocalization }}
             </button>
           }
           @if (wo()!.status! >= 1 && wo()!.status! < 4) {
@@ -534,6 +539,50 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           </div>
         </div>
       }
+
+      @if (showFgConversionModal()) {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.45)">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fa fa-exchange-alt me-1"></i>{{ '::ConvertFinishedGoods' | abpLocalization }}</h6>
+                <button type="button" class="btn-close" (click)="showFgConversionModal.set(false)" [disabled]="isConvertingFg()"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">{{ '::AlternativeItem' | abpLocalization }} *</label>
+                  <select class="form-select form-select-sm" [ngModel]="fgConversionAltItemId()" (ngModelChange)="fgConversionAltItemId.set($event)">
+                    <option value="">{{ '::Select' | abpLocalization }}...</option>
+                    @for (alt of fgConversionDetails()?.alternativeItems ?? []; track alt.itemId) {
+                      <option [value]="alt.itemId">{{ alt.itemCode }} — {{ alt.itemName }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">
+                    {{ '::Quantity' | abpLocalization }}
+                    ({{ '::AvailableToConvert' | abpLocalization }}: {{ fgConversionDetails()?.availableQty ?? 0 | number:'1.0-4' }})
+                  </label>
+                  <input type="number" class="form-control form-control-sm" min="0.0001" step="1"
+                    [max]="fgConversionDetails()?.availableQty ?? 0"
+                    [ngModel]="fgConversionQty()"
+                    (ngModelChange)="fgConversionQty.set($event)" />
+                </div>
+              </div>
+              <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" (click)="showFgConversionModal.set(false)" [disabled]="isConvertingFg()">
+                  {{ '::Close' | abpLocalization }}
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" (click)="submitFgConversion()"
+                  [disabled]="!fgConversionAltItemId() || fgConversionQty() <= 0 || fgConversionQty() > (fgConversionDetails()?.availableQty ?? 0) || isConvertingFg()">
+                  @if (isConvertingFg()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  {{ '::ConvertFinishedGoods' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </abp-page>
   `,
 })
@@ -561,6 +610,11 @@ export class WorkOrderDetailComponent implements OnInit {
   isCreatingJobCards = signal(false);
   isCreatingBom = signal(false);
   isReturningMaterials = signal(false);
+  fgConversionDetails = signal<AlternativeFinishedGoodsDetailsDto | null>(null);
+  showFgConversionModal = signal(false);
+  fgConversionAltItemId = signal('');
+  fgConversionQty = signal(0);
+  isConvertingFg = signal(false);
   qiRequired = signal(false);
   qiStatus = signal<string>('');
   costBreakdown = signal<ProductionCostBreakdownDto | null>(null);
@@ -602,6 +656,7 @@ export class WorkOrderDetailComponent implements OnInit {
               next: cb => this.costBreakdown.set(cb),
               error: () => {},
             });
+            this.loadFgConversionDetails(w.id!);
           }
 
           if (w.id) {
@@ -674,6 +729,47 @@ export class WorkOrderDetailComponent implements OnInit {
           this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
         },
       });
+    });
+  }
+
+  loadFgConversionDetails(workOrderId: string): void {
+    this.manufacturingService.getFgConversionDetails(workOrderId).subscribe({
+      next: details => this.fgConversionDetails.set(details),
+      error: () => this.fgConversionDetails.set(null),
+    });
+  }
+
+  openFgConversionModal(): void {
+    const details = this.fgConversionDetails();
+    const firstAlt = details?.alternativeItems?.[0]?.itemId ?? '';
+    this.fgConversionAltItemId.set(firstAlt);
+    this.fgConversionQty.set(details?.availableQty ?? 0);
+    this.showFgConversionModal.set(true);
+  }
+
+  submitFgConversion(): void {
+    const w = this.wo();
+    const altId = this.fgConversionAltItemId();
+    const qty = this.fgConversionQty();
+    const maxQty = this.fgConversionDetails()?.availableQty ?? 0;
+    if (!w?.id || !altId || qty <= 0 || qty > maxQty || this.isConvertingFg()) return;
+
+    this.isConvertingFg.set(true);
+    this.manufacturingService.createFgConversionEntry({
+      workOrderId: w.id,
+      alternativeItemId: altId,
+      quantity: qty,
+    }).subscribe({
+      next: se => {
+        this.isConvertingFg.set(false);
+        this.showFgConversionModal.set(false);
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        this.router.navigate(['/inventory/stock-entries', se.stockEntryId]);
+      },
+      error: (err: any) => {
+        this.isConvertingFg.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
     });
   }
 

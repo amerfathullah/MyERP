@@ -2,10 +2,12 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { AccountingDimensionService } from '../../proxy/accounting/accounting-dimension.service';
-import type { AccountingDimensionDto } from '../../proxy/accounting/models';
+import { AccountService } from '../../proxy/accounting/account.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import type { AccountingDimensionDto, AccountingDimensionFilterDto, AccountDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-accounting-dimensions',
@@ -100,6 +102,9 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" [title]="'::DimensionFilters' | abpLocalization" (click)="selectDimensionForFilters(dim)">
+                          <i class="fa fa-filter"></i>
+                        </button>
                         @if (dim.isEnabled) {
                           <button class="btn btn-outline-secondary" (click)="toggleEnable(dim, false)">
                             <i class="fa fa-ban"></i>
@@ -121,18 +126,106 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
           }
         </div>
       </div>
+
+      <!-- Dimension Filters -->
+      @if (selectedDimension(); as activeDim) {
+        <div class="card mt-4 border-primary">
+          <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+              <i class="fa fa-filter me-2"></i>{{ '::DimensionFilters' | abpLocalization }} — {{ activeDim.label }} ({{ activeDim.documentType }})
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="selectedDimension.set(null)">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+          <div class="card-body">
+            <form [formGroup]="filterForm" (ngSubmit)="createFilter()" class="row g-3 align-items-end mb-4">
+              <div class="col-md-4">
+                <label class="form-label">{{ '::Account' | abpLocalization }}</label>
+                <select class="form-select" formControlName="accountId">
+                  <option value="" disabled>{{ '::Select' | abpLocalization }}...</option>
+                  @for (acc of accounts(); track acc.id) {
+                    <option [value]="acc.id">{{ acc.accountCode }} — {{ acc.accountName }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">{{ '::FilterType' | abpLocalization }}</label>
+                <select class="form-select" formControlName="isAllowList">
+                  <option [ngValue]="true">{{ '::AllowList' | abpLocalization }}</option>
+                  <option [ngValue]="false">{{ '::RestrictList' | abpLocalization }}</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">{{ '::DimensionValues' | abpLocalization }}</label>
+                <input type="text" class="form-control" formControlName="dimensionValueIds" placeholder="id1,id2..." />
+              </div>
+              <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100" [disabled]="filterForm.invalid || savingFilter()">
+                  <i class="fa fa-plus me-1"></i>{{ '::Add' | abpLocalization }}
+                </button>
+              </div>
+            </form>
+
+            @if (loadingFilters()) {
+              <div class="text-center p-3"><i class="fa fa-spinner fa-spin"></i></div>
+            } @else if (filters().length === 0) {
+              <p class="text-muted text-center mb-0">{{ '::NoDimensionFiltersYet' | abpLocalization }}</p>
+            } @else {
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Account' | abpLocalization }}</th>
+                    <th>{{ '::FilterType' | abpLocalization }}</th>
+                    <th>{{ '::DimensionValues' | abpLocalization }}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (flt of filters(); track flt.id) {
+                    <tr>
+                      <td>{{ getAccountLabel(flt.accountId) }}</td>
+                      <td>
+                        @if (flt.isAllowList) {
+                          <span class="badge bg-success">{{ '::AllowList' | abpLocalization }}</span>
+                        } @else {
+                          <span class="badge bg-danger">{{ '::RestrictList' | abpLocalization }}</span>
+                        }
+                      </td>
+                      <td><code>{{ flt.dimensionValueIds || '—' }}</code></td>
+                      <td class="text-end">
+                        <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteFilter(flt.id!)">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      }
     </abp-page>
   `
 })
 export class AccountingDimensionsComponent implements OnInit {
   private dimensionService = inject(AccountingDimensionService);
+  private accountService = inject(AccountService);
+  private companyContext = inject(CompanyContextService);
+  private l = inject(LocalizationService);
   private fb = inject(FormBuilder);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
   dimensions = signal<AccountingDimensionDto[]>([]);
+  accounts = signal<AccountDto[]>([]);
+  selectedDimension = signal<AccountingDimensionDto | null>(null);
+  filters = signal<AccountingDimensionFilterDto[]>([]);
   loading = signal(true);
+  loadingFilters = signal(false);
   saving = signal(false);
+  savingFilter = signal(false);
 
   form = this.fb.group({
     documentType: ['', Validators.required],
@@ -140,8 +233,21 @@ export class AccountingDimensionsComponent implements OnInit {
     isMandatory: [false]
   });
 
+  filterForm = this.fb.group({
+    accountId: ['', Validators.required],
+    isAllowList: [true, Validators.required],
+    dimensionValueIds: ['', Validators.required],
+  });
+
   ngOnInit() {
     this.loadDimensions();
+    const companyId = this.companyContext.currentCompanyId();
+    if (companyId) {
+      this.accountService.getList({ companyId, skipCount: 0, maxResultCount: 500 } as any).subscribe({
+        next: res => this.accounts.set(res.items ?? []),
+        error: () => {},
+      });
+    }
   }
 
   loadDimensions() {
@@ -183,9 +289,78 @@ export class AccountingDimensionsComponent implements OnInit {
       this.dimensionService.delete(dim.id!).subscribe({
         next: () => {
           this.toaster.success('::SuccessfullyDeleted');
+          if (this.selectedDimension()?.id === dim.id) {
+            this.selectedDimension.set(null);
+          }
           this.loadDimensions();
         }
       });
     });
+  }
+
+  selectDimensionForFilters(dim: AccountingDimensionDto): void {
+    this.selectedDimension.set(dim);
+    this.loadFilters(dim.id!);
+  }
+
+  loadFilters(dimensionId: string): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) {
+      this.filters.set([]);
+      return;
+    }
+    this.loadingFilters.set(true);
+    this.dimensionService.getFilters(dimensionId, companyId).subscribe({
+      next: list => {
+        this.filters.set(list ?? []);
+        this.loadingFilters.set(false);
+      },
+      error: () => this.loadingFilters.set(false),
+    });
+  }
+
+  createFilter(): void {
+    const activeDim = this.selectedDimension();
+    const companyId = this.companyContext.currentCompanyId();
+    if (!activeDim?.id || !companyId || this.filterForm.invalid || this.savingFilter()) return;
+
+    this.savingFilter.set(true);
+    const val = this.filterForm.getRawValue();
+    this.dimensionService.createFilter({
+      accountingDimensionId: activeDim.id,
+      companyId,
+      accountId: val.accountId!,
+      isAllowList: val.isAllowList ?? true,
+      dimensionValueIds: val.dimensionValueIds ?? '',
+    }).subscribe({
+      next: () => {
+        this.savingFilter.set(false);
+        this.filterForm.reset({ accountId: '', isAllowList: true, dimensionValueIds: '' });
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        this.loadFilters(activeDim.id!);
+      },
+      error: (err: any) => {
+        this.savingFilter.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
+  }
+
+  deleteFilter(filterId: string): void {
+    const activeDim = this.selectedDimension();
+    if (!filterId || !activeDim?.id) return;
+    this.dimensionService.deleteFilter(filterId).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::SuccessfullyDeleted'));
+        this.loadFilters(activeDim.id!);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed')),
+    });
+  }
+
+  getAccountLabel(accountId?: string): string {
+    if (!accountId) return '—';
+    const acc = this.accounts().find(a => a.id === accountId);
+    return acc ? `${acc.accountCode ?? ''} ${acc.accountName ?? ''}`.trim() : accountId;
   }
 }

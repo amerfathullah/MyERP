@@ -6260,7 +6260,15 @@
     "PurchaseOrderCreationHelp": "Select items and assign a supplier for each line. One Purchase Order is created per supplier.",
     "PurchaseOrdersCreated": "Created {0} Purchase Order(s).",
     "AssignSupplierForSelectedItems": "Select at least one item and assign its supplier.",
-    "AllItemsAlreadyOrdered": "All items from this Sales Order have already been ordered."
+    "AllItemsAlreadyOrdered": "All items from this Sales Order have already been ordered.",
+    "DimensionFilters": "Dimension Filters",
+    "FilterType": "Filter Type",
+    "RestrictList": "Restrict List (Block Listed Values)",
+    "NoDimensionFiltersYet": "No account restriction filters configured for this dimension.",
+    "FetchFromPurchaseDocument": "Fetch from Purchase Document",
+    "PurchaseDocument": "Purchase Document",
+    "ConvertFinishedGoods": "Convert Finished Goods",
+    "AvailableToConvert": "Available to Convert"
   }
 }
 

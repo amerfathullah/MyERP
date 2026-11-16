@@ -15,6 +15,11 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
       getWorkOrder: vi.fn().mockReturnValue(of(null)),
       createBomFromWorkOrder: vi.fn().mockReturnValue(of({ id: 'bom-99' })),
       createMaterialReturnForManufacture: vi.fn().mockReturnValue(of({ stockEntryId: 'se-77' })),
+      getFgConversionDetails: vi.fn().mockReturnValue(of({
+        alternativeItems: [{ itemId: 'alt-1', itemCode: 'ALT-01', itemName: 'Alt Widget' }],
+        availableQty: 4,
+      })),
+      createFgConversionEntry: vi.fn().mockReturnValue(of({ stockEntryId: 'se-fg-1' })),
     };
     const routerMock = { navigate: vi.fn() };
     const confirmationMock = { warn: vi.fn().mockReturnValue(of(confirmStatus)) };
@@ -84,5 +89,34 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
     confirmed.comp.returnExcessMaterials();
     expect(confirmed.mfgMock.createMaterialReturnForManufacture).toHaveBeenCalledWith('wo-1');
     expect(confirmed.routerMock.navigate).toHaveBeenCalledWith(['/inventory/stock-entries', 'se-77']);
+  });
+
+  it('loads FG conversion alternatives, validates quantity cap, and creates conversion stock entry', () => {
+    const { comp, mfgMock, routerMock, toasterMock } = createComponent();
+    comp.wo.set({ id: 'wo-1', status: 4, producedQuantity: 5 } as any);
+
+    comp.loadFgConversionDetails('wo-1');
+    expect(comp.fgConversionDetails()?.alternativeItems).toHaveLength(1);
+
+    comp.openFgConversionModal();
+    expect(comp.showFgConversionModal()).toBe(true);
+    expect(comp.fgConversionAltItemId()).toBe('alt-1');
+    expect(comp.fgConversionQty()).toBe(4);
+
+    // Reject qty exceeding availableQty
+    comp.fgConversionQty.set(10);
+    comp.submitFgConversion();
+    expect(mfgMock.createFgConversionEntry).not.toHaveBeenCalled();
+
+    comp.fgConversionQty.set(3);
+    comp.submitFgConversion();
+    expect(mfgMock.createFgConversionEntry).toHaveBeenCalledWith({
+      workOrderId: 'wo-1',
+      alternativeItemId: 'alt-1',
+      quantity: 3,
+    });
+    expect(comp.showFgConversionModal()).toBe(false);
+    expect(toasterMock.success).toHaveBeenCalled();
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/inventory/stock-entries', 'se-fg-1']);
   });
 });

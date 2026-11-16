@@ -57,8 +57,34 @@
     </div>
 
     <div class="card mb-3">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="card-title mb-0">{{ '::PurchaseDetails' | abpLocalization }}</h5>
+        @if (!isEdit()) {
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm" style="width: 170px;"
+              [ngModel]="purchaseDocType()"
+              (ngModelChange)="onPurchaseDocTypeChange($event)"
+              [ngModelOptions]="{ standalone: true }">
+              <option value="PurchaseReceipt">{{ '::PurchaseReceipt' | abpLocalization }}</option>
+              <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+            </select>
+            <select class="form-select form-select-sm" style="width: 220px;"
+              [ngModel]="purchaseDocId()"
+              (ngModelChange)="purchaseDocId.set($event)"
+              [ngModelOptions]="{ standalone: true }">
+              <option value="">{{ '::Select' | abpLocalization }}...</option>
+              @for (doc of purchaseDocs(); track doc.id) {
+                <option [value]="doc.id">{{ doc.number }}</option>
+              }
+            </select>
+            <button type="button" class="btn btn-outline-primary btn-sm text-nowrap"
+              (click)="fetchFromSelectedPurchaseDoc()"
+              [disabled]="!purchaseDocId() || isFetchingPurchaseDoc()">
+              @if (isFetchingPurchaseDoc()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-download me-1"></i>{{ '::FetchFromPurchaseDocument' | abpLocalization }}
+            </button>
+          </div>
+        }
       </div>
       <div class="card-body">
         <div class="row">

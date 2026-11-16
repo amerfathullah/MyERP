@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { AssetStore } from '../store/asset.store';
 import { AssetService } from '../../proxy/assets/asset.service';
 import { AssetCategoryService } from '../../proxy/assets/asset-category.service';
@@ -11,9 +12,12 @@ import { LocationService } from '../../proxy/assets/location.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
+import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import type { CompanyDto } from '../../proxy/core/models';
 import type { AssetCategoryDto, LocationDto } from '../../proxy/assets/models';
 import type { EmployeeDto } from '../../proxy/human-resources/models';
+import { FormsModule } from '@angular/forms';
 import { depreciationMethodOptions } from '../../proxy/assets/depreciation-method.enum';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -22,7 +26,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
 @Component({
   selector: 'app-asset-form',
   standalone: true,
-  imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, ItemPickerComponent],
+  imports: [AutoValidationDirective, CommonModule, FormsModule, ReactiveFormsModule, PageModule, LocalizationPipe, ItemPickerComponent],
   templateUrl: './asset-form.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./asset-form.component.scss'],
@@ -38,6 +42,10 @@ export class AssetFormComponent implements OnInit {
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private employeeService = inject(EmployeeService);
+  private purchaseReceiptService = inject(PurchaseReceiptService);
+  private purchaseInvoiceService = inject(PurchaseInvoiceService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   form!: FormGroup;
   isEdit = signal<boolean>(false);
@@ -47,6 +55,10 @@ export class AssetFormComponent implements OnInit {
   locations = signal<LocationDto[]>([]);
   employees = signal<EmployeeDto[]>([]);
   depreciationMethods = depreciationMethodOptions;
+  purchaseDocType = signal<'PurchaseReceipt' | 'PurchaseInvoice'>('PurchaseReceipt');
+  purchaseDocId = signal<string>('');
+  purchaseDocs = signal<Array<{ id: string; number: string }>>([]);
+  isFetchingPurchaseDoc = signal(false);
 
   ngOnInit(): void {
     this.form = this.fb.group({
@@ -56,6 +68,11 @@ export class AssetFormComponent implements OnInit {
       itemId: [null],
       locationId: [null],
       custodianEmployeeId: [null],
+      costCenterId: [null],
+      purchaseReceiptId: [null],
+      purchaseReceiptItemId: [null],
+      purchaseInvoiceId: [null],
+      purchaseInvoiceItemId: [null],
       purchaseDate: [new Date().toISOString().split('T')[0], Validators.required],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
       additionalCost: [0, [Validators.min(0)]],
@@ -140,7 +157,73 @@ export class AssetFormComponent implements OnInit {
           });
         }
       });
+    } else {
+      this.loadPurchaseDocs('PurchaseReceipt');
+      const qp = this.route.snapshot.queryParams;
+      if (qp?.['purchaseDocType'] && qp?.['purchaseDocId']) {
+        this.purchaseDocType.set(qp['purchaseDocType']);
+        this.purchaseDocId.set(qp['purchaseDocId']);
+        this.fetchFromPurchaseDoc(qp['purchaseDocType'], qp['purchaseDocId'], qp['itemId']);
+      }
     }
+  }
+
+  onPurchaseDocTypeChange(docType: 'PurchaseReceipt' | 'PurchaseInvoice'): void {
+    this.purchaseDocType.set(docType);
+    this.purchaseDocId.set('');
+    this.loadPurchaseDocs(docType);
+  }
+
+  loadPurchaseDocs(docType: 'PurchaseReceipt' | 'PurchaseInvoice'): void {
+    const companyId = this.form?.get('companyId')?.value || this.companyContext.currentCompanyId() || undefined;
+    if (docType === 'PurchaseReceipt') {
+      this.purchaseReceiptService.getList({ companyId, skipCount: 0, maxResultCount: 100 } as any).subscribe({
+        next: res => this.purchaseDocs.set((res.items ?? []).filter(d => !!d.id).map(d => ({ id: d.id!, number: d.receiptNumber ?? d.id! }))),
+        error: () => this.purchaseDocs.set([]),
+      });
+    } else {
+      this.purchaseInvoiceService.getList({ companyId, skipCount: 0, maxResultCount: 100 } as any).subscribe({
+        next: res => this.purchaseDocs.set((res.items ?? []).filter(d => !!d.id).map(d => ({ id: d.id!, number: d.invoiceNumber ?? d.id! }))),
+        error: () => this.purchaseDocs.set([]),
+      });
+    }
+  }
+
+  fetchFromSelectedPurchaseDoc(): void {
+    const docId = this.purchaseDocId();
+    if (!docId) return;
+    const itemId = this.form.get('itemId')?.value || undefined;
+    this.fetchFromPurchaseDoc(this.purchaseDocType(), docId, itemId);
+  }
+
+  fetchFromPurchaseDoc(docType: string, docId: string, itemId?: string): void {
+    if (!docId || this.isFetchingPurchaseDoc()) return;
+    this.isFetchingPurchaseDoc.set(true);
+    this.assetService.getValuesFromPurchaseDoc(docType, docId, itemId, this.assetId() ?? undefined).subscribe({
+      next: vals => {
+        this.isFetchingPurchaseDoc.set(false);
+        this.form.patchValue({
+          companyId: vals.companyId ?? this.form.get('companyId')?.value,
+          purchaseDate: vals.purchaseDate ? vals.purchaseDate.split('T')[0] : this.form.get('purchaseDate')?.value,
+          availableForUseDate: vals.purchaseDate ? vals.purchaseDate.split('T')[0] : this.form.get('availableForUseDate')?.value,
+          purchaseAmount: vals.purchaseAmount ?? 0,
+          assetQuantity: vals.assetQuantity ?? 1,
+          itemId: vals.itemId ?? this.form.get('itemId')?.value,
+          assetName: this.form.get('assetName')?.value || vals.itemName || '',
+          locationId: vals.locationId ?? this.form.get('locationId')?.value,
+          costCenterId: vals.costCenterId ?? this.form.get('costCenterId')?.value,
+          purchaseReceiptId: vals.purchaseReceiptId ?? null,
+          purchaseReceiptItemId: vals.purchaseReceiptItemId ?? null,
+          purchaseInvoiceId: vals.purchaseInvoiceId ?? null,
+          purchaseInvoiceItemId: vals.purchaseInvoiceItemId ?? null,
+        });
+        this.toaster.success(this.l.instant('::SuccessfullyUpdated'));
+      },
+      error: (err: any) => {
+        this.isFetchingPurchaseDoc.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
   }
 
   save(): void {
