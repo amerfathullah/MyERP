@@ -276,4 +276,17 @@ public class EInvoiceXmlBuilderEnhancementTests
 
         Assert.Contains($"<cbc:PaymentMeansCode>{code}</cbc:PaymentMeansCode>", xml);
     }
+
+    [Fact]
+    public void Build_IncludesTaxCurrencyCode_AndSplitsCompositeMsicCode()
+    {
+        var data = CreateBasicData();
+        data.Supplier.MsicCode = "46510: Wholesale of computers";
+
+        var xml = _builder.Build(data);
+
+        Assert.Contains("<cbc:TaxCurrencyCode>MYR</cbc:TaxCurrencyCode>", xml);
+        Assert.Contains("name=\"Wholesale of computers\"", xml);
+        Assert.Contains(">46510</cbc:IndustryClassificationCode>", xml);
+    }
 }

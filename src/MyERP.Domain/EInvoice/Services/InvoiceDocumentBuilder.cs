@@ -33,6 +33,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         invoice.Add(new XElement(Cbc + "InvoiceTypeCode",
             new XAttribute("listVersionID", "1.0"), data.DocumentTypeCode));
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
+        invoice.Add(new XElement(Cbc + "TaxCurrencyCode", data.CurrencyCode));
 
         // Billing Reference (for credit/debit notes referencing original invoice)
         if (!string.IsNullOrEmpty(data.BillingReferenceNumber) || !string.IsNullOrEmpty(data.BillingReferenceUuid))
@@ -95,6 +96,29 @@ public class InvoiceDocumentBuilder : ITransientDependency
     /// <summary>
     /// Normalizes country names and ISO-3166-1 alpha-2 codes to LHDN MyInvois ISO-3166-1 alpha-3 codes (MyInvois commit 84cf3bd).
     /// </summary>
+    /// <summary>
+    /// Splits composite MSIC values like "46510: Wholesale of computers" into (code, description)
+    /// matching myinvois createxml.py LHDN IndustryClassificationCode serialization.
+    /// </summary>
+    public static (string? Code, string Description) ParseMsicCodeAndDescription(string? msicCode, string? msicDescription)
+    {
+        if (string.IsNullOrWhiteSpace(msicCode))
+        {
+            return (null, msicDescription ?? string.Empty);
+        }
+
+        var trimmed = msicCode.Trim();
+        var colonIdx = trimmed.IndexOf(':');
+        if (colonIdx > 0)
+        {
+            var codePart = trimmed[..colonIdx].Trim();
+            var descPart = trimmed[(colonIdx + 1)..].Trim();
+            return (codePart, !string.IsNullOrWhiteSpace(msicDescription) ? msicDescription : descPart);
+        }
+
+        return (trimmed, msicDescription ?? string.Empty);
+    }
+
     public static string NormalizeCountryCode(string? country)
     {
         if (string.IsNullOrWhiteSpace(country)) return "MYS";
@@ -190,13 +214,14 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XAttribute("schemeID", "SST"), supplier.SstRegistration)));
         }
 
-        // MSIC business activity code (per LHDN mandatory for supplier)
-        if (!string.IsNullOrEmpty(supplier.MsicCode))
+        // MSIC business activity code (per LHDN mandatory for supplier; supports "CODE: Description" format from MyInvois)
+        var (msicCode, msicDesc) = ParseMsicCodeAndDescription(supplier.MsicCode, supplier.MsicDescription);
+        if (!string.IsNullOrEmpty(msicCode))
         {
             party.Element(Cac + "Party")!.Add(
                 new XElement(Cbc + "IndustryClassificationCode",
-                    new XAttribute("name", supplier.MsicDescription ?? ""),
-                    supplier.MsicCode));
+                    new XAttribute("name", msicDesc),
+                    msicCode));
         }
 
         // Contact info (per LHDN spec — phone and email)

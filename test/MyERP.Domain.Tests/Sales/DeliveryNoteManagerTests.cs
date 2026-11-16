@@ -94,6 +94,33 @@ public class DeliveryNoteManagerTests
         dn.Items[0].ValuationRate.ShouldBe(0);
     }
 
+    [Fact]
+    public void CalculateSettledReturnQtyByDeliveryRow_SharesOverbilledSoQtyAcrossChronologicalDeliveries()
+    {
+        // Per ERPNext PR #60607: when SO is billed directly beyond net delivered qty,
+        // returned DN rows settle earliest deliveries first without needing duplicate credit notes.
+        var soItemId = Guid.NewGuid();
+        var dnRow1 = Guid.NewGuid();
+        var dnRow2 = Guid.NewGuid();
+
+        // Ordered 10, Billed against SO = 10, DN1 delivered 6 & returned 2, DN2 delivered 4 & returned 2
+        // Net delivered = 6, Total billed = 10 => Overbilled = 4, settled across DN1 (2) then DN2 (2)
+        var summary = new Dictionary<Guid, (decimal TotalBilledStockQty, decimal BilledAgainstSoStockQty, decimal NetDeliveredStockQty)>
+        {
+            [soItemId] = (10m, 10m, 6m)
+        };
+        var rows = new[]
+        {
+            (dnRow1, soItemId, 6m, 1m, 0m, -2m),
+            (dnRow2, soItemId, 4m, 1m, 0m, -2m),
+        };
+
+        var settled = DeliveryNoteManager.CalculateSettledReturnQtyByDeliveryRow(summary, rows);
+
+        settled[dnRow1].ShouldBe(2m);
+        settled[dnRow2].ShouldBe(2m);
+    }
+
     private static DeliveryNote CreateDN()
     {
         return new DeliveryNote(

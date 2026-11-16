@@ -421,4 +421,56 @@ public class DeliveryNoteManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes how much returned quantity on each Delivery Note row is already settled by
+    /// over-billing on its linked Sales Order row (so duplicate credit notes are not needed).
+    /// Per ERPNext PR #60607 (get_so_overbilled_stock_qty &amp; get_overbilled_qty_of_delivery_rows):
+    /// - Over-billed stock qty per SO row is max(0, min(billedStockQty - netDeliveredStockQty, billedAgainstSoDirectlyStockQty)).
+    /// - Shares SO over-billed qty chronologically across Delivery Note rows up to each row's uninvoiced returned qty.
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateSettledReturnQtyByDeliveryRow(
+        IReadOnlyDictionary<Guid, (decimal TotalBilledStockQty, decimal BilledAgainstSoStockQty, decimal NetDeliveredStockQty)> soBillingSummary,
+        IEnumerable<(Guid DeliveryRowId, Guid SalesOrderItemId, decimal Qty, decimal ConversionFactor, decimal InvoicedQty, decimal ReturnedStockQty)> chronologicalDeliveryRows,
+        int precision = 4)
+    {
+        var remainingOverbilled = new Dictionary<Guid, decimal>();
+        foreach (var (soItemId, s) in soBillingSummary)
+        {
+            var overbilled = Math.Round(s.TotalBilledStockQty - s.NetDeliveredStockQty, precision);
+            var settledPool = Math.Max(0m, Math.Min(overbilled, s.BilledAgainstSoStockQty));
+            if (settledPool > 0m)
+            {
+                remainingOverbilled[soItemId] = settledPool;
+            }
+        }
+
+        var result = new Dictionary<Guid, decimal>();
+        if (remainingOverbilled.Count == 0)
+        {
+            return result;
+        }
+
+        foreach (var row in chronologicalDeliveryRows)
+        {
+            if (!remainingOverbilled.TryGetValue(row.SalesOrderItemId, out var availablePool) || availablePool <= 0m)
+            {
+                continue;
+            }
+
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            var returnedAbsStock = Math.Abs(row.ReturnedStockQty);
+            var uninvoicedStock = Math.Max(0m, (row.Qty - row.InvoicedQty) * factor);
+            var uninvoicedReturned = Math.Max(0m, Math.Min(returnedAbsStock, uninvoicedStock));
+            var shareStock = Math.Min(uninvoicedReturned, availablePool);
+
+            if (shareStock > 0m)
+            {
+                remainingOverbilled[row.SalesOrderItemId] = availablePool - shareStock;
+                result[row.DeliveryRowId] = Math.Round(shareStock / factor, precision);
+            }
+        }
+
+        return result;
+    }
 }
