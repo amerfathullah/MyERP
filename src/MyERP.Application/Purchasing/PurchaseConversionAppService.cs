@@ -1047,6 +1047,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                     origItem.Uom,
                     origItem.WarehouseId,
                     materialRequestItemId: origItem.MaterialRequestItemId);
+                var retItem = debitNote.Items[^1];
+                retItem.StockUom = origItem.StockUom;
+                retItem.ConversionFactor = factor;
+                retItem.SalesInvoiceItemId = origItem.SalesInvoiceItemId;
             }
         }
 

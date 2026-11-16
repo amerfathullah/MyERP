@@ -94,24 +94,49 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             dto.IsInternalSupplier = supplier.RepresentsCompanyId.HasValue;
         }
 
-        if (invoice.InterCompanyInvoiceId.HasValue)
-        {
-            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
-            var si = await siRepo.FindAsync(invoice.InterCompanyInvoiceId.Value);
-            if (si != null && si.Status != Core.DocumentStatus.Cancelled)
-            {
-                dto.InterCompanyInvoiceNumber = si.InvoiceNumber;
-                var company = await _companyRepository.FindAsync(si.CompanyId);
-                dto.InterCompanyCompanyName = company?.Name;
-            }
-            else
-            {
-                // Linked inter-company SI was deleted or cancelled, so allow creating a fresh one from UI.
-                dto.InterCompanyInvoiceId = null;
-            }
-        }
+        await PopulateInterCompanyStateAsync(dto, invoice);
 
         return dto;
+    }
+
+    private async Task PopulateInterCompanyStateAsync(PurchaseInvoiceDto dto, PurchaseInvoice invoice)
+    {
+        var interCompanyService = LazyServiceProvider.LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
+        if (interCompanyService == null)
+        {
+            dto.CanCreateInterCompanySalesInvoice = invoice.Status == Core.DocumentStatus.Posted
+                && !invoice.IsReturn
+                && dto.IsInternalSupplier
+                && !invoice.InterCompanyInvoiceId.HasValue;
+            return;
+        }
+
+        var (isMadeFromCounterpart, invoicedByItem, latestLinkedSi) =
+            await interCompanyService.AnalyzePurchaseInvoiceInterCompanyStateAsync(invoice);
+
+        if (latestLinkedSi != null)
+        {
+            dto.InterCompanyInvoiceId = latestLinkedSi.Id;
+            dto.InterCompanyInvoiceNumber = latestLinkedSi.InvoiceNumber;
+            var company = await _companyRepository.FindAsync(latestLinkedSi.CompanyId);
+            dto.InterCompanyCompanyName = company?.Name;
+        }
+        else
+        {
+            dto.InterCompanyInvoiceId = null;
+        }
+
+        var hasPendingQty = invoice.Items.Any(i =>
+        {
+            var cf = i.ConversionFactor > 0 ? i.ConversionFactor : 1m;
+            return Math.Round((i.StockQty - invoicedByItem.GetValueOrDefault(i.Id)) / cf, 4) > 0m;
+        });
+
+        dto.CanCreateInterCompanySalesInvoice = invoice.Status == Core.DocumentStatus.Posted
+            && !invoice.IsReturn
+            && dto.IsInternalSupplier
+            && !isMadeFromCounterpart
+            && hasPendingQty;
     }
 
     /// <summary>
@@ -873,6 +898,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
+            added.SalesInvoiceItemId = item.SalesInvoiceItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
             added.BatchId = item.BatchId;
             added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
@@ -1112,6 +1138,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
+            added.SalesInvoiceItemId = item.SalesInvoiceItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
             added.BatchId = item.BatchId;
             added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
@@ -1521,7 +1548,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await piManager.ValidateExchangeRateWithPurchaseReceiptAsync(
             invoice, prRepoForFx, isPerpetualInventory: true, setLandedCostBasedOnPiRate: setLandedCostOnPiRate);
 
-        // Inter-company rate validation (ERPNext PR #47780 / commit 3a2b863e7f)
+        // Inter-company rate & qty validation (ERPNext PR #47780 / #66916)
         if (invoice.InterCompanyInvoiceId.HasValue)
         {
             var interCompanyService = LazyServiceProvider
@@ -1532,6 +1559,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 linkedPurchaseInvoiceId: null,
                 invoice.Items.Select(i => (i.ItemId, i.UnitPrice, (string?)i.Description)),
                 CurrentUser.Roles);
+
+            var companyForAllowance = await _companyRepository.FindAsync(invoice.CompanyId);
+            await interCompanyService.ValidateInternalPurchaseInvoiceQtyAsync(
+                invoice,
+                companyForAllowance?.OverDeliveryReceiptAllowance ?? 0m);
         }
 
         // Batch validation — block expired/disabled batches on stock-out / update_stock
@@ -2006,6 +2038,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 .WithData("invoiceNumber", invoice.InvoiceNumber);
         }
 
+        // ERPNext PR #66916: cancelling an internal return PI restores its qty to the returned PI,
+        // so guard against pushing net billed qty past the linked inter-company Sales Invoice.
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+            if (supplier?.RepresentsCompanyId.HasValue == true)
+            {
+                var interCompanyService = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Core.DomainServices.InterCompanyTransactionService>();
+                var companyForAllowance = await _companyRepository.FindAsync(invoice.CompanyId);
+                await interCompanyService.ValidateInternalPurchaseInvoiceQtyAsync(
+                    invoice,
+                    companyForAllowance?.OverDeliveryReceiptAllowance ?? 0m,
+                    excludePurchaseInvoiceId: invoice.Id);
+            }
+        }
+
         invoice.Cancel();
 
         // Reverse Debit Note reduction on original invoice outstanding
@@ -2440,6 +2489,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
+            added.SalesInvoiceItemId = item.SalesInvoiceItemId;
             added.StockUom = item.StockUom;
             added.ConversionFactor = item.ConversionFactor;
             added.ClassificationCode = item.ClassificationCode;

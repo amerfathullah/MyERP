@@ -297,8 +297,12 @@ describe('PurchaseInvoiceDetailComponent', () => {
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/invoices', 'ic-si-1']);
 
-      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: 'ic-si-1' } as any;
+      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: 'ic-si-1', canCreateInterCompanySalesInvoice: false } as any;
       expect(comp.workflowActions.some(a => a.name === 'createSalesInvoice')).toBe(false);
+
+      // PR #66937 symmetry: show button when pending qty remains even if a link exists
+      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: 'ic-si-1', canCreateInterCompanySalesInvoice: true } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createSalesInvoice')).toBe(true);
     });
   });
 });

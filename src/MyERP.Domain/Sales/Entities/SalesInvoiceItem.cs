@@ -79,6 +79,9 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Delivery Note item (for DN billing status tracking, per ERPNext dn_detail).</summary>
     public Guid? DeliveryNoteItemId { get; set; }
 
+    /// <summary>Link to source Purchase Invoice item (for inter-company invoiced qty tracking).</summary>
+    public Guid? PurchaseInvoiceItemId { get; set; }
+
     /// <summary>Whether this line item represents a fixed asset sale.</summary>
     public bool IsFixedAsset { get; set; }
 

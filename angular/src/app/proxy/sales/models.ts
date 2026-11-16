@@ -2450,6 +2450,7 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   interCompanyPurchaseInvoiceNumber?: string | null;
   interCompanyCompanyName?: string | null;
   isInternalCustomer?: boolean;
+  canCreateInterCompanyPurchaseInvoice?: boolean;
   termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;
@@ -2475,6 +2476,7 @@ export interface SalesInvoiceItemDto {
   assetId?: string | null;
   productBundleId?: string | null;
   classificationCode?: string | null;
+  purchaseInvoiceItemId?: string | null;
 }
 
 export interface SalesInvoiceListSummaryDto {

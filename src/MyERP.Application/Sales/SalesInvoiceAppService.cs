@@ -105,7 +105,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var invoice = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
 
-        // Resolve customer name and inter-company customer flag
+        // Resolve customer name and inter-company customer flag + pending qty state (ERPNext PR #66916 / #66937)
         var customer = await _customerRepository.FindAsync(invoice.CustomerId);
         if (customer != null)
         {
@@ -113,23 +113,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             dto.IsInternalCustomer = customer.RepresentsCompanyId.HasValue;
         }
 
-        if (invoice.InterCompanyPurchaseInvoiceId.HasValue)
-        {
-            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
-            var pi = await piRepo.FindAsync(invoice.InterCompanyPurchaseInvoiceId.Value);
-            if (pi != null && pi.Status != Core.DocumentStatus.Cancelled)
-            {
-                dto.InterCompanyPurchaseInvoiceNumber = pi.InvoiceNumber;
-                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
-                var company = await companyRepo.FindAsync(pi.CompanyId);
-                dto.InterCompanyCompanyName = company?.Name;
-            }
-            else
-            {
-                // Linked inter-company PI was deleted or cancelled, so allow creating a fresh one from UI.
-                dto.InterCompanyPurchaseInvoiceId = null;
-            }
-        }
+        await PopulateInterCompanyStateAsync(dto, invoice);
 
         // Per MyInvois commit 0e3fc83: resolve consolidated sales invoice number
         if (invoice.ConsolidatedSalesInvoiceId.HasValue)
@@ -200,6 +184,47 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
         await AttachSalesTeamAsync(dto);
         return dto;
+    }
+
+    private async Task PopulateInterCompanyStateAsync(SalesInvoiceDto dto, SalesInvoice invoice)
+    {
+        var interCompanyService = LazyServiceProvider.LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
+        if (interCompanyService == null)
+        {
+            dto.CanCreateInterCompanyPurchaseInvoice = invoice.Status == Core.DocumentStatus.Posted
+                && !invoice.IsReturn
+                && dto.IsInternalCustomer
+                && !invoice.InterCompanyPurchaseInvoiceId.HasValue;
+            return;
+        }
+
+        var (isMadeFromCounterpart, invoicedByItem, latestLinkedPi) =
+            await interCompanyService.AnalyzeSalesInvoiceInterCompanyStateAsync(invoice);
+
+        if (latestLinkedPi != null)
+        {
+            dto.InterCompanyPurchaseInvoiceId = latestLinkedPi.Id;
+            dto.InterCompanyPurchaseInvoiceNumber = latestLinkedPi.InvoiceNumber;
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            var company = await companyRepo.FindAsync(latestLinkedPi.CompanyId);
+            dto.InterCompanyCompanyName = company?.Name;
+        }
+        else
+        {
+            dto.InterCompanyPurchaseInvoiceId = null;
+        }
+
+        var hasPendingQty = invoice.Items.Any(i =>
+        {
+            var cf = i.ConversionFactor > 0 ? i.ConversionFactor : 1m;
+            return Math.Round((i.StockQty - invoicedByItem.GetValueOrDefault(i.Id)) / cf, 4) > 0m;
+        });
+
+        dto.CanCreateInterCompanyPurchaseInvoice = invoice.Status == Core.DocumentStatus.Posted
+            && !invoice.IsReturn
+            && dto.IsInternalCustomer
+            && !isMadeFromCounterpart
+            && hasPendingQty;
     }
 
     /// <summary>

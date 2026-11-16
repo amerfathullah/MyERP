@@ -67,6 +67,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Material Request item (for receipt tracking when UpdateStock=true per ERPNext PR #60208 / commit ba48a9d0ad).</summary>
     public Guid? MaterialRequestItemId { get; set; }
 
+    /// <summary>Link to source Sales Invoice item (for inter-company invoiced/return qty tracking, ERPNext PR #66916 / #66937).</summary>
+    public Guid? SalesInvoiceItemId { get; set; }
+
     /// <summary>Source warehouse for internal transfer (when UpdateStock=true).</summary>
     public Guid? FromWarehouseId { get; set; }
 

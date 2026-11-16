@@ -24683,6 +24683,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("RejectedWarehouseId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SalesInvoiceItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ServiceEndDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -24720,6 +24723,8 @@ namespace MyERP.Migrations
                     b.HasIndex("MaterialRequestItemId");
 
                     b.HasIndex("PurchaseInvoiceId");
+
+                    b.HasIndex("SalesInvoiceItemId");
 
                     b.ToTable("Pur_PurchaseInvoiceItems", (string)null);
                 });
@@ -30268,6 +30273,9 @@ namespace MyERP.Migrations
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PurchaseInvoiceItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -30310,6 +30318,8 @@ namespace MyERP.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ItemId");
+
+                    b.HasIndex("PurchaseInvoiceItemId");
 
                     b.HasIndex("SalesInvoiceId");
 

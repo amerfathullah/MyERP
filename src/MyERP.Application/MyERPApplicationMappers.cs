@@ -695,6 +695,7 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.InterCompanyInvoiceNumber))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.InterCompanyCompanyName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsInternalSupplier))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.CanCreateInterCompanySalesInvoice))]
     public override partial Purchasing.PurchaseInvoiceDto Map(Purchasing.Entities.PurchaseInvoice source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.SupplierName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.DaysOverdue))]
@@ -704,6 +705,7 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.InterCompanyInvoiceNumber))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.InterCompanyCompanyName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.IsInternalSupplier))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseInvoiceDto.CanCreateInterCompanySalesInvoice))]
     public override partial void Map(Purchasing.Entities.PurchaseInvoice source, Purchasing.PurchaseInvoiceDto destination);
     private partial Purchasing.PurchaseInvoiceItemDto MapChild(Purchasing.Entities.PurchaseInvoiceItem source);
 }
@@ -1295,6 +1297,7 @@ public partial class SalesInvoiceMapper : MapperBase<Sales.Entities.SalesInvoice
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.InterCompanyCompanyName))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.ConsolidatedSalesInvoiceNumber))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsInternalCustomer))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CanCreateInterCompanyPurchaseInvoice))]
     public override partial Sales.SalesInvoiceDto Map(Sales.Entities.SalesInvoice source);
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.DaysOverdue))]
@@ -1305,6 +1308,7 @@ public partial class SalesInvoiceMapper : MapperBase<Sales.Entities.SalesInvoice
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.InterCompanyCompanyName))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.ConsolidatedSalesInvoiceNumber))]
     [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.IsInternalCustomer))]
+    [MapperIgnoreTarget(nameof(Sales.SalesInvoiceDto.CanCreateInterCompanyPurchaseInvoice))]
     public override partial void Map(Sales.Entities.SalesInvoice source, Sales.SalesInvoiceDto destination);
     private partial Sales.SalesInvoiceItemDto MapChild(Sales.Entities.SalesInvoiceItem source);
 }

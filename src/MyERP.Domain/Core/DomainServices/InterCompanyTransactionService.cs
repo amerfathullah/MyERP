@@ -85,16 +85,25 @@ public class InterCompanyTransactionService : DomainService
         var sourceCompany = await _companyRepository.GetAsync(si.CompanyId);
         var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
 
-        // Guard: block duplicate creation if already invoiced (ERPNext PR #55639)
-        if (si.InterCompanyPurchaseInvoiceId.HasValue)
+        // Guard: check counterpart creation and pending uninvoiced qty (ERPNext PR #55639 / #66916 / #66937)
+        var (isMadeFromCounterpart, invoicedByItem, existingLinkedPi) = await AnalyzeSalesInvoiceInterCompanyStateAsync(si);
+        var pendingItems = new List<(SalesInvoiceItem Item, decimal PendingQty, decimal ConversionFactor)>();
+        foreach (var item in si.Items)
         {
-            var existingPi = await _purchaseInvoiceRepository.FindAsync(si.InterCompanyPurchaseInvoiceId.Value);
-            if (existingPi != null && existingPi.Status != DocumentStatus.Cancelled)
+            var cf = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+            var invoicedStock = invoicedByItem.GetValueOrDefault(item.Id);
+            var pendingQty = Math.Round((item.StockQty - invoicedStock) / cf, 4);
+            if (pendingQty > 0m)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
-                    .WithData("salesInvoiceNumber", si.InvoiceNumber)
-                    .WithData("purchaseInvoiceNumber", existingPi.InvoiceNumber);
+                pendingItems.Add((item, pendingQty, cf));
             }
+        }
+
+        if (isMadeFromCounterpart || (existingLinkedPi != null && pendingItems.Count == 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
+                .WithData("salesInvoiceNumber", si.InvoiceNumber)
+                .WithData("purchaseInvoiceNumber", existingLinkedPi?.InvoiceNumber ?? si.InterCompanyPurchaseInvoiceId?.ToString() ?? string.Empty);
         }
 
         // Validate: the Customer in source company must represent target company
@@ -123,12 +132,14 @@ public class InterCompanyTransactionService : DomainService
         // Validate price list if present
         await ValidatePriceListAsync(si.PriceListId);
 
+        var piNumber = await GenerateUniquePurchaseInvoiceNumberAsync($"IC-{si.InvoiceNumber}");
+
         // Create the PI in target company — do NOT copy party-specific fields
         var pi = new PurchaseInvoice(
             LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
             targetCompanyId,
             matchingSupplier.Id,
-            $"IC-{si.InvoiceNumber}",
+            piNumber,
             si.IssueDate,
             tenantId);
 
@@ -158,12 +169,19 @@ public class InterCompanyTransactionService : DomainService
             pi.BillingAddressId = si.BillingAddressId;
         }
 
-        // Copy items (amounts only — no party-specific fields; resolve target company's Item by ItemCode when available)
-        var targetItemMap = await ResolveTargetCompanyItemMapAsync(si.Items.Select(i => i.ItemId), targetCompanyId);
-        foreach (var item in si.Items)
+        // Copy remaining pending items (amounts only — no party-specific fields; resolve target company's Item by ItemCode when available)
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(pendingItems.Select(x => x.Item.ItemId), targetCompanyId);
+        foreach (var (item, pendingQty, cf) in pendingItems)
         {
             var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
-            pi.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var tax = item.Quantity > 0 && pendingQty < item.Quantity
+                ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 4)
+                : item.TaxAmount;
+            pi.AddItem(targetItemId, item.Description, pendingQty, item.UnitPrice, tax, item.Uom);
+            var piItem = pi.Items.Last();
+            piItem.StockUom = item.StockUom;
+            piItem.ConversionFactor = cf;
+            piItem.SalesInvoiceItemId = item.Id;
         }
 
         await _purchaseInvoiceRepository.InsertAsync(pi, autoSave: true);
@@ -186,16 +204,25 @@ public class InterCompanyTransactionService : DomainService
         var sourceCompany = await _companyRepository.GetAsync(pi.CompanyId);
         var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
 
-        // Guard: block duplicate creation if already invoiced (ERPNext PR #55639)
-        if (pi.InterCompanyInvoiceId.HasValue)
+        // Guard: check counterpart creation and pending uninvoiced qty (ERPNext PR #55639 / #66916 / #66937)
+        var (isMadeFromCounterpart, invoicedByItem, existingLinkedSi) = await AnalyzePurchaseInvoiceInterCompanyStateAsync(pi);
+        var pendingItems = new List<(PurchaseInvoiceItem Item, decimal PendingQty, decimal ConversionFactor)>();
+        foreach (var item in pi.Items)
         {
-            var existingSi = await _salesInvoiceRepository.FindAsync(pi.InterCompanyInvoiceId.Value);
-            if (existingSi != null && existingSi.Status != DocumentStatus.Cancelled)
+            var cf = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+            var invoicedStock = invoicedByItem.GetValueOrDefault(item.Id);
+            var pendingQty = Math.Round((item.StockQty - invoicedStock) / cf, 4);
+            if (pendingQty > 0m)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
-                    .WithData("purchaseInvoiceNumber", pi.InvoiceNumber)
-                    .WithData("salesInvoiceNumber", existingSi.InvoiceNumber);
+                pendingItems.Add((item, pendingQty, cf));
             }
+        }
+
+        if (isMadeFromCounterpart || (existingLinkedSi != null && pendingItems.Count == 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
+                .WithData("purchaseInvoiceNumber", pi.InvoiceNumber)
+                .WithData("salesInvoiceNumber", existingLinkedSi?.InvoiceNumber ?? pi.InterCompanyInvoiceId?.ToString() ?? string.Empty);
         }
 
         // Validate: the Supplier in source company must represent target company
@@ -224,12 +251,14 @@ public class InterCompanyTransactionService : DomainService
         // Validate price list if present
         await ValidatePriceListAsync(pi.PriceListId);
 
+        var siNumber = await GenerateUniqueSalesInvoiceNumberAsync($"IC-{pi.InvoiceNumber}");
+
         // Create the SI in target company
         var si = new SalesInvoice(
             LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
             targetCompanyId,
             matchingCustomer.Id,
-            $"IC-{pi.InvoiceNumber}",
+            siNumber,
             pi.IssueDate);
 
         si.DueDate = pi.DueDate;
@@ -258,11 +287,18 @@ public class InterCompanyTransactionService : DomainService
             si.BillingAddressId = pi.BillingAddressId;
         }
 
-        var targetItemMap = await ResolveTargetCompanyItemMapAsync(pi.Items.Select(i => i.ItemId), targetCompanyId);
-        foreach (var item in pi.Items)
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(pendingItems.Select(x => x.Item.ItemId), targetCompanyId);
+        foreach (var (item, pendingQty, cf) in pendingItems)
         {
             var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
-            si.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var tax = item.Quantity > 0 && pendingQty < item.Quantity
+                ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 4)
+                : item.TaxAmount;
+            si.AddItem(targetItemId, item.Description, pendingQty, item.UnitPrice, tax, item.Uom);
+            var siItem = si.Items.Last();
+            siItem.StockUom = item.StockUom;
+            siItem.ConversionFactor = cf;
+            siItem.PurchaseInvoiceItemId = item.Id;
         }
 
         await _salesInvoiceRepository.InsertAsync(si, autoSave: true);
@@ -317,6 +353,257 @@ public class InterCompanyTransactionService : DomainService
         }
 
         return (false, orderedByItem, linkedPos[0]);
+    }
+
+    private async Task<IQueryable<PurchaseInvoice>?> GetPurchaseInvoiceQueryAsync()
+    {
+        return await _purchaseInvoiceRepository.WithDetailsAsync(p => p.Items)
+            ?? await _purchaseInvoiceRepository.GetQueryableAsync();
+    }
+
+    private async Task<IQueryable<SalesInvoice>?> GetSalesInvoiceQueryAsync()
+    {
+        return await _salesInvoiceRepository.WithDetailsAsync(s => s.Items)
+            ?? await _salesInvoiceRepository.GetQueryableAsync();
+    }
+
+    private async Task<string> GenerateUniquePurchaseInvoiceNumberAsync(string baseNumber)
+    {
+        var query = await _purchaseInvoiceRepository.GetQueryableAsync();
+        if (query == null || !query.Any(pi => pi.InvoiceNumber == baseNumber))
+            return baseNumber;
+
+        for (var i = 2; i < 1000; i++)
+        {
+            var candidate = $"{baseNumber}-{i}";
+            if (!query.Any(pi => pi.InvoiceNumber == candidate))
+                return candidate;
+        }
+        return $"{baseNumber}-{Guid.NewGuid().ToString("N")[..6]}";
+    }
+
+    private async Task<string> GenerateUniqueSalesInvoiceNumberAsync(string baseNumber)
+    {
+        var query = await _salesInvoiceRepository.GetQueryableAsync();
+        if (query == null || !query.Any(si => si.InvoiceNumber == baseNumber))
+            return baseNumber;
+
+        for (var i = 2; i < 1000; i++)
+        {
+            var candidate = $"{baseNumber}-{i}";
+            if (!query.Any(si => si.InvoiceNumber == candidate))
+                return candidate;
+        }
+        return $"{baseNumber}-{Guid.NewGuid().ToString("N")[..6]}";
+    }
+
+    /// <summary>
+    /// Computes inter-company PI link metadata and net invoiced stock quantities per SI item,
+    /// subtracting submitted/posted return PIs against those linked internal PIs (ERPNext PR #66916 / #66937).
+    /// </summary>
+    public async Task<(bool IsMadeFromCounterpart, Dictionary<Guid, decimal> InvoicedStockQtyByItem, PurchaseInvoice? LatestLinkedPi)>
+        AnalyzeSalesInvoiceInterCompanyStateAsync(SalesInvoice salesInvoice, Guid? excludePurchaseInvoiceId = null)
+    {
+        var invoicedByItem = new Dictionary<Guid, decimal>();
+        var piQuery = await GetPurchaseInvoiceQueryAsync();
+        var linkedPis = piQuery != null
+            ? piQuery
+                .Where(pi => pi.InterCompanyInvoiceId == salesInvoice.Id
+                    && pi.Status != DocumentStatus.Cancelled
+                    && pi.Id != excludePurchaseInvoiceId)
+                .OrderByDescending(pi => pi.CreationTime)
+                .ToList()
+            : new List<PurchaseInvoice>();
+
+        if (salesInvoice.InterCompanyPurchaseInvoiceId.HasValue
+            && salesInvoice.InterCompanyPurchaseInvoiceId.Value != excludePurchaseInvoiceId
+            && !linkedPis.Any(p => p.Id == salesInvoice.InterCompanyPurchaseInvoiceId.Value))
+        {
+            var fallbackPi = await _purchaseInvoiceRepository.FindAsync(salesInvoice.InterCompanyPurchaseInvoiceId.Value);
+            if (fallbackPi != null && fallbackPi.Status != DocumentStatus.Cancelled)
+            {
+                linkedPis.Insert(0, fallbackPi);
+            }
+        }
+
+        if (linkedPis.Count == 0)
+        {
+            return (false, invoicedByItem, null);
+        }
+
+        var hasSiRefsOnPis = linkedPis.SelectMany(pi => pi.Items).Any(i => i.SalesInvoiceItemId.HasValue);
+        var isMadeFromCounterpart = salesInvoice.Items.Any(i => i.PurchaseInvoiceItemId.HasValue)
+            || (!hasSiRefsOnPis && salesInvoice.InterCompanyPurchaseInvoiceId.HasValue);
+        if (isMadeFromCounterpart)
+        {
+            return (true, invoicedByItem, linkedPis[0]);
+        }
+
+        var piById = linkedPis.ToDictionary(pi => pi.Id);
+        foreach (var piItem in linkedPis.SelectMany(pi => pi.Items))
+        {
+            if (piItem.SalesInvoiceItemId.HasValue)
+            {
+                invoicedByItem[piItem.SalesInvoiceItemId.Value] =
+                    invoicedByItem.GetValueOrDefault(piItem.SalesInvoiceItemId.Value) + piItem.StockQty;
+            }
+        }
+
+        // ERPNext PR #66916: returns against internal Purchase Invoices make returned qty uninvoiced again.
+        if (piQuery != null)
+        {
+            var linkedPiIds = piById.Keys.ToList();
+            var returnPis = piQuery
+                .Where(pi => pi.IsReturn
+                    && pi.ReturnAgainstId.HasValue
+                    && linkedPiIds.Contains(pi.ReturnAgainstId.Value)
+                    && pi.Status != DocumentStatus.Draft
+                    && pi.Status != DocumentStatus.Cancelled
+                    && pi.Id != excludePurchaseInvoiceId)
+                .ToList();
+
+            foreach (var retPi in returnPis)
+            {
+                piById.TryGetValue(retPi.ReturnAgainstId!.Value, out var origPi);
+                foreach (var retItem in retPi.Items)
+                {
+                    var siItemId = retItem.SalesInvoiceItemId
+                        ?? origPi?.Items.FirstOrDefault(i => i.ItemId == retItem.ItemId && i.SalesInvoiceItemId.HasValue)?.SalesInvoiceItemId;
+                    if (siItemId.HasValue)
+                    {
+                        invoicedByItem[siItemId.Value] =
+                            invoicedByItem.GetValueOrDefault(siItemId.Value) + retItem.StockQty;
+                    }
+                }
+            }
+        }
+
+        return (false, invoicedByItem, linkedPis[0]);
+    }
+
+    /// <summary>
+    /// Computes inter-company SI link metadata and net invoiced stock quantities per PI item,
+    /// subtracting submitted/posted return SIs (ERPNext PR #66916 / #66937 symmetry).
+    /// </summary>
+    public async Task<(bool IsMadeFromCounterpart, Dictionary<Guid, decimal> InvoicedStockQtyByItem, SalesInvoice? LatestLinkedSi)>
+        AnalyzePurchaseInvoiceInterCompanyStateAsync(PurchaseInvoice purchaseInvoice, Guid? excludeSalesInvoiceId = null)
+    {
+        var invoicedByItem = new Dictionary<Guid, decimal>();
+        var siQuery = await GetSalesInvoiceQueryAsync();
+        var linkedSis = siQuery != null
+            ? siQuery
+                .Where(si => si.InterCompanyPurchaseInvoiceId == purchaseInvoice.Id
+                    && si.Status != DocumentStatus.Cancelled
+                    && si.Id != excludeSalesInvoiceId)
+                .OrderByDescending(si => si.CreationTime)
+                .ToList()
+            : new List<SalesInvoice>();
+
+        if (purchaseInvoice.InterCompanyInvoiceId.HasValue
+            && purchaseInvoice.InterCompanyInvoiceId.Value != excludeSalesInvoiceId
+            && !linkedSis.Any(s => s.Id == purchaseInvoice.InterCompanyInvoiceId.Value))
+        {
+            var fallbackSi = await _salesInvoiceRepository.FindAsync(purchaseInvoice.InterCompanyInvoiceId.Value);
+            if (fallbackSi != null && fallbackSi.Status != DocumentStatus.Cancelled)
+            {
+                linkedSis.Insert(0, fallbackSi);
+            }
+        }
+
+        if (linkedSis.Count == 0)
+        {
+            return (false, invoicedByItem, null);
+        }
+
+        var hasPiRefsOnSis = linkedSis.SelectMany(si => si.Items).Any(i => i.PurchaseInvoiceItemId.HasValue);
+        var isMadeFromCounterpart = purchaseInvoice.Items.Any(i => i.SalesInvoiceItemId.HasValue)
+            || (!hasPiRefsOnSis && purchaseInvoice.InterCompanyInvoiceId.HasValue);
+        if (isMadeFromCounterpart)
+        {
+            return (true, invoicedByItem, linkedSis[0]);
+        }
+
+        var siById = linkedSis.ToDictionary(si => si.Id);
+        foreach (var siItem in linkedSis.SelectMany(si => si.Items))
+        {
+            if (siItem.PurchaseInvoiceItemId.HasValue)
+            {
+                invoicedByItem[siItem.PurchaseInvoiceItemId.Value] =
+                    invoicedByItem.GetValueOrDefault(siItem.PurchaseInvoiceItemId.Value) + siItem.StockQty;
+            }
+        }
+
+        if (siQuery != null)
+        {
+            var linkedSiIds = siById.Keys.ToList();
+            var returnSis = siQuery
+                .Where(si => si.IsReturn
+                    && si.ReturnAgainstId.HasValue
+                    && linkedSiIds.Contains(si.ReturnAgainstId.Value)
+                    && si.Status != DocumentStatus.Draft
+                    && si.Status != DocumentStatus.Cancelled
+                    && si.Id != excludeSalesInvoiceId)
+                .ToList();
+
+            foreach (var retSi in returnSis)
+            {
+                siById.TryGetValue(retSi.ReturnAgainstId!.Value, out var origSi);
+                foreach (var retItem in retSi.Items)
+                {
+                    var piItemId = retItem.PurchaseInvoiceItemId
+                        ?? origSi?.Items.FirstOrDefault(i => i.ItemId == retItem.ItemId && i.PurchaseInvoiceItemId.HasValue)?.PurchaseInvoiceItemId;
+                    if (piItemId.HasValue)
+                    {
+                        invoicedByItem[piItemId.Value] =
+                            invoicedByItem.GetValueOrDefault(piItemId.Value) + retItem.StockQty;
+                    }
+                }
+            }
+        }
+
+        return (false, invoicedByItem, linkedSis[0]);
+    }
+
+    /// <summary>
+    /// Validates that submitting an internal Purchase Invoice or cancelling a return against one
+    /// does not push net received/invoiced quantity past the linked Sales Invoice (+ over-receipt allowance).
+    /// Per ERPNext PR #66916 / internal_transfer.validate_internal_transfer_qty().
+    /// </summary>
+    public async Task ValidateInternalPurchaseInvoiceQtyAsync(
+        PurchaseInvoice invoice,
+        decimal overReceiptAllowancePercent = 0m,
+        Guid? excludePurchaseInvoiceId = null)
+    {
+        var linkedSiId = invoice.InterCompanyInvoiceId;
+        if (!linkedSiId.HasValue && invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var returnAgainstPi = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+            linkedSiId = returnAgainstPi?.InterCompanyInvoiceId;
+        }
+
+        if (!linkedSiId.HasValue) return;
+
+        var siQuery = await GetSalesInvoiceQueryAsync();
+        var si = siQuery?.FirstOrDefault(s => s.Id == linkedSiId.Value)
+            ?? await _salesInvoiceRepository.FindAsync(linkedSiId.Value);
+        if (si == null || si.Status == DocumentStatus.Cancelled) return;
+
+        var (isMadeFromCounterpart, invoicedByItem, _) =
+            await AnalyzeSalesInvoiceInterCompanyStateAsync(si, excludePurchaseInvoiceId);
+        if (isMadeFromCounterpart || invoicedByItem.Count == 0) return;
+
+        var allowanceMultiplier = 1m + (Math.Max(0m, overReceiptAllowancePercent) / 100m);
+        foreach (var siItem in si.Items)
+        {
+            var maxAllowedStock = Math.Round(siItem.StockQty * allowanceMultiplier, 4);
+            var netInvoicedStock = Math.Round(invoicedByItem.GetValueOrDefault(siItem.Id), 4);
+            if (netInvoicedStock > maxAllowedStock + 0.0001m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.OverBilling)
+                    .WithData("detail",
+                        $"Total inter-company Purchase Invoice quantity ({netInvoicedStock}) for item {siItem.Description} exceeds Sales Invoice {si.InvoiceNumber} quantity ({siItem.StockQty}).");
+            }
+        }
     }
 
     /// <summary>

@@ -401,8 +401,12 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/invoices', 'ic-pi-1']);
 
-      comp.invoice = { id: 'si-1', status: 'Posted', isInternalCustomer: true, interCompanyPurchaseInvoiceId: 'ic-pi-1' } as any;
+      comp.invoice = { id: 'si-1', status: 'Posted', isInternalCustomer: true, interCompanyPurchaseInvoiceId: 'ic-pi-1', canCreateInterCompanyPurchaseInvoice: false } as any;
       expect(comp.workflowActions.some(a => a.name === 'createPurchaseInvoice')).toBe(false);
+
+      // PR #66937: still show button when link exists (partial / returned PI) as long as canCreateInterCompanyPurchaseInvoice is true
+      comp.invoice = { id: 'si-1', status: 'Posted', isInternalCustomer: true, interCompanyPurchaseInvoiceId: 'ic-pi-1', canCreateInterCompanyPurchaseInvoice: true } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createPurchaseInvoice')).toBe(true);
     });
   });
 });

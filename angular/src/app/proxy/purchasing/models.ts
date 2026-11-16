@@ -130,6 +130,7 @@ export interface CreatePurchaseInvoiceItemDto {
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
   materialRequestItemId?: string | null;
+  salesInvoiceItemId?: string | null;
   fromWarehouseId?: string | null;
   deliveredBySupplier?: boolean;
   batchId?: string | null;
@@ -788,6 +789,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   notes?: string | null;
   interCompanyCompanyName?: string | null;
   isInternalSupplier?: boolean;
+  canCreateInterCompanySalesInvoice?: boolean;
   updateStock?: boolean;
   warehouseId?: string | null;
   rejectedWarehouseId?: string | null;
@@ -813,6 +815,7 @@ export interface PurchaseInvoiceItemDto {
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
   materialRequestItemId?: string | null;
+  salesInvoiceItemId?: string | null;
   fromWarehouseId?: string | null;
   warehouseId?: string | null;
   deliveredBySupplier?: boolean;

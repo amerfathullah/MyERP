@@ -1301,6 +1301,7 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.ClassificationCode).HasMaxLength(EInvoiceConsts.MaxClassificationCodeLength);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.PurchaseInvoiceItemId);
         });
 
         // Delivery Notes
@@ -1452,6 +1453,7 @@ public class MyERPDbContext :
             b.Property(x => x.ClassificationCode).HasMaxLength(EInvoiceConsts.MaxClassificationCodeLength);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.MaterialRequestItemId);
+            b.HasIndex(x => x.SalesInvoiceItemId);
         });
 
         // Purchase Receipts

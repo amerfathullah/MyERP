@@ -164,8 +164,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (canCreateMaintenanceSchedule) {
           actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
         }
-        // Per ERPNext #59367: Make Purchase Invoice for internal customer
-        if (this.invoice.isInternalCustomer && !this.invoice.interCompanyPurchaseInvoiceId && !(this.invoice as any).isReturn && canCreatePurchaseInvoice) {
+        // Per ERPNext PR #66937: show while uninvoiced pending qty remains and not made from counterpart PI
+        const canCreateIcPi = this.invoice.canCreateInterCompanyPurchaseInvoice
+          ?? (this.invoice.isInternalCustomer && !this.invoice.interCompanyPurchaseInvoiceId && !(this.invoice as any).isReturn);
+        if (canCreateIcPi && canCreatePurchaseInvoice) {
           actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
         }
         if (outstanding > 0) {
@@ -294,7 +296,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
           if (status === Confirmation.Status.confirm) {
             this.service.writeOff(id).subscribe({
               next: () => { this.toaster.success('::SuccessfullyUpdated'); this.reloadAfterAction(); },
-              error: () => {},
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              },
             });
           }
         });
@@ -302,7 +307,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/sales/invoices', amended.id]),
-          error: () => {},
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
         });
         break;
       case 'createDN':

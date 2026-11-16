@@ -130,8 +130,10 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
           actions.push({ name: 'block', label: 'Block Invoice', icon: 'fa fa-lock', color: 'warning' });
         }
       }
-      // Per ERPNext #59367: Make Sales Invoice for internal supplier
-      if (this.invoice.isInternalSupplier && !this.invoice.interCompanyInvoiceId && !this.invoice.isReturn && canCreateSalesInvoice) {
+      // Per ERPNext PR #66937: show Make Sales Invoice only while pending qty remains and not made from counterpart SI
+      const canCreateIcSi = this.invoice.canCreateInterCompanySalesInvoice
+        ?? (this.invoice.isInternalSupplier && !this.invoice.interCompanyInvoiceId && !this.invoice.isReturn);
+      if (canCreateIcSi && canCreateSalesInvoice) {
         actions.push({ name: 'createSalesInvoice', label: 'Make Sales Invoice', icon: 'fa fa-file-invoice', color: 'info' });
       }
       // Per ERPNext #59367: Purchase Receipt if perReceived < 100 and !updateStock

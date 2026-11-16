@@ -76,6 +76,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string? InterCompanyCompanyName { get; set; }
     /// <summary>True when the invoice supplier represents another company (enables inter-company Sales Invoice creation).</summary>
     public bool IsInternalSupplier { get; set; }
+    /// <summary>True when posted, non-return, internal supplier, not created from counterpart SI, and uninvoiced qty remains.</summary>
+    public bool CanCreateInterCompanySalesInvoice { get; set; }
 
     /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
     public bool UpdateStock { get; set; }
@@ -106,6 +108,7 @@ public class PurchaseInvoiceItemDto
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
+    public Guid? SalesInvoiceItemId { get; set; }
     public Guid? FromWarehouseId { get; set; }
     public Guid? WarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
@@ -253,6 +256,7 @@ public class CreatePurchaseInvoiceItemDto
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
+    public Guid? SalesInvoiceItemId { get; set; }
     public Guid? FromWarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
     public Guid? BatchId { get; set; }
