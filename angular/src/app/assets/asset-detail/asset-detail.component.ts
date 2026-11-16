@@ -9,8 +9,10 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { FormsModule } from '@angular/forms';
 import { AssetService } from '../../proxy/assets/asset.service';
-import type { AssetActivityDto, AssetDto } from '../../proxy/assets/models';
+import type { AssetActivityDto, AssetDto, AssetMaintenanceDto, AssetMaintenanceLogDto } from '../../proxy/assets/models';
 import { AssetActivityService } from '../../proxy/assets/asset-activity.service';
+import { AssetMaintenanceService } from '../../proxy/assets/asset-maintenance.service';
+import { AssetMaintenanceLogService } from '../../proxy/assets/asset-maintenance-log.service';
 import { AssetActivityType, assetActivityTypeOptions } from '../../proxy/assets/asset-activity-type.enum';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
@@ -234,6 +236,57 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           </div>
         </div>
 
+        <!-- Asset Maintenance & Logs -->
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="fa fa-wrench me-2"></i>{{ '::AssetMaintenance' | abpLocalization }}</h6>
+            @if (assetMaintenance(); as am) {
+              <span class="badge bg-info text-dark">{{ am.maintenanceTeamName || am.maintenanceManagerName }}</span>
+            }
+          </div>
+          <div class="card-body">
+            @if (!assetMaintenance() && maintenanceLogs().length === 0) {
+              <p class="text-muted small mb-0">{{ '::NoMaintenanceConfigured' | abpLocalization }}</p>
+            } @else {
+              @if (assetMaintenance(); as am) {
+                <div class="row g-2 mb-3 small">
+                  <div class="col-md-6">
+                    <span class="text-muted">{{ '::MaintenanceTeam' | abpLocalization }}:</span>
+                    <strong class="ms-1">{{ am.maintenanceTeamName || '—' }}</strong>
+                  </div>
+                  <div class="col-md-6">
+                    <span class="text-muted">{{ '::Tasks' | abpLocalization }}:</span>
+                    <strong class="ms-1">{{ am.tasks?.length ?? 0 }}</strong>
+                  </div>
+                </div>
+              }
+              @if (maintenanceLogs().length > 0) {
+                <h6 class="small fw-semibold text-muted mb-2">{{ '::MaintenanceLogs' | abpLocalization }}</h6>
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>{{ '::MaintenanceTask' | abpLocalization }}</th>
+                      <th>{{ '::DueDate' | abpLocalization }}</th>
+                      <th>{{ '::CompletionDate' | abpLocalization }}</th>
+                      <th>{{ '::Status' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (log of maintenanceLogs(); track log.id) {
+                      <tr>
+                        <td>{{ log.maintenanceTask || '—' }}</td>
+                        <td>{{ log.dueDate ? (log.dueDate | date:'dd/MM/yyyy') : '—' }}</td>
+                        <td>{{ log.completionDate ? (log.completionDate | date:'dd/MM/yyyy') : '—' }}</td>
+                        <td><app-status-badge [status]="'' + (log.status ?? 0)" /></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            }
+          </div>
+        </div>
+
         <app-activity-log documentType="Asset" [documentId]="asset()!.id!" />
       }
     </abp-page>
@@ -244,11 +297,15 @@ export class AssetDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(AssetService);
   private assetActivityService = inject(AssetActivityService);
+  private assetMaintenanceService = inject(AssetMaintenanceService);
+  private assetMaintenanceLogService = inject(AssetMaintenanceLogService);
   private accountService = inject(AccountService);
   private confirmation = inject(ConfirmationService);
 
   asset = signal<AssetDto | null>(null);
   assetActivities = signal<AssetActivityDto[]>([]);
+  assetMaintenance = signal<AssetMaintenanceDto | null>(null);
+  maintenanceLogs = signal<AssetMaintenanceLogDto[]>([]);
   activityTypeOptions = assetActivityTypeOptions;
   accounts: AccountDto[] = [];
   showSellForm = false;
@@ -268,6 +325,7 @@ export class AssetDetailComponent implements OnInit {
     if (id) {
       this.service.get(id).subscribe(a => this.asset.set(a));
       this.loadActivities(id);
+      this.loadMaintenance(id);
     }
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' } as any).subscribe({
       next: res => { this.accounts = res.items ?? []; },
@@ -279,6 +337,17 @@ export class AssetDetailComponent implements OnInit {
     this.assetActivityService.getListByAsset(assetId).subscribe({
       next: list => this.assetActivities.set(list ?? []),
       error: () => {},
+    });
+  }
+
+  loadMaintenance(assetId: string): void {
+    this.assetMaintenanceService.getByAsset(assetId).subscribe({
+      next: m => this.assetMaintenance.set(m ?? null),
+      error: () => this.assetMaintenance.set(null),
+    });
+    this.assetMaintenanceLogService.getLogsByAsset(assetId).subscribe({
+      next: logs => this.maintenanceLogs.set(logs ?? []),
+      error: () => this.maintenanceLogs.set([]),
     });
   }
 

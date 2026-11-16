@@ -6276,7 +6276,12 @@
     "MarkQuotation": "Mark Quotation",
     "LinkLead": "Link Lead",
     "SelectLead": "Select Lead",
-    "LeadLinked": "Lead linked to prospect."
+    "LeadLinked": "Lead linked to prospect.",
+    "OverrideScore": "Override Score",
+    "AssetMaintenance": "Asset Maintenance",
+    "MaintenanceLogs": "Maintenance Logs",
+    "MaintenanceTask": "Maintenance Task",
+    "NoMaintenanceConfigured": "No preventive maintenance schedule configured for this asset."
   }
 }
 

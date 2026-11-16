@@ -2,7 +2,7 @@ import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -28,6 +28,21 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
                 {{ scorecard.score | number:'1.1-1' }}
               </div>
               <div class="text-muted small">out of 100</div>
+              @if (!showScoreOverride) {
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="openScoreOverride()">
+                  <i class="fa fa-sliders me-1"></i>{{ '::OverrideScore' | abpLocalization }}
+                </button>
+              } @else {
+                <div class="input-group input-group-sm mt-2">
+                  <input type="number" min="0" max="100" step="0.1" class="form-control" [(ngModel)]="overrideScore" />
+                  <button type="button" class="btn btn-success" [disabled]="isUpdatingScore || overrideScore === null" (click)="saveScoreOverride()">
+                    <i class="fa fa-check"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" (click)="showScoreOverride = false">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+              }
             </div></div>
           </div>
           <div class="col-md-4">
@@ -134,6 +149,7 @@ export class SupplierScorecardDetailComponent implements OnInit {
   private service = inject(SupplierScorecardService);
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
   scorecard: any = null;
   isLoading = false;
 
@@ -142,6 +158,9 @@ export class SupplierScorecardDetailComponent implements OnInit {
   periodStartDate = '';
   periodEndDate = '';
   periodScore: number | null = null;
+  showScoreOverride = false;
+  isUpdatingScore = false;
+  overrideScore: number | null = null;
 
   ngOnInit() {
     this.load();
@@ -180,6 +199,29 @@ export class SupplierScorecardDetailComponent implements OnInit {
       error: (err: any) => {
         this.isSubmittingPeriod = false;
         this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
+    });
+  }
+
+  openScoreOverride(): void {
+    this.overrideScore = this.scorecard?.score ?? 0;
+    this.showScoreOverride = true;
+  }
+
+  saveScoreOverride(): void {
+    const id = this.scorecard?.id ?? this.route.snapshot.paramMap.get('id');
+    if (!id || this.overrideScore === null || this.isUpdatingScore) return;
+    this.isUpdatingScore = true;
+    this.service.updateScore(id, this.overrideScore).subscribe({
+      next: updated => {
+        this.scorecard = updated;
+        this.isUpdatingScore = false;
+        this.showScoreOverride = false;
+        this.toaster.success(this.l.instant('::SuccessfullyUpdated'));
+      },
+      error: (err: any) => {
+        this.isUpdatingScore = false;
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
       },
     });
   }

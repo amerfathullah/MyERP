@@ -8,7 +8,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { PaymentRequestService } from '../../proxy/accounting/payment-request.service';
-import type { PaymentRequestDto } from '../../proxy/accounting/models';
+import type { PaymentRequestDto, PaymentRequestSubscriptionPlanDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-payment-request-detail',
@@ -109,6 +109,35 @@ import type { PaymentRequestDto } from '../../proxy/accounting/models';
           </div>
         </div>
 
+        <!-- Subscription Plans -->
+        @if (subscriptionPlans().length > 0) {
+          <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0"><i class="fas fa-sync-alt me-2"></i>{{ '::SubscriptionPlans' | abpLocalization }}</h6></div>
+            <div class="card-body p-0">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::Item' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (plan of subscriptionPlans(); track plan.planId || $index) {
+                    <tr>
+                      <td>{{ plan.itemName || plan.itemId || '—' }}</td>
+                      <td class="text-end font-monospace">{{ plan.qty | number:'1.0-2' }}</td>
+                      <td class="text-end font-monospace">{{ plan.rate | number:'1.2-2' }}</td>
+                      <td class="text-end font-monospace fw-semibold">{{ plan.amount | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
         <!-- Activity Log -->
         <app-activity-log documentType="PaymentRequest" [documentId]="pr.id!" />
       </div>
@@ -131,6 +160,7 @@ export class PaymentRequestDetailComponent implements OnInit {
   private l = inject(LocalizationService);
 
   entity = signal<PaymentRequestDto | null>(null);
+  subscriptionPlans = signal<PaymentRequestSubscriptionPlanDto[]>([]);
   statusNum = signal(0);
   paying = signal(false);
   resendingEmail = signal(false);
@@ -146,6 +176,12 @@ export class PaymentRequestDetailComponent implements OnInit {
       next: (r) => {
         this.entity.set(r);
         this.statusNum.set(r.status ?? 0);
+        if (r.isASubscription && r.referenceDoctype && r.referenceId) {
+          this.service.getSubscriptionDetails(r.referenceDoctype, r.referenceId).subscribe({
+            next: plans => this.subscriptionPlans.set(plans ?? []),
+            error: () => this.subscriptionPlans.set([]),
+          });
+        }
       },
       error: () => {}
     });
