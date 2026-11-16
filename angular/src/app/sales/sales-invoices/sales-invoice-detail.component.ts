@@ -167,9 +167,17 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (canCancelSI) {
           actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
         }
-        // Per MyInvois commit 0e3fc83: cannot submit to LHDN if already consolidated
-        if ((!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted' || this.invoice.eInvoiceStatus === 'Invalid') && !(this.invoice as any).consolidatedSalesInvoiceId) {
-          actions.push({ name: 'submitLhdn', label: this.invoice.eInvoiceStatus === 'Invalid' ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
+        // Per MyInvois commit 0e3fc83 & 37d716d: allow submit/resubmit for NotSubmitted, Invalid, Rejected, or Failed (unless already consolidated)
+        const canSubmitLhdn = !this.invoice.eInvoiceStatus
+          || this.invoice.eInvoiceStatus === 'NotSubmitted'
+          || this.invoice.eInvoiceStatus === 'Invalid'
+          || this.invoice.eInvoiceStatus === 'Rejected'
+          || this.invoice.eInvoiceStatus === 'Failed';
+        if (canSubmitLhdn && !(this.invoice as any).consolidatedSalesInvoiceId) {
+          const isResubmit = this.invoice.eInvoiceStatus === 'Invalid'
+            || this.invoice.eInvoiceStatus === 'Rejected'
+            || this.invoice.eInvoiceStatus === 'Failed';
+          actions.push({ name: 'submitLhdn', label: isResubmit ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
         if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
           actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', btnClass: 'btn-outline-info' });

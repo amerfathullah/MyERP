@@ -147,6 +147,9 @@ public class PricingRuleApplicationService : DomainService
         switch (rule.RuleType)
         {
             case PricingRuleType.Discount:
+                // Per ERPNext PR #66398: reset conflicting discount fields when applying a pricing discount rule
+                item.DiscountPercentage = 0m;
+                item.DiscountAmount = 0m;
                 if (rule.DiscountPercentage > 0)
                 {
                     item.DiscountPercentage = rule.DiscountPercentage;
@@ -160,6 +163,8 @@ public class PricingRuleApplicationService : DomainService
                 break;
 
             case PricingRuleType.Rate:
+                item.DiscountPercentage = 0m;
+                item.DiscountAmount = 0m;
                 item.DiscountedRate = rule.Rate;
                 break;
 

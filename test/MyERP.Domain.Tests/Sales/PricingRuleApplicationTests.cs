@@ -215,4 +215,45 @@ public class PricingRuleApplicationTests
         items[1].DiscountPercentage.ShouldBe(25m);
         items[1].DiscountedRate.ShouldBe(75m);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ApplyToItemsAsync_RateRule_ResetsPriorDiscountAmountAndPercentage()
+    {
+        // Per ERPNext PR #66398: applying a Rate pricing rule clears conflicting DiscountAmount & DiscountPercentage
+        var ruleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PricingRule, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>();
+        var ceilingService = new DiscountCeilingValidationService(itemRepo);
+        var itemId = Guid.NewGuid();
+
+        var rateRule = new PricingRule(Guid.NewGuid(), "Rate Override", PricingRuleApplyOn.ItemCode, PricingRuleType.Rate)
+        {
+            ApplyOnId = itemId,
+            ApplicableFor = "Buying",
+            Rate = 80m,
+            Priority = 1
+        };
+
+        ruleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<PricingRule> { rateRule }.AsQueryable()));
+        var service = new PricingRuleApplicationService(ruleRepo, ceilingService);
+
+        var items = new List<PricingRuleContext>
+        {
+            new PricingRuleContext
+            {
+                ItemId = itemId,
+                Qty = 1,
+                Rate = 100m,
+                DiscountPercentage = 10m,
+                DiscountAmount = 10m,
+                Doctype = "Purchase Order"
+            }
+        };
+
+        var applied = await service.ApplyToItemsAsync(items, DateTime.Today);
+
+        applied.Count.ShouldBe(1);
+        items[0].DiscountPercentage.ShouldBe(0m);
+        items[0].DiscountAmount.ShouldBe(0m);
+        items[0].DiscountedRate.ShouldBe(80m);
+    }
 }

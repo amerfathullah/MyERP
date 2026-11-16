@@ -489,6 +489,10 @@ public class ResolvedItemDetails
     public string? Barcode { get; set; }
     public decimal TotalWeight { get; set; }
     public decimal LastPurchaseRate { get; set; }
+    public decimal LastPurchaseDiscountPercentage { get; set; }
+    public decimal LastPurchaseDiscountAmount { get; set; }
+    public string? MarginType { get; set; }
+    public decimal MarginRateOrAmount { get; set; }
     /// <summary>Tax category ID for item tax template resolution. Per ERPNext: Item.taxes fallback chain.</summary>
     public Guid? TaxCategoryId { get; set; }
 
@@ -498,6 +502,45 @@ public class ResolvedItemDetails
     public decimal ReservedQty { get; set; }
     public decimal AvailableQty { get; set; }
     public decimal CompanyTotalStock { get; set; }
+
+    /// <summary>
+    /// Applies last purchase rate and discount details while clearing stale margin fields.
+    /// Per ERPNext PR #66398 (carry discount amount) and PR #66445 (clear margin).
+    /// </summary>
+    public void ApplyLastPurchaseDetails(
+        decimal lastPurchasePriceListRate,
+        decimal discountPercentage,
+        decimal discountAmount,
+        decimal conversionFactor = 1m,
+        decimal exchangeRate = 1m,
+        int precision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var fxRate = exchangeRate > 0m ? exchangeRate : 1m;
+
+        MarginType = null;
+        MarginRateOrAmount = 0m;
+
+        var scaledBaseRate = lastPurchasePriceListRate * factor;
+        var scaledDiscountAmount = (discountAmount * factor) / fxRate;
+
+        LastPurchaseRate = Math.Round(scaledBaseRate / fxRate, precision);
+        LastPurchaseDiscountPercentage = discountPercentage;
+        LastPurchaseDiscountAmount = Math.Round(scaledDiscountAmount, precision);
+
+        if (discountPercentage > 0m)
+        {
+            Rate = Math.Round(LastPurchaseRate * (1m - discountPercentage / 100m), precision);
+        }
+        else if (scaledDiscountAmount > 0m)
+        {
+            Rate = Math.Max(0m, Math.Round(LastPurchaseRate - scaledDiscountAmount, precision));
+        }
+        else
+        {
+            Rate = LastPurchaseRate;
+        }
+    }
 }
 
 /// <summary>Internal aggregate of resolved defaults across 3 tiers.</summary>

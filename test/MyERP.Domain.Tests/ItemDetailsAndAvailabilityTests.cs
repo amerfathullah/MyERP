@@ -273,5 +273,32 @@ public class ItemDetailsAndAvailabilityTests
         Assert.Equal(supplierId, group.DefaultSupplierId);
     }
 
+    [Fact]
+    public void ApplyLastPurchaseDetails_CarriesScaledDiscountAmountAndClearsMargin()
+    {
+        // Per ERPNext PR #66398 (discount_amount carried) & PR #66445 (margin cleared)
+        var details = new MyERP.Inventory.DomainServices.ResolvedItemDetails
+        {
+            ItemId = Guid.NewGuid(),
+            ItemCode = "RM-DISC",
+            ItemName = "Raw Disc",
+            MarginType = "Percentage",
+            MarginRateOrAmount = 15m,
+        };
+
+        details.ApplyLastPurchaseDetails(
+            lastPurchasePriceListRate: 50m,
+            discountPercentage: 0m,
+            discountAmount: 5m,
+            conversionFactor: 2m,
+            exchangeRate: 1m);
+
+        Assert.Null(details.MarginType);
+        Assert.Equal(0m, details.MarginRateOrAmount);
+        Assert.Equal(100m, details.LastPurchaseRate);
+        Assert.Equal(10m, details.LastPurchaseDiscountAmount);
+        Assert.Equal(90m, details.Rate);
+    }
+
     #endregion
 }

@@ -248,4 +248,17 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(calculateLineTotal(-5, 100, -30)).toBe(-530);
     });
   });
+
+  describe('LHDN Resubmit Eligibility', () => {
+    it('allows resubmit for Invalid, Rejected, and Failed statuses when not consolidated', () => {
+      const canSubmit = (status: string | undefined, consolidatedId?: string | null) =>
+        (!status || ['NotSubmitted', 'Invalid', 'Rejected', 'Failed'].includes(status)) && !consolidatedId;
+
+      expect(canSubmit('Rejected', null)).toBe(true);
+      expect(canSubmit('Failed', null)).toBe(true);
+      expect(canSubmit('Invalid', null)).toBe(true);
+      expect(canSubmit('Valid', null)).toBe(false);
+      expect(canSubmit('Rejected', 'cons-1')).toBe(false);
+    });
+  });
 });

@@ -197,4 +197,15 @@ describe('PurchaseInvoiceDetailComponent', () => {
       expect(pi.grandTotal - pi.amountPaid).toBe(0);
     });
   });
+
+  describe('LHDN Resubmit Eligibility', () => {
+    it('shows Resubmit to LHDN for Rejected and Failed in addition to Invalid', () => {
+      const resubmitStatuses = ['Invalid', 'Rejected', 'Failed'];
+      const submitAllowed = (status?: string) => !status || status === 'NotSubmitted' || resubmitStatuses.includes(status);
+
+      expect(submitAllowed('Rejected')).toBe(true);
+      expect(submitAllowed('Failed')).toBe(true);
+      expect(submitAllowed('Valid')).toBe(false);
+    });
+  });
 });

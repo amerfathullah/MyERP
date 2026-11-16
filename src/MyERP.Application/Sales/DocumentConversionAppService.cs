@@ -759,7 +759,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     /// Converts Sales Order items to a Material Request (type=Purchase).
     /// Per ERPNext SO→MR: delivery_date → schedule_date rename, qty → unfulfilled qty.
     /// </summary>
-    [Authorize(MyERPPermissions.SalesOrders.Default)]
+    [Authorize(MyERPPermissions.MaterialRequests.Create)]
     public async Task<Guid> ConvertSalesOrderToMaterialRequestAsync(Guid salesOrderId)
     {
         var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
