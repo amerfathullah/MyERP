@@ -1,4 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService, PermissionService } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { PurchaseInvoiceDetailComponent } from './purchase-invoice-detail.component';
+import { CompanyService } from '../../proxy/core/company.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
+import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
+import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { MasterDataService } from '../../proxy/core/master-data.service';
+import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
 
 // PurchaseInvoiceDetailComponent — workflow actions + navigation + payment schedule tests
 
@@ -206,6 +220,54 @@ describe('PurchaseInvoiceDetailComponent', () => {
       expect(submitAllowed('Rejected')).toBe(true);
       expect(submitAllowed('Failed')).toBe(true);
       expect(submitAllowed('Valid')).toBe(false);
+    });
+  });
+
+  describe('PurchaseInvoiceDetailComponent debitNote action', () => {
+    function createComponent() {
+      const piServiceMock = {
+        get: vi.fn().mockReturnValue(of(null)),
+        getPaymentSchedule: vi.fn().mockReturnValue(of([])),
+        getPayments: vi.fn().mockReturnValue(of([])),
+        createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-pi-1' })),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'pi-1' } } } },
+          { provide: Router, useValue: routerMock },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: PurchaseInvoiceService, useValue: piServiceMock },
+          { provide: PurchaseConversionService, useValue: {} },
+          { provide: PurchaseInvoiceStore, useValue: {} },
+          { provide: ConfirmationService, useValue: confirmationMock },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: EInvoiceService, useValue: {} },
+          { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: MasterDataService, useValue: { getModesOfPayment: vi.fn().mockReturnValue(of([])) } },
+          { provide: PaymentEntryService, useValue: {} },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseInvoiceDetailComponent());
+      return { comp, piServiceMock, routerMock, toasterMock };
+    }
+
+    it('calls PurchaseInvoiceService.createDebitNote and navigates on confirmation', () => {
+      const { comp, piServiceMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false } as any;
+      expect(comp.workflowActions.some(a => a.name === 'debitNote')).toBe(true);
+
+      comp.onWorkflowAction('debitNote');
+
+      expect(piServiceMock.createDebitNote).toHaveBeenCalledWith('pi-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::DebitNoteCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/invoices', 'dn-pi-1']);
     });
   });
 });

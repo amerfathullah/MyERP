@@ -1,4 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService, PermissionService } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { SalesInvoiceDetailComponent } from './sales-invoice-detail.component';
+import { CompanyService } from '../../proxy/core/company.service';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { SalesInvoiceStore } from '../store/sales-invoice.store';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { MasterDataService } from '../../proxy/core/master-data.service';
+import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 
 interface DetailWorkflowAction {
   name: string;
@@ -259,6 +274,63 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(canSubmit('Invalid', null)).toBe(true);
       expect(canSubmit('Valid', null)).toBe(false);
       expect(canSubmit('Rejected', 'cons-1')).toBe(false);
+    });
+  });
+
+  describe('SalesInvoiceDetailComponent debitNote action', () => {
+    function createComponent() {
+      const siServiceMock = {
+        get: vi.fn().mockReturnValue(of(null)),
+        getPaymentSchedule: vi.fn().mockReturnValue(of([])),
+        getPayments: vi.fn().mockReturnValue(of([])),
+        createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-si-1' })),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'si-1' } } } },
+          { provide: Router, useValue: routerMock },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: SalesInvoiceService, useValue: siServiceMock },
+          { provide: EInvoiceService, useValue: {} },
+          { provide: DocumentConversionService, useValue: {} },
+          { provide: SalesInvoiceStore, useValue: {} },
+          { provide: ConfirmationService, useValue: confirmationMock },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: DocumentPrintService, useValue: {} },
+          { provide: MasterDataService, useValue: { getModesOfPayment: vi.fn().mockReturnValue(of([])) } },
+          { provide: PaymentEntryService, useValue: {} },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceDetailComponent());
+      return { comp, siServiceMock, routerMock, confirmationMock, toasterMock };
+    }
+
+    it('shows debitNote action for posted non-return non-debit-note sales invoice', () => {
+      const { comp } = createComponent();
+      comp.invoice = { id: 'si-1', status: 'Posted', isReturn: false } as any;
+      expect(comp.workflowActions.some(a => a.name === 'debitNote')).toBe(true);
+
+      comp.invoice = { id: 'si-1', status: 'Posted', isReturn: false, isDebitNote: true } as any;
+      expect(comp.workflowActions.some(a => a.name === 'debitNote')).toBe(false);
+    });
+
+    it('calls createDebitNote on confirmation and navigates to created debit note', () => {
+      const { comp, siServiceMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'si-1', status: 'Posted' } as any;
+
+      comp.onWorkflowAction('debitNote');
+
+      expect(siServiceMock.createDebitNote).toHaveBeenCalledWith('si-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::DebitNoteCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/invoices', 'dn-si-1']);
     });
   });
 });

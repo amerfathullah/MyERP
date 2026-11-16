@@ -1,4 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { SalesOrderDetailComponent } from './sales-order-detail.component';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { SalesOrderStore } from '../store/sales-order.store';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
+import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { CompanyService } from '../../proxy/core/company.service';
 
 interface WorkflowAction {
   name: string;
@@ -284,6 +300,87 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(guardedActions).toHaveLength(2);
       expect(guardedActions).toContain('delivery');
       expect(guardedActions).toContain('invoice');
+    });
+  });
+
+  describe('SalesOrderDetailComponent Create Purchase Orders', () => {
+    function createComponent(createdPoIds = ['po-101']) {
+      const conversionMock = {
+        convertSalesOrderToPurchaseOrders: vi.fn().mockReturnValue(of(createdPoIds)),
+      };
+      const supplierMock = {
+        getList: vi.fn().mockReturnValue(of({ items: [{ id: 'sup-1', name: 'Vendor A' }, { id: 'sup-2', name: 'Vendor B' }] })),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'so-1' } } } },
+          { provide: Router, useValue: routerMock },
+          { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of(null)), getDeliverySchedule: vi.fn().mockReturnValue(of([])), getOrderPayments: vi.fn().mockReturnValue(of([])) } },
+          { provide: DocumentConversionService, useValue: conversionMock },
+          { provide: SupplierService, useValue: supplierMock },
+          { provide: ManufacturingService, useValue: {} },
+          { provide: SalesOrderStore, useValue: {} },
+          { provide: ConfirmationService, useValue: {} },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: StockBalanceService, useValue: { getStockBalance: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesOrderAmendmentService, useValue: {} },
+          { provide: DocumentPrintService, useValue: {} },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: ToasterService, useValue: toasterMock },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesOrderDetailComponent());
+      comp.order = {
+        id: 'so-1',
+        status: 'ToDeliverAndBill',
+        items: [
+          { id: 'soi-1', itemId: 'item-1', description: 'Widget', quantity: 5, orderedQty: 1, supplierId: 'sup-1', isClosed: false },
+          { id: 'soi-2', itemId: 'item-2', description: 'Closed Item', quantity: 2, orderedQty: 0, isClosed: true },
+        ],
+      } as any;
+      return { comp, conversionMock, supplierMock, routerMock, toasterMock };
+    }
+
+    it('exposes purchase_order workflow action for active sales orders', () => {
+      const { comp } = createComponent();
+      expect(comp.workflowActions.some(a => a.name === 'purchase_order')).toBe(true);
+    });
+
+    it('opens PO selection excluding closed rows, validates supplier assignment, and navigates on single PO', () => {
+      const { comp, conversionMock, supplierMock, routerMock } = createComponent(['po-101']);
+
+      comp.onWorkflowAction('purchase_order');
+
+      expect(comp.showPoSelection()).toBe(true);
+      expect(comp.poSelectionItems()).toHaveLength(1);
+      expect(comp.poSelectionItems()[0].pendingQty).toBe(4);
+      expect(supplierMock.getList).toHaveBeenCalled();
+      expect(comp.hasValidPoSelection()).toBe(true);
+
+      comp.updatePoItemSupplier(0, '');
+      expect(comp.hasValidPoSelection()).toBe(false);
+
+      comp.updatePoItemSupplier(0, 'sup-2');
+      comp.confirmCreatePurchaseOrders();
+
+      expect(conversionMock.convertSalesOrderToPurchaseOrders).toHaveBeenCalledWith('so-1', [
+        { salesOrderItemId: 'soi-1', supplierId: 'sup-2' },
+      ]);
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/orders', 'po-101']);
+    });
+
+    it('navigates to PO list when multiple POs created across suppliers', () => {
+      const { comp, routerMock, toasterMock } = createComponent(['po-1', 'po-2']);
+      comp.openPoSelection();
+      comp.confirmCreatePurchaseOrders();
+
+      expect(toasterMock.success).toHaveBeenCalledWith('::PurchaseOrdersCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/orders']);
     });
   });
 });

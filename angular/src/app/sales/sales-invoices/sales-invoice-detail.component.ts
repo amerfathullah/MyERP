@@ -149,6 +149,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
         if (canCreateSalesInvoice && !(this.invoice as any).isReturn && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
           actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
         }
+        if (canCreateSalesInvoice && !(this.invoice as any).isReturn && !(this.invoice as any).isDebitNote && !(this.invoice as any).consolidatedSalesInvoiceId) {
+          actions.push({ name: 'debitNote', label: 'Create Debit Note', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-info' });
+        }
         // Per ERPNext #59367: Dunning if payment is overdue and can create Dunning
         if (!(this.invoice as any).updateStock && canCreateDunning && this.hasOverduePayment()) {
           actions.push({ name: 'dunning', label: 'Dunning', icon: 'fa fa-bell', btnClass: 'btn-outline-warning' });
@@ -253,6 +256,22 @@ export class SalesInvoiceDetailComponent implements OnInit {
                 const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
                 this.toaster.error(reason || '::OperationFailed');
               }
+            });
+          }
+        });
+        break;
+      case 'debitNote':
+        this.confirmation.warn('::DebitNoteConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.service.createDebitNote(id).subscribe({
+              next: (dn) => {
+                this.toaster.success('::DebitNoteCreated');
+                this.router.navigate(['/sales/invoices', dn.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              },
             });
           }
         });

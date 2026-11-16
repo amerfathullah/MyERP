@@ -116,6 +116,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       if (!this.invoice.isReturn && canCreatePurchaseInvoice && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
         actions.push({ name: 'return', label: 'Create Debit Note', icon: 'fa fa-rotate-left', color: 'warning' });
       }
+      if (!this.invoice.isReturn && !(this.invoice as any).isDebitNote && canCreatePurchaseInvoice) {
+        actions.push({ name: 'debitNote', label: 'Make Debit Note', icon: 'fa fa-file-circle-plus', color: 'info' });
+      }
       if (outstanding > 0) {
         actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', color: 'secondary' });
       }
@@ -267,6 +270,22 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
                 const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
                 this.toaster.error(reason || '::OperationFailed');
               }
+            });
+          }
+        });
+        break;
+      case 'debitNote':
+        this.confirmation.warn('::DebitNoteConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.service.createDebitNote(id).subscribe({
+              next: (dn) => {
+                this.toaster.success('::DebitNoteCreated');
+                this.router.navigate(['/purchasing/invoices', dn.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              },
             });
           }
         });

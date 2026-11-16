@@ -16,6 +16,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { DraftLinkGuardComponent } from '../../shared/components/draft-link-guard/draft-link-guard.component';
 import { SalesOrderAmendmentService } from '../../proxy/sales/sales-order-amendment.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { SalesOrderStore } from '../store/sales-order.store';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -40,6 +41,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(SalesOrderService);
   private conversionService = inject(DocumentConversionService);
+  private supplierService = inject(SupplierService);
   private manufacturingService = inject(ManufacturingService);
   private store = inject(SalesOrderStore);
   private confirmation = inject(ConfirmationService);
@@ -75,6 +77,14 @@ export class SalesOrderDetailComponent implements OnInit {
   allDeliveryItemsSelected = computed(() => this.deliverySelectionItems().length > 0 && this.deliverySelectionItems().every(i => i.selected));
   deliveryItemsReadyCount = computed(() => this.deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length);
   isCreatingDN = signal(false);
+
+  // Purchase Order Selection state
+  showPoSelection = signal(false);
+  suppliers = signal<Array<{ id?: string; name?: string }>>([]);
+  poSelectionItems = signal<Array<{ salesOrderItemId: string; itemId: string; description: string; pendingQty: number; supplierId: string; selected: boolean }>>([]);
+  allPoItemsSelected = computed(() => this.poSelectionItems().length > 0 && this.poSelectionItems().every(i => i.selected));
+  poItemsReadyCount = computed(() => this.poSelectionItems().filter(i => i.selected && !!i.supplierId).length);
+  isCreatingPO = signal(false);
 
   // Update Items inline editing state (per ERPNext update_child_qty_rate)
   isEditingItems = signal(false);
@@ -194,6 +204,7 @@ export class SalesOrderDetailComponent implements OnInit {
       actions.push({ name: 'batch_work_orders', label: this.l.instant('::CreateAllWorkOrders'), icon: 'gears', color: 'info' });
       actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
       actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
+      actions.push({ name: 'purchase_order', label: this.l.instant('::CreatePurchaseOrder'), icon: 'cart-plus', color: 'info' });
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
@@ -348,6 +359,9 @@ export class SalesOrderDetailComponent implements OnInit {
         this.router.navigate(['/inventory/pick-lists/new'], {
           queryParams: { salesOrderId: id, customerId: this.order!.customerId, companyId: this.order!.companyId }
         });
+        break;
+      case 'purchase_order':
+        this.openPoSelection();
         break;
       case 'close':
         this.service.close(id).subscribe({ next: () => this.reloadAfterAction(), error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed') });
@@ -514,6 +528,89 @@ export class SalesOrderDetailComponent implements OnInit {
   cancelDeliverySelection(): void {
     this.showDeliverySelection.set(false);
     this.deliverySelectionItems.set([]);
+  }
+
+  /** Open PO creation selection dialog from Sales Order items */
+  openPoSelection(): void {
+    if (!this.order?.items) return;
+    const rows = this.order.items
+      .filter((i: any) => !i.isClosed && !!i.id && ((i.quantity ?? 0) - (i.orderedQty ?? 0)) > 0)
+      .map((i: any) => ({
+        salesOrderItemId: i.id!,
+        itemId: i.itemId ?? i.id!,
+        description: i.description || '—',
+        pendingQty: Math.max(0, (i.quantity ?? 0) - (i.orderedQty ?? 0)),
+        supplierId: i.supplierId ?? '',
+        selected: true,
+      }));
+    if (rows.length === 0) {
+      this.toaster.info('::AllItemsAlreadyOrdered');
+      return;
+    }
+    if (this.suppliers().length === 0) {
+      this.supplierService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' } as any).subscribe({
+        next: (res: any) => this.suppliers.set(res.items ?? []),
+        error: () => {},
+      });
+    }
+    this.poSelectionItems.set(rows);
+    this.showPoSelection.set(true);
+  }
+
+  toggleAllPoItems(checked: boolean): void {
+    this.poSelectionItems.update(items => items.map(i => ({ ...i, selected: checked })));
+  }
+
+  togglePoItem(index: number, checked: boolean): void {
+    this.poSelectionItems.update(items => items.map((item, idx) => idx === index ? { ...item, selected: checked } : item));
+  }
+
+  updatePoItemSupplier(index: number, supplierId: string): void {
+    this.poSelectionItems.update(items =>
+      items.map((item, idx) => idx === index ? { ...item, supplierId, selected: !!supplierId || item.selected } : item)
+    );
+  }
+
+  hasValidPoSelection(): boolean {
+    const selected = this.poSelectionItems().filter(i => i.selected);
+    return selected.length > 0 && selected.every(i => !!i.supplierId);
+  }
+
+  cancelPoSelection(): void {
+    this.showPoSelection.set(false);
+    this.poSelectionItems.set([]);
+  }
+
+  confirmCreatePurchaseOrders(): void {
+    const selected = this.poSelectionItems()
+      .filter(i => i.selected && !!i.supplierId)
+      .map(i => ({ salesOrderItemId: i.salesOrderItemId, supplierId: i.supplierId }));
+
+    if (!selected.length) {
+      this.toaster.warn('::AssignSupplierForSelectedItems');
+      return;
+    }
+
+    this.isCreatingPO.set(true);
+    const id = this.order!.id!;
+    this.conversionService.convertSalesOrderToPurchaseOrders(id, selected).subscribe({
+      next: (poIds: string[]) => {
+        this.isCreatingPO.set(false);
+        this.showPoSelection.set(false);
+        this.poSelectionItems.set([]);
+        if (poIds?.length === 1) {
+          this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+          this.router.navigate(['/purchasing/orders', poIds[0]]);
+        } else {
+          this.toaster.success(this.l.instant('::PurchaseOrdersCreated', String(poIds?.length ?? 0)));
+          this.router.navigate(['/purchasing/orders']);
+        }
+      },
+      error: (err: any) => {
+        this.isCreatingPO.set(false);
+        this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed');
+      },
+    });
   }
 
   /** Execute partial delivery: create DN with selected items */

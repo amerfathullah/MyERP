@@ -6253,7 +6253,14 @@
     "ReturnExcessMaterialsConfirmation": "Create a Material Return Stock Entry for unconsumed WIP materials?",
     "CancelReason": "Cancellation Reason",
     "CancelEInvoiceWarning": "Cancel this e-invoice submission in LHDN MyInvois? This must be done within 72 hours of validation and cannot be undone.",
-    "LhdnCancelReasonPlaceholder": "Enter reason (e.g., Wrong buyer details, Incorrect amount, Duplicate submission)"
+    "LhdnCancelReasonPlaceholder": "Enter reason (e.g., Wrong buyer details, Incorrect amount, Duplicate submission)",
+    "DebitNoteConfirmation": "Create a Debit Note against this submitted invoice?",
+    "DebitNoteCreated": "Debit Note created successfully.",
+    "SelectItemsForPurchaseOrder": "Select Items & Suppliers for Purchase Order",
+    "PurchaseOrderCreationHelp": "Select items and assign a supplier for each line. One Purchase Order is created per supplier.",
+    "PurchaseOrdersCreated": "Created {0} Purchase Order(s).",
+    "AssignSupplierForSelectedItems": "Select at least one item and assign its supplier.",
+    "AllItemsAlreadyOrdered": "All items from this Sales Order have already been ordered."
   }
 }
 
