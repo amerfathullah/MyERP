@@ -17,15 +17,23 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::BankTransactionRules' | abpLocalization">
-      <div class="d-flex justify-content-end mb-3">
-        <button class="btn btn-primary btn-sm" (click)="showCreateForm = !showCreateForm">
+      <div class="d-flex justify-content-end gap-2 mb-3">
+        <button class="btn btn-outline-secondary btn-sm" (click)="reorderRules()">
+          <i class="fa fa-sort-numeric-down me-1"></i>{{ '::ReorderPriorities' | abpLocalization }}
+        </button>
+        <button class="btn btn-primary btn-sm" (click)="toggleCreateForm()">
           <i class="fa fa-plus me-1"></i>{{ '::NewRule' | abpLocalization }}
         </button>
       </div>
 
       @if (showCreateForm) {
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ '::NewRule' | abpLocalization }}</h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="card-title mb-0">{{ '::NewRule' | abpLocalization }}</h6>
+            @if (nextPriority !== null) {
+              <span class="badge bg-info text-dark">{{ '::NextPriority' | abpLocalization }}: {{ nextPriority }}</span>
+            }
+          </div>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">{{ '::Name' | abpLocalization }}</label>
@@ -131,9 +139,35 @@ export class BankTransactionRuleListComponent implements OnInit {
   pageSize = 50;
   currentPage = 0;
   showCreateForm = false;
+  nextPriority: number | null = null;
   newRule: any = { name: '', transactionType: 0, minAmount: null, maxAmount: null, descriptionContains: '', classifyAs: 0 };
 
   ngOnInit() { this.loadData(); }
+
+  toggleCreateForm(): void {
+    this.showCreateForm = !this.showCreateForm;
+    if (this.showCreateForm) {
+      const cid = this.companyContext.currentCompanyId();
+      if (cid) {
+        this.bankTransactionRuleService.getNextPriority(cid).subscribe({
+          next: p => { this.nextPriority = p; },
+          error: () => { this.nextPriority = null; },
+        });
+      }
+    }
+  }
+
+  reorderRules(): void {
+    const cid = this.companyContext.currentCompanyId();
+    if (!cid) { this.toaster.warn('::PleaseSelectCompanyFirst'); return; }
+    this.bankTransactionRuleService.reorderPriorities(cid).subscribe({
+      next: () => {
+        this.toaster.success(this.localization.instant('::PrioritiesReordered'));
+        this.loadData();
+      },
+      error: () => {},
+    });
+  }
 
   loadData() {
     this.isLoading = true;

@@ -31,6 +31,8 @@ export class LeadDetailComponent implements OnInit {
   lead: LeadDto | null = null;
   notes = signal<CrmNoteDto[]>([]);
   newNoteText = '';
+  editingNoteId = signal<string | null>(null);
+  editingNoteText = signal('');
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -47,10 +49,49 @@ export class LeadDetailComponent implements OnInit {
 
   addNote(): void {
     if (!this.newNoteText.trim()) return;
-    const id = this.route.snapshot.paramMap.get('id')!;
+    const id = this.lead?.id ?? this.route.snapshot.paramMap.get('id')!;
     this.service.addNote(id, { noteText: this.newNoteText }).subscribe({
       next: () => { this.newNoteText = ''; this.loadNotes(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
+  }
+
+  startEditNote(note: CrmNoteDto): void {
+    if (!note.id) return;
+    this.editingNoteId.set(note.id);
+    this.editingNoteText.set(note.noteText ?? '');
+  }
+
+  cancelEditNote(): void {
+    this.editingNoteId.set(null);
+    this.editingNoteText.set('');
+  }
+
+  saveEditNote(noteId: string): void {
+    const text = this.editingNoteText().trim();
+    if (!text) return;
+    const id = this.lead?.id ?? this.route.snapshot.paramMap.get('id')!;
+    this.service.editNote(id, noteId, { noteText: text }).subscribe({
+      next: () => {
+        this.editingNoteId.set(null);
+        this.editingNoteText.set('');
+        this.loadNotes();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
+  }
+
+  deleteNote(noteId: string): void {
+    const id = this.lead?.id ?? this.route.snapshot.paramMap.get('id')!;
+    this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe((status) => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.service.deleteNote(id, noteId).subscribe({
+        next: () => {
+          this.toaster.success('::SuccessfullyDeleted');
+          this.loadNotes();
+        },
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      });
     });
   }
 

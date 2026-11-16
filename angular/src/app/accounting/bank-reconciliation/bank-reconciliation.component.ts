@@ -31,6 +31,7 @@ export class BankReconciliationComponent implements OnInit {
 
   transactions = signal<BankTransactionDto[]>([]);
   summary = signal<BankReconciliationSummaryDto>({});
+  openingBalance = signal<number | null>(null);
   totalCount = signal(0);
   isLoading = signal(false);
   isMatching = signal(false);
@@ -104,7 +105,19 @@ export class BankReconciliationComponent implements OnInit {
     if (this.bankAccountId) {
       this.loadTransactions(0, 20);
       this.loadSummary();
+      this.loadOpeningBalance();
+    } else {
+      this.openingBalance.set(null);
     }
+  }
+
+  loadOpeningBalance(): void {
+    if (!this.bankAccountId) return;
+    const tillDate = this.fromDate || new Date().toISOString().split('T')[0];
+    this.service.getAccountOpeningBalance(this.bankAccountId, tillDate).subscribe({
+      next: bal => this.openingBalance.set(bal),
+      error: () => this.openingBalance.set(null),
+    });
   }
 
   loadTransactions(skipCount: number, maxResultCount: number): void {

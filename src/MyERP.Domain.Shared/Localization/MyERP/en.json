@@ -6268,7 +6268,10 @@
     "FetchFromPurchaseDocument": "Fetch from Purchase Document",
     "PurchaseDocument": "Purchase Document",
     "ConvertFinishedGoods": "Convert Finished Goods",
-    "AvailableToConvert": "Available to Convert"
+    "AvailableToConvert": "Available to Convert",
+    "ReorderPriorities": "Reorder Priorities",
+    "PrioritiesReordered": "Rule priorities reordered successfully.",
+    "NextPriority": "Next Priority"
   }
 }
 

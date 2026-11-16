@@ -143,10 +143,26 @@
           <ul class="list-group list-group-flush">
             @for (note of notes(); track note.id) {
               <li class="list-group-item px-0">
-                <div class="d-flex justify-content-between">
-                  <span>{{ note.noteText }}</span>
-                  <small class="text-muted">{{ note.addedOn | date:'dd/MM/yyyy HH:mm' }}</small>
-                </div>
+                @if (editingNoteId() === note.id) {
+                  <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" [ngModel]="editingNoteText()" (ngModelChange)="editingNoteText.set($event)" (keyup.enter)="saveEditNote(note.id!)" />
+                    <button type="button" class="btn btn-success" (click)="saveEditNote(note.id!)"><i class="fa fa-check"></i></button>
+                    <button type="button" class="btn btn-outline-secondary" (click)="cancelEditNote()"><i class="fa fa-times"></i></button>
+                  </div>
+                } @else {
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <span>{{ note.noteText }}</span>
+                    <div class="d-flex align-items-center gap-2 text-nowrap">
+                      <small class="text-muted">{{ note.addedOn | date:'dd/MM/yyyy HH:mm' }}</small>
+                      <button type="button" class="btn btn-link btn-sm p-0 text-secondary" [title]="'::Edit' | abpLocalization" (click)="startEditNote(note)">
+                        <i class="fa fa-pen"></i>
+                      </button>
+                      <button type="button" class="btn btn-link btn-sm p-0 text-danger" [title]="'::Delete' | abpLocalization" (click)="deleteNote(note.id!)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                }
               </li>
             }
           </ul>
