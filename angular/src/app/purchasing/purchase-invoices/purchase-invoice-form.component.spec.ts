@@ -15,6 +15,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
       currencyCode: ['MYR'],
       notes: [''],
       isReturn: [false],
+      isSubmitToLhdn: [true],
       returnAgainstId: [null as string | null],
       updateBilledAmountInPurchaseOrder: [true],
       updateStock: [false],
@@ -191,6 +192,13 @@ describe('PurchaseInvoice form DTO mapping', () => {
         notes: 'Debit Note against PI-2026-00005',
       });
       expect(form.get('notes')?.value).toContain('Debit Note');
+    });
+
+    it('should default isSubmitToLhdn to true and map toggled false to DTO', () => {
+      const form = createPIForm();
+      expect(form.get('isSubmitToLhdn')?.value).toBe(true);
+      form.patchValue({ isSubmitToLhdn: false });
+      expect(mapDtoFromForm(form).isSubmitToLhdn).toBe(false);
     });
   });
 });

@@ -328,7 +328,8 @@ public class StockValuationService : DomainService
                     }
                     else if (asOfDate.HasValue)
                     {
-                        batchEntries = batchEntries.Where(s => s.PostingDate <= asOfDate.Value);
+                        var asOfExclusive = asOfDate.Value.Date.AddDays(1);
+                        batchEntries = batchEntries.Where(s => s.PostingDate < asOfExclusive);
                     }
 
                     if (excludeVoucherId.HasValue)
@@ -419,7 +420,8 @@ public class StockValuationService : DomainService
         }
         else if (asOfDate.HasValue)
         {
-            fallbackQuery = fallbackQuery.Where(s => s.PostingDate <= asOfDate.Value);
+            var asOfExclusive = asOfDate.Value.Date.AddDays(1);
+            fallbackQuery = fallbackQuery.Where(s => s.PostingDate < asOfExclusive);
         }
 
         if (excludeVoucherId.HasValue)
@@ -513,7 +515,8 @@ public class StockValuationService : DomainService
                 }
                 else if (asOfDate.HasValue)
                 {
-                    inwardBundles = inwardBundles.Where(b => b.PostingDate <= asOfDate.Value);
+                    var asOfExclusive = asOfDate.Value.Date.AddDays(1);
+                    inwardBundles = inwardBundles.Where(b => b.PostingDate < asOfExclusive);
                 }
 
                 inwardBundles = inwardBundles

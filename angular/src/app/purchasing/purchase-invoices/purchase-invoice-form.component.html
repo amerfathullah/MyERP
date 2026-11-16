@@ -84,6 +84,10 @@
               <input type="checkbox" class="form-check-input" formControlName="isReturn" id="isReturn" />
               <label class="form-check-label" for="isReturn">{{ '::IsReturn' | abpLocalization }}</label>
             </div>
+            <div class="form-check mt-3 ms-4">
+              <input type="checkbox" class="form-check-input" formControlName="isSubmitToLhdn" id="piIsSubmitToLhdn" />
+              <label class="form-check-label" for="piIsSubmitToLhdn">{{ '::SubmitToLhdn' | abpLocalization }}</label>
+            </div>
           </div>
           @if (form.get('isReturn')?.value && !form.get('returnAgainstId')?.value) {
             <div class="col-12 col-md-4 mb-3">

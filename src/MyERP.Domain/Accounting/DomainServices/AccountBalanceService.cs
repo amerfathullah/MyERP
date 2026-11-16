@@ -102,11 +102,12 @@ public class AccountBalanceService : DomainService
     {
         var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(companyId, financeBook, includeDefaultFinanceBook);
 
-        // Get all posted JEs up to date
+        // Get all posted JEs up to end of asOfDate
+        var asOfExclusive = asOfDate.Date.AddDays(1);
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
-            je.PostingDate <= asOfDate);
+            je.PostingDate < asOfExclusive);
 
         if (!journals.Any())
             return new Dictionary<Guid, AccountBalanceResult>();
@@ -165,10 +166,11 @@ public class AccountBalanceService : DomainService
         DateTime asOfDate,
         Guid? accountId = null)
     {
+        var asOfExclusive = asOfDate.Date.AddDays(1);
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
-            je.PostingDate <= asOfDate);
+            je.PostingDate < asOfExclusive);
 
         if (!journals.Any())
             return AccountBalanceResult.Zero;
@@ -196,10 +198,11 @@ public class AccountBalanceService : DomainService
         Guid accountId,
         DateTime asOfDate)
     {
+        var asOfExclusive = asOfDate.Date.AddDays(1);
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
-            je.PostingDate <= asOfDate);
+            je.PostingDate < asOfExclusive);
 
         if (!journals.Any())
             return (0m, 0m);
@@ -267,11 +270,12 @@ public class AccountBalanceService : DomainService
         Guid companyId, Guid accountId, DateTime fromDate, DateTime toDate,
         Guid? costCenterId, HashSet<string> allowedFinanceBooks, bool excludePeriodClosing = false)
     {
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
             je.PostingDate >= fromDate &&
-            je.PostingDate <= toDate &&
+            je.PostingDate < toDateExclusive &&
             (!excludePeriodClosing || je.VoucherType != JournalEntryVoucherType.PeriodClosing));
 
         if (!journals.Any())

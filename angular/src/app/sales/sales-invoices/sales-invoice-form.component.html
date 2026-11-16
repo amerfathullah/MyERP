@@ -88,6 +88,12 @@
               }
             </select>
           </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              <input type="checkbox" class="form-check-input" formControlName="isSubmitToLhdn" id="siIsSubmitToLhdn" />
+              <label class="form-check-label" for="siIsSubmitToLhdn">{{ '::SubmitToLhdn' | abpLocalization }}</label>
+            </div>
+          </div>
           @if (!form.get('returnAgainstId')?.value) {
             @if (form.get('isReturn')?.value || form.get('eInvoiceDocType')?.value === 2 || form.get('eInvoiceDocType')?.value === 3 || form.get('eInvoiceDocType')?.value === 4) {
               <div class="col-12 col-md-4 mb-3">

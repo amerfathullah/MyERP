@@ -625,13 +625,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.IsSubcontracted = input.IsSubcontracted;
-        invoice.ReturnAgainstId = input.ReturnAgainstId;
-        invoice.OriginalInvoiceNumber = input.OriginalInvoiceNumber;
-        invoice.OriginalInvoiceUuid = input.OriginalInvoiceUuid;
         invoice.UpdateBilledAmountInPurchaseOrder = input.UpdateBilledAmountInPurchaseOrder;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.OriginalInvoiceNumber = input.OriginalInvoiceNumber;
         invoice.OriginalInvoiceUuid = input.OriginalInvoiceUuid;
+        invoice.IsSubmitToLhdn = input.IsSubmitToLhdn;
         if (invoice.IsReturn)
         {
             // Per ERPNext PR #59612 / commit 8260d62362: Keep original invoice's advances out of the return.
@@ -985,6 +983,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.OriginalInvoiceNumber = input.OriginalInvoiceNumber;
         invoice.OriginalInvoiceUuid = input.OriginalInvoiceUuid;
+        invoice.IsSubmitToLhdn = input.IsSubmitToLhdn;
 
         Guid? updateReturnAgainstPriceListId = null;
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)

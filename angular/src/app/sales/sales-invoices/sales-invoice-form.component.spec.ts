@@ -209,4 +209,13 @@ describe('SalesInvoice form calculations', () => {
       expect(result.grandTotal).toBe(1166);
     });
   });
+
+  describe('LHDN submission flag', () => {
+    it('should default isSubmitToLhdn to true and allow opt-out', () => {
+      const form = fb.group({ isSubmitToLhdn: [true] });
+      expect(form.get('isSubmitToLhdn')?.value).toBe(true);
+      form.patchValue({ isSubmitToLhdn: false });
+      expect(form.getRawValue().isSubmitToLhdn).toBe(false);
+    });
+  });
 });

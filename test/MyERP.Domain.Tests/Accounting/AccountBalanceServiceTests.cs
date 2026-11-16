@@ -328,5 +328,60 @@ public class AccountBalanceServiceTests
         taxResult.Debit.ShouldBe(800m);
     }
 
+    [Fact]
+    public async Task Queries_IncludeIntraDayJournalsOnEndDateAndExcludeNextDay()
+    {
+        var companyId = Guid.NewGuid();
+        var fyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var counterId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var asOfDate = new DateTime(2026, 6, 30);
+
+        var jeSameDayLate = new JournalEntry(Guid.NewGuid(), companyId, fyId, asOfDate.AddHours(23).AddMinutes(45));
+        jeSameDayLate.AddLine(new JournalEntryLine(Guid.NewGuid(), jeSameDayLate.Id, accountId, 350m, isDebit: true)
+        {
+            PartyType = "Customer",
+            PartyId = partyId,
+            AmountInAccountCurrency = 350m
+        });
+        jeSameDayLate.AddLine(new JournalEntryLine(Guid.NewGuid(), jeSameDayLate.Id, counterId, 350m, isDebit: false));
+        jeSameDayLate.Validate();
+        jeSameDayLate.Post();
+
+        var jeNextDay = new JournalEntry(Guid.NewGuid(), companyId, fyId, asOfDate.AddDays(1));
+        jeNextDay.AddLine(new JournalEntryLine(Guid.NewGuid(), jeNextDay.Id, accountId, 500m, isDebit: true)
+        {
+            PartyType = "Customer",
+            PartyId = partyId,
+            AmountInAccountCurrency = 500m
+        });
+        jeNextDay.AddLine(new JournalEntryLine(Guid.NewGuid(), jeNextDay.Id, counterId, 500m, isDebit: false));
+        jeNextDay.Validate();
+        jeNextDay.Post();
+
+        var journals = new List<JournalEntry> { jeSameDayLate, jeNextDay };
+        var allLines = journals.SelectMany(j => j.Lines).ToList();
+
+        _journalRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, bool>>>())
+            .Returns(ci => journals.Where(ci.Arg<System.Linq.Expressions.Expression<Func<JournalEntry, bool>>>().Compile()).ToList());
+
+        _lineRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>())
+            .Returns(ci => allLines.Where(ci.Arg<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>().Compile()).ToList());
+
+        var trial = await _service.GetTrialBalanceAsync(companyId, asOfDate);
+        trial[accountId].Debit.ShouldBe(350m);
+
+        var period = await _service.GetPeriodBalanceAsync(companyId, accountId, new DateTime(2026, 6, 1), asOfDate);
+        period.Debit.ShouldBe(350m);
+
+        var partyBal = await _service.GetPartyBalanceAsync(companyId, "Customer", partyId, asOfDate);
+        partyBal.Debit.ShouldBe(350m);
+
+        var (acctCurr, compCurr) = await _service.GetMultiCurrencyBalanceAsync(companyId, accountId, asOfDate);
+        acctCurr.ShouldBe(350m);
+        compCurr.ShouldBe(350m);
+    }
+
     #endregion
 }
