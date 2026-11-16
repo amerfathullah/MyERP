@@ -157,4 +157,86 @@ public abstract class PurchaseInvoiceEInvoiceTests<TStartupModule> : MyERPApplic
             created.Items[1].ClassificationCode.ShouldBe("034");
         });
     }
+
+    [Fact]
+    public async Task GetPurchaseStatusReportAsync_ReturnsSubmissionQrCodeUrlAndSubmittedAt()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var (company, supplier, item) = await SeedAsync("D");
+            var piRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var subRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+            var consolRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var logRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var compRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var settingProvider = GetRequiredService<Volo.Abp.Settings.ISettingProvider>();
+            var lazyProvider = GetRequiredService<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+
+            var httpFactory = NSubstitute.Substitute.For<System.Net.Http.IHttpClientFactory>();
+            var lhdnLogger = GetRequiredService<Microsoft.Extensions.Logging.ILogger<MyERP.EInvoice.Services.LhdnApiClient>>();
+            var lhdnClient = new MyERP.EInvoice.Services.LhdnApiClient(httpFactory, lhdnLogger);
+            var einvServiceDomain = new MyERP.EInvoice.Services.EInvoiceService(lhdnClient, subRepo, logRepo)
+            {
+                LazyServiceProvider = lazyProvider
+            };
+            var einvAppService = new MyERP.EInvoice.EInvoiceAppService(
+                einvServiceDomain,
+                GetRequiredService<MyERP.EInvoice.Services.InvoiceDocumentBuilder>(),
+                GetRequiredService<MyERP.EInvoice.Services.InvoiceDocumentSigner>(),
+                GetRequiredService<MyERP.EInvoice.Services.EInvoiceValidationService>(),
+                GetRequiredService<MyERP.EInvoice.Services.EInvoiceConsolidationService>(),
+                new MyERP.EInvoice.Services.TaxpayerValidationService(lhdnClient, settingProvider),
+                subRepo,
+                consolRepo,
+                logRepo,
+                siRepo,
+                piRepo,
+                custRepo,
+                suppRepo,
+                compRepo,
+                settingProvider,
+                itemRepo)
+            {
+                LazyServiceProvider = lazyProvider
+            };
+
+            var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(
+                Guid.NewGuid(), company.Id, supplier.Id, "PI-QR-001", new DateTime(2026, 7, 10));
+            pi.AddItem(item.Id, "Self-billed QR item", 1m, 250m, 0m);
+            pi.Submit();
+            pi.Post();
+
+            var sub = new MyERP.EInvoice.Entities.EInvoiceSubmission(
+                Guid.NewGuid(), company.Id, "PurchaseInvoice", pi.Id, company.TenantId);
+            sub.MarkAccepted(
+                "sub-uid-123",
+                "uuid-123",
+                "long-456",
+                "https://preprod.myinvois.hasil.gov.my/uuid-123/share/long-456",
+                "{}");
+            await subRepo.InsertAsync(sub, autoSave: true);
+
+            pi.LhdnSubmissionId = sub.Id;
+            pi.LhdnUuid = sub.DocumentUuid;
+            pi.LhdnLongId = sub.LongId;
+            pi.LhdnSubmittedAt = sub.SubmittedAt;
+            pi.EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid;
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            var rows = await einvAppService.GetPurchaseStatusReportAsync(new MyERP.EInvoice.LhdnStatusReportRequestDto
+            {
+                CompanyId = company.Id
+            });
+
+            var row = rows.ShouldHaveSingleItem();
+            row.InvoiceNumber.ShouldBe("PI-QR-001");
+            row.DocumentUuid.ShouldBe("uuid-123");
+            row.QrCodeUrl.ShouldBe("https://preprod.myinvois.hasil.gov.my/uuid-123/share/long-456");
+            row.SubmittedAt.ShouldBe(sub.SubmittedAt);
+        });
+    }
 }

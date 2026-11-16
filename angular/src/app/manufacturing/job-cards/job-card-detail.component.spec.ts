@@ -44,11 +44,24 @@ describe('JobCardDetailComponent', () => {
     expect(comp.rawMaterials()[1].isAvailable).toBe(false);
   });
 
-  it('clears rawMaterials gracefully if getRawMaterials fails', () => {
-    serviceMock.getRawMaterials.mockReturnValue(throwError(() => new Error('err')));
-    const comp = createComponent();
+  it('clears rawMaterials and surfaces toaster error when loading fails', () => {
+    serviceMock.get.mockReturnValue(throwError(() => ({ error: { error: { message: 'JC load failed' } } })));
+    serviceMock.getRawMaterials.mockReturnValue(throwError(() => ({ error: { error: { message: 'RM load failed' } } })));
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'jc-1' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: JobCardService, useValue: serviceMock },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+      ],
+    });
+    const comp = runInInjectionContext(injector, () => new JobCardDetailComponent());
     comp.ngOnInit();
 
     expect(comp.rawMaterials()).toEqual([]);
+    expect(toasterMock.error).toHaveBeenCalledWith('JC load failed');
+    expect(toasterMock.error).toHaveBeenCalledWith('RM load failed');
   });
 });

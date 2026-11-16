@@ -382,7 +382,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             invoice.EInvoiceStatus = submission.Status == "Accepted"
                 ? Sales.EInvoiceStatus.Pending : Sales.EInvoiceStatus.Invalid;
             invoice.LhdnUuid = submission.DocumentUuid;
+            invoice.LhdnLongId = submission.LongId;
             invoice.LhdnSubmissionId = submission.Id;
+            invoice.LhdnSubmittedAt = DateTime.UtcNow;
             await _purchaseInvoiceRepository.UpdateAsync(invoice);
         }
     }
@@ -581,6 +583,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 _ => invoice.EInvoiceStatus
             };
             invoice.LhdnUuid = submission.DocumentUuid;
+            invoice.LhdnLongId = submission.LongId;
             await _purchaseInvoiceRepository.UpdateAsync(invoice);
         }
     }
@@ -1014,9 +1017,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             }
         }
 
+        var submissionQuery = await _submissionRepository.GetQueryableAsync();
+
         var query = from pi in purchaseQuery
                     join s in supplierQuery on pi.SupplierId equals s.Id into suppJoin
                     from s in suppJoin.DefaultIfEmpty()
+                    join sub in submissionQuery on pi.LhdnSubmissionId equals (Guid?)sub.Id into subJoin
+                    from sub in subJoin.DefaultIfEmpty()
                     orderby pi.IssueDate descending, pi.InvoiceNumber descending
                     select new LhdnStatusReportItemDto
                     {
@@ -1028,8 +1035,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                         TaxAmount = pi.TaxAmount,
                         Status = pi.EInvoiceStatus.ToString(),
                         DocumentUuid = pi.LhdnUuid,
-                        QrCodeUrl = null,
-                        SubmittedAt = pi.LhdnSubmittedAt
+                        QrCodeUrl = sub != null ? sub.QrCodeUrl : null,
+                        SubmittedAt = pi.LhdnSubmittedAt ?? (sub != null ? sub.SubmittedAt : null)
                     };
 
         return await AsyncExecuter.ToListAsync(query);

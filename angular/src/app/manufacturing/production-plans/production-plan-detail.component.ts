@@ -49,7 +49,7 @@ export class ProductionPlanDetailComponent implements OnInit {
     if (!targetId || !this.planService.getVisualizerData) return;
     this.planService.getVisualizerData(targetId).subscribe({
       next: res => this.visualizerData.set(res),
-      error: () => {},
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -62,10 +62,15 @@ export class ProductionPlanDetailComponent implements OnInit {
         this.summaryReport.set(res);
         this.loadingSummary.set(false);
       },
-      error: () => {
+      error: (err: any) => {
         this.loadingSummary.set(false);
+        this.handleError(err);
       },
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   private localization = inject(LocalizationService);

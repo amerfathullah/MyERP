@@ -106,4 +106,16 @@ describe('ProductionPlanDetailComponent', () => {
     expect(toasterMock.error).toHaveBeenCalled();
     expect(comp.downloadingMaterials()).toBe(false);
   });
+
+  it('surfaces toaster error when summary or visualizer loading fails', () => {
+    const { comp, planServiceMock, toasterMock } = createComponent();
+    planServiceMock.getSummaryReport.mockReturnValue(throwError(() => ({ error: { error: { message: 'Summary load failed' } } })));
+    planServiceMock.getVisualizerData.mockReturnValue(throwError(() => ({ error: { error: { message: 'Visualizer load failed' } } })));
+
+    comp.ngOnInit();
+
+    expect(comp.loadingSummary()).toBe(false);
+    expect(toasterMock.error).toHaveBeenCalledWith('Summary load failed');
+    expect(toasterMock.error).toHaveBeenCalledWith('Visualizer load failed');
+  });
 });

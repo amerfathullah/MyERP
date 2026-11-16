@@ -278,11 +278,21 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
 
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.service.get(id).subscribe({
+      next: (r) => this.d = r,
+      error: (err: any) => this.handleError(err),
+    });
     this.service.getRawMaterials(id).subscribe({
       next: (mats) => this.rawMaterials.set(mats ?? []),
-      error: () => this.rawMaterials.set([]),
+      error: (err: any) => {
+        this.rawMaterials.set([]);
+        this.handleError(err);
+      },
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   /** True while completed + process loss quantity is still below quantity to manufacture (ERPNext commit de98c513af). */
@@ -374,7 +384,7 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
             this.completionQtyInput = defaults.defaultCompletedQty!;
           }
         },
-        error: () => {},
+        error: (err: any) => this.handleError(err),
       });
     }
   }

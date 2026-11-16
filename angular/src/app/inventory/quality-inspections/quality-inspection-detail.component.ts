@@ -80,14 +80,17 @@ export class QualityInspectionDetailComponent implements OnInit {
   }
 
   load() {
-    this.service.get(this.id).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.service.get(this.id).subscribe({
+      next: (r) => this.d = r,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   submit() {
     this.acting = true;
     this.qiService.submit(this.id).subscribe({
       next: () => { this.acting = false; this.toaster.success('::SuccessfullySubmitted'); this.load(); },
-      error: (err: any) => { this.acting = false; this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
+      error: (err: any) => { this.acting = false; this.handleError(err); }
     });
   }
 
@@ -97,8 +100,12 @@ export class QualityInspectionDetailComponent implements OnInit {
       this.acting = true;
       this.qiService.cancel(this.id).subscribe({
         next: () => { this.acting = false; this.toaster.success('::SuccessfullyCancelled'); this.load(); },
-        error: (err: any) => { this.acting = false; this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
+        error: (err: any) => { this.acting = false; this.handleError(err); }
       });
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }
