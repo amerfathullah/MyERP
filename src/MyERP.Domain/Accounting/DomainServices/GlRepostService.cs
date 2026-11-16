@@ -304,13 +304,14 @@ public class GlRepostService : DomainService
             // Material that nothing paid for carries no value and still books nothing.
             // When billed on this invoice or an internal transfer, value goes to rejected warehouse.
             var rejWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-            if (rejWarehouseId.HasValue && item.RejectedQty != 0)
+            var roundedRejStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
+            if (rejWarehouseId.HasValue && roundedRejStockQty > 0m)
             {
                 var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
                 if (isValued)
                 {
                     valueByWarehouse.TryGetValue(rejWarehouseId.Value, out var priorRej);
-                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (Math.Abs(item.RejectedStockQty) * ratePerStockUnit);
+                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (roundedRejStockQty * ratePerStockUnit);
                 }
             }
         }

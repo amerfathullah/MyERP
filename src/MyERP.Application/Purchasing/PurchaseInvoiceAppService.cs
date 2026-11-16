@@ -1684,16 +1684,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             -returnStockQty, -(returnStockQty * ratePerStockUnit), invoice.TenantId);
                     }
 
-                    // Return rejected stock (PR #59280 / commit b3d55db893): stock out of rejected warehouse
+                    // Return rejected stock (PR #59280 / #66996): stock out when rounded rejected stock qty > 0
                     if (item.RejectedQty < 0)
                     {
                         var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-                        if (rejectedWarehouseId.HasValue)
+                        var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
+                        if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                         {
                             var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue
                                 || (originalItem != null && (originalItem.BillsRejectedQuantity || originalItem.FromWarehouseId.HasValue));
                             var rejectedRate = isValued ? ratePerStockUnit : 0.0m;
-                            var returnRejectedStockQty = Math.Abs(item.RejectedStockQty);
 
                             await _valuationService.CreateLedgerEntryAsync(
                                 invoice.CompanyId, item.ItemId, rejectedWarehouseId.Value,
@@ -1767,14 +1767,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
                     }
 
-                    // Rejected stock entry (PR #59257 & #59258)
+                    // Rejected stock entry (PR #59257 & #59258 / #66996: skip when rounded to 0)
                     var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-                    if (rejectedWarehouseId.HasValue && item.RejectedQty > 0)
+                    var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
+                    if (rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                     {
                         // Valued only if billed on this invoice, or if internal transfer from in-transit warehouse
                         var isValued = billsRejectedQuantity || item.FromWarehouseId.HasValue;
                         var rejectedRate = isValued ? ratePerStockUnit : 0.0m;
-                        var rejectedStockQty = item.RejectedStockQty;
 
                         await _valuationService.CreateLedgerEntryAsync(
                             invoice.CompanyId, item.ItemId, rejectedWarehouseId.Value,
@@ -2146,16 +2146,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             returnStockQty, returnStockQty * ratePerStockUnit, invoice.TenantId);
                     }
 
-                    // Reverse rejected return: restore stock to rejected warehouse
+                    // Reverse rejected return: restore stock to rejected warehouse (PR #66996: skip if rounded to 0)
                     if (item.RejectedQty < 0)
                     {
                         var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-                        if (rejectedWarehouseId.HasValue)
+                        var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
+                        if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                         {
                             var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue
                                 || (originalItem != null && (originalItem.BillsRejectedQuantity || originalItem.FromWarehouseId.HasValue));
                             var rejectedRate = isValued ? ratePerStockUnit : 0.0m;
-                            var returnRejectedStockQty = Math.Abs(item.RejectedStockQty);
 
                             await _valuationService.CreateLedgerEntryAsync(
                                 invoice.CompanyId, item.ItemId, rejectedWarehouseId.Value,
@@ -2227,13 +2227,13 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
                     }
 
-                    // Reverse out of rejected warehouse (PR #59257 & #59258)
+                    // Reverse out of rejected warehouse (PR #59257 & #59258 / #66996)
                     var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-                    if (rejectedWarehouseId.HasValue && item.RejectedQty > 0)
+                    var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
+                    if (rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                     {
                         var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
                         var rejectedRate = isValued ? ratePerStockUnit : 0.0m;
-                        var rejectedStockQty = item.RejectedStockQty;
 
                         await _valuationService.CreateLedgerEntryAsync(
                             invoice.CompanyId, item.ItemId, rejectedWarehouseId.Value,

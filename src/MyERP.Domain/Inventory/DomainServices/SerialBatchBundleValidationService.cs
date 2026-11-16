@@ -24,12 +24,15 @@ public class SerialBatchBundleValidationService : DomainService
     }
 
     /// <summary>
-    /// Validates that all bundles referenced in the transaction match the expected company.
+    /// Validates that all bundles referenced in the transaction match the expected company
+    /// and do not belong to another draft voucher (ERPNext PR #58608 / PR #66994).
     /// </summary>
     public async Task ValidateBundleCompanyAsync(
         Guid expectedCompanyId,
         IEnumerable<Guid?> bundleIds,
-        bool isInternalTransfer = false)
+        bool isInternalTransfer = false,
+        string? expectedVoucherType = null,
+        Guid? expectedVoucherId = null)
     {
         var validBundleIds = bundleIds
             .Where(id => id.HasValue && id.Value != Guid.Empty)
@@ -61,6 +64,22 @@ public class SerialBatchBundleValidationService : DomainService
                         .WithData("bundleCompanyId", bundle.CompanyId)
                         .WithData("expectedCompanyId", expectedCompanyId)
                         .WithData("reason", $"Serial and Batch Bundle {bundle.Id} belongs to company {bundle.CompanyId}, not {expectedCompanyId}");
+                }
+
+                // ERPNext PR #66994: a draft cannot take over the Serial and Batch Bundle of another draft voucher
+                if (bundle.Status == Core.DocumentStatus.Draft
+                    && expectedVoucherId.HasValue
+                    && bundle.VoucherId != Guid.Empty
+                    && (bundle.VoucherId != expectedVoucherId.Value
+                        || (!string.IsNullOrWhiteSpace(expectedVoucherType)
+                            && !string.Equals(bundle.VoucherType, expectedVoucherType, StringComparison.OrdinalIgnoreCase))))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("bundleId", bundle.Id)
+                        .WithData("voucherType", bundle.VoucherType)
+                        .WithData("voucherId", bundle.VoucherId)
+                        .WithData("detail",
+                            $"Serial and Batch Bundle {bundle.Id} belongs to draft {bundle.VoucherType} {bundle.VoucherId}. Select or create another bundle.");
                 }
             }
         }

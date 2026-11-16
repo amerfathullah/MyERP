@@ -718,15 +718,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     stockValueByWarehouse[returnWarehouseId] = priorReturnValue + (returnStockQty * ratePerStockUnit);
                 }
 
-                // Rejected stock return (PR #59280 / commit b3d55db893): moves stock out from rejected warehouse
+                // Rejected stock return (PR #59280 / #66996): moves stock out when rounded rejected stock qty > 0
                 if (item.RejectedQty < 0)
                 {
                     var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
-                    if (rejectedWarehouseId.HasValue)
+                    var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
+                    if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                     {
                         var setValuationForRejected = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
                         var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
-                        var returnRejectedStockQty = Math.Abs(item.RejectedStockQty);
 
                         await _valuationService.CreateLedgerEntryAsync(
                             receipt.CompanyId, item.ItemId, rejectedWarehouseId.Value,
@@ -856,15 +856,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     stockValueByWarehouse[targetWarehouseId] = priorValue + (stockQty * ratePerStockUnit);
                 }
 
-                // If rejected warehouse and rejected qty exist, post rejected stock SLE in stock UOM (PR #51968 / commit 343ee9695b)
-                if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
+                // If rejected warehouse and rounded rejected stock qty exist, post rejected stock SLE in stock UOM (PR #51968 / #66996)
+                var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
+                if (item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                 {
                     // For internal transfers, rejected materials are always valued at the incoming transfer rate
                     // (PR #59251 / commit c0f13b01de); otherwise check Buying Settings
                     var setValuationForRejected = item.FromWarehouseId.HasValue ||
                         await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
                     var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
-                    var rejectedStockQty = item.RejectedStockQty;
                     await _valuationService.CreateLedgerEntryAsync(
                         receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
                         receipt.PostingDate, rejectedStockQty, rejectedRate,
@@ -1075,15 +1075,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         reverseStockQty, reverseStockQty * ratePerStockUnit, receipt.TenantId);
                 }
 
-                // Reverse rejected return: on submit we deducted rejected stock, so on cancel we add it back
+                // Reverse rejected return: on submit we deducted rejected stock, so on cancel we add it back (PR #66996: skip if rounded to 0)
                 var originalItem = originalItems?.GetValueOrDefault(item.ItemId);
                 var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
-                if (rejectedWarehouseId.HasValue && item.RejectedQty < 0)
+                var reverseRejectedStockQty = item.RejectedQty < 0 ? Math.Round(Math.Abs(item.RejectedStockQty), 4) : 0m;
+                if (rejectedWarehouseId.HasValue && reverseRejectedStockQty > 0m)
                 {
                     var setValuationForRejected = item.FromWarehouseId.HasValue || (originalItem?.FromWarehouseId.HasValue ?? false) ||
                         await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
                     var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
-                    var reverseRejectedStockQty = Math.Abs(item.RejectedStockQty);
 
                     await _valuationService.CreateLedgerEntryAsync(
                         receipt.CompanyId, item.ItemId, rejectedWarehouseId.Value,
@@ -1170,13 +1170,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     }
                 }
 
-                // If rejected warehouse and rejected qty exist, reverse rejected stock SLE (PR #51968 / commit 343ee9695b)
-                if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
+                // If rejected warehouse and rounded rejected stock qty exist, reverse rejected stock SLE (PR #51968 / #66996)
+                var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
+                if (item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                 {
                     var setValuationForRejected = item.FromWarehouseId.HasValue ||
                         await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
                     var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
-                    var rejectedStockQty = item.RejectedStockQty;
                     await _valuationService.CreateLedgerEntryAsync(
                         receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
                         receipt.PostingDate, -rejectedStockQty, rejectedRate,

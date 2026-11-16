@@ -326,4 +326,89 @@ public abstract class PurchaseReceiptInternalTransferTests<TStartupModule> : MyE
             rejectedBin.ActualQty.ShouldBe(2m);
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_InternalReceipt_WhoseRejectedStockQtyRoundsToZero_SucceedsWithoutZeroQtySle()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+            var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var prRepository = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var valuationService = GetRequiredService<StockValuationService>();
+            var binService = GetRequiredService<BinService>();
+            var appService = GetRequiredService<IPurchaseReceiptAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Tiny Reject Co"), autoSave: true);
+            var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Tiny Reject Supplier"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "TR-ITEM-0", "Tiny Reject Item", ItemType.Goods), autoSave: true);
+
+            var transitWarehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "In-Transit Tiny WH"), autoSave: true);
+            var targetWarehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "Target Tiny WH"), autoSave: true);
+
+            var targetStockAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1411-TINY", "Stock - Target", AccountType.Asset), autoSave: true);
+            var srbnbAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2110-TINY", "SRBNB", AccountType.Liability), autoSave: true);
+            var costCenter = await costCenterRepository.InsertAsync(
+                new CostCenter(Guid.NewGuid(), company.Id, "Tiny Cost Center"), autoSave: true);
+
+            company.DefaultInventoryAccountId = targetStockAccount.Id;
+            company.StockReceivedButNotBilledAccountId = srbnbAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepository.UpdateAsync(company, autoSave: true);
+
+            await fiscalYearRepository.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY Tiny", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+            await seriesRepository.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "PR Tiny Series", "PurchaseReceipt", "PR-TINY-"), autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PR DR Stock", "PurchaseReceipt", true, AccountSource.WarehouseStock, AmountSource.NetTotal)
+                { SortOrder = 1, FixedAccountId = targetStockAccount.Id }, autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PR CR SRBNB", "PurchaseReceipt", false, AccountSource.FixedAccount, AmountSource.NetTotal)
+                { SortOrder = 2, FixedAccountId = srbnbAccount.Id }, autoSave: true);
+
+            await valuationService.CreateLedgerEntryAsync(
+                company.Id, item.Id, transitWarehouse.Id,
+                DateTime.UtcNow.Date.AddDays(-1), 5m, 10m,
+                "StockEntry", Guid.NewGuid(), null);
+            await binService.ApplyStockMovementAsync(item.Id, transitWarehouse.Id, 5m, 50m, null);
+
+            // RejectedQty = 0.0001 with ConversionFactor = 0.2 -> RejectedStockQty = 0.00002 -> rounds to 0 at 4 decimals (PR #66996)
+            var prEntity = new PurchaseReceipt(
+                Guid.NewGuid(), company.Id, supplier.Id, targetWarehouse.Id,
+                "PR-TINY-0001", DateTime.UtcNow.Date);
+            prEntity.AddItem(
+                item.Id, "Tiny Rejected Row", 5m, 10m, 0m,
+                uom: "SubUnit",
+                warehouseId: targetWarehouse.Id,
+                fromWarehouseId: transitWarehouse.Id,
+                rejectedQty: 0.0001m,
+                rejectedWarehouseId: null);
+            prEntity.Items[^1].ConversionFactor = 0.2m;
+            await prRepository.InsertAsync(prEntity, autoSave: true);
+
+            var submitted = await appService.SubmitAsync(prEntity.Id);
+            submitted.Status.ShouldBe("Submitted");
+
+            var prSles = (await sleRepository.GetQueryableAsync())
+                .Where(s => s.VoucherType == "PurchaseReceipt" && s.VoucherId == prEntity.Id)
+                .ToList();
+            prSles.Count.ShouldBe(2);
+            prSles.ShouldAllBe(s => s.QuantityChange != 0m);
+        });
+    }
 }

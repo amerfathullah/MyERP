@@ -78,6 +78,42 @@ public class SerialBatchBundleValidationTests
     }
 
     [Fact]
+    public async Task ValidateBundleCompanyAsync_BundleBelongingToAnotherDraft_ThrowsValidationFailed()
+    {
+        var repo = Substitute.For<IRepository<SerialAndBatchBundle, Guid>>();
+        var service = new SerialBatchBundleValidationService(repo);
+
+        var companyId = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var draftVoucherA = Guid.NewGuid();
+        var draftVoucherB = Guid.NewGuid();
+        var bundle = new SerialAndBatchBundle(
+            bundleId, companyId, Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", draftVoucherA, DateTime.UtcNow);
+
+        repo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SerialAndBatchBundle, bool>>>())
+            .Returns(Task.FromResult(new List<SerialAndBatchBundle> { bundle }));
+
+        // Different draft cannot take over the bundle (PR #66994)
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await service.ValidateBundleCompanyAsync(
+                companyId,
+                new[] { (Guid?)bundleId },
+                expectedVoucherType: "StockEntry",
+                expectedVoucherId: draftVoucherB));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        // Owner draft itself succeeds
+        await Should.NotThrowAsync(async () =>
+            await service.ValidateBundleCompanyAsync(
+                companyId,
+                new[] { (Guid?)bundleId },
+                expectedVoucherType: "StockEntry",
+                expectedVoucherId: draftVoucherA));
+    }
+
+    [Fact]
     public void SetEntriesTotalQty_BatchBundle_AdjustsLastEntryToMatchPostedStockQty()
     {
         // Per ERPNext PR #66747 & PR #66762: batch transfer bundle's last entry absorbs rounding diff

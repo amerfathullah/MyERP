@@ -228,8 +228,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
 
             var targetWarehouse = item.WarehouseId ?? WarehouseId;
 
-            // Validate rejected warehouse per ERPNext buying/subcontracting controller
-            if (item.RejectedQty != 0 && !item.RejectedWarehouseId.HasValue)
+            // Validate rejected warehouse per ERPNext buying/subcontracting controller & PR #66996
+            if (Math.Round(Math.Abs(item.RejectedStockQty), 4) > 0m && !item.RejectedWarehouseId.HasValue)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Rejected Warehouse is mandatory for rejected Item {item.Description}.");

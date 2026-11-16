@@ -679,8 +679,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         foreach (var sqItem in pendingItems)
         {
             var convertQty = sqItem.ConversionFactor > 0
-                ? sqItem.PendingOrderQty / sqItem.ConversionFactor
-                : sqItem.Qty;
+                ? Math.Round(sqItem.PendingOrderQty / sqItem.ConversionFactor, 4)
+                : Math.Round(sqItem.Qty, 4);
 
             if (convertQty <= 0 && sqItem.Qty > 0) continue;
 

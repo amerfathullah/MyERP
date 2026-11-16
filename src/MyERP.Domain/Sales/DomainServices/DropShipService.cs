@@ -135,10 +135,10 @@ public class DropShipService : DomainService
             if (item.IsClosed || item.OrderedQty >= item.StockQty) continue;
 
             var conversionFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
-            var qty = item.Quantity - item.OrderedQty / conversionFactor;
-            if (qty <= 0) continue;
+            var qty = Math.Round(item.Quantity - item.OrderedQty / conversionFactor, 4);
+            if (qty <= 0m) continue;
 
-            lines.Add(new SalesOrderPurchaseLine(supplierId, item, Math.Round(qty, 4)));
+            lines.Add(new SalesOrderPurchaseLine(supplierId, item, qty));
         }
 
         return lines;

@@ -141,6 +141,27 @@ public class DropShipTests
         grouped.First(g => g.Key == supplier2).Count().ShouldBe(1);
     }
 
+    [Fact]
+    public void ResolvePurchaseLines_RoundsRemainingQtyToFourDecimalsAndSkipsRoundingToZero()
+    {
+        var order = CreateOrder();
+        var supplier = Guid.NewGuid();
+        order.AddItem(Guid.NewGuid(), "Box Item", 10m, 120m, 0m, "Box");
+        var row = order.Items[0];
+        row.ConversionFactor = 12m; // StockQty = 120
+        row.OrderedQty = 4m;        // 116 left in stock -> 116 / 12 = 9.666666... Box
+
+        order.AddItem(Guid.NewGuid(), "Tiny Residual", 1m, 10m, 0m, "Box");
+        var tinyRow = order.Items[1];
+        tinyRow.ConversionFactor = 12m; // StockQty = 12
+        tinyRow.OrderedQty = 11.9999m;  // 0.0001 / 12 = 0.0000083 -> rounds to 0 at 4 decimals
+
+        var lines = DropShipService.ResolvePurchaseLines(order, new[] { (row.Id, supplier), (tinyRow.Id, supplier) });
+
+        lines.Count.ShouldBe(1);
+        lines[0].Quantity.ShouldBe(9.6667m);
+    }
+
     private static SalesOrder CreateOrder()
     {
         return new SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
