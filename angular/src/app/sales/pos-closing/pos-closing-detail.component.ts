@@ -198,7 +198,7 @@ export class PosClosingDetailComponent implements OnInit {
           this.toaster.success(this.l('::SuccessfullySubmitted'));
           this.loadEntry();
         },
-        error: () => {},
+        error: (err: any) => this.handleError(err),
       });
     });
   }
@@ -211,7 +211,7 @@ export class PosClosingDetailComponent implements OnInit {
           this.toaster.success(this.l('::SuccessfullyCancelled'));
           this.loadEntry();
         },
-        error: () => {},
+        error: (err: any) => this.handleError(err),
       });
     });
   }
@@ -222,8 +222,12 @@ export class PosClosingDetailComponent implements OnInit {
         this.toaster.success(this.l('::SuccessfullySubmitted'));
         this.loadEntry();
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   goBack() {

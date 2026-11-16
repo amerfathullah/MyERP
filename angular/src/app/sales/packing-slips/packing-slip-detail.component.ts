@@ -137,14 +137,14 @@ export class PackingSlipDetailComponent implements OnInit {
     this.isLoading.set(true);
     this.packingSlipService.get(this.slipId).subscribe({
       next: s => { this.slip.set(s); this.isLoading.set(false); },
-      error: () => { this.isLoading.set(false); }
+      error: (err: any) => { this.isLoading.set(false); this.handleError(err); },
     });
   }
 
   submit() {
     this.packingSlipService.submit(this.slipId).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullySubmitted')); this.loadSlip(); },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -153,7 +153,7 @@ export class PackingSlipDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.packingSlipService.cancel(this.slipId).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.loadSlip(); },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     });
   }
@@ -163,9 +163,13 @@ export class PackingSlipDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.packingSlipService.delete(this.slipId).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyDeleted')); history.back(); },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   print() { window.print(); }

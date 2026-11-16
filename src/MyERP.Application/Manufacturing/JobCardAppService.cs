@@ -364,6 +364,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         }
 
         jc.Complete();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
+        await jobCardManager.ValidateInputFromPreviousOperationsAsync(jc, wo.TrackSemiFinishedGoods);
         await _repository.UpdateAsync(jc);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -375,7 +377,6 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         // Update Work Order produced qty using bottleneck formula (MIN across operations)
         var jcManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
-        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
 
         // Roll up process loss to Work Order for semi-finished goods tracking (ERPNext PR #57895 / commit 0eb61c9fac)
         if (wo.TrackSemiFinishedGoods)

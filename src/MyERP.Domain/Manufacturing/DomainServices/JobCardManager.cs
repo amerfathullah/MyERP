@@ -542,6 +542,73 @@ public class JobCardManager : DomainService
     }
 
     /// <summary>
+    /// Validates that CompletedQty + ProcessLossQty of an operation does not exceed what the
+    /// slowest previous operation actually completed. Once that previous operation has finished
+    /// with no remaining pending quantity, its process loss is deducted from this card's
+    /// ProcessLossQty and ForQuantity (rounded to 4 decimals).
+    /// Per ERPNext PR #60275 / commit a147d2c3cc / test 79ee0fb448.
+    /// </summary>
+    public async Task ValidateInputFromPreviousOperationsAsync(JobCard jobCard, bool trackSemiFinishedGoods = false)
+    {
+        if (jobCard.IsCorrective || trackSemiFinishedGoods || jobCard.SequenceId <= 1)
+            return;
+
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+        var woCards = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective
+                && jc.SequenceId <= jobCard.SequenceId)
+            .ToList();
+
+        var previousGroups = woCards
+            .Where(jc => jc.Id != jobCard.Id && jc.SequenceId < jobCard.SequenceId)
+            .GroupBy(jc => jc.SequenceId)
+            .Select(g => new
+            {
+                SequenceId = g.Key,
+                CompletedQty = g.Sum(c => c.CompletedQty),
+                ForQuantity = g.Sum(c => c.ForQuantity),
+                IsFullyCompleted = g.All(c => c.Status == JobCardStatus.Completed && Math.Round(c.PendingQty, 4) <= 0m)
+            })
+            .ToList();
+
+        if (previousGroups.Count == 0)
+            return;
+
+        var bottleneckPrev = previousGroups.OrderBy(g => g.CompletedQty).First();
+
+        var otherCurrentCards = woCards
+            .Where(jc => jc.Id != jobCard.Id && jc.SequenceId == jobCard.SequenceId)
+            .ToList();
+        var currentForQty = otherCurrentCards.Sum(c => c.ForQuantity) + jobCard.ForQuantity;
+        var scaledPrevCompleted = bottleneckPrev.ForQuantity > 0 && currentForQty > 0 && bottleneckPrev.ForQuantity != currentForQty
+            ? Math.Round(bottleneckPrev.CompletedQty * currentForQty / bottleneckPrev.ForQuantity, 4, MidpointRounding.AwayFromZero)
+            : bottleneckPrev.CompletedQty;
+
+        var totalInputQty = Math.Round(
+            otherCurrentCards.Sum(c => c.CompletedQty + c.ProcessLossQty) + jobCard.CompletedQty + jobCard.ProcessLossQty,
+            4,
+            MidpointRounding.AwayFromZero);
+
+        var excessQty = Math.Round(totalInputQty - scaledPrevCompleted, 4, MidpointRounding.AwayFromZero);
+        if (excessQty <= 0m)
+            return;
+
+        if (bottleneckPrev.IsFullyCompleted && excessQty <= Math.Round(jobCard.ProcessLossQty, 4, MidpointRounding.AwayFromZero))
+        {
+            jobCard.ProcessLossQty = Math.Max(0m, Math.Round(jobCard.ProcessLossQty - excessQty, 4, MidpointRounding.AwayFromZero));
+            jobCard.ForQuantity = Math.Max(0m, Math.Round(jobCard.ForQuantity - excessQty, 4, MidpointRounding.AwayFromZero));
+            return;
+        }
+
+        throw new BusinessException("MyERP:10020")
+            .WithData("sequenceId", jobCard.SequenceId)
+            .WithData("previousCompleted", scaledPrevCompleted)
+            .WithData("required", totalInputQty);
+    }
+
+    /// <summary>
     /// Validates that later operations in the routing have not completed more quantity
     /// than this operation would have completed.
     /// Per ERPNext PR #60650 (commit e98a4a6aec):

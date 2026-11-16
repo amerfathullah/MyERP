@@ -187,11 +187,14 @@ export class LoyaltyProgramDetailComponent implements OnInit {
       this.isLoading = true;
       this.service.get(id).subscribe({
         next: p => { this.program = p; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
+        error: (err: any) => { this.isLoading = false; this.handleError(err); },
       });
     }
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
-      .subscribe({ next: (res: any) => this.customers = res.items ?? [], error: () => {} });
+      .subscribe({
+        next: (res: any) => this.customers = res.items ?? [],
+        error: (err: any) => this.handleError(err),
+      });
   }
 
   lookupBalance() {
@@ -205,7 +208,7 @@ export class LoyaltyProgramDetailComponent implements OnInit {
       },
       error: (err: any) => {
         this.lookupLoading = false;
-        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.handleError(err);
       },
     });
   }
@@ -214,8 +217,12 @@ export class LoyaltyProgramDetailComponent implements OnInit {
     if (!this.selectedCustomerId || !this.program?.id) return;
     this.service.getPointHistory(this.selectedCustomerId, this.program.id).subscribe({
       next: (res) => this.pointHistory = res ?? [],
-      error: () => {},
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   redeemPoints() {
