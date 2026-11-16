@@ -104,10 +104,16 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             query = query.Where(x => x.Status == status);
 
         if (input.FromDate.HasValue)
-            query = query.Where(x => x.PostingDate >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.PostingDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            query = query.Where(x => x.PostingDate <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.PostingDate < toDateExclusive);
+        }
 
         var count = query.Count();
         var sorted = SortingHelper.ApplySorting(query, input.Sorting,

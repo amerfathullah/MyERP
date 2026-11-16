@@ -70,9 +70,15 @@ public class AssetAppService : ApplicationService, IAssetAppService
         if (input.AssetCategoryId.HasValue)
             query = query.Where(a => a.AssetCategoryId == input.AssetCategoryId.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(a => a.PurchaseDate >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(a => a.PurchaseDate >= fromDate);
+        }
         if (input.ToDate.HasValue)
-            query = query.Where(a => a.PurchaseDate <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(a => a.PurchaseDate < toDateExclusive);
+        }
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;

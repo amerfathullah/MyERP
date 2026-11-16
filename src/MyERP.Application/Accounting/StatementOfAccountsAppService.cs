@@ -316,6 +316,10 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 .WithData("detail", "FromDate cannot be greater than ToDate.");
         }
 
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
+        var agingAsOfDate = input.ToDate.Date;
+
         var result = new BatchStatementOfAccountsResultDto
         {
             CompanyId = input.CompanyId,
@@ -346,13 +350,13 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
 
             foreach (var sup in supplierList)
             {
-                var priorInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate < input.FromDate).ToList();
-                var priorPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate < input.FromDate).ToList();
+                var priorInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate < fromDate).ToList();
+                var priorPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate < fromDate).ToList();
                 var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal)
                     - priorPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
 
-                var periodInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate >= input.FromDate && i.IssueDate <= input.ToDate).ToList();
-                var periodPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate >= input.FromDate && p.PostingDate <= input.ToDate).ToList();
+                var periodInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate >= fromDate && i.IssueDate < toDateExclusive).ToList();
+                var periodPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate >= fromDate && p.PostingDate < toDateExclusive).ToList();
 
                 var invoicedAmount = periodInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal);
                 var paidAmount = periodPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
@@ -366,7 +370,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 AgingBucketDto? aging = null;
                 if (input.IncludeAging)
                 {
-                    aging = CalculateAging(allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate <= input.ToDate).Select(i => (i.DueDate ?? i.IssueDate, i.GrandTotal - i.AmountPaid)).ToList(), input.ToDate);
+                    aging = CalculateAging(allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate < toDateExclusive).Select(i => (i.DueDate ?? i.IssueDate, i.GrandTotal - i.AmountPaid)).ToList(), agingAsOfDate);
                 }
 
                 result.Statements.Add(new PartyStatementSummaryDto
@@ -405,13 +409,13 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
 
             foreach (var cust in customerList)
             {
-                var priorInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate < input.FromDate).ToList();
-                var priorPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate < input.FromDate).ToList();
+                var priorInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate < fromDate).ToList();
+                var priorPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate < fromDate).ToList();
                 var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal)
                     - priorPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
 
-                var periodInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate >= input.FromDate && i.IssueDate <= input.ToDate).ToList();
-                var periodPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate >= input.FromDate && p.PostingDate <= input.ToDate).ToList();
+                var periodInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate >= fromDate && i.IssueDate < toDateExclusive).ToList();
+                var periodPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate >= fromDate && p.PostingDate < toDateExclusive).ToList();
 
                 var invoicedAmount = periodInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal);
                 var paidAmount = periodPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
@@ -425,7 +429,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 AgingBucketDto? aging = null;
                 if (input.IncludeAging)
                 {
-                    aging = CalculateAging(allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate <= input.ToDate).Select(i => (i.DueDate ?? i.IssueDate, i.GrandTotal - i.AmountPaid)).ToList(), input.ToDate);
+                    aging = CalculateAging(allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate < toDateExclusive).Select(i => (i.DueDate ?? i.IssueDate, i.GrandTotal - i.AmountPaid)).ToList(), agingAsOfDate);
                 }
 
                 result.Statements.Add(new PartyStatementSummaryDto

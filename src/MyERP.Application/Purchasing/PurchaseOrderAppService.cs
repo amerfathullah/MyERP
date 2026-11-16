@@ -108,10 +108,16 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             query = query.Where(x => x.Status == status);
 
         if (input.FromDate.HasValue)
-            query = query.Where(x => x.OrderDate >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.OrderDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            query = query.Where(x => x.OrderDate <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.OrderDate < toDateExclusive);
+        }
 
         var count = query.Count();
         var sorted = SortingHelper.ApplySorting(query, input.Sorting,

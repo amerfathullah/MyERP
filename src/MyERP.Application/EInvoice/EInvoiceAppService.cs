@@ -929,11 +929,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
         if (input.FromDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate < toDateExclusive);
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status))
@@ -982,11 +984,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
         if (input.FromDate.HasValue)
         {
-            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            purchaseQuery = purchaseQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate < toDateExclusive);
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status))
@@ -1047,13 +1051,15 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
         if (input.FromDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
-            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate >= fromDate);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
-            purchaseQuery = purchaseQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate < toDateExclusive);
+            purchaseQuery = purchaseQuery.Where(x => x.IssueDate < toDateExclusive);
         }
 
         salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted || x.Status == Core.DocumentStatus.Posted);
@@ -1296,11 +1302,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
         if (input.FromDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            salesQuery = salesQuery.Where(x => x.IssueDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            salesQuery = salesQuery.Where(x => x.IssueDate < toDateExclusive);
         }
 
         // Only submitted sales invoices not submitted to LHDN directly
@@ -1438,11 +1446,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
         if (input.FromDate.HasValue)
         {
-            logQuery = logQuery.Where(x => x.SubmittedAt >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            logQuery = logQuery.Where(x => x.SubmittedAt >= fromDate);
         }
         if (input.ToDate.HasValue)
         {
-            logQuery = logQuery.Where(x => x.SubmittedAt <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            logQuery = logQuery.Where(x => x.SubmittedAt < toDateExclusive);
         }
         if (!string.IsNullOrWhiteSpace(input.SearchFilter))
         {
