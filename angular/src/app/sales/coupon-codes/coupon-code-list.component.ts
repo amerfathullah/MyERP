@@ -149,6 +149,11 @@ interface CouponCodeDto {
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
+                        @if ((coupon.used ?? 0) > 0) {
+                          <button class="btn btn-outline-warning" (click)="reverseUsage(coupon)" [title]="'::ReverseUsage' | abpLocalization">
+                            <i class="fa fa-undo"></i>
+                          </button>
+                        }
                         <button class="btn btn-outline-secondary" (click)="toggle(coupon)" [title]="coupon.isEnabled ? 'Disable' : 'Enable'">
                           <i class="fa" [class.fa-toggle-on]="coupon.isEnabled" [class.fa-toggle-off]="!coupon.isEnabled"></i>
                         </button>
@@ -170,6 +175,45 @@ interface CouponCodeDto {
           </div>
         }
       </div>
+
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="fa fa-check-circle me-2"></i>{{ '::ValidateCoupon' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">{{ '::Code' | abpLocalization }}</label>
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="testCouponCode" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="testCustomerId">
+                <option value="">{{ '::SelectCustomer' | abpLocalization }}</option>
+                @for (c of customers(); track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">{{ '::Date' | abpLocalization }}</label>
+              <input type="date" class="form-control form-control-sm" [(ngModel)]="testDate" />
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary btn-sm w-100"
+                [disabled]="validatingCoupon() || !testCouponCode.trim() || !testCustomerId"
+                (click)="validateAndApply()">
+                <i class="fa fa-check me-1"></i>{{ '::ApplyCoupon' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+          @if (appliedPricingRuleId()) {
+            <div class="alert alert-success mt-2 mb-0 py-2 small">
+              {{ '::PricingRule' | abpLocalization }}: <code>{{ appliedPricingRuleId() }}</code>
+            </div>
+          }
+        </div>
+      </div>
     </div>
   `
 })
@@ -187,6 +231,11 @@ export class CouponCodeListComponent implements OnInit {
   currentPage = signal(1);
   showCreateForm = false;
   newCoupon: any = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '', pricingRuleId: '', customerId: '' };
+  testCouponCode = '';
+  testCustomerId = '';
+  testDate = new Date().toISOString().split('T')[0];
+  validatingCoupon = signal(false);
+  appliedPricingRuleId = signal<string | null>(null);
 
   ngOnInit() {
     this.loadData();
@@ -241,6 +290,36 @@ export class CouponCodeListComponent implements OnInit {
     this.couponCodeService.toggle(coupon.id).subscribe({
       next: () => { this.toaster.success(coupon.isEnabled ? 'Disabled' : 'Enabled'); this.loadData(); },
       error: () => {}
+    });
+  }
+
+  reverseUsage(coupon: CouponCodeDto) {
+    if (!coupon.id) return;
+    this.couponCodeService.reverseUsage(coupon.id).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyUpdated');
+        this.loadData();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::OperationFailed'),
+    });
+  }
+
+  validateAndApply() {
+    const code = this.testCouponCode.trim();
+    if (!code || !this.testCustomerId) return;
+    this.validatingCoupon.set(true);
+    this.appliedPricingRuleId.set(null);
+    this.couponCodeService.validateAndApply(code, this.testCustomerId, this.testDate).subscribe({
+      next: (pricingRuleId) => {
+        this.validatingCoupon.set(false);
+        this.appliedPricingRuleId.set(pricingRuleId ? pricingRuleId.replace(/^"|"$/g, '') : null);
+        this.toaster.success('::SuccessfullyUpdated');
+        this.loadData();
+      },
+      error: (err: any) => {
+        this.validatingCoupon.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail ?? err?.error?.error?.message ?? '::OperationFailed');
+      },
     });
   }
 

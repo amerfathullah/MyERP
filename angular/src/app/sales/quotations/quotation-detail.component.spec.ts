@@ -1,4 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { QuotationDetailComponent } from './quotation-detail.component';
+import { CompanyService } from '../../proxy/core/company.service';
+import { QuotationService } from '../../proxy/sales/quotation.service';
+import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-reason.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
+import { QuotationStore } from '../store/quotation.store';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { CompetitorService } from '../../proxy/crm/competitor.service';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
 
 // QuotationDetailComponent — workflow actions + navigation + expiry tests
 
@@ -135,6 +149,62 @@ describe('QuotationDetailComponent', () => {
     it('should increment amendment index', () => {
       const qtn = { amendmentIndex: 2 };
       expect(qtn.amendmentIndex).toBe(2);
+    });
+  });
+
+  describe('structured lost reasons CRUD', () => {
+    function createComponent() {
+      const quotationMock = {
+        get: vi.fn().mockReturnValue(of({ id: 'qtn-1', status: 'Submitted', lostReasons: [] })),
+        createLostReason: vi.fn().mockReturnValue(of({ id: 'qlrd-1' })),
+        deleteLostReason: vi.fn().mockReturnValue(of(void 0)),
+      };
+      const lostReasonMock = {
+        getAllList: vi.fn().mockReturnValue(of([{ id: 'lr-1', reason: 'Price too high', isActive: true }])),
+      };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'qtn-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: QuotationService, useValue: quotationMock },
+          { provide: QuotationLostReasonService, useValue: lostReasonMock },
+          { provide: DocumentConversionService, useValue: {} },
+          { provide: QuotationStore, useValue: {} },
+          { provide: ConfirmationService, useValue: {} },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: CompetitorService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: DocumentPrintService, useValue: {} },
+        ],
+      });
+      const comp = runInInjectionContext(injector, () => new QuotationDetailComponent());
+      comp.ngOnInit();
+      return { comp, quotationMock, lostReasonMock, toasterMock };
+    }
+
+    it('loads lost reasons catalog and adds/removes structured lost reasons on quotation', () => {
+      const { comp, quotationMock, lostReasonMock, toasterMock } = createComponent();
+
+      expect(lostReasonMock.getAllList).toHaveBeenCalledTimes(1);
+      expect(comp.lostReasons()).toHaveLength(1);
+      expect(comp.lostReasonLabel({ quotationLostReasonId: 'lr-1' })).toBe('Price too high');
+
+      comp.selectedLostReasonId = 'lr-1';
+      comp.addLostReason();
+
+      expect(quotationMock.createLostReason).toHaveBeenCalledWith({
+        quotationId: 'qtn-1',
+        quotationLostReasonId: 'lr-1',
+      });
+      expect(comp.selectedLostReasonId).toBe('');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+
+      comp.removeLostReason('qlrd-1');
+      expect(quotationMock.deleteLostReason).toHaveBeenCalledWith('qlrd-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyDeleted');
     });
   });
 });

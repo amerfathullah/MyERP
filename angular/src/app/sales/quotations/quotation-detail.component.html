@@ -137,6 +137,39 @@
       </div>
     </div>
 
+    <div class="card mb-3">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fa fa-thumbs-down me-2"></i>{{ '::LostReasons' | abpLocalization }}</h6>
+      </div>
+      <div class="card-body">
+        @if (quotation.lostReasons && quotation.lostReasons.length > 0) {
+          <ul class="list-group mb-3">
+            @for (lr of quotation.lostReasons; track lr.id ?? $index) {
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ lostReasonLabel(lr) }}
+                <button class="btn btn-sm btn-outline-danger" (click)="removeLostReason(lr.id)">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="text-muted mb-3">{{ '::NoData' | abpLocalization }}</p>
+        }
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" style="max-width: 320px;" [(ngModel)]="selectedLostReasonId">
+            <option value="">{{ '::Select' | abpLocalization }}...</option>
+            @for (r of lostReasons(); track r.id) {
+              <option [value]="r.id">{{ r.reason }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-primary" (click)="addLostReason()" [disabled]="!selectedLostReasonId">
+            <i class="fa fa-plus me-1"></i>{{ '::AddLostReason' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <app-activity-log [documentType]="'Quotation'" [documentId]="quotation.id!"></app-activity-log>
 
     @if (quotation.status !== 'Draft') {

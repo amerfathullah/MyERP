@@ -11,9 +11,10 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { QuotationService } from '../../proxy/sales/quotation.service';
+import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-reason.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { QuotationStore } from '../store/quotation.store';
-import type { QuotationDto } from '../../proxy/sales/models';
+import type { QuotationDto, QuotationLostReasonDto } from '../../proxy/sales/models';
 import { CompetitorService } from '../../proxy/crm/competitor.service';
 import type { CompetitorDto } from '../../proxy/crm/models';
 
@@ -46,12 +47,15 @@ export class QuotationDetailComponent implements OnInit {
   private l = inject(LocalizationService);
   private emailService = inject(DocumentEmailService);
   private competitorService = inject(CompetitorService);
+  private lostReasonService = inject(QuotationLostReasonService);
   private documentPrintService = inject(DocumentPrintService);
 
   quotation: QuotationDto | null = null;
   companyData = signal<any>(null);
   competitors = signal<CompetitorDto[]>([]);
+  lostReasons = signal<QuotationLostReasonDto[]>([]);
   selectedCompetitorId = '';
+  selectedLostReasonId = '';
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
 
   showEmailDialog = false;
@@ -102,10 +106,46 @@ export class QuotationDetailComponent implements OnInit {
       next: (res: any) => this.competitors.set(res?.items ?? []),
       error: () => {}
     });
+    this.lostReasonService.getAllList().subscribe({
+      next: (list) => this.lostReasons.set(list ?? []),
+      error: () => {}
+    });
   }
 
   competitorName(competitorId: string | undefined): string {
     return this.competitors().find(c => c.id === competitorId)?.name ?? competitorId ?? '';
+  }
+
+  lostReasonLabel(detail: { reason?: string | null; quotationLostReasonId?: string }): string {
+    if (detail.reason) return detail.reason;
+    return this.lostReasons().find(r => r.id === detail.quotationLostReasonId)?.reason ?? detail.quotationLostReasonId ?? '';
+  }
+
+  addLostReason(): void {
+    const quotationId = this.quotation?.id;
+    if (!quotationId || !this.selectedLostReasonId) return;
+    this.service.createLostReason({
+      quotationId,
+      quotationLostReasonId: this.selectedLostReasonId,
+    }).subscribe({
+      next: () => {
+        this.selectedLostReasonId = '';
+        this.toaster.success('::SuccessfullyUpdated');
+        this.reloadAfterAction();
+      },
+      error: () => {}
+    });
+  }
+
+  removeLostReason(detailId: string | undefined): void {
+    if (!detailId) return;
+    this.service.deleteLostReason(detailId).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyDeleted');
+        this.reloadAfterAction();
+      },
+      error: () => {}
+    });
   }
 
   addCompetitor(): void {

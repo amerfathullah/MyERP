@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { BankAccountService } from '../../proxy/accounting/bank-account.service';
-import type { BankAccountDto } from '../../proxy/accounting/models';
+import { BankAccountBalanceService } from '../../proxy/accounting/bank-account-balance.service';
+import type { BankAccountBalanceDto, BankAccountDto } from '../../proxy/accounting/models';
 import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
 
 @Component({
@@ -92,6 +93,34 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
           </div>
         </div>
       </div>
+
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>{{ '::BalanceHistory' | abpLocalization }}</h6>
+        </div>
+        <div class="card-body p-0">
+          @if (balances().length === 0) {
+            <div class="text-center text-muted small py-3">{{ '::NoBalanceRecords' | abpLocalization }}</div>
+          } @else {
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (bal of balances(); track bal.id ?? $index) {
+                  <tr>
+                    <td>{{ bal.date | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end font-monospace fw-semibold">{{ bal.balance | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
     }
   `,
 })
@@ -99,14 +128,20 @@ export class BankAccountDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private service = inject(BankAccountService);
+  private balanceService = inject(BankAccountBalanceService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
   account = signal<BankAccountDto | null>(null);
+  balances = signal<BankAccountBalanceDto[]>([]);
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({ next: (a) => this.account.set(a) });
+    this.balanceService.getAllList(id).subscribe({
+      next: (list) => this.balances.set(list ?? []),
+      error: () => this.balances.set([]),
+    });
   }
 
   setDefault() {

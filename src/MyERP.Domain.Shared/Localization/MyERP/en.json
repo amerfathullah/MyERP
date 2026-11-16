@@ -6334,7 +6334,13 @@
     "SaveMapping": "Save Mapping",
     "EmailPreview": "Email Preview",
     "ConfiguredAccounts": "Company GL Account Configured",
-    "NoCompanyCategoryAccount": "No GL account mapping configured for this category and company."
+    "NoCompanyCategoryAccount": "No GL account mapping configured for this category and company.",
+    "BalanceHistory": "Balance History",
+    "ReverseUsage": "Reverse Usage",
+    "ValidateCoupon": "Validate & Apply Coupon",
+    "ApplyCoupon": "Apply",
+    "AddLostReason": "Add Lost Reason",
+    "NoBalanceRecords": "No balance records found."
   }
 }
 
