@@ -42,13 +42,15 @@ public class ProcessLossReportAppService : ApplicationService, IProcessLossRepor
 
     public async Task<ProcessLossReportDto> GetReportAsync(ProcessLossReportRequestDto input)
     {
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
         var seQuery = await _stockEntryRepository.WithDetailsAsync(se => se.Items);
         var entries = seQuery
             .Where(se => se.CompanyId == input.CompanyId
                 && se.EntryType == StockEntryType.Manufacture
                 && (se.Status == DocumentStatus.Submitted || se.Status == DocumentStatus.Posted)
-                && se.PostingDate >= input.FromDate
-                && se.PostingDate <= input.ToDate
+                && se.PostingDate >= fromDate
+                && se.PostingDate < toDateExclusive
                 && se.WorkOrderId.HasValue)
             .ToList();
 

@@ -27,7 +27,7 @@ public class UpcomingPaymentsDueAppService : ApplicationService, IUpcomingPaymen
     public async Task<UpcomingPaymentsDueReportDto> GetReportAsync(GetUpcomingPaymentsDueInput input)
     {
         var today = DateTime.UtcNow.Date;
-        var endDate = today.AddDays(input.DaysAhead);
+        var endDateExclusive = DateRangeHelper.ExclusiveNextDay(today.AddDays(input.DaysAhead));
 
         // Get posted invoices with outstanding balance, due within window (or overdue)
         var queryable = await _piRepo.GetQueryableAsync();
@@ -37,7 +37,7 @@ public class UpcomingPaymentsDueAppService : ApplicationService, IUpcomingPaymen
                          && !pi.IsReturn
                          && (pi.GrandTotal - pi.AmountPaid) > 0.01m
                          && pi.DueDate != null
-                         && pi.DueDate <= endDate)
+                         && pi.DueDate < endDateExclusive)
             .Select(pi => new
             {
                 pi.Id,

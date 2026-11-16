@@ -65,12 +65,14 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
 
         if (input.FromDate.HasValue)
         {
-            queryable = queryable.Where(x => x.PostingDate >= input.FromDate.Value.Date);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            queryable = queryable.Where(x => x.PostingDate >= fromDate);
         }
 
         if (input.ToDate.HasValue)
         {
-            queryable = queryable.Where(x => x.PostingDate <= input.ToDate.Value.Date);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            queryable = queryable.Where(x => x.PostingDate < toDateExclusive);
         }
 
         var totalCount = await AsyncExecuter.CountAsync(queryable);

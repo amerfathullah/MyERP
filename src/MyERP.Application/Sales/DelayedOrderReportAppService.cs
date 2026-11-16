@@ -50,14 +50,16 @@ public class DelayedOrderReportAppService : ApplicationService, IDelayedOrderRep
             throw new UserFriendlyException("Company not found.");
         }
 
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
         var dnQueryable = await _deliveryNoteRepository.WithDetailsAsync(x => x.Items);
         dnQueryable = dnQueryable.Where(d =>
             d.CompanyId == input.CompanyId &&
             d.Status == DocumentStatus.Submitted &&
             !d.IsReturn &&
             d.SalesOrderId.HasValue &&
-            d.PostingDate >= input.FromDate.Date &&
-            d.PostingDate <= input.ToDate.Date);
+            d.PostingDate >= fromDate &&
+            d.PostingDate < toDateExclusive);
 
         if (input.CustomerId.HasValue && input.CustomerId != Guid.Empty)
         {

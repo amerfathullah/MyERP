@@ -45,9 +45,15 @@ public class AttendanceAppService : ApplicationService, IAttendanceAppService
         if (input.EmployeeId.HasValue)
             query = query.Where(a => a.EmployeeId == input.EmployeeId.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(a => a.Date >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(a => a.Date >= fromDate);
+        }
         if (input.ToDate.HasValue)
-            query = query.Where(a => a.Date <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(a => a.Date < toDateExclusive);
+        }
         if (input.Status.HasValue)
             query = query.Where(a => a.Status == input.Status.Value);
 

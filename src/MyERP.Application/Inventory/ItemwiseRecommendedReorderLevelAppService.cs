@@ -92,13 +92,16 @@ public class ItemwiseRecommendedReorderLevelAppService : ApplicationService, IIt
 
         var itemIds = items.Select(i => i.Id).ToList();
 
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
+
         // Query outgoing SLEs within date range
         var sleQuery = await _sleRepository.GetQueryableAsync();
         var sles = sleQuery
             .Where(s =>
                 s.CompanyId == input.CompanyId &&
-                s.PostingDate >= input.FromDate.Date &&
-                s.PostingDate <= input.ToDate.Date &&
+                s.PostingDate >= fromDate &&
+                s.PostingDate < toDateExclusive &&
                 !s.IsCancelled &&
                 !s.IsAdjustmentEntry &&
                 s.QuantityChange < 0 &&

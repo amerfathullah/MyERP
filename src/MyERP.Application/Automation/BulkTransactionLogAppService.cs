@@ -33,12 +33,14 @@ public class BulkTransactionLogAppService : MyERPAppService, IBulkTransactionLog
 
         if (input.FromDate.HasValue)
         {
-            query = query.Where(x => x.BatchDate >= input.FromDate.Value);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.BatchDate >= fromDate);
         }
 
         if (input.ToDate.HasValue)
         {
-            query = query.Where(x => x.BatchDate <= input.ToDate.Value);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.BatchDate < toDateExclusive);
         }
 
         if (!string.IsNullOrWhiteSpace(input.Filter))

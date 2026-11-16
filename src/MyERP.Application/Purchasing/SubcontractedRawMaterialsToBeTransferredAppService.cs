@@ -40,6 +40,9 @@ public class SubcontractedRawMaterialsToBeTransferredAppService : ApplicationSer
                 .WithData("detail", "To Date must be greater than or equal to From Date.");
         }
 
+        var fromDate = input.FromDate.HasValue ? DateRangeHelper.StartOfDay(input.FromDate.Value) : (DateTime?)null;
+        var toDateExclusive = input.ToDate.HasValue ? DateRangeHelper.ExclusiveNextDay(input.ToDate.Value) : (DateTime?)null;
+
         var scoQuery = await _scoRepository.WithDetailsAsync(x => x.SuppliedItems);
 
         var orders = scoQuery
@@ -50,8 +53,8 @@ public class SubcontractedRawMaterialsToBeTransferredAppService : ApplicationSer
                      && o.PerReceived < 100m)
             .WhereIf(input.SupplierId.HasValue, o => o.SupplierId == input.SupplierId!.Value)
             .WhereIf(input.SubcontractOrderId.HasValue, o => o.Id == input.SubcontractOrderId!.Value)
-            .WhereIf(input.FromDate.HasValue, o => o.OrderDate >= input.FromDate!.Value)
-            .WhereIf(input.ToDate.HasValue, o => o.OrderDate <= input.ToDate!.Value)
+            .WhereIf(fromDate.HasValue, o => o.OrderDate >= fromDate!.Value)
+            .WhereIf(toDateExclusive.HasValue, o => o.OrderDate < toDateExclusive!.Value)
             .OrderByDescending(o => o.OrderDate)
             .ToList();
 

@@ -34,7 +34,7 @@ public class CogsByItemGroupAppService : ApplicationService, ICogsByItemGroupApp
 
     public async Task<CogsByItemGroupReportDto> GetReportAsync(CogsByItemGroupFilterDto input)
     {
-        if (input.FromDate > input.ToDate)
+        if (input.FromDate.Date > input.ToDate.Date)
         {
             throw new UserFriendlyException("From date cannot be after To date.");
         }
@@ -45,11 +45,14 @@ public class CogsByItemGroupAppService : ApplicationService, ICogsByItemGroupApp
             throw new UserFriendlyException("Company not found.");
         }
 
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
+
         var sleQuery = await _sleRepository.GetQueryableAsync();
         sleQuery = sleQuery.Where(s =>
             s.CompanyId == input.CompanyId &&
-            s.PostingDate >= input.FromDate &&
-            s.PostingDate <= input.ToDate &&
+            s.PostingDate >= fromDate &&
+            s.PostingDate < toDateExclusive &&
             !s.IsCancelled &&
             s.QuantityChange < 0 &&
             s.StockValueDifference < 0);

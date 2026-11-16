@@ -58,6 +58,9 @@ public class ProcurementTrackerAppService : ApplicationService, IProcurementTrac
                 .WithData("detail", "To Date must be greater than or equal to From Date.");
         }
 
+        var fromDate = input.FromDate.HasValue ? DateRangeHelper.StartOfDay(input.FromDate.Value) : (DateTime?)null;
+        var toDateExclusive = input.ToDate.HasValue ? DateRangeHelper.ExclusiveNextDay(input.ToDate.Value) : (DateTime?)null;
+
         // 1. Fetch Purchase Orders matching filters
         var poQuery = await _poRepo.WithDetailsAsync(p => p.Items);
         var pos = poQuery
@@ -67,8 +70,8 @@ public class ProcurementTrackerAppService : ApplicationService, IProcurementTrac
             .WhereIf(!input.ShowCompletedOrders, p => p.Status != DocumentStatus.Closed && p.Status != DocumentStatus.Completed)
             .WhereIf(input.CostCenterId.HasValue, p => p.CostCenterId == input.CostCenterId!.Value)
             .WhereIf(input.ProjectId.HasValue, p => p.ProjectId == input.ProjectId!.Value || p.Items.Any(i => i.ProjectId == input.ProjectId!.Value))
-            .WhereIf(input.FromDate.HasValue, p => p.OrderDate >= input.FromDate!.Value)
-            .WhereIf(input.ToDate.HasValue, p => p.OrderDate <= input.ToDate!.Value)
+            .WhereIf(fromDate.HasValue, p => p.OrderDate >= fromDate!.Value)
+            .WhereIf(toDateExclusive.HasValue, p => p.OrderDate < toDateExclusive!.Value)
             .ToList();
 
         var poItems = pos.SelectMany(p => p.Items.Select(i => new { Order = p, Item = i })).ToList();
@@ -93,8 +96,8 @@ public class ProcurementTrackerAppService : ApplicationService, IProcurementTrac
 
         // Unordered MR items matching date & project filters
         var unorderedMrRows = allMrs
-            .WhereIf(input.FromDate.HasValue, m => m.RequestDate >= input.FromDate!.Value)
-            .WhereIf(input.ToDate.HasValue, m => m.RequestDate <= input.ToDate!.Value)
+            .WhereIf(fromDate.HasValue, m => m.RequestDate >= fromDate!.Value)
+            .WhereIf(toDateExclusive.HasValue, m => m.RequestDate < toDateExclusive!.Value)
             .WhereIf(input.ProjectId.HasValue, m => m.ProjectId == input.ProjectId!.Value)
             .SelectMany(m => m.Items.Where(i => i.OrderedQuantity == 0)
                                     .WhereIf(input.ProjectId.HasValue, i => (i.ProjectId ?? m.ProjectId) == input.ProjectId!.Value)

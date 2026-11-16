@@ -70,10 +70,16 @@ public class SerialAndBatchSummaryAppService : ApplicationService, ISerialAndBat
             query = query.Where(b => b.VoucherType == input.VoucherType.Trim());
 
         if (input.FromDate.HasValue)
-            query = query.Where(b => b.PostingDate >= input.FromDate.Value.Date);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(b => b.PostingDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            query = query.Where(b => b.PostingDate <= input.ToDate.Value.Date);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(b => b.PostingDate < toDateExclusive);
+        }
 
         var bundles = query.OrderByDescending(b => b.PostingDate).ToList();
         if (bundles.Count == 0)

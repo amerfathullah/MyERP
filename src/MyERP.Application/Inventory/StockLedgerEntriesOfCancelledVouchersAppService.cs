@@ -73,10 +73,16 @@ public class StockLedgerEntriesOfCancelledVouchersAppService : ApplicationServic
             sleQuery = sleQuery.Where(s => s.VoucherType == input.VoucherType.Trim());
 
         if (input.FromDate.HasValue)
-            sleQuery = sleQuery.Where(s => s.PostingDate >= input.FromDate.Value.Date);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            sleQuery = sleQuery.Where(s => s.PostingDate >= fromDate);
+        }
 
         if (input.ToDate.HasValue)
-            sleQuery = sleQuery.Where(s => s.PostingDate <= input.ToDate.Value.Date);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            sleQuery = sleQuery.Where(s => s.PostingDate < toDateExclusive);
+        }
 
         var sles = sleQuery.ToList();
         if (sles.Count == 0)

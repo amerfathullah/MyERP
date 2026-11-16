@@ -50,9 +50,15 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
         if (input.Status.HasValue)
             query = query.Where(a => a.Status == input.Status.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(a => a.ScheduledTime >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(a => a.ScheduledTime >= fromDate);
+        }
         if (input.ToDate.HasValue)
-            query = query.Where(a => a.ScheduledTime <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(a => a.ScheduledTime < toDateExclusive);
+        }
 
         var totalCount = query.Count();
         var items = query.OrderBy(a => a.ScheduledTime)

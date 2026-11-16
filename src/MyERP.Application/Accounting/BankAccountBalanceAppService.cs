@@ -43,9 +43,15 @@ public class BankAccountBalanceAppService : MyERPAppService, IBankAccountBalance
         if (input.BankAccountId.HasValue)
             query = query.Where(x => x.BankAccountId == input.BankAccountId.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(x => x.Date >= input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(x => x.Date >= fromDate);
+        }
         if (input.ToDate.HasValue)
-            query = query.Where(x => x.Date <= input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(x => x.Date < toDateExclusive);
+        }
 
         var totalCount = await AsyncExecuter.CountAsync(query);
         var entities = await AsyncExecuter.ToListAsync(

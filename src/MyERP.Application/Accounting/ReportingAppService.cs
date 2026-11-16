@@ -1062,10 +1062,13 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             .ToList();
 
         if (input.PeriodStartDate.HasValue)
-            journalEntries = journalEntries.Where(je => je.PostingDate >= input.PeriodStartDate.Value).ToList();
+        {
+            var periodStart = DateRangeHelper.StartOfDay(input.PeriodStartDate.Value);
+            journalEntries = journalEntries.Where(je => je.PostingDate >= periodStart).ToList();
+        }
         if (input.PeriodEndDate.HasValue)
         {
-            var periodEndExclusive = input.PeriodEndDate.Value.Date.AddDays(1);
+            var periodEndExclusive = DateRangeHelper.ExclusiveNextDay(input.PeriodEndDate.Value);
             journalEntries = journalEntries.Where(je => je.PostingDate < periodEndExclusive).ToList();
         }
 
@@ -1124,10 +1127,13 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             : new List<PaymentLedgerEntry>();
 
         if (input.PeriodStartDate.HasValue)
-            pleEntries = pleEntries.Where(p => p.PostingDate >= input.PeriodStartDate.Value).ToList();
+        {
+            var periodStart = DateRangeHelper.StartOfDay(input.PeriodStartDate.Value);
+            pleEntries = pleEntries.Where(p => p.PostingDate >= periodStart).ToList();
+        }
         if (input.PeriodEndDate.HasValue)
         {
-            var periodEndExclusive = input.PeriodEndDate.Value.Date.AddDays(1);
+            var periodEndExclusive = DateRangeHelper.ExclusiveNextDay(input.PeriodEndDate.Value);
             pleEntries = pleEntries.Where(p => p.PostingDate < periodEndExclusive).ToList();
         }
         if (!string.IsNullOrWhiteSpace(input.PartyType))

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing;
@@ -122,5 +123,105 @@ public class DateRangeRegressionTests
         report.Rows.Count.ShouldBe(1);
         report.Rows[0].RequestNumber.ShouldBe("MR-PM-001");
         report.Rows[0].QtyToTransfer.ShouldBe(10m);
+    }
+
+    [Fact]
+    public async Task CogsByItemGroup_IncludesSameDayAfternoonEntries_WhenToDateAtMidnight()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var targetDate = new DateTime(2026, 11, 16);
+
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        companyRepo.FindAsync(companyId).Returns(new Company(companyId, "Evening Mfg"));
+
+        var itemGroupRepo = Substitute.For<IRepository<ItemGroup, Guid>>();
+        itemGroupRepo.GetListAsync().Returns(new List<ItemGroup>
+        {
+            new(groupId, "Goods", isGroup: false, parentId: null)
+        });
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(new List<Item>
+        {
+            new(itemId, companyId, "ITEM-PM", "Evening Item", ItemType.Goods) { ItemGroupId = groupId }
+        }.AsQueryable());
+
+        var sle = new StockLedgerEntry(
+            Guid.NewGuid(),
+            companyId,
+            itemId,
+            whId,
+            new DateTime(2026, 11, 16, 18, 45, 0),
+            -3m,
+            50m,
+            7m,
+            350m)
+        {
+            StockValueDifference = -150m
+        };
+
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        sleRepo.GetQueryableAsync().Returns(new List<StockLedgerEntry> { sle }.AsQueryable());
+
+        var service = new CogsByItemGroupAppService(sleRepo, itemRepo, itemGroupRepo, companyRepo);
+        var report = await service.GetReportAsync(new CogsByItemGroupFilterDto
+        {
+            CompanyId = companyId,
+            FromDate = targetDate,
+            ToDate = targetDate
+        });
+
+        report.TotalCogsDebit.ShouldBe(150m);
+        report.Rows.Count.ShouldBe(1);
+        report.Rows[0].CogsDebit.ShouldBe(150m);
+    }
+
+    [Fact]
+    public async Task SubcontractOrderSummary_IncludesSameDayAfternoonOrders_WhenToDateAtMidnight()
+    {
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var fgItemId = Guid.NewGuid();
+        var targetDate = new DateTime(2026, 11, 16);
+
+        var sco = new SubcontractingOrder(
+            Guid.NewGuid(),
+            companyId,
+            "SCO-PM-001",
+            new DateTime(2026, 11, 16, 16, 20, 0),
+            supplierId);
+        sco.AddItem(new SubcontractingOrderItem(Guid.NewGuid(), sco.Id, fgItemId, "Motor", qty: 5m, rate: 100m));
+        sco.Submit();
+
+        var scoRepo = Substitute.For<IRepository<SubcontractingOrder, Guid>>();
+        scoRepo.WithDetailsAsync(Arg.Any<Expression<Func<SubcontractingOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<SubcontractingOrder> { sco }.AsQueryable()));
+
+        var supRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        supRepo.GetQueryableAsync().Returns(new List<Supplier>
+        {
+            new(supplierId, companyId, "Evening Subcontractor")
+        }.AsQueryable());
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(new List<Item>
+        {
+            new(fgItemId, companyId, "MOTOR-1", "Motor", ItemType.Goods)
+        }.AsQueryable());
+
+        var service = new SubcontractOrderSummaryAppService(scoRepo, supRepo, itemRepo);
+        var report = await service.GetReportAsync(new SubcontractOrderSummaryFilterDto
+        {
+            CompanyId = companyId,
+            FromDate = targetDate,
+            ToDate = targetDate
+        });
+
+        report.TotalOrders.ShouldBe(1);
+        report.Rows.Count.ShouldBe(1);
+        report.Rows[0].SubcontractOrderNumber.ShouldBe("SCO-PM-001");
     }
 }

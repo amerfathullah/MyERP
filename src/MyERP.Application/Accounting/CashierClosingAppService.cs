@@ -38,12 +38,14 @@ public class CashierClosingAppService : MyERPAppService, ICashierClosingAppServi
 
         if (input.FromDate.HasValue)
         {
-            queryable = queryable.Where(x => x.Date >= input.FromDate.Value.Date);
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            queryable = queryable.Where(x => x.Date >= fromDate);
         }
 
         if (input.ToDate.HasValue)
         {
-            queryable = queryable.Where(x => x.Date <= input.ToDate.Value.Date);
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            queryable = queryable.Where(x => x.Date < toDateExclusive);
         }
 
         if (input.UserId.HasValue)

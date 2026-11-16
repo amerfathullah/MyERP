@@ -24,9 +24,15 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
         if (input.CompanyId.HasValue)
             query = query.Where(d => d.CompanyId == input.CompanyId.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(d => d.ToTime > input.FromDate.Value);
+        {
+            var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
+            query = query.Where(d => d.ToTime > fromDate);
+        }
         if (input.ToDate.HasValue)
-            query = query.Where(d => d.FromTime < input.ToDate.Value);
+        {
+            var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate.Value);
+            query = query.Where(d => d.FromTime < toDateExclusive);
+        }
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(d => d.FromTime)
