@@ -4,6 +4,16 @@
       <div class="card-body">
         <div class="row">
           <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::Company' | abpLocalization }} <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="companyId"
+              [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
+              <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
+              @for (c of companies(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Code' | abpLocalization }} <span class="text-danger">*</span></label>
             <input type="text" class="form-control" formControlName="accountCode"
               [class.is-invalid]="form.get('accountCode')?.invalid && form.get('accountCode')?.touched" />
@@ -17,16 +27,16 @@
             <label class="form-label">{{ '::AccountType' | abpLocalization }} <span class="text-danger">*</span></label>
             <select class="form-select" formControlName="accountType">
               @for (type of accountTypes; track type[0]) {
-                <option [value]="type[1]">{{ type[0] }}</option>
+                <option [ngValue]="type[1]">{{ type[0] }}</option>
               }
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::ParentAccount' | abpLocalization }}</label>
             <select class="form-select" formControlName="parentAccountId">
-              <option [ngValue]="null">— None (Root) —</option>
-              @for (acc of parentAccounts; track acc.id) {
-                <option [value]="acc.id">{{ acc.accountCode }} — {{ acc.accountName }}</option>
+              <option [ngValue]="null">&mdash; {{ '::Default' | abpLocalization }} (Root) &mdash;</option>
+              @for (acc of parentAccounts(); track acc.id) {
+                <option [ngValue]="acc.id">{{ acc.accountCode }} &mdash; {{ acc.accountName }}</option>
               }
             </select>
           </div>
@@ -38,10 +48,18 @@
               <option value="SGD">SGD</option>
             </select>
           </div>
-          <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+          <div class="col-12 mb-3 d-flex flex-wrap gap-4">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" formControlName="isGroup" id="isGroup" />
               <label class="form-check-label" for="isGroup">{{ '::IsGroup' | abpLocalization }}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" formControlName="isFrozen" id="isFrozen" />
+              <label class="form-check-label" for="isFrozen">{{ '::IsFrozen' | abpLocalization }}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive" />
+              <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
             </div>
           </div>
           <div class="col-12 mb-3">

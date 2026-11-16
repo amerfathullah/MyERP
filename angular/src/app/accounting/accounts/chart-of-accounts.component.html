@@ -1,64 +1,165 @@
 <abp-page [title]="'::Menu:ChartOfAccounts' | abpLocalization">
   <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <h5 class="card-title mb-0">{{ '::Menu:ChartOfAccounts' | abpLocalization }}</h5>
-      <button class="btn btn-primary btn-sm" (click)="addAccount()">
-        <i class="fa fa-plus me-1"></i>{{ '::NewAccount' | abpLocalization }}
-      </button>
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <h5 class="card-title mb-0 me-2">{{ '::Menu:ChartOfAccounts' | abpLocalization }}</h5>
+        <select class="form-select form-select-sm" style="width: auto; min-width: 180px;"
+          [value]="selectedCompanyId()" (change)="onCompanyChanged($any($event.target).value)">
+          <option value="">{{ '::AllCompanies' | abpLocalization }}</option>
+          @for (c of companies(); track c.id) {
+            <option [value]="c.id">{{ c.name }}</option>
+          }
+        </select>
+        <input type="text" class="form-control form-control-sm" style="width: 220px;"
+          [placeholder]="'::Search' | abpLocalization"
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)" />
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="expandAll()">
+          <i class="fa fa-angles-down me-1"></i>{{ '::ExpandAll' | abpLocalization }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="collapseAll()">
+          <i class="fa fa-angles-up me-1"></i>{{ '::CollapseAll' | abpLocalization }}
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="toggleImportPanel()">
+          <i class="fa fa-file-import me-1"></i>{{ '::ImportChartOfAccounts' | abpLocalization }}
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="addAccount()">
+          <i class="fa fa-plus me-1"></i>{{ '::NewAccount' | abpLocalization }}
+        </button>
+      </div>
     </div>
 
+    @if (showImportPanel()) {
+      <div class="card-body border-bottom bg-light">
+        <h6 class="fw-semibold mb-3"><i class="fa fa-file-import me-1"></i>{{ '::ImportChartOfAccounts' | abpLocalization }}</h6>
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small">{{ '::CoaTemplate' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [value]="importTemplate()"
+              (change)="onTemplateChanged($any($event.target).value)">
+              <option value="MY">Malaysia (MFRS)</option>
+              <option value="US">United States (US GAAP)</option>
+              <option value="CSV">CSV</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              [disabled]="loadingTemplate()" (click)="loadTemplatePreview()">
+              <i class="fa fa-rotate me-1"></i>{{ '::CoaLoadTemplate' | abpLocalization }}
+            </button>
+          </div>
+          <div class="col-auto ms-auto">
+            <button type="button" class="btn btn-sm btn-success"
+              [disabled]="importing() || !selectedCompanyId() || previewRows().length === 0"
+              (click)="importPreviewRows()">
+              @if (importing()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="fa fa-check me-1"></i>
+              }
+              {{ '::Import' | abpLocalization }} ({{ previewRows().length }})
+            </button>
+          </div>
+        </div>
+
+        @if (importTemplate() === 'CSV') {
+          <div class="mb-3">
+            <small class="text-muted d-block mb-1">{{ '::CoaCsvHint' | abpLocalization }}</small>
+            <textarea class="form-control form-control-sm font-monospace" rows="4"
+              [value]="csvInput()"
+              (input)="csvInput.set($any($event.target).value)"
+              placeholder="1000,Assets,Asset,true,&#10;1100,Cash,Asset,false,1000"></textarea>
+          </div>
+        }
+
+        @if (previewRows().length > 0) {
+          <div class="table-responsive" style="max-height: 240px; overflow-y: auto;">
+            <table class="table table-sm table-bordered bg-white mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::AccountCode' | abpLocalization }}</th>
+                  <th>{{ '::AccountName' | abpLocalization }}</th>
+                  <th>{{ '::AccountType' | abpLocalization }}</th>
+                  <th>{{ '::Group' | abpLocalization }}</th>
+                  <th>{{ '::ParentAccount' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of previewRows(); track $index) {
+                  <tr>
+                    <td class="font-monospace small">{{ row.accountCode }}</td>
+                    <td class="small">{{ row.accountName }}</td>
+                    <td class="small">{{ getAccountTypeName(row.accountType) }}</td>
+                    <td class="small">{{ row.isGroup ? 'Group' : 'Ledger' }}</td>
+                    <td class="font-monospace small text-muted">{{ row.parentCode || '&mdash;' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-muted small mb-0">{{ '::CoaNoPreview' | abpLocalization }}</p>
+        }
+      </div>
+    }
+
     <div class="card-body pt-3">
-      <ul class="list-unstyled mb-0">
-        <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: accounts(), level: 0 }"></ng-container>
-      </ul>
+      @if (loading()) {
+        <div class="text-center py-4 text-muted">
+          <span class="spinner-border spinner-border-sm me-2"></span>{{ '::Loading' | abpLocalization }}
+        </div>
+      } @else {
+        <ul class="list-unstyled mb-0">
+          <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: filteredAccounts(), level: 0 }"></ng-container>
+        </ul>
+      }
 
       <ng-template #treeNodes let-nodes="nodes" let-level="level">
         @for (node of nodes; track node.id) {
-          <li class="py-1 d-flex align-items-center" [style.padding-left.px]="level * 24">
-            @if (hasChild(node)) {
-              <button class="btn btn-sm p-0 me-1" style="width:20px;" (click)="toggleNode(node.id)">
-                <i class="fa" [class]="isExpanded(node.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-              </button>
-              <i class="fa me-2 text-primary">{{ getTypeIcon(node.accountType) }}</i>
+          <li>
+            <div class="py-1 d-flex align-items-center" [style.padding-left.px]="level * 24">
+              @if (hasChild(node)) {
+                <button type="button" class="btn btn-sm p-0 me-1" style="width:20px;" (click)="toggleNode(node.id)">
+                  <i class="fa" [class]="isExpanded(node.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                </button>
+              } @else {
+                <span style="width:20px; display:inline-block;"></span>
+              }
+              <i class="fa me-2" [class]="node.isGroup ? getTypeIconClass(node.accountType) : 'fa-file-alt text-muted'"></i>
               <span class="small font-monospace text-muted me-2">{{ node.accountCode }}</span>
-              <span class="small fw-semibold me-2" [class.text-muted]="node.isActive === false">{{ node.accountName }}</span>
+              <span class="small me-2" [class.fw-semibold]="node.isGroup" [class.text-muted]="node.isActive === false">
+                {{ node.accountName }}
+              </span>
               @if (node.currency) {
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">{{ node.currency }}</span>
               }
               @if (node.isFrozen) {
-                <span class="badge bg-warning text-dark me-1" title="Frozen - entries restricted">
+                <span class="badge bg-warning text-dark me-1">
                   <i class="fa fa-lock me-1"></i>Frozen
                 </span>
               }
               @if (node.isActive === false) {
                 <span class="badge bg-secondary text-white me-1">Disabled</span>
               }
-              @if (isExpanded(node.id) && node.children) {
-                <ul class="list-unstyled mb-0 w-100">
-                  <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: node.children, level: level + 1 }"></ng-container>
-                </ul>
-              }
-            } @else {
-              <span style="width:20px; display:inline-block;"></span>
-              <i class="fa fa-file-alt text-muted me-2"></i>
-              <span class="small font-monospace text-muted me-2">{{ node.accountCode }}</span>
-              <span class="small me-2" [class.text-muted]="node.isActive === false">{{ node.accountName }}</span>
-              @if (node.currency) {
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">{{ node.currency }}</span>
-              }
-              @if (node.isFrozen) {
-                <span class="badge bg-warning text-dark me-1" title="Frozen - entries restricted">
-                  <i class="fa fa-lock me-1"></i>Frozen
-                </span>
-              }
-              @if (node.isActive === false) {
-                <span class="badge bg-secondary text-white me-1">Disabled</span>
-              }
-              @if (node.balance !== undefined) {
-                <span class="ms-auto font-monospace small text-muted">
-                  {{ node.balance | number:'1.2-2' }}
-                </span>
-              }
+              <span class="ms-auto d-flex align-items-center gap-1">
+                @if (node.isGroup) {
+                  <button type="button" class="btn btn-link btn-sm py-0 px-1 text-decoration-none"
+                    [title]="'::AddChild' | abpLocalization" (click)="addAccount(node.id)">
+                    <i class="fa fa-plus"></i>
+                  </button>
+                }
+                <button type="button" class="btn btn-link btn-sm py-0 px-1 text-decoration-none"
+                  [title]="'::Edit' | abpLocalization" (click)="editAccount(node.id)">
+                  <i class="fa fa-pen"></i>
+                </button>
+              </span>
+            </div>
+            @if (hasChild(node) && isExpanded(node.id) && node.children) {
+              <ul class="list-unstyled mb-0">
+                <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: node.children, level: level + 1 }"></ng-container>
+              </ul>
             }
           </li>
         }
