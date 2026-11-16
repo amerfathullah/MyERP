@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { LandedCostVoucherService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -60,7 +61,7 @@ import { ProjectService } from '../../proxy/projects/project.service';
           </div>
         </div>
         <table class="table table-sm">
-          <thead><tr><th>{{ '::ReceiptType' | abpLocalization }}</th><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::ReceiptType' | abpLocalization }}</th><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Quantity' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th>{{ '::ApplicableCharges' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
@@ -68,11 +69,12 @@ import { ProjectService } from '../../proxy/projects/project.service';
                 <td>{{ itemLabel(item.itemId) }}</td>
                 <td><input type="number" class="form-control form-control-sm" min="0" (ngModelChange)="isDirty=true" [(ngModel)]="item.quantity" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.amount" /></td>
+                <td class="font-monospace text-end align-middle">{{ (item.applicableCharges ?? 0) | number:'1.2-2' }}</td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1); isDirty=true"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
             @empty {
-              <tr><td colspan="5" class="text-muted">{{ '::NoItemsLoaded' | abpLocalization }}</td></tr>
+              <tr><td colspan="6" class="text-muted">{{ '::NoItemsLoaded' | abpLocalization }}</td></tr>
             }
           </tbody>
         </table>
@@ -119,6 +121,10 @@ import { ProjectService } from '../../proxy/projects/project.service';
         <div class="d-flex justify-content-between align-items-center">
           <span class="fw-bold">{{ '::TotalCharges' | abpLocalization }}: {{ getTotalCharges() | number:'1.2-2' }}</span>
           <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-info" (click)="previewDistribution()" [disabled]="calculatingDistribution() || form.items.length === 0 || getTotalCharges() <= 0">
+              @if (calculatingDistribution()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              <i class="fa fa-calculator me-1"></i>{{ '::PreviewDistribution' | abpLocalization }}
+            </button>
             <a class="btn btn-secondary" routerLink="/inventory/landed-costs">{{ '::Cancel' | abpLocalization }}</a>
             <button class="btn btn-primary" (click)="save()" [disabled]="saving"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
           </div>
@@ -137,9 +143,12 @@ export class LandedCostFormComponent implements OnInit {
   private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private costCenterService = inject(CostCenterService);
   private projectService = inject(ProjectService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   saving = false;
   isDirty = false;
+  calculatingDistribution = signal(false);
   loadReceiptType = 'PurchaseReceipt';
   loadReceiptId = '';
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
@@ -211,6 +220,47 @@ export class LandedCostFormComponent implements OnInit {
 
   addCharge() { this.form.charges.push({ expenseAccountId: '', description: '', amount: 0, costCenterId: null, projectId: null }); this.isDirty = true; }
   getTotalCharges(): number { return this.form.charges.reduce((s: number, c: any) => s + (c.amount || 0), 0); }
+
+  previewDistribution(): void {
+    const totalCharges = this.getTotalCharges();
+    if (this.form.items.length === 0 || totalCharges <= 0 || this.calculatingDistribution()) return;
+
+    this.calculatingDistribution.set(true);
+    this.landedCostVoucherService.calculateDistribution({
+      distributionMethod: this.form.distributionMethod,
+      totalCharges,
+      charges: this.form.charges
+        .filter((c: any) => c.expenseAccountId && c.amount > 0)
+        .map((c: any) => ({
+          expenseAccountId: c.expenseAccountId,
+          description: c.description || '',
+          amount: c.amount,
+          costCenterId: c.costCenterId || null,
+          projectId: c.projectId || null,
+        })),
+      items: this.form.items.map((i: any) => ({
+        receiptId: i.receiptId,
+        receiptType: i.receiptType,
+        itemId: i.itemId,
+        quantity: i.quantity || 0,
+        amount: i.amount || 0,
+        applicableCharges: i.applicableCharges || 0,
+      })),
+    }).subscribe({
+      next: res => {
+        this.calculatingDistribution.set(false);
+        const distributed = res.distributedItems ?? [];
+        this.form.items = this.form.items.map((item: any, idx: number) => ({
+          ...item,
+          applicableCharges: distributed[idx]?.applicableCharges ?? item.applicableCharges ?? 0,
+        }));
+      },
+      error: (err: any) => {
+        this.calculatingDistribution.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
+  }
 
   save() {
     this.saving = true;

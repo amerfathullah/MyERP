@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
-import type { PickAllocationResultDto, PickListDto, StockAvailabilityInsightDto } from '../../proxy/inventory/models';
+import type { PendingTransferDto, PickAllocationResultDto, PickListDto, StockAvailabilityInsightDto } from '../../proxy/inventory/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -39,6 +39,16 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               </button>
             }
             @if (pickList()!.status === 1) {
+              @if (pickList()!.salesOrderId && !hasStockReservations()) {
+                <button class="btn btn-outline-success btn-sm" [disabled]="isReserving()" (click)="reserveStock()">
+                  <i class="fa fa-lock me-1"></i>{{ '::CreateStockReservation' | abpLocalization }}
+                </button>
+              }
+              @if (hasStockReservations()) {
+                <button class="btn btn-outline-warning btn-sm" [disabled]="isReserving()" (click)="cancelReservation()">
+                  <i class="fa fa-unlock me-1"></i>{{ '::CancelStockReservation' | abpLocalization }}
+                </button>
+              }
               @if (!pickList()!.isFullyTransferred) {
                 <button class="btn btn-outline-primary btn-sm" (click)="createDeliveryNote()">
                   <i class="fa fa-truck me-1"></i>{{ '::CreateDeliveryNote' | abpLocalization }}
@@ -305,7 +315,13 @@ export class PickListDetailComponent implements OnInit {
   scannedItems = signal<Set<string>>(new Set());
   allocationResult = signal<PickAllocationResultDto | null>(null);
   availabilityInsights = signal<StockAvailabilityInsightDto[]>([]);
+  pendingTransfers = signal<PendingTransferDto[]>([]);
   checkingAvailability = signal(false);
+  isReserving = signal(false);
+
+  hasStockReservations = computed(() =>
+    (this.pickList()?.items ?? []).some(i => (i.stockReservedQty ?? 0) > 0)
+  );
 
   pickedProgress = computed(() => {
     const items = this.pickList()?.items ?? [];
@@ -325,8 +341,53 @@ export class PickListDetailComponent implements OnInit {
 
   loadData() {
     this.service.get(this.pickListId).subscribe({
-      next: (data) => this.pickList.set(data),
+      next: (data) => {
+        this.pickList.set(data);
+        if (data?.status === 1 && !data.isFullyTransferred) {
+          this.service.getPendingTransfers(this.pickListId).subscribe({
+            next: list => this.pendingTransfers.set(list ?? []),
+            error: () => this.pendingTransfers.set([]),
+          });
+        } else {
+          this.pendingTransfers.set([]);
+        }
+      },
       error: () => this.toaster.error(this.l('::FailedToLoad')),
+    });
+  }
+
+  reserveStock(): void {
+    if (!this.pickListId || this.isReserving()) return;
+    this.isReserving.set(true);
+    this.service.createStockReservationEntries(this.pickListId).subscribe({
+      next: updated => {
+        this.isReserving.set(false);
+        this.pickList.set(updated);
+        this.toaster.success(this.l('::StockReservationCreated'));
+      },
+      error: (err: any) => {
+        this.isReserving.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || this.l('::OperationFailed'));
+      },
+    });
+  }
+
+  cancelReservation(): void {
+    if (!this.pickListId || this.isReserving()) return;
+    this.confirmation.warn('::CancelConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.isReserving.set(true);
+      this.service.cancelStockReservationEntries(this.pickListId).subscribe({
+        next: updated => {
+          this.isReserving.set(false);
+          this.pickList.set(updated);
+          this.toaster.success(this.l('::StockReservationCancelled'));
+        },
+        error: (err: any) => {
+          this.isReserving.set(false);
+          this.toaster.error(err?.error?.error?.message || this.l('::OperationFailed'));
+        },
+      });
     });
   }
 

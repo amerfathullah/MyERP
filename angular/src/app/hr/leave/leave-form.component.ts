@@ -5,6 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LeaveService } from '../../proxy/human-resources/leave.service';
+import { LeaveAllocationService } from '../../proxy/human-resources/leave-allocation.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import type { LeaveTypeDto } from '../../proxy/human-resources/models';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -74,6 +75,16 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
                   <label class="form-check-label" for="halfDay">{{ '::HalfDay' | abpLocalization }}</label>
                 </div>
               </div>
+              @if (leaveBalance() !== null) {
+                <div class="col-md-6 d-flex align-items-end">
+                  <div class="alert py-2 px-3 mb-0 w-100"
+                    [class.alert-success]="(form.get('totalLeaveDays')?.value ?? 0) <= (leaveBalance() ?? 0)"
+                    [class.alert-danger]="(form.get('totalLeaveDays')?.value ?? 0) > (leaveBalance() ?? 0)">
+                    <strong>{{ '::AvailableLeaveBalance' | abpLocalization }}:</strong>
+                    {{ leaveBalance() | number:'1.0-1' }} {{ '::Days' | abpLocalization }}
+                  </div>
+                </div>
+              }
             </div>
             <div class="mt-3">
               <label class="form-label">{{ '::Reason' | abpLocalization }}</label>
@@ -96,6 +107,7 @@ export class LeaveFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private service = inject(LeaveService);
+  private leaveAllocationService = inject(LeaveAllocationService);
   private employeeService = inject(EmployeeService);
   private companyService = inject(CompanyService);
   private toaster = inject(ToasterService);
@@ -104,6 +116,7 @@ export class LeaveFormComponent implements OnInit {
   leaveTypes = signal<LeaveTypeDto[]>([]);
   companies = signal<{ id: string; name: string }[]>([]);
   employees = signal<{ id: string; firstName: string; lastName: string }[]>([]);
+  leaveBalance = signal<number | null>(null);
 
   form = this.fb.group({
     companyId: ['', Validators.required],
@@ -126,6 +139,23 @@ export class LeaveFormComponent implements OnInit {
       this.form.patchValue({ companyId: cid });
       this.loadEmployees(cid);
     }
+    this.form.get('employeeId')?.valueChanges.subscribe(() => this.refreshLeaveBalance());
+    this.form.get('leaveTypeId')?.valueChanges.subscribe(() => this.refreshLeaveBalance());
+    this.form.get('fromDate')?.valueChanges.subscribe(() => this.refreshLeaveBalance());
+  }
+
+  refreshLeaveBalance(): void {
+    const employeeId = this.form.get('employeeId')?.value;
+    const leaveTypeId = this.form.get('leaveTypeId')?.value;
+    if (!employeeId || !leaveTypeId) {
+      this.leaveBalance.set(null);
+      return;
+    }
+    const asOfDate = this.form.get('fromDate')?.value || new Date().toISOString().split('T')[0];
+    this.leaveAllocationService.getBalance(employeeId, leaveTypeId, asOfDate).subscribe({
+      next: bal => this.leaveBalance.set(bal),
+      error: () => this.leaveBalance.set(null),
+    });
   }
 
   onCompanyChanged(): void {

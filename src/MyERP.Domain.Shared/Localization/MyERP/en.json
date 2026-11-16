@@ -6283,7 +6283,14 @@
     "MaintenanceTask": "Maintenance Task",
     "NoMaintenanceConfigured": "No preventive maintenance schedule configured for this asset.",
     "UnpaidOverduePayments": "Unpaid Overdue Payments",
-    "ShowInAccountCurrency": "Account Currency"
+    "ShowInAccountCurrency": "Account Currency",
+    "PreviewDistribution": "Preview Distribution",
+    "ApplicableCharges": "Applicable Charges",
+    "AvailableLeaveBalance": "Available Balance",
+    "CreateStockReservation": "Create Reservation",
+    "CancelStockReservation": "Cancel Reservation",
+    "StockReservationCreated": "Stock reservation entries created.",
+    "StockReservationCancelled": "Stock reservation entries cancelled."
   }
 }
 
