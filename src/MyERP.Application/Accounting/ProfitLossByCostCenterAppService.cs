@@ -47,10 +47,11 @@ public class ProfitLossByCostCenterAppService : ApplicationService, IProfitLossB
 
         // Get all posted JEs in the period — use server-side projection to avoid loading full entities
         // CRITICAL: Previous implementation loaded ALL JEs into memory causing OOM on large datasets
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journalLines = jeQuery
             .Where(je => je.CompanyId == companyId
                 && je.Status == Core.DocumentStatus.Posted
-                && je.PostingDate >= fromDate && je.PostingDate <= toDate)
+                && je.PostingDate >= fromDate && je.PostingDate < toDateExclusive)
             .SelectMany(je => je.Lines)
             .Select(line => new { line.AccountId, line.CostCenterId, line.IsDebit, line.Amount })
             .ToList();

@@ -301,11 +301,12 @@ public class BisectAccountingStatementsAppService : MyERPAppService, IBisectAcco
     private async Task<(decimal plSummary, decimal bsSummary)> CalculateSummaryAsync(Guid companyId, DateTime fromDate, DateTime toDate)
     {
         var journalQueryable = await _journalRepository.GetQueryableAsync();
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journals = await AsyncExecuter.ToListAsync(journalQueryable
             .Where(j => j.CompanyId == companyId
                      && j.Status == DocumentStatus.Posted
                      && j.PostingDate >= fromDate.Date
-                     && j.PostingDate <= toDate.Date));
+                     && j.PostingDate < toDateExclusive));
 
         var accounts = (await _accountRepository.GetListAsync()).ToDictionary(a => a.Id, a => a.AccountType);
 

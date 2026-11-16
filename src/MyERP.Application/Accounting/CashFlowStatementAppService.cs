@@ -478,11 +478,12 @@ public class CashFlowStatementAppService : ApplicationService, ICashFlowStatemen
     private async Task<Dictionary<Guid, (decimal Debit, decimal Credit)>> GetPeriodBalancesAsync(
         Guid companyId, DateTime fromDate, DateTime toDate, List<Account> accounts)
     {
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
             je.PostingDate >= fromDate &&
-            je.PostingDate <= toDate);
+            je.PostingDate < toDateExclusive);
 
         if (!journals.Any())
             return new Dictionary<Guid, (decimal, decimal)>();

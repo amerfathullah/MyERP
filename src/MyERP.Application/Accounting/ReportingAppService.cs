@@ -158,11 +158,12 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             a => a.CompanyId == companyId && !a.IsGroup
                 && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
 
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(
             je => je.CompanyId == companyId
                 && je.Status == DocumentStatus.Posted
                 && je.PostingDate >= fromDate
-                && je.PostingDate <= toDate);
+                && je.PostingDate < toDateExclusive);
 
         var allLines = journalEntries.SelectMany(je => je.Lines)
             .Where(l =>
@@ -257,10 +258,11 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                     || a.AccountType == AccountType.Liability
                     || a.AccountType == AccountType.Equity));
 
+        var asOfExclusive = input.AsOfDate.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(
             je => je.CompanyId == input.CompanyId
                 && je.Status == DocumentStatus.Posted
-                && je.PostingDate <= input.AsOfDate);
+                && je.PostingDate < asOfExclusive);
 
         // Lines are already loaded via AutoInclude — no separate query needed
         var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
@@ -412,11 +414,12 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             a => a.CompanyId == input.CompanyId && !a.IsGroup
                 && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
 
+        var yearEndExclusive = yearEnd.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(
             je => je.CompanyId == input.CompanyId
                 && je.Status == DocumentStatus.Posted
                 && je.PostingDate >= yearStart
-                && je.PostingDate <= yearEnd);
+                && je.PostingDate < yearEndExclusive);
 
         // Flatten with posting date from parent JE
         var linesWithDate = journalEntries
@@ -526,15 +529,16 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             partyNames = q.Select(s => new { s.Id, s.Name }).ToDictionary(s => s.Id, s => s.Name);
         }
 
-        // Query posted journal entries for the company up to ToDate (or opening entries)
+        // Query posted journal entries for the company up to end of ToDate
+        var toDateExclusive = input.ToDate.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(je =>
             je.CompanyId == input.CompanyId &&
             je.Status == DocumentStatus.Posted &&
-            (je.PostingDate <= input.ToDate || (je.IsOpening && je.PostingDate <= input.ToDate)));
+            je.PostingDate < toDateExclusive);
 
-        // Opening: PostingDate < FromDate || (IsOpening && PostingDate <= ToDate)
+        // Opening: PostingDate < FromDate || (IsOpening && PostingDate < toDateExclusive)
         var openingLines = journalEntries
-            .Where(je => je.PostingDate < input.FromDate || (je.IsOpening && je.PostingDate <= input.ToDate))
+            .Where(je => je.PostingDate < input.FromDate || (je.IsOpening && je.PostingDate < toDateExclusive))
             .SelectMany(je => je.Lines)
             .Where(l => string.Equals(l.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue);
 
@@ -558,9 +562,9 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                     return ToggleDebitCredit(dr, cr);
                 });
 
-        // Balances within period: PostingDate >= FromDate && PostingDate <= ToDate && !IsOpening
+        // Balances within period: PostingDate >= FromDate && PostingDate < toDateExclusive && !IsOpening
         var periodLines = journalEntries
-            .Where(je => je.PostingDate >= input.FromDate && je.PostingDate <= input.ToDate && !je.IsOpening)
+            .Where(je => je.PostingDate >= input.FromDate && je.PostingDate < toDateExclusive && !je.IsOpening)
             .SelectMany(je => je.Lines)
             .Where(l => string.Equals(l.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue);
 
@@ -744,10 +748,11 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             return null;
         }
 
+        var toDateExclusive = toDate.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(
             je => je.CompanyId == companyId
                 && je.Status == DocumentStatus.Posted
-                && je.PostingDate <= toDate);
+                && je.PostingDate < toDateExclusive);
 
         var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
 
@@ -756,14 +761,14 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Lines within period [fromDate, toDate]
-        var periodEntries = journalEntries.Where(je => je.PostingDate >= fromDate).ToList();
+        var fromDateStart = fromDate.Date;
+        var periodEntries = journalEntries.Where(je => je.PostingDate >= fromDateStart).ToList();
         var linesInPeriod = periodEntries.SelectMany(je => je.Lines)
             .GroupBy(l => l.AccountId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Lines up to opening date (fromDate - 1 day)
-        var openingDate = fromDate.AddDays(-1);
-        var linesUpToOpening = journalEntries.Where(je => je.PostingDate <= openingDate)
+        // Opening lines strictly before fromDateStart so intra-day entries on (fromDate - 1) aren't skipped
+        var linesUpToOpening = journalEntries.Where(je => je.PostingDate < fromDateStart)
             .SelectMany(je => je.Lines)
             .GroupBy(l => l.AccountId)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -1059,7 +1064,10 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         if (input.PeriodStartDate.HasValue)
             journalEntries = journalEntries.Where(je => je.PostingDate >= input.PeriodStartDate.Value).ToList();
         if (input.PeriodEndDate.HasValue)
-            journalEntries = journalEntries.Where(je => je.PostingDate <= input.PeriodEndDate.Value).ToList();
+        {
+            var periodEndExclusive = input.PeriodEndDate.Value.Date.AddDays(1);
+            journalEntries = journalEntries.Where(je => je.PostingDate < periodEndExclusive).ToList();
+        }
 
         var glLines = journalEntries
             .SelectMany(je => je.Lines.Select(line => (JournalEntry: je, Line: line)))
@@ -1118,7 +1126,10 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         if (input.PeriodStartDate.HasValue)
             pleEntries = pleEntries.Where(p => p.PostingDate >= input.PeriodStartDate.Value).ToList();
         if (input.PeriodEndDate.HasValue)
-            pleEntries = pleEntries.Where(p => p.PostingDate <= input.PeriodEndDate.Value).ToList();
+        {
+            var periodEndExclusive = input.PeriodEndDate.Value.Date.AddDays(1);
+            pleEntries = pleEntries.Where(p => p.PostingDate < periodEndExclusive).ToList();
+        }
         if (!string.IsNullOrWhiteSpace(input.PartyType))
             pleEntries = pleEntries.Where(p => string.Equals(p.PartyType, input.PartyType, StringComparison.OrdinalIgnoreCase)).ToList();
         if (input.PartyId.HasValue)
@@ -1251,11 +1262,12 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         var accountMap = accounts.ToDictionary(a => a.Id);
         var targetAccountIds = accountMap.Keys.ToHashSet();
 
+        var toDateExclusive = input.ToDate.Date.AddDays(1);
         var journalEntries = await _journalEntryRepository.GetListAsync(je =>
             je.CompanyId == input.CompanyId &&
             je.Status == DocumentStatus.Posted &&
             je.PostingDate >= input.FromDate &&
-            je.PostingDate <= input.ToDate);
+            je.PostingDate < toDateExclusive);
 
         var isProject = string.Equals(input.BasedOn, "Project", StringComparison.OrdinalIgnoreCase);
 
