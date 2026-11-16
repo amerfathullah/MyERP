@@ -407,7 +407,9 @@ public partial class AutoRepeatMapper : MapperBase<Core.Entities.AutoRepeat, Cor
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class EmployeeMapper : MapperBase<HumanResources.Entities.Employee, HumanResources.EmployeeDto>
 {
+    [MapperIgnoreTarget(nameof(HumanResources.EmployeeDto.Warnings))]
     public override partial HumanResources.EmployeeDto Map(HumanResources.Entities.Employee source);
+    [MapperIgnoreTarget(nameof(HumanResources.EmployeeDto.Warnings))]
     public override partial void Map(HumanResources.Entities.Employee source, HumanResources.EmployeeDto destination);
 }
 

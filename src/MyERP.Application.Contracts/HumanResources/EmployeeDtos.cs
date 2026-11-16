@@ -23,8 +23,12 @@ public class EmployeeDto : FullAuditedEntityDto<Guid>
     public string? Department { get; set; }
     public string? Gender { get; set; }
     public string? Status { get; set; }
+    public string? EpfNumber { get; set; }
+    public string? SocsoNumber { get; set; }
+    public string? TaxNumber { get; set; }
     public Guid? ReportsToEmployeeId { get; set; }
     public Guid? UserId { get; set; }
+    public List<string> Warnings { get; set; } = new();
 }
 
 public class CreateUpdateEmployeeDto

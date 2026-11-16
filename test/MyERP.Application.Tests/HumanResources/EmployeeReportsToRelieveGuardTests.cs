@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.HumanResources.Entities;
+using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -114,6 +115,74 @@ public abstract class EmployeeReportsToRelieveGuardTests<TStartupModule> : MyERP
                     ReportsToEmployeeId = employee.Id,
                 }));
             ex.Code.ShouldBe("MyERP:HR:006");
+        });
+    }
+
+    [Fact]
+    public async Task ChangeStatusAsync_Resigned_DisablesLinkedSalesPersonWithoutOpenSales()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var employeeRepository = GetRequiredService<IRepository<Employee, Guid>>();
+            var salesPersonRepository = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var employeeAppService = GetRequiredService<IEmployeeAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SP Disable Co"), autoSave: true);
+            var employee = await employeeRepository.InsertAsync(
+                new Employee(Guid.NewGuid(), company.Id, "EMP-SP-1", "Alice"), autoSave: true);
+            var sp = await salesPersonRepository.InsertAsync(
+                new SalesPerson(Guid.NewGuid(), "Alice SP") { EmployeeId = employee.Id, IsEnabled = true }, autoSave: true);
+
+            var result = await employeeAppService.ChangeStatusAsync(employee.Id, new ChangeEmployeeStatusDto
+            {
+                Status = EmploymentStatus.Resigned,
+                DateOfResignation = DateTime.UtcNow.Date,
+            });
+
+            result.Warnings.ShouldBeEmpty();
+            var updatedSp = await salesPersonRepository.GetAsync(sp.Id);
+            updatedSp.IsEnabled.ShouldBeFalse();
+        });
+    }
+
+    [Fact]
+    public async Task ChangeStatusAsync_Resigned_KeepsSalesPersonWithOpenSalesOrderEnabledAndWarns()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var employeeRepository = GetRequiredService<IRepository<Employee, Guid>>();
+            var salesPersonRepository = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var salesOrderRepository = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var salesTeamRepository = GetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+            var employeeAppService = GetRequiredService<IEmployeeAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SP Keep Co"), autoSave: true);
+            var employee = await employeeRepository.InsertAsync(
+                new Employee(Guid.NewGuid(), company.Id, "EMP-SP-2", "Bob"), autoSave: true);
+            var sp = await salesPersonRepository.InsertAsync(
+                new SalesPerson(Guid.NewGuid(), "Bob SP") { EmployeeId = employee.Id, IsEnabled = true }, autoSave: true);
+
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, Guid.NewGuid(), "SO-OPEN-1", DateTime.UtcNow.Date);
+            so.AddItem(Guid.NewGuid(), "Widget", 1m, 100m, 0m);
+            so.Submit();
+            await salesOrderRepository.InsertAsync(so, autoSave: true);
+            await salesTeamRepository.InsertAsync(
+                new SalesTeamEntry(Guid.NewGuid(), sp.Id, "SalesOrder", so.Id, 100m, 100m, 5m), autoSave: true);
+
+            var result = await employeeAppService.ChangeStatusAsync(employee.Id, new ChangeEmployeeStatusDto
+            {
+                Status = EmploymentStatus.Resigned,
+                DateOfResignation = DateTime.UtcNow.Date,
+            });
+
+            result.Status.ShouldBe(EmploymentStatus.Resigned.ToString());
+            result.Warnings.Count.ShouldBe(1);
+            result.Warnings[0].ShouldContain("SO-OPEN-1");
+
+            var updatedSp = await salesPersonRepository.GetAsync(sp.Id);
+            updatedSp.IsEnabled.ShouldBeTrue();
         });
     }
 }

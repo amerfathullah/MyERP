@@ -225,4 +225,54 @@ public class SalesTeamService : DomainService
 
         return await SetSalesTeamAsync(targetType, targetId, eligibleAmount, inputs);
     }
+
+    /// <summary>
+    /// Checks whether a Sales Person can be disabled, returning the blocking reason if linked
+    /// to an unfinished Sales Order or unbilled Delivery Note (per ERPNext PR #61835 / #62749).
+    /// </summary>
+    public async Task<string?> GetDisableBlockerAsync(SalesPerson sp)
+    {
+        var teamQuery = await _salesTeamRepository.GetQueryableAsync();
+        var linkedTeam = teamQuery.Where(t => t.SalesPersonId == sp.Id).ToList();
+        if (linkedTeam.Count == 0) return null;
+
+        var soIds = linkedTeam.Where(t => t.ParentType == "SalesOrder").Select(t => t.ParentId).Distinct().ToList();
+        var soRepo = LazyServiceProvider?.LazyGetService<IRepository<SalesOrder, Guid>>();
+        if (soIds.Count > 0 && soRepo != null)
+        {
+            var soQuery = await soRepo.GetQueryableAsync();
+            var unfinishedSo = soQuery.FirstOrDefault(so =>
+                soIds.Contains(so.Id)
+                && so.Status != Core.DocumentStatus.Draft
+                && so.Status != Core.DocumentStatus.Cancelled
+                && so.Status != Core.DocumentStatus.Completed
+                && so.Status != Core.DocumentStatus.Closed);
+
+            if (unfinishedSo != null)
+            {
+                return $"Sales Person '{sp.Name}' cannot be disabled because Sales Order '{unfinishedSo.OrderNumber}' is unfinished.";
+            }
+        }
+
+        var dnIds = linkedTeam.Where(t => t.ParentType == "DeliveryNote").Select(t => t.ParentId).Distinct().ToList();
+        var dnRepo = LazyServiceProvider?.LazyGetService<IRepository<DeliveryNote, Guid>>();
+        if (dnIds.Count > 0 && dnRepo != null)
+        {
+            var dnQuery = await dnRepo.GetQueryableAsync();
+            var dnList = dnQuery.Where(dn =>
+                dnIds.Contains(dn.Id)
+                && dn.Status != Core.DocumentStatus.Draft
+                && dn.Status != Core.DocumentStatus.Cancelled
+                && dn.Status != Core.DocumentStatus.Closed).ToList();
+
+            var unfinishedDn = dnList.FirstOrDefault(dn =>
+                dn.BillingStatus == "To Bill" || dn.BillingStatus == "Partially Billed");
+            if (unfinishedDn != null)
+            {
+                return $"Sales Person '{sp.Name}' cannot be disabled because Delivery Note '{unfinishedDn.DeliveryNumber}' is unfinished.";
+            }
+        }
+
+        return null;
+    }
 }

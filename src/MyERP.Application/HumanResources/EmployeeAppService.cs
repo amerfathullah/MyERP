@@ -168,7 +168,34 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.EmployeeLifecycleManager>();
         await lifecycleManager.ChangeStatusAsync(employee, input.Status, input.DateOfResignation);
 
-        return ObjectMapper.Map<Employee, EmployeeDto>(employee);
+        var dto = ObjectMapper.Map<Employee, EmployeeDto>(employee);
+
+        // Per ERPNext PR #62749 (commit d7e3404cce): on employee leaving, disable linked Sales Persons
+        // unless they have open sales (unfinished SO/DN); keep those enabled and surface a warning.
+        if (input.Status == EmploymentStatus.Resigned || input.Status == EmploymentStatus.Terminated)
+        {
+            var spRepo = LazyServiceProvider.LazyGetService<IRepository<Sales.Entities.SalesPerson, Guid>>();
+            var salesTeamService = LazyServiceProvider.LazyGetService<Sales.DomainServices.SalesTeamService>();
+            if (spRepo != null && salesTeamService != null)
+            {
+                var linkedSalesPersons = await spRepo.GetListAsync(sp => sp.EmployeeId == id && sp.IsEnabled);
+                foreach (var sp in linkedSalesPersons)
+                {
+                    var blocker = await salesTeamService.GetDisableBlockerAsync(sp);
+                    if (string.IsNullOrEmpty(blocker))
+                    {
+                        sp.Disable();
+                        await spRepo.UpdateAsync(sp);
+                    }
+                    else
+                    {
+                        dto.Warnings.Add(blocker);
+                    }
+                }
+            }
+        }
+
+        return dto;
     }
 
     [Authorize(MyERPPermissions.Employees.Delete)]

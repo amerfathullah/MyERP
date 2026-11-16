@@ -83,12 +83,15 @@ export class EmployeeFormComponent implements OnInit {
           companyId: emp.companyId,
           firstName: emp.firstName,
           lastName: emp.lastName ?? '',
-          dateOfBirth: emp.dateOfBirth ?? '',
-          dateOfJoining: emp.dateOfJoining ?? '',
+          dateOfBirth: emp.dateOfBirth ? String(emp.dateOfBirth).split('T')[0] : '',
+          dateOfJoining: emp.dateOfJoining ? String(emp.dateOfJoining).split('T')[0] : '',
           phone: emp.phone ?? '',
           email: emp.email ?? '',
           designation: emp.designation ?? '',
           department: emp.department ?? '',
+          epfNumber: emp.epfNumber ?? '',
+          socsoNumber: emp.socsoNumber ?? '',
+          taxNumber: emp.taxNumber ?? '',
           reportsToEmployeeId: emp.reportsToEmployeeId ?? null,
           userId: emp.userId ?? null,
         });
@@ -101,7 +104,14 @@ export class EmployeeFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const dto = this.form.getRawValue() as any;
+    const raw = this.form.getRawValue();
+    const dto = {
+      ...raw,
+      dateOfBirth: raw.dateOfBirth || null,
+      dateOfJoining: raw.dateOfJoining || null,
+      reportsToEmployeeId: raw.reportsToEmployeeId || null,
+      userId: raw.userId || null,
+    } as any;
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({

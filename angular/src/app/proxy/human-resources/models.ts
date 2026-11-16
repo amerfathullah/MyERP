@@ -273,8 +273,12 @@ export interface EmployeeDto extends FullAuditedEntityDto<string> {
   department?: string | null;
   gender?: string | null;
   status?: string | null;
+  epfNumber?: string | null;
+  socsoNumber?: string | null;
+  taxNumber?: string | null;
   reportsToEmployeeId?: string | null;
   userId?: string | null;
+  warnings?: string[];
 }
 
 export interface EmployeeGroupDto extends FullAuditedEntityDto<string> {

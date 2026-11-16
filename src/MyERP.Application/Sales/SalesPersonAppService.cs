@@ -238,52 +238,12 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         var sp = await _repository.GetAsync(id);
 
         // Per ERPNext PR #61835 (commit 1fe56c013a): reject disabling sales person if linked to unfinished Sales Orders or unbilled Delivery Notes
-        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
-        var teamQuery = await teamRepo.GetQueryableAsync();
-        var linkedTeam = teamQuery.Where(t => t.SalesPersonId == id).ToList();
-
-        if (linkedTeam.Count > 0)
+        var salesTeamService = LazyServiceProvider.LazyGetRequiredService<Sales.DomainServices.SalesTeamService>();
+        var blocker = await salesTeamService.GetDisableBlockerAsync(sp);
+        if (!string.IsNullOrEmpty(blocker))
         {
-            var soIds = linkedTeam.Where(t => t.ParentType == "SalesOrder").Select(t => t.ParentId).Distinct().ToList();
-            if (soIds.Count > 0)
-            {
-                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
-                var soQuery = await soRepo.GetQueryableAsync();
-                var unfinishedSo = soQuery.FirstOrDefault(so =>
-                    soIds.Contains(so.Id)
-                    && so.Status != Core.DocumentStatus.Draft
-                    && so.Status != Core.DocumentStatus.Cancelled
-                    && so.Status != Core.DocumentStatus.Completed
-                    && so.Status != Core.DocumentStatus.Closed);
-
-                if (unfinishedSo != null)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Sales Person '{sp.Name}' cannot be disabled because Sales Order '{unfinishedSo.OrderNumber}' is unfinished.");
-                }
-            }
-
-            var dnIds = linkedTeam.Where(t => t.ParentType == "DeliveryNote").Select(t => t.ParentId).Distinct().ToList();
-            if (dnIds.Count > 0)
-            {
-                var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
-                var dnQuery = await dnRepo.GetQueryableAsync();
-                var dnList = dnQuery.Where(dn =>
-                    dnIds.Contains(dn.Id)
-                    && dn.Status != Core.DocumentStatus.Draft
-                    && dn.Status != Core.DocumentStatus.Cancelled
-                    && dn.Status != Core.DocumentStatus.Closed).ToList();
-
-                // Per ERPNext commit 9fa7b05e44: a returned or fully returned Delivery Note keeps PerBilled < 100,
-                // so check BillingStatus in ("To Bill", "Partially Billed") rather than PerBilled < 100.
-                var unfinishedDn = dnList.FirstOrDefault(dn =>
-                    dn.BillingStatus == "To Bill" || dn.BillingStatus == "Partially Billed");
-                if (unfinishedDn != null)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Sales Person '{sp.Name}' cannot be disabled because Delivery Note '{unfinishedDn.DeliveryNumber}' is unfinished.");
-                }
-            }
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", blocker);
         }
 
         sp.Disable();

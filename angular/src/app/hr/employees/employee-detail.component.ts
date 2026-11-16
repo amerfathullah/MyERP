@@ -214,6 +214,9 @@ export class EmployeeDetailComponent implements OnInit {
       next: (updated) => {
         this.employee.set(updated);
         this.toaster.success('MyERP::SuccessfullySaved');
+        for (const warning of updated.warnings ?? []) {
+          this.toaster.warn(warning);
+        }
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
     });
