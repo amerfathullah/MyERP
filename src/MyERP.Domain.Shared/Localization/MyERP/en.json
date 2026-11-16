@@ -6358,7 +6358,13 @@
     "EmailReceipt": "Email Receipt",
     "ReceiptEmail": "Receipt Email",
     "DeliverByDate": "Deliver By Date",
-    "UntilDeliveryDate": "Due On or Before"
+    "UntilDeliveryDate": "Due On or Before",
+    "TotalInward": "Inward",
+    "TotalOutward": "Outward",
+    "CurrentBalance": "Balance",
+    "ItemLeadTime": "Lead Time Profile",
+    "ManufacturingTimeMins": "Mfg Time (Mins)",
+    "AllowedCompanies": "Allowed Companies"
   }
 }
 

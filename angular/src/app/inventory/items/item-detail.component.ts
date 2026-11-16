@@ -2,11 +2,13 @@ import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
-import type { ItemAlternativeDto, ItemDto, ItemManufacturerDto } from '../../proxy/inventory/models';
+import type { ItemAlternativeDto, ItemDto, ItemLeadTimeDto, ItemManufacturerDto, ItemMovementHistoryDto } from '../../proxy/inventory/models';
 import { ItemAlternativeService } from '../../proxy/inventory/item-alternative.service';
+import { ItemLeadTimeService } from '../../proxy/inventory/item-lead-time.service';
 import { ItemManufacturerService } from '../../proxy/inventory/item-manufacturer.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
+import { StockLedgerService } from '../../proxy/inventory/stock-ledger.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -277,8 +279,15 @@ import { CreateVariantDialogComponent } from './create-variant-dialog.component'
 
       <!-- Recent Stock Movements -->
       <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span><i class="fas fa-history me-2"></i>{{ '::RecentStockMovements' | abpLocalization }}</span>
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span><i class="fas fa-history me-2"></i>{{ '::RecentStockMovements' | abpLocalization }}</span>
+            @if (movementSummary(); as ms) {
+              <span class="badge bg-success-subtle text-success">{{ '::TotalInward' | abpLocalization }}: +{{ ms.totalInward | number:'1.0-2' }}</span>
+              <span class="badge bg-danger-subtle text-danger">{{ '::TotalOutward' | abpLocalization }}: -{{ ms.totalOutward | number:'1.0-2' }}</span>
+              <span class="badge bg-primary-subtle text-primary">{{ '::CurrentBalance' | abpLocalization }}: {{ ms.currentBalance | number:'1.0-2' }}</span>
+            }
+          </div>
           <a [routerLink]="['/inventory/reports/stock-ledger']" [queryParams]="{ itemId: entityId }" class="btn btn-link btn-sm p-0">
             {{ '::ViewAll' | abpLocalization }} →
           </a>
@@ -592,6 +601,46 @@ import { CreateVariantDialogComponent } from './create-variant-dialog.component'
         </div>
       }
 
+      <!-- Item Lead Time Profile -->
+      @if (leadTime(); as lt) {
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-hourglass-half me-2"></i>{{ '::ItemLeadTime' | abpLocalization }}</span>
+            <a [routerLink]="['/inventory/item-lead-times', lt.id, 'edit']" class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-pencil-alt me-1"></i>{{ '::Edit' | abpLocalization }}
+            </a>
+          </div>
+          <div class="card-body">
+            <div class="row g-3 text-center">
+              <div class="col-6 col-md-3">
+                <div class="border rounded p-2">
+                  <div class="text-muted small">{{ '::PurchaseTimeDays' | abpLocalization }}</div>
+                  <div class="fw-bold fs-5">{{ lt.purchaseTimeDays ?? 0 }}</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="border rounded p-2">
+                  <div class="text-muted small">{{ '::BufferTimeDays' | abpLocalization }}</div>
+                  <div class="fw-bold fs-5">{{ lt.bufferTimeDays ?? 0 }}</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="border rounded p-2">
+                  <div class="text-muted small">{{ '::ManufacturingTimeMins' | abpLocalization }}</div>
+                  <div class="fw-bold fs-5">{{ lt.manufacturingTimeInMins ?? 0 }}</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="border rounded p-2">
+                  <div class="text-muted small">{{ '::CapacityPerDay' | abpLocalization }}</div>
+                  <div class="fw-bold fs-5">{{ lt.capacityPerDay ?? 0 }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Activity Log -->
       <app-activity-log [documentType]="'Item'" [documentId]="entityId" />
     }
@@ -605,9 +654,11 @@ export class ItemDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private itemService = inject(ItemService);
   private itemAlternativeService = inject(ItemAlternativeService);
+  private itemLeadTimeService = inject(ItemLeadTimeService);
   private itemManufacturerService = inject(ItemManufacturerService);
   private stockBalanceService = inject(StockBalanceService);
   private stockEntryService = inject(StockEntryService);
+  private stockLedgerService = inject(StockLedgerService);
   private warehouseService = inject(WarehouseService);
 
   private toaster = inject(ToasterService);
@@ -620,6 +671,8 @@ export class ItemDetailComponent implements OnInit {
   stockBalance = signal<any[]>([]);
   movementsLoading = signal(true);
   stockMovements = signal<any[]>([]);
+  movementSummary = signal<ItemMovementHistoryDto | null>(null);
+  leadTime = signal<ItemLeadTimeDto | null>(null);
   priceHistoryLoading = signal(true);
   priceHistory = signal<any[]>([]);
   whereUsedLoading = signal(true);
@@ -649,6 +702,14 @@ export class ItemDetailComponent implements OnInit {
     this.loadWarehouses();
     this.loadTransactionSummary();
     this.loadAlternativesAndManufacturers();
+    this.loadLeadTime();
+  }
+
+  private loadLeadTime(): void {
+    this.itemLeadTimeService.getByItemId(this.entityId).subscribe({
+      next: lt => this.leadTime.set(lt ?? null),
+      error: () => this.leadTime.set(null),
+    });
   }
 
   private loadAlternativesAndManufacturers(): void {
@@ -702,6 +763,10 @@ export class ItemDetailComponent implements OnInit {
     this.itemService.getRecentMovements(this.entityId, 15).subscribe({
       next: (data: any) => { this.stockMovements.set(data ?? []); this.movementsLoading.set(false); },
       error: () => this.movementsLoading.set(false),
+    });
+    this.stockLedgerService.getItemMovementHistory(this.entityId, undefined, 15).subscribe({
+      next: hist => this.movementSummary.set(hist ?? null),
+      error: () => this.movementSummary.set(null),
     });
   }
 

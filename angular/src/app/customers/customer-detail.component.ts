@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, forkJoin, of } from 'rxjs';
 import { CustomerService } from '../proxy/sales/customer.service';
 import type { CustomerDto, CustomerOverviewDto, CustomerTransactionDto } from '../proxy/sales/models';
 import { CompanyService } from '../proxy/core/company.service';
@@ -813,6 +814,18 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
           </div>
         }
 
+        <!-- Allowed Companies -->
+        @if (allowedCompanies().length > 0) {
+          <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-building me-2"></i>{{ '::AllowedCompanies' | abpLocalization }}</div>
+            <div class="card-body d-flex flex-wrap gap-2">
+              @for (comp of allowedCompanies(); track comp.id) {
+                <span class="badge bg-info-subtle text-info border border-info-subtle">{{ comp.name }}</span>
+              }
+            </div>
+          </div>
+        }
+
         <!-- Addresses & Contacts -->
         <div class="row mb-4">
           <div class="col-md-6">
@@ -910,6 +923,7 @@ export class CustomerDetailComponent implements OnInit {
 
   // Overview Tab State
   companies = signal<CompanyDto[]>([]);
+  allowedCompanies = signal<CompanyDto[]>([]);
   selectedCompanyId = signal<string>('');
   selectedPeriod = signal<string>('This fiscal year');
   periodOptions = ['This fiscal year', 'Last 12 months', 'This quarter', 'Last fiscal year'];
@@ -951,19 +965,26 @@ export class CustomerDetailComponent implements OnInit {
   }
 
   private loadCompaniesAndOverview(): void {
-    this.companyService.getList({ maxResultCount: 100 } as any).subscribe({
-      next: (res) => {
-        let list = res.items ?? [];
+    forkJoin({
+      companiesRes: this.companyService.getList({ maxResultCount: 100 } as any).pipe(catchError(() => of({ items: [] as CompanyDto[] }))),
+      allowedIds: this.customerService.getCustomerCompanies(this.entityId).pipe(catchError(() => of([] as string[]))),
+    }).subscribe({
+      next: ({ companiesRes, allowedIds }) => {
+        let list = companiesRes.items ?? [];
         const cust = this.entity();
         if (list.length === 0 && cust?.companyId) {
           list = [{ id: cust.companyId, name: 'Default Company' } as CompanyDto];
         }
-        this.companies.set(list);
+        const allowedSet = new Set(allowedIds ?? []);
+        const allowed = allowedSet.size > 0 ? list.filter(c => c.id && allowedSet.has(c.id)) : [];
+        this.allowedCompanies.set(allowed);
+        const selectable = allowed.length > 0 ? allowed : list;
+        this.companies.set(selectable);
 
-        if (cust?.companyId && list.some(c => c.id === cust.companyId)) {
+        if (cust?.companyId && selectable.some(c => c.id === cust.companyId)) {
           this.selectedCompanyId.set(cust.companyId);
-        } else if (list.length > 0 && list[0].id) {
-          this.selectedCompanyId.set(list[0].id);
+        } else if (selectable.length > 0 && selectable[0].id) {
+          this.selectedCompanyId.set(selectable[0].id);
         }
 
         if (this.selectedCompanyId()) {
