@@ -169,5 +169,27 @@ public class SalesPurchasingReportsToDateCutoffTests
         });
         perfReport.Suppliers.ShouldHaveSingleItem();
         perfReport.TotalOrders.ShouldBe(1);
+
+        var itemGroupRepo = Substitute.For<IRepository<ItemGroup, Guid>>();
+        var territoryRepo = Substitute.For<IRepository<Territory, Guid>>();
+        var siRepoForInactive = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        territoryRepo.GetQueryableAsync().Returns(new List<Territory>().AsQueryable());
+
+        var sameDayOrder = new SalesOrder(Guid.NewGuid(), _companyId, customerId, "SO-SAME", _toDate.AddHours(18));
+        sameDayOrder.AddItem(itemId, "Widget", 2m, 50m, 0m);
+        sameDayOrder.Submit();
+        soRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesOrder, object>>[]>())
+            .Returns(new List<SalesOrder> { sameDayOrder }.AsQueryable());
+
+        var inactiveSvc = new InactiveSalesItemsAppService(
+            itemRepo, soRepo, siRepoForInactive, territoryRepo, itemGroupRepo, custRepo);
+        var inactiveReport = await inactiveSvc.GetReportAsync(new InactiveSalesItemsFilterDto
+        {
+            CompanyId = _companyId,
+            DocType = "Sales Order",
+            DaysSinceLastOrder = 30,
+            AsOfDate = _toDate,
+        });
+        inactiveReport.TotalItems.ShouldBe(0);
     }
 }

@@ -64,6 +64,7 @@ public class InactiveSalesItemsAppService : ApplicationService, IInactiveSalesIt
         }
 
         var asOfDate = (input.AsOfDate ?? Clock.Now).Date;
+        var asOfDateEnd = asOfDate.AddDays(1);
 
         // 1. Fetch Items: stock items, active, NOT templates (HasVariants == false, per PR #63466 / commit 119201aecc)
         var itemQuery = await _itemRepository.GetQueryableAsync();
@@ -117,7 +118,7 @@ public class InactiveSalesItemsAppService : ApplicationService, IInactiveSalesIt
             var orders = soQuery.Where(so => so.Status != DocumentStatus.Draft
                                           && so.Status != DocumentStatus.Cancelled
                                           && (!input.CompanyId.HasValue || so.CompanyId == input.CompanyId.Value)
-                                          && so.OrderDate <= asOfDate)
+                                          && so.OrderDate < asOfDateEnd)
                                 .ToList();
 
             foreach (var so in orders)
@@ -138,7 +139,7 @@ public class InactiveSalesItemsAppService : ApplicationService, IInactiveSalesIt
                                             && si.Status != DocumentStatus.Cancelled
                                             && !si.IsReturn
                                             && (!input.CompanyId.HasValue || si.CompanyId == input.CompanyId.Value)
-                                            && si.IssueDate <= asOfDate)
+                                            && si.IssueDate < asOfDateEnd)
                                   .ToList();
 
             foreach (var si in invoices)

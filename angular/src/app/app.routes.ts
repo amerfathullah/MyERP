@@ -664,6 +664,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Customers' },
   },
   {
+    path: 'sales/reports/inactive-sales-items',
+    loadComponent: () => import('./sales/reports/inactive-sales-items/inactive-sales-items.component').then(c => c.InactiveSalesItemsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
+    path: 'sales/reports/sales-payment-summary',
+    loadComponent: () => import('./sales/reports/sales-payment-summary/sales-payment-summary.component').then(c => c.SalesPaymentSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/customers-without-any-sales-transactions',
     loadComponent: () => import('./sales/reports/customers-without-any-sales-transactions/customers-without-any-sales-transactions.component').then(c => c.CustomersWithoutAnySalesTransactionsComponent),
     canActivate: [authGuard, permissionGuard],
@@ -3872,6 +3884,12 @@ export const APP_ROUTES: Routes = [
   {
     path: 'inventory/reports/total-stock-summary',
     loadComponent: () => import('./inventory/reports/total-stock-summary/total-stock-summary.component').then(c => c.TotalStockSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/stock-valuation-summary',
+    loadComponent: () => import('./inventory/reports/stock-valuation-summary/stock-valuation-summary.component').then(c => c.StockValuationSummaryComponent),
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
