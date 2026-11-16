@@ -14,6 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 import { DunningService } from '../../proxy/sales/dunning.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
@@ -60,6 +61,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private router = inject(Router);
   private companyService = inject(CompanyService);
   private service = inject(SalesInvoiceService);
+  private salesPersonService = inject(SalesPersonService);
   private eInvoiceService = inject(EInvoiceService);
   private dunningService = inject(DunningService);
   private conversionService = inject(DocumentConversionService);
@@ -656,6 +658,66 @@ export class SalesInvoiceDetailComponent implements OnInit {
   emailSending = false;
   emailPreview = signal<{ subject?: string; body?: string } | null>(null);
   loadingEmailPreview = signal(false);
+
+  // Inline Sales Team editor state (ERPNext post-submit commission adjustment)
+  editingSalesTeam = signal(false);
+  savingSalesTeam = signal(false);
+  salesPersons = signal<Array<{ id?: string; salesPersonName?: string }>>([]);
+  salesTeamDraft = signal<Array<{ salesPersonId: string; allocatedPercentage: number; commissionRate: number | null }>>([]);
+
+  openEditSalesTeam(): void {
+    const existing = (this.invoice?.salesTeam ?? []).map(r => ({
+      salesPersonId: r.salesPersonId ?? '',
+      allocatedPercentage: r.allocatedPercentage ?? 0,
+      commissionRate: r.commissionRate ?? null,
+    }));
+    this.salesTeamDraft.set(existing.length > 0 ? existing : [{ salesPersonId: '', allocatedPercentage: 100, commissionRate: null }]);
+    if (this.salesPersons().length === 0) {
+      this.salesPersonService.getList({ maxResultCount: 200 }).subscribe({
+        next: res => this.salesPersons.set(res.items ?? []),
+        error: () => {},
+      });
+    }
+    this.editingSalesTeam.set(true);
+  }
+
+  cancelEditSalesTeam(): void {
+    this.editingSalesTeam.set(false);
+  }
+
+  addSalesTeamDraftRow(): void {
+    this.salesTeamDraft.update(rows => [...rows, { salesPersonId: '', allocatedPercentage: 0, commissionRate: null }]);
+  }
+
+  removeSalesTeamDraftRow(index: number): void {
+    this.salesTeamDraft.update(rows => rows.filter((_, i) => i !== index));
+  }
+
+  salesTeamDraftTotal(): number {
+    return Math.round(this.salesTeamDraft().reduce((sum, r) => sum + (Number(r.allocatedPercentage) || 0), 0) * 100) / 100;
+  }
+
+  saveSalesTeam(): void {
+    if (!this.invoice?.id) return;
+    const validRows = this.salesTeamDraft().filter(r => r.salesPersonId);
+    if (validRows.length > 0 && Math.abs(this.salesTeamDraftTotal() - 100) > 0.01) {
+      this.toaster.warn('::SalesTeamMustEqual100');
+      return;
+    }
+    this.savingSalesTeam.set(true);
+    this.service.updateSalesTeam(this.invoice.id, validRows).subscribe({
+      next: updated => {
+        this.invoice = updated;
+        this.savingSalesTeam.set(false);
+        this.editingSalesTeam.set(false);
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => {
+        this.savingSalesTeam.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
+    });
+  }
 
   openSendEmailDialog(): void {
     // Pre-fill with customer email

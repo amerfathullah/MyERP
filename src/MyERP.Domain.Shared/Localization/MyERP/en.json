@@ -6364,7 +6364,10 @@
     "CurrentBalance": "Balance",
     "ItemLeadTime": "Lead Time Profile",
     "ManufacturingTimeMins": "Mfg Time (Mins)",
-    "AllowedCompanies": "Allowed Companies"
+    "AllowedCompanies": "Allowed Companies",
+    "EditSalesTeam": "Edit Sales Team",
+    "SalesTeamMustEqual100": "Total allocated percentage must equal 100%",
+    "CheckBin": "Check Bin"
   }
 }
 

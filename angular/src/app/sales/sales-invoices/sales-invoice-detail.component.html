@@ -230,44 +230,103 @@
     </div>
 
     <!-- Sales Team (commission split) -->
-    @if ((invoice.salesTeam?.length ?? 0) > 0) {
+    @if ((invoice.salesTeam?.length ?? 0) > 0 || (invoice.status === 'Posted' && canEdit())) {
       <div class="card mb-3">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="card-title mb-0">
             <i class="fa fa-people-group me-2"></i>{{ '::SalesTeam' | abpLocalization }}
           </h5>
+          @if (invoice.status !== 'Cancelled' && canEdit() && !editingSalesTeam()) {
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="openEditSalesTeam()">
+              <i class="fa fa-pencil-alt me-1"></i>{{ '::EditSalesTeam' | abpLocalization }}
+            </button>
+          }
         </div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-hover w-100">
-              <thead>
-                <tr>
-                  <th>{{ '::SalesPerson' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 100px;">{{ '::AllocatedPercentage' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 100px;">{{ '::CommissionRate' | abpLocalization }}</th>
-                  <th class="text-end" style="width: 120px;">{{ '::Incentives' | abpLocalization }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of invoice.salesTeam ?? []; track row.salesPersonId) {
+          @if (editingSalesTeam()) {
+            <div class="table-responsive">
+              <table class="table table-sm mb-2">
+                <thead>
                   <tr>
-                    <td>{{ row.salesPersonName }}</td>
-                    <td class="text-end">{{ row.allocatedPercentage }}%</td>
-                    <td class="text-end font-monospace">{{ row.allocatedAmount | number:'1.2-2' }}</td>
-                    <td class="text-end">{{ row.commissionRate }}%</td>
-                    <td class="text-end font-monospace fw-semibold">{{ row.incentives | number:'1.2-2' }}</td>
+                    <th>{{ '::SalesPerson' | abpLocalization }}</th>
+                    <th style="width: 140px;">{{ '::AllocatedPercentage' | abpLocalization }}</th>
+                    <th style="width: 140px;">{{ '::CommissionRate' | abpLocalization }}</th>
+                    <th style="width: 48px;"></th>
                   </tr>
-                }
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="4" class="text-end fw-bold">{{ '::TotalCommission' | abpLocalization }}</td>
-                  <td class="text-end font-monospace fw-bold">{{ invoice.totalCommission | number:'1.2-2' }}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  @for (row of salesTeamDraft(); track $index; let i = $index) {
+                    <tr>
+                      <td>
+                        <select class="form-select form-select-sm" [(ngModel)]="row.salesPersonId">
+                          <option value="">--</option>
+                          @for (sp of salesPersons(); track sp.id) {
+                            <option [value]="sp.id">{{ sp.salesPersonName }}</option>
+                          }
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" class="form-control form-control-sm text-end" [(ngModel)]="row.allocatedPercentage" min="0" max="100" step="0.01" />
+                      </td>
+                      <td>
+                        <input type="number" class="form-control form-control-sm text-end" [(ngModel)]="row.commissionRate" min="0" max="100" step="0.01" />
+                      </td>
+                      <td>
+                        <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSalesTeamDraftRow(i)">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="addSalesTeamDraftRow()">
+                  <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
+                </button>
+                <span class="small fw-bold" [class.text-danger]="salesTeamDraftTotal() !== 100 && salesTeamDraft().length > 0">
+                  {{ salesTeamDraftTotal() }}%
+                </span>
+              </div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEditSalesTeam()" [disabled]="savingSalesTeam()">{{ '::Cancel' | abpLocalization }}</button>
+                <button type="button" class="btn btn-sm btn-primary" (click)="saveSalesTeam()" [disabled]="savingSalesTeam()">{{ '::Save' | abpLocalization }}</button>
+              </div>
+            </div>
+          } @else {
+            <div class="table-responsive">
+              <table class="table table-hover w-100">
+                <thead>
+                  <tr>
+                    <th>{{ '::SalesPerson' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 100px;">{{ '::AllocatedPercentage' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 120px;">{{ '::Amount' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 100px;">{{ '::CommissionRate' | abpLocalization }}</th>
+                    <th class="text-end" style="width: 120px;">{{ '::Incentives' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of invoice.salesTeam ?? []; track row.salesPersonId) {
+                    <tr>
+                      <td>{{ row.salesPersonName }}</td>
+                      <td class="text-end">{{ row.allocatedPercentage }}%</td>
+                      <td class="text-end font-monospace">{{ row.allocatedAmount | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ row.commissionRate }}%</td>
+                      <td class="text-end font-monospace fw-semibold">{{ row.incentives | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="4" class="text-end fw-bold">{{ '::TotalCommission' | abpLocalization }}</td>
+                    <td class="text-end font-monospace fw-bold">{{ invoice.totalCommission | number:'1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
         </div>
       </div>
     }

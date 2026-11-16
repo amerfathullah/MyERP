@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { SalesInvoiceDetailComponent } from './sales-invoice-detail.component';
 import { CompanyService } from '../../proxy/core/company.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 import { DunningService } from '../../proxy/sales/dunning.service';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
@@ -285,10 +286,14 @@ describe('SalesInvoiceDetailComponent Logic', () => {
         getPaymentSchedule: vi.fn().mockReturnValue(of([])),
         getPayments: vi.fn().mockReturnValue(of([])),
         createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-si-1' })),
+        updateSalesTeam: vi.fn().mockReturnValue(of({ id: 'si-1', status: 'Posted', salesTeam: [{ salesPersonId: 'sp-1', salesPersonName: 'Alice', allocatedPercentage: 100, allocatedAmount: 100, commissionRate: 5, incentives: 5 }], totalCommission: 5 })),
+      };
+      const salesPersonMock = {
+        getList: vi.fn().mockReturnValue(of({ items: [{ id: 'sp-1', salesPersonName: 'Alice' }] })),
       };
       const routerMock = { navigate: vi.fn() };
       const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
-      const toasterMock = { success: vi.fn(), error: vi.fn() };
+      const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn() };
 
       const dunningServiceMock = {
         createFromSalesInvoice: vi.fn().mockReturnValue(of({ id: 'dun-1' })),
@@ -312,6 +317,7 @@ describe('SalesInvoiceDetailComponent Logic', () => {
           { provide: MasterDataService, useValue: { getModesOfPayment: vi.fn().mockReturnValue(of([])) } },
           { provide: PaymentEntryService, useValue: {} },
           { provide: DocumentEmailService, useValue: emailMock },
+          { provide: SalesPersonService, useValue: salesPersonMock },
           { provide: LocalizationService, useValue: { instant: (k: string) => k } },
           { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
         ],
@@ -364,6 +370,23 @@ describe('SalesInvoiceDetailComponent Logic', () => {
         variables: { invoice_no: 'SI-1', customer: 'Acme', amount: '100' },
       });
       expect(comp.emailPreview()).toEqual({ subject: 'Invoice SI-1', body: 'Total MYR 100' });
+    });
+
+    it('updates sales team allocations via SalesInvoiceService.updateSalesTeam', () => {
+      const { comp, siServiceMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'si-1', status: 'Posted', salesTeam: [{ salesPersonId: 'sp-1', allocatedPercentage: 60, commissionRate: 5 }] } as any;
+
+      comp.openEditSalesTeam();
+      expect(comp.editingSalesTeam()).toBe(true);
+      comp.saveSalesTeam();
+      expect(toasterMock.warn).toHaveBeenCalledWith('::SalesTeamMustEqual100');
+
+      comp.salesTeamDraft.set([{ salesPersonId: 'sp-1', allocatedPercentage: 100, commissionRate: 5 }]);
+      comp.saveSalesTeam();
+
+      expect(siServiceMock.updateSalesTeam).toHaveBeenCalledWith('si-1', [{ salesPersonId: 'sp-1', allocatedPercentage: 100, commissionRate: 5 }]);
+      expect(comp.editingSalesTeam()).toBe(false);
+      expect(comp.invoice?.totalCommission).toBe(5);
     });
   });
 });

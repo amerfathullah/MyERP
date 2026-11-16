@@ -145,6 +145,17 @@
                   <tr [class.table-danger]="isShortage(mr)">
                     <td>
                       <a [routerLink]="['/inventory/items', mr.itemId]" class="text-decoration-none">{{ mr.itemName }}</a>
+                      @if (plan.companyId && (mr.warehouseId || plan.forWarehouseId || plan.rawMaterialGroupWarehouseId || plan.subAssemblyWarehouseId)) {
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-2" [disabled]="loadingBinItemId() === mr.itemId" (click)="checkPooledBin(mr)">
+                          <i class="fa fa-cubes me-1"></i>{{ '::CheckBin' | abpLocalization }}
+                        </button>
+                      }
+                      @if (pooledBins()[mr.itemId]; as bin) {
+                        <div class="small text-muted mt-1">
+                          {{ '::Actual' | abpLocalization }}: <strong class="font-monospace">{{ bin.actualQty | number:'1.0-2' }}</strong> |
+                          {{ '::Projected' | abpLocalization }}: <strong class="font-monospace">{{ bin.projectedQty | number:'1.0-2' }}</strong>
+                        </div>
+                      }
                     </td>
                     <td class="text-end font-monospace">{{ mr.requiredQty | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace">{{ mr.availableQty | number:'1.2-2' }}</td>

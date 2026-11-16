@@ -82,7 +82,14 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                     <td>{{ getItemName(item.itemId) }}</td>
                     <td>{{ getWarehouseName(item.warehouseId) }}</td>
                     <td>{{ item.stockCapacity || '∞' }}</td>
-                    <td>{{ item.availableCapacity !== undefined && item.availableCapacity !== null ? (item.availableCapacity > 999999999 ? '∞' : item.availableCapacity) : '-' }}</td>
+                    <td>
+                      <div class="d-inline-flex align-items-center gap-1">
+                        <span>{{ item.availableCapacity !== undefined && item.availableCapacity !== null ? (item.availableCapacity > 999999999 ? '∞' : item.availableCapacity) : '-' }}</span>
+                        <button type="button" class="btn btn-link btn-sm p-0" [disabled]="refreshingCapacityId() === item.id" (click)="refreshCapacity(item.id)" [title]="'::Refresh' | abpLocalization">
+                          <i class="fas fa-sync-alt" [class.fa-spin]="refreshingCapacityId() === item.id"></i>
+                        </button>
+                      </div>
+                    </td>
                     <td>{{ item.priority }}</td>
                     <td>
                       <button class="btn btn-sm" [class]="item.isEnabled ? 'btn-outline-success' : 'btn-outline-secondary'"
@@ -113,6 +120,7 @@ export class PutawayRuleListComponent implements OnInit {
   items = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  refreshingCapacityId = signal<string | null>(null);
   showForm = false;
   newItem: any = { itemId: undefined, warehouseId: undefined, stockCapacity: 0, priority: 1 };
 
@@ -165,6 +173,21 @@ export class PutawayRuleListComponent implements OnInit {
     this.putawayService.toggle(id).subscribe({
       next: () => { this.toaster.success('::SuccessfullyUpdated'); this.load(); },
       error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Toggle failed'),
+    });
+  }
+
+  refreshCapacity(id: string) {
+    if (!id) return;
+    this.refreshingCapacityId.set(id);
+    this.putawayService.getAvailableCapacity(id).subscribe({
+      next: (cap) => {
+        this.refreshingCapacityId.set(null);
+        this.items.update(rows => rows.map(r => r.id === id ? { ...r, availableCapacity: cap } : r));
+      },
+      error: (err: any) => {
+        this.refreshingCapacityId.set(null);
+        this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+      },
     });
   }
 

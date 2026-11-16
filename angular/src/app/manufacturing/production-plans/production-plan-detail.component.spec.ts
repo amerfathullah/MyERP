@@ -36,9 +36,10 @@ describe('ProductionPlanDetailComponent', () => {
         rawMaterials: [],
       })),
       downloadRawMaterials: vi.fn().mockReturnValue(downloadObs),
+      getPooledBinDetails: vi.fn().mockReturnValue(of({ actualQty: 25, projectedQty: 40 })),
     };
     const storeMock = {
-      selectedPlan: vi.fn().mockReturnValue({ id: 'plan-1', planNumber: 'PP-001', status: 1 }),
+      selectedPlan: vi.fn().mockReturnValue({ id: 'plan-1', planNumber: 'PP-001', companyId: 'comp-1', forWarehouseId: 'wh-1', status: 1 }),
       isLoading: vi.fn().mockReturnValue(false),
       loadOne: vi.fn(),
       submit: vi.fn(),
@@ -88,6 +89,15 @@ describe('ProductionPlanDetailComponent', () => {
       URL.createObjectURL = origCreateObjectUrl;
       URL.revokeObjectURL = origRevokeObjectUrl;
     }
+  });
+
+  it('loads pooled bin details for material requirement row', () => {
+    const { comp, planServiceMock } = createComponent();
+    comp.checkPooledBin({ itemId: 'rm-1' });
+
+    expect(planServiceMock.getPooledBinDetails).toHaveBeenCalledWith('comp-1', 'rm-1', 'wh-1');
+    expect(comp.pooledBins()['rm-1']).toEqual({ actualQty: 25, projectedQty: 40 });
+    expect(comp.loadingBinItemId()).toBeNull();
   });
 
   it('shows toaster error when downloadRawMaterials fails', () => {

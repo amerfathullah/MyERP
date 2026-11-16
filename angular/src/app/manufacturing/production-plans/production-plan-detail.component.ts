@@ -10,7 +10,7 @@ import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/componen
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
-import type { ProductionPlanSummaryDto, ProductionPlanVisualizerDto } from '../../proxy/manufacturing/models';
+import type { PooledBinDetailsDto, ProductionPlanSummaryDto, ProductionPlanVisualizerDto } from '../../proxy/manufacturing/models';
 
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -32,6 +32,8 @@ export class ProductionPlanDetailComponent implements OnInit {
   summaryReport = signal<ProductionPlanSummaryDto | null>(null);
   loadingSummary = signal(false);
   visualizerData = signal<ProductionPlanVisualizerDto | null>(null);
+  pooledBins = signal<Record<string, PooledBinDetailsDto>>({});
+  loadingBinItemId = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -92,6 +94,20 @@ export class ProductionPlanDetailComponent implements OnInit {
 
   isShortage(mr: any): boolean {
     return (mr.requiredQty ?? 0) > (mr.availableQty ?? 0);
+  }
+
+  checkPooledBin(mr: any): void {
+    const companyId = this.plan?.companyId;
+    const warehouseId = mr.warehouseId || this.plan?.forWarehouseId || this.plan?.rawMaterialGroupWarehouseId || this.plan?.subAssemblyWarehouseId;
+    if (!companyId || !mr?.itemId || !warehouseId) return;
+    this.loadingBinItemId.set(mr.itemId);
+    this.planService.getPooledBinDetails(companyId, mr.itemId, warehouseId).subscribe({
+      next: details => {
+        this.loadingBinItemId.set(null);
+        this.pooledBins.update(map => ({ ...map, [mr.itemId]: details }));
+      },
+      error: () => this.loadingBinItemId.set(null),
+    });
   }
 
   getStatusLabel(status: number | undefined): string {
