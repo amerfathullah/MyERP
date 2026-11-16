@@ -78,7 +78,7 @@ export class BankReconciliationComponent implements OnInit {
           this.onBankAccountChanged();
         }
       },
-      error: () => {},
+      error: (err) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed'),
     });
   }
 
@@ -93,7 +93,7 @@ export class BankReconciliationComponent implements OnInit {
         const postingAccts = items.filter((a: any) => !a.isGroup);
         this.allPostingAccounts.set(postingAccts);
       },
-      error: () => {},
+      error: (err) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed'),
     });
   }
 
@@ -248,7 +248,7 @@ export class BankReconciliationComponent implements OnInit {
       next: (mirror) => {
         this.mirrorTransaction.set(mirror ?? null);
       },
-      error: () => {},
+      error: (err) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed'),
     });
   }
 

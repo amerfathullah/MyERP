@@ -48,14 +48,22 @@ public class ChildItemUpdateService : DomainService
 
     /// <summary>
     /// Validates whether a Purchase Order child row can be deleted or removed.
-    /// Throws BusinessException if the item has already been partially received or billed, or is closed.
+    /// Throws BusinessException if the item has already been partially received or billed,
+    /// is closed, or is linked by an inter-company Sales Order (ERPNext PR #66992).
     /// </summary>
-    public void ValidatePurchaseOrderItemDeletion(PurchaseOrderItem item)
+    public void ValidatePurchaseOrderItemDeletion(PurchaseOrderItem item, string? linkedInterCompanySalesOrderNumber = null)
     {
         if (item.IsClosed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Cannot delete Purchase Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(linkedInterCompanySalesOrderNumber))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail",
+                    $"Cannot delete Purchase Order item '{item.Description}' which is already ordered on Sales Order {linkedInterCompanySalesOrderNumber}.");
         }
 
         if (item.ReceivedQty > 0)

@@ -192,7 +192,7 @@ export class MonthEndCloseComponent {
       periodEndDate: this.periodEndDate
     }).subscribe({
       next: (res) => { this.closeStatus.set(res as CloseStatus); this.loading.set(false); },
-      error: () => { this.loading.set(false); }
+      error: (err) => { this.loading.set(false); this.handleError(err); }
     });
   }
 
@@ -205,7 +205,12 @@ export class MonthEndCloseComponent {
       freezeUpTo: this.freezeDate
     }).subscribe({
       next: () => { this.toaster.success('::SuccessfullyUpdated'); },
-      error: () => {}
+      error: (err) => this.handleError(err)
     });
+  }
+
+  private handleError(err: any) {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
   }
 }

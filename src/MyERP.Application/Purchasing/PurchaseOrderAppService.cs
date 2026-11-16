@@ -1079,6 +1079,29 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var soDeltas = new List<(Guid SalesOrderItemId, decimal DeltaStockQty)>();
         var sqDeltas = new List<(Guid? SupplierQuotationItemId, Guid ItemId, decimal DeltaStockQty)>();
 
+        // ERPNext PR #66992: resolve active inter-company Sales Order referencing this PO
+        string? linkedIcSalesOrderNumber = null;
+        HashSet<Guid>? linkedIcSoItemIds = null;
+        HashSet<string>? linkedIcSoItemCodes = null;
+        if (removedItemIds.Count > 0 && po.InterCompanySalesOrderId.HasValue)
+        {
+            var soQueryIc = await LazyServiceProvider
+                .LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>()
+                .WithDetailsAsync(s => s.Items);
+            var linkedIcSo = soQueryIc.FirstOrDefault(s =>
+                s.Id == po.InterCompanySalesOrderId.Value && s.Status != Core.DocumentStatus.Cancelled);
+            if (linkedIcSo != null && linkedIcSo.Items.Any())
+            {
+                linkedIcSalesOrderNumber = linkedIcSo.OrderNumber;
+                linkedIcSoItemIds = linkedIcSo.Items.Select(i => i.ItemId).ToHashSet();
+                var itemQueryIc = await _itemRepository.GetQueryableAsync();
+                linkedIcSoItemCodes = itemQueryIc
+                    .Where(i => linkedIcSoItemIds.Contains(i.Id))
+                    .Select(i => i.ItemCode)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
         foreach (var removeId in removedItemIds)
         {
             var poItemToRemove = po.Items.FirstOrDefault(i => i.Id == removeId);
@@ -1088,7 +1111,23 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 continue;
             }
 
-            _childItemUpdateService.ValidatePurchaseOrderItemDeletion(poItemToRemove);
+            string? linkedSoNumberForRow = null;
+            if (linkedIcSalesOrderNumber != null && linkedIcSoItemIds != null)
+            {
+                var matchesById = linkedIcSoItemIds.Contains(poItemToRemove.ItemId);
+                var matchesByCode = false;
+                if (!matchesById && linkedIcSoItemCodes != null && linkedIcSoItemCodes.Count > 0)
+                {
+                    var poItemCode = (await _itemRepository.FindAsync(poItemToRemove.ItemId))?.ItemCode;
+                    matchesByCode = !string.IsNullOrWhiteSpace(poItemCode) && linkedIcSoItemCodes.Contains(poItemCode);
+                }
+                if (matchesById || matchesByCode)
+                {
+                    linkedSoNumberForRow = linkedIcSalesOrderNumber;
+                }
+            }
+
+            _childItemUpdateService.ValidatePurchaseOrderItemDeletion(poItemToRemove, linkedSoNumberForRow);
 
             if (poItemToRemove.WarehouseId.HasValue)
             {

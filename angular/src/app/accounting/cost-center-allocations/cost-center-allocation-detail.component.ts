@@ -45,7 +45,10 @@ export class CostCenterAllocationDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.loadCostCenters();
-    this.service.get(id).subscribe({ next: r => this.allocation.set(r), error: () => {} });
+    this.service.get(id).subscribe({
+      next: r => this.allocation.set(r),
+      error: err => this.handleError(err),
+    });
   }
 
   getCostCenterName(id?: string): string {
@@ -62,7 +65,7 @@ export class CostCenterAllocationDetailComponent implements OnInit {
         this.toaster.success(alloc.isActive ? '::Deactivated' : '::Activated');
         this.reload();
       },
-      error: () => this.loading.set(false),
+      error: err => { this.loading.set(false); this.handleError(err); },
     });
   }
 
@@ -77,7 +80,7 @@ export class CostCenterAllocationDetailComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.router.navigate(['/accounting/cost-center-allocations']);
         },
-        error: () => this.loading.set(false),
+        error: err => { this.loading.set(false); this.handleError(err); },
       });
     });
   }
@@ -85,17 +88,28 @@ export class CostCenterAllocationDetailComponent implements OnInit {
   private loadCostCenters() {
     this.costCenterService
       .getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any)
-      .subscribe({ next: res => {
-        const items = (res.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }));
-        this.costCenters.set(items);
-      }, error: () => {} });
+      .subscribe({
+        next: res => {
+          const items = (res.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }));
+          this.costCenters.set(items);
+        },
+        error: err => this.handleError(err),
+      });
   }
 
   private reload() {
     this.loading.set(false);
     const alloc = this.allocation();
     if (alloc?.id) {
-      this.service.get(alloc.id).subscribe({ next: r => this.allocation.set(r), error: () => {} });
+      this.service.get(alloc.id).subscribe({
+        next: r => this.allocation.set(r),
+        error: err => this.handleError(err),
+      });
     }
+  }
+
+  private handleError(err: any) {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
   }
 }

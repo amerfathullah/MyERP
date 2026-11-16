@@ -173,6 +173,16 @@ public abstract class InterCompanyOrderEndpointTests<TStartupModule> : MyERPAppl
             var counterpartSoDto = await soAppService.GetAsync(createdSo.Id);
             counterpartSoDto.IsInternalCustomer.ShouldBeTrue();
             counterpartSoDto.CanCreateInterCompanyPurchaseOrder.ShouldBeFalse();
+
+            // Deleting a PO row linked by an active inter-company Sales Order must throw (PR #66992)
+            var poRowId = afterSubmit.Items[0].Id;
+            var delEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                poAppService.UpdateItemsAsync(draftPo.Id, new UpdateOrderItemsDto
+                {
+                    RemovedItemIds = new List<Guid> { poRowId },
+                }));
+            delEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (delEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(createdSo.OrderNumber);
         });
     }
 }
