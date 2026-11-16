@@ -111,4 +111,34 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Computes fulfillment status for a Stock Reservation Entry using rounded quantities.
+    /// Per ERPNext PR #66972 (commit d463939a21): round reserved and voucher quantities to
+    /// stock precision before comparing so summed batch float/decimal noise does not falsely
+    /// classify a fully reserved entry as "Partially Reserved".
+    /// </summary>
+    public string GetReservationStatus(int precision = 4)
+    {
+        if (Status == DocumentStatus.Draft)
+            return "Draft";
+        if (Status == DocumentStatus.Cancelled)
+            return "Cancelled";
+
+        var roundedReserved = Math.Round(ReservedQty, precision, MidpointRounding.AwayFromZero);
+        var roundedVoucher = Math.Round(VoucherQty, precision, MidpointRounding.AwayFromZero);
+        var roundedDelivered = Math.Round(DeliveredQty, precision, MidpointRounding.AwayFromZero);
+        var roundedConsumed = Math.Round(ConsumedQty, precision, MidpointRounding.AwayFromZero);
+
+        if (roundedDelivered >= roundedReserved)
+            return "Delivered";
+        if (roundedDelivered > 0m)
+            return "Partially Delivered";
+        if (roundedConsumed > 0m)
+            return "Partially Used";
+        if (roundedReserved >= roundedVoucher)
+            return "Reserved";
+
+        return "Partially Reserved";
+    }
 }

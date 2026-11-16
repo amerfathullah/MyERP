@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { DeliveryNoteDetailComponent } from './delivery-note-detail.component';
 import { DeliveryNoteService } from '../../proxy/sales/delivery-note.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
@@ -174,6 +174,36 @@ describe('DeliveryNoteDetailComponent', () => {
       expect(comp.editingSalesTeam()).toBe(false);
       expect(comp.deliveryNote?.totalCommission).toBe(25);
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+    });
+
+    it('surfaces toaster error when loading or amending fails', () => {
+      const dnMock = {
+        get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'DN load failed' } } }))),
+        amend: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'DN amend failed' } } }))),
+      };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'dn-1' } } } },
+          { provide: DeliveryNoteService, useValue: dnMock },
+          { provide: DocumentConversionService, useValue: {} },
+          { provide: DeliveryNoteStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: DocumentPrintService, useValue: {} },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new DeliveryNoteDetailComponent());
+      comp.ngOnInit();
+      expect(toasterMock.error).toHaveBeenCalledWith('DN load failed');
+
+      comp.deliveryNote = { id: 'dn-1', status: 'Cancelled' } as any;
+      comp.onWorkflowAction('amend');
+      expect(toasterMock.error).toHaveBeenCalledWith('DN amend failed');
     });
   });
 });

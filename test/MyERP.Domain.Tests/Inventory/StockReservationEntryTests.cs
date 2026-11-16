@@ -74,4 +74,29 @@ public class StockReservationEntryTests
             Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), 50m);
         Should.Throw<BusinessException>(() => sre.Cancel());
     }
+
+    [Fact]
+    public void GetReservationStatus_RoundsSummedBatchFloatNoise_ReturnsReserved()
+    {
+        // Per ERPNext PR #66972 (d463939a21): 0.29999m reserved against 0.3m voucher rounds to 0.3000m -> Reserved
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(),
+            reservedQty: 0.29999m, voucherQty: 0.3m);
+        sre.GetReservationStatus().ShouldBe("Draft");
+
+        sre.Submit();
+        sre.GetReservationStatus().ShouldBe("Reserved");
+
+        var partial = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(),
+            reservedQty: 0.25m, voucherQty: 0.3m);
+        partial.Submit();
+        partial.GetReservationStatus().ShouldBe("Partially Reserved");
+
+        partial.RecordDelivery(0.1m);
+        partial.GetReservationStatus().ShouldBe("Partially Delivered");
+
+        partial.RecordDelivery(0.15m);
+        partial.GetReservationStatus().ShouldBe("Delivered");
+    }
 }

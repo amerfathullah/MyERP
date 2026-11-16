@@ -103,9 +103,12 @@ export class DeliveryNoteDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe((result) => {
-      this.deliveryNote = result;
-      this.loadCompanyData(result.companyId);
+    this.service.get(id).subscribe({
+      next: (result) => {
+        this.deliveryNote = result;
+        this.loadCompanyData(result.companyId);
+      },
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -134,7 +137,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
         this.companySst = company.sstRegistrationNumber || '';
         this.companyAddress = company.address || '';
       },
-      error: () => {},
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -195,6 +198,7 @@ export class DeliveryNoteDetailComponent implements OnInit {
       case 'amend':
         this.service.amend(id).subscribe({
           next: (amended) => this.router.navigate(['/sales/delivery-notes', amended.id]),
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'sendEmail':
@@ -249,8 +253,13 @@ export class DeliveryNoteDetailComponent implements OnInit {
   private reloadAfterAction(): void {
     this.service.get(this.deliveryNote!.id!).subscribe({
       next: (result) => { this.deliveryNote = result; },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
+  }
+
+  private handleError(err: any): void {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
   }
 
   onDraftGuardProceed(): void {

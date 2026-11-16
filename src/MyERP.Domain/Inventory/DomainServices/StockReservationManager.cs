@@ -533,8 +533,9 @@ public class StockReservationManager : DomainService
                 .ToList()
                 .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - (voucherType is "Work Order" or "Subcontracting Order" ? 0m : s.ConsumedQty));
 
-            var allowedQty = Math.Max(0m, demandQty - existingRowReserved);
-            if (qty > allowedQty)
+            var roundedRequested = Math.Round(qty, 4, MidpointRounding.AwayFromZero);
+            var allowedQty = Math.Max(0m, Math.Round(demandQty - existingRowReserved, 4, MidpointRounding.AwayFromZero));
+            if (roundedRequested > allowedQty)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Cannot reserve more than allowed quantity of {allowedQty} for item against {voucherType} {voucherId}. Already reserved: {existingRowReserved}, Required: {demandQty}.");

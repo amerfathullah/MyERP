@@ -159,15 +159,22 @@ export class DunningDetailComponent implements OnInit {
         this.d = r;
         this.loadOverduePayments(id);
       },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
   loadOverduePayments(dunningId: string): void {
     this.service.getUnpaidOverduePayments(dunningId, this.inAccountCurrency()).subscribe({
       next: items => this.overduePayments.set(items ?? []),
-      error: () => this.overduePayments.set([]),
+      error: (err: any) => {
+        this.overduePayments.set([]);
+        this.handleError(err);
+      },
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 
   toggleAccountCurrency(inAcct: boolean): void {

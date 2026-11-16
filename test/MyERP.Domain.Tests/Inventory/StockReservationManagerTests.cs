@@ -466,6 +466,35 @@ public class StockReservationManagerTests
         sre.DeliveredQty.ShouldBe(0.3000m);
     }
 
+    [Fact]
+    public async Task ReserveStockAsync_RoundsRemainingDemand_RejectsExcessPast4Decimals()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var voucherId = Guid.NewGuid();
+        var detailId = Guid.NewGuid();
+        var bin = new Bin(Guid.NewGuid(), itemId, whId);
+        bin.ApplyStockMovement(10m, 100m);
+
+        var prior = new StockReservationEntry(Guid.NewGuid(), companyId, itemId, whId,
+            "SalesOrder", voucherId, reservedQty: 0.29999m, voucherQty: 0.3m)
+        {
+            VoucherDetailId = detailId
+        };
+        prior.Submit();
+
+        var entries = new List<StockReservationEntry> { prior };
+        var manager = CreateManager(entries, bins: new List<Bin> { bin });
+
+        // Remaining unrounded demand is 0.00001m, which rounds to 0.0000m -> reserving 0.0001m fails cleanly.
+        await Should.ThrowAsync<BusinessException>(() =>
+            manager.ReserveStockAsync(
+                itemId, whId, companyId,
+                qty: 0.0001m, voucherType: "SalesOrder", voucherId: voucherId,
+                voucherDemandQty: 0.3m, voucherDetailId: detailId));
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,

@@ -90,14 +90,17 @@ export class InstallationNoteDetailComponent implements OnInit {
     this.isLoading = true;
     this.service.get(id).subscribe({
       next: n => { this.note = n; this.isLoading = false; },
-      error: () => { this.isLoading = false; }
+      error: (err: any) => {
+        this.isLoading = false;
+        this.handleError(err);
+      }
     });
   }
 
   submit() {
     this.service.submit(this.note.id).subscribe({
       next: () => { this.toaster.success('::SuccessfullySubmitted'); this.load(this.note.id); },
-      error: () => {}
+      error: (err: any) => this.handleError(err),
     });
   }
 
@@ -106,8 +109,12 @@ export class InstallationNoteDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.service.cancel(this.note.id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.load(this.note.id); },
-        error: () => {}
+        error: (err: any) => this.handleError(err),
       });
     });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }

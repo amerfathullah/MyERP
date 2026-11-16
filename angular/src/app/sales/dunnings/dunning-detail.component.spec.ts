@@ -2,7 +2,7 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { DunningDetailComponent } from './dunning-detail.component';
 import { DunningService } from '../../proxy/sales/dunning.service';
@@ -38,5 +38,29 @@ describe('DunningDetailComponent Unpaid Overdue Payments', () => {
 
     comp.toggleAccountCurrency(true);
     expect(dunningServiceMock.getUnpaidOverduePayments).toHaveBeenCalledWith('dun-1', true);
+  });
+
+  it('surfaces toaster error when loading dunning or overdue payments fails', () => {
+    const dunningServiceMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'dun-1', status: 1, customerName: 'Acme' })),
+      getUnpaidOverduePayments: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Overdue query failed' } } }))),
+    };
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'dun-1' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: DunningService, useValue: dunningServiceMock },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new DunningDetailComponent());
+    comp.ngOnInit();
+
+    expect(comp.overduePayments()).toEqual([]);
+    expect(toasterMock.error).toHaveBeenCalledWith('Overdue query failed');
   });
 });
