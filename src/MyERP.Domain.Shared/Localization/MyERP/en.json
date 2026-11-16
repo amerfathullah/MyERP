@@ -6328,7 +6328,13 @@
     "BatchesPicked": "Batches picked automatically.",
     "CancelStockReservations": "Cancel Reservations",
     "CancelReservationsConfirmation": "Cancel all active stock reservations for this sales order?",
-    "ReservationsCancelled": "Stock reservations cancelled."
+    "ReservationsCancelled": "Stock reservations cancelled.",
+    "FgRawMaterialMapping": "Finished Good Raw Material Mapping",
+    "TargetFinishedGood": "Target Finished Good",
+    "SaveMapping": "Save Mapping",
+    "EmailPreview": "Email Preview",
+    "ConfiguredAccounts": "Company GL Account Configured",
+    "NoCompanyCategoryAccount": "No GL account mapping configured for this category and company."
   }
 }
 

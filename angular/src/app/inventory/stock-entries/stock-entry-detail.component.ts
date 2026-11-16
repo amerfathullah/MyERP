@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -13,12 +14,12 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { StockEntryPrintLayoutComponent } from '../../shared/components/se-print-layout/se-print-layout.component';
 import { CompanyService } from '../../proxy/core/company.service';
-import type { StockEntryDto } from '../../proxy/inventory/models';
+import type { RawMaterialFgMappingItemInput, StockEntryDto, StockEntryFgMappingDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-stock-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent, RouterLink, StockEntryPrintLayoutComponent],
+  imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent, RouterLink, StockEntryPrintLayoutComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
@@ -108,6 +109,50 @@ import type { StockEntryDto } from '../../proxy/inventory/models';
           </div>
         </div>
 
+        @if (fgMapping(); as mapping) {
+          @if ((mapping.rawMaterials?.length ?? 0) > 0 && (mapping.finishedGoods?.length ?? 0) > 0) {
+            <div class="card mb-4">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0"><i class="fa fa-diagram-project me-2"></i>{{ '::FgRawMaterialMapping' | abpLocalization }}</h6>
+                <button type="button" class="btn btn-primary btn-sm" (click)="saveFgMapping()" [disabled]="savingMapping()">
+                  <i class="fa fa-save me-1"></i>{{ '::SaveMapping' | abpLocalization }}
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th>{{ '::SerialNo' | abpLocalization }} / {{ '::BatchNo' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                      <th>{{ '::TargetFinishedGood' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (rm of mapping.rawMaterials; track rm.entryId ?? $index) {
+                      <tr>
+                        <td>{{ rm.itemName || rm.itemId }}</td>
+                        <td class="font-monospace small">{{ rm.serialNo || rm.batchNo || '—' }}</td>
+                        <td class="text-end">{{ rm.quantity | number:'1.0-2' }}</td>
+                        <td>
+                          <select class="form-select form-select-sm" [(ngModel)]="mappingAssignments[rm.entryId!]">
+                            <option value="">-- {{ '::Select' | abpLocalization }} --</option>
+                            @for (fg of mapping.finishedGoods; track $index) {
+                              <option [value]="getFgTargetKey(fg)">
+                                {{ fg.itemName || fg.itemId }} ({{ fg.serialNo || fg.batchNo }})
+                              </option>
+                            }
+                          </select>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        }
+
         <app-document-connections [documentType]="'StockEntry'" [documentId]="entry()!.id!" />
 
         <app-activity-log documentType="StockEntry" [documentId]="entry()!.id!" />
@@ -145,6 +190,9 @@ export class StockEntryDetailComponent implements OnInit {
   private companyService = inject(CompanyService);
 
   entry = signal<StockEntryDto | null>(null);
+  fgMapping = signal<StockEntryFgMappingDto | null>(null);
+  mappingAssignments: Record<string, string> = {};
+  savingMapping = signal(false);
   totalAmount = signal(0);
   companyName = '';
   companyAddress = '';
@@ -169,6 +217,7 @@ export class StockEntryDetailComponent implements OnInit {
     this.service.get(id).subscribe(data => {
       this.entry.set(data);
       this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
+      this.loadFgMapping(id, data.entryType);
     });
     this.companyService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' }).subscribe((res: any) => { const companies = res.items || [];
       if (companies?.length > 0) {
@@ -213,8 +262,62 @@ export class StockEntryDetailComponent implements OnInit {
       next: (data) => {
         this.entry.set(data);
         this.totalAmount.set((data.items || []).reduce((sum: number, i: any) => sum + (i.quantity * i.valuationRate), 0));
+        this.loadFgMapping(id, data.entryType);
       },
       error: () => {}
+    });
+  }
+
+  loadFgMapping(id: string, entryType: unknown): void {
+    const isManufactureOrRepack = entryType === 4 || entryType === 5 || entryType === 'Manufacture' || entryType === 'Repack';
+    if (!isManufactureOrRepack) {
+      this.fgMapping.set(null);
+      return;
+    }
+    this.service.getFinishedGoodMapping(id).subscribe({
+      next: (mapping) => {
+        this.fgMapping.set(mapping);
+        const assignments: Record<string, string> = {};
+        for (const rm of mapping.rawMaterials ?? []) {
+          if (rm.entryId) {
+            assignments[rm.entryId] = rm.fgSerialNo ? `S:${rm.fgSerialNo}` : (rm.fgBatchNo ? `B:${rm.fgBatchNo}` : '');
+          }
+        }
+        this.mappingAssignments = assignments;
+      },
+      error: () => this.fgMapping.set(null),
+    });
+  }
+
+  getFgTargetKey(fg: { serialNo?: string | null; batchNo?: string | null }): string {
+    return fg.serialNo ? `S:${fg.serialNo}` : `B:${fg.batchNo ?? ''}`;
+  }
+
+  saveFgMapping(): void {
+    const id = this.entry()?.id;
+    const mapping = this.fgMapping();
+    if (!id || !mapping?.rawMaterials?.length) return;
+    const mappings: RawMaterialFgMappingItemInput[] = mapping.rawMaterials
+      .filter(rm => !!rm.entryId)
+      .map(rm => {
+        const val = this.mappingAssignments[rm.entryId!] ?? '';
+        return {
+          entryId: rm.entryId!,
+          fgSerialNo: val.startsWith('S:') ? val.slice(2) : null,
+          fgBatchNo: val.startsWith('B:') ? val.slice(2) : null,
+        };
+      });
+    this.savingMapping.set(true);
+    this.service.mapRawMaterialsToFinishedGoods(id, { mappings }).subscribe({
+      next: (updated) => {
+        this.fgMapping.set(updated);
+        this.savingMapping.set(false);
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => {
+        this.savingMapping.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 

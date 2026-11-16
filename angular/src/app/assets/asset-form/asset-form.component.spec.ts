@@ -43,6 +43,11 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
     };
     const toasterMock = { success: vi.fn(), error: vi.fn() };
 
+    const categoryMock = {
+      getList: vi.fn().mockReturnValue(of({ items: [] })),
+      getAccountForCompany: vi.fn().mockReturnValue(of({ fixedAssetAccountId: 'acc-fa-1' })),
+    };
+
     const injector = Injector.create({
       providers: [
         { provide: FormBuilder, useValue: new FormBuilder() },
@@ -50,7 +55,7 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: AssetStore, useValue: {} },
         { provide: AssetService, useValue: assetServiceMock },
-        { provide: AssetCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: AssetCategoryService, useValue: categoryMock },
         { provide: LocationService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
@@ -64,7 +69,7 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
 
     const comp = runInInjectionContext(injector, () => new AssetFormComponent());
     comp.ngOnInit();
-    return { comp, assetServiceMock, prServiceMock, piServiceMock, toasterMock };
+    return { comp, assetServiceMock, categoryMock, prServiceMock, piServiceMock, toasterMock };
   }
 
   it('auto-fetches purchase doc values when queryParams provide purchaseDocType and purchaseDocId', () => {
@@ -94,5 +99,15 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
     comp.fetchFromSelectedPurchaseDoc();
     expect(assetServiceMock.getValuesFromPurchaseDoc).toHaveBeenCalledWith('PurchaseInvoice', 'pi-1', undefined, undefined);
     expect(toasterMock.success).toHaveBeenCalled();
+  });
+
+  it('loads company GL account mapping when assetCategoryId changes', () => {
+    const { comp, categoryMock } = createComponent();
+
+    comp.form.patchValue({ assetCategoryId: 'cat-it' });
+
+    expect(categoryMock.getAccountForCompany).toHaveBeenCalledWith('cat-it', 'comp-1');
+    expect(comp.categoryAccount()?.fixedAssetAccountId).toBe('acc-fa-1');
+    expect(comp.categoryAccountMissing()).toBe(false);
   });
 });

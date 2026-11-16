@@ -15,7 +15,7 @@ import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import type { CompanyDto } from '../../proxy/core/models';
-import type { AssetCategoryDto, LocationDto } from '../../proxy/assets/models';
+import type { AssetCategoryAccountDto, AssetCategoryDto, LocationDto } from '../../proxy/assets/models';
 import type { EmployeeDto } from '../../proxy/human-resources/models';
 import { FormsModule } from '@angular/forms';
 import { depreciationMethodOptions } from '../../proxy/assets/depreciation-method.enum';
@@ -59,6 +59,8 @@ export class AssetFormComponent implements OnInit {
   purchaseDocId = signal<string>('');
   purchaseDocs = signal<Array<{ id: string; number: string }>>([]);
   isFetchingPurchaseDoc = signal(false);
+  categoryAccount = signal<AssetCategoryAccountDto | null>(null);
+  categoryAccountMissing = signal(false);
 
   ngOnInit(): void {
     this.form = this.fb.group({
@@ -105,6 +107,7 @@ export class AssetFormComponent implements OnInit {
 
     // Category selection defaults auto-population
     this.form.get('assetCategoryId')?.valueChanges.subscribe((catId) => {
+      this.loadCategoryAccount(catId, this.form.get('companyId')?.value);
       if (!catId || this.isEdit()) return;
       const cat = this.categories().find((c) => c.id === catId);
       if (cat) {
@@ -120,6 +123,10 @@ export class AssetFormComponent implements OnInit {
           });
         }
       }
+    });
+
+    this.form.get('companyId')?.valueChanges.subscribe((companyId) => {
+      this.loadCategoryAccount(this.form.get('assetCategoryId')?.value, companyId);
     });
 
     const id = this.route.snapshot.paramMap.get('id');
@@ -166,6 +173,24 @@ export class AssetFormComponent implements OnInit {
         this.fetchFromPurchaseDoc(qp['purchaseDocType'], qp['purchaseDocId'], qp['itemId']);
       }
     }
+  }
+
+  loadCategoryAccount(categoryId: string | null | undefined, companyId: string | null | undefined): void {
+    if (!categoryId || !companyId || !this.assetCategoryService.getAccountForCompany) {
+      this.categoryAccount.set(null);
+      this.categoryAccountMissing.set(false);
+      return;
+    }
+    this.assetCategoryService.getAccountForCompany(categoryId, companyId).subscribe({
+      next: (acc) => {
+        this.categoryAccount.set(acc ?? null);
+        this.categoryAccountMissing.set(!acc?.fixedAssetAccountId);
+      },
+      error: () => {
+        this.categoryAccount.set(null);
+        this.categoryAccountMissing.set(true);
+      },
+    });
   }
 
   onPurchaseDocTypeChange(docType: 'PurchaseReceipt' | 'PurchaseInvoice'): void {

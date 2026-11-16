@@ -572,6 +572,22 @@
                 <input class="form-check-input" type="checkbox" id="attachPdf" [(ngModel)]="emailAttachPdf" />
                 <label class="form-check-label" for="attachPdf">{{ '::AttachPdf' | abpLocalization }}</label>
               </div>
+              <div class="border rounded p-2 bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <strong class="small">{{ '::EmailPreview' | abpLocalization }}</strong>
+                  <button type="button" class="btn btn-link btn-sm p-0" (click)="loadEmailPreview()" [disabled]="loadingEmailPreview()">
+                    <i class="fa fa-refresh"></i>
+                  </button>
+                </div>
+                @if (loadingEmailPreview()) {
+                  <div class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+                } @else if (emailPreview(); as preview) {
+                  @if (preview.subject) {
+                    <div class="small fw-semibold mb-1">{{ preview.subject }}</div>
+                  }
+                  <div class="small text-muted" style="white-space: pre-line; max-height: 150px; overflow-y: auto;">{{ preview.body }}</div>
+                }
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" (click)="cancelEmailDialog()">{{ '::Cancel' | abpLocalization }}</button>

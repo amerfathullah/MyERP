@@ -293,6 +293,9 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       const dunningServiceMock = {
         createFromSalesInvoice: vi.fn().mockReturnValue(of({ id: 'dun-1' })),
       };
+      const emailMock = {
+        previewEmail: vi.fn().mockReturnValue(of({ subject: 'Invoice SI-1', body: 'Total MYR 100' })),
+      };
       const injector = Injector.create({
         providers: [
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'si-1' } } } },
@@ -308,14 +311,14 @@ describe('SalesInvoiceDetailComponent Logic', () => {
           { provide: DocumentPrintService, useValue: {} },
           { provide: MasterDataService, useValue: { getModesOfPayment: vi.fn().mockReturnValue(of([])) } },
           { provide: PaymentEntryService, useValue: {} },
-          { provide: DocumentEmailService, useValue: {} },
+          { provide: DocumentEmailService, useValue: emailMock },
           { provide: LocalizationService, useValue: { instant: (k: string) => k } },
           { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
         ],
       });
 
       const comp = runInInjectionContext(injector, () => new SalesInvoiceDetailComponent());
-      return { comp, siServiceMock, dunningServiceMock, routerMock, confirmationMock, toasterMock };
+      return { comp, siServiceMock, dunningServiceMock, emailMock, routerMock, confirmationMock, toasterMock };
     }
 
     it('shows debitNote action for posted non-return non-debit-note sales invoice', () => {
@@ -347,6 +350,20 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(dunningServiceMock.createFromSalesInvoice).toHaveBeenCalledWith('si-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/dunnings', 'dun-1']);
+    });
+
+    it('preloads email preview via DocumentEmailService when opening send email dialog', () => {
+      const { comp, emailMock } = createComponent();
+      comp.invoice = { id: 'si-1', invoiceNumber: 'SI-1', customerName: 'Acme', grandTotal: 100 } as any;
+
+      comp.openSendEmailDialog();
+
+      expect(comp.showEmailDialog).toBe(true);
+      expect(emailMock.previewEmail).toHaveBeenCalledWith({
+        documentType: 'SalesInvoice',
+        variables: { invoice_no: 'SI-1', customer: 'Acme', amount: '100' },
+      });
+      expect(comp.emailPreview()).toEqual({ subject: 'Invoice SI-1', body: 'Total MYR 100' });
     });
   });
 });

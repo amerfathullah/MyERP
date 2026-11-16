@@ -196,4 +196,38 @@ describe('StockEntryDetailComponent autoPickBatches', () => {
     expect(toasterMock.success).toHaveBeenCalledWith('::BatchesPicked');
     expect(seMock.get).toHaveBeenCalledTimes(2);
   });
+
+  it('loads and saves FG raw material serial/batch mapping for Manufacture entries', () => {
+    const seMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'se-2', entryType: 4, status: 'Draft', items: [] })),
+      getFinishedGoodMapping: vi.fn().mockReturnValue(of({
+        stockEntryId: 'se-2',
+        finishedGoods: [{ itemId: 'fg-1', itemName: 'Widget FG', serialNo: 'SN-100', targetType: 'Serial' }],
+        rawMaterials: [{ entryId: 'rm-e1', itemId: 'rm-1', itemName: 'Chip', serialNo: 'CHIP-1', quantity: 1 }],
+      })),
+      mapRawMaterialsToFinishedGoods: vi.fn().mockReturnValue(of({ stockEntryId: 'se-2', finishedGoods: [], rawMaterials: [] })),
+    };
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'se-2' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: StockEntryService, useValue: seMock },
+        { provide: ConfirmationService, useValue: {} },
+        { provide: ToasterService, useValue: toasterMock },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+      ],
+    });
+    const comp = runInInjectionContext(injector, () => new StockEntryDetailComponent());
+    comp.ngOnInit();
+
+    expect(seMock.getFinishedGoodMapping).toHaveBeenCalledWith('se-2');
+    comp.mappingAssignments['rm-e1'] = 'S:SN-100';
+    comp.saveFgMapping();
+
+    expect(seMock.mapRawMaterialsToFinishedGoods).toHaveBeenCalledWith('se-2', {
+      mappings: [{ entryId: 'rm-e1', fgSerialNo: 'SN-100', fgBatchNo: null }],
+    });
+    expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
+  });
 });

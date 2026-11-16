@@ -654,6 +654,8 @@ export class SalesInvoiceDetailComponent implements OnInit {
   emailCc = '';
   emailAttachPdf = true;
   emailSending = false;
+  emailPreview = signal<{ subject?: string; body?: string } | null>(null);
+  loadingEmailPreview = signal(false);
 
   openSendEmailDialog(): void {
     // Pre-fill with customer email
@@ -661,6 +663,29 @@ export class SalesInvoiceDetailComponent implements OnInit {
     this.emailCc = '';
     this.emailAttachPdf = true;
     this.showEmailDialog = true;
+    this.loadEmailPreview();
+  }
+
+  loadEmailPreview(): void {
+    if (!this.invoice) return;
+    this.loadingEmailPreview.set(true);
+    this.documentEmailService.previewEmail({
+      documentType: 'SalesInvoice',
+      variables: {
+        invoice_no: this.invoice.invoiceNumber ?? '',
+        customer: this.invoice.customerName ?? '',
+        amount: String(this.invoice.grandTotal ?? 0),
+      },
+    }).subscribe({
+      next: (res) => {
+        this.emailPreview.set(res ?? null);
+        this.loadingEmailPreview.set(false);
+      },
+      error: () => {
+        this.emailPreview.set(null);
+        this.loadingEmailPreview.set(false);
+      },
+    });
   }
 
   sendEmail(): void {

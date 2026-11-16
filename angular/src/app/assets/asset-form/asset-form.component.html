@@ -29,6 +29,15 @@
                 <option [ngValue]="cat.id">{{ cat.categoryName }}</option>
               }
             </select>
+            @if (categoryAccount()) {
+              <div class="form-text text-success">
+                <i class="fa fa-check-circle me-1"></i>{{ '::ConfiguredAccounts' | abpLocalization }}
+              </div>
+            } @else if (categoryAccountMissing()) {
+              <div class="form-text text-warning">
+                <i class="fa fa-exclamation-triangle me-1"></i>{{ '::NoCompanyCategoryAccount' | abpLocalization }}
+              </div>
+            }
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::Item' | abpLocalization }}</label>
