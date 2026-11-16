@@ -1113,6 +1113,8 @@ export interface CreatePaymentEntryDto {
   againstOrderId?: string | null;
   againstOrderType?: string | null;
   exchangeRate?: number;
+  sourceExchangeRate?: number;
+  targetExchangeRate?: number;
   paymentCurrency?: string | null;
   taxes?: PaymentEntryTaxDto[] | null;
 }
@@ -2257,6 +2259,13 @@ export interface PaymentEntryDto extends EntityDto<string> {
   modeOfPayment?: string | null;
   paidAmount?: number;
   receivedAmount?: number;
+  exchangeRate?: number;
+  sourceExchangeRate?: number;
+  targetExchangeRate?: number;
+  paidAmountAfterTax?: number;
+  receivedAmountAfterTax?: number;
+  basePaidAmountAfterTax?: number;
+  baseReceivedAmountAfterTax?: number;
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;

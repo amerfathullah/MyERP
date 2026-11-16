@@ -14,6 +14,13 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string? ModeOfPayment { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal ReceivedAmount { get; set; }
+    public decimal ExchangeRate { get; set; } = 1m;
+    public decimal SourceExchangeRate { get; set; } = 1m;
+    public decimal TargetExchangeRate { get; set; } = 1m;
+    public decimal PaidAmountAfterTax { get; set; }
+    public decimal ReceivedAmountAfterTax { get; set; }
+    public decimal BasePaidAmountAfterTax { get; set; }
+    public decimal BaseReceivedAmountAfterTax { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? ReferenceNumber { get; set; }
@@ -97,6 +104,12 @@ public class CreatePaymentEntryDto
 
     /// <summary>Exchange rate for multi-currency payments.</summary>
     public decimal ExchangeRate { get; set; } = 1m;
+
+    /// <summary>Source account exchange rate (PaidFrom currency to company currency).</summary>
+    public decimal SourceExchangeRate { get; set; } = 1m;
+
+    /// <summary>Target account exchange rate (PaidTo currency to company currency).</summary>
+    public decimal TargetExchangeRate { get; set; } = 1m;
 
     /// <summary>
     /// Payment currency code (e.g., "USD"). When different from company currency,

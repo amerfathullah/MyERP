@@ -281,6 +281,10 @@ public class JournalEntryTests
         pi.ReleaseDate = DateTime.UtcNow.AddDays(5);
         pi.IsBlockedOnDate(DateTime.UtcNow).ShouldBeTrue();
 
+        // Per ERPNext PR #65786: unblocked on the release date itself (release_date > date)
+        pi.ReleaseDate = DateTime.UtcNow.Date;
+        pi.IsBlockedOnDate(DateTime.UtcNow.Date).ShouldBeFalse();
+
         pi.ReleaseDate = DateTime.UtcNow.AddDays(-1); // already expired
         pi.IsBlockedOnDate(DateTime.UtcNow).ShouldBeFalse();
     }

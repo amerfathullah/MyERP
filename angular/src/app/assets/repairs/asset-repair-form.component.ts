@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -10,15 +10,21 @@ import { AssetService } from '../../proxy/assets/asset.service';
 import { AssetStatus } from '../../proxy/assets/asset-status.enum';
 import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import { ProjectService } from '../../proxy/projects/project.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
-import type { AssetDto } from '../../proxy/assets/models';
+import type {
+  AssetDto,
+  AssetRepairExpenseAccountDto,
+  CreateUpdateAssetRepairPurchaseInvoiceDto,
+} from '../../proxy/assets/models';
 import type { CostCenterDto } from '../../proxy/accounting/models';
 import type { ProjectDto } from '../../proxy/projects/models';
+import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
 @Component({
   selector: 'app-asset-repair-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? '::EditAssetRepair' : '::NewRepair') | abpLocalization">
@@ -93,6 +99,70 @@ import type { ProjectDto } from '../../proxy/projects/models';
                   [attr.disabled]="(!form.value.capitalizeRepairCost || selectedAssetFullyDepreciated()) ? true : null" />
               </div>
             </div>
+
+            <div class="mt-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ '::PurchaseInvoices' | abpLocalization }}</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="addInvoiceRow()">
+                  <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
+                </button>
+              </div>
+              @if (invoices().length > 0) {
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::PurchaseInvoice' | abpLocalization }}</th>
+                        <th>{{ '::ExpenseAccount' | abpLocalization }}</th>
+                        <th style="width: 180px;">{{ '::RepairCost' | abpLocalization }}</th>
+                        <th style="width: 48px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of invoices(); track $index) {
+                        <tr>
+                          <td>
+                            <select class="form-select form-select-sm"
+                              [ngModel]="row.purchaseInvoiceId ?? ''"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="onInvoiceChange($index, $event)">
+                              <option value="">— Select Purchase Invoice —</option>
+                              @for (pi of purchaseInvoices(); track pi.id) {
+                                <option [value]="pi.id">{{ pi.invoiceNumber }} — {{ pi.supplierName }}</option>
+                              }
+                            </select>
+                          </td>
+                          <td>
+                            <select class="form-select form-select-sm"
+                              [ngModel]="row.expenseAccountId ?? ''"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="updateInvoiceRow($index, { expenseAccountId: $event || null })">
+                              <option value="">— Select Expense Account —</option>
+                              @for (acc of getExpenseAccounts(row.purchaseInvoiceId); track acc.accountId) {
+                                <option [value]="acc.accountId">
+                                  {{ acc.accountCode }} — {{ acc.accountName }} ({{ acc.unallocatedAmount | number:'1.2-2' }})
+                                </option>
+                              }
+                            </select>
+                          </td>
+                          <td>
+                            <input type="number" min="0" step="0.01" class="form-control form-control-sm text-end"
+                              [ngModel]="row.repairCost ?? 0"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="updateInvoiceRow($index, { repairCost: +$event || 0 })" />
+                          </td>
+                          <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeInvoiceRow($index)">
+                              <i class="fa fa-trash"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
             <hr />
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isSaving()">
@@ -112,6 +182,7 @@ export class AssetRepairFormComponent implements OnInit {
   private assetService = inject(AssetService);
   private costCenterService = inject(CostCenterService);
   private projectService = inject(ProjectService);
+  private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private companyContext = inject(CompanyContextService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
@@ -121,6 +192,9 @@ export class AssetRepairFormComponent implements OnInit {
   assets = signal<AssetDto[]>([]);
   costCenters = signal<CostCenterDto[]>([]);
   projects = signal<ProjectDto[]>([]);
+  purchaseInvoices = signal<PurchaseInvoiceDto[]>([]);
+  invoices = signal<CreateUpdateAssetRepairPurchaseInvoiceDto[]>([]);
+  expenseAccountsByInvoice = signal<Record<string, AssetRepairExpenseAccountDto[]>>({});
   isSaving = signal(false);
   repairId = signal<string | null>(null);
   isEdit = computed(() => !!this.repairId());
@@ -156,6 +230,12 @@ export class AssetRepairFormComponent implements OnInit {
     this.projectService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe(r => {
       this.projects.set(r.items ?? []);
     });
+    const cid = this.companyContext.currentCompanyId();
+    this.purchaseInvoiceService.getList({ companyId: cid ?? undefined, skipCount: 0, maxResultCount: 200 } as any).subscribe(r => {
+      this.purchaseInvoices.set((r.items ?? []).filter(
+        pi => pi.status === 'Submitted' || pi.status === 'Posted'
+      ));
+    });
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -174,8 +254,62 @@ export class AssetRepairFormComponent implements OnInit {
           capitalizeRepairCost: repair.capitalizeRepairCost,
           increaseInAssetLife: repair.increaseInAssetLife,
         } as any);
+        const existingInvoices = (repair.invoices ?? []).map(inv => ({
+          id: inv.id,
+          purchaseInvoiceId: inv.purchaseInvoiceId,
+          purchaseInvoiceNumber: inv.purchaseInvoiceNumber,
+          expenseAccountId: inv.expenseAccountId ?? null,
+          repairCost: inv.repairCost ?? 0,
+        }));
+        this.invoices.set(existingInvoices);
+        for (const inv of existingInvoices) {
+          if (inv.purchaseInvoiceId) {
+            this.loadExpenseAccounts(inv.purchaseInvoiceId);
+          }
+        }
       });
     }
+  }
+
+  addInvoiceRow(): void {
+    this.invoices.update(rows => [...rows, { purchaseInvoiceId: '', purchaseInvoiceNumber: null, expenseAccountId: null, repairCost: 0 }]);
+  }
+
+  removeInvoiceRow(index: number): void {
+    this.invoices.update(rows => rows.filter((_, i) => i !== index));
+  }
+
+  updateInvoiceRow(index: number, patch: Partial<CreateUpdateAssetRepairPurchaseInvoiceDto>): void {
+    this.invoices.update(rows => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  getExpenseAccounts(purchaseInvoiceId?: string): AssetRepairExpenseAccountDto[] {
+    if (!purchaseInvoiceId) return [];
+    return this.expenseAccountsByInvoice()[purchaseInvoiceId] ?? [];
+  }
+
+  onInvoiceChange(index: number, purchaseInvoiceId: string): void {
+    const selected = this.purchaseInvoices().find(pi => pi.id === purchaseInvoiceId);
+    this.updateInvoiceRow(index, {
+      purchaseInvoiceId,
+      purchaseInvoiceNumber: selected?.invoiceNumber ?? null,
+      expenseAccountId: null,
+    });
+    if (!purchaseInvoiceId) return;
+
+    this.service.getExpenseAccountsForPurchaseInvoice(purchaseInvoiceId).subscribe(accounts => {
+      this.expenseAccountsByInvoice.update(map => ({ ...map, [purchaseInvoiceId]: accounts ?? [] }));
+      if ((accounts?.length ?? 0) === 1 && accounts[0].accountId) {
+        this.updateInvoiceRow(index, { expenseAccountId: accounts[0].accountId });
+      }
+    });
+  }
+
+  private loadExpenseAccounts(purchaseInvoiceId: string): void {
+    if (this.expenseAccountsByInvoice()[purchaseInvoiceId]) return;
+    this.service.getExpenseAccountsForPurchaseInvoice(purchaseInvoiceId).subscribe(accounts => {
+      this.expenseAccountsByInvoice.update(map => ({ ...map, [purchaseInvoiceId]: accounts ?? [] }));
+    });
   }
 
   save(): void {
@@ -183,7 +317,8 @@ export class AssetRepairFormComponent implements OnInit {
     this.isSaving.set(true);
     const val = this.form.getRawValue();
     const cid = this.companyContext.currentCompanyId();
-    const payload = { ...val, companyId: cid ?? undefined };
+    const validInvoices = this.invoices().filter(inv => !!inv.purchaseInvoiceId);
+    const payload = { ...val, companyId: cid ?? undefined, invoices: validInvoices };
 
     const id = this.repairId();
     const request$ = id ? this.service.update(id, payload as any) : this.service.create(payload as any);

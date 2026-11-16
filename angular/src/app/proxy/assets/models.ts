@@ -635,6 +635,13 @@ export interface CreateUpdateAssetRepairPurchaseInvoiceDto {
   expenseAccountId?: string | null;
 }
 
+export interface AssetRepairExpenseAccountDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  unallocatedAmount?: number;
+}
+
 export interface CreateUpdateAssetShiftFactorDto {
   shiftName: string;
   factor?: number;

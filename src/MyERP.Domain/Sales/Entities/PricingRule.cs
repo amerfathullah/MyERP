@@ -98,10 +98,13 @@ public class PricingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (IsDisabled) return false;
         if (ValidFrom.HasValue && transactionDate < ValidFrom.Value) return false;
         if (ValidUpto.HasValue && transactionDate > ValidUpto.Value) return false;
-        if (MinQty > 0 && qty < MinQty) return false;
-        if (MaxQty > 0 && qty > MaxQty) return false;
-        if (MinAmount > 0 && amount < MinAmount) return false;
-        if (MaxAmount > 0 && amount > MaxAmount) return false;
+        // Per ERPNext PR #65805: strip IEEE/decimal float noise before slab comparisons
+        var roundedQty = Math.Round(qty, 9, MidpointRounding.AwayFromZero);
+        var roundedAmount = Math.Round(amount, 9, MidpointRounding.AwayFromZero);
+        if (MinQty > 0 && roundedQty < Math.Round(MinQty, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MaxQty > 0 && roundedQty > Math.Round(MaxQty, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MinAmount > 0 && roundedAmount < Math.Round(MinAmount, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MaxAmount > 0 && roundedAmount > Math.Round(MaxAmount, 9, MidpointRounding.AwayFromZero)) return false;
 
         // Per ERPNext PR #59906 / commit 2a691858b3:
         // Match campaign pricing rules from transaction's campaign or utm_campaign

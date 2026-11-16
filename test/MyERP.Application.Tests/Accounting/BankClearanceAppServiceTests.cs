@@ -643,4 +643,54 @@ private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Subst
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         ex.Data["detail"]!.ToString()!.ShouldContain("Please unreconcile the voucher before changing the clearance date.");
     }
+
+    [Fact]
+    public async Task GetEntriesAsync_MultiCurrencyPaymentEntryWithTax_UsesAfterTaxRates()
+    {
+        var company = new Company(_companyId, "Test FX Co") { CurrencyCode = "INR" };
+        var bankAccount = new Account(_bankAccountId, _companyId, "1125", "USD Bank", AccountType.Asset) { Currency = "USD" };
+
+        _companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(company));
+        _accountRepo.FindAsync(_bankAccountId).Returns(Task.FromResult<Account?>(bankAccount));
+
+        var postingDate = new DateTime(2026, 6, 15);
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), _companyId, PaymentType.Receive, postingDate,
+            8000m, _otherAccountId, _bankAccountId)
+        {
+            CurrencyCode = "INR",
+            ReferenceNumber = "FX-REC-001",
+            SourceExchangeRate = 1m,
+            TargetExchangeRate = 80m,
+            ReceivedAmount = 100m,
+        };
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), pe.Id, _otherAccountId)
+        {
+            Description = "Foreign Fee",
+            ChargeType = PaymentTaxChargeType.Actual,
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 160m,
+            BaseTaxAmount = 160m,
+            IncludedInPaidAmount = false
+        });
+        pe.Submit();
+        pe.Post();
+
+        MockPaymentQuery(new List<PaymentEntry> { pe });
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry>().AsQueryable()));
+
+        var appService = CreateAppService();
+        var result = await appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+        {
+            CompanyId = _companyId,
+            BankAccountId = _bankAccountId,
+            FromDate = new DateTime(2026, 6, 1),
+            ToDate = new DateTime(2026, 6, 30),
+            IncludeCleared = false
+        });
+
+        result.Count.ShouldBe(1);
+        result[0].Debit.ShouldBe(102m);
+        result[0].Credit.ShouldBe(0m);
+    }
 }

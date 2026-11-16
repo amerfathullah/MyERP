@@ -558,8 +558,9 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
 
     /// <summary>
     /// Checks if invoice is blocked as of a specific date (e.g. Journal Entry posting date).
+    /// Per ERPNext PR #65786: release_date > date (unblocked ON the release date itself).
     /// </summary>
-    public bool IsBlockedOnDate(DateTime date) => OnHold && (!ReleaseDate.HasValue || ReleaseDate.Value.Date >= date.Date);
+    public bool IsBlockedOnDate(DateTime date) => OnHold && (!ReleaseDate.HasValue || ReleaseDate.Value.Date > date.Date);
 
     private void RecalculateTotals()
     {

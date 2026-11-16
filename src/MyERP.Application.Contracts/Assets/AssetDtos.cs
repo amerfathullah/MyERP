@@ -325,6 +325,14 @@ public class CreateUpdateAssetRepairPurchaseInvoiceDto
     public Guid? ExpenseAccountId { get; set; }
 }
 
+public class AssetRepairExpenseAccountDto
+{
+    public Guid AccountId { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public decimal UnallocatedAmount { get; set; }
+}
+
 public class AssetRepairDto : FullAuditedEntityDto<Guid>
 {
     public string RepairNumber { get; set; } = null!;

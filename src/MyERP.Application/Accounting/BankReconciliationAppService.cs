@@ -753,7 +753,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         // Step 3: Find uncleared entries (posted payments/journals that hit GL but have no
         // ClearanceDate yet or ClearanceDate > ReportDate).
         // Per ERPNext: outstanding = entries without clearance_date or cleared after report date.
-        var peQuery = await _paymentEntryRepository.GetQueryableAsync();
+        var peQuery = await _paymentEntryRepository.WithDetailsAsync(p => p.Taxes);
         var unclearedPEs = peQuery
             .Where(pe => pe.CompanyId == input.CompanyId
                 && pe.Status == Core.DocumentStatus.Posted
@@ -773,9 +773,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             // Per ERPNext PR #60024: pick base amount only when bank is in company currency, otherwise paid amount.
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
             var bankSideAmount = pe.GetBankSideAmount(isDeposit);
-            var baseSideAmount = isDeposit
-                ? (pe.BaseReceivedAmount != 0 ? pe.BaseReceivedAmount : bankSideAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate))
-                : (pe.BaseAmount != 0 ? pe.BaseAmount : bankSideAmount * pe.ExchangeRate);
+            var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
             var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
 
             if (isDeposit)
@@ -864,9 +862,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         {
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
             var bankSideAmount = pe.GetBankSideAmount(isDeposit);
-            var baseSideAmount = isDeposit
-                ? (pe.BaseReceivedAmount != 0 ? pe.BaseReceivedAmount : bankSideAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate))
-                : (pe.BaseAmount != 0 ? pe.BaseAmount : bankSideAmount * pe.ExchangeRate);
+            var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
             var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
             if (isDeposit)
                 notReflectedPeAmount += amount;

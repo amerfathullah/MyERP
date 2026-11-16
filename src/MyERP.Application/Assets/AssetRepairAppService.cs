@@ -22,6 +22,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<Account, Guid>? _accountRepository;
+    private readonly IRepository<MyERP.Inventory.Entities.Item, Guid>? _itemRepository;
     private readonly AssetRepairMapper _mapper;
     private readonly AssetLifecycleManager _lifecycleManager;
 
@@ -32,7 +34,9 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
         AssetRepairMapper mapper,
-        AssetLifecycleManager lifecycleManager)
+        AssetLifecycleManager lifecycleManager,
+        IRepository<Account, Guid>? accountRepository = null,
+        IRepository<MyERP.Inventory.Entities.Item, Guid>? itemRepository = null)
     {
         _repository = repository;
         _assetRepository = assetRepository;
@@ -41,6 +45,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         _journalEntryRepository = journalEntryRepository;
         _mapper = mapper;
         _lifecycleManager = lifecycleManager;
+        _accountRepository = accountRepository;
+        _itemRepository = itemRepository;
     }
 
     /// <summary>
@@ -544,5 +550,105 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         await _repository.UpdateAsync(repair);
         return _mapper.Map(repair);
+    }
+
+    /// <summary>
+    /// Returns eligible Expense accounts billed on a Purchase Invoice for Asset Repair cost allocation.
+    /// Per ERPNext PR #66925 (get_expense_accounts): skips stock items and fixed assets, checks invoice
+    /// read permission, and returns posted GL expense accounts with their unallocated repair balance.
+    /// </summary>
+    public async Task<List<AssetRepairExpenseAccountDto>> GetExpenseAccountsForPurchaseInvoiceAsync(Guid purchaseInvoiceId)
+    {
+        if (purchaseInvoiceId == Guid.Empty)
+        {
+            return new List<AssetRepairExpenseAccountDto>();
+        }
+
+        var piQuery = await _purchaseInvoiceRepository.WithDetailsAsync(p => p.Items);
+        var invoice = await AsyncExecuter.FirstOrDefaultAsync(piQuery, p => p.Id == purchaseInvoiceId);
+        if (invoice == null)
+        {
+            return new List<AssetRepairExpenseAccountDto>();
+        }
+
+        await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseInvoices.Default);
+
+        if (invoice.Items.Count > 0)
+        {
+            var itemRepo = _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            if (itemRepo != null)
+            {
+                var itemIds = invoice.Items.Select(i => i.ItemId).Where(id => id != Guid.Empty).Distinct().ToList();
+                var items = (await itemRepo.GetQueryableAsync())
+                    .Where(i => itemIds.Contains(i.Id))
+                    .ToDictionary(i => i.Id);
+
+                var hasNonStockNonAssetItem = invoice.Items.Any(line =>
+                    !items.TryGetValue(line.ItemId, out var item) || (!item.IsStockItem && !item.IsFixedAsset));
+                if (!hasNonStockNonAssetItem)
+                {
+                    return new List<AssetRepairExpenseAccountDto>();
+                }
+            }
+        }
+
+        var accountRepo = _accountRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Account, Guid>>();
+        if (accountRepo == null)
+        {
+            return new List<AssetRepairExpenseAccountDto>();
+        }
+
+        var jeQuery = await _journalEntryRepository.WithDetailsAsync(je => je.Lines);
+        var journals = jeQuery
+            .Where(je => je.ReferenceType == "PurchaseInvoice"
+                && je.ReferenceId == purchaseInvoiceId
+                && je.Status == Core.DocumentStatus.Posted)
+            .ToList();
+
+        var glTotalsByAccount = journals
+            .SelectMany(je => je.Lines)
+            .GroupBy(l => l.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(l => l.IsDebit ? l.Amount : -l.Amount));
+
+        if (glTotalsByAccount.Count == 0)
+        {
+            return new List<AssetRepairExpenseAccountDto>();
+        }
+
+        var accountIds = glTotalsByAccount.Keys.ToList();
+        var expenseAccounts = (await accountRepo.GetQueryableAsync())
+            .Where(a => accountIds.Contains(a.Id) && a.AccountType == MyERP.Accounting.AccountType.Expense)
+            .OrderBy(a => a.AccountCode)
+            .ThenBy(a => a.AccountName)
+            .ToList();
+
+        if (expenseAccounts.Count == 0)
+        {
+            return new List<AssetRepairExpenseAccountDto>();
+        }
+
+        var repairQuery = await _repository.WithDetailsAsync(r => r.Invoices);
+        var allocatedByAccount = repairQuery
+            .Where(r => r.Status == AssetRepairStatus.Completed)
+            .ToList()
+            .SelectMany(r => r.Invoices)
+            .Where(i => i.PurchaseInvoiceId == purchaseInvoiceId && i.ExpenseAccountId.HasValue)
+            .GroupBy(i => i.ExpenseAccountId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.RepairCost));
+
+        return expenseAccounts.Select(a =>
+        {
+            var glTotal = glTotalsByAccount.GetValueOrDefault(a.Id);
+            var allocated = allocatedByAccount.GetValueOrDefault(a.Id);
+            return new AssetRepairExpenseAccountDto
+            {
+                AccountId = a.Id,
+                AccountCode = a.AccountCode,
+                AccountName = a.AccountName,
+                UnallocatedAmount = Math.Round(glTotal - allocated, 2)
+            };
+        }).ToList();
     }
 }

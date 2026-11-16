@@ -93,4 +93,23 @@ public class PricingRuleTests
         rule.Matches(null, null, 0, 500, DateTime.UtcNow).ShouldBeFalse();
         rule.Matches(null, null, 0, 1500, DateTime.UtcNow).ShouldBeTrue();
     }
+
+    [Fact]
+    public void Matches_FloatNoiseAtSlabBoundary_StripsNoiseBeforeCompare()
+    {
+        var itemId = Guid.NewGuid();
+        var rule = new PricingRule(Guid.NewGuid(), "Slab Boundary Rule",
+            PricingRuleApplyOn.ItemCode, PricingRuleType.Discount)
+        {
+            ApplyOnId = itemId,
+            MinQty = 10m,
+            MaxQty = 10m,
+            MinAmount = 100m,
+            MaxAmount = 100m,
+        };
+
+        rule.Matches(itemId, null, 9.999999999999996m, 99.99999999999996m, DateTime.UtcNow).ShouldBeTrue();
+        rule.Matches(itemId, null, 10.000000000000004m, 100.00000000000004m, DateTime.UtcNow).ShouldBeTrue();
+        rule.Matches(itemId, null, 9.99m, 100m, DateTime.UtcNow).ShouldBeFalse();
+    }
 }

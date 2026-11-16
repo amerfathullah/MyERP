@@ -49,6 +49,26 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                     <div class="col-12"><small class="text-muted d-block">{{ '::Description' | abpLocalization }}</small><p>{{ repair()!.repairDescription }}</p></div>
                   }
                 </div>
+                @if ((repair()!.invoices?.length ?? 0) > 0) {
+                  <hr />
+                  <h6 class="mb-2">{{ '::PurchaseInvoices' | abpLocalization }}</h6>
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::PurchaseInvoice' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::RepairCost' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (inv of repair()!.invoices; track inv.id) {
+                        <tr>
+                          <td>{{ inv.purchaseInvoiceNumber || inv.purchaseInvoiceId }}</td>
+                          <td class="text-end">{{ inv.repairCost | number:'1.2-2' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
               </div>
             </div>
           </div>

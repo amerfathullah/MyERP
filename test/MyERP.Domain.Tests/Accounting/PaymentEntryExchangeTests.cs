@@ -218,4 +218,68 @@ public class PaymentEntryExchangeTests
 
         pe.GetBankSideAmount(isDeposit: false).ShouldBe(1015m);
     }
+
+    [Fact]
+    public void PaymentEntry_ReceiveMultiCurrencyWithTax_DividesBySourceAndTargetRates()
+    {
+        // Per ERPNext PR #65786: Receive from INR receivable (rate 1) into USD bank (rate 80)
+        // Base tax = 160 INR -> PaidAmountAfterTax = 8000 + 160/1 = 8160 INR,
+        // ReceivedAmountAfterTax = 100 + 160/80 = 102 USD.
+        var pe = CreatePE(8000m, "INR");
+        pe.PaymentType = PaymentType.Receive;
+        pe.PaidAmount = 8000m;
+        pe.ReceivedAmount = 100m;
+        pe.SourceExchangeRate = 1m;
+        pe.TargetExchangeRate = 80m;
+        pe.ExchangeRate = 1m;
+
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            Description = "Foreign Bank Charges",
+            ChargeType = PaymentTaxChargeType.Actual,
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 160m,
+            BaseTaxAmount = 160m,
+            IncludedInPaidAmount = false,
+        });
+
+        pe.BaseApplicableTaxes.ShouldBe(160m);
+        pe.PaidAmountAfterTax.ShouldBe(8160m);
+        pe.BasePaidAmountAfterTax.ShouldBe(8160m);
+        pe.ReceivedAmountAfterTax.ShouldBe(102m);
+        pe.BaseReceivedAmountAfterTax.ShouldBe(8160m);
+        pe.GetBankSideAmount(isDeposit: true).ShouldBe(102m);
+    }
+
+    [Fact]
+    public void PaymentEntry_PayMultiCurrencyWithTax_DividesBySourceAndTargetRates()
+    {
+        // Per ERPNext PR #65786: Pay from USD bank (rate 80) to INR payable (rate 1)
+        // Base tax = 160 INR -> PaidAmountAfterTax = 100 + 160/80 = 102 USD,
+        // ReceivedAmountAfterTax = 8000 + 160/1 = 8160 INR.
+        var pe = CreatePE(100m, "USD");
+        pe.PaymentType = PaymentType.Pay;
+        pe.PaidAmount = 100m;
+        pe.ReceivedAmount = 8000m;
+        pe.SourceExchangeRate = 80m;
+        pe.TargetExchangeRate = 1m;
+        pe.ExchangeRate = 80m;
+
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            Description = "Fee",
+            ChargeType = PaymentTaxChargeType.Actual,
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 2m,
+            BaseTaxAmount = 160m,
+            IncludedInPaidAmount = false,
+        });
+
+        pe.BaseApplicableTaxes.ShouldBe(160m);
+        pe.PaidAmountAfterTax.ShouldBe(102m);
+        pe.BasePaidAmountAfterTax.ShouldBe(8160m);
+        pe.ReceivedAmountAfterTax.ShouldBe(8160m);
+        pe.BaseReceivedAmountAfterTax.ShouldBe(8160m);
+        pe.GetBankSideAmount(isDeposit: false).ShouldBe(102m);
+    }
 }

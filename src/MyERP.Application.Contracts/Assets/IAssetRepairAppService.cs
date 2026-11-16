@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -14,4 +15,5 @@ public interface IAssetRepairAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<AssetRepairDto> CompleteAsync(Guid id);
     Task<AssetRepairDto> CancelAsync(Guid id);
+    Task<List<AssetRepairExpenseAccountDto>> GetExpenseAccountsForPurchaseInvoiceAsync(Guid purchaseInvoiceId);
 }

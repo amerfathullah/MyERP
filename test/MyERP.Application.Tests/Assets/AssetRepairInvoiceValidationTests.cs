@@ -193,4 +193,94 @@ public abstract class AssetRepairInvoiceValidationTests<TStartupModule> : MyERPA
             dto.Id.ShouldNotBe(Guid.Empty);
         });
     }
+
+    [Fact]
+    public async Task GetExpenseAccountsForPurchaseInvoiceAsync_FiltersStockAndAssets_ReturnsPostedExpenses()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var invoiceRepository = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+            var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+            var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var invoiceAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var assetRepairAppService = GetRequiredService<IAssetRepairAppService>();
+
+            var emptyForUnknown = await assetRepairAppService.GetExpenseAccountsForPurchaseInvoiceAsync(Guid.NewGuid());
+            emptyForUnknown.ShouldBeEmpty();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "AR ExpAcct Lookup Co"), autoSave: true);
+            var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "AR ExpAcct Supplier"), autoSave: true);
+            var expenseAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "5990", "Repair Service Expense", AccountType.Expense), autoSave: true);
+            var payableAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2090", "Repair Payable", AccountType.Liability), autoSave: true);
+            var costCenter = await costCenterRepository.InsertAsync(
+                new CostCenter(Guid.NewGuid(), company.Id, "AR ExpAcct CC"), autoSave: true);
+
+            company.DefaultExpenseAccountId = expenseAccount.Id;
+            company.DefaultPayableAccountId = payableAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepository.UpdateAsync(company, autoSave: true);
+
+            await fiscalYearRepository.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY ExpAcct", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+            await seriesRepository.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "AR ExpAcct PI", "PurchaseInvoice", "AREXP-"), autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PI DR Exp", "PurchaseInvoice", true, AccountSource.ItemExpense, AmountSource.NetTotal)
+                { SortOrder = 1 }, autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PI CR Pay", "PurchaseInvoice", false, AccountSource.SupplierPayable, AmountSource.GrandTotal)
+                { SortOrder = 2 }, autoSave: true);
+
+            var stockItem = new Item(Guid.NewGuid(), company.Id, "AR-STK-1", "Stock Part", ItemType.Goods) { MaintainStock = true };
+            var serviceItem = new Item(Guid.NewGuid(), company.Id, "AR-SVC-1", "Repair Labor", ItemType.Service) { MaintainStock = false };
+            await itemRepository.InsertAsync(stockItem, autoSave: true);
+            await itemRepository.InsertAsync(serviceItem, autoSave: true);
+
+            var stockOnlyPi = await invoiceAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(15),
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new() { ItemId = stockItem.Id, Description = "Stock part", Quantity = 1m, UnitPrice = 300m, Uom = "Unit" }
+                }
+            });
+            await invoiceAppService.SubmitAsync(stockOnlyPi.Id);
+            await invoiceAppService.PostAsync(stockOnlyPi.Id);
+
+            var stockOnlyResult = await assetRepairAppService.GetExpenseAccountsForPurchaseInvoiceAsync(stockOnlyPi.Id);
+            stockOnlyResult.ShouldBeEmpty();
+
+            var servicePi = await invoiceAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(15),
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new() { ItemId = serviceItem.Id, Description = "Repair labor", Quantity = 1m, UnitPrice = 250m, Uom = "Unit" }
+                }
+            });
+            await invoiceAppService.SubmitAsync(servicePi.Id);
+            await invoiceAppService.PostAsync(servicePi.Id);
+
+            var serviceResult = await assetRepairAppService.GetExpenseAccountsForPurchaseInvoiceAsync(servicePi.Id);
+            serviceResult.Count.ShouldBe(1);
+            serviceResult[0].AccountId.ShouldBe(expenseAccount.Id);
+            serviceResult[0].AccountCode.ShouldBe("5990");
+            serviceResult[0].UnallocatedAmount.ShouldBe(250m);
+        });
+    }
 }

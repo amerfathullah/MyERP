@@ -358,6 +358,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         pe.ReceivedAmount = input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0
             ? input.ReceivedAmount.Value
             : input.PaidAmount;
+        pe.SourceExchangeRate = input.SourceExchangeRate > 0m ? input.SourceExchangeRate : 1m;
+        pe.TargetExchangeRate = input.TargetExchangeRate > 0m ? input.TargetExchangeRate : 1m;
         await SetInternalTransferBankAccountsAsync(pe);
 
         // Multi-currency: auto-resolve exchange rate if not explicitly provided
@@ -446,6 +448,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         pe.Remarks = input.Remarks;
         ApplyTaxRows(pe, input.Taxes);
+        await ValidateBlockedPurchaseInvoicesAsync(pe);
         await ValidateDunningDeductionsAsync(pe);
 
         await _repository.InsertAsync(pe, autoSave: true);
@@ -461,6 +464,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         var pe = (await _repository.WithDetailsAsync(p => p.References, p => p.Taxes))
             .FirstOrDefault(x => x.Id == id) ?? await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
+        await ValidateBlockedPurchaseInvoicesAsync(pe);
         await ValidateDunningDeductionsAsync(pe);
         await ValidateCumulativeReferencesAsync(pe);
         pe.Submit();
@@ -1413,7 +1417,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     && pi.Status == Core.DocumentStatus.Posted
                     && !pi.IsReturn
                     && (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0.01m)
-                .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.DueDate, pi.GrandTotal, pi.AmountPaid, pi.WriteOffAmount, pi.TotalAdvance, pi.CurrencyCode })
+                .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.DueDate, pi.GrandTotal, pi.AmountPaid, pi.WriteOffAmount, pi.TotalAdvance, pi.CurrencyCode, pi.OnHold, pi.ReleaseDate })
+                .ToList()
+                .Where(pi => !pi.OnHold || (pi.ReleaseDate.HasValue && pi.ReleaseDate.Value.Date <= today))
                 .ToList();
 
             invoices.AddRange(outstanding.Select(pi =>
@@ -1645,6 +1651,12 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.ModeOfPayment = input.ModeOfPayment;
         await ValidateEnabledModeOfPaymentAsync(entry.ModeOfPaymentId, entry.ModeOfPayment);
         entry.PaidAmount = input.PaidAmount;
+        entry.ReceivedAmount = input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0
+            ? input.ReceivedAmount.Value
+            : input.PaidAmount;
+        entry.ExchangeRate = input.ExchangeRate;
+        entry.SourceExchangeRate = input.SourceExchangeRate > 0m ? input.SourceExchangeRate : 1m;
+        entry.TargetExchangeRate = input.TargetExchangeRate > 0m ? input.TargetExchangeRate : 1m;
         entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
         entry.ValidateInternalTransferAccounts();
@@ -1710,11 +1722,40 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             await ValidateDunningDeductionsAsync(entry);
         }
 
+        await ValidateBlockedPurchaseInvoicesAsync(entry);
+
         await _repository.UpdateAsync(entry, autoSave: true);
         var resultDto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(entry);
         await PopulateAccountDetailsAsync(resultDto);
         resultDto.PartyName = await ResolvePartyNameAsync(entry.PartyType, entry.PartyId);
         return resultDto;
+    }
+
+    /// <summary>
+    /// Validates that no referenced Purchase Invoice is currently on hold (PR #65786).
+    /// Invoices are unblocked on or after their ReleaseDate (release_date &gt; today blocks).
+    /// </summary>
+    private async Task ValidateBlockedPurchaseInvoicesAsync(PaymentEntry pe)
+    {
+        var piIds = pe.References
+            .Where(r => r.ReferenceType == "PurchaseInvoice" && r.ReferenceId != Guid.Empty)
+            .Select(r => r.ReferenceId)
+            .ToList();
+
+        if (pe.AgainstInvoiceType == "PurchaseInvoice" && pe.AgainstInvoiceId.HasValue)
+        {
+            piIds.Add(pe.AgainstInvoiceId.Value);
+        }
+
+        foreach (var piId in piIds.Distinct())
+        {
+            var pi = await _purchaseInvoiceRepository.FindAsync(piId);
+            if (pi != null && pi.IsBlocked)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PurchaseInvoiceOnHold)
+                    .WithData("invoiceNumber", pi.InvoiceNumber);
+            }
+        }
     }
 
     /// <summary>
@@ -1725,6 +1766,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     private void ApplyTaxRows(PaymentEntry pe, List<PaymentEntryTaxDto>? taxRows)
     {
         if (taxRows == null) return;
+        var sourceRate = pe.EffectiveSourceExchangeRate;
         foreach (var row in taxRows)
         {
             var tax = new PaymentEntryTax(GuidGenerator.Create(), pe.Id, row.AccountId, pe.TenantId)
@@ -1732,12 +1774,17 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 ChargeType = row.ChargeType,
                 Rate = row.Rate,
                 TaxAmount = row.TaxAmount,
+                BaseTaxAmount = row.BaseTaxAmount,
                 IncludedInPaidAmount = row.IncludedInPaidAmount,
                 AddDeductTax = row.AddDeductTax,
                 Description = row.Description,
                 CostCenterId = row.CostCenterId,
                 DunningId = row.DunningId,
             };
+            if (tax.ChargeType == PaymentTaxChargeType.OnPaidAmount || tax.BaseTaxAmount == 0m)
+            {
+                tax.Calculate(pe.PaidAmount, sourceRate);
+            }
             pe.AddTax(tax);
         }
     }

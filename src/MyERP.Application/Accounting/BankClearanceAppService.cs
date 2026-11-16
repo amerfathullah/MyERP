@@ -94,10 +94,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
         {
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
             var bankSideAmount = pe.GetBankSideAmount(isDeposit);
-            var effectiveExchangeRate = isDeposit
-                ? (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate)
-                : pe.ExchangeRate;
-            var baseSideAmount = bankSideAmount * (effectiveExchangeRate > 0 ? effectiveExchangeRate : 1m);
+            var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
             var amount = BankReconciliationAppService.GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
 
             entries.Add(new BankClearanceEntryDto

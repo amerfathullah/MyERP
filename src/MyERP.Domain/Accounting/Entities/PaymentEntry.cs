@@ -80,8 +80,29 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public decimal ReceivedAmount { get; set; }
 
+    /// <summary>
+    /// Effective source exchange rate for paid-side base conversions.
+    /// Falls back to ExchangeRate only when neither source nor target rate is explicitly set.
+    /// </summary>
+    public decimal EffectiveSourceExchangeRate =>
+        SourceExchangeRate > 0m && (SourceExchangeRate != 1m || TargetExchangeRate != 1m)
+            ? SourceExchangeRate
+            : (ExchangeRate > 0m ? ExchangeRate : 1m);
+
+    /// <summary>
+    /// Effective target exchange rate for received-side base conversions.
+    /// Falls back to ExchangeRate only when neither source nor target rate is explicitly set.
+    /// </summary>
+    public decimal EffectiveTargetExchangeRate =>
+        TargetExchangeRate > 0m && (TargetExchangeRate != 1m || SourceExchangeRate != 1m)
+            ? TargetExchangeRate
+            : (ExchangeRate > 0m ? ExchangeRate : 1m);
+
     /// <summary>Base currency amount (PaidAmount × ExchangeRate).</summary>
     public decimal BaseAmount => PaidAmount * ExchangeRate;
+
+    /// <summary>Base paid amount in company currency using EffectiveSourceExchangeRate, rounded to 2 decimals.</summary>
+    public decimal BasePaidAmount => Math.Round(PaidAmount * EffectiveSourceExchangeRate, 2);
 
     /// <summary>
     /// Base received amount in company currency.
@@ -175,26 +196,50 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         .Sum(t => t.TaxAmount);
 
     /// <summary>
-    /// Net non-included taxes/charges applicable on top of paid/received amount.
-    /// Per ERPNext set_amounts_after_tax: taxes where !included_in_paid_amount and !is_exchange_gain_loss.
-    /// Deduct taxes reduce amount, Add taxes increase amount.
+    /// Net non-included taxes/charges in payment source currency (backward-compatible view).
     /// </summary>
     public decimal ApplicableTaxes => Taxes
         .Where(t => !t.IncludedInPaidAmount && !t.IsExchangeGainLoss)
         .Sum(t => t.AddDeductTax == TaxAddDeduct.Deduct ? -t.TaxAmount : t.TaxAmount);
 
     /// <summary>
-    /// Paid amount after non-included taxes and charges.
-    /// Per ERPNext set_amounts_after_tax: paid_amount + applicable_tax.
+    /// Net non-included taxes/charges in company base currency.
+    /// Per ERPNext set_amounts_after_tax (PR #65786): accumulate base_tax_amount in company currency,
+    /// then convert via source_exchange_rate / target_exchange_rate for foreign-currency legs.
     /// </summary>
-    public decimal PaidAmountAfterTax => Math.Round(PaidAmount + ApplicableTaxes, 2);
+    public decimal BaseApplicableTaxes => Taxes
+        .Where(t => !t.IncludedInPaidAmount && !t.IsExchangeGainLoss)
+        .Sum(t =>
+        {
+            var baseTax = t.BaseTaxAmount != 0m ? t.BaseTaxAmount : t.TaxAmount * EffectiveSourceExchangeRate;
+            return t.AddDeductTax == TaxAddDeduct.Deduct ? -baseTax : baseTax;
+        });
 
     /// <summary>
-    /// Received amount after non-included taxes and charges.
-    /// Per ERPNext set_amounts_after_tax: received_amount + applicable_tax.
+    /// Paid amount after non-included taxes and charges (in PaidFrom currency).
+    /// Per ERPNext set_amounts_after_tax (PR #65786): paid_amount + (base_applicable_tax / source_exchange_rate).
+    /// </summary>
+    public decimal PaidAmountAfterTax => Math.Round(PaidAmount + (BaseApplicableTaxes / EffectiveSourceExchangeRate), 2);
+
+    /// <summary>
+    /// Base paid amount after non-included taxes and charges (in company currency).
+    /// Per ERPNext set_amounts_after_tax: base_paid_amount + base_applicable_tax.
+    /// </summary>
+    public decimal BasePaidAmountAfterTax => Math.Round(BasePaidAmount + BaseApplicableTaxes, 2);
+
+    /// <summary>
+    /// Received amount after non-included taxes and charges (in PaidTo currency).
+    /// Per ERPNext set_amounts_after_tax (PR #65786): received_amount + (base_applicable_tax / target_exchange_rate).
     /// </summary>
     public decimal ReceivedAmountAfterTax => Math.Round(
-        (ReceivedAmount != 0 ? ReceivedAmount : PaidAmount) + ApplicableTaxes, 2);
+        (ReceivedAmount != 0m ? ReceivedAmount : PaidAmount) + (BaseApplicableTaxes / EffectiveTargetExchangeRate), 2);
+
+    /// <summary>
+    /// Base received amount after non-included taxes and charges (in company currency).
+    /// Per ERPNext set_amounts_after_tax: base_received_amount + base_applicable_tax.
+    /// </summary>
+    public decimal BaseReceivedAmountAfterTax => Math.Round(
+        ((ReceivedAmount != 0m ? ReceivedAmount : PaidAmount) * EffectiveTargetExchangeRate) + BaseApplicableTaxes, 2);
 
     /// <summary>
     /// Returns the effective amount that reaches the bank account in that bank's currency.
@@ -355,9 +400,10 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public void RecalculateTaxes()
     {
+        var rate = EffectiveSourceExchangeRate;
         foreach (var tax in Taxes)
         {
-            tax.Calculate(PaidAmount, ExchangeRate);
+            tax.Calculate(PaidAmount, rate);
         }
     }
 

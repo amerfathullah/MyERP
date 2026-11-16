@@ -6070,7 +6070,10 @@
     "AmountInAccountCurrency": "Amount in Account Currency",
     "CannotDebitAndCreditSameRow": "You cannot credit and debit same account at the same time",
     "EveryRowNeedsDebitOrCredit": "Both Debit and Credit values cannot be zero on a row",
-    "NoFiscalYearForPostingDate": "No fiscal year covers the posting date for this company"
+    "NoFiscalYearForPostingDate": "No fiscal year covers the posting date for this company",
+    "ExpenseAccount": "Expense Account",
+    "PaidAmountAfterTax": "Paid Amount After Tax",
+    "ReceivedAmountAfterTax": "Received Amount After Tax"
   }
 }
 

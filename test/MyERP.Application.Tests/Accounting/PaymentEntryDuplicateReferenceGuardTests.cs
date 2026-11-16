@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
@@ -217,6 +218,110 @@ public abstract class PaymentEntryDuplicateReferenceGuardTests<TStartupModule> :
                 }));
             ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
             ex.Data["detail"]!.ToString()!.ShouldContain("Row 1: User is not a valid Party Type");
+        });
+    }
+
+    [Fact]
+    public async Task PurchaseInvoiceHold_ReleaseDateBoundary_ExcludesHeldFromOutstandingAndBlocksPe()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+            var piRepo = GetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var peAppService = GetRequiredService<IPaymentEntryAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PE Hold Release Co"), autoSave: true);
+            await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "PE Hold Series", "PaymentEntry", "PEH-"), autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(
+                new Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "PE Hold Supplier"), autoSave: true);
+            var bankAccount = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1129-HOLD", "Hold Test Bank", AccountType.Asset), autoSave: true);
+            var payableAccount = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2110-HOLD", "Hold Test Payable", AccountType.Liability), autoSave: true);
+
+            var today = DateTime.UtcNow.Date;
+            var itemId = Guid.NewGuid();
+
+            Purchasing.Entities.PurchaseInvoice MakePi(string number, bool onHold, DateTime? releaseDate)
+            {
+                var pi = new Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, number, today)
+                {
+                    OnHold = onHold,
+                    ReleaseDate = releaseDate
+                };
+                pi.AddItem(itemId, "Service", 1m, 100m, 0m);
+                pi.Submit();
+                pi.Post();
+                return pi;
+            }
+
+            var indefiniteHold = await piRepo.InsertAsync(MakePi("PINV-HOLD-INF", true, null), autoSave: true);
+            var futureRelease = await piRepo.InsertAsync(MakePi("PINV-HOLD-FUT", true, today.AddDays(1)), autoSave: true);
+            var releasedToday = await piRepo.InsertAsync(MakePi("PINV-REL-TOD", true, today), autoSave: true);
+            var releasedPast = await piRepo.InsertAsync(MakePi("PINV-REL-PAST", true, today.AddDays(-1)), autoSave: true);
+
+            var outstanding = await peAppService.GetPartyOutstandingAsync("Supplier", supplier.Id, company.Id);
+            outstanding.Invoices.Select(i => i.InvoiceNumber).ShouldContain("PINV-REL-TOD");
+            outstanding.Invoices.Select(i => i.InvoiceNumber).ShouldContain("PINV-REL-PAST");
+            outstanding.Invoices.Select(i => i.InvoiceNumber).ShouldNotContain("PINV-HOLD-INF");
+            outstanding.Invoices.Select(i => i.InvoiceNumber).ShouldNotContain("PINV-HOLD-FUT");
+
+            var futureEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                peAppService.CreateAsync(new CreatePaymentEntryDto
+                {
+                    CompanyId = company.Id,
+                    PaymentType = PaymentType.Pay,
+                    PostingDate = today,
+                    PaidAmount = 100m,
+                    PaidFromAccountId = bankAccount.Id,
+                    PaidToAccountId = payableAccount.Id,
+                    PartyType = "Supplier",
+                    PartyId = supplier.Id,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new() { ReferenceType = "PurchaseInvoice", ReferenceId = futureRelease.Id, AllocatedAmount = 100m }
+                    }
+                }));
+            futureEx.Code.ShouldBe(MyERPDomainErrorCodes.PurchaseInvoiceOnHold);
+
+            var infEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                peAppService.CreateAsync(new CreatePaymentEntryDto
+                {
+                    CompanyId = company.Id,
+                    PaymentType = PaymentType.Pay,
+                    PostingDate = today,
+                    PaidAmount = 100m,
+                    PaidFromAccountId = bankAccount.Id,
+                    PaidToAccountId = payableAccount.Id,
+                    PartyType = "Supplier",
+                    PartyId = supplier.Id,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new() { ReferenceType = "PurchaseInvoice", ReferenceId = indefiniteHold.Id, AllocatedAmount = 100m }
+                    }
+                }));
+            infEx.Code.ShouldBe(MyERPDomainErrorCodes.PurchaseInvoiceOnHold);
+
+            var allowed = await peAppService.CreateAsync(new CreatePaymentEntryDto
+            {
+                CompanyId = company.Id,
+                PaymentType = PaymentType.Pay,
+                PostingDate = today,
+                PaidAmount = 100m,
+                PaidFromAccountId = bankAccount.Id,
+                PaidToAccountId = payableAccount.Id,
+                PartyType = "Supplier",
+                PartyId = supplier.Id,
+                References = new List<PaymentReferenceDto>
+                {
+                    new() { ReferenceType = "PurchaseInvoice", ReferenceId = releasedToday.Id, AllocatedAmount = 100m }
+                }
+            });
+            allowed.Id.ShouldNotBe(Guid.Empty);
+            allowed.PaidAmountAfterTax.ShouldBe(100m);
         });
     }
 }

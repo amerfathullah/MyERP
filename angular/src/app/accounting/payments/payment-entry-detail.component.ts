@@ -84,6 +84,11 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
                 </div>
                 <hr />
                 <table class="table table-borderless table-sm mb-0">
+                  <tr><td class="text-muted">{{ '::ReceivedAmount' | abpLocalization }}</td><td>{{ entry()!.receivedAmount | number:'1.2-2' }}</td></tr>
+                  @if (taxes().length > 0) {
+                    <tr><td class="text-muted">{{ '::PaidAmountAfterTax' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.paidAmountAfterTax | number:'1.2-2' }}</td></tr>
+                    <tr><td class="text-muted">{{ '::ReceivedAmountAfterTax' | abpLocalization }}</td><td class="fw-bold">{{ entry()!.receivedAmountAfterTax | number:'1.2-2' }}</td></tr>
+                  }
                   <tr><td class="text-muted">{{ '::ModeOfPayment' | abpLocalization }}</td><td>{{ entry()!.modeOfPayment || '-' }}</td></tr>
                   <tr><td class="text-muted">{{ '::ReferenceNumber' | abpLocalization }}</td><td>{{ entry()!.referenceNumber || '-' }}</td></tr>
                 </table>
