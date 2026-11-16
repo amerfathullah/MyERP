@@ -92,9 +92,14 @@
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-bold">{{ '::PlannedItems' | abpLocalization }}</span>
-        <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">
-          <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
-        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-info" [disabled]="loadingSoItems()" (click)="loadOpenSalesOrderItems()">
+            <i class="fa fa-download me-1"></i>{{ '::GetFromSalesOrders' | abpLocalization }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">
+            <i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}
+          </button>
+        </div>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">

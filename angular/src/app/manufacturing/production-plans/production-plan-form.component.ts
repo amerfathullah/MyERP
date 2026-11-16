@@ -39,6 +39,7 @@ export class ProductionPlanFormComponent implements OnInit {
   availableItems = signal<any[]>([]);
   allBoms = signal<any[]>([]);
   warehouses = signal<any[]>([]);
+  loadingSoItems = signal(false);
 
   /** Returns active BOMs filtered by currently selected item in row (ERPNext d08131b6e8) */
   getFilteredBoms(itemId: string): any[] {
@@ -99,7 +100,54 @@ export class ProductionPlanFormComponent implements OnInit {
     const soId = this.route.snapshot.queryParamMap.get('salesOrderId');
     const qCompanyId = this.route.snapshot.queryParamMap.get('companyId');
     if (qCompanyId) this.form.patchValue({ companyId: qCompanyId });
-    if (soId) this.form.patchValue({ notes: `Production Plan for SO: ${soId}` });
+    if (soId) {
+      this.form.patchValue({ notes: `Production Plan for SO: ${soId}` });
+      if (this.form.get('companyId')?.value) {
+        this.loadOpenSalesOrderItems([soId]);
+      }
+    }
+  }
+
+  loadOpenSalesOrderItems(salesOrderIds?: string[]): void {
+    const companyId = this.form.get('companyId')?.value;
+    if (!companyId) {
+      this.toaster.warn('::SelectCompanyFirst');
+      return;
+    }
+    this.loadingSoItems.set(true);
+    this.service.getOpenSalesOrderItems(companyId, salesOrderIds).subscribe({
+      next: (soItems) => {
+        this.loadingSoItems.set(false);
+        const candidates = (soItems ?? []).filter(i => (i.unplannedQty ?? 0) > 0);
+        if (candidates.length === 0) {
+          this.toaster.info('::NoOpenSalesOrderItems');
+          return;
+        }
+        const existingKeys = new Set(
+          this.items.controls.map(c => `${c.get('itemId')?.value}:${c.get('bomId')?.value}`)
+        );
+        for (const soItem of candidates) {
+          const itemId = soItem.itemId ?? '';
+          const bomId = soItem.bomId || this.getFilteredBoms(itemId)[0]?.id || '';
+          const key = `${itemId}:${bomId}`;
+          if (!itemId || existingKeys.has(key)) continue;
+          existingKeys.add(key);
+          this.items.push(this.fb.group({
+            itemId: [itemId, Validators.required],
+            itemName: [soItem.itemName || soItem.itemCode || '', Validators.required],
+            bomId: [bomId, Validators.required],
+            plannedQty: [soItem.unplannedQty ?? soItem.orderedQty ?? 1, [Validators.required, Validators.min(0.01)]],
+            warehouseId: [soItem.warehouseId || ''],
+            plannedStartDate: [''],
+          }));
+        }
+        this.form.markAsDirty();
+      },
+      error: (err) => {
+        this.loadingSoItems.set(false);
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToLoad');
+      },
+    });
   }
 
   onItemSelected(index: number): void {

@@ -32,7 +32,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <div class="d-flex gap-2 align-items-center">
               <app-status-badge [status]="getStatusLabel(proforma()!.status)" />
               @if (proforma()!.status === 1) {
-                <button class="btn btn-sm btn-outline-primary" (click)="showEmailPanel = !showEmailPanel">
+                <button class="btn btn-sm btn-outline-primary" (click)="openEmailPanel()">
                   <i class="fas fa-envelope me-1"></i>{{ '::SendEmail' | abpLocalization }}
                 </button>
                 <button class="btn btn-sm btn-outline-danger" (click)="cancel()">
@@ -124,10 +124,20 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             @if (showEmailPanel) {
               <div class="card bg-light mt-3">
                 <div class="card-body">
-                  <label class="form-label">{{ '::Recipients' | abpLocalization }} *</label>
-                  <input type="text" class="form-control form-control-sm" placeholder="name@example.com, name2@example.com" [(ngModel)]="emailRecipients" />
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::Recipients' | abpLocalization }} *</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="name@example.com, name2@example.com" [(ngModel)]="emailRecipients" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::Subject' | abpLocalization }}</label>
+                    <input type="text" class="form-control form-control-sm" [(ngModel)]="emailSubject" [disabled]="loadingEmailContent" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">{{ '::Message' | abpLocalization }}</label>
+                    <textarea class="form-control form-control-sm" rows="4" [(ngModel)]="emailMessage" [disabled]="loadingEmailContent"></textarea>
+                  </div>
                   <div class="d-flex gap-2 mt-2">
-                    <button class="btn btn-primary btn-sm" [disabled]="!emailRecipients || sendingEmail" (click)="sendEmail()">
+                    <button class="btn btn-primary btn-sm" [disabled]="!emailRecipients || sendingEmail || loadingEmailContent" (click)="sendEmail()">
                       <i class="fas fa-paper-plane me-1"></i>{{ '::Send' | abpLocalization }}
                     </button>
                     <button class="btn btn-secondary btn-sm" (click)="showEmailPanel = false">{{ '::Cancel' | abpLocalization }}</button>
@@ -153,11 +163,31 @@ export class ProformaInvoiceDetailComponent implements OnInit {
   loading = signal(true);
   showEmailPanel = false;
   sendingEmail = false;
+  loadingEmailContent = false;
   emailRecipients = '';
+  emailSubject = '';
+  emailMessage = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) this.load(id);
+  }
+
+  openEmailPanel() {
+    this.showEmailPanel = !this.showEmailPanel;
+    const id = this.proforma()?.id;
+    if (!this.showEmailPanel || !id) return;
+    this.loadingEmailContent = true;
+    this.proformaService.getEmailContent(id).subscribe({
+      next: (content) => {
+        this.emailSubject = content?.subject ?? '';
+        this.emailMessage = content?.message ?? '';
+        this.loadingEmailContent = false;
+      },
+      error: () => {
+        this.loadingEmailContent = false;
+      },
+    });
   }
 
   load(id: string) {
@@ -183,11 +213,17 @@ export class ProformaInvoiceDetailComponent implements OnInit {
   sendEmail() {
     if (!this.emailRecipients) return;
     this.sendingEmail = true;
-    this.proformaService.sendEmail(this.proforma()!.id, { recipients: this.emailRecipients }).subscribe({
+    this.proformaService.sendEmail(this.proforma()!.id, {
+      recipients: this.emailRecipients,
+      subject: this.emailSubject || undefined,
+      message: this.emailMessage || undefined,
+    }).subscribe({
       next: () => {
         this.sendingEmail = false;
         this.showEmailPanel = false;
         this.emailRecipients = '';
+        this.emailSubject = '';
+        this.emailMessage = '';
         this.toaster.success('::EmailSent');
         this.load(this.proforma()!.id);
       },

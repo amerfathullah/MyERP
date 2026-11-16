@@ -6316,7 +6316,12 @@
     "RepairAccountsConfirmation": "Create missing Stock Received But Not Billed and Tax Payable accounts for this company?",
     "AccountsRepaired": "Default accounts repaired successfully.",
     "RecalculateBin": "Recalculate Bin",
-    "RecalculateBinConfirmation": "Recalculate bin stock quantities for this item and warehouse from ledger entries?"
+    "RecalculateBinConfirmation": "Recalculate bin stock quantities for this item and warehouse from ledger entries?",
+    "GetFromSalesOrders": "Get From Sales Orders",
+    "NoOpenSalesOrderItems": "No unplanned open sales order items found.",
+    "RecalculateReturnedBilling": "Recalculate Returned Billing",
+    "ReturnedBillingUpdated": "Returned delivery notes billing status updated",
+    "Message": "Message"
   }
 }
 

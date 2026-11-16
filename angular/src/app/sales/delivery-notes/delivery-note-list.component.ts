@@ -53,6 +53,7 @@ export class DeliveryNoteListComponent implements OnInit {
   selectedDnIds = signal<Set<string>>(new Set());
   isCreatingInvoice = signal(false);
   isSubmitting = signal(false);
+  isRecalculatingBilling = signal(false);
 
   hasSelection = computed(() => this.selectedDnIds().size > 0);
   selectionCount = computed(() => this.selectedDnIds().size);
@@ -193,6 +194,21 @@ export class DeliveryNoteListComponent implements OnInit {
       },
       error: (err) => {
         this.isCreatingInvoice.set(false);
+        this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
+      },
+    });
+  }
+
+  recalculateReturnedBillingStatus(): void {
+    this.isRecalculatingBilling.set(true);
+    this.dnService.recalculateReturnedDeliveryNotesBillingStatus().subscribe({
+      next: (updatedCount) => {
+        this.isRecalculatingBilling.set(false);
+        this.toaster.success(`${this.l.instant('::ReturnedBillingUpdated')} (${updatedCount})`);
+        this.loadData();
+      },
+      error: (err) => {
+        this.isRecalculatingBilling.set(false);
         this.toaster.error(err?.error?.error?.message || this.l.instant('::OperationFailed'));
       },
     });
