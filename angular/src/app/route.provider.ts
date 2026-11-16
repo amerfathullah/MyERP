@@ -1757,6 +1757,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Leads',
       },
       {
+        path: '/crm/reports/campaign-efficiency',
+        name: '::Menu:CampaignEfficiency',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-bullhorn',
+        order: 16,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Leads',
+      },
+      {
         path: '',
         name: '::Menu:Projects',
         iconClass: 'fas fa-project-diagram',
@@ -3491,6 +3500,24 @@ function configureRoutes() {
         order: 9,
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.AssetValueAdjustments',
+      },
+      {
+        path: '/assets/reports/fixed-asset-register',
+        name: '::Menu:FixedAssetRegister',
+        parentName: '::Menu:Assets',
+        iconClass: 'fas fa-book',
+        order: 10,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Assets',
+      },
+      {
+        path: '/assets/reports/depreciations-and-balances',
+        name: '::Menu:AssetDepreciationsAndBalances',
+        parentName: '::Menu:Assets',
+        iconClass: 'fas fa-balance-scale',
+        order: 11,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Assets',
       },
       // Maintenance & Support Module
       {

@@ -2085,6 +2085,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Leads' },
   },
+  {
+    path: 'crm/reports/campaign-efficiency',
+    loadComponent: () => import('./crm/reports/campaign-efficiency/campaign-efficiency.component').then(c => c.CampaignEfficiencyComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
   // Sales — Shipments
   {
     path: 'sales/shipments',
@@ -4902,6 +4908,18 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     canDeactivate: [unsavedChangesGuard],
     data: { requiredPolicy: 'MyERP.AssetValueAdjustments.Create' },
+  },
+  {
+    path: 'assets/reports/fixed-asset-register',
+    loadComponent: () => import('./assets/reports/fixed-asset-register/fixed-asset-register.component').then(c => c.FixedAssetRegisterComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  {
+    path: 'assets/reports/depreciations-and-balances',
+    loadComponent: () => import('./assets/reports/depreciations-and-balances/asset-depreciations-and-balances.component').then(c => c.AssetDepreciationsAndBalancesComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
   },
   {
     path: 'assets/:id',
