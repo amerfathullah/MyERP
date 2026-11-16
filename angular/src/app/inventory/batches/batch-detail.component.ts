@@ -284,7 +284,7 @@ export class BatchDetailComponent implements OnInit {
     });
     this.warehouseService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r: any) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, name: w.name ?? w.id }))),
-      error: () => {}
+      error: (err: any) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed')
     });
   }
 
@@ -298,7 +298,7 @@ export class BatchDetailComponent implements OnInit {
           this.stockBalance.set(data);
         }
       },
-      error: () => {},
+      error: (err: any) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed'),
     });
     this.batchService.getMovementHistory(batchId, 50).subscribe({
       next: (data) => {
@@ -306,7 +306,7 @@ export class BatchDetailComponent implements OnInit {
           this.movementHistory.set(data);
         }
       },
-      error: () => {},
+      error: (err: any) => this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed'),
     });
   }
 

@@ -394,7 +394,7 @@ export class PickListDetailComponent implements OnInit {
   submit() {
     this.service.submit(this.pickListId).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullySubmitted')); this.loadData(); },
-      error: () => {},
+      error: (err) => this.handleError(err),
     });
   }
 
@@ -406,14 +406,14 @@ export class PickListDetailComponent implements OnInit {
         if (result.hasShortage) this.toaster.warn(this.l('::StockShortage'));
         else this.toaster.success(this.l('::FullyAvailable'));
       },
-      error: () => this.checkingAvailability.set(false),
+      error: (err) => { this.checkingAvailability.set(false); this.handleError(err); },
     });
     this.service.getStockAvailabilityInsight(this.pickListId).subscribe({
       next: (insights) => {
         this.availabilityInsights.set(insights || []);
         this.checkingAvailability.set(false);
       },
-      error: () => this.checkingAvailability.set(false),
+      error: (err) => { this.checkingAvailability.set(false); this.handleError(err); },
     });
   }
 
@@ -425,7 +425,7 @@ export class PickListDetailComponent implements OnInit {
   createDeliveryNote() {
     this.service.createDeliveryNoteFromPickList(this.pickListId).subscribe({
       next: () => { this.toaster.success(this.l('::SuccessfullyCreated')); this.loadData(); },
-      error: () => {},
+      error: (err) => this.handleError(err),
     });
   }
 
@@ -434,9 +434,14 @@ export class PickListDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.service.cancel(this.pickListId).subscribe({
         next: () => { this.toaster.success(this.l('::SuccessfullyCancelled')); this.loadData(); },
-        error: () => {},
+        error: (err) => this.handleError(err),
       });
     });
+  }
+
+  private handleError(err: any) {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || this.l('::OperationFailed'));
   }
 
   goBack() { this.router.navigate(['/inventory/pick-lists']); }

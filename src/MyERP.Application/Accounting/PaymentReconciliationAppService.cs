@@ -58,29 +58,46 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// <summary>
     /// Get all outstanding invoices for a party (for reconciliation UI).
     /// </summary>
-    public async Task<List<OutstandingInvoiceDto>> GetOutstandingInvoicesAsync(string partyType, Guid partyId, Guid? accountId = null)
+    public async Task<List<OutstandingInvoiceDto>> GetOutstandingInvoicesAsync(
+        string partyType, Guid partyId, Guid? accountId = null, int? invoiceLimit = null)
     {
+        ValidateLimit(invoiceLimit, "Invoice Limit");
+
         var vouchers = await _pleService.GetOutstandingVouchersAsync(partyType, partyId, accountId);
-        return vouchers.Select(v => new OutstandingInvoiceDto
+        var query = vouchers.Select(v => new OutstandingInvoiceDto
         {
             AccountId = v.AccountId,
             VoucherId = v.VoucherId,
             VoucherType = v.VoucherType,
             Outstanding = v.Outstanding,
-        }).ToList();
+        });
+
+        if (invoiceLimit.HasValue && invoiceLimit.Value > 0)
+        {
+            query = query.Take(invoiceLimit.Value);
+        }
+
+        return query.ToList();
     }
 
     /// <summary>
     /// Get unallocated payments (Payment Entries and Journal Entries) for a party — the payment
     /// side of the reconciliation UI, optionally filtered by Receivable/Payable account (ERPNext commit 7623dae273).
     /// </summary>
-    public async Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId, Guid? accountId = null)
+    public async Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(
+        string partyType, Guid partyId, Guid? accountId = null, int? paymentLimit = null)
     {
+        ValidateLimit(paymentLimit, "Payment Limit");
+
         var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId, accountId);
         var result = new List<UnreconciledPaymentDto>();
 
         foreach (var p in payments)
         {
+            if (paymentLimit.HasValue && paymentLimit.Value > 0 && result.Count >= paymentLimit.Value)
+            {
+                break;
+            }
             if (p.VoucherType == "PaymentEntry")
             {
                 var pe = await _paymentEntryRepository.FindAsync(p.VoucherId);
@@ -117,6 +134,15 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         }
 
         return result;
+    }
+
+    private static void ValidateLimit(int? limit, string label)
+    {
+        if (limit.HasValue && limit.Value < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"{label} must be a non-negative integer.");
+        }
     }
 
     /// <summary>

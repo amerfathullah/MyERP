@@ -2,7 +2,7 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { PickListDetailComponent } from './pick-list-detail.component';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
@@ -30,6 +30,7 @@ describe('PickListDetailComponent Reservations & Transfers', () => {
         salesOrderId: 'so-1',
         items: [{ itemId: 'item-1', stockReservedQty: 0 }],
       })),
+      submit: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { data: { detail: 'Pick list empty' } } } }))),
     };
     const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn() };
     const confirmationMock = { warn: vi.fn().mockReturnValue(of(confirmStatus)) };
@@ -65,5 +66,13 @@ describe('PickListDetailComponent Reservations & Transfers', () => {
     expect(pickListMock.cancelStockReservationEntries).toHaveBeenCalledWith('pl-1');
     expect(comp.hasStockReservations()).toBe(false);
     expect(toasterMock.success).toHaveBeenCalledWith('::StockReservationCancelled');
+  });
+
+  it('surfaces backend error via toaster on submit failure', () => {
+    const { comp, toasterMock } = createComponent();
+
+    comp.submit();
+
+    expect(toasterMock.error).toHaveBeenCalledWith('Pick list empty');
   });
 });

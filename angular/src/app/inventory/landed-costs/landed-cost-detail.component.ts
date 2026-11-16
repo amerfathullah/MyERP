@@ -61,14 +61,17 @@ export class LandedCostDetailComponent implements OnInit {
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.service.get(id).subscribe({
+      next: (r) => this.d = r,
+      error: (err) => this.handleError(err),
+    });
   }
 
   submit() {
     this.loading.set(true);
     this.service.submit(this.d!.id!).subscribe({
       next: () => { this.toaster.success('::SuccessfullySubmitted'); this.reload(); },
-      error: () => this.loading.set(false),
+      error: (err) => { this.loading.set(false); this.handleError(err); },
     });
   }
 
@@ -78,13 +81,21 @@ export class LandedCostDetailComponent implements OnInit {
       this.loading.set(true);
       this.service.cancel(this.d!.id!).subscribe({
         next: () => { this.toaster.success('::SuccessfullyCancelled'); this.reload(); },
-        error: () => this.loading.set(false),
+        error: (err) => { this.loading.set(false); this.handleError(err); },
       });
     });
   }
 
   private reload() {
     this.loading.set(false);
-    this.service.get(this.d!.id!).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.service.get(this.d!.id!).subscribe({
+      next: (r) => this.d = r,
+      error: (err) => this.handleError(err),
+    });
+  }
+
+  private handleError(err: any) {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
   }
 }
