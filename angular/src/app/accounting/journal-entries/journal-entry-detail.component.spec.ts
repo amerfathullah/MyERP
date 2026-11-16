@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService, PermissionService } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { describe, it, expect, vi } from 'vitest';
+import { of, throwError } from 'rxjs';
+import { JournalEntryDetailComponent } from './journal-entry-detail.component';
+import { JournalEntryService } from '../../proxy/accounting/journal-entry.service';
 
 describe('JournalEntryDetailComponent Logic', () => {
   // Test GL line total calculations
@@ -168,6 +175,63 @@ describe('JournalEntryDetailComponent Logic', () => {
 
     it('shows dash when both missing', () => {
       expect(formatAccount()).toBe('—');
+    });
+  });
+
+  describe('JournalEntryDetailComponent reversal actions', () => {
+    function createComponent() {
+      const jeMock = {
+        get: vi.fn().mockReturnValue(of({ id: 'je-1', status: 'Posted', lines: [] })),
+        post: vi.fn().mockReturnValue(of({})),
+        cancel: vi.fn().mockReturnValue(of({})),
+        amend: vi.fn().mockReturnValue(of({ id: 'je-am-1' })),
+        createReversal: vi.fn().mockReturnValue(of({ id: 'je-rev-1' })),
+        createReverseJournalEntry: vi.fn().mockReturnValue(of({ id: 'je-draft-rev-1' })),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'je-1' } } } },
+          { provide: Router, useValue: routerMock },
+          { provide: JournalEntryService, useValue: jeMock },
+          { provide: ConfirmationService, useValue: { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) } },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
+        ],
+      });
+      const comp = runInInjectionContext(injector, () => new JournalEntryDetailComponent());
+      return { comp, jeMock, routerMock, toasterMock };
+    }
+
+    it('hides reversal actions when entry is already a reversal or has an active reversal', () => {
+      const { comp } = createComponent();
+
+      comp.je.set({ id: 'je-1', status: 'Posted', voucherType: 0, lines: [] });
+      expect(comp.workflowActions.some(a => a.name === 'reverse')).toBe(true);
+      expect(comp.workflowActions.some(a => a.name === 'reverse_draft')).toBe(true);
+
+      comp.je.set({ id: 'je-2', status: 'Posted', voucherType: 16, reversalOfId: 'je-1', lines: [] });
+      expect(comp.workflowActions.some(a => a.name === 'reverse')).toBe(false);
+      expect(comp.workflowActions.some(a => a.name === 'reverse_draft')).toBe(false);
+
+      comp.je.set({ id: 'je-1', status: 'Posted', voucherType: 0, hasActiveReversal: true, lines: [] });
+      expect(comp.workflowActions.some(a => a.name === 'reverse')).toBe(false);
+    });
+
+    it('wires reverse_draft to createReverseJournalEntry and surfaces errors on failure', () => {
+      const { comp, jeMock, routerMock, toasterMock } = createComponent();
+      comp.je.set({ id: 'je-1', status: 'Posted', voucherType: 0, lines: [] });
+
+      comp.onAction('reverse_draft');
+      expect(jeMock.createReverseJournalEntry).toHaveBeenCalledWith('je-1');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/accounting/journal-entries', 'je-draft-rev-1', 'edit']);
+
+      jeMock.createReversal.mockReturnValue(throwError(() => ({ error: { error: { data: { detail: 'Already reversed' } } } })));
+      comp.onAction('reverse');
+      expect(toasterMock.error).toHaveBeenCalledWith('Already reversed');
     });
   });
 });

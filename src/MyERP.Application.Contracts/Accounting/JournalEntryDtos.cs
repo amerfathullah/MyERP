@@ -24,6 +24,10 @@ public class JournalEntryDto : EntityDto<Guid>
 
     /// <summary>Entry has lines on accounts in another currency (ERPNext multi_currency).</summary>
     public bool IsMultiCurrency { get; set; }
+    /// <summary>Source Journal Entry when this entry is a reversal (ERPNext PR #58092).</summary>
+    public Guid? ReversalOfId { get; set; }
+    public string? ReversalOfEntryNumber { get; set; }
+    public bool HasActiveReversal { get; set; }
     public List<JournalEntryLineDto> Lines { get; set; } = new();
 }
 

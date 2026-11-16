@@ -1889,6 +1889,9 @@ export interface JournalEntryDto extends EntityDto<string> {
   totalCredit?: number;
   difference?: number;
   isMultiCurrency?: boolean;
+  reversalOfId?: string | null;
+  reversalOfEntryNumber?: string | null;
+  hasActiveReversal?: boolean;
   lines?: JournalEntryLineDto[];
 }
 

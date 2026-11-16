@@ -1,8 +1,8 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -24,7 +24,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
 @Component({
   selector: 'app-journal-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent],
+  imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, DocumentConnectionsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
@@ -80,6 +80,16 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
                 <table class="table table-borderless table-sm mb-0">
                   <tr><td class="text-muted" style="width:40%">{{ '::ReferenceType' | abpLocalization }}</td><td>{{ je()!.referenceType || '-' }}</td></tr>
                   <tr><td class="text-muted">{{ '::Notes' | abpLocalization }}</td><td>{{ je()!.narration || '-' }}</td></tr>
+                  @if (je()!.reversalOfId) {
+                    <tr>
+                      <td class="text-muted">{{ '::ReversalOf' | abpLocalization }}</td>
+                      <td>
+                        <a [routerLink]="['/accounting/journal-entries', je()!.reversalOfId]" class="text-decoration-none fw-semibold">
+                          {{ je()!.reversalOfEntryNumber || je()!.reversalOfId }}
+                        </a>
+                      </td>
+                    </tr>
+                  }
                   @if (je()!.isMultiCurrency) {
                     <tr><td class="text-muted">{{ '::MultiCurrency' | abpLocalization }}</td><td><i class="fa fa-check text-success"></i></td></tr>
                   }
@@ -163,6 +173,8 @@ export class JournalEntryDetailComponent implements OnInit {
   private journalEntryService = inject(JournalEntryService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService, { optional: true });
+  private permissionService = inject(PermissionService, { optional: true });
 
   je = signal<JournalEntryDto | null>(null);
   totalDebit = signal(0);
@@ -173,19 +185,35 @@ export class JournalEntryDetailComponent implements OnInit {
     return VOUCHER_TYPE_LABELS[type ?? 0] ?? 'Journal Entry';
   }
 
+  private label(key: string, fallback: string): string {
+    return this.l?.instant(key) || fallback;
+  }
+
   get workflowActions(): WorkflowAction[] {
     const j = this.je();
     if (!j) return [];
     const actions: WorkflowAction[] = [];
-    if (j.status === 'Draft') {
-      actions.push({ name: 'post', label: 'Post', icon: 'check-double', color: 'success' });
+    const canPost = this.permissionService?.getGrantedPolicy('MyERP.JournalEntries.Post') ?? true;
+    const canCreate = this.permissionService?.getGrantedPolicy('MyERP.JournalEntries.Create') ?? true;
+
+    if (j.status === 'Draft' && canPost) {
+      actions.push({ name: 'post', label: this.label('::Post', 'Post'), icon: 'check-double', color: 'success' });
     }
     if (j.status === 'Posted') {
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
-      actions.push({ name: 'reverse', label: 'CreateReversal', icon: 'rotate-left', color: 'warning' });
+      if (canPost) {
+        actions.push({ name: 'cancel', label: this.label('::Cancel', 'Cancel'), icon: 'ban', color: 'danger' });
+      }
+      // Per ERPNext PR #58092: disallow reversing an entry that is already a reversal or has an active reversal.
+      const isReversible = j.voucherType !== 16 && !j.reversalOfId && !j.hasActiveReversal;
+      if (isReversible && canPost) {
+        actions.push({ name: 'reverse', label: this.label('::CreateReversal', 'CreateReversal'), icon: 'rotate-left', color: 'warning' });
+      }
+      if (isReversible && canCreate) {
+        actions.push({ name: 'reverse_draft', label: this.label('::MakeReverseDraft', 'Reverse as Draft'), icon: 'copy', color: 'info' });
+      }
     }
-    if (j.status === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+    if (j.status === 'Cancelled' && canCreate) {
+      actions.push({ name: 'amend', label: this.label('::Amend', 'Amend'), icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }
@@ -195,13 +223,18 @@ export class JournalEntryDetailComponent implements OnInit {
     this.loadEntry(id);
   }
 
+  private handleError(err: any): void {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster.error(reason || '::OperationFailed');
+  }
+
   onAction(action: string): void {
-    const id = this.je()!.id;
+    const id = this.je()!.id!;
     switch (action) {
       case 'post':
         this.journalEntryService.post(id).subscribe({
           next: () => { this.toaster.success('::SuccessfullyPosted'); this.reload(); },
-          error: () => {},
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'cancel':
@@ -209,7 +242,7 @@ export class JournalEntryDetailComponent implements OnInit {
           if (s === Confirmation.Status.confirm) {
             this.journalEntryService.cancel(id).subscribe({
               next: () => this.reload(),
-              error: () => {},
+              error: (err: any) => this.handleError(err),
             });
           }
         });
@@ -217,17 +250,29 @@ export class JournalEntryDetailComponent implements OnInit {
       case 'amend':
         this.journalEntryService.amend(id).subscribe({
           next: (amended: any) => this.router.navigate(['/accounting/journal-entries', amended.id]),
-          error: () => {},
+          error: (err: any) => this.handleError(err),
         });
         break;
       case 'reverse':
         this.confirmation.warn('::CreateReversalConfirmation', '::AreYouSure').subscribe(s => {
           if (s === Confirmation.Status.confirm) {
             this.journalEntryService.createReversal(id).subscribe({
-              next: (reversal: any) => this.router.navigate(['/accounting/journal-entries', reversal.id]),
-              error: () => {},
+              next: (reversal: any) => {
+                this.toaster.success('::SuccessfullyCreated');
+                this.router.navigate(['/accounting/journal-entries', reversal.id]);
+              },
+              error: (err: any) => this.handleError(err),
             });
           }
+        });
+        break;
+      case 'reverse_draft':
+        this.journalEntryService.createReverseJournalEntry(id).subscribe({
+          next: (reversal: any) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/accounting/journal-entries', reversal.id, 'edit']);
+          },
+          error: (err: any) => this.handleError(err),
         });
         break;
     }

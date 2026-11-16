@@ -201,9 +201,17 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
   }
 
   refresh(item: ProcessPaymentReconciliationDto) {
-    this.service.get(item.id!).subscribe({
-      next: dto => { this.items = this.items.map(i => i.id === dto.id ? dto : i); },
-      error: () => {},
+    this.service.getProgress(item.id!).subscribe({
+      next: progress => {
+        this.items = this.items.map(i => i.id === item.id ? {
+          ...i,
+          status: progress.status ?? i.status,
+          statusName: progress.statusName ?? i.statusName,
+          reconciledCount: progress.reconciledCount ?? i.reconciledCount,
+          errorLog: progress.errorLog ?? i.errorLog,
+        } : i);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
     });
   }
 

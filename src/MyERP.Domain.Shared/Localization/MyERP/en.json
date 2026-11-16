@@ -365,6 +365,8 @@
     "ReturnCreated": "Return document created successfully.",
     "CreateReversalConfirmation": "This will create a new posted Journal Entry with debit/credit swapped, reversing this entry's effect. The original entry stays posted. Continue?",
     "CreateReversal": "Create Reversal",
+    "MakeReverseDraft": "Reverse as Draft",
+    "ReversalOf": "Reversal Of",
     "SameWarehouseTransfer": "Source and destination warehouse must be different.",
     "CreateMaintenanceVisit": "Create Maintenance Visit",
     "ResetSla": "Reset SLA",

@@ -465,7 +465,11 @@ public partial class BudgetMapper : MapperBase<Accounting.Entities.Budget, Dtos.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class JournalEntryMapper : MapperBase<Accounting.Entities.JournalEntry, Accounting.JournalEntryDto>
 {
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryDto.ReversalOfEntryNumber))]
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryDto.HasActiveReversal))]
     public override partial Accounting.JournalEntryDto Map(Accounting.Entities.JournalEntry source);
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryDto.ReversalOfEntryNumber))]
+    [MapperIgnoreTarget(nameof(Accounting.JournalEntryDto.HasActiveReversal))]
     public override partial void Map(Accounting.Entities.JournalEntry source, Accounting.JournalEntryDto destination);
     [MapperIgnoreTarget(nameof(Accounting.JournalEntryLineDto.AccountName))]
     [MapperIgnoreTarget(nameof(Accounting.JournalEntryLineDto.AccountCode))]

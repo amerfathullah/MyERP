@@ -64,6 +64,14 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             }
         }
 
+        if (entry.ReversalOfId.HasValue)
+        {
+            var source = await _repository.FindAsync(entry.ReversalOfId.Value);
+            dto.ReversalOfEntryNumber = source?.EntryNumber;
+        }
+        var jeQuery = await _repository.GetQueryableAsync();
+        dto.HasActiveReversal = jeQuery.Any(j => j.ReversalOfId == entry.Id && j.Status != Core.DocumentStatus.Cancelled);
+
         return dto;
     }
 
@@ -341,7 +349,23 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
     public async Task<JournalEntryDto> PostAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+        await ValidateBeforePostAsync(entry);
 
+        entry.Post();
+        await _repository.UpdateAsync(entry, autoSave: true);
+
+        // Audit trail
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JournalEntry", entry.Id, "Posted",
+            entry.CompanyId, entry.EntryNumber, "Draft", "Posted",
+            CurrentUser.Id, tenantId: entry.TenantId));
+
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
+    }
+
+    private async Task ValidateBeforePostAsync(JournalEntry entry)
+    {
         // Validate accounting period is not closed/frozen
         var company = await _companyRepository.GetAsync(entry.CompanyId);
         if (company.AccountsFrozenTillDate.HasValue && entry.PostingDate <= company.AccountsFrozenTillDate.Value)
@@ -441,18 +465,6 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 postRowIdx++;
             }
         }
-
-        entry.Post();
-        await _repository.UpdateAsync(entry, autoSave: true);
-
-        // Audit trail
-        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "JournalEntry", entry.Id, "Posted",
-            entry.CompanyId, entry.EntryNumber, "Draft", "Posted",
-            CurrentUser.Id, tenantId: entry.TenantId));
-
-        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 
     [Authorize(MyERPPermissions.JournalEntries.Post)]
@@ -527,7 +539,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 .WithData("detail", "A reversal Journal Entry already exists for this entry.");
         }
 
-        var number = await _numberGenerator.GenerateAsync("JE", source.CompanyId);
+        var number = await _numberGenerator.GenerateAsync("JournalEntry", source.CompanyId);
         var reversal = new JournalEntry(
             GuidGenerator.Create(), source.CompanyId, source.FiscalYearId,
             DateTime.UtcNow, source.TenantId);
@@ -551,6 +563,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry"));
         }
 
+        await ValidateBeforePostAsync(reversal);
         reversal.Post();
         await _repository.InsertAsync(reversal, autoSave: true);
 
