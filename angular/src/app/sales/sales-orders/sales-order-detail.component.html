@@ -568,6 +568,15 @@
       </div>
     }
 
+    <app-sales-team-card
+      [salesTeam]="order.salesTeam"
+      [totalCommission]="order.totalCommission"
+      [canEdit]="order.status !== 'Cancelled' && order.status !== 'Closed'"
+      [forceVisible]="isActiveOrder()"
+      [saving]="savingSalesTeam()"
+      [(editing)]="editingSalesTeam"
+      (salesTeamSaved)="onSaveSalesTeam($event)" />
+
     <app-activity-log [documentType]="'SalesOrder'" [documentId]="order.id!"></app-activity-log>
 
     <!-- Delivery Schedule Generator (when no schedule exists and order is active) -->

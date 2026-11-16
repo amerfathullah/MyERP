@@ -327,11 +327,18 @@ describe('SalesOrderDetailComponent Logic', () => {
       };
       const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
 
+    const soServiceMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [] })),
+      getDeliverySchedule: vi.fn().mockReturnValue(of([])),
+      getOrderPayments: vi.fn().mockReturnValue(of([])),
+      updateSalesTeam: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [], salesTeam: [{ salesPersonId: 'sp-1', allocatedPercentage: 100 }], totalCommission: 15 })),
+    };
+
       const injector = Injector.create({
         providers: [
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'so-1' } } } },
           { provide: Router, useValue: routerMock },
-          { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [] })), getDeliverySchedule: vi.fn().mockReturnValue(of([])), getOrderPayments: vi.fn().mockReturnValue(of([])) } },
+          { provide: SalesOrderService, useValue: soServiceMock },
           { provide: DocumentConversionService, useValue: conversionMock },
           { provide: SupplierService, useValue: supplierMock },
           { provide: ManufacturingService, useValue: {} },
@@ -359,7 +366,7 @@ describe('SalesOrderDetailComponent Logic', () => {
           { id: 'soi-2', itemId: 'item-2', description: 'Closed Item', quantity: 2, orderedQty: 0, isClosed: true },
         ],
       } as any;
-      return { comp, conversionMock, supplierMock, stockReservationMock, proformaMock, approvalMock, routerMock, toasterMock };
+      return { comp, conversionMock, supplierMock, stockReservationMock, proformaMock, approvalMock, routerMock, toasterMock, soServiceMock };
     }
 
     it('exposes purchase_order workflow action for active sales orders', () => {
@@ -431,6 +438,17 @@ describe('SalesOrderDetailComponent Logic', () => {
 
       expect(conversionMock.convertSalesOrderToDeliveryNoteByDate).toHaveBeenCalledWith('so-1', '2026-11-20');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/delivery-notes', 'dn-by-date']);
+    });
+
+    it('updates sales team on sales order via SalesOrderService.updateSalesTeam', () => {
+      const { comp, soServiceMock, toasterMock } = createComponent();
+      comp.editingSalesTeam.set(true);
+      comp.onSaveSalesTeam([{ salesPersonId: 'sp-1', allocatedPercentage: 100, commissionRate: 5 }]);
+
+      expect(soServiceMock.updateSalesTeam).toHaveBeenCalledWith('so-1', [{ salesPersonId: 'sp-1', allocatedPercentage: 100, commissionRate: 5 }]);
+      expect(comp.editingSalesTeam()).toBe(false);
+      expect(comp.order?.totalCommission).toBe(15);
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
     });
   });
 });

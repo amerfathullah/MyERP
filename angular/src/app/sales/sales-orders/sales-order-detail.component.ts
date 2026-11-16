@@ -27,15 +27,16 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { SalesOrderPrintLayoutComponent } from '../../shared/components/so-print-layout/so-print-layout.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { SalesTeamCardComponent } from '../../shared/components/sales-team-card/sales-team-card.component';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
-import type { ProformaInvoiceDto, ProformedTotalsDto, SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/models';
+import type { ProformaInvoiceDto, ProformedTotalsDto, SalesOrderDto, DeliveryScheduleEntryDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-sales-order-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent, CompanyCurrencyPipe],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent, CompanyCurrencyPipe, SalesTeamCardComponent],
   templateUrl: './sales-order-detail.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sales-order-detail.component.scss'],
@@ -266,6 +267,26 @@ export class SalesOrderDetailComponent implements OnInit {
         next: (res) => this.documentApprovals.set(res?.items ?? []),
         error: () => this.documentApprovals.set([]),
       });
+    });
+  }
+
+  savingSalesTeam = signal(false);
+  editingSalesTeam = signal(false);
+
+  onSaveSalesTeam(rows: SalesTeamAllocationInputDto[]): void {
+    if (!this.order?.id) return;
+    this.savingSalesTeam.set(true);
+    this.salesOrderService.updateSalesTeam(this.order.id, rows).subscribe({
+      next: updated => {
+        this.order = updated;
+        this.savingSalesTeam.set(false);
+        this.editingSalesTeam.set(false);
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => {
+        this.savingSalesTeam.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 

@@ -91,6 +91,15 @@
       </div>
     </div>
 
+    <app-sales-team-card
+      [salesTeam]="deliveryNote.salesTeam"
+      [totalCommission]="deliveryNote.totalCommission"
+      [canEdit]="deliveryNote.status !== 'Cancelled'"
+      [forceVisible]="deliveryNote.status !== 'Cancelled'"
+      [saving]="savingSalesTeam()"
+      [(editing)]="editingSalesTeam"
+      (salesTeamSaved)="onSaveSalesTeam($event)" />
+
     @if (deliveryNote.status !== 'Draft') {
       <app-document-connections [documentType]="'DeliveryNote'" [documentId]="deliveryNote.id!" />
     }

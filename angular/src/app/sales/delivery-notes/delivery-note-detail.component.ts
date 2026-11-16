@@ -20,15 +20,16 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
+import { SalesTeamCardComponent } from '../../shared/components/sales-team-card/sales-team-card.component';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
-import type { DeliveryNoteDto } from '../../proxy/sales/models';
+import type { DeliveryNoteDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
   standalone: true,
   imports: [
-    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe, FormsModule],
+    CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe, FormsModule, SalesTeamCardComponent],
   templateUrl: './delivery-note-detail.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./delivery-note-detail.component.scss'],
@@ -58,6 +59,25 @@ export class DeliveryNoteDetailComponent implements OnInit {
   // Draft Link Guard state
   showDraftGuard = signal(false);
   private pendingConversionAction: (() => void) | null = null;
+  savingSalesTeam = signal(false);
+  editingSalesTeam = signal(false);
+
+  onSaveSalesTeam(rows: SalesTeamAllocationInputDto[]): void {
+    if (!this.deliveryNote?.id) return;
+    this.savingSalesTeam.set(true);
+    this.service.updateSalesTeam(this.deliveryNote.id, rows).subscribe({
+      next: updated => {
+        this.deliveryNote = updated;
+        this.savingSalesTeam.set(false);
+        this.editingSalesTeam.set(false);
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err: any) => {
+        this.savingSalesTeam.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::OperationFailed');
+      },
+    });
+  }
 
   get workflowActions(): WorkflowAction[] {
     if (!this.deliveryNote) return [];
