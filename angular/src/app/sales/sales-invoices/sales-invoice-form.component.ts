@@ -3,6 +3,7 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
+import { TaxTemplateType } from '../../proxy/tax/tax-template-type.enum';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -400,19 +401,37 @@ export class SalesInvoiceFormComponent implements OnInit {
 
   /** Load available tax charges templates (Selling type) for this company. */
   private loadTaxTemplates(): void {
-    const companyId = this.companyContext.currentCompanyId();
-    const params: any = { skipCount: '0', maxResultCount: '50', templateType: '0' }; // 0 = Selling
-    if (companyId) params.companyId = companyId;
-    this.taxTemplateService.getList({ skipCount: 0, maxResultCount: 100 } as any).subscribe({
-      next: res => {
-        const templates = (res.items ?? []).filter((t: any) => t.isEnabled);
-        this.taxTemplates.set(templates);
-        // Auto-select default template (if not editing existing invoice)
-        if (!this.isEditMode) {
-          const defaultTmpl = templates.find((t: any) => t.isDefault);
-          if (defaultTmpl) {
-            this.applyTaxTemplate(defaultTmpl);
+    const companyId = this.form?.get('companyId')?.value || this.companyContext.currentCompanyId();
+    if (!companyId) {
+      this.taxTemplateService.getList({ skipCount: 0, maxResultCount: 100, templateType: TaxTemplateType.Selling } as any).subscribe({
+        next: res => {
+          const templates = (res.items ?? []).filter((t: any) => t.isEnabled && (t.templateType == null || t.templateType === TaxTemplateType.Selling));
+          this.taxTemplates.set(templates);
+          if (!this.isEditMode) {
+            const defaultTmpl = templates.find((t: any) => t.isDefault);
+            if (defaultTmpl) this.applyTaxTemplate(defaultTmpl);
           }
+        },
+        error: () => {},
+      });
+      return;
+    }
+
+    this.taxTemplateService.getActiveTemplates(companyId, TaxTemplateType.Selling).subscribe({
+      next: list => {
+        const templates = list ?? [];
+        this.taxTemplates.set(templates);
+        if (!this.isEditMode) {
+          this.taxTemplateService.getDefault(companyId, TaxTemplateType.Selling).subscribe({
+            next: def => {
+              const target = def ?? templates.find((t: any) => t.isDefault);
+              if (target) this.applyTaxTemplate(target);
+            },
+            error: () => {
+              const fallback = templates.find((t: any) => t.isDefault);
+              if (fallback) this.applyTaxTemplate(fallback);
+            },
+          });
         }
       },
       error: () => {},
@@ -472,6 +491,12 @@ export class SalesInvoiceFormComponent implements OnInit {
         if (details.defaultPaymentTermsTemplateId && !this.form.get('paymentTermsTemplateId')?.value) {
           this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
           this.onPaymentTermsChanged();
+        }
+        if (companyId && !this.isEditMode && details.taxCategoryId) {
+          this.taxTemplateService.getDefault(companyId, TaxTemplateType.Selling, details.taxCategoryId).subscribe({
+            next: def => { if (def) this.applyTaxTemplate(def); },
+            error: () => {},
+          });
         }
       },
       error: () => {},

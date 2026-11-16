@@ -1,6 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
 import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
+import { SalesInvoiceFormComponent } from './sales-invoice-form.component';
+import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
+import { SalesPersonService } from '../../proxy/sales/sales-person.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { TaxTemplateType } from '../../proxy/tax/tax-template-type.enum';
 
 /**
  * Tests for the Sales Invoice form calculation patterns.
@@ -250,6 +269,52 @@ describe('SalesInvoice form calculations', () => {
       expect(form.get('isReturnRefund')?.value).toBe(false);
       expect(form.get('isDebitNote')?.value).toBe(true);
       expect(form.get('updateStock')?.value).toBe(false);
+    });
+  });
+
+  describe('Tax template auto-loading', () => {
+    it('loads active selling templates and applies default tax template for company', () => {
+      const tmpl = {
+        id: 'tmpl-1',
+        name: 'SST 8%',
+        isDefault: true,
+        rows: [{ id: 'row-1', rate: 8, description: 'Service Tax 8%', chargeType: 0 }],
+      };
+      const taxTemplateMock = {
+        getActiveTemplates: vi.fn().mockReturnValue(of([tmpl])),
+        getDefault: vi.fn().mockReturnValue(of(tmpl)),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: {} } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: SalesInvoiceService, useValue: { get: vi.fn(), getNextNumber: vi.fn().mockReturnValue(of('SINV-0001')) } },
+          { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PartyDetailsService, useValue: {} },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: taxTemplateMock },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceFormComponent());
+      comp.ngOnInit();
+
+      expect(taxTemplateMock.getActiveTemplates).toHaveBeenCalledWith('comp-1', TaxTemplateType.Selling);
+      expect(taxTemplateMock.getDefault).toHaveBeenCalledWith('comp-1', TaxTemplateType.Selling);
+      expect(comp.taxTemplates()).toHaveLength(1);
+      expect(comp.selectedTaxRules()).toHaveLength(1);
+      expect(comp.selectedTaxRules()[0].rate).toBe(8);
     });
   });
 });

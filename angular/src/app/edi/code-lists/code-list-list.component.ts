@@ -31,6 +31,7 @@ import { CodeListDto } from '../../proxy/edi/models';
               <th>Canonical URI</th>
               <th>Publisher</th>
               <th>Version</th>
+              <th>Default Code</th>
               <th class="text-center" style="width: 100px;">Status</th>
               <th class="text-end" style="width: 160px;">Actions</th>
             </tr>
@@ -46,6 +47,13 @@ import { CodeListDto } from '../../proxy/edi/models';
                 <td class="text-truncate" style="max-width: 250px;">{{ item.canonicalUri || '—' }}</td>
                 <td>{{ item.publisher || '—' }}</td>
                 <td>{{ item.version || '—' }}</td>
+                <td>
+                  @if (item.id && defaultCodes[item.id] !== undefined) {
+                    <span class="badge bg-info text-dark font-monospace">{{ defaultCodes[item.id] || '—' }}</span>
+                  } @else {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resolveDefaultCode(item)">Check Default</button>
+                  }
+                </td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
                     {{ item.isActive ? 'Active' : 'Inactive' }}
@@ -58,7 +66,7 @@ import { CodeListDto } from '../../proxy/edi/models';
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="text-center text-muted py-4">No code lists found.</td>
+                <td colspan="7" class="text-center text-muted py-4">No code lists found.</td>
               </tr>
             }
           </tbody>
@@ -73,10 +81,20 @@ export class CodeListListComponent implements OnInit {
   private toaster = inject(ToasterService);
 
   items: CodeListDto[] = [];
+  defaultCodes: Record<string, string> = {};
   filter = '';
 
   ngOnInit() {
     this.load();
+  }
+
+  resolveDefaultCode(item: CodeListDto): void {
+    const identifier = item.canonicalUri || item.title;
+    if (!item.id || !identifier) return;
+    this.service.getDefaultCode(identifier).subscribe({
+      next: code => { this.defaultCodes[item.id!] = code ?? ''; },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+    });
   }
 
   load(): void {
