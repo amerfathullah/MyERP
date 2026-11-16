@@ -1,14 +1,17 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { IncomingCallSettingsService } from '../../proxy/telephony/incoming-call-settings.service';
 import { CallRoutingMode } from '../../proxy/telephony/call-routing-mode.enum';
+import { EmployeeGroupService } from '../../proxy/human-resources/employee-group.service';
+import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
 
 @Component({
   selector: 'app-incoming-call-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -57,7 +60,7 @@ import { CallRoutingMode } from '../../proxy/telephony/call-routing-mode.enum';
                     <th>Day of Week</th>
                     <th>From Time</th>
                     <th>To Time</th>
-                    <th>Handling Employee Group ID</th>
+                    <th>Handling Employee Group</th>
                     <th style="width: 80px;" class="text-center">Action</th>
                   </tr>
                 </thead>
@@ -82,7 +85,12 @@ import { CallRoutingMode } from '../../proxy/telephony/call-routing-mode.enum';
                         <input type="time" class="form-control form-control-sm" formControlName="toTime">
                       </td>
                       <td>
-                        <input type="text" class="form-control form-control-sm" formControlName="employeeGroupId" placeholder="Employee Group GUID">
+                        <select class="form-select form-select-sm" formControlName="employeeGroupId">
+                          <option value="">Select Employee Group...</option>
+                          @for (g of employeeGroups(); track g.id) {
+                            <option [value]="g.id">{{ g.groupName }}</option>
+                          }
+                        </select>
                       </td>
                       <td class="text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSchedule(i)">×</button>
@@ -98,6 +106,43 @@ import { CallRoutingMode } from '../../proxy/telephony/call-routing-mode.enum';
             </div>
           </div>
 
+          <!-- Active Employee Group Test -->
+          <div class="card mb-4 border-info">
+            <div class="card-header bg-light py-2">
+              <h6 class="mb-0 text-secondary">{{ '::CheckActiveGroup' | abpLocalization }}</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                  <label class="form-label small">Day of Week</label>
+                  <select class="form-select form-select-sm" [ngModel]="testDay()" [ngModelOptions]="{standalone: true}" (ngModelChange)="testDay.set($event)">
+                    <option [ngValue]="1">Monday</option>
+                    <option [ngValue]="2">Tuesday</option>
+                    <option [ngValue]="3">Wednesday</option>
+                    <option [ngValue]="4">Thursday</option>
+                    <option [ngValue]="5">Friday</option>
+                    <option [ngValue]="6">Saturday</option>
+                    <option [ngValue]="0">Sunday</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Time</label>
+                  <input type="time" class="form-control form-control-sm" [ngModel]="testTime()" [ngModelOptions]="{standalone: true}" (ngModelChange)="testTime.set($event)">
+                </div>
+                <div class="col-md-3">
+                  <button type="button" class="btn btn-sm btn-outline-info" [disabled]="checkingActive()" (click)="checkActiveGroup()">
+                    <i class="fa fa-phone-volume me-1"></i>{{ '::CheckActiveGroup' | abpLocalization }}
+                  </button>
+                </div>
+                <div class="col-md-3">
+                  @if (activeGroupLabel()) {
+                    <span class="badge bg-info text-dark">{{ activeGroupLabel() }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save Settings</button>
         </form>
       </div>
@@ -107,9 +152,15 @@ import { CallRoutingMode } from '../../proxy/telephony/call-routing-mode.enum';
 export class IncomingCallSettingsComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(IncomingCallSettingsService);
+  private employeeGroupService = inject(EmployeeGroupService);
   private toaster = inject(ToasterService);
 
   form: FormGroup;
+  employeeGroups = signal<EmployeeGroupDto[]>([]);
+  testDay = signal<number>(1);
+  testTime = signal<string>('10:00');
+  checkingActive = signal(false);
+  activeGroupLabel = signal<string>('');
 
   get schedulesArray(): FormArray {
     return this.form.get('schedules') as FormArray;
@@ -126,6 +177,11 @@ export class IncomingCallSettingsComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.employeeGroupService.getList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
+      next: res => this.employeeGroups.set(res.items ?? []),
+      error: () => {},
+    });
+
     this.service.get().subscribe(res => {
       this.form.patchValue({
         callRouting: res.callRouting,
@@ -159,6 +215,23 @@ export class IncomingCallSettingsComponent implements OnInit {
 
   removeSchedule(index: number) {
     this.schedulesArray.removeAt(index);
+  }
+
+  checkActiveGroup(): void {
+    this.checkingActive.set(true);
+    this.service.getActiveEmployeeGroup(this.testDay(), this.testTime()).subscribe({
+      next: groupId => {
+        this.checkingActive.set(false);
+        const cleanId = (groupId ?? '').replace(/^"|"$/g, '');
+        if (!cleanId) {
+          this.activeGroupLabel.set('None');
+          return;
+        }
+        const group = this.employeeGroups().find(g => g.id === cleanId);
+        this.activeGroupLabel.set(group?.groupName ?? cleanId);
+      },
+      error: () => this.checkingActive.set(false),
+    });
   }
 
   save() {

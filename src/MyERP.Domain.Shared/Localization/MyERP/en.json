@@ -6387,7 +6387,14 @@
     "CreateGlRepostingEntries": "Create GL Reposting Entries",
     "PickListCreated": "Pick List created",
     "Manufacturing:EditWorkOrder": "Edit Work Order",
-    "AutoResolved": "Auto-resolved"
+    "AutoResolved": "Auto-resolved",
+    "EnabledDimensions": "Enabled Dimensions",
+    "ActiveForCompany": "Active for Company",
+    "BillableSalesOrders": "Billable Sales Orders",
+    "LoadSelectedOrders": "Load Selected Orders",
+    "NoBillableSalesOrders": "No billable sales orders found for this customer",
+    "CheckRouting": "Check Routing",
+    "CheckActiveGroup": "Check Active Group"
   }
 }
 

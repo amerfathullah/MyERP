@@ -229,6 +229,51 @@
         }
       </div>
       <div class="card-body">
+        @if (showBillableSoPicker() && billableSalesOrders().length > 0) {
+          <div class="card border-success mb-3">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+              <strong class="small">{{ '::BillableSalesOrders' | abpLocalization }}</strong>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-success" [disabled]="selectedBillableSoIds().size === 0 || isLoadingSoItems()" (click)="loadSelectedBillableOrders()">
+                  <i class="fa fa-check me-1"></i>{{ '::LoadSelectedOrders' | abpLocalization }} ({{ selectedBillableSoIds().size }})
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeBillableSoPicker()">
+                  {{ '::Cancel' | abpLocalization }}
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 32px"></th>
+                    <th>{{ '::OrderNumber' | abpLocalization }}</th>
+                    <th>{{ '::OrderDate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::GrandTotal' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Billed' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (so of billableSalesOrders(); track so.id) {
+                    <tr>
+                      <td>
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          [checked]="selectedBillableSoIds().has(so.id!)"
+                          (change)="toggleBillableSo(so.id!, $any($event.target).checked)" />
+                      </td>
+                      <td class="fw-semibold">{{ so.orderNumber }}</td>
+                      <td>{{ so.orderDate | date:'yyyy-MM-dd' }}</td>
+                      <td class="text-end font-monospace">{{ so.grandTotal | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ so.perBilled ?? 0 | number:'1.0-0' }}%</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
         <app-invoice-item-grid [items]="items" transactionType="Selling" [warehouseId]="form.get('warehouseId')?.value || ''" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" [showClassificationCode]="true" (rowChanged)="recalculate()" />
       </div>
     </div>

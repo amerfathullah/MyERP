@@ -8,6 +8,7 @@ import { of } from 'rxjs';
 import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
 import { SalesInvoiceFormComponent } from './sales-invoice-form.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -291,6 +292,7 @@ describe('SalesInvoice form calculations', () => {
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: {} } } },
           { provide: TaxCalculationService, useValue: new TaxCalculationService() },
           { provide: SalesInvoiceService, useValue: { get: vi.fn(), getNextNumber: vi.fn().mockReturnValue(of('SINV-0001')) } },
+          { provide: SalesOrderService, useValue: { getBillableSalesOrders: vi.fn().mockReturnValue(of([])) } },
           { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
           { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
           { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
@@ -315,6 +317,62 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.taxTemplates()).toHaveLength(1);
       expect(comp.selectedTaxRules()).toHaveLength(1);
       expect(comp.selectedTaxRules()[0].rate).toBe(8);
+    });
+
+    it('loads billable sales orders picker when multiple billable orders exist and filters unbilled items to selected order', () => {
+      const siServiceMock = {
+        get: vi.fn(),
+        getNextNumber: vi.fn().mockReturnValue(of('SINV-0001')),
+        getUnbilledOrderItems: vi.fn().mockReturnValue(of([
+          { salesOrderId: 'so-1', salesOrderItemId: 'soi-1', itemId: 'item-1', itemName: 'Widget A', quantity: 2, rate: 50, uom: 'EA' },
+          { salesOrderId: 'so-2', salesOrderItemId: 'soi-2', itemId: 'item-2', itemName: 'Widget B', quantity: 3, rate: 40, uom: 'EA' },
+        ])),
+      };
+      const soServiceMock = {
+        getBillableSalesOrders: vi.fn().mockReturnValue(of([
+          { id: 'so-1', orderNumber: 'SO-001', grandTotal: 100, perBilled: 0 },
+          { id: 'so-2', orderNumber: 'SO-002', grandTotal: 120, perBilled: 0 },
+        ])),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: {} } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: SalesInvoiceService, useValue: siServiceMock },
+          { provide: SalesOrderService, useValue: soServiceMock },
+          { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PartyDetailsService, useValue: {} },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: { getActiveTemplates: vi.fn().mockReturnValue(of([])), getDefault: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceFormComponent());
+      comp.form.patchValue({ customerId: 'cust-1', companyId: 'comp-1' });
+      comp.loadFromSalesOrders();
+
+      expect(soServiceMock.getBillableSalesOrders).toHaveBeenCalledWith('cust-1', 'comp-1');
+      expect(comp.showBillableSoPicker()).toBe(true);
+      expect(comp.billableSalesOrders()).toHaveLength(2);
+
+      comp.toggleBillableSo('so-2', false);
+      comp.loadSelectedBillableOrders();
+
+      expect(siServiceMock.getUnbilledOrderItems).toHaveBeenCalledWith('cust-1', 'comp-1');
+      expect(comp.items.length).toBe(1);
+      expect(comp.items.at(0).get('salesOrderItemId')?.value).toBe('soi-1');
+      expect(comp.showBillableSoPicker()).toBe(false);
     });
   });
 });

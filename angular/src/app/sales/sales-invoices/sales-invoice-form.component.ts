@@ -10,6 +10,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from './components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -20,7 +21,7 @@ import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
 import { PriceListService } from '../../proxy/inventory/price-list.service';
-import type { CreateSalesInvoiceDto, SalesInvoiceItemDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
+import type { CreateSalesInvoiceDto, SalesInvoiceItemDto, SalesOrderDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 import type { TaxRuleDto as TaxRuleModel } from '../../proxy/tax/models';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
@@ -49,6 +50,7 @@ export class SalesInvoiceFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private taxCalc = inject(TaxCalculationService);
   private service = inject(SalesInvoiceService);
+  private salesOrderService = inject(SalesOrderService);
   private customerService = inject(CustomerService);
   private salesPersonService = inject(SalesPersonService);
   private companyContext = inject(CompanyContextService);
@@ -83,6 +85,9 @@ export class SalesInvoiceFormComponent implements OnInit {
   paymentTermsTemplates = signal<any[]>([]);
   isLoadingSoItems = signal(false);
   isLoadingDnItems = signal(false);
+  showBillableSoPicker = signal(false);
+  billableSalesOrders = signal<SalesOrderDto[]>([]);
+  selectedBillableSoIds = signal<Set<string>>(new Set());
   paymentSchedulePreview = signal<{ dueDate: string; portion: number; amount: number }[]>([]);
   returnAgainstNumber = signal<string>('');
 
@@ -508,10 +513,58 @@ export class SalesInvoiceFormComponent implements OnInit {
     const companyId = this.form.get('companyId')?.value;
     if (!customerId) return;
     this.isLoadingSoItems.set(true);
-    this.service.getUnbilledOrderItems(customerId, companyId || undefined).subscribe({
+    this.salesOrderService.getBillableSalesOrders(customerId, companyId || undefined).subscribe({
+      next: (orders: SalesOrderDto[]) => {
+        const list = orders ?? [];
+        if (list.length === 0) {
+          this.isLoadingSoItems.set(false);
+          this.showBillableSoPicker.set(false);
+          this.billableSalesOrders.set([]);
+          this.toaster.info(this.l.instant('::NoBillableSalesOrders'));
+          return;
+        }
+        if (list.length === 1 && list[0].id) {
+          this.fetchUnbilledSoItems(customerId, companyId || undefined, new Set([list[0].id]));
+          return;
+        }
+        this.isLoadingSoItems.set(false);
+        this.billableSalesOrders.set(list);
+        this.selectedBillableSoIds.set(new Set(list.map(o => o.id).filter((id): id is string => !!id)));
+        this.showBillableSoPicker.set(true);
+      },
+      error: () => this.isLoadingSoItems.set(false),
+    });
+  }
+
+  toggleBillableSo(soId: string, checked: boolean): void {
+    const next = new Set(this.selectedBillableSoIds());
+    if (checked) next.add(soId);
+    else next.delete(soId);
+    this.selectedBillableSoIds.set(next);
+  }
+
+  loadSelectedBillableOrders(): void {
+    const customerId = this.form.get('customerId')?.value;
+    const companyId = this.form.get('companyId')?.value;
+    const selectedIds = this.selectedBillableSoIds();
+    if (!customerId || selectedIds.size === 0) return;
+    this.isLoadingSoItems.set(true);
+    this.fetchUnbilledSoItems(customerId, companyId || undefined, selectedIds);
+  }
+
+  closeBillableSoPicker(): void {
+    this.showBillableSoPicker.set(false);
+  }
+
+  private fetchUnbilledSoItems(customerId: string, companyId?: string, filterOrderIds?: Set<string>): void {
+    this.service.getUnbilledOrderItems(customerId, companyId).subscribe({
       next: (items: any[]) => {
         this.isLoadingSoItems.set(false);
-        if (!items?.length) {
+        this.showBillableSoPicker.set(false);
+        const scopedItems = filterOrderIds?.size
+          ? (items ?? []).filter((item: any) => !item.salesOrderId || filterOrderIds.has(item.salesOrderId))
+          : (items ?? []);
+        if (!scopedItems.length) {
           this.toaster.info(this.l.instant('::NoUnbilledOrderItems'));
           return;
         }
@@ -527,7 +580,7 @@ export class SalesInvoiceFormComponent implements OnInit {
         });
 
         let loadedCount = 0;
-        items.forEach((item: any) => {
+        scopedItems.forEach((item: any) => {
           const soItemId = item.salesOrderItemId ?? item.id;
           const alreadyMapped = mappedQtyBySoItem.get(soItemId) || 0;
           const totalPending = item.unbilledQty ?? item.quantity ?? 0;

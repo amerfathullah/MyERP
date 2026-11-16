@@ -13,6 +13,7 @@ describe('AccountingDimensionsComponent Filters', () => {
   function createComponent() {
     const dimensionServiceMock = {
       getList: vi.fn().mockReturnValue(of({ items: [{ id: 'dim-1', documentType: 'Branch', label: 'Branch', fieldName: 'branch', isMandatory: false, isEnabled: true }] })),
+      getEnabledDimensions: vi.fn().mockReturnValue(of([{ id: 'dim-1', documentType: 'Branch', label: 'Branch', fieldName: 'branch', isMandatory: true, isEnabled: true }])),
       getFilters: vi.fn().mockReturnValue(of([{ id: 'flt-1', accountingDimensionId: 'dim-1', companyId: 'comp-1', accountId: 'acc-1', isAllowList: true, dimensionValueIds: 'b-1,b-2' }])),
       createFilter: vi.fn().mockReturnValue(of({ id: 'flt-2' })),
       deleteFilter: vi.fn().mockReturnValue(of(void 0)),
@@ -69,5 +70,12 @@ describe('AccountingDimensionsComponent Filters', () => {
 
     comp.deleteFilter('flt-1');
     expect(dimensionServiceMock.deleteFilter).toHaveBeenCalledWith('flt-1');
+  });
+
+  it('loads enabled dimensions for active company on init', () => {
+    const { comp, dimensionServiceMock } = createComponent();
+    expect(dimensionServiceMock.getEnabledDimensions).toHaveBeenCalledWith('comp-1');
+    expect(comp.enabledDimensions()).toHaveLength(1);
+    expect(comp.enabledDimensions()[0].label).toBe('Branch');
   });
 });

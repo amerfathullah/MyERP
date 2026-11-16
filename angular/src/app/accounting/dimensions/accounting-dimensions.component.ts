@@ -55,6 +55,21 @@ import type { AccountingDimensionDto, AccountingDimensionFilterDto, AccountDto }
         </div>
       </div>
 
+      <!-- Enabled Dimensions Preview -->
+      @if (enabledDimensions().length > 0) {
+        <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-3">
+          <strong class="small text-muted me-1">
+            <i class="fa fa-check-circle text-success me-1"></i>{{ '::EnabledDimensions' | abpLocalization }} ({{ '::ActiveForCompany' | abpLocalization }}):
+          </strong>
+          @for (ed of enabledDimensions(); track ed.id) {
+            <span class="badge bg-primary">
+              {{ ed.label || ed.documentType }}
+              @if (ed.isMandatory) { <span class="ms-1 text-warning">*</span> }
+            </span>
+          }
+        </div>
+      }
+
       <!-- Dimensions list -->
       <div class="card">
         <div class="card-header">
@@ -219,6 +234,7 @@ export class AccountingDimensionsComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
 
   dimensions = signal<AccountingDimensionDto[]>([]);
+  enabledDimensions = signal<AccountingDimensionDto[]>([]);
   accounts = signal<AccountDto[]>([]);
   selectedDimension = signal<AccountingDimensionDto | null>(null);
   filters = signal<AccountingDimensionFilterDto[]>([]);
@@ -258,6 +274,11 @@ export class AccountingDimensionsComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => this.loading.set(false)
+    });
+    const companyId = this.companyContext.currentCompanyId() ?? undefined;
+    this.dimensionService.getEnabledDimensions?.(companyId)?.subscribe({
+      next: (list) => this.enabledDimensions.set(list ?? []),
+      error: () => {},
     });
   }
 
