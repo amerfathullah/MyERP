@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import type { StockBalanceDto } from '../../proxy/inventory/models';
@@ -21,10 +22,13 @@ import { exportToCsv } from '../../shared/utils/csv-export';
 export class StockBalanceComponent implements OnInit {
   private service = inject(StockBalanceService);
   private warehouseService = inject(WarehouseService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   items = signal<any[]>([]);
   totalCount = signal(0);
   isLoading = signal(false);
+  recalculatingKey = signal<string | null>(null);
   warehouses = signal<any[]>([]);
 
   // Filters
@@ -64,6 +68,26 @@ export class StockBalanceComponent implements OnInit {
   onPageChange(event: any): void {
     this.currentPage = event.pageIndex;
     this.load();
+  }
+
+  recalculateBin(row: any): void {
+    if (!row?.itemId || !row?.warehouseId) return;
+    const key = `${row.itemId}:${row.warehouseId}`;
+    this.confirmation.warn('::RecalculateBinConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.recalculatingKey.set(key);
+      this.service.recalculateBinQty(row.itemId, row.warehouseId).subscribe({
+        next: () => {
+          this.recalculatingKey.set(null);
+          this.toaster.success('::SuccessfullyUpdated');
+          this.load();
+        },
+        error: (err: any) => {
+          this.recalculatingKey.set(null);
+          this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+        },
+      });
+    });
   }
 
   exportCsv(): void {

@@ -1,8 +1,10 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ListService, PagedResultDto, LocalizationPipe } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { StatusBadgeComponent } from '../shared/components/status-badge/status-badge.component';
 import { CompanyService } from '../proxy/core/company.service';
 import type { CompanyDto } from '../proxy/core/models';
@@ -13,6 +15,7 @@ import { PaginationComponent, type PageEvent } from '../shared/components/pagina
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterModule,
     LocalizationPipe,
     PageModule,
@@ -25,12 +28,26 @@ import { PaginationComponent, type PageEvent } from '../shared/components/pagina
 })
 export class CompanyListComponent implements OnInit {
   private companyService = inject(CompanyService);
+  private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   readonly list = inject(ListService);
   companies: CompanyDto[] = [];
   totalCount = 0;
   isLoading = false;
+  repairingCompanyId = signal<string | null>(null);
+  searchTerm = '';
   pageSize = 10;
   currentPage = 0;
+
+  get filteredCompanies(): CompanyDto[] {
+    const term = this.searchTerm.toLowerCase().trim();
+    if (!term) return this.companies;
+    return this.companies.filter(c =>
+      (c.name ?? '').toLowerCase().includes(term) ||
+      (c.taxId ?? '').toLowerCase().includes(term) ||
+      (c.sstRegistrationNumber ?? '').toLowerCase().includes(term)
+    );
+  }
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -53,5 +70,23 @@ export class CompanyListComponent implements OnInit {
 
   createCompany(): void {
     this.router.navigate(['/companies/new']);
+  }
+
+  repairAccounts(company: CompanyDto): void {
+    if (!company.id) return;
+    this.confirmation.warn('::RepairAccountsConfirmation', '::AreYouSure').subscribe(status => {
+      if (status !== Confirmation.Status.confirm) return;
+      this.repairingCompanyId.set(company.id!);
+      this.companyService.repairSrbnbAndTaxPayableAccounts(company.id!).subscribe({
+        next: () => {
+          this.repairingCompanyId.set(null);
+          this.toaster.success('::AccountsRepaired');
+        },
+        error: (err: any) => {
+          this.repairingCompanyId.set(null);
+          this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+        },
+      });
+    });
   }
 }

@@ -11,12 +11,12 @@
       <!-- Filter row -->
       <div class="row mb-3 align-items-center">
         <div class="col">
-          <span class="text-muted small">{{ companies.length }} {{ '::Results' | abpLocalization }}</span>
+          <span class="text-muted small">{{ filteredCompanies.length }} {{ '::Results' | abpLocalization }}</span>
         </div>
         <div class="col-auto">
           <div class="input-group input-group-sm" style="width: 250px;">
             <span class="input-group-text"><i class="fa fa-search"></i></span>
-            <input type="text" class="form-control"
+            <input type="text" class="form-control" [(ngModel)]="searchTerm"
               [placeholder]="'::Search' | abpLocalization" />
           </div>
         </div>
@@ -47,11 +47,11 @@
                 <th class="d-none d-md-table-cell" style="width: 140px;">{{ '::SSTRegistration' | abpLocalization }}</th>
                 <th style="width: 90px;">{{ '::Currency' | abpLocalization }}</th>
                 <th style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
-                <th class="text-end" style="width: 80px;"></th>
+                <th class="text-end" style="width: 120px;"></th>
               </tr>
             </thead>
             <tbody>
-              @for (company of companies; track company.id ?? $index) {
+              @for (company of filteredCompanies; track company.id ?? $index) {
                 <tr>
                   <td class="fw-semibold">
                     <span class="d-inline-block text-truncate" style="max-width: 220px;"
@@ -65,6 +65,12 @@
                   <td><app-status-badge [status]="company.isActive ? 'Active' : 'Inactive'" /></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" (click)="repairAccounts(company)"
+                      [disabled]="repairingCompanyId() === company.id"
+                      [title]="'::RepairAccounts' | abpLocalization"
+                      [attr.aria-label]="'::RepairAccounts' | abpLocalization">
+                      <i class="fa fa-wrench"></i>
+                    </button>
                     <button class="btn btn-outline-primary" [routerLink]="[company.id, 'edit']"
                     title="Edit" aria-label="Edit">
                     <i class="fa fa-pencil"></i>

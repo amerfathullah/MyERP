@@ -14,6 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { DunningService } from '../../proxy/sales/dunning.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
@@ -60,6 +61,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private companyService = inject(CompanyService);
   private service = inject(SalesInvoiceService);
   private eInvoiceService = inject(EInvoiceService);
+  private dunningService = inject(DunningService);
   private conversionService = inject(DocumentConversionService);
   private store = inject(SalesInvoiceStore);
   private confirmation = inject(ConfirmationService);
@@ -308,8 +310,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'dunning':
-        this.router.navigate(['/sales/dunnings/new'], {
-          queryParams: { customerId: this.invoice!.customerId, salesInvoiceId: id }
+        this.dunningService.createFromSalesInvoice(id).subscribe({
+          next: (dunning) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/sales/dunnings', dunning.id]);
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
         });
         break;
       case 'maintenanceSchedule':

@@ -6311,7 +6311,12 @@
     "Validate": "Validate",
     "TemplateValid": "Template validation passed with no errors.",
     "ValidationErrors": "Validation Errors",
-    "CurrentFiscalYear": "Current Fiscal Year"
+    "CurrentFiscalYear": "Current Fiscal Year",
+    "RepairAccounts": "Repair Accounts",
+    "RepairAccountsConfirmation": "Create missing Stock Received But Not Billed and Tax Payable accounts for this company?",
+    "AccountsRepaired": "Default accounts repaired successfully.",
+    "RecalculateBin": "Recalculate Bin",
+    "RecalculateBinConfirmation": "Recalculate bin stock quantities for this item and warehouse from ledger entries?"
   }
 }
 

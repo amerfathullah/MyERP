@@ -42,6 +42,7 @@
                 <th class="text-end">{{ '::ProjectedQty' | abpLocalization }}</th>
                 <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
                 <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -58,6 +59,14 @@
                   </td>
                   <td class="text-end">{{ row.valuationRate | number:'1.2-2' }}</td>
                   <td class="text-end">{{ row.stockValue | number:'1.2-2' }}</td>
+                  <td class="text-end">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                      (click)="recalculateBin(row)"
+                      [disabled]="recalculatingKey() === (row.itemId + ':' + row.warehouseId) || !row.itemId || !row.warehouseId"
+                      [title]="'::RecalculateBin' | abpLocalization">
+                      <i class="fa fa-refresh"></i>
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>

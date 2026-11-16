@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { SalesInvoiceDetailComponent } from './sales-invoice-detail.component';
 import { CompanyService } from '../../proxy/core/company.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { DunningService } from '../../proxy/sales/dunning.service';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
@@ -289,12 +290,16 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       const confirmationMock = { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) };
       const toasterMock = { success: vi.fn(), error: vi.fn() };
 
+      const dunningServiceMock = {
+        createFromSalesInvoice: vi.fn().mockReturnValue(of({ id: 'dun-1' })),
+      };
       const injector = Injector.create({
         providers: [
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'si-1' } } } },
           { provide: Router, useValue: routerMock },
           { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
           { provide: SalesInvoiceService, useValue: siServiceMock },
+          { provide: DunningService, useValue: dunningServiceMock },
           { provide: EInvoiceService, useValue: {} },
           { provide: DocumentConversionService, useValue: {} },
           { provide: SalesInvoiceStore, useValue: {} },
@@ -310,7 +315,7 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       });
 
       const comp = runInInjectionContext(injector, () => new SalesInvoiceDetailComponent());
-      return { comp, siServiceMock, routerMock, confirmationMock, toasterMock };
+      return { comp, siServiceMock, dunningServiceMock, routerMock, confirmationMock, toasterMock };
     }
 
     it('shows debitNote action for posted non-return non-debit-note sales invoice', () => {
@@ -331,6 +336,17 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(siServiceMock.createDebitNote).toHaveBeenCalledWith('si-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::DebitNoteCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/invoices', 'dn-si-1']);
+    });
+
+    it('creates dunning directly via createFromSalesInvoice and navigates to created dunning', () => {
+      const { comp, dunningServiceMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'si-1', status: 'Posted' } as any;
+
+      comp.onWorkflowAction('dunning');
+
+      expect(dunningServiceMock.createFromSalesInvoice).toHaveBeenCalledWith('si-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/dunnings', 'dun-1']);
     });
   });
 });
