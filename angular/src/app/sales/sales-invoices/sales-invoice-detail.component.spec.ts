@@ -49,7 +49,7 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       updateStock?: boolean;
       isReturn?: boolean;
       isInternalCustomer?: boolean;
-      interCompanyInvoiceReference?: string | null;
+      interCompanyPurchaseInvoiceId?: string | null;
     },
     perms: Perms = {}
   ): DetailWorkflowAction[] {
@@ -84,7 +84,7 @@ describe('SalesInvoiceDetailComponent Logic', () => {
         if (canCreateMaintenance) {
           actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
         }
-        if (invoice.isInternalCustomer && !invoice.interCompanyInvoiceReference && canCreatePI) {
+        if (invoice.isInternalCustomer && !invoice.interCompanyPurchaseInvoiceId && canCreatePI) {
           actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
         }
         if (outstanding > 0) {
@@ -286,6 +286,7 @@ describe('SalesInvoiceDetailComponent Logic', () => {
         getPaymentSchedule: vi.fn().mockReturnValue(of([])),
         getPayments: vi.fn().mockReturnValue(of([])),
         createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-si-1' })),
+        createInterCompanyPurchaseInvoice: vi.fn().mockReturnValue(of({ id: 'ic-pi-1' })),
         updateSalesTeam: vi.fn().mockReturnValue(of({ id: 'si-1', status: 'Posted', salesTeam: [{ salesPersonId: 'sp-1', salesPersonName: 'Alice', allocatedPercentage: 100, allocatedAmount: 100, commissionRate: 5, incentives: 5 }], totalCommission: 5 })),
       };
       const salesPersonMock = {
@@ -387,6 +388,21 @@ describe('SalesInvoiceDetailComponent Logic', () => {
       expect(siServiceMock.updateSalesTeam).toHaveBeenCalledWith('si-1', [{ salesPersonId: 'sp-1', allocatedPercentage: 100, commissionRate: 5 }]);
       expect(comp.editingSalesTeam()).toBe(false);
       expect(comp.invoice?.totalCommission).toBe(5);
+    });
+
+    it('shows createPurchaseInvoice for internal customer without link and creates PI via SalesInvoiceService', () => {
+      const { comp, siServiceMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'si-1', status: 'Posted', isInternalCustomer: true, interCompanyPurchaseInvoiceId: null } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createPurchaseInvoice')).toBe(true);
+
+      comp.onWorkflowAction('createPurchaseInvoice');
+
+      expect(siServiceMock.createInterCompanyPurchaseInvoice).toHaveBeenCalledWith('si-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/invoices', 'ic-pi-1']);
+
+      comp.invoice = { id: 'si-1', status: 'Posted', isInternalCustomer: true, interCompanyPurchaseInvoiceId: 'ic-pi-1' } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createPurchaseInvoice')).toBe(false);
     });
   });
 });

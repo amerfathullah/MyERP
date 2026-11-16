@@ -105,21 +105,29 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var invoice = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
 
-        // Resolve customer name
-        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
-        var customer = await customerRepo.FindAsync(invoice.CustomerId);
-        if (customer != null) dto.CustomerName = customer.Name;
+        // Resolve customer name and inter-company customer flag
+        var customer = await _customerRepository.FindAsync(invoice.CustomerId);
+        if (customer != null)
+        {
+            dto.CustomerName = customer.Name;
+            dto.IsInternalCustomer = customer.RepresentsCompanyId.HasValue;
+        }
 
         if (invoice.InterCompanyPurchaseInvoiceId.HasValue)
         {
             var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
             var pi = await piRepo.FindAsync(invoice.InterCompanyPurchaseInvoiceId.Value);
-            if (pi != null)
+            if (pi != null && pi.Status != Core.DocumentStatus.Cancelled)
             {
                 dto.InterCompanyPurchaseInvoiceNumber = pi.InvoiceNumber;
                 var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
                 var company = await companyRepo.FindAsync(pi.CompanyId);
                 dto.InterCompanyCompanyName = company?.Name;
+            }
+            else
+            {
+                // Linked inter-company PI was deleted or cancelled, so allow creating a fresh one from UI.
+                dto.InterCompanyPurchaseInvoiceId = null;
             }
         }
 
@@ -192,6 +200,41 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
         await AttachSalesTeamAsync(dto);
         return dto;
+    }
+
+    /// <summary>
+    /// Creates an inter-company Purchase Invoice in the customer's represented company
+    /// from a posted, non-return Sales Invoice. Mirrors ERPNext make_inter_company_invoice.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<Purchasing.PurchaseInvoiceDto> CreateInterCompanyPurchaseInvoiceAsync(Guid id)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status != Core.DocumentStatus.Posted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "SalesInvoice");
+        }
+        if (invoice.IsReturn)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create an inter-company Purchase Invoice from a return invoice.");
+        }
+
+        var customer = await _customerRepository.GetAsync(invoice.CustomerId);
+        if (!customer.RepresentsCompanyId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyPartyMismatch)
+                .WithData("customer", customer.Name);
+        }
+
+        var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+        var piId = await interCompanyService.CreatePurchaseInvoiceFromSalesInvoiceAsync(
+            invoice.Id, customer.RepresentsCompanyId.Value, invoice.TenantId);
+
+        var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+        var createdPi = await piRepo.GetAsync(piId);
+        return ObjectMapper.Map<Purchasing.Entities.PurchaseInvoice, Purchasing.PurchaseInvoiceDto>(createdPi);
     }
 
     private async Task AttachSalesTeamAsync(SalesInvoiceDto dto)

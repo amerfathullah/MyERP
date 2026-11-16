@@ -2,9 +2,10 @@ import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, PermissionService } from '@abp/ng.core';
 import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
 import { DeliveryTripStore } from '../store/delivery-trip.store';
+import type { DeliveryTripDto } from '../../proxy/inventory/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { PaginationComponent, PageEvent } from '../../shared/components/pagination/pagination.component';
 
@@ -79,9 +80,11 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                           <button class="btn btn-outline-success" (click)="complete(trip.id)" title="Complete">
                             <i class="bi bi-check-circle"></i>
                           </button>
-                          <button class="btn btn-outline-info" (click)="notifyCustomers(trip.id)" title="{{ 'MyERP::NotifyCustomers' | abpLocalization }}">
-                            <i class="bi bi-envelope"></i>
-                          </button>
+                          @if (canNotifyCustomers(trip)) {
+                            <button class="btn btn-outline-info" (click)="notifyCustomers(trip.id)" title="{{ 'MyERP::NotifyCustomers' | abpLocalization }}">
+                              <i class="bi bi-envelope"></i>
+                            </button>
+                          }
                         }
                         @if (trip.status !== 3 && trip.status !== 4) {
                           <button class="btn btn-outline-secondary" (click)="calculateArrivalTimes(trip.id)" title="{{ 'MyERP::CalculateArrivalTimes' | abpLocalization }}">
@@ -125,6 +128,7 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
 export class DeliveryTripListComponent implements OnInit {
   protected readonly store = inject(DeliveryTripStore);
   private readonly confirmation = inject(ConfirmationService);
+  private readonly permissionService = inject(PermissionService);
 
   pageIndex = 0;
   pageSize = 10;
@@ -168,6 +172,14 @@ export class DeliveryTripListComponent implements OnInit {
         this.store.cancel(id);
       }
     });
+  }
+
+  canNotifyCustomers(trip: DeliveryTripDto): boolean {
+    if (!this.permissionService.getGrantedPolicy('MyERP.DeliveryTrips.Edit')) {
+      return false;
+    }
+    const hasDeliveryNotes = trip.deliveryStops?.some(s => !!s.deliveryNoteId || !!s.deliveryNoteNumber) ?? false;
+    return !hasDeliveryNotes || this.permissionService.getGrantedPolicy('MyERP.DeliveryNotes');
   }
 
   notifyCustomers(id: string): void {

@@ -158,10 +158,12 @@ public class InterCompanyTransactionService : DomainService
             pi.BillingAddressId = si.BillingAddressId;
         }
 
-        // Copy items (amounts only — no party-specific fields)
+        // Copy items (amounts only — no party-specific fields; resolve target company's Item by ItemCode when available)
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(si.Items.Select(i => i.ItemId), targetCompanyId);
         foreach (var item in si.Items)
         {
-            pi.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
+            pi.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
         }
 
         await _purchaseInvoiceRepository.InsertAsync(pi, autoSave: true);
@@ -256,9 +258,11 @@ public class InterCompanyTransactionService : DomainService
             si.BillingAddressId = pi.BillingAddressId;
         }
 
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(pi.Items.Select(i => i.ItemId), targetCompanyId);
         foreach (var item in pi.Items)
         {
-            si.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
+            si.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
         }
 
         await _salesInvoiceRepository.InsertAsync(si, autoSave: true);
@@ -334,15 +338,64 @@ public class InterCompanyTransactionService : DomainService
             po.BillingAddressId = salesOrder.BillingAddressId;
         }
 
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(salesOrder.Items.Select(i => i.ItemId), targetCompanyId);
         foreach (var item in salesOrder.Items)
         {
-            var poItem = po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom);
+            var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
+            var poItem = po.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom);
             poItem.SalesOrderId = salesOrder.Id;
             poItem.SalesOrderItemId = item.Id;
         }
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
         return po.Id;
+    }
+
+    /// <summary>
+    /// Resolves source-company ItemIds to target-company ItemIds matching by ItemCode.
+    /// In MyERP items are scoped by CompanyId, so inter-company documents must use the counterparty
+    /// company's Item master to satisfy CompanyRestrictionValidationService.
+    /// </summary>
+    private async Task<Dictionary<Guid, Guid>> ResolveTargetCompanyItemMapAsync(
+        IEnumerable<Guid> sourceItemIds, Guid targetCompanyId)
+    {
+        var map = new Dictionary<Guid, Guid>();
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        if (itemRepo == null) return map;
+
+        var ids = sourceItemIds.Distinct().ToList();
+        if (ids.Count == 0) return map;
+
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var sourceItems = itemQuery
+            .Where(i => ids.Contains(i.Id))
+            .Select(i => new { i.Id, i.CompanyId, i.ItemCode })
+            .ToList();
+        var codes = sourceItems
+            .Where(i => i.CompanyId != targetCompanyId)
+            .Select(i => i.ItemCode)
+            .Distinct()
+            .ToList();
+        if (codes.Count == 0) return map;
+
+        var targetItemsByCode = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        foreach (var targetItem in itemQuery
+            .Where(i => i.CompanyId == targetCompanyId && codes.Contains(i.ItemCode))
+            .Select(i => new { i.Id, i.ItemCode })
+            .ToList())
+        {
+            targetItemsByCode.TryAdd(targetItem.ItemCode, targetItem.Id);
+        }
+
+        foreach (var src in sourceItems)
+        {
+            if (src.CompanyId != targetCompanyId && targetItemsByCode.TryGetValue(src.ItemCode, out var targetItemId))
+            {
+                map[src.Id] = targetItemId;
+            }
+        }
+
+        return map;
     }
 
     /// <summary>

@@ -2449,6 +2449,7 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   interCompanyPurchaseInvoiceId?: string | null;
   interCompanyPurchaseInvoiceNumber?: string | null;
   interCompanyCompanyName?: string | null;
+  isInternalCustomer?: boolean;
   termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;

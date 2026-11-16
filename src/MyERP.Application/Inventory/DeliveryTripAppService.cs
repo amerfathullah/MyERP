@@ -451,6 +451,16 @@ public class DeliveryTripAppService :
                 .WithData("detail", "Customer dispatch notifications can only be sent for Scheduled or In-Transit trips.");
         }
 
+        // Per ERPNext PR #65797: require Delivery Note read permission when notifying stops linked to Delivery Notes.
+        if (entity.DeliveryStops.Any(s => s.DeliveryNoteId.HasValue || !string.IsNullOrWhiteSpace(s.DeliveryNoteNumber)))
+        {
+            var authService = LazyServiceProvider?.LazyGetService<IAuthorizationService>();
+            if (authService != null)
+            {
+                await authService.CheckAsync(MyERPPermissions.DeliveryNotes.Default);
+            }
+        }
+
         var customerIds = entity.DeliveryStops.Where(s => s.CustomerId.HasValue).Select(s => s.CustomerId!.Value).Distinct().ToList();
         var custQuery = await _customerRepository.GetQueryableAsync();
         var customers = custQuery.Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);

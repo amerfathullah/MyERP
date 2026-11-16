@@ -230,6 +230,7 @@ describe('PurchaseInvoiceDetailComponent', () => {
         getPaymentSchedule: vi.fn().mockReturnValue(of([])),
         getPayments: vi.fn().mockReturnValue(of([])),
         createDebitNote: vi.fn().mockReturnValue(of({ id: 'dn-pi-1' })),
+        createInterCompanySalesInvoice: vi.fn().mockReturnValue(of({ id: 'ic-si-1' })),
       };
       const conversionMock = {
         convertPurchaseInvoiceToReceipt: vi.fn().mockReturnValue(of({ id: 'pr-1' })),
@@ -283,6 +284,21 @@ describe('PurchaseInvoiceDetailComponent', () => {
       expect(conversionMock.convertPurchaseInvoiceToReceipt).toHaveBeenCalledWith('pi-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/receipts', 'pr-1']);
+    });
+
+    it('shows createSalesInvoice for internal supplier without link and creates SI via PurchaseInvoiceService', () => {
+      const { comp, piServiceMock, routerMock, toasterMock } = createComponent();
+      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: null } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createSalesInvoice')).toBe(true);
+
+      comp.onWorkflowAction('createSalesInvoice');
+
+      expect(piServiceMock.createInterCompanySalesInvoice).toHaveBeenCalledWith('pi-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/invoices', 'ic-si-1']);
+
+      comp.invoice = { id: 'pi-1', status: 'Posted', isReturn: false, isInternalSupplier: true, interCompanyInvoiceId: 'ic-si-1' } as any;
+      expect(comp.workflowActions.some(a => a.name === 'createSalesInvoice')).toBe(false);
     });
   });
 });

@@ -131,7 +131,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         }
       }
       // Per ERPNext #59367: Make Sales Invoice for internal supplier
-      if ((this.invoice as any).isInternalSupplier && !(this.invoice as any).interCompanyInvoiceReference && canCreateSalesInvoice) {
+      if (this.invoice.isInternalSupplier && !this.invoice.interCompanyInvoiceId && !this.invoice.isReturn && canCreateSalesInvoice) {
         actions.push({ name: 'createSalesInvoice', label: 'Make Sales Invoice', icon: 'fa fa-file-invoice', color: 'info' });
       }
       // Per ERPNext #59367: Purchase Receipt if perReceived < 100 and !updateStock
@@ -291,8 +291,15 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'createSalesInvoice':
-        this.router.navigate(['/sales/invoices/new'], {
-          queryParams: { interCompanyInvoiceReference: id }
+        this.service.createInterCompanySalesInvoice(id).subscribe({
+          next: (si) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/sales/invoices', si.id]);
+          },
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
         });
         break;
       case 'createReceipt':

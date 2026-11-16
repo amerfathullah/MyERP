@@ -787,6 +787,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   terms?: string | null;
   notes?: string | null;
   interCompanyCompanyName?: string | null;
+  isInternalSupplier?: boolean;
   updateStock?: boolean;
   warehouseId?: string | null;
   rejectedWarehouseId?: string | null;

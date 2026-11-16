@@ -32,4 +32,5 @@ public interface IPurchaseInvoiceAppService : IApplicationService
     /// Returns aggregate KPI summary for the PI list page: total payables, overdue, monthly spend.
     /// </summary>
     Task<PurchaseInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
+    Task<SalesInvoiceDto> CreateInterCompanySalesInvoiceAsync(Guid id);
 }

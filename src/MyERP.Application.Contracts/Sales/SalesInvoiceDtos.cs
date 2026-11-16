@@ -128,6 +128,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? InterCompanyPurchaseInvoiceId { get; set; }
     public string? InterCompanyPurchaseInvoiceNumber { get; set; }
     public string? InterCompanyCompanyName { get; set; }
+    /// <summary>True when the invoice customer represents another company (enables inter-company Purchase Invoice creation).</summary>
+    public bool IsInternalCustomer { get; set; }
     public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }

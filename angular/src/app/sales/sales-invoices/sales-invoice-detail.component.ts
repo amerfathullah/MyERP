@@ -165,7 +165,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
           actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
         }
         // Per ERPNext #59367: Make Purchase Invoice for internal customer
-        if ((this.invoice as any).isInternalCustomer && !(this.invoice as any).interCompanyInvoiceReference && canCreatePurchaseInvoice) {
+        if (this.invoice.isInternalCustomer && !this.invoice.interCompanyPurchaseInvoiceId && !(this.invoice as any).isReturn && canCreatePurchaseInvoice) {
           actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
         }
         if (outstanding > 0) {
@@ -326,8 +326,15 @@ export class SalesInvoiceDetailComponent implements OnInit {
         });
         break;
       case 'createPurchaseInvoice':
-        this.router.navigate(['/purchasing/invoices/new'], {
-          queryParams: { interCompanyInvoiceReference: id }
+        this.service.createInterCompanyPurchaseInvoice(id).subscribe({
+          next: (pi) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/purchasing/invoices', pi.id]);
+          },
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
         });
         break;
       case 'sendEmail':

@@ -74,6 +74,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     public string? InterCompanyCompanyName { get; set; }
+    /// <summary>True when the invoice supplier represents another company (enables inter-company Sales Invoice creation).</summary>
+    public bool IsInternalSupplier { get; set; }
 
     /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
     public bool UpdateStock { get; set; }

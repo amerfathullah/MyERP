@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MyERP.Purchasing;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -36,4 +37,5 @@ public interface ISalesInvoiceAppService : IApplicationService
     /// </summary>
     Task<SalesInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
     Task<SalesInvoiceDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input);
+    Task<PurchaseInvoiceDto> CreateInterCompanyPurchaseInvoiceAsync(Guid id);
 }

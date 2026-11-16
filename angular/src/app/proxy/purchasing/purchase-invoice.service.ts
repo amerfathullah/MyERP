@@ -2,7 +2,7 @@ import type { CreatePurchaseInvoiceDto, DuplicateInvoiceCheckResultDto, InvoiceP
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { PaymentScheduleDto } from '../sales/models';
+import type { PaymentScheduleDto, SalesInvoiceDto } from '../sales/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -72,6 +72,16 @@ export class PurchaseInvoiceService {
       method: 'POST',
       headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/debit-note/${purchaseInvoiceId}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  createInterCompanySalesInvoice = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/purchase-invoice/${id}/inter-company-sales-invoice`,
     },
       { apiName: this.apiName,...config });
   

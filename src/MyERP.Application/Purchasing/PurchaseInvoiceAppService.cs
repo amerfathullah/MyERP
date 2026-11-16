@@ -87,19 +87,66 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var invoice = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
 
+        var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+        if (supplier != null)
+        {
+            dto.SupplierName ??= supplier.Name;
+            dto.IsInternalSupplier = supplier.RepresentsCompanyId.HasValue;
+        }
+
         if (invoice.InterCompanyInvoiceId.HasValue)
         {
             var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
             var si = await siRepo.FindAsync(invoice.InterCompanyInvoiceId.Value);
-            if (si != null)
+            if (si != null && si.Status != Core.DocumentStatus.Cancelled)
             {
                 dto.InterCompanyInvoiceNumber = si.InvoiceNumber;
                 var company = await _companyRepository.FindAsync(si.CompanyId);
                 dto.InterCompanyCompanyName = company?.Name;
             }
+            else
+            {
+                // Linked inter-company SI was deleted or cancelled, so allow creating a fresh one from UI.
+                dto.InterCompanyInvoiceId = null;
+            }
         }
 
         return dto;
+    }
+
+    /// <summary>
+    /// Creates an inter-company Sales Invoice in the supplier's represented company
+    /// from a posted, non-return Purchase Invoice. Mirrors ERPNext make_inter_company_invoice.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<Sales.SalesInvoiceDto> CreateInterCompanySalesInvoiceAsync(Guid id)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status != Core.DocumentStatus.Posted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "PurchaseInvoice");
+        }
+        if (invoice.IsReturn)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create an inter-company Sales Invoice from a return invoice.");
+        }
+
+        var supplier = await _supplierRepository.GetAsync(invoice.SupplierId);
+        if (!supplier.RepresentsCompanyId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyPartyMismatch)
+                .WithData("supplier", supplier.Name);
+        }
+
+        var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+        var siId = await interCompanyService.CreateSalesInvoiceFromPurchaseInvoiceAsync(
+            invoice.Id, supplier.RepresentsCompanyId.Value, invoice.TenantId);
+
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+        var createdSi = await siRepo.GetAsync(siId);
+        return ObjectMapper.Map<Sales.Entities.SalesInvoice, Sales.SalesInvoiceDto>(createdSi);
     }
 
     public async Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId)

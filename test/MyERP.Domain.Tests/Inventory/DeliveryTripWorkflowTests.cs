@@ -8,9 +8,13 @@ using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using NSubstitute;
 using Volo.Abp;
+using Volo.Abp.Authorization;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Emailing;
 using Xunit;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace MyERP.Domain.Tests.Inventory;
 
@@ -188,5 +192,39 @@ public class DeliveryTripWorkflowTests
         Assert.NotNull(stops[0].EstimatedArrival);
         Assert.NotNull(stops[1].EstimatedArrival);
         Assert.True(stops[1].EstimatedArrival > stops[0].EstimatedArrival);
+    }
+
+    [Fact]
+    public async Task NotifyCustomers_LinkedDeliveryNote_DeniedWithoutDeliveryNoteReadPermission()
+    {
+        var tripId = Guid.NewGuid();
+        var trip = new DeliveryTrip(tripId, _companyId, "TRIP-2026-AUTH", "Driver Bob", "Truck-01", DateTime.UtcNow.AddHours(2));
+        trip.AddStop("456 Cyberjaya Hub", _customerId, "Tech Hub", Guid.NewGuid(), "DN-001", 800m);
+        trip.DeliveryStops.First().CustomerContact = "dispatch@techhub.my";
+        trip.Schedule();
+
+        _tripRepository.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<DeliveryTrip, object>>[]>())
+            .Returns(Task.FromResult(new List<DeliveryTrip> { trip }.AsQueryable()));
+        _customerRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+
+        var authService = Substitute.For<IAbpAuthorizationService>();
+        authService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object?>(), MyERP.Permissions.MyERPPermissions.DeliveryNotes.Default)
+            .Returns(Task.FromResult(AuthorizationResult.Failed()));
+
+        var lazySp = Substitute.For<IAbpLazyServiceProvider>();
+        lazySp.LazyGetService<IAuthorizationService>().Returns(authService);
+        lazySp.LazyGetRequiredService<IAuthorizationService>().Returns(authService);
+        var service = new DeliveryTripAppService(_tripRepository, _deliveryNoteRepository, _customerRepository, _emailSender)
+        {
+            LazyServiceProvider = lazySp
+        };
+
+        await Assert.ThrowsAsync<AbpAuthorizationException>(() => service.NotifyCustomersAsync(tripId));
+        await _emailSender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default!, isBodyHtml: true);
+
+        authService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object?>(), MyERP.Permissions.MyERPPermissions.DeliveryNotes.Default)
+            .Returns(Task.FromResult(AuthorizationResult.Success()));
+        await service.NotifyCustomersAsync(tripId);
+        await _emailSender.Received(1).SendAsync("dispatch@techhub.my", Arg.Any<string>(), Arg.Any<string>(), isBodyHtml: true);
     }
 }
