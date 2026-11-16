@@ -1,4 +1,20 @@
 <abp-page [title]="'::PurchaseRegister' | abpLocalization">
+  <div class="d-flex justify-content-end mb-2">
+    <div class="btn-group btn-group-sm">
+      <button type="button" class="btn"
+              [class.btn-primary]="reportMode === 'invoice'"
+              [class.btn-outline-primary]="reportMode !== 'invoice'"
+              (click)="switchMode('invoice')">
+        {{ '::InvoiceWise' | abpLocalization }}
+      </button>
+      <button type="button" class="btn"
+              [class.btn-primary]="reportMode === 'item'"
+              [class.btn-outline-primary]="reportMode !== 'item'"
+              (click)="switchMode('item')">
+        {{ '::ItemWise' | abpLocalization }}
+      </button>
+    </div>
+  </div>
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
@@ -23,6 +39,12 @@
             @for (s of suppliers(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
           </select>
         </div>
+        @if (reportMode === 'item') {
+          <div class="col-md-2">
+            <label class="form-label">{{ '::ItemCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="itemCode" />
+          </div>
+        }
         <div class="col-md-2">
           <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
@@ -32,10 +54,12 @@
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
         <div class="col-md-2">
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
-            <label class="form-check-label small" for="includePayments">{{ '::IncludePayments' | abpLocalization }}</label>
-          </div>
+          @if (reportMode === 'invoice') {
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
+              <label class="form-check-label small" for="includePayments">{{ '::IncludePayments' | abpLocalization }}</label>
+            </div>
+          }
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
             <i class="fa fa-table me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
@@ -46,7 +70,67 @@
 
   @if (isLoading()) { <div class="text-center py-5"><div class="spinner-border text-primary"></div></div> }
 
-  @if (report(); as r) {
+  @if (reportMode === 'item' && itemWiseReport(); as ir) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ ir.count }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">{{ '::InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::Supplier' | abpLocalization }}</th>
+                <th>{{ '::ItemCode' | abpLocalization }}</th>
+                <th>{{ '::ItemName' | abpLocalization }}</th>
+                <th>{{ '::ItemGroup' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th>{{ '::UOM' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
+                <th class="text-end">{{ '::OtherCharges' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ '::Total' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of ir.items ?? []; track $index) {
+                <tr>
+                  <td class="ps-3 font-monospace small">{{ item.invoiceNumber }}</td>
+                  <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ item.supplierName || '-' }}</td>
+                  <td class="font-monospace small">{{ item.itemCode }}</td>
+                  <td>{{ item.itemName }}</td>
+                  <td>{{ item.itemGroup || '-' }}</td>
+                  <td class="text-end font-monospace">{{ (item.stockQty ?? 0) | number:'1.0-2' }}</td>
+                  <td>{{ item.stockUom }}</td>
+                  <td class="text-end font-monospace">{{ (item.rate ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.amount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.totalTax ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.totalOtherCharges ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end pe-3 font-monospace fw-bold">{{ (item.total ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3" colspan="9">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (ir.totalNet ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (ir.totalTax ?? 0) | number:'1.2-2' }}</td>
+                <td></td>
+                <td class="text-end pe-3 font-monospace">{{ (ir.totalGrand ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (reportMode === 'invoice' && report(); as r) {
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-bold">{{ r.count }} {{ '::Entries' | abpLocalization }}</span>

@@ -71,9 +71,11 @@ export class QuotationDetailComponent implements OnInit {
       const isPartiallyOrdered = this.quotation.orderStatus === 'Partially Ordered' || (this.quotation.perOrdered ?? 0) > 0;
       if (!isOrdered) {
         actions.push({ name: 'convert', label: 'Convert to SO', icon: 'arrow-right-arrow-left', color: 'success' });
+        actions.push({ name: 'convertToInvoice', label: this.l.instant('::ConvertToInvoice'), icon: 'file-invoice-dollar', color: 'info' });
       }
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
       if (!isOrdered && !isPartiallyOrdered) {
+        actions.push({ name: 'revise', label: this.l.instant('::Revise'), icon: 'code-branch', color: 'primary' });
         actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumbs-down', color: 'warning' });
       }
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
@@ -164,6 +166,18 @@ export class QuotationDetailComponent implements OnInit {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
+  private resolveSelectedOrderItemIds(): string[] | undefined | null {
+    if (!this.hasAlternatives) {
+      return undefined;
+    }
+    const ids = (this.quotation!.items ?? []).filter(r => this.isSelectedForOrder(r)).map(r => r.id!);
+    if (ids.length === 0) {
+      this.toaster.error('Select at least one item to order.');
+      return null;
+    }
+    return ids;
+  }
+
   onWorkflowAction(action: string): void {
     const id = this.quotation!.id!;
     switch (action) {
@@ -171,16 +185,27 @@ export class QuotationDetailComponent implements OnInit {
         this.store.submitQuotation(id);
         this.reloadAfterAction();
         break;
-      case 'convert':
-        const selectedItemIds = this.hasAlternatives
-          ? (this.quotation!.items ?? []).filter(r => this.isSelectedForOrder(r)).map(r => r.id!)
-          : undefined;
-        if (selectedItemIds && selectedItemIds.length === 0) {
-          this.toaster.error('Select at least one item to order.');
-          break;
-        }
+      case 'convert': {
+        const selectedItemIds = this.resolveSelectedOrderItemIds();
+        if (selectedItemIds === null) break;
         this.conversionService.convertQuotationToSalesOrder(id, selectedItemIds).subscribe((salesOrder) => {
           this.router.navigate(['/sales/orders', salesOrder.id]);
+        });
+        break;
+      }
+      case 'convertToInvoice': {
+        const selectedItemIds = this.resolveSelectedOrderItemIds();
+        if (selectedItemIds === null) break;
+        this.conversionService.convertQuotationToSalesInvoice(id, selectedItemIds).subscribe({
+          next: (invoice) => this.router.navigate(['/sales/invoices', invoice.id]),
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+        });
+        break;
+      }
+      case 'revise':
+        this.service.createRevision(id).subscribe({
+          next: (revised) => this.router.navigate(['/sales/quotations', revised.id]),
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
         });
         break;
       case 'lost':

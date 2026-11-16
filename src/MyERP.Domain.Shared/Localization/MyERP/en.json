@@ -6222,7 +6222,14 @@
     "OpeningValue": "Opening Value",
     "InValue": "In Value",
     "OutValue": "Out Value",
-    "BatchWise": "Batch-wise"
+    "BatchWise": "Batch-wise",
+    "ItemWise": "Item-wise",
+    "InvoiceWise": "Invoice-wise",
+    "OtherCharges": "Other Charges",
+    "Revise": "Revise",
+    "ConvertToInvoice": "Convert to Invoice",
+    "PONumber": "PO Number",
+    "PRNumber": "PR Number"
   }
 }
 

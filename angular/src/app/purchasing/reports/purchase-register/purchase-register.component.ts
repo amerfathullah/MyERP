@@ -9,9 +9,31 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
 import { PurchaseRegisterService } from '../../../proxy/purchasing/purchase-register.service';
 import { SupplierService } from '../../../proxy/purchasing/supplier.service';
 import { SupplierGroupService } from '../../../proxy/core/supplier-group.service';
-import type { PurchaseRegisterLineDto, SupplierDto } from '../../../proxy/purchasing/models';
+import type { ItemWisePurchaseRegisterLineDto, PurchaseRegisterLineDto, SupplierDto } from '../../../proxy/purchasing/models';
 import type { RegisterReportDto } from '../../../proxy/sales/models';
 import type { CompanyDto, SupplierGroupDto } from '../../../proxy/core/models';
+
+export function buildItemWisePurchaseCsvRows(
+  items: ItemWisePurchaseRegisterLineDto[] | undefined,
+): Record<string, string | number>[] {
+  return (items ?? []).map(item => ({
+    'Invoice Number': item.invoiceNumber ?? '',
+    'Posting Date': item.postingDate ?? '',
+    Supplier: item.supplierName ?? '',
+    'Item Code': item.itemCode ?? '',
+    'Item Name': item.itemName ?? '',
+    'Item Group': item.itemGroup ?? '',
+    Qty: item.stockQty ?? 0,
+    UOM: item.stockUom ?? '',
+    Rate: (item.rate ?? 0).toFixed(2),
+    Amount: (item.amount ?? 0).toFixed(2),
+    Tax: (item.totalTax ?? 0).toFixed(2),
+    'Other Charges': (item.totalOtherCharges ?? 0).toFixed(2),
+    Total: (item.total ?? 0).toFixed(2),
+    'PO Number': item.purchaseOrderNumber ?? '',
+    'PR Number': item.purchaseReceiptNumber ?? '',
+  }));
+}
 
 @Component({
   selector: 'app-purchase-register',
@@ -33,15 +55,18 @@ export class PurchaseRegisterComponent implements OnInit {
     companyId: ['', Validators.required],
     supplierGroupId: [''],
     supplierId: [''],
+    itemCode: [''],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]],
     toDate: [new Date().toISOString().split('T')[0]],
     includePayments: [false],
   });
 
+  reportMode: 'invoice' | 'item' = 'invoice';
   companies = signal<CompanyDto[]>([]);
   supplierGroups = signal<SupplierGroupDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
   report = signal<RegisterReportDto<PurchaseRegisterLineDto> | null>(null);
+  itemWiseReport = signal<RegisterReportDto<ItemWisePurchaseRegisterLineDto> | null>(null);
   isLoading = signal(false);
 
   ngOnInit(): void {
@@ -68,10 +93,32 @@ export class PurchaseRegisterComponent implements OnInit {
       });
   }
 
+  switchMode(mode: 'invoice' | 'item'): void {
+    this.reportMode = mode;
+    if (this.filters.valid) {
+      this.generate();
+    }
+  }
+
   generate(): void {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
-    const { companyId, fromDate, toDate, supplierId, supplierGroupId, includePayments } = this.filters.getRawValue();
+    const { companyId, fromDate, toDate, supplierId, supplierGroupId, itemCode, includePayments } = this.filters.getRawValue();
+    if (this.reportMode === 'item') {
+      this.registerService.getItemWiseReport({
+        companyId: companyId!,
+        fromDate: fromDate!,
+        toDate: toDate!,
+        supplierId: supplierId || undefined,
+        supplierGroupId: supplierGroupId || undefined,
+        itemCode: itemCode?.trim() || undefined,
+      }).subscribe({
+        next: data => { this.itemWiseReport.set(data); this.isLoading.set(false); },
+        error: () => this.isLoading.set(false),
+      });
+      return;
+    }
+
     this.registerService.getReport({
       companyId: companyId!,
       fromDate: fromDate!,
@@ -86,6 +133,16 @@ export class PurchaseRegisterComponent implements OnInit {
   }
 
   exportCsv(): void {
+    if (this.reportMode === 'item') {
+      const ir = this.itemWiseReport();
+      if (!ir?.items?.length) return;
+      const rows = buildItemWisePurchaseCsvRows(ir.items);
+      exportToCsv('item-wise-purchase-register.csv', rows, [
+        'Invoice Number', 'Posting Date', 'Supplier', 'Item Code', 'Item Name', 'Item Group',
+        'Qty', 'UOM', 'Rate', 'Amount', 'Tax', 'Other Charges', 'Total', 'PO Number', 'PR Number',
+      ]);
+      return;
+    }
     const r = this.report();
     if (!r?.items?.length) return;
     const isPayments = this.filters.get('includePayments')?.value;
