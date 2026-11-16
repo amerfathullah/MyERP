@@ -299,6 +299,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       uom: [item?.uom ?? 'EA'],
       purchaseOrderItemId: [item?.purchaseOrderItemId ?? null],
       purchaseReceiptItemId: [item?.purchaseReceiptItemId ?? null],
+      classificationCode: [item?.classificationCode ?? ''],
     }));
   }
 
@@ -508,6 +509,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         uom: item.uom ?? 'Unit',
         purchaseOrderItemId: item.purchaseOrderItemId || undefined,
         purchaseReceiptItemId: item.purchaseReceiptItemId || undefined,
+        classificationCode: item.classificationCode || undefined,
       })),
     };
     if (this.isEditMode) {

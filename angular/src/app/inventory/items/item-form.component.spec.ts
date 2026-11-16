@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FormBuilder, Validators } from '@angular/forms';
+import { LHDN_CLASSIFICATION_CODES } from '../../shared/constants/lhdn-classification-codes';
 
 /**
  * Tests for Item form validation, defaults, and DTO mapping.
@@ -23,6 +24,7 @@ describe('Item form logic', () => {
       uom: ['Unit'],
       standardSellingPrice: [0],
       standardBuyingPrice: [0],
+      lhdnClassificationCode: [''],
       maintainStock: [true],
       isActive: [true],
       reorderLevel: [0],
@@ -209,6 +211,19 @@ describe('Item form logic', () => {
       form.patchValue({ reorderLevel: 2.5, reorderQty: 10.75 });
       expect(form.get('reorderLevel')?.value).toBe(2.5);
       expect(form.get('reorderQty')?.value).toBe(10.75);
+    });
+  });
+
+  describe('LHDN MyInvois classification code', () => {
+    it('should provide all 45 official MyInvois codes and bind default empty', () => {
+      expect(LHDN_CLASSIFICATION_CODES.length).toBe(45);
+      expect(LHDN_CLASSIFICATION_CODES[0].code).toBe('001');
+      expect(LHDN_CLASSIFICATION_CODES[44].code).toBe('045');
+
+      const form = createItemForm();
+      expect(form.get('lhdnClassificationCode')?.value).toBe('');
+      form.patchValue({ lhdnClassificationCode: '022' });
+      expect(form.get('lhdnClassificationCode')?.value).toBe('022');
     });
   });
 });

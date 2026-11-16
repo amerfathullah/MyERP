@@ -906,6 +906,7 @@ public class MyERPDbContext :
             b.Property(x => x.StandardSellingPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.StandardBuyingPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.OverBillingAllowance).HasPrecision(6, 2);
+            b.Property(x => x.LhdnClassificationCode).HasMaxLength(EInvoiceConsts.MaxClassificationCodeLength);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ItemCode }).IsUnique();
             // AutoInclude required — without it, GetAsync/GetListAsync silently return these
@@ -1298,6 +1299,7 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ClassificationCode).HasMaxLength(EInvoiceConsts.MaxClassificationCodeLength);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 
@@ -1447,6 +1449,7 @@ public class MyERPDbContext :
             b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.BillsRejectedQuantity);
+            b.Property(x => x.ClassificationCode).HasMaxLength(EInvoiceConsts.MaxClassificationCodeLength);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.MaterialRequestItemId);
         });

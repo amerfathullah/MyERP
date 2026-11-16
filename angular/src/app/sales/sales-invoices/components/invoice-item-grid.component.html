@@ -41,6 +41,16 @@
                 </small>
               </div>
             }
+            @if (showClassificationCode && row.get('classificationCode')) {
+              <div class="mt-1">
+                <select class="form-select form-select-sm" formControlName="classificationCode" [title]="'::LhdnClassificationCode' | abpLocalization">
+                  <option value="">{{ '::LhdnClassificationCode' | abpLocalization }} ({{ '::Default' | abpLocalization }})</option>
+                  @for (c of classificationCodes; track c.code) {
+                    <option [value]="c.code">{{ c.code }}: {{ c.description }}</option>
+                  }
+                </select>
+              </div>
+            }
           </td>
           <td><input type="number" class="form-control form-control-sm" formControlName="qty" (change)="recalculateRow($index)" min="0.01" step="1" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>

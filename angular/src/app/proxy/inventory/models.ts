@@ -799,6 +799,7 @@ export interface CreateUpdateItemDto {
   inspectionRequiredBeforePurchase?: boolean;
   inspectionRequiredBeforeDelivery?: boolean;
   customsTariffNumberId?: string | null;
+  lhdnClassificationCode?: string | null;
   allowAlternativeItem?: boolean;
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;
@@ -1458,6 +1459,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   inspectionRequiredBeforePurchase?: boolean;
   inspectionRequiredBeforeDelivery?: boolean;
   customsTariffNumberId?: string | null;
+  lhdnClassificationCode?: string | null;
   allowAlternativeItem?: boolean;
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;

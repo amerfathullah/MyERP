@@ -34,6 +34,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Inventory.Entities.Item, Guid>? _itemRepository;
     private readonly TaxpayerValidationService _taxpayerValidationService;
     private readonly ISettingProvider _settingProvider;
 
@@ -52,7 +53,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         IRepository<Customer, Guid> customerRepository,
         IRepository<Supplier, Guid> supplierRepository,
         IRepository<Company, Guid> companyRepository,
-        ISettingProvider settingProvider)
+        ISettingProvider settingProvider,
+        IRepository<Inventory.Entities.Item, Guid>? itemRepository = null)
     {
         _eInvoiceService = eInvoiceService;
         _documentBuilder = documentBuilder;
@@ -69,6 +71,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         _supplierRepository = supplierRepository;
         _companyRepository = companyRepository;
         _settingProvider = settingProvider;
+        _itemRepository = itemRepository;
     }
 
     [Authorize(MyERPPermissions.EInvoice.Submit)]
@@ -126,6 +129,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var environment = Enum.Parse<LhdnEnvironment>(envString);
 
         // Step 5: Submit to LHDN
+        var tenantId = LazyServiceProvider?.LazyGetService<Volo.Abp.MultiTenancy.ICurrentTenant>()?.Id;
         var submission = await _eInvoiceService.SubmitAsync(
             input.CompanyId,
             input.SourceDocumentType,
@@ -133,19 +137,23 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             xmlDocument,
             accessToken,
             environment,
-            CurrentTenant.Id);
+            tenantId);
 
         // Update source document e-Invoice status
         await UpdateSourceDocumentStatusAsync(input.SourceDocumentType, input.SourceDocumentId, submission);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "EInvoiceSubmission", submission.Id,
-            "Submitted", submission.CompanyId,
-            submission.DocumentUuid ?? submission.Id.ToString(), "Draft", submission.Status, CurrentUser.Id,
-            $"LHDN e-Invoice submitted. UUID: {submission.DocumentUuid}", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "EInvoiceSubmission", submission.Id,
+                "Submitted", submission.CompanyId,
+                submission.DocumentUuid ?? submission.Id.ToString(), "Draft", submission.Status, CurrentUser.Id,
+                $"LHDN e-Invoice submitted. UUID: {submission.DocumentUuid}", CurrentTenant.Id));
+        }
 
-        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
+        return ObjectMapper?.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission)
+            ?? new EInvoiceSubmissionDto { Id = submission.Id, Status = submission.Status, DocumentUuid = submission.DocumentUuid, LongId = submission.LongId };
     }
 
     private async Task<EInvoiceDocumentData> BuildDocumentDataAsync(Guid companyId, string sourceDocType, Guid sourceDocId)
@@ -178,10 +186,22 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         };
     }
 
+    private async Task<Dictionary<Guid, string?>> ResolveItemClassificationMapAsync(IEnumerable<Guid> itemIds)
+    {
+        var ids = itemIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        var itemRepo = _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        if (ids.Count == 0 || itemRepo == null)
+            return new Dictionary<Guid, string?>();
+
+        var items = await itemRepo.GetListAsync(i => ids.Contains(i.Id));
+        return items.ToDictionary(i => i.Id, i => i.LhdnClassificationCode);
+    }
+
     private async Task<EInvoiceDocumentData> BuildFromSalesInvoiceAsync(Guid invoiceId, EInvoicePartyData supplier)
     {
         var invoice = await _salesInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var customer = await _customerRepository.GetAsync(invoice.CustomerId);
+        var itemClassificationMap = await ResolveItemClassificationMapAsync(invoice.Items.Select(i => i.ItemId));
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
@@ -258,7 +278,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TaxAmount = item.TaxAmount,
-                ClassificationCode = invoice.IsConsolidated ? "004" : null,
+                ClassificationCode = invoice.IsConsolidated
+                    ? EInvoiceConsts.ConsolidatedClassificationCode
+                    : (LhdnClassificationCodes.Normalize(item.ClassificationCode)
+                        ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
+                        ?? EInvoiceConsts.DefaultSalesClassificationCode),
             }).ToList(),
         };
     }
@@ -268,6 +292,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     {
         var invoice = await _purchaseInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var supplier = await _supplierRepository.GetAsync(invoice.SupplierId);
+        var itemClassificationMap = await ResolveItemClassificationMapAsync(invoice.Items.Select(i => i.ItemId));
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
@@ -331,6 +356,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TaxAmount = item.TaxAmount,
+                ClassificationCode = LhdnClassificationCodes.Normalize(item.ClassificationCode)
+                    ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
+                    ?? EInvoiceConsts.DefaultSelfBilledClassificationCode,
             }).ToList(),
         };
     }

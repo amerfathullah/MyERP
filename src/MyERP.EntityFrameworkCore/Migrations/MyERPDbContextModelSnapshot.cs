@@ -14924,6 +14924,10 @@ namespace MyERP.Migrations
                     b.Property<int>("LeadTimeDays")
                         .HasColumnType("integer");
 
+                    b.Property<string>("LhdnClassificationCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<bool>("MaintainStock")
                         .HasColumnType("boolean");
 
@@ -24614,6 +24618,10 @@ namespace MyERP.Migrations
                     b.Property<bool>("BillsRejectedQuantity")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ClassificationCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<decimal>("ConversionFactor")
                         .HasColumnType("numeric");
 
@@ -30221,6 +30229,10 @@ namespace MyERP.Migrations
 
                     b.Property<Guid?>("AssetId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ClassificationCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<decimal>("ConversionFactor")
                         .HasColumnType("numeric");

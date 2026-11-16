@@ -114,6 +114,7 @@ public class PurchaseInvoiceItemDto
     public DateTime? ServiceStartDate { get; set; }
     public DateTime? ServiceEndDate { get; set; }
     public DateTime? ServiceStopDate { get; set; }
+    public string? ClassificationCode { get; set; }
 }
 
 /// <summary>3-way matching detail per PI item — enriched with PO/PR quantities and rates.</summary>
@@ -260,6 +261,10 @@ public class CreatePurchaseInvoiceItemDto
     /// warehouse. Set by putaway allocation, which splits one qty across warehouses by capacity.
     /// </summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>LHDN MyInvois self-billed line classification code (001-045).</summary>
+    [StringLength(EInvoice.EInvoiceConsts.MaxClassificationInputLength)]
+    public string? ClassificationCode { get; set; }
 }
 
 /// <summary>

@@ -122,6 +122,8 @@
     "EInvoiceTypeSelfBilledCreditNote": "Self-Billed Credit Note",
     "EInvoiceTypeSelfBilledDebitNote": "Self-Billed Debit Note",
     "EInvoiceTypeSelfBilledRefundNote": "Self-Billed Refund Note",
+    "LhdnClassificationCode": "LHDN Classification Code",
+    "LhdnClassificationCodeHelp": "MyInvois item classification code (001-045). Defaults to 022 (Others) on sales and 036 on self-billed invoices when omitted.",
     "Menu:Workflow": "Workflow",
     "Menu:PendingApprovals": "Pending Approvals",
     "Menu:ApprovalRules": "Approval Rules",

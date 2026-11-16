@@ -20,6 +20,7 @@ describe('InvoiceItemGrid logic', () => {
       rate: [opts?.rate ?? 0, [Validators.required, Validators.min(0)]],
       discountPercent: [opts?.discountPercent ?? 0, [Validators.min(0), Validators.max(100)]],
       amount: [{ value: 0, disabled: true }],
+      classificationCode: [''],
     }));
   }
 
@@ -177,6 +178,18 @@ describe('InvoiceItemGrid logic', () => {
         return qty * rate;
       });
       expect(totals.reduce((a, b) => a + b, 0)).toBe(425);
+    });
+
+    it('should inherit LHDN classificationCode when empty without overwriting explicit override', () => {
+      const items = createItemsArray();
+      addRow(items, { itemId: 'item-1' });
+      const row = items.at(0);
+      row.patchValue({ classificationCode: row.get('classificationCode')?.value || '017' });
+      expect(row.get('classificationCode')?.value).toBe('017');
+
+      row.patchValue({ classificationCode: '003' });
+      row.patchValue({ classificationCode: row.get('classificationCode')?.value || '017' });
+      expect(row.get('classificationCode')?.value).toBe('003');
     });
   });
 });

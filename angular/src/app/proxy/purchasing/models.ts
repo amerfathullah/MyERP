@@ -135,6 +135,7 @@ export interface CreatePurchaseInvoiceItemDto {
   batchId?: string | null;
   serialAndBatchBundleId?: string | null;
   warehouseId?: string | null;
+  classificationCode?: string | null;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -821,6 +822,7 @@ export interface PurchaseInvoiceItemDto {
   serviceStartDate?: string | null;
   serviceEndDate?: string | null;
   serviceStopDate?: string | null;
+  classificationCode?: string | null;
 }
 
 export interface PurchaseInvoiceListSummaryDto {

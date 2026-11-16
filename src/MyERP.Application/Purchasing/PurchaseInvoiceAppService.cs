@@ -823,6 +823,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.DeliveredBySupplier = item.DeliveredBySupplier;
             added.BatchId = item.BatchId;
             added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
+            added.ClassificationCode = EInvoice.LhdnClassificationCodes.NormalizeAndValidate(item.ClassificationCode);
             if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
             {
                 added.ConversionFactor = item.ConversionFactor.Value;
@@ -841,6 +842,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         added.MaterialRequestItemId = origItem.MaterialRequestItemId;
                     if (!item.ConversionFactor.HasValue && origItem.ConversionFactor > 0)
                         added.ConversionFactor = origItem.ConversionFactor;
+                    added.ClassificationCode ??= origItem.ClassificationCode;
                 }
             }
 
@@ -853,6 +855,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 added.ServiceStopDate = item.ServiceStopDate;
             }
         }
+
+        await PopulateMissingItemClassificationCodesAsync(invoice);
 
         // Resolve UOM conversion factors for direct PI creation (when UpdateStock=true, stock needs StockQty)
         var uomSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
@@ -1058,6 +1062,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.DeliveredBySupplier = item.DeliveredBySupplier;
             added.BatchId = item.BatchId;
             added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
+            added.ClassificationCode = EInvoice.LhdnClassificationCodes.NormalizeAndValidate(item.ClassificationCode);
 
             if (item.EnableDeferredExpense)
             {
@@ -1068,6 +1073,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 added.ServiceStopDate = item.ServiceStopDate;
             }
         }
+
+        await PopulateMissingItemClassificationCodesAsync(invoice);
 
         var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
         var piManagerUpdate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
@@ -2336,6 +2343,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         foreach (var item in original.Items)
         {
             amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            amended.Items.Last().ClassificationCode = item.ClassificationCode;
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
@@ -2381,6 +2389,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.StockUom = item.StockUom;
             added.ConversionFactor = item.ConversionFactor;
+            added.ClassificationCode = item.ClassificationCode;
         }
 
         await _repository.InsertAsync(debitNote, autoSave: true);
@@ -2705,6 +2714,31 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (mrLines.Count > 0)
         {
             await mrManager.UpdateReceiptFulfillmentForItemsAsync(mrLines, reverse: isReversal);
+        }
+    }
+
+    private async Task PopulateMissingItemClassificationCodesAsync(PurchaseInvoice invoice)
+    {
+        var missingIds = invoice.Items
+            .Where(i => string.IsNullOrWhiteSpace(i.ClassificationCode) && i.ItemId != Guid.Empty)
+            .Select(i => i.ItemId)
+            .Distinct()
+            .ToList();
+        if (missingIds.Count == 0)
+            return;
+
+        var itemRepo = _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
+        if (itemRepo == null)
+            return;
+
+        var masterItems = await itemRepo.GetListAsync(i => missingIds.Contains(i.Id));
+        var codeMap = masterItems.ToDictionary(i => i.Id, i => i.LhdnClassificationCode);
+        foreach (var piItem in invoice.Items.Where(i => string.IsNullOrWhiteSpace(i.ClassificationCode)))
+        {
+            if (codeMap.TryGetValue(piItem.ItemId, out var code) && !string.IsNullOrWhiteSpace(code))
+            {
+                piItem.ClassificationCode = code;
+            }
         }
     }
 }

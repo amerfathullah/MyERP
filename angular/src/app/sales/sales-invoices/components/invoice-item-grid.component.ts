@@ -6,6 +6,7 @@ import { ItemDetailsService } from '../../../proxy/inventory/item-details.servic
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 import { PricingRuleService } from '../../../proxy/sales/pricing-rule.service';
 import { ItemPickerComponent } from '../../../shared/components/item-picker/item-picker.component';
+import { LHDN_CLASSIFICATION_CODES } from '../../../shared/constants/lhdn-classification-codes';
 import type { ItemDto } from '../../../proxy/inventory/models';
 
 @Component({
@@ -39,7 +40,10 @@ export class InvoiceItemGridComponent {
   @Input() supplierId: string = '';
   @Input() priceListId: string = '';
   @Input() showStockAvailability: boolean = true;
+  @Input() showClassificationCode: boolean = false;
   @Output() rowChanged = new EventEmitter<void>();
+
+  classificationCodes = LHDN_CLASSIFICATION_CODES;
 
   private fb = inject(FormBuilder);
   private taxCalc = inject(TaxCalculationService);
@@ -70,6 +74,7 @@ export class InvoiceItemGridComponent {
       discountPercent: [0, [Validators.min(0), Validators.max(100)]],
       amount: [{ value: 0, disabled: true }],
       blanketOrderId: [null as string | null],
+      classificationCode: [''],
     }));
   }
 
@@ -77,7 +82,11 @@ export class InvoiceItemGridComponent {
     const row = this.items.at(index) as FormGroup;
     const selectedId = item?.id;
     if (selectedId) {
-      row.patchValue({ itemName: item!.itemName ?? item!.itemCode ?? '' });
+      const itemPatch: Record<string, unknown> = { itemName: item!.itemName ?? item!.itemCode ?? '' };
+      if (row.get('classificationCode') && !row.get('classificationCode')?.value && item?.lhdnClassificationCode) {
+        itemPatch['classificationCode'] = item.lhdnClassificationCode;
+      }
+      row.patchValue(itemPatch);
 
       // Resolve full item details from backend (price, UOM, stock availability)
       this.itemDetailsService.getItemDetails({

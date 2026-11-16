@@ -153,6 +153,7 @@ public class SalesInvoiceItemDto
     public bool IsFixedAsset { get; set; }
     public Guid? AssetId { get; set; }
     public Guid? ProductBundleId { get; set; }
+    public string? ClassificationCode { get; set; }
 }
 
 public class CreateSalesInvoiceDto
@@ -301,6 +302,8 @@ public class CreateSalesInvoiceItemDto
     public Guid? AssetId { get; set; }
     public decimal? ConversionFactor { get; set; }
     public Guid? ProductBundleId { get; set; }
+    [StringLength(EInvoice.EInvoiceConsts.MaxClassificationInputLength)]
+    public string? ClassificationCode { get; set; }
 }
 
 /// <summary>

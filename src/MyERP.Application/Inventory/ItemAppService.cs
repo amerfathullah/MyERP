@@ -712,6 +712,7 @@ public class ItemAppService :
         entity.MinOrderQty = input.MinOrderQty;
         entity.InspectionRequiredBeforePurchase = input.InspectionRequiredBeforePurchase;
         entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
+        entity.LhdnClassificationCode = EInvoice.LhdnClassificationCodes.NormalizeAndValidate(input.LhdnClassificationCode);
 
         entity.ValidateBatchSettings();
 

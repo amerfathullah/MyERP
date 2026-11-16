@@ -847,6 +847,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             added.SalesOrderItemId = item.SalesOrderItemId;
             added.DeliveryNoteItemId = item.DeliveryNoteItemId;
             added.ProductBundleId = item.ProductBundleId;
+            added.ClassificationCode = EInvoice.LhdnClassificationCodes.NormalizeAndValidate(item.ClassificationCode);
 
             if (originalInvoice != null)
             {
@@ -859,6 +860,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     added.SalesOrderItemId ??= origItem.SalesOrderItemId;
                     added.DeliveryNoteItemId ??= origItem.DeliveryNoteItemId;
                     added.ProductBundleId ??= origItem.ProductBundleId;
+                    added.ClassificationCode ??= origItem.ClassificationCode;
                 }
             }
 
@@ -905,6 +907,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (itemEntity != null)
             {
                 siItem.StockUom = itemEntity.Uom ?? "Unit";
+                if (invoice.IsConsolidated)
+                {
+                    siItem.ClassificationCode = EInvoice.EInvoiceConsts.ConsolidatedClassificationCode;
+                }
+                else if (string.IsNullOrWhiteSpace(siItem.ClassificationCode) && !string.IsNullOrWhiteSpace(itemEntity.LhdnClassificationCode))
+                {
+                    siItem.ClassificationCode = itemEntity.LhdnClassificationCode;
+                }
                 var inputItem = input.Items.FirstOrDefault(i => i.ItemId == siItem.ItemId);
                 if (inputItem?.ConversionFactor.HasValue == true && inputItem.ConversionFactor.Value > 0)
                 {
@@ -2293,6 +2303,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in original.Items)
         {
             amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            amended.Items.Last().ClassificationCode = item.ClassificationCode;
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
@@ -2339,6 +2350,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in original.Items)
         {
             debitNote.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            debitNote.Items.Last().ClassificationCode = item.ClassificationCode;
         }
 
         await _repository.InsertAsync(debitNote, autoSave: true);

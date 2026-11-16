@@ -85,6 +85,9 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Linked fixed asset ID for asset disposal/sale.</summary>
     public Guid? AssetId { get; set; }
 
+    /// <summary>LHDN MyInvois line classification code (001-045; defaults from Item master).</summary>
+    public string? ClassificationCode { get; set; }
+
     /// <summary>Batch ID reference for batch-tracked items on invoice.</summary>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public Guid? BatchId { get; set; }

@@ -19,6 +19,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { CompanyRestrictionComponent } from '../../shared/components/company-restriction/company-restriction.component';
+import { LHDN_CLASSIFICATION_CODES } from '../../shared/constants/lhdn-classification-codes';
 
 @Component({
   selector: 'app-item-form',
@@ -62,6 +63,7 @@ export class ItemFormComponent implements OnInit {
     valuationMethod: [0],
     standardSellingPrice: [0, Validators.min(0)],
     standardBuyingPrice: [0, Validators.min(0)],
+    lhdnClassificationCode: [''],
     maintainStock: [true],
     isActive: [true],
     reorderLevel: [0, Validators.min(0)],
@@ -85,6 +87,7 @@ export class ItemFormComponent implements OnInit {
     { value: 2, label: 'Fixed Asset' }];
 
   barcodeTypeOptions = barcodeTypeOptions;
+  classificationCodes = LHDN_CLASSIFICATION_CODES;
 
   get barcodesArray(): FormArray {
     return this.form.get('barcodes') as FormArray;
@@ -206,6 +209,7 @@ export class ItemFormComponent implements OnInit {
       return;
     }
     const value = this.form.getRawValue() as any;
+    value.lhdnClassificationCode = value.lhdnClassificationCode || null;
     for (const r of value.reorders ?? []) {
       r.warehouseGroupId = r.warehouseGroupId || null;
     }

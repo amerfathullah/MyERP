@@ -475,6 +475,7 @@ export interface CreateSalesInvoiceItemDto {
   assetId?: string | null;
   conversionFactor?: number | null;
   productBundleId?: string | null;
+  classificationCode?: string | null;
 }
 
 export interface CreateSalesOrderDto {
@@ -2472,6 +2473,7 @@ export interface SalesInvoiceItemDto {
   isFixedAsset?: boolean;
   assetId?: string | null;
   productBundleId?: string | null;
+  classificationCode?: string | null;
 }
 
 export interface SalesInvoiceListSummaryDto {

@@ -70,6 +70,16 @@
             <label class="form-label">{{ '::BuyingPrice' | abpLocalization }}</label>
             <input type="number" class="form-control" formControlName="standardBuyingPrice" [class.is-invalid]="form.get('standardBuyingPrice')?.invalid && form.get('standardBuyingPrice')?.touched" />
           </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::LhdnClassificationCode' | abpLocalization }}</label>
+            <select class="form-select" formControlName="lhdnClassificationCode">
+              <option value="">&mdash; {{ '::Default' | abpLocalization }} (022 / 036) &mdash;</option>
+              @for (c of classificationCodes; track c.code) {
+                <option [value]="c.code">{{ c.code }}: {{ c.description }}</option>
+              }
+            </select>
+            <small class="form-text text-muted">{{ '::LhdnClassificationCodeHelp' | abpLocalization }}</small>
+          </div>
           <div class="col-12 mb-3">
             <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="description" [class.is-invalid]="form.get('description')?.invalid && form.get('description')?.touched" rows="3"></textarea>

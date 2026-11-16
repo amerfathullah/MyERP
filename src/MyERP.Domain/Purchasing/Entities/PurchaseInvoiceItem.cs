@@ -76,6 +76,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Whether goods are drop-shipped (delivered directly to customer by supplier).</summary>
     public bool DeliveredBySupplier { get; set; }
 
+    /// <summary>LHDN MyInvois self-billed line classification code (001-045; defaults from Item master).</summary>
+    public string? ClassificationCode { get; set; }
+
     /// <summary>Batch ID reference for batch-tracked items on invoice.</summary>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public Guid? BatchId { get; set; }

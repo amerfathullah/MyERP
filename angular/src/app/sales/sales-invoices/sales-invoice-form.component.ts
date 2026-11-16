@@ -285,6 +285,7 @@ export class SalesInvoiceFormComponent implements OnInit {
       uom: [item?.uom ?? 'EA'],
       salesOrderItemId: [item?.salesOrderItemId ?? null],
       deliveryNoteItemId: [item?.deliveryNoteItemId ?? null],
+      classificationCode: [item?.classificationCode ?? ''],
     }));
   }
 
@@ -686,6 +687,7 @@ export class SalesInvoiceFormComponent implements OnInit {
         uom: item.uom ?? 'Unit',
         salesOrderItemId: item.salesOrderItemId || undefined,
         deliveryNoteItemId: item.deliveryNoteItemId || undefined,
+        classificationCode: item.classificationCode || undefined,
       })),
       salesTeam: salesTeamRows.length > 0
         ? salesTeamRows.map((r): SalesTeamAllocationInputDto => ({

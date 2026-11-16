@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.EInvoice;
 
 namespace MyERP.Inventory;
 
@@ -152,6 +153,10 @@ public class CreateUpdateItemDto
 
     /// <summary>Customs Tariff Number (HS Code) for export/import declaration.</summary>
     public Guid? CustomsTariffNumberId { get; set; }
+
+    /// <summary>LHDN MyInvois item classification code (001-045).</summary>
+    [StringLength(EInvoiceConsts.MaxClassificationInputLength)]
+    public string? LhdnClassificationCode { get; set; }
 
     /// <summary>Allow alternative/substitute item in transactions.</summary>
     public bool AllowAlternativeItem { get; set; }
