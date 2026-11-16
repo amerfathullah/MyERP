@@ -9,7 +9,9 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { FormsModule } from '@angular/forms';
 import { AssetService } from '../../proxy/assets/asset.service';
-import type { AssetDto } from '../../proxy/assets/models';
+import type { AssetActivityDto, AssetDto } from '../../proxy/assets/models';
+import { AssetActivityService } from '../../proxy/assets/asset-activity.service';
+import { AssetActivityType, assetActivityTypeOptions } from '../../proxy/assets/asset-activity-type.enum';
 import { AccountService } from '../../proxy/accounting/account.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -156,6 +158,82 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           </div>
         }
 
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">{{ '::AssetActivity' | abpLocalization }}</h6>
+            <button
+              class="btn btn-sm btn-outline-primary"
+              (click)="showActivityForm = !showActivityForm"
+            >
+              <i class="fa fa-plus me-1"></i>{{ '::LogActivity' | abpLocalization }}
+            </button>
+          </div>
+          @if (showActivityForm) {
+            <div class="card-body border-bottom bg-light">
+              <div class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label small mb-1">{{ '::ActivityType' | abpLocalization }}</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="activityForm.activityType">
+                    @for (opt of activityTypeOptions; track opt.value) {
+                      <option [ngValue]="opt.value">{{ opt.key }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small mb-1">{{ '::TransactionDate' | abpLocalization }}</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="activityForm.transactionDate" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small mb-1">{{ '::Subject' | abpLocalization }} *</label>
+                  <input type="text" class="form-control form-control-sm" [(ngModel)]="activityForm.subject" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label small mb-1">{{ '::Details' | abpLocalization }}</label>
+                  <input type="text" class="form-control form-control-sm" [(ngModel)]="activityForm.details" />
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button
+                    class="btn btn-sm btn-primary"
+                    [disabled]="!activityForm.subject.trim()"
+                    (click)="submitAssetActivity()"
+                  >
+                    {{ '::Save' | abpLocalization }}
+                  </button>
+                  <button class="btn btn-sm btn-secondary" (click)="showActivityForm = false">
+                    {{ '::Cancel' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+          <div class="card-body p-0">
+            @if (assetActivities().length === 0) {
+              <p class="text-muted small mb-0 p-3">{{ '::NoDataAvailable' | abpLocalization }}</p>
+            } @else {
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::TransactionDate' | abpLocalization }}</th>
+                    <th>{{ '::ActivityType' | abpLocalization }}</th>
+                    <th>{{ '::Subject' | abpLocalization }}</th>
+                    <th>{{ '::Details' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (act of assetActivities(); track act.id) {
+                    <tr>
+                      <td>{{ act.transactionDate | date:'dd/MM/yyyy' }}</td>
+                      <td><span class="badge bg-light text-dark border">{{ getActivityTypeLabel(act.activityType) }}</span></td>
+                      <td class="fw-semibold">{{ act.subject }}</td>
+                      <td class="text-muted small">{{ act.details || '-' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+
         <app-activity-log documentType="Asset" [documentId]="asset()!.id!" />
       }
     </abp-page>
@@ -165,23 +243,70 @@ export class AssetDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private service = inject(AssetService);
+  private assetActivityService = inject(AssetActivityService);
   private accountService = inject(AccountService);
   private confirmation = inject(ConfirmationService);
 
   asset = signal<AssetDto | null>(null);
+  assetActivities = signal<AssetActivityDto[]>([]);
+  activityTypeOptions = assetActivityTypeOptions;
   accounts: AccountDto[] = [];
   showSellForm = false;
   sellForm = { disposalDate: new Date().toISOString().substring(0, 10), amount: 0, settlementAccountId: '' };
   showSplitForm = false;
   splitQty = 1;
+  showActivityForm = false;
+  activityForm = {
+    activityType: AssetActivityType.Repaired,
+    transactionDate: new Date().toISOString().substring(0, 10),
+    subject: '',
+    details: '',
+  };
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) this.service.get(id).subscribe(a => this.asset.set(a));
+    if (id) {
+      this.service.get(id).subscribe(a => this.asset.set(a));
+      this.loadActivities(id);
+    }
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' } as any).subscribe({
       next: res => { this.accounts = res.items ?? []; },
       error: () => {},
     });
+  }
+
+  loadActivities(assetId: string): void {
+    this.assetActivityService.getListByAsset(assetId).subscribe({
+      next: list => this.assetActivities.set(list ?? []),
+      error: () => {},
+    });
+  }
+
+  getActivityTypeLabel(activityType: AssetActivityType | undefined): string {
+    return AssetActivityType[activityType ?? AssetActivityType.Created] ?? 'Created';
+  }
+
+  submitAssetActivity(): void {
+    const assetId = this.asset()?.id;
+    const subject = this.activityForm.subject.trim();
+    if (!assetId || !subject) return;
+
+    this.assetActivityService
+      .create({
+        assetId,
+        activityType: this.activityForm.activityType,
+        subject,
+        details: this.activityForm.details.trim() || null,
+        transactionDate: this.activityForm.transactionDate,
+      })
+      .subscribe({
+        next: () => {
+          this.showActivityForm = false;
+          this.activityForm.subject = '';
+          this.activityForm.details = '';
+          this.loadActivities(assetId);
+        },
+      });
   }
 
   getActions(): WorkflowAction[] {

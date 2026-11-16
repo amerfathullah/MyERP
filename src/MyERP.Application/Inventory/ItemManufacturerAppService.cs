@@ -170,6 +170,40 @@ public class ItemManufacturerAppService :
         }
     }
 
+    protected override Task<ItemManufacturerDto> MapToGetOutputDtoAsync(ItemManufacturer entity)
+    {
+        return MapToDtoWithNamesAsync(entity);
+    }
+
+    protected override async Task<List<ItemManufacturerDto>> MapToGetListOutputDtosAsync(List<ItemManufacturer> entities)
+    {
+        var itemIds = entities.Select(e => e.ItemId).Distinct().ToList();
+        var mfrIds = entities.Select(e => e.ManufacturerId).Distinct().ToList();
+
+        var items = itemIds.Count > 0
+            ? (await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id))).ToDictionary(i => i.Id)
+            : new Dictionary<Guid, Item>();
+
+        var manufacturers = mfrIds.Count > 0
+            ? (await _manufacturerRepository.GetListAsync(m => mfrIds.Contains(m.Id))).ToDictionary(m => m.Id)
+            : new Dictionary<Guid, Manufacturer>();
+
+        return entities.Select(entity =>
+        {
+            var dto = ObjectMapper.Map<ItemManufacturer, ItemManufacturerDto>(entity);
+            if (items.TryGetValue(entity.ItemId, out var item))
+            {
+                dto.ItemCode = item.ItemCode;
+                dto.ItemName = item.ItemName;
+            }
+            if (manufacturers.TryGetValue(entity.ManufacturerId, out var mfr))
+            {
+                dto.ManufacturerShortName = mfr.ShortName;
+            }
+            return dto;
+        }).ToList();
+    }
+
     private async Task<ItemManufacturerDto> MapToDtoWithNamesAsync(ItemManufacturer entity)
     {
         var dto = ObjectMapper.Map<ItemManufacturer, ItemManufacturerDto>(entity);

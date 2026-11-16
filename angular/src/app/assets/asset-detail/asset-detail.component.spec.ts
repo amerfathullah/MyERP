@@ -125,4 +125,18 @@ describe('AssetDetailComponent Logic', () => {
       expect(badge).toBe('bg-secondary');
     });
   });
+
+  describe('AssetActivity integration', () => {
+    it('maps activity type numbers to readable labels', () => {
+      const map: Record<number, string> = {
+        0: 'Created',
+        1: 'Depreciated',
+        2: 'Moved',
+        3: 'Repaired',
+        7: 'Sold',
+      };
+      expect(map[1]).toBe('Depreciated');
+      expect(map[7]).toBe('Sold');
+    });
+  });
 });

@@ -4606,6 +4606,36 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturers.Edit' },
   },
 
+  // Item Manufacturers
+  {
+    path: 'inventory/item-manufacturers',
+    loadComponent: () => import('./inventory/item-manufacturers/item-manufacturer-list.component').then(c => c.ItemManufacturerListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ItemManufacturers' },
+  },
+  {
+    path: 'inventory/item-manufacturers/new',
+    loadComponent: () => import('./inventory/item-manufacturers/item-manufacturer-form.component').then(c => c.ItemManufacturerFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ItemManufacturers.Create' },
+  },
+  {
+    path: 'inventory/item-manufacturers/:id/edit',
+    loadComponent: () => import('./inventory/item-manufacturers/item-manufacturer-form.component').then(c => c.ItemManufacturerFormComponent),
+    canActivate: [authGuard, permissionGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { requiredPolicy: 'MyERP.ItemManufacturers.Edit' },
+  },
+
+  // Serial and Batch Bundles
+  {
+    path: 'inventory/serial-and-batch-bundles',
+    loadComponent: () => import('./inventory/serial-and-batch-bundles/serial-and-batch-bundle-list.component').then(c => c.SerialAndBatchBundleListComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+
   // Item Alternatives
   {
     path: 'inventory/item-alternatives',

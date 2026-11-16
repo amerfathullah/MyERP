@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -6,6 +7,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
@@ -19,15 +21,27 @@ namespace MyERP.Inventory;
 public class SerialAndBatchBundleAppService : ApplicationService, ISerialAndBatchBundleAppService
 {
     private readonly IRepository<SerialAndBatchBundle, Guid> _repository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
 
     public SerialAndBatchBundleAppService(IRepository<SerialAndBatchBundle, Guid> repository)
+        : this(repository, null)
+    {
+    }
+
+    public SerialAndBatchBundleAppService(
+        IRepository<SerialAndBatchBundle, Guid> repository,
+        IRepository<Item, Guid>? itemRepository)
     {
         _repository = repository;
+        _itemRepository = itemRepository;
     }
+
+    private IRepository<Item, Guid>? ItemRepository =>
+        _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
 
     public async Task<PagedResultDto<SerialAndBatchBundleDto>> GetListAsync(GetBundleListDto input)
     {
-        var query = await _repository.GetQueryableAsync();
+        var query = await _repository.WithDetailsAsync(b => b.Entries);
 
         if (input.CompanyId.HasValue)
             query = query.Where(b => b.CompanyId == input.CompanyId.Value);
@@ -50,12 +64,15 @@ public class SerialAndBatchBundleAppService : ApplicationService, ISerialAndBatc
 
         // Resolve item names
         var itemIds = items.Select(b => b.ItemId).Distinct().ToList();
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
-        var itemQuery = await itemRepo.GetQueryableAsync();
-        var itemNames = itemQuery
-            .Where(i => itemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemName })
-            .ToDictionary(i => i.Id, i => i.ItemName);
+        var itemNames = new Dictionary<Guid, string>();
+        if (itemIds.Count > 0 && ItemRepository != null)
+        {
+            var itemQuery = await ItemRepository.GetQueryableAsync();
+            itemNames = itemQuery
+                .Where(i => itemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.ItemName })
+                .ToDictionary(i => i.Id, i => i.ItemName);
+        }
 
         return new PagedResultDto<SerialAndBatchBundleDto>(
             totalCount,
@@ -78,10 +95,11 @@ public class SerialAndBatchBundleAppService : ApplicationService, ISerialAndBatc
 
     public async Task<SerialAndBatchBundleDto> GetAsync(Guid id)
     {
-        var bundle = await _repository.GetAsync(id);
+        var query = await _repository.WithDetailsAsync(b => b.Entries);
+        var bundle = query.FirstOrDefault(b => b.Id == id)
+            ?? throw new EntityNotFoundException(typeof(SerialAndBatchBundle), id);
 
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
-        var item = await itemRepo.FindAsync(bundle.ItemId);
+        var item = ItemRepository != null ? await ItemRepository.FindAsync(bundle.ItemId) : null;
 
         return new SerialAndBatchBundleDto
         {
