@@ -66,6 +66,14 @@
             <span>{{ order.customerPoNumber }}</span>
           </div>
         }
+        @if (order.interCompanyPurchaseOrderId) {
+          <div class="mt-2">
+            <a [routerLink]="['/purchasing/orders', order.interCompanyPurchaseOrderId]" class="badge bg-info-subtle text-info-emphasis text-decoration-none">
+              <i class="fa fa-building me-1"></i>{{ '::InterCompanyLinkedTo' | abpLocalization }}
+              {{ order.interCompanyPurchaseOrderNumber }}@if (order.interCompanyCompanyName) { ({{ order.interCompanyCompanyName }})}
+            </a>
+          </div>
+        }
       </div>
     </div>
 

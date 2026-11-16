@@ -52,6 +52,14 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     /// <summary>Whether any fully delivered item row can still accept further delivery within its over-delivery allowance (PR #60140).</summary>
     public bool HasOverDeliverableRows { get; set; }
 
+    /// <summary>True when Customer represents another company.</summary>
+    public bool IsInternalCustomer { get; set; }
+    public Guid? InterCompanyPurchaseOrderId { get; set; }
+    public string? InterCompanyPurchaseOrderNumber { get; set; }
+    public string? InterCompanyCompanyName { get; set; }
+    /// <summary>True when SO has pending non-closed qty and is eligible to create an inter-company PO (ERPNext PR #66964).</summary>
+    public bool CanCreateInterCompanyPurchaseOrder { get; set; }
+
     public List<SalesOrderItemDto> Items { get; set; } = new();
 
     /// <summary>Sales team allocations for commission tracking.</summary>

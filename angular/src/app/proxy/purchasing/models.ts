@@ -948,6 +948,11 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   supplierConfirmationDate?: string | null;
   supplierPromisedDate?: string | null;
   isSupplierConfirmed?: boolean;
+  isInternalSupplier?: boolean;
+  interCompanySalesOrderId?: string | null;
+  interCompanySalesOrderNumber?: string | null;
+  interCompanyCompanyName?: string | null;
+  canCreateInterCompanySalesOrder?: boolean;
   items?: PurchaseOrderItemDto[];
 }
 

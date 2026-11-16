@@ -64,6 +64,14 @@
               <span>{{ order.remarks }}</span>
             </div>
           }
+          @if (order.interCompanySalesOrderId) {
+            <div class="col-12">
+              <a [routerLink]="['/sales/orders', order.interCompanySalesOrderId]" class="badge bg-info-subtle text-info-emphasis text-decoration-none">
+                <i class="fa fa-building me-1"></i>{{ '::InterCompanyLinkedTo' | abpLocalization }}
+                {{ order.interCompanySalesOrderNumber }}@if (order.interCompanyCompanyName) { ({{ order.interCompanyCompanyName }})}
+              </a>
+            </div>
+          }
         </div>
         @if (supplierContact(); as contact) {
           @if (contact.phone || contact.email || contact.contactPerson) {

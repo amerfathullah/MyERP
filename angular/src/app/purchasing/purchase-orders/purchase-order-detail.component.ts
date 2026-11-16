@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
@@ -45,6 +45,7 @@ export class PurchaseOrderDetailComponent implements OnInit {
   private documentPrintService = inject(DocumentPrintService);
   private supplierProxyService = inject(SupplierService);
   private partyPerformanceService = inject(PartyPerformanceService);
+  private permissionService = inject(PermissionService, { optional: true });
 
   order: PurchaseOrderDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -99,6 +100,10 @@ export class PurchaseOrderDetailComponent implements OnInit {
     }
     if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || s === 'ToBill') {
       actions.push({ name: 'payment', label: this.l.instant('::MakePayment'), icon: 'money-bill', color: 'info' });
+      const canCreateSo = this.permissionService?.getGrantedPolicy('MyERP.SalesOrders.Create') ?? true;
+      if (this.order.canCreateInterCompanySalesOrder && canCreateSo) {
+        actions.push({ name: 'inter_company_so', label: this.l.instant('::InterCompanySalesOrder'), icon: 'building', color: 'info' });
+      }
     }
     if (s !== 'Draft' && s !== 'Cancelled') {
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
@@ -185,6 +190,18 @@ export class PurchaseOrderDetailComponent implements OnInit {
             next: (invoice) => this.router.navigate(['/purchasing/invoices', invoice.id]),
             error: () => this.toaster.error('::ConversionFailed'),
           });
+        });
+        break;
+      case 'inter_company_so':
+        this.service.createInterCompanySalesOrder(id).subscribe({
+          next: (so) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/sales/orders', so.id]);
+          },
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
         });
         break;
       case 'payment':

@@ -30,4 +30,5 @@ public interface IPurchaseOrderAppService : IApplicationService
     Task<PurchaseOrderDto> RecordSupplierConfirmationAsync(Guid id, RecordSupplierConfirmationDto input);
     Task<List<PendingMaterialRequestItemDto>> GetPendingMaterialRequestItemsAsync(Guid? companyId = null, Guid? supplierId = null);
     Task<PurchaseOrderTrackingBoardDto> GetTrackingBoardAsync(Guid companyId);
+    Task<SalesOrderDto> CreateInterCompanySalesOrderAsync(Guid id);
 }

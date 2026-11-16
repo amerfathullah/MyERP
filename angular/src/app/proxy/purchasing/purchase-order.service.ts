@@ -2,7 +2,7 @@ import type { CreatePurchaseOrderDto, PendingMaterialRequestItemDto, PurchaseOrd
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { OrderPaymentDto, OrderReceiptDto } from '../sales/models';
+import type { OrderPaymentDto, OrderReceiptDto, SalesOrderDto } from '../sales/models';
 import type { BulkOperationResultDto, CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -50,6 +50,16 @@ export class PurchaseOrderService {
       method: 'POST',
       headers: { Accept: 'application/json' },
       url: `/api/app/purchase-order/${id}/close`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  createInterCompanySalesOrder = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesOrderDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/purchase-order/${id}/inter-company-sales-order`,
     },
       { apiName: this.apiName,...config });
   

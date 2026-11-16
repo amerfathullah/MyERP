@@ -275,8 +275,54 @@ public class InterCompanyTransactionService : DomainService
     }
 
     /// <summary>
+    /// Computes inter-company PO link metadata and already-ordered stock quantities per SO item
+    /// for a Sales Order (ERPNext PR #66964: an order made from its counterpart links without item
+    /// references; otherwise compute pending qty per non-closed item).
+    /// </summary>
+    public async Task<(bool IsMadeFromCounterpart, Dictionary<Guid, decimal> OrderedStockQtyByItem, PurchaseOrder? LatestLinkedPo)>
+        AnalyzeSalesOrderInterCompanyStateAsync(SalesOrder salesOrder)
+    {
+        var orderedByItem = new Dictionary<Guid, decimal>();
+        if (_purchaseOrderRepository == null)
+        {
+            return (false, orderedByItem, null);
+        }
+
+        var poQuery = await _purchaseOrderRepository.WithDetailsAsync(p => p.Items);
+        var linkedPos = poQuery
+            .Where(po => po.InterCompanySalesOrderId == salesOrder.Id && po.Status != DocumentStatus.Cancelled)
+            .OrderByDescending(po => po.CreationTime)
+            .ToList();
+
+        if (linkedPos.Count == 0)
+        {
+            return (false, orderedByItem, null);
+        }
+
+        var itemRefs = linkedPos
+            .SelectMany(po => po.Items)
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .ToList();
+
+        if (itemRefs.Count == 0)
+        {
+            // Counterpart SO created from PO links without item references — hide IC PO button to avoid loop.
+            return (true, orderedByItem, linkedPos[0]);
+        }
+
+        foreach (var poItem in itemRefs)
+        {
+            var key = poItem.SalesOrderItemId!.Value;
+            orderedByItem[key] = orderedByItem.GetValueOrDefault(key) + poItem.StockQty;
+        }
+
+        return (false, orderedByItem, linkedPos[0]);
+    }
+
+    /// <summary>
     /// Creates a Purchase Order in the target company from a Sales Order in the source company.
-    /// Per ERPNext make_inter_company_purchase_order: triggered on SO submit when customer represents another company.
+    /// Per ERPNext make_inter_company_purchase_order / PR #66964: only maps non-closed items
+    /// with pending qty > 0, and skips if the SO was already created from a counterpart PO.
     /// </summary>
     public async Task<Guid?> CreatePurchaseOrderFromSalesOrderAsync(
         SalesOrder salesOrder, Func<string, Guid, Task<string>> numberGenerator, Guid? tenantId = null)
@@ -284,6 +330,25 @@ public class InterCompanyTransactionService : DomainService
         var customer = await _customerRepository.GetAsync(salesOrder.CustomerId);
         if (!customer.RepresentsCompanyId.HasValue)
             return null; // Not an inter-company customer
+
+        var (isMadeFromCounterpart, orderedByItem, _) = await AnalyzeSalesOrderInterCompanyStateAsync(salesOrder);
+        if (isMadeFromCounterpart)
+            return null;
+
+        var pendingItems = new List<(SalesOrderItem Item, decimal PendingQty, decimal ConversionFactor)>();
+        foreach (var item in salesOrder.Items)
+        {
+            if (item.IsClosed) continue;
+            var cf = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+            var orderedStock = orderedByItem.GetValueOrDefault(item.Id);
+            var pendingQty = Math.Round((item.StockQty - orderedStock) / cf, 4);
+            if (pendingQty > 0)
+            {
+                pendingItems.Add((item, pendingQty, cf));
+            }
+        }
+        if (pendingItems.Count == 0)
+            return null;
 
         var targetCompanyId = customer.RepresentsCompanyId.Value;
         var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
@@ -338,17 +403,110 @@ public class InterCompanyTransactionService : DomainService
             po.BillingAddressId = salesOrder.BillingAddressId;
         }
 
-        var targetItemMap = await ResolveTargetCompanyItemMapAsync(salesOrder.Items.Select(i => i.ItemId), targetCompanyId);
-        foreach (var item in salesOrder.Items)
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(pendingItems.Select(x => x.Item.ItemId), targetCompanyId);
+        foreach (var (item, pendingQty, cf) in pendingItems)
         {
             var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
-            var poItem = po.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom);
+            var poItem = po.AddItem(targetItemId, item.Description, pendingQty, item.UnitPrice, 0m, item.Uom);
+            poItem.StockUom = item.StockUom;
+            poItem.ConversionFactor = cf;
             poItem.SalesOrderId = salesOrder.Id;
             poItem.SalesOrderItemId = item.Id;
         }
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
         return po.Id;
+    }
+
+    /// <summary>
+    /// Creates a Sales Order in the target company from a Purchase Order in the source company.
+    /// Mirrors ERPNext make_inter_company_sales_order / PR #66964.
+    /// </summary>
+    public async Task<Guid?> CreateSalesOrderFromPurchaseOrderAsync(
+        PurchaseOrder purchaseOrder, Func<string, Guid, Task<string>> numberGenerator, Guid? tenantId = null)
+    {
+        var soRepo = LazyServiceProvider?.LazyGetService<IRepository<SalesOrder, Guid>>();
+        if (soRepo == null) return null;
+
+        if (purchaseOrder.InterCompanySalesOrderId.HasValue)
+        {
+            var existingSo = await soRepo.FindAsync(purchaseOrder.InterCompanySalesOrderId.Value);
+            if (existingSo != null && existingSo.Status != DocumentStatus.Cancelled)
+            {
+                return null;
+            }
+        }
+
+        var supplier = await _supplierRepository.GetAsync(purchaseOrder.SupplierId);
+        if (!supplier.RepresentsCompanyId.HasValue)
+            return null;
+
+        var targetCompanyId = supplier.RepresentsCompanyId.Value;
+        var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
+
+        var customerQuery = await _customerRepository.GetQueryableAsync();
+        var matchingCustomer = customerQuery
+            .FirstOrDefault(c => c.CompanyId == targetCompanyId
+                              && c.RepresentsCompanyId == purchaseOrder.CompanyId
+                              && c.IsActive);
+
+        if (matchingCustomer == null)
+            return null;
+
+        var openItems = purchaseOrder.Items.Where(i => !i.IsClosed && i.Quantity > 0).ToList();
+        if (openItems.Count == 0)
+            return null;
+
+        await ValidatePriceListAsync(purchaseOrder.PriceListId);
+
+        var soNumber = await numberGenerator("SalesOrder", targetCompanyId);
+        var so = new SalesOrder(
+            LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
+            targetCompanyId,
+            matchingCustomer.Id,
+            soNumber,
+            purchaseOrder.OrderDate,
+            tenantId);
+
+        so.DeliveryDate = purchaseOrder.ExpectedDeliveryDate;
+        so.CurrencyCode = purchaseOrder.CurrencyCode ?? "MYR";
+        so.PriceListId = purchaseOrder.PriceListId;
+        so.Notes = $"Auto-created from inter-company Purchase Order {purchaseOrder.OrderNumber}";
+
+        if (!string.Equals(so.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var exchangeRateService = LazyServiceProvider?.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            if (exchangeRateService != null)
+            {
+                var rate = await exchangeRateService.GetExchangeRateAsync(so.CurrencyCode, targetCompany.CurrencyCode, so.OrderDate);
+                if (rate > 0)
+                {
+                    so.ExchangeRate = rate;
+                }
+            }
+        }
+
+        if (purchaseOrder.BillingAddressId.HasValue && await ValidateAddressLinkAsync(purchaseOrder.BillingAddressId, "Customer", matchingCustomer.Id))
+        {
+            so.BillingAddressId = purchaseOrder.BillingAddressId;
+        }
+
+        var targetItemMap = await ResolveTargetCompanyItemMapAsync(openItems.Select(i => i.ItemId), targetCompanyId);
+        foreach (var item in openItems)
+        {
+            var targetItemId = targetItemMap.GetValueOrDefault(item.ItemId, item.ItemId);
+            so.AddItem(targetItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom, item.ExpectedDeliveryDate);
+            var addedItem = so.Items.Last();
+            addedItem.StockUom = item.StockUom;
+            addedItem.ConversionFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+        }
+
+        await soRepo.InsertAsync(so, autoSave: true);
+
+        purchaseOrder.InterCompanySalesOrderId = so.Id;
+        await _purchaseOrderRepository.UpdateAsync(purchaseOrder, autoSave: true);
+
+        return so.Id;
     }
 
     /// <summary>

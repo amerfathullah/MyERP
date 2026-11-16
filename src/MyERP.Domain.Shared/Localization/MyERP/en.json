@@ -2648,6 +2648,8 @@
     "RoundOffAccountHint": "Absorbs small (up to 0.5) debit/credit imbalances instead of blocking submission.",
     "RoundOffForOpeningAccount": "Round Off Account (Opening Entries)",
     "InterCompanyLinkedTo": "Inter-company link:",
+    "InterCompanyPurchaseOrder": "Inter-Company Purchase Order",
+    "InterCompanySalesOrder": "Inter-Company Sales Order",
     "Menu:LowerDeductionCertificates": "Lower Deduction Certificates",
     "LowerDeductionCertificates": "Lower Deduction Certificates",
     "NoLowerDeductionCertificatesYet": "No lower deduction certificates configured yet",

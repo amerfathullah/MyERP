@@ -334,6 +334,7 @@ describe('SalesOrderDetailComponent Logic', () => {
       getDeliverySchedule: vi.fn().mockReturnValue(of([])),
       getOrderPayments: vi.fn().mockReturnValue(of([])),
       updateSalesTeam: vi.fn().mockReturnValue(of({ id: 'so-1', status: 'ToDeliverAndBill', items: [], salesTeam: [{ salesPersonId: 'sp-1', allocatedPercentage: 100 }], totalCommission: 15 })),
+      createInterCompanyPurchaseOrder: vi.fn().mockReturnValue(of({ id: 'ic-po-1' })),
     };
     const maintenanceScheduleMock = {
       createFromSalesOrder: vi.fn().mockReturnValue(of({ companyId: 'comp-1', customerId: 'cust-1', salesOrderId: 'so-1', items: [{ itemId: 'item-1', startDate: '2026-11-16', endDate: '2027-11-16' }] })),
@@ -479,6 +480,21 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(conversionMock.convertSalesOrderToPickList).toHaveBeenCalledWith('so-1');
       expect(toasterMock.success).toHaveBeenCalledWith('::PickListCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/inventory/pick-lists', 'pl-42']);
+    });
+
+    it('creates inter-company purchase order when canCreateInterCompanyPurchaseOrder is true', () => {
+      const { comp, soServiceMock, routerMock, toasterMock } = createComponent();
+      comp.order = { id: 'so-1', status: 'ToDeliverAndBill', canCreateInterCompanyPurchaseOrder: false, items: [] } as any;
+      expect(comp.workflowActions.some(a => a.name === 'inter_company_po')).toBe(false);
+
+      comp.order = { id: 'so-1', status: 'ToDeliverAndBill', canCreateInterCompanyPurchaseOrder: true, items: [] } as any;
+      expect(comp.workflowActions.some(a => a.name === 'inter_company_po')).toBe(true);
+
+      comp.onWorkflowAction('inter_company_po');
+
+      expect(soServiceMock.createInterCompanyPurchaseOrder).toHaveBeenCalledWith('so-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/orders', 'ic-po-1']);
     });
   });
 });

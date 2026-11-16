@@ -89,7 +89,74 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var po = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
         dto.SupplierName = await ResolveSupplierNameAsync(po.SupplierId);
+
+        var supplier = await _supplierRepository.FindAsync(po.SupplierId);
+        dto.IsInternalSupplier = supplier?.RepresentsCompanyId.HasValue ?? false;
+
+        if (po.InterCompanySalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var linkedSo = await soRepo.FindAsync(po.InterCompanySalesOrderId.Value);
+            if (linkedSo != null && linkedSo.Status != Core.DocumentStatus.Cancelled)
+            {
+                dto.InterCompanySalesOrderNumber = linkedSo.OrderNumber;
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+                var company = await companyRepo.FindAsync(linkedSo.CompanyId);
+                dto.InterCompanyCompanyName = company?.Name;
+            }
+            else
+            {
+                dto.InterCompanySalesOrderId = null;
+            }
+        }
+
+        var isSubmittedActive = po.Status != Core.DocumentStatus.Draft
+            && po.Status != Core.DocumentStatus.Cancelled
+            && po.Status != Core.DocumentStatus.Closed;
+        dto.CanCreateInterCompanySalesOrder = isSubmittedActive
+            && dto.IsInternalSupplier
+            && !dto.InterCompanySalesOrderId.HasValue
+            && po.Items.Any(i => !i.IsClosed);
+
         return dto;
+    }
+
+    /// <summary>
+    /// Creates an inter-company Sales Order in the supplier's represented company
+    /// from a submitted Purchase Order (ERPNext PR #66964).
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesOrders.Create)]
+    public async Task<Sales.SalesOrderDto> CreateInterCompanySalesOrderAsync(Guid id)
+    {
+        var po = await _repository.GetAsync(id);
+        if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled || po.Status == Core.DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "PurchaseOrder");
+        }
+
+        var supplier = await _supplierRepository.GetAsync(po.SupplierId);
+        if (!supplier.RepresentsCompanyId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyPartyMismatch)
+                .WithData("supplier", supplier.Name);
+        }
+
+        var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+        var soId = await interCompanyService.CreateSalesOrderFromPurchaseOrderAsync(
+            po,
+            async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId),
+            po.TenantId);
+
+        if (!soId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Inter-company Sales Order already exists or no matching internal customer found.");
+        }
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var createdSo = await soRepo.GetAsync(soId.Value);
+        return ObjectMapper.Map<MyERP.Sales.Entities.SalesOrder, Sales.SalesOrderDto>(createdSo);
     }
 
     public async Task<PagedResultDto<PurchaseOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -526,6 +593,24 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         }
 
         await _repository.UpdateAsync(po, autoSave: true);
+
+        // Inter-company: auto-create Sales Order in target company when supplier represents another company
+        if (!po.InterCompanySalesOrderId.HasValue)
+        {
+            try
+            {
+                var interCompanyService = LazyServiceProvider
+                    .LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+                await interCompanyService.CreateSalesOrderFromPurchaseOrderAsync(
+                    po,
+                    async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId),
+                    po.TenantId);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Inter-company SO creation failed for PO {PoId}", po.Id);
+            }
+        }
 
         // Auto-create Subcontracting Order for subcontracted POs
         // Per ERPNext PO.on_submit: auto_create_subcontracting_order creates SCO with RM from BOM

@@ -5,7 +5,7 @@ import { ManufacturingService } from '../../proxy/controllers/manufacturing.serv
 import { MaintenanceScheduleService } from '../../proxy/maintenance/maintenance-schedule.service';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
@@ -63,6 +63,7 @@ export class SalesOrderDetailComponent implements OnInit {
   private companyService = inject(CompanyService);
   private salesOrderService = inject(SalesOrderService);
   private maintenanceScheduleService = inject(MaintenanceScheduleService);
+  private permissionService = inject(PermissionService, { optional: true });
   private l = inject(LocalizationService);
 
   order: SalesOrderDto | null = null;
@@ -220,6 +221,10 @@ export class SalesOrderDetailComponent implements OnInit {
       actions.push({ name: 'production_plan', label: this.l.instant('::CreateProductionPlan'), icon: 'chart-gantt', color: 'info' });
       actions.push({ name: 'material_request', label: this.l.instant('::MaterialRequest'), icon: 'box-open', color: 'info' });
       actions.push({ name: 'purchase_order', label: this.l.instant('::CreatePurchaseOrder'), icon: 'cart-plus', color: 'info' });
+      const canCreatePo = this.permissionService?.getGrantedPolicy('MyERP.PurchaseOrders.Create') ?? true;
+      if (this.order.canCreateInterCompanyPurchaseOrder && canCreatePo) {
+        actions.push({ name: 'inter_company_po', label: this.l.instant('::InterCompanyPurchaseOrder'), icon: 'building', color: 'info' });
+      }
       actions.push({ name: 'maintenance_schedule', label: this.l.instant('::MaintenanceSchedule'), icon: 'wrench', color: 'info' });
       actions.push({ name: 'cancel_reservations', label: this.l.instant('::CancelStockReservations'), icon: 'unlock', color: 'outline-danger' });
     }
@@ -426,6 +431,18 @@ export class SalesOrderDetailComponent implements OnInit {
         break;
       case 'purchase_order':
         this.openPoSelection();
+        break;
+      case 'inter_company_po':
+        this.salesOrderService.createInterCompanyPurchaseOrder(id).subscribe({
+          next: (po) => {
+            this.toaster.success('::SuccessfullyCreated');
+            this.router.navigate(['/purchasing/orders', po.id]);
+          },
+          error: (err: any) => {
+            const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+            this.toaster.error(reason || '::OperationFailed');
+          },
+        });
         break;
       case 'maintenance_schedule':
         this.maintenanceScheduleService.createFromSalesOrder(id).pipe(

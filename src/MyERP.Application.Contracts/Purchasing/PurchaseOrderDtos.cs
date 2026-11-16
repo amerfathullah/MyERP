@@ -37,6 +37,13 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public DateTime? SupplierPromisedDate { get; set; }
     public bool IsSupplierConfirmed { get; set; }
 
+    public bool IsInternalSupplier { get; set; }
+    public Guid? InterCompanySalesOrderId { get; set; }
+    public string? InterCompanySalesOrderNumber { get; set; }
+    public string? InterCompanyCompanyName { get; set; }
+    /// <summary>True when PO is eligible to create an inter-company Sales Order (ERPNext PR #66964).</summary>
+    public bool CanCreateInterCompanySalesOrder { get; set; }
+
     public List<PurchaseOrderItemDto> Items { get; set; } = new();
 }
 

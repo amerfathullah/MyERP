@@ -708,8 +708,16 @@ public partial class PurchaseInvoiceMapper : MapperBase<Purchasing.Entities.Purc
 public partial class PurchaseOrderMapper : MapperBase<Purchasing.Entities.PurchaseOrder, Purchasing.PurchaseOrderDto>
 {
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.IsInternalSupplier))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.InterCompanySalesOrderNumber))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.InterCompanyCompanyName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.CanCreateInterCompanySalesOrder))]
     public override partial Purchasing.PurchaseOrderDto Map(Purchasing.Entities.PurchaseOrder source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.SupplierName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.IsInternalSupplier))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.InterCompanySalesOrderNumber))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.InterCompanyCompanyName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseOrderDto.CanCreateInterCompanySalesOrder))]
     public override partial void Map(Purchasing.Entities.PurchaseOrder source, Purchasing.PurchaseOrderDto destination);
     private partial Purchasing.PurchaseOrderItemDto MapChild(Purchasing.Entities.PurchaseOrderItem source);
 }
@@ -1308,6 +1316,11 @@ public partial class SalesOrderMapper : MapperBase<Sales.Entities.SalesOrder, Sa
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstPaymentDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.SalesTeam))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.HasOverDeliverableRows))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.IsInternalCustomer))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyPurchaseOrderId))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyPurchaseOrderNumber))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyCompanyName))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.CanCreateInterCompanyPurchaseOrder))]
     public override partial Sales.SalesOrderDto Map(Sales.Entities.SalesOrder source);
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.OverdueWarning))]
@@ -1317,6 +1330,11 @@ public partial class SalesOrderMapper : MapperBase<Sales.Entities.SalesOrder, Sa
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstPaymentDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.SalesTeam))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.HasOverDeliverableRows))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.IsInternalCustomer))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyPurchaseOrderId))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyPurchaseOrderNumber))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.InterCompanyCompanyName))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.CanCreateInterCompanyPurchaseOrder))]
     public override partial void Map(Sales.Entities.SalesOrder source, Sales.SalesOrderDto destination);
     [MapperIgnoreTarget(nameof(Sales.SalesOrderItemDto.AvailableQty))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderItemDto.IsInsufficientStock))]

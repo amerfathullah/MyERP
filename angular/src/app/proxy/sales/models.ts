@@ -2605,6 +2605,11 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   firstPaymentDate?: string | null;
   overdueWarning?: string | null;
   hasOverDeliverableRows?: boolean;
+  isInternalCustomer?: boolean;
+  interCompanyPurchaseOrderId?: string | null;
+  interCompanyPurchaseOrderNumber?: string | null;
+  interCompanyCompanyName?: string | null;
+  canCreateInterCompanyPurchaseOrder?: boolean;
   items?: SalesOrderItemDto[];
   salesTeam?: SalesTeamEntryDto[];
 }

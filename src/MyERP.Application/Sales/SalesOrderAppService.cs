@@ -218,7 +218,77 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await ResolveFulfillmentDatesAsync(dto, id);
         await AttachSalesTeamAsync(dto);
         await PopulateOverDeliveryStateAsync(dto, order);
+        await PopulateInterCompanyStateAsync(dto, order);
         return dto;
+    }
+
+    private async Task PopulateInterCompanyStateAsync(SalesOrderDto dto, SalesOrder order)
+    {
+        var customer = await _customerRepository.FindAsync(order.CustomerId);
+        dto.IsInternalCustomer = customer?.RepresentsCompanyId.HasValue ?? false;
+
+        var interCompanyService = LazyServiceProvider.LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
+        if (interCompanyService == null) return;
+
+        var (isMadeFromCounterpart, orderedByItem, linkedPo) = await interCompanyService.AnalyzeSalesOrderInterCompanyStateAsync(order);
+        if (linkedPo != null)
+        {
+            dto.InterCompanyPurchaseOrderId = linkedPo.Id;
+            dto.InterCompanyPurchaseOrderNumber = linkedPo.OrderNumber;
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            var company = await companyRepo.FindAsync(linkedPo.CompanyId);
+            dto.InterCompanyCompanyName = company?.Name;
+        }
+
+        var isSubmittedActive = order.Status != Core.DocumentStatus.Draft
+            && order.Status != Core.DocumentStatus.Cancelled
+            && order.Status != Core.DocumentStatus.Closed;
+        var hasPendingQty = order.Items.Any(i =>
+        {
+            if (i.IsClosed) return false;
+            var cf = i.ConversionFactor > 0 ? i.ConversionFactor : 1m;
+            return Math.Round((i.StockQty - orderedByItem.GetValueOrDefault(i.Id)) / cf, 4) > 0;
+        });
+
+        dto.CanCreateInterCompanyPurchaseOrder = isSubmittedActive && dto.IsInternalCustomer && !isMadeFromCounterpart && hasPendingQty;
+    }
+
+    /// <summary>
+    /// Creates an inter-company Purchase Order in the customer's represented company
+    /// for remaining non-closed item quantities (ERPNext PR #66964).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<Purchasing.PurchaseOrderDto> CreateInterCompanyPurchaseOrderAsync(Guid id)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status == Core.DocumentStatus.Draft || order.Status == Core.DocumentStatus.Cancelled || order.Status == Core.DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "SalesOrder");
+        }
+
+        var customer = await _customerRepository.GetAsync(order.CustomerId);
+        if (!customer.RepresentsCompanyId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyPartyMismatch)
+                .WithData("customer", customer.Name);
+        }
+
+        var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
+        var poId = await interCompanyService.CreatePurchaseOrderFromSalesOrderAsync(
+            order,
+            async (type, companyId) => await _numberGenerator.GenerateAsync(type, companyId),
+            order.TenantId);
+
+        if (!poId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No pending quantities or matching internal supplier found for inter-company Purchase Order creation.");
+        }
+
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+        var createdPo = await poRepo.GetAsync(poId.Value);
+        return ObjectMapper.Map<Purchasing.Entities.PurchaseOrder, Purchasing.PurchaseOrderDto>(createdPo);
     }
 
     public async Task<PagedResultDto<SalesOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)

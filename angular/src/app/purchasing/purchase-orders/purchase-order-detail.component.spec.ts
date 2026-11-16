@@ -1,4 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService, PermissionService } from '@abp/ng.core';
+import { ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { describe, it, expect, vi } from 'vitest';
+import { of } from 'rxjs';
+import { PurchaseOrderDetailComponent } from './purchase-order-detail.component';
+import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
+import { PurchaseOrderStore } from '../store/purchase-order.store';
+import { DocumentEmailService } from '../../proxy/sales/document-email.service';
+import { DocumentPrintService } from '../../proxy/core/document-print.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { PartyPerformanceService } from '../../proxy/core/party-performance.service';
 
 interface WorkflowAction {
   name: string;
@@ -149,6 +162,48 @@ describe('PurchaseOrderDetailComponent Logic', () => {
         { quantity: 5, receivedQty: 0 },
       ]);
       expect(result).toBe(0);
+    });
+  });
+
+  describe('PurchaseOrderDetailComponent inter-company action', () => {
+    it('creates inter-company sales order when canCreateInterCompanySalesOrder is true', () => {
+      const poServiceMock = {
+        get: vi.fn().mockReturnValue(of(null)),
+        createInterCompanySalesOrder: vi.fn().mockReturnValue(of({ id: 'ic-so-1' })),
+      };
+      const routerMock = { navigate: vi.fn() };
+      const toasterMock = { success: vi.fn(), error: vi.fn() };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'po-1' } } } },
+          { provide: Router, useValue: routerMock },
+          { provide: PurchaseOrderService, useValue: poServiceMock },
+          { provide: PurchaseConversionService, useValue: {} },
+          { provide: PurchaseOrderStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: DocumentPrintService, useValue: {} },
+          { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PermissionService, useValue: { getGrantedPolicy: () => true } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseOrderDetailComponent());
+      comp.order = { id: 'po-1', status: 'ToDeliverAndBill', canCreateInterCompanySalesOrder: false } as any;
+      expect(comp.workflowActions.some(a => a.name === 'inter_company_so')).toBe(false);
+
+      comp.order = { id: 'po-1', status: 'ToDeliverAndBill', canCreateInterCompanySalesOrder: true } as any;
+      expect(comp.workflowActions.some(a => a.name === 'inter_company_so')).toBe(true);
+
+      comp.onWorkflowAction('inter_company_so');
+
+      expect(poServiceMock.createInterCompanySalesOrder).toHaveBeenCalledWith('po-1');
+      expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/orders', 'ic-so-1']);
     });
   });
 });
