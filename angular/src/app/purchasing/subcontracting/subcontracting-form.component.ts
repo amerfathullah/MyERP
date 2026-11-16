@@ -6,6 +6,8 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import type { SubcontractingBomItemsDto } from '../../proxy/manufacturing/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
@@ -80,7 +82,7 @@ interface ScoFormItem {
                       }
                     </select>
                   </td>
-                  <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.qty" [name]="'qty'+$index" min="1" /></td>
+                  <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.qty" [name]="'qty'+$index" min="1" (ngModelChange)="onItemChange($index)" /></td>
                   <td><input type="number" class="form-control form-control-sm" [(ngModel)]="item.rate" [name]="'rate'+$index" step="0.01" /></td>
                   <td class="text-end font-monospace align-middle">{{ (item.qty * item.rate) | number:'1.2-2' }}</td>
                   <td>
@@ -102,6 +104,41 @@ interface ScoFormItem {
           <i class="bi bi-plus-lg me-1"></i>{{ 'MyERP::AddRow' | abpLocalization }}
         </button>
 
+        @if (bomPreview(); as preview) {
+          @if (preview.items?.length) {
+            <div class="card bg-light mb-3">
+              <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold small">{{ '::SubcontractingBomRawMaterials' | abpLocalization }}</span>
+                @if (preview.bomNumber) {
+                  <span class="badge bg-info text-dark">{{ preview.bomNumber }}</span>
+                }
+              </div>
+              <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th>{{ '::UOM' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (rm of preview.items; track rm.itemId ?? $index) {
+                      <tr>
+                        <td>{{ rm.itemCode ? (rm.itemCode + ' — ') : '' }}{{ rm.itemName }}</td>
+                        <td>{{ rm.uom || '—' }}</td>
+                        <td class="text-end">{{ rm.requiredQty | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ rm.rate | number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        }
+
         <div class="d-flex justify-content-end gap-2 mt-4">
           <a routerLink="/purchasing/subcontracting" class="btn btn-secondary">{{ 'MyERP::Cancel' | abpLocalization }}</a>
           <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.supplierId || form.items.length === 0">
@@ -116,12 +153,14 @@ export class SubcontractingFormComponent implements OnInit {
   private service = inject(SubcontractingService);
   private supplierService = inject(SupplierService);
   private itemService = inject(ItemService);
+  private mfgService = inject(ManufacturingService);
   private companyContext = inject(CompanyContextService);
   private router = inject(Router);
   private toaster = inject(ToasterService);
 
   suppliers = signal<{ id: string; name: string }[]>([]);
   items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  bomPreview = signal<SubcontractingBomItemsDto | null>(null);
   saving = false;
 
   form = {
@@ -157,6 +196,19 @@ export class SubcontractingFormComponent implements OnInit {
     const item = this.form.items[idx];
     const found = this.items().find(i => i.id === item.itemId);
     if (found) item.itemName = `${found.itemCode} - ${found.itemName}`;
+    const companyId = this.companyContext.currentCompanyId() ?? '';
+    if (!item.itemId || !companyId) {
+      this.bomPreview.set(null);
+      return;
+    }
+    this.mfgService.getBomItemsForSubcontracting(item.itemId, companyId, item.qty || 1).subscribe({
+      next: (bom) => {
+        if (bom?.bomId) item.bomId = bom.bomId;
+        if (bom?.sourceWarehouseId && !item.warehouseId) item.warehouseId = bom.sourceWarehouseId;
+        this.bomPreview.set(bom ?? null);
+      },
+      error: () => this.bomPreview.set(null),
+    });
   }
 
   save() {

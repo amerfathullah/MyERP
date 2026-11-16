@@ -6321,7 +6321,10 @@
     "NoOpenSalesOrderItems": "No unplanned open sales order items found.",
     "RecalculateReturnedBilling": "Recalculate Returned Billing",
     "ReturnedBillingUpdated": "Returned delivery notes billing status updated",
-    "Message": "Message"
+    "Message": "Message",
+    "RawMaterials": "Raw Materials",
+    "MapFromSalesOrder": "Populate From Sales Order",
+    "SubcontractingBomRawMaterials": "Required Raw Materials (BOM)"
   }
 }
 

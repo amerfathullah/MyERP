@@ -6,7 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { JobCardService } from '../../proxy/manufacturing/job-card.service';
-import type { JobCardDto } from '../../proxy/manufacturing/models';
+import type { JobCardDto, JobCardRawMaterialDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -133,6 +133,52 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
           }
         }
 
+        <!-- Raw Materials Table -->
+        @if (rawMaterials().length > 0) {
+          <div class="card mb-3"><div class="card-body">
+            <h6><i class="fa fa-boxes-stacked me-2"></i>{{ '::RawMaterials' | abpLocalization }}
+              <span class="badge bg-secondary ms-2">{{ rawMaterials().length }}</span>
+            </h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead><tr>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th>{{ '::UOM' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TransferredQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AvailableStock' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                </tr></thead>
+                <tbody>
+                  @for (m of rawMaterials(); track m.itemId ?? $index) {
+                    <tr>
+                      <td>
+                        <div class="fw-semibold">{{ m.itemName || m.itemCode }}</div>
+                        @if (m.itemCode && m.itemName) {
+                          <small class="text-muted font-monospace">{{ m.itemCode }}</small>
+                        }
+                      </td>
+                      <td>{{ m.sourceWarehouseName || '—' }}</td>
+                      <td>{{ m.uom || '—' }}</td>
+                      <td class="text-end">{{ m.requiredQty | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ m.transferredQty | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ m.pendingQty | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ m.stockQty | number:'1.2-2' }}</td>
+                      <td class="text-center">
+                        <span class="badge" [class.bg-success]="m.isAvailable" [class.bg-danger]="!m.isAvailable">
+                          {{ (m.isAvailable ? '::Available' : '::Shortage') | abpLocalization }}
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div></div>
+        }
+
         <!-- Time Logs Table -->
         @if ((d.timeLogs ?? []).length > 0) {
           <div class="card mb-3"><div class="card-body">
@@ -202,6 +248,7 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   d: JobCardDto | null = null;
+  rawMaterials = signal<JobCardRawMaterialDto[]>([]);
 
   // Timer state
   timerRunning = signal(false);
@@ -232,6 +279,10 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
+    this.service.getRawMaterials(id).subscribe({
+      next: (mats) => this.rawMaterials.set(mats ?? []),
+      error: () => this.rawMaterials.set([]),
+    });
   }
 
   /** True while completed + process loss quantity is still below quantity to manufacture (ERPNext commit de98c513af). */

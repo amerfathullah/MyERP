@@ -54,12 +54,18 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
           <div class="row mb-3">
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::SalesOrder' | abpLocalization }}</label>
-              <select class="form-select" formControlName="salesOrderId">
-                <option value="">{{ '::SelectSalesOrder' | abpLocalization }}</option>
-                @for (so of salesOrders(); track so.id) {
-                  <option [value]="so.id">{{ so.orderNumber }}</option>
-                }
-              </select>
+              <div class="input-group">
+                <select class="form-select" formControlName="salesOrderId">
+                  <option value="">{{ '::SelectSalesOrder' | abpLocalization }}</option>
+                  @for (so of salesOrders(); track so.id) {
+                    <option [value]="so.id">{{ so.orderNumber }}</option>
+                  }
+                </select>
+                <button type="button" class="btn btn-outline-info" (click)="mapFromSalesOrder()"
+                  [disabled]="mappingFromSo() || !form.get('salesOrderId')?.value || !form.get('supplierId')?.value">
+                  <i class="fa fa-download me-1"></i>{{ '::MapFromSalesOrder' | abpLocalization }}
+                </button>
+              </div>
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::SubcontractingOrder' | abpLocalization }} (SCO ID)</label>
@@ -173,6 +179,7 @@ export class SubcontractingInwardFormComponent implements OnInit {
   salesOrders = signal<any[]>([]);
   grandTotal = signal<number>(0);
   isSaving = signal(false);
+  mappingFromSo = signal(false);
 
   form: FormGroup = this.fb.group({
     companyId: ['', Validators.required],
@@ -236,6 +243,43 @@ export class SubcontractingInwardFormComponent implements OnInit {
     const qty = Number(row.quantity) || 0;
     const rate = Number(row.rate) || 0;
     return qty * rate;
+  }
+
+  mapFromSalesOrder() {
+    const salesOrderId = this.form.get('salesOrderId')?.value;
+    const supplierId = this.form.get('supplierId')?.value;
+    if (!salesOrderId || !supplierId) return;
+
+    this.mappingFromSo.set(true);
+    this.inwardService.mapFromSalesOrder({ salesOrderId, supplierId }).subscribe({
+      next: (mapped) => {
+        this.mappingFromSo.set(false);
+        if (mapped.currencyCode) {
+          this.form.patchValue({ currencyCode: mapped.currencyCode });
+        }
+        const mappedItems = mapped.items ?? [];
+        this.itemsArray.clear();
+        if (mappedItems.length === 0) {
+          this.addItem();
+        } else {
+          for (const it of mappedItems) {
+            this.itemsArray.push(this.fb.group({
+              itemId: [it.itemId, Validators.required],
+              warehouseId: [it.warehouseId ?? ''],
+              quantity: [it.quantity ?? 1, [Validators.required, Validators.min(0.0001)]],
+              rate: [it.rate ?? 0, [Validators.required, Validators.min(0)]],
+              serviceCostPerQty: [it.serviceCostPerQty ?? 0],
+            }));
+          }
+          this.recalculateTotal();
+        }
+        this.toaster.success('::SuccessfullyUpdated');
+      },
+      error: (err) => {
+        this.mappingFromSo.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
+    });
   }
 
   recalculateTotal() {
