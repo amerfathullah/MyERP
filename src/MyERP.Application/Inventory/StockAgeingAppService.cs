@@ -124,12 +124,13 @@ public class StockAgeingAppService : ApplicationService, IStockAgeingAppService
             .Select(b => new { b.Id, b.UseBatchwiseValuation })
             .ToDictionary(b => b.Id, b => b.UseBatchwiseValuation);
 
-        // 5. Fetch SLEs up to toDate
+        // 5. Fetch SLEs up to end of toDate (ERPNext PR #66255)
+        var toDateExclusive = toDate.AddDays(1);
         var sleQuery = await _sleRepository.GetQueryableAsync();
         var sles = sleQuery
             .Where(s => s.CompanyId == input.CompanyId
                      && !s.IsCancelled
-                     && s.PostingDate <= toDate
+                     && s.PostingDate < toDateExclusive
                      && itemIds.Contains(s.ItemId)
                      && companyWarehouseIds.Contains(s.WarehouseId))
             .OrderBy(s => s.PostingDate)

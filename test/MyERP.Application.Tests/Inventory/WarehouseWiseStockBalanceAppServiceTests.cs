@@ -188,4 +188,40 @@ public class WarehouseWiseStockBalanceAppServiceTests
             });
         });
     }
+
+    [Fact]
+    public async Task GetReportAsync_IncludesIntraDayEntriesUpToEndOfAsOfDate()
+    {
+        // Arrange (ERPNext PR #66255: intra-day entries up to 23:59:59 on AsOfDate must be included)
+        var company = new Company(_companyId, "Acme Corp");
+        _companyRepo.FindAsync(_companyId).Returns(company);
+
+        var whId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var asOfDate = new DateTime(2026, 6, 30);
+
+        var wh = new Warehouse(whId, _companyId, "Main Warehouse") { WarehouseCode = "WH-MAIN", IsActive = true };
+        _warehouseRepo.GetQueryableAsync().Returns(new List<Warehouse> { wh }.AsQueryable());
+
+        var sleLateSameDay = new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, whId, asOfDate.AddHours(23).AddMinutes(59).AddSeconds(59), 4m, 25m, 4m, 100m)
+        {
+            StockValueDifference = 100m
+        };
+        var sleNextDay = new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, whId, asOfDate.AddDays(1), 6m, 25m, 10m, 250m)
+        {
+            StockValueDifference = 150m
+        };
+        _sleRepo.GetQueryableAsync().Returns(new List<StockLedgerEntry> { sleLateSameDay, sleNextDay }.AsQueryable());
+
+        // Act
+        var result = await _appService.GetReportAsync(new WarehouseWiseStockBalanceFilterDto
+        {
+            CompanyId = _companyId,
+            AsOfDate = asOfDate
+        });
+
+        // Assert
+        result.TotalQuantity.ShouldBe(4m);
+        result.TotalStockBalance.ShouldBe(100m);
+    }
 }

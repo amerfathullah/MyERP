@@ -123,4 +123,39 @@ public class WarehouseWiseItemBalanceAgeAndValueAppServiceTests
         result.Rows.ShouldBeEmpty();
         result.TotalQuantity.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_IncludesIntraDayEntriesOnToDate()
+    {
+        // Arrange (ERPNext PR #66255)
+        var toDate = new DateTime(2026, 6, 30);
+        var wh1 = new Warehouse(_wh1Id, _companyId, "Store A") { IsGroup = false, IsActive = true };
+        _warehouseRepo.GetQueryableAsync().Returns(new List<Warehouse> { wh1 }.AsQueryable());
+
+        var item = new Item(_item1Id, _companyId, "ITEM-001", "Widget A", ItemType.Goods) { MaintainStock = true, IsActive = true };
+        _itemRepo.GetQueryableAsync().Returns(new List<Item> { item }.AsQueryable());
+        _itemGroupRepo.GetQueryableAsync().Returns(new List<ItemGroup>().AsQueryable());
+        _batchRepo.GetQueryableAsync().Returns(new List<Batch>().AsQueryable());
+
+        var sleLateSameDay = new StockLedgerEntry(Guid.NewGuid(), _companyId, _item1Id, _wh1Id, toDate.AddHours(23).AddMinutes(59), 7m, 50m, 7m, 350m)
+        {
+            StockValueDifference = 350m
+        };
+        var sleNextDay = new StockLedgerEntry(Guid.NewGuid(), _companyId, _item1Id, _wh1Id, toDate.AddDays(1), 3m, 50m, 10m, 500m)
+        {
+            StockValueDifference = 150m
+        };
+        _sleRepo.GetQueryableAsync().Returns(new List<StockLedgerEntry> { sleLateSameDay, sleNextDay }.AsQueryable());
+
+        // Act
+        var result = await _appService.GetReportAsync(new WarehouseWiseItemBalanceAgeAndValueFilterDto
+        {
+            CompanyId = _companyId,
+            ToDate = toDate
+        });
+
+        // Assert
+        result.TotalQuantity.ShouldBe(7m);
+        result.Rows.ShouldHaveSingleItem();
+    }
 }

@@ -30,11 +30,12 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
     public async Task<StockLedgerReportDto> GetStockLedgerAsync(StockLedgerRequestDto input)
     {
         var query = await _ledgerRepository.GetQueryableAsync();
+        var toDateExclusive = input.ToDate.Date.AddDays(1);
 
         query = query.Where(e => !e.IsCancelled
             && e.CompanyId == input.CompanyId
             && e.PostingDate >= input.FromDate
-            && e.PostingDate <= input.ToDate);
+            && e.PostingDate < toDateExclusive);
 
         if (input.ItemId.HasValue)
             query = query.Where(e => e.ItemId == input.ItemId.Value);
@@ -134,9 +135,11 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
         Guid companyId, DateTime fromDate, DateTime toDate, Guid? warehouseId = null)
     {
         var query = await _ledgerRepository.GetQueryableAsync();
+        var activeEntries = query.Where(e => !e.IsCancelled && e.CompanyId == companyId);
+        var toDateExclusive = toDate.Date.AddDays(1);
 
         // Opening balance: SLEs before period start
-        var openingQuery = query.Where(e => e.CompanyId == companyId && e.PostingDate < fromDate);
+        var openingQuery = activeEntries.Where(e => e.PostingDate < fromDate);
         if (warehouseId.HasValue)
             openingQuery = openingQuery.Where(e => e.WarehouseId == warehouseId.Value);
 
@@ -146,8 +149,8 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
             .ToList()
             .ToDictionary(x => x.ItemId);
 
-        // Period movements: SLEs within period
-        var periodQuery = query.Where(e => e.CompanyId == companyId && e.PostingDate >= fromDate && e.PostingDate <= toDate);
+        // Period movements: SLEs within period (inclusive of entire ToDate per ERPNext PR #66255)
+        var periodQuery = activeEntries.Where(e => e.PostingDate >= fromDate && e.PostingDate < toDateExclusive);
         if (warehouseId.HasValue)
             periodQuery = periodQuery.Where(e => e.WarehouseId == warehouseId.Value);
 

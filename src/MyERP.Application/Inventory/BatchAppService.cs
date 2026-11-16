@@ -605,11 +605,11 @@ public class BatchAppService : ApplicationService, IBatchAppService
         if (input.ItemId.HasValue)
             sleQuery = sleQuery.Where(s => s.ItemId == input.ItemId.Value);
 
-        // Apply ToDate cutoff even for today per ERPNext PR #60757 (commit 7485463837)
+        // Apply ToDate end-of-day cutoff even for today per ERPNext PR #60757 & #66255
         if (input.ToDate.HasValue)
         {
-            var cutoffDate = input.ToDate.Value.Date;
-            sleQuery = sleQuery.Where(s => s.PostingDate <= cutoffDate);
+            var cutoffExclusive = input.ToDate.Value.Date.AddDays(1);
+            sleQuery = sleQuery.Where(s => s.PostingDate < cutoffExclusive);
         }
 
         var batchBalances = sleQuery

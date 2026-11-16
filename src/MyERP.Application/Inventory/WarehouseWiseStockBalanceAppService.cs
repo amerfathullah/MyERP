@@ -66,8 +66,8 @@ public class WarehouseWiseStockBalanceAppService : ApplicationService, IWarehous
 
         if (input.AsOfDate.HasValue)
         {
-            var asOfDate = input.AsOfDate.Value.Date;
-            sleQuery = sleQuery.Where(s => s.PostingDate <= asOfDate);
+            var asOfExclusive = input.AsOfDate.Value.Date.AddDays(1);
+            sleQuery = sleQuery.Where(s => s.PostingDate < asOfExclusive);
         }
 
         var sleData = sleQuery
