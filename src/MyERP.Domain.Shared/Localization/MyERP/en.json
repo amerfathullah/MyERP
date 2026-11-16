@@ -6281,7 +6281,9 @@
     "AssetMaintenance": "Asset Maintenance",
     "MaintenanceLogs": "Maintenance Logs",
     "MaintenanceTask": "Maintenance Task",
-    "NoMaintenanceConfigured": "No preventive maintenance schedule configured for this asset."
+    "NoMaintenanceConfigured": "No preventive maintenance schedule configured for this asset.",
+    "UnpaidOverduePayments": "Unpaid Overdue Payments",
+    "ShowInAccountCurrency": "Account Currency"
   }
 }
 

@@ -13,6 +13,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcontracting-inward-order.service';
+import type { SubcontractingInwardOrderActionSummaryDto } from '../../proxy/purchasing/models';
 
 @Component({
   selector: 'app-subcontracting-inward-detail',
@@ -132,7 +133,12 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
         }
 
         <!-- Workflow Actions -->
-        <div class="d-flex gap-2 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          @if (actionSummary(); as summary) {
+            <span class="badge bg-light text-dark border me-2">
+              {{ '::PendingItems' | abpLocalization }}: <strong>{{ summary.pendingItemCount ?? 0 }}</strong>
+            </span>
+          }
           @if (o.status === 0) {
             <button class="btn btn-primary btn-sm" (click)="submit()">
               <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
@@ -142,11 +148,13 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
             <button class="btn btn-success btn-sm" (click)="openReceiptDialog()">
               <i class="fa fa-box-open me-1"></i>{{ '::CreateReceipt' | abpLocalization }}
             </button>
+          }
+          @if (actionSummary() ? actionSummary()!.canClose : (o.status === 1 || o.status === 2)) {
             <button class="btn btn-outline-warning btn-sm" (click)="close()">
               <i class="fa fa-lock me-1"></i>{{ '::Close' | abpLocalization }}
             </button>
           }
-          @if (o.status !== 4 && o.status !== 5) {
+          @if (actionSummary() ? actionSummary()!.canCancel : (o.status !== 4 && o.status !== 5)) {
             <button class="btn btn-outline-danger btn-sm" (click)="cancelOrder()">
               <i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
@@ -220,6 +228,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
   private itemService = inject(ItemService);
 
   order = signal<any>(null);
+  actionSummary = signal<SubcontractingInwardOrderActionSummaryDto | null>(null);
   isLoading = signal(true);
   orderId = '';
   supplierName = signal('');
@@ -247,8 +256,17 @@ export class SubcontractingInwardDetailComponent implements OnInit {
         this.order.set(o);
         this.isLoading.set(false);
         this.resolveNames(o);
+        this.loadActionSummary();
       },
       error: () => { this.isLoading.set(false); }
+    });
+  }
+
+  loadActionSummary(): void {
+    if (!this.orderId) return;
+    this.scioService.getActionSummary(this.orderId).subscribe({
+      next: s => this.actionSummary.set(s),
+      error: () => this.actionSummary.set(null),
     });
   }
 

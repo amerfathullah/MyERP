@@ -6,7 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { DunningService } from '../../proxy/sales/dunning.service';
-import type { DunningDto } from '../../proxy/sales/models';
+import type { DunningDto, DunningOverduePaymentDto } from '../../proxy/sales/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -90,6 +90,46 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
         }
 
+        <!-- Live Unpaid Overdue Payments -->
+        @if (overduePayments().length > 0) {
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0"><i class="fa fa-clock me-2 text-warning"></i>{{ '::UnpaidOverduePayments' | abpLocalization }} ({{ overduePayments().length }})</h6>
+              <div class="form-check form-switch mb-0 small">
+                <input class="form-check-input" type="checkbox" id="dunningAcctCurrency"
+                  [ngModel]="inAccountCurrency()" (ngModelChange)="toggleAccountCurrency($event)" />
+                <label class="form-check-label" for="dunningAcctCurrency">{{ '::ShowInAccountCurrency' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ '::SalesInvoice' | abpLocalization }}</th>
+                    <th>{{ '::DueDate' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::OverdueDays' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (op of overduePayments(); track (op.paymentScheduleId || op.salesInvoiceId)) {
+                    <tr>
+                      <td>
+                        <a [routerLink]="['/sales/invoices', op.salesInvoiceId]" class="text-primary">
+                          {{ op.invoiceNumber || op.salesInvoiceId }}
+                        </a>
+                      </td>
+                      <td>{{ op.dueDate ? (op.dueDate | date:'dd/MM/yyyy') : '—' }}</td>
+                      <td class="text-end"><span class="badge bg-danger">{{ op.overdueDays ?? 0 }}</span></td>
+                      <td class="text-end font-monospace fw-semibold">{{ (op.outstandingAmount ?? 0) | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
         <app-activity-log documentType="Dunning" [documentId]="d.id!" />
       }
     </abp-page>
@@ -102,6 +142,8 @@ export class DunningDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
   d: DunningDto | null = null;
+  overduePayments = signal<DunningOverduePaymentDto[]>([]);
+  inAccountCurrency = signal(false);
   actionLoading = signal(false);
   showEmailDialog = signal(false);
   isSending = signal(false);
@@ -113,9 +155,25 @@ export class DunningDetailComponent implements OnInit {
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({
-      next: (r) => this.d = r,
+      next: (r) => {
+        this.d = r;
+        this.loadOverduePayments(id);
+      },
       error: () => {}
     });
+  }
+
+  loadOverduePayments(dunningId: string): void {
+    this.service.getUnpaidOverduePayments(dunningId, this.inAccountCurrency()).subscribe({
+      next: items => this.overduePayments.set(items ?? []),
+      error: () => this.overduePayments.set([]),
+    });
+  }
+
+  toggleAccountCurrency(inAcct: boolean): void {
+    this.inAccountCurrency.set(inAcct);
+    const id = this.d?.id ?? this.route.snapshot.paramMap.get('id');
+    if (id) this.loadOverduePayments(id);
   }
 
   getStatusLabel(status: number | undefined): string {

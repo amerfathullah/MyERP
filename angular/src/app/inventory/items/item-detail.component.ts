@@ -2,7 +2,9 @@ import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
-import type { ItemDto } from '../../proxy/inventory/models';
+import type { ItemAlternativeDto, ItemDto, ItemManufacturerDto } from '../../proxy/inventory/models';
+import { ItemAlternativeService } from '../../proxy/inventory/item-alternative.service';
+import { ItemManufacturerService } from '../../proxy/inventory/item-manufacturer.service';
 import { StockBalanceService } from '../../proxy/inventory/stock-balance.service';
 import { StockEntryService } from '../../proxy/inventory/stock-entry.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -524,6 +526,72 @@ import { CreateVariantDialogComponent } from './create-variant-dialog.component'
         (created)="onVariantCreated()"
       />
 
+      <!-- Item Alternatives & Manufacturers -->
+      @if (alternatives().length > 0 || manufacturers().length > 0) {
+        <div class="row mb-4">
+          @if (alternatives().length > 0) {
+            <div class="col-md-6 mb-3">
+              <div class="card h-100">
+                <div class="card-header"><i class="fas fa-exchange-alt me-2"></i>{{ '::ItemAlternatives' | abpLocalization }} ({{ alternatives().length }})</div>
+                <div class="card-body p-0">
+                  <table class="table table-sm table-hover mb-0">
+                    <thead>
+                      <tr>
+                        <th>{{ '::Item' | abpLocalization }}</th>
+                        <th class="text-center">{{ '::TwoWay' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (alt of alternatives(); track alt.id) {
+                        <tr>
+                          <td>
+                            <a [routerLink]="['/inventory/items', getAlternativeTargetId(alt)]" class="text-primary">
+                              {{ getAlternativeTargetLabel(alt) }}
+                            </a>
+                          </td>
+                          <td class="text-center">
+                            @if (alt.twoWay) { <span class="badge bg-info text-dark">{{ '::Yes' | abpLocalization }}</span> }
+                            @else { <span class="badge bg-secondary">{{ '::No' | abpLocalization }}</span> }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          }
+          @if (manufacturers().length > 0) {
+            <div class="col-md-6 mb-3">
+              <div class="card h-100">
+                <div class="card-header"><i class="fas fa-industry me-2"></i>{{ '::Manufacturers' | abpLocalization }} ({{ manufacturers().length }})</div>
+                <div class="card-body p-0">
+                  <table class="table table-sm table-hover mb-0">
+                    <thead>
+                      <tr>
+                        <th>{{ '::Manufacturer' | abpLocalization }}</th>
+                        <th>{{ '::ManufacturerPartNo' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (mfr of manufacturers(); track mfr.id) {
+                        <tr>
+                          <td>
+                            {{ mfr.manufacturerShortName || mfr.manufacturerId }}
+                            @if (mfr.isDefault) { <span class="badge bg-primary ms-1">{{ '::Default' | abpLocalization }}</span> }
+                          </td>
+                          <td class="font-monospace small">{{ mfr.manufacturerPartNo || '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
       <!-- Activity Log -->
       <app-activity-log [documentType]="'Item'" [documentId]="entityId" />
     }
@@ -536,6 +604,8 @@ import { CreateVariantDialogComponent } from './create-variant-dialog.component'
 export class ItemDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private itemService = inject(ItemService);
+  private itemAlternativeService = inject(ItemAlternativeService);
+  private itemManufacturerService = inject(ItemManufacturerService);
   private stockBalanceService = inject(StockBalanceService);
   private stockEntryService = inject(StockEntryService);
   private warehouseService = inject(WarehouseService);
@@ -555,6 +625,8 @@ export class ItemDetailComponent implements OnInit {
   whereUsedLoading = signal(true);
   whereUsed = signal<any[]>([]);
   variants = signal<any[]>([]);
+  alternatives = signal<ItemAlternativeDto[]>([]);
+  manufacturers = signal<ItemManufacturerDto[]>([]);
   showCreateVariant = signal(false);
   txSummary = signal<any>(null);
   txSummaryLoading = signal(true);
@@ -576,6 +648,30 @@ export class ItemDetailComponent implements OnInit {
     this.loadWhereUsed();
     this.loadWarehouses();
     this.loadTransactionSummary();
+    this.loadAlternativesAndManufacturers();
+  }
+
+  private loadAlternativesAndManufacturers(): void {
+    this.itemAlternativeService.getAlternatives(this.entityId).subscribe({
+      next: alts => this.alternatives.set(alts ?? []),
+      error: () => this.alternatives.set([]),
+    });
+    this.itemManufacturerService.getListByItem(this.entityId).subscribe({
+      next: list => this.manufacturers.set(list ?? []),
+      error: () => this.manufacturers.set([]),
+    });
+  }
+
+  getAlternativeTargetId(alt: ItemAlternativeDto): string {
+    return (alt.itemId === this.entityId ? alt.alternativeItemId : alt.itemId) ?? '';
+  }
+
+  getAlternativeTargetLabel(alt: ItemAlternativeDto): string {
+    const isSource = alt.itemId === this.entityId;
+    const code = isSource ? alt.alternativeItemCode : alt.itemCode;
+    const name = isSource ? alt.alternativeItemName : alt.itemName;
+    if (code && name) return `${code} — ${name}`;
+    return code || name || this.getAlternativeTargetId(alt) || '—';
   }
 
   private loadEntity() {
