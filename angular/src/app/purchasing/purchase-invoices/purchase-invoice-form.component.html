@@ -79,6 +79,20 @@
               </div>
             }
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::EInvoiceDocType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="eInvoiceDocType">
+              @if (form.get('returnAgainstId')?.value) {
+                <option [ngValue]="12">{{ '::EInvoiceTypeSelfBilledCreditNote' | abpLocalization }} (12)</option>
+                <option [ngValue]="14">{{ '::EInvoiceTypeSelfBilledRefundNote' | abpLocalization }} (14)</option>
+              } @else {
+                <option [ngValue]="11">{{ '::EInvoiceTypeSelfBilledInvoice' | abpLocalization }} (11)</option>
+                <option [ngValue]="12">{{ '::EInvoiceTypeSelfBilledCreditNote' | abpLocalization }} (12)</option>
+                <option [ngValue]="13">{{ '::EInvoiceTypeSelfBilledDebitNote' | abpLocalization }} (13)</option>
+                <option [ngValue]="14">{{ '::EInvoiceTypeSelfBilledRefundNote' | abpLocalization }} (14)</option>
+              }
+            </select>
+          </div>
           <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
             <div class="form-check mt-3">
               <input type="checkbox" class="form-check-input" formControlName="isReturn" id="isReturn" />
@@ -89,7 +103,7 @@
               <label class="form-check-label" for="piIsSubmitToLhdn">{{ '::SubmitToLhdn' | abpLocalization }}</label>
             </div>
           </div>
-          @if (form.get('isReturn')?.value && !form.get('returnAgainstId')?.value) {
+          @if (!form.get('returnAgainstId')?.value && (form.get('isReturn')?.value || form.get('eInvoiceDocType')?.value === 12 || form.get('eInvoiceDocType')?.value === 13 || form.get('eInvoiceDocType')?.value === 14)) {
             <div class="col-12 col-md-4 mb-3">
               <label class="form-label">{{ '::OriginalInvoiceNumber' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="originalInvoiceNumber" [placeholder]="'::OriginalInvoiceNumberPlaceholder' | abpLocalization" />

@@ -983,6 +983,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.OriginalInvoiceNumber = input.OriginalInvoiceNumber;
         invoice.OriginalInvoiceUuid = input.OriginalInvoiceUuid;
+        invoice.EInvoiceDocType = input.EInvoiceDocType;
         invoice.IsSubmitToLhdn = input.IsSubmitToLhdn;
 
         Guid? updateReturnAgainstPriceListId = null;
@@ -1000,6 +1001,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await updateValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, updateReturnAgainstPriceListId);
 
         invoice.ValidateDebitNote();
+
+        if (!invoice.EInvoiceDocType.HasValue)
+        {
+            invoice.EInvoiceDocType = invoice.IsDebitNote
+                ? EInvoiceDocumentType.SelfBilledDebitNote
+                : (invoice.IsReturn && invoice.IsReturnRefund)
+                    ? EInvoiceDocumentType.SelfBilledRefundNote
+                    : invoice.IsReturn
+                        ? EInvoiceDocumentType.SelfBilledCreditNote
+                        : EInvoiceDocumentType.SelfBilledInvoice;
+        }
+
+        invoice.ValidateEInvoiceDocumentType();
 
         // Auto-resolve DueDate from Payment Terms Template or supplier default if not explicitly provided (ERPNext PR #49232 / commit 77478303fe)
         if (!invoice.DueDate.HasValue && !invoice.IsOpening)

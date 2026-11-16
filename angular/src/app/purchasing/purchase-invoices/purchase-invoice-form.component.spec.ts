@@ -15,6 +15,8 @@ describe('PurchaseInvoice form DTO mapping', () => {
       currencyCode: ['MYR'],
       notes: [''],
       isReturn: [false],
+      isReturnRefund: [false],
+      eInvoiceDocType: [11 as number | null],
       isSubmitToLhdn: [true],
       returnAgainstId: [null as string | null],
       updateBilledAmountInPurchaseOrder: [true],
@@ -35,10 +37,44 @@ describe('PurchaseInvoice form DTO mapping', () => {
     }));
   }
 
+  function attachEInvoiceSync(form: ReturnType<typeof createPIForm>) {
+    form.get('isReturn')?.valueChanges.subscribe((isRet) => {
+      const current = form.get('eInvoiceDocType')?.value;
+      if (isRet) {
+        if (current !== 12 && current !== 14) {
+          form.patchValue({ eInvoiceDocType: 12 });
+        }
+      } else {
+        if (current !== 11 && current !== 13) {
+          form.patchValue({ eInvoiceDocType: 11, isReturnRefund: false });
+        }
+      }
+    });
+
+    form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
+      const numType = docType != null ? Number(docType) : null;
+      const isRet = numType === 12 || numType === 14;
+      const isRefund = numType === 14;
+      const patch: Record<string, unknown> = {};
+      if (form.get('isReturn')?.value !== isRet) {
+        patch['isReturn'] = isRet;
+      }
+      if (form.get('isReturnRefund')?.value !== isRefund) {
+        patch['isReturnRefund'] = isRefund;
+      }
+      if (Object.keys(patch).length > 0) {
+        form.patchValue(patch);
+      }
+    });
+    return form;
+  }
+
   function mapDtoFromForm(form: ReturnType<typeof createPIForm>): any {
     const raw = form.getRawValue() as any;
     return {
       ...raw,
+      eInvoiceDocType: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) : undefined,
+      isReturnRefund: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 14 : (raw.isReturnRefund ?? false),
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         description: item.description || item.itemName || '',
@@ -199,6 +235,26 @@ describe('PurchaseInvoice form DTO mapping', () => {
       expect(form.get('isSubmitToLhdn')?.value).toBe(true);
       form.patchValue({ isSubmitToLhdn: false });
       expect(mapDtoFromForm(form).isSubmitToLhdn).toBe(false);
+    });
+
+    it('should sync eInvoiceDocType (11/12/13/14) bidirectionally with isReturn and isReturnRefund', () => {
+      const form = attachEInvoiceSync(createPIForm());
+      expect(form.get('eInvoiceDocType')?.value).toBe(11);
+
+      form.patchValue({ isReturn: true });
+      expect(form.get('eInvoiceDocType')?.value).toBe(12);
+
+      form.patchValue({ eInvoiceDocType: 14 });
+      const refundDto = mapDtoFromForm(form);
+      expect(refundDto.isReturn).toBe(true);
+      expect(refundDto.isReturnRefund).toBe(true);
+      expect(refundDto.eInvoiceDocType).toBe(14);
+
+      form.patchValue({ eInvoiceDocType: 13 });
+      const dnDto = mapDtoFromForm(form);
+      expect(dnDto.isReturn).toBe(false);
+      expect(dnDto.isReturnRefund).toBe(false);
+      expect(dnDto.eInvoiceDocType).toBe(13);
     });
   });
 });

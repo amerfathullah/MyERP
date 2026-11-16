@@ -101,6 +101,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     useTransactionDateExchangeRate: [false],
     notes: [''],
     isReturn: [false],
+    isDebitNote: [false],
+    isReturnRefund: [false],
+    eInvoiceDocType: [11 as number | null],
     isSubmitToLhdn: [true],
     returnAgainstId: [null as string | null],
     originalInvoiceNumber: [''],
@@ -150,6 +153,36 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       if (supplierId) {
         this.onSupplierChanged(supplierId);
         this.resolveSupplierDetails(supplierId);
+      }
+    });
+
+    // Auto-sync Self-Billed e-Invoice doc type based on isReturn (11/13 vs 12/14)
+    this.form.get('isReturn')?.valueChanges.subscribe((isRet) => {
+      const current = this.form.get('eInvoiceDocType')?.value;
+      if (isRet) {
+        if (current !== 12 && current !== 14) {
+          this.form.patchValue({ eInvoiceDocType: 12 });
+        }
+      } else {
+        if (current !== 11 && current !== 13) {
+          this.form.patchValue({ eInvoiceDocType: 11, isReturnRefund: false });
+        }
+      }
+    });
+
+    this.form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
+      const numType = docType != null ? Number(docType) : null;
+      const isRet = numType === 12 || numType === 14;
+      const isRefund = numType === 14;
+      const patch: Record<string, unknown> = {};
+      if (this.form.get('isReturn')?.value !== isRet) {
+        patch['isReturn'] = isRet;
+      }
+      if (this.form.get('isReturnRefund')?.value !== isRefund) {
+        patch['isReturnRefund'] = isRefund;
+      }
+      if (Object.keys(patch).length > 0) {
+        this.form.patchValue(patch);
       }
     });
 
@@ -214,6 +247,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           exchangeRate: invoice.exchangeRate ?? 1,
           useTransactionDateExchangeRate: invoice.useTransactionDateExchangeRate ?? false,
           isReturn: invoice.isReturn ?? false,
+          isDebitNote: invoice.isDebitNote ?? false,
+          isReturnRefund: invoice.isReturnRefund ?? false,
+          eInvoiceDocType: invoice.eInvoiceDocType ?? (invoice.isDebitNote ? 13 : (invoice.isReturn ? (invoice.isReturnRefund ? 14 : 12) : 11)),
           isSubmitToLhdn: invoice.isSubmitToLhdn ?? true,
           returnAgainstId: invoice.returnAgainstId ?? null,
           originalInvoiceNumber: invoice.originalInvoiceNumber ?? '',
@@ -237,6 +273,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
             currencyCode: source.currencyCode,
             notes: `Debit Note against ${source.invoiceNumber}`,
             isReturn: true,
+            isDebitNote: false,
+            isReturnRefund: false,
+            eInvoiceDocType: 12,
             returnAgainstId: returnAgainst,
             updateBilledAmountInPurchaseOrder: true,
             priceListId: source.priceListId ?? '',
@@ -449,6 +488,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
     const dto: CreatePurchaseInvoiceDto = {
       ...raw,
+      eInvoiceDocType: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) : undefined,
+      isReturnRefund: raw.eInvoiceDocType != null ? Number(raw.eInvoiceDocType) === 14 : (raw.isReturnRefund ?? false),
       paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,
