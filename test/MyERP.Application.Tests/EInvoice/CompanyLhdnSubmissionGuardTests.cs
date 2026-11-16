@@ -205,4 +205,86 @@ public class CompanyLhdnSubmissionGuardTests
         errors.ShouldContain(e => e.Contains("LHDN Invoice Submission is not enabled for company"));
         errors.ShouldContain(e => e.Contains("Invoice is not marked for submission to LHDN"));
     }
+
+    [Fact]
+    public async Task BatchSubmitAsync_SkipsConsolidatedSalesInvoice()
+    {
+        var company = new Company(_companyId, "Active LHDN Co") { EnableLhdnInvoice = true };
+        var docId = Guid.NewGuid();
+        var invoice = new SalesInvoice(docId, _companyId, _customerId, "SINV-CONS-001", DateTime.UtcNow)
+        {
+            IsSubmitToLhdn = true,
+            ConsolidatedSalesInvoiceId = Guid.NewGuid(),
+        };
+
+        _companyRepo.GetAsync(_companyId).Returns(Task.FromResult(company));
+        _salesInvoiceRepo.FindAsync(docId).Returns(Task.FromResult<SalesInvoice?>(invoice));
+
+        var result = await _appService.BatchSubmitAsync(new BatchSubmitEInvoiceDto
+        {
+            CompanyId = _companyId,
+            SourceDocumentType = "SalesInvoice",
+            DocumentIds = new List<Guid> { docId },
+        });
+
+        result.SkippedCount.ShouldBe(1);
+        result.Results[0].ErrorMessage.ShouldNotBeNull();
+        result.Results[0].ErrorMessage!.ShouldContain("Consolidated invoice");
+    }
+
+    [Theory]
+    [InlineData(MyERP.Sales.EInvoiceStatus.Invalid)]
+    [InlineData(MyERP.Sales.EInvoiceStatus.Rejected)]
+    public async Task BatchSubmitAsync_CreditNoteAndInvalidOrRejected_AreNotSkippedAsAlreadySubmitted(MyERP.Sales.EInvoiceStatus status)
+    {
+        var company = new Company(_companyId, "Active LHDN Co") { EnableLhdnInvoice = true };
+        var docId = Guid.NewGuid();
+        var invoice = new SalesInvoice(docId, _companyId, _customerId, "CN-001", DateTime.UtcNow)
+        {
+            IsSubmitToLhdn = true,
+            EInvoiceStatus = status,
+        };
+
+        _companyRepo.GetAsync(_companyId).Returns(Task.FromResult(company));
+        _salesInvoiceRepo.FindAsync(docId).Returns(Task.FromResult<SalesInvoice?>(invoice));
+        _salesInvoiceRepo.GetAsync(docId, true).Returns(Task.FromResult(invoice));
+
+        var result = await _appService.BatchSubmitAsync(new BatchSubmitEInvoiceDto
+        {
+            CompanyId = _companyId,
+            SourceDocumentType = "CreditNote",
+            DocumentIds = new List<Guid> { docId },
+        });
+
+        // Reaches SubmitAsync validation rather than being skipped as AlreadySubmitted
+        result.SkippedCount.ShouldBe(0);
+        result.FailedCount.ShouldBe(1);
+        result.Results[0].ErrorMessage!.ShouldNotContain("Already submitted");
+    }
+
+    [Fact]
+    public async Task BatchSubmitAsync_PurchaseInvoice_SkipsValidStatus()
+    {
+        var company = new Company(_companyId, "Active LHDN Co") { EnableLhdnInvoice = true };
+        var docId = Guid.NewGuid();
+        var pi = new PurchaseInvoice(docId, _companyId, Guid.NewGuid(), "PINV-001", DateTime.UtcNow)
+        {
+            IsSubmitToLhdn = true,
+            EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid,
+        };
+
+        _companyRepo.GetAsync(_companyId).Returns(Task.FromResult(company));
+        _purchaseInvoiceRepo.FindAsync(docId).Returns(Task.FromResult<PurchaseInvoice?>(pi));
+
+        var result = await _appService.BatchSubmitAsync(new BatchSubmitEInvoiceDto
+        {
+            CompanyId = _companyId,
+            SourceDocumentType = "PurchaseInvoice",
+            DocumentIds = new List<Guid> { docId },
+        });
+
+        result.SkippedCount.ShouldBe(1);
+        result.Results[0].DocumentNumber.ShouldBe("PINV-001");
+        result.Results[0].ErrorMessage.ShouldBe("Already submitted to LHDN");
+    }
 }

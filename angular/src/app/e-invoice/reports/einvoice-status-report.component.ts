@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import type { LhdnStatusReportItemDto, LhdnVatReportDto } from '../../proxy/einvoice/models';
@@ -20,6 +21,7 @@ export class EinvoiceStatusReportComponent implements OnInit {
   private fb = new FormBuilder();
   private einvoiceService = inject(EInvoiceService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService, { optional: true });
 
   filters = this.fb.group({
     fromDate: [new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]],
@@ -54,7 +56,7 @@ export class EinvoiceStatusReportComponent implements OnInit {
           this.vatReportData.set(res);
           this.isLoading.set(false);
         },
-        error: () => this.isLoading.set(false),
+        error: (err: any) => { this.isLoading.set(false); this.handleError(err); },
       });
     } else if (reportType === 'purchase') {
       this.vatReportData.set(null);
@@ -67,7 +69,7 @@ export class EinvoiceStatusReportComponent implements OnInit {
           this.statusReportData.set(res ?? []);
           this.isLoading.set(false);
         },
-        error: () => this.isLoading.set(false),
+        error: (err: any) => { this.isLoading.set(false); this.handleError(err); },
       });
     } else {
       this.vatReportData.set(null);
@@ -80,9 +82,14 @@ export class EinvoiceStatusReportComponent implements OnInit {
           this.statusReportData.set(res ?? []);
           this.isLoading.set(false);
         },
-        error: () => this.isLoading.set(false),
+        error: (err: any) => { this.isLoading.set(false); this.handleError(err); },
       });
     }
+  }
+
+  private handleError(err: any): void {
+    const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+    this.toaster?.error(reason || 'Failed to load e-Invoice report');
   }
 }
 

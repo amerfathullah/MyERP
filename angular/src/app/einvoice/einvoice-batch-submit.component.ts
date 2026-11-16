@@ -7,6 +7,7 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 import { SalesInvoiceService } from '../proxy/sales/sales-invoice.service';
+import { PurchaseInvoiceService } from '../proxy/purchasing/purchase-invoice.service';
 import { CompanyContextService } from '../shared/services/company-context.service';
 import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
 
@@ -29,6 +30,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                 <option value="SalesInvoice">Sales Invoice</option>
                 <option value="CreditNote">Credit Note</option>
                 <option value="DebitNote">Debit Note</option>
+                <option value="PurchaseInvoice">Purchase Invoice (Self-Billed)</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -63,7 +65,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                     <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($event)" />
                   </th>
                   <th>Document #</th>
-                  <th>Customer</th>
+                  <th>{{ docType === 'PurchaseInvoice' ? 'Supplier' : 'Customer' }}</th>
                   <th class="text-end">Amount</th>
                   <th>Date</th>
                   <th>e-Invoice Status</th>
@@ -73,12 +75,12 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                     <tr [class.table-active]="isSelected(inv.id)">
                       <td>
                         <input type="checkbox" [checked]="isSelected(inv.id)" (change)="toggleOne(inv.id, $event)"
-                          [disabled]="inv.eInvoiceStatus === 'Valid'" />
+                          [disabled]="!isSelectable(inv)" />
                       </td>
                       <td class="fw-semibold small">{{ inv.invoiceNumber || inv.id }}</td>
-                      <td class="small">{{ inv.customerName || '—' }}</td>
+                      <td class="small">{{ inv.customerName || inv.supplierName || '—' }}</td>
                       <td class="text-end small">{{ (inv.grandTotal ?? 0) | number:'1.2-2' }}</td>
-                      <td class="small">{{ inv.postingDate ? (inv.postingDate | date:'dd/MM/yy') : '—' }}</td>
+                      <td class="small">{{ (inv.postingDate || inv.issueDate) ? ((inv.postingDate || inv.issueDate) | date:'dd/MM/yy') : '—' }}</td>
                       <td>
                         @if (inv.eInvoiceStatus) {
                           <span class="badge" [class]="eiBadge(inv.eInvoiceStatus)">{{ inv.eInvoiceStatus }}</span>
@@ -151,6 +153,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
 export class EInvoiceBatchSubmitComponent {
   private eiService = inject(EInvoiceService);
   private invoiceService = inject(SalesInvoiceService);
+  private purchaseInvoiceService = inject(PurchaseInvoiceService, { optional: true });
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
 
@@ -164,24 +167,62 @@ export class EInvoiceBatchSubmitComponent {
   submitting = signal(false);
   results = signal<BatchSubmitResultDto | null>(null);
 
+  selectableInvoices = computed(() => this.invoices().filter(i => this.isSelectable(i)));
   selected = computed(() => [...this.selectedIds()]);
-  allSelected = computed(() => this.invoices().length > 0 && this.selectedIds().size === this.invoices().length);
+  allSelected = computed(() => {
+    const selectable = this.selectableInvoices();
+    return selectable.length > 0 && selectable.every(i => this.selectedIds().has(i.id));
+  });
+
+  isSelectable(inv: any): boolean {
+    const status = inv?.eInvoiceStatus;
+    return status !== 'Valid' && status !== 'Submitted' && status !== 'Pending';
+  }
 
   loadInvoices(): void {
     this.loadingInvoices.set(true);
     this.invoices.set([]);
     this.selectedIds.set(new Set());
     const cid = this.companyContext.currentCompanyId();
-    this.invoiceService.getList({
+    const filter = {
       companyId: cid ?? undefined,
       fromDate: this.fromDate,
       toDate: this.toDate,
-      status: 'Submitted',
       skipCount: 0,
       maxResultCount: 200,
-    } as any).subscribe({
-      next: r => { this.invoices.set(r.items ?? []); this.loadingInvoices.set(false); },
-      error: () => this.loadingInvoices.set(false),
+    } as any;
+
+    if (this.docType === 'PurchaseInvoice' && this.purchaseInvoiceService) {
+      this.purchaseInvoiceService.getList(filter).subscribe({
+        next: r => {
+          const rows = (r.items ?? []).filter((inv: any) => inv.status === 'Posted' || inv.status === 'Submitted');
+          this.invoices.set(rows);
+          this.loadingInvoices.set(false);
+        },
+        error: (err: any) => {
+          this.loadingInvoices.set(false);
+          this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load invoices');
+        },
+      });
+      return;
+    }
+
+    this.invoiceService.getList(filter).subscribe({
+      next: r => {
+        const rows = (r.items ?? []).filter((inv: any) => {
+          if (inv.status !== 'Posted' && inv.status !== 'Submitted') return false;
+          if (inv.consolidatedSalesInvoiceId) return false;
+          if (this.docType === 'CreditNote') return !!inv.isReturn;
+          if (this.docType === 'DebitNote') return !!inv.isDebitNote;
+          return !inv.isReturn && !inv.isDebitNote;
+        });
+        this.invoices.set(rows);
+        this.loadingInvoices.set(false);
+      },
+      error: (err: any) => {
+        this.loadingInvoices.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load invoices');
+      },
     });
   }
 
@@ -196,17 +237,24 @@ export class EInvoiceBatchSubmitComponent {
   toggleAll(e: Event): void {
     const checked = (e.target as HTMLInputElement).checked;
     if (checked) {
-      this.selectedIds.set(new Set(this.invoices().map((i: any) => i.id)));
+      this.selectedIds.set(new Set(this.selectableInvoices().map((i: any) => i.id)));
     } else {
       this.selectedIds.set(new Set());
     }
   }
 
-  selectAll(): void { this.selectedIds.set(new Set(this.invoices().map((i: any) => i.id))); }
+  selectAll(): void { this.selectedIds.set(new Set(this.selectableInvoices().map((i: any) => i.id))); }
   clearAll(): void { this.selectedIds.set(new Set()); }
 
   eiBadge(status: string): string {
-    const m: Record<string, string> = { Valid: 'bg-success', Invalid: 'bg-danger', Submitted: 'bg-primary', Cancelled: 'bg-secondary' };
+    const m: Record<string, string> = {
+      Valid: 'bg-success',
+      Invalid: 'bg-danger',
+      Rejected: 'bg-danger',
+      Failed: 'bg-danger',
+      Submitted: 'bg-primary',
+      Cancelled: 'bg-secondary',
+    };
     return m[status] ?? 'bg-warning text-dark';
   }
 
@@ -215,9 +263,10 @@ export class EInvoiceBatchSubmitComponent {
     if (!cid) { this.toaster.error('Select a company first'); return; }
     this.submitting.set(true);
     this.results.set(null);
+    const sourceDocumentType = this.docType === 'PurchaseInvoice' ? 'PurchaseInvoice' : 'SalesInvoice';
     this.eiService.batchSubmit({
       companyId: cid,
-      sourceDocumentType: this.docType,
+      sourceDocumentType,
       documentIds: this.selected(),
     }).subscribe({
       next: r => {

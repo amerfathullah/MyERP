@@ -219,7 +219,10 @@ export class EInvoiceListComponent implements OnInit {
     this.isLoading.set(true);
     this.service.getList({ skipCount: this.currentPage * this.pageSize, maxResultCount: this.pageSize }).subscribe({
       next: r => { this.items.set(r.items ?? []); this.totalCount.set(r.totalCount); this.isLoading.set(false); },
-      error: () => this.isLoading.set(false),
+      error: (err: any) => {
+        this.isLoading.set(false);
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load e-invoices');
+      },
     });
   }
 

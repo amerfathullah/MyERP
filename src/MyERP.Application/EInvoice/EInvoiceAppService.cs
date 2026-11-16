@@ -413,74 +413,32 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             };
         }
 
+        var normalizedDocType = NormalizeBatchSourceDocumentType(input.SourceDocumentType);
         var result = new BatchSubmitResultDto { TotalRequested = input.DocumentIds.Count };
 
         foreach (var docId in input.DocumentIds)
         {
             try
             {
-                // Check if already submitted
                 string? docNumber = null;
-                if (input.SourceDocumentType == "SalesInvoice")
+                if (normalizedDocType == "SalesInvoice")
                 {
                     var si = await _salesInvoiceRepository.FindAsync(docId);
                     if (si == null) { result.SkippedCount++; continue; }
-                    if (!si.IsSubmitToLhdn)
+                    if (TrySkipBatchItem(result, docId, si.InvoiceNumber, si.IsSubmitToLhdn, si.EInvoiceStatus,
+                        si.ConsolidatedSalesInvoiceId.HasValue))
                     {
-                        result.Results.Add(new BatchSubmitItemResult
-                        {
-                            DocumentId = docId,
-                            DocumentNumber = si.InvoiceNumber,
-                            Success = false,
-                            ErrorMessage = "Submit to LHDN is not checked for this invoice.",
-                            Status = si.EInvoiceStatus.ToString()
-                        });
-                        result.SkippedCount++;
-                        continue;
-                    }
-                    if (si.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted && si.EInvoiceStatus != Sales.EInvoiceStatus.Invalid)
-                    {
-                        result.Results.Add(new BatchSubmitItemResult
-                        {
-                            DocumentId = docId,
-                            DocumentNumber = si.InvoiceNumber,
-                            Success = false,
-                            ErrorMessage = "Already submitted to LHDN",
-                            Status = si.EInvoiceStatus.ToString()
-                        });
-                        result.SkippedCount++;
                         continue;
                     }
                     docNumber = si.InvoiceNumber;
                 }
-                else if (input.SourceDocumentType == "PurchaseInvoice")
+                else if (normalizedDocType == "PurchaseInvoice")
                 {
                     var pi = await _purchaseInvoiceRepository.FindAsync(docId);
                     if (pi == null) { result.SkippedCount++; continue; }
-                    if (!pi.IsSubmitToLhdn)
+                    if (TrySkipBatchItem(result, docId, pi.InvoiceNumber, pi.IsSubmitToLhdn, pi.EInvoiceStatus,
+                        isConsolidated: false))
                     {
-                        result.Results.Add(new BatchSubmitItemResult
-                        {
-                            DocumentId = docId,
-                            DocumentNumber = pi.InvoiceNumber,
-                            Success = false,
-                            ErrorMessage = "Submit to LHDN is not checked for this invoice.",
-                            Status = pi.EInvoiceStatus.ToString()
-                        });
-                        result.SkippedCount++;
-                        continue;
-                    }
-                    if (pi.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted && pi.EInvoiceStatus != Sales.EInvoiceStatus.Invalid)
-                    {
-                        result.Results.Add(new BatchSubmitItemResult
-                        {
-                            DocumentId = docId,
-                            DocumentNumber = pi.InvoiceNumber,
-                            Success = false,
-                            ErrorMessage = "Already submitted to LHDN",
-                            Status = pi.EInvoiceStatus.ToString()
-                        });
-                        result.SkippedCount++;
                         continue;
                     }
                     docNumber = pi.InvoiceNumber;
@@ -489,7 +447,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 var submission = await SubmitAsync(new SubmitEInvoiceDto
                 {
                     CompanyId = input.CompanyId,
-                    SourceDocumentType = input.SourceDocumentType,
+                    SourceDocumentType = normalizedDocType,
                     SourceDocumentId = docId,
                 });
 
@@ -517,6 +475,56 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         }
 
         return result;
+    }
+
+    private static string NormalizeBatchSourceDocumentType(string? sourceDocumentType)
+    {
+        return sourceDocumentType switch
+        {
+            "CreditNote" or "DebitNote" => "SalesInvoice",
+            _ => string.IsNullOrWhiteSpace(sourceDocumentType) ? "SalesInvoice" : sourceDocumentType,
+        };
+    }
+
+    private static bool TrySkipBatchItem(
+        BatchSubmitResultDto result,
+        Guid docId,
+        string? docNumber,
+        bool isSubmitToLhdn,
+        Sales.EInvoiceStatus status,
+        bool isConsolidated)
+    {
+        string? skipReason = null;
+        if (isConsolidated)
+        {
+            skipReason = "Consolidated invoice cannot be submitted to LHDN individually.";
+        }
+        else if (!isSubmitToLhdn)
+        {
+            skipReason = "Submit to LHDN is not checked for this invoice.";
+        }
+        else if (status is not (Sales.EInvoiceStatus.NotSubmitted
+            or Sales.EInvoiceStatus.Invalid
+            or Sales.EInvoiceStatus.Rejected))
+        {
+            skipReason = "Already submitted to LHDN";
+        }
+
+        if (skipReason == null)
+        {
+            return false;
+        }
+
+        result.Results.Add(new BatchSubmitItemResult
+        {
+            DocumentId = docId,
+            DocumentNumber = docNumber ?? docId.ToString()[..8],
+            Success = false,
+            ErrorMessage = skipReason,
+            Status = status.ToString(),
+        });
+        result.SkippedCount++;
+        return true;
     }
 
     public async Task<EInvoiceSubmissionDto> GetStatusAsync(Guid submissionId)
