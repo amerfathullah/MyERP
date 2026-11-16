@@ -310,6 +310,7 @@ describe('SalesOrderDetailComponent Logic', () => {
     function createComponent(createdPoIds = ['po-101']) {
       const conversionMock = {
         convertSalesOrderToPurchaseOrders: vi.fn().mockReturnValue(of(createdPoIds)),
+        convertSalesOrderToDeliveryNoteByDate: vi.fn().mockReturnValue(of({ id: 'dn-by-date' })),
       };
       const supplierMock = {
         getList: vi.fn().mockReturnValue(of({ items: [{ id: 'sup-1', name: 'Vendor A' }, { id: 'sup-2', name: 'Vendor B' }] })),
@@ -419,6 +420,17 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(comp.proformedTotals()).toHaveLength(1);
       expect(comp.documentApprovals()).toHaveLength(1);
       expect(comp.approvalStatusLabel(1)).toBe('Approved');
+    });
+
+    it('creates delivery note filtered by delivery cutoff date', () => {
+      const { comp, conversionMock, routerMock } = createComponent();
+      comp.untilDeliveryDate.set('2026-11-20');
+      comp.deliverByDate();
+      expect(comp.showDraftGuard()).toBe(true);
+      comp.onDraftGuardProceed();
+
+      expect(conversionMock.convertSalesOrderToDeliveryNoteByDate).toHaveBeenCalledWith('so-1', '2026-11-20');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/sales/delivery-notes', 'dn-by-date']);
     });
   });
 });

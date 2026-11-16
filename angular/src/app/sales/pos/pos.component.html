@@ -1,6 +1,27 @@
 <div class="row g-3 p-3" style="height: calc(100vh - 80px);">
   <!-- Left: Item grid -->
   <div class="col-12 col-lg-7 d-flex flex-column gap-2">
+    <!-- POS Profile & Active Shift Bar -->
+    @if (activeOpening() || availableProfiles().length > 0) {
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 bg-light rounded px-2 py-1 border">
+        @if (activeOpening(); as shift) {
+          <span class="badge bg-success-subtle text-success border border-success-subtle">
+            <i class="bi bi-cash-stack me-1"></i>{{ '::ActiveShift' | abpLocalization }}: {{ shift.openingDate | date:'dd/MM' }} ({{ '' | companyCurrency }} {{ shift.totalOpeningAmount | number:'1.2-2' }})
+          </span>
+        }
+        @if (availableProfiles().length > 0) {
+          <div class="input-group input-group-sm ms-auto" style="max-width: 260px;">
+            <span class="input-group-text">{{ '::PosProfile' | abpLocalization }}</span>
+            <select class="form-select" [ngModel]="posProfileId() || ''" (ngModelChange)="selectPosProfile($event || null)">
+              @for (p of availableProfiles(); track p.id) {
+                <option [value]="p.id">{{ p.profileName }}</option>
+              }
+            </select>
+          </div>
+        }
+      </div>
+    }
+
     <!-- Search + Customer -->
     <div class="d-flex gap-2">
       <div class="input-group flex-grow-1">
@@ -214,10 +235,29 @@
         @if (lastInvoice) {
           <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-light rounded">
             <span class="small text-muted"><i class="bi bi-receipt me-1"></i>{{ lastInvoice }}</span>
-            <button class="btn btn-sm btn-outline-primary" (click)="makeNewInvoice()">
-              <i class="bi bi-plus-lg me-1"></i>{{ '::NewInvoice' | abpLocalization }}
-            </button>
+            <div class="btn-group btn-group-sm">
+              @if (lastInvoiceId()) {
+                <button class="btn btn-outline-secondary" [disabled]="loadingReceiptEmail()" (click)="previewReceiptEmail()">
+                  <i class="bi bi-envelope me-1"></i>{{ '::EmailReceipt' | abpLocalization }}
+                </button>
+              }
+              <button class="btn btn-outline-primary" (click)="makeNewInvoice()">
+                <i class="bi bi-plus-lg me-1"></i>{{ '::NewInvoice' | abpLocalization }}
+              </button>
+            </div>
           </div>
+          @if (receiptEmailPreview(); as email) {
+            <div class="card mt-2 border-info">
+              <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <small class="fw-semibold">{{ '::ReceiptEmail' | abpLocalization }}</small>
+                <button type="button" class="btn-close btn-sm" (click)="closeReceiptEmailPreview()"></button>
+              </div>
+              <div class="card-body p-2 small">
+                <div class="fw-medium mb-1">{{ email.subject }}</div>
+                <div class="text-muted" style="white-space: pre-wrap;">{{ email.message }}</div>
+              </div>
+            </div>
+          }
         }
       </div>
     </div>

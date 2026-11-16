@@ -86,6 +86,7 @@ export class SalesOrderDetailComponent implements OnInit {
   deliverySelectionItems = signal<{ salesOrderItemId?: string; itemId: string; description: string; pendingQty: number; deliverQty: number; selected: boolean }[]>([]);
   allDeliveryItemsSelected = computed(() => this.deliverySelectionItems().length > 0 && this.deliverySelectionItems().every(i => i.selected));
   deliveryItemsReadyCount = computed(() => this.deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length);
+  untilDeliveryDate = signal<string>(new Date().toISOString().substring(0, 10));
   isCreatingDN = signal(false);
 
   // Purchase Order Selection state
@@ -699,6 +700,28 @@ export class SalesOrderDetailComponent implements OnInit {
         next: (dn) => {
           this.isCreatingDN.set(false);
           this.showDeliverySelection.set(false);
+          this.router.navigate(['/sales/delivery-notes', dn.id]);
+        },
+        error: (err) => {
+          this.isCreatingDN.set(false);
+          this.toaster.error(err?.error?.error?.data?.reason || err?.error?.error?.message || '::ConversionFailed');
+        },
+      });
+    });
+  }
+
+  /** Partial delivery filtered by item/order delivery cutoff date */
+  deliverByDate(): void {
+    const id = this.order!.id!;
+    const untilDate = this.untilDeliveryDate();
+    if (!untilDate) return;
+    this.initiateConversion('DeliveryNote', () => {
+      this.isCreatingDN.set(true);
+      this.conversionService.convertSalesOrderToDeliveryNoteByDate(id, untilDate).subscribe({
+        next: (dn) => {
+          this.isCreatingDN.set(false);
+          this.showDeliverySelection.set(false);
+          this.toaster.success('::SuccessfullyCreated');
           this.router.navigate(['/sales/delivery-notes', dn.id]);
         },
         error: (err) => {

@@ -6353,7 +6353,12 @@
     "LoadFromDocument": "Load From Document",
     "DocumentApprovals": "Document Approvals",
     "ApprovalLevel": "Level",
-    "ApprovalStatus": "Approval Status"
+    "ApprovalStatus": "Approval Status",
+    "ActiveShift": "Active Shift",
+    "EmailReceipt": "Email Receipt",
+    "ReceiptEmail": "Receipt Email",
+    "DeliverByDate": "Deliver By Date",
+    "UntilDeliveryDate": "Due On or Before"
   }
 }
 

@@ -3,11 +3,14 @@ import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ConfigStateService, LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
-import type { PosItemDto, ParentItemGroupDto } from '../../proxy/sales/models';
+import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
+import { PosProfileService } from '../../proxy/sales/pos-profile.service';
+import type { PosItemDto, ParentItemGroupDto, PosOpeningDto, PosProfileDto, PosReceiptEmailContentDto } from '../../proxy/sales/models';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import { debounceTime, Subject } from 'rxjs';
 
 interface CartItem {
@@ -44,6 +47,10 @@ interface HeldOrder {
 })
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
+  private posOpeningService = inject(PosOpeningService);
+  private posProfileService = inject(PosProfileService);
+  private configState = inject(ConfigStateService);
+  private companyContext = inject(CompanyContextService);
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
@@ -54,6 +61,8 @@ export class PosComponent implements OnInit {
   itemGroups = signal<ParentItemGroupDto[]>([]);
   selectedItemGroupId = signal<string | null>(null);
   posProfileId = signal<string | null>(null);
+  availableProfiles = signal<PosProfileDto[]>([]);
+  activeOpening = signal<PosOpeningDto | null>(null);
   private searchSubject = new Subject<string>();
   private searchEpoch = 0;
 
@@ -77,6 +86,9 @@ export class PosComponent implements OnInit {
   // State
   isProcessing = false;
   lastInvoice: string | null = null;
+  lastInvoiceId = signal<string | null>(null);
+  receiptEmailPreview = signal<PosReceiptEmailContentDto | null>(null);
+  loadingReceiptEmail = signal(false);
   companyId = '';
 
   // Hold / Resume
@@ -90,19 +102,30 @@ export class PosComponent implements OnInit {
   paymentModes = ['Cash', 'Credit Card', 'Bank Transfer', 'E-Wallet', 'Cheque'];
 
   ngOnInit(): void {
+    this.companyId = this.companyContext.currentCompanyId() ?? '';
     const profileId = this.route.snapshot.queryParams['posProfileId'] || null;
     this.posProfileId.set(profileId);
     if (profileId) {
-      this.posService.getItemGroups(profileId).subscribe((groups) => {
-        this.itemGroups.set(groups ?? []);
+      this.initProfileFilters(profileId);
+    }
+
+    const userId = this.configState.getOne('currentUser')?.id;
+    if (userId) {
+      this.posOpeningService.getCurrentOpen(userId).subscribe({
+        next: (opening) => {
+          this.activeOpening.set(opening ?? null);
+          if (opening?.companyId && !this.companyId) {
+            this.companyId = opening.companyId;
+          }
+          if (!this.posProfileId() && opening?.posProfileId) {
+            this.selectPosProfile(opening.posProfileId);
+          }
+          this.loadUserProfiles();
+        },
+        error: () => this.loadUserProfiles(),
       });
-      // Deterministic default item group via LCA (PR #59720)
-      this.posService.getParentItemGroup(profileId).subscribe((parent) => {
-        if (parent?.id && parent.id !== '00000000-0000-0000-0000-000000000000') {
-          this.selectedItemGroupId.set(parent.id);
-          this.loadItems();
-        }
-      });
+    } else {
+      this.loadUserProfiles();
     }
 
     this.loadItems();
@@ -114,6 +137,44 @@ export class PosComponent implements OnInit {
     // Load held orders from session storage
     const saved = sessionStorage.getItem('pos_held_orders');
     if (saved) this.heldOrders = JSON.parse(saved);
+  }
+
+  private loadUserProfiles(): void {
+    if (!this.companyId) return;
+    this.posProfileService.getForCurrentUser(this.companyId).subscribe({
+      next: (profiles) => {
+        const list = profiles ?? [];
+        this.availableProfiles.set(list);
+        if (!this.posProfileId() && list.length > 0 && list[0].id) {
+          this.selectPosProfile(list[0].id);
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  selectPosProfile(profileId: string | null): void {
+    this.posProfileId.set(profileId);
+    this.selectedItemGroupId.set(null);
+    if (profileId) {
+      this.initProfileFilters(profileId);
+    } else {
+      this.itemGroups.set([]);
+    }
+    this.loadItems();
+  }
+
+  private initProfileFilters(profileId: string): void {
+    this.posService.getItemGroups(profileId).subscribe((groups) => {
+      this.itemGroups.set(groups ?? []);
+    });
+    // Deterministic default item group via LCA (PR #59720)
+    this.posService.getParentItemGroup(profileId).subscribe((parent) => {
+      if (parent?.id && parent.id !== '00000000-0000-0000-0000-000000000000') {
+        this.selectedItemGroupId.set(parent.id);
+        this.loadItems();
+      }
+    });
   }
 
   selectItemGroup(id: string | null): void {
@@ -259,7 +320,29 @@ export class PosComponent implements OnInit {
   makeNewInvoice(): void {
     this.clearCart();
     this.lastInvoice = null;
+    this.lastInvoiceId.set(null);
+    this.receiptEmailPreview.set(null);
     this.loadItems();
+  }
+
+  previewReceiptEmail(): void {
+    const invoiceId = this.lastInvoiceId();
+    if (!invoiceId) return;
+    this.loadingReceiptEmail.set(true);
+    this.posService.getReceiptEmailContent(invoiceId).subscribe({
+      next: (content) => {
+        this.loadingReceiptEmail.set(false);
+        this.receiptEmailPreview.set(content ?? null);
+      },
+      error: () => {
+        this.loadingReceiptEmail.set(false);
+        this.toaster.error('::OperationFailed');
+      },
+    });
+  }
+
+  closeReceiptEmailPreview(): void {
+    this.receiptEmailPreview.set(null);
   }
 
   clearCart(): void {
@@ -341,6 +424,8 @@ export class PosComponent implements OnInit {
       next: (result) => {
         this.isProcessing = false;
         this.lastInvoice = result.invoiceNumber ?? null;
+        this.lastInvoiceId.set(result.id ?? null);
+        this.receiptEmailPreview.set(null);
         this.toaster.success(this.localization.instant('::SaleCompleted'));
         this.clearCart();
         this.loadItems();

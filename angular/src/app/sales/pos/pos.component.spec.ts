@@ -1,4 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { ConfigStateService, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { PosComponent } from './pos.component';
+import { PosService } from '../../proxy/sales/pos.service';
+import { PosOpeningService } from '../../proxy/sales/pos-opening.service';
+import { PosProfileService } from '../../proxy/sales/pos-profile.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface CartItem {
   itemId: string;
@@ -257,6 +267,66 @@ describe('PosComponent Logic', () => {
       expect(pos.customerName).toBe('Bob');
       expect(pos.selectedPaymentMode).toBe('E-Wallet');
       expect(pos.heldOrders.length).toBe(0);
+    });
+  });
+
+  describe('PosComponent Shift, Profile & Receipt Email', () => {
+    it('loads current open shift, user profiles, and receipt email preview', () => {
+      const posMock = {
+        searchItems: vi.fn().mockReturnValue(of({ items: [] })),
+        getItemGroups: vi.fn().mockReturnValue(of([{ id: 'grp-1', name: 'Food' }])),
+        getParentItemGroup: vi.fn().mockReturnValue(of({ id: 'grp-1', name: 'Food' })),
+        completeSale: vi.fn().mockReturnValue(of({ id: 'pos-inv-1', invoiceNumber: 'POS-0001' })),
+        getReceiptEmailContent: vi.fn().mockReturnValue(of({ subject: 'Receipt POS-0001', message: 'Thank you!' })),
+      };
+      const openingMock = {
+        getCurrentOpen: vi.fn().mockReturnValue(of({
+          id: 'open-1',
+          companyId: 'comp-1',
+          posProfileId: 'prof-1',
+          openingDate: '2026-11-16T08:00:00Z',
+          totalOpeningAmount: 200,
+        })),
+      };
+      const profileMock = {
+        getForCurrentUser: vi.fn().mockReturnValue(of([
+          { id: 'prof-1', profileName: 'Main Counter' },
+          { id: 'prof-2', profileName: 'Express' },
+        ])),
+      };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: PosService, useValue: posMock },
+          { provide: PosOpeningService, useValue: openingMock },
+          { provide: PosProfileService, useValue: profileMock },
+          { provide: ConfigStateService, useValue: { getOne: vi.fn().mockReturnValue({ id: 'user-1' }) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
+          { provide: ToasterService, useValue: { success: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PosComponent());
+      comp.ngOnInit();
+
+      expect(openingMock.getCurrentOpen).toHaveBeenCalledWith('user-1');
+      expect(profileMock.getForCurrentUser).toHaveBeenCalledWith('comp-1');
+      expect(comp.posProfileId()).toBe('prof-1');
+      expect(comp.availableProfiles()).toHaveLength(2);
+      expect(posMock.getItemGroups).toHaveBeenCalledWith('prof-1');
+
+      comp.addToCart({ id: 'item-1', itemName: 'Tea', sellingPrice: 10 });
+      comp.payments = [{ mode: 'Cash', amount: 20 }];
+      comp.completeSale();
+
+      expect(comp.lastInvoice).toBe('POS-0001');
+      expect(comp.lastInvoiceId()).toBe('pos-inv-1');
+
+      comp.previewReceiptEmail();
+      expect(posMock.getReceiptEmailContent).toHaveBeenCalledWith('pos-inv-1');
+      expect(comp.receiptEmailPreview()?.subject).toBe('Receipt POS-0001');
     });
   });
 });

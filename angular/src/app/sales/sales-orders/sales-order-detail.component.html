@@ -397,10 +397,21 @@
               }
             </tbody>
           </table>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">
-              {{ deliveryItemsReadyCount() }} {{ '::Items' | abpLocalization }}
-            </span>
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="text-muted small">
+                {{ deliveryItemsReadyCount() }} {{ '::Items' | abpLocalization }}
+              </span>
+              <div class="input-group input-group-sm" style="width: auto;">
+                <span class="input-group-text">{{ '::UntilDeliveryDate' | abpLocalization }}</span>
+                <input type="date" class="form-control" [value]="untilDeliveryDate()"
+                  (change)="untilDeliveryDate.set($any($event.target).value)" />
+                <button class="btn btn-outline-primary" (click)="deliverByDate()"
+                  [disabled]="!untilDeliveryDate() || isCreatingDN()">
+                  <i class="fa fa-calendar-check me-1"></i>{{ '::DeliverByDate' | abpLocalization }}
+                </button>
+              </div>
+            </div>
             <div class="btn-group">
               <button class="btn btn-outline-info btn-sm" (click)="deliverAll()" [disabled]="isCreatingDN()">
                 <i class="fa fa-boxes-stacked me-1"></i>{{ '::DeliverAll' | abpLocalization }}
