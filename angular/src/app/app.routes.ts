@@ -2110,6 +2110,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Leads' },
   },
   {
+    path: 'crm/reports/lead-owner-efficiency',
+    loadComponent: () => import('./crm/reports/lead-owner-efficiency/lead-owner-efficiency.component').then(c => c.LeadOwnerEfficiencyComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
     path: 'crm/reports/opportunity-summary',
     loadComponent: () => import('./crm/reports/opportunity-summary/opportunity-summary.component').then(c => c.OpportunitySummaryComponent),
     canActivate: [authGuard, permissionGuard],

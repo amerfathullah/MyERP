@@ -191,4 +191,51 @@ public abstract class CampaignEfficiencyAppServiceTests<TStartupModule> : MyERPA
             row.OrderValue.ShouldBe(1000m);
         });
     }
+
+    [Fact]
+    public async Task GetReportAsync_GroupsByLeadOwner_CalculatesConversionMetrics()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var oppRepo = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var service = GetRequiredService<ICampaignEfficiencyAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Owner Eff Co"), autoSave: true);
+            var ownerA = Guid.NewGuid();
+            var ownerB = Guid.NewGuid();
+
+            var leadOwnerA = new Lead(Guid.NewGuid(), company.Id, "LEAD-OWN-1", "Owner A Lead")
+            {
+                AssignedUserId = ownerA
+            };
+            var leadOwnerB = new Lead(Guid.NewGuid(), company.Id, "LEAD-OWN-2", "Owner B Lead")
+            {
+                AssignedUserId = ownerB
+            };
+
+            await leadRepo.InsertAsync(leadOwnerA, autoSave: true);
+            await leadRepo.InsertAsync(leadOwnerB, autoSave: true);
+
+            var opp = new Opportunity(Guid.NewGuid(), company.Id, "OPP-OWN-1", "Owner Opp")
+            {
+                LeadId = leadOwnerA.Id,
+                OpportunityAmount = 500m
+            };
+            await oppRepo.InsertAsync(opp, autoSave: true);
+
+            var report = await service.GetReportAsync(new CampaignEfficiencyFilterDto
+            {
+                CompanyId = company.Id,
+                BasedOn = "LeadOwner"
+            });
+
+            report.TotalLeads.ShouldBe(2);
+            report.TotalOpps.ShouldBe(1);
+            report.Rows.Count.ShouldBe(2);
+            report.Rows.ShouldContain(r => r.Campaign == ownerA.ToString().Substring(0, 8) && r.LeadCount == 1 && r.OppCount == 1);
+            report.Rows.ShouldContain(r => r.Campaign == ownerB.ToString().Substring(0, 8) && r.LeadCount == 1 && r.OppCount == 0);
+        });
+    }
 }

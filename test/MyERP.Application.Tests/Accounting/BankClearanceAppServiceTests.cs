@@ -693,4 +693,46 @@ private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Subst
         result[0].Debit.ShouldBe(102m);
         result[0].Credit.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task GetEntriesAsync_IncludesSameDayAfternoonEntries_WhenToDateAtMidnight()
+    {
+        var company = new Company(_companyId, "Test Clearance Co") { CurrencyCode = "MYR" };
+        var bankAccount = new Account(_bankAccountId, _companyId, "1120", "MYR Bank", AccountType.Asset) { Currency = "MYR" };
+        _companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(company));
+        _accountRepo.FindAsync(_bankAccountId).Returns(Task.FromResult<Account?>(bankAccount));
+
+        var afternoonPe = new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.Receive,
+            new DateTime(2026, 6, 30, 16, 45, 0),
+            250m,
+            _otherAccountId,
+            _bankAccountId)
+        {
+            PaymentNumber = "PE-AFTERNOON",
+            ReferenceNumber = "CHQ-PM",
+            ReceivedAmount = 250m,
+        };
+        afternoonPe.Submit();
+        afternoonPe.Post();
+
+        MockPaymentQuery(new List<PaymentEntry> { afternoonPe });
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry>().AsQueryable()));
+
+        var appService = CreateAppService();
+        var result = await appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+        {
+            CompanyId = _companyId,
+            BankAccountId = _bankAccountId,
+            FromDate = new DateTime(2026, 6, 30),
+            ToDate = new DateTime(2026, 6, 30),
+            IncludeCleared = false
+        });
+
+        result.Count.ShouldBe(1);
+        result[0].DocumentNumber.ShouldBe("PE-AFTERNOON");
+        result[0].Debit.ShouldBe(250m);
+    }
 }

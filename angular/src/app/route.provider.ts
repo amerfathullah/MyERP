@@ -1784,6 +1784,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Leads',
       },
       {
+        path: '/crm/reports/lead-owner-efficiency',
+        name: '::Menu:LeadOwnerEfficiency',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-user-check',
+        order: 16.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Leads',
+      },
+      {
         path: '/crm/reports/opportunity-summary',
         name: '::Menu:OpportunitySummary',
         parentName: '::Menu:CRM',

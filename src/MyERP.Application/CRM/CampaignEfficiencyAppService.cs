@@ -9,13 +9,14 @@ using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Identity;
 
 namespace MyERP.CRM;
 
 /// <summary>
-/// Campaign Efficiency Reporting Service.
-/// Evaluates conversion metrics across CRM funnel by UTM Campaign or Campaign Name.
-/// Per ERPNext crm/report/campaign_efficiency / PR #59916 (commits 2deb1549f9, a75063c834).
+/// Campaign Efficiency and Lead Owner Efficiency Reporting Service.
+/// Evaluates conversion metrics across CRM funnel by UTM Campaign, Campaign Name, or Lead Owner.
+/// Per ERPNext crm/report/campaign_efficiency and crm/report/lead_owner_efficiency / PR #59916.
 /// </summary>
 [Authorize(MyERPPermissions.Leads.Default)]
 public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficiencyAppService
@@ -25,19 +26,22 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
     private readonly IRepository<Opportunity, Guid> _opportunityRepository;
     private readonly IRepository<Quotation, Guid> _quotationRepository;
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
+    private readonly IRepository<IdentityUser, Guid>? _userRepository;
 
     public CampaignEfficiencyAppService(
         IRepository<Lead, Guid> leadRepository,
         IRepository<Customer, Guid> customerRepository,
         IRepository<Opportunity, Guid> opportunityRepository,
         IRepository<Quotation, Guid> quotationRepository,
-        IRepository<SalesOrder, Guid> salesOrderRepository)
+        IRepository<SalesOrder, Guid> salesOrderRepository,
+        IRepository<IdentityUser, Guid>? userRepository = null)
     {
         _leadRepository = leadRepository;
         _customerRepository = customerRepository;
         _opportunityRepository = opportunityRepository;
         _quotationRepository = quotationRepository;
         _salesOrderRepository = salesOrderRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<CampaignEfficiencyReportDto> GetReportAsync(CampaignEfficiencyFilterDto filter)
@@ -48,7 +52,7 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
             leadQuery = leadQuery.Where(l => l.CompanyId == filter.CompanyId.Value);
 
         if (filter.FromDate.HasValue)
-            leadQuery = leadQuery.Where(l => l.CreationTime >= filter.FromDate.Value);
+            leadQuery = leadQuery.Where(l => l.CreationTime >= filter.FromDate.Value.Date);
 
         if (filter.ToDate.HasValue)
         {
@@ -56,16 +60,45 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
             leadQuery = leadQuery.Where(l => l.CreationTime < endOfDay);
         }
 
+        var isLeadOwner = string.Equals(filter.BasedOn, "LeadOwner", StringComparison.OrdinalIgnoreCase);
         var isUtm = string.Equals(filter.BasedOn, "UtmCampaign", StringComparison.OrdinalIgnoreCase);
 
-        var leads = isUtm
-            ? leadQuery.Where(l => !string.IsNullOrEmpty(l.UtmCampaign)).ToList()
-            : leadQuery.Where(l => !string.IsNullOrEmpty(l.CampaignName)).ToList();
+        List<Lead> leads;
+        List<IGrouping<string, Lead>> leadGroups;
 
-        var leadGroups = leads
-            .GroupBy(l => isUtm ? l.UtmCampaign! : l.CampaignName!)
-            .OrderBy(g => g.Key)
-            .ToList();
+        if (isLeadOwner)
+        {
+            leads = leadQuery.ToList();
+            var ownerIds = leads
+                .Select(l => l.AssignedUserId ?? l.CreatorId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var ownerNames = await ResolveOwnerNamesAsync(ownerIds);
+            leadGroups = leads
+                .GroupBy(l =>
+                {
+                    var ownerId = l.AssignedUserId ?? l.CreatorId;
+                    return ownerId.HasValue
+                        ? ownerNames.GetValueOrDefault(ownerId.Value, ownerId.Value.ToString()[..8])
+                        : "Unassigned";
+                })
+                .OrderBy(g => g.Key)
+                .ToList();
+        }
+        else
+        {
+            leads = isUtm
+                ? leadQuery.Where(l => !string.IsNullOrEmpty(l.UtmCampaign)).ToList()
+                : leadQuery.Where(l => !string.IsNullOrEmpty(l.CampaignName)).ToList();
+
+            leadGroups = leads
+                .GroupBy(l => isUtm ? l.UtmCampaign! : l.CampaignName!)
+                .OrderBy(g => g.Key)
+                .ToList();
+        }
 
         var allLeadIds = leads.Select(l => l.Id).ToList();
 
@@ -159,5 +192,18 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
         report.TotalOrderValue = report.Rows.Sum(r => r.OrderValue);
 
         return report;
+    }
+
+    private async Task<Dictionary<Guid, string>> ResolveOwnerNamesAsync(List<Guid> ownerIds)
+    {
+        if (ownerIds.Count == 0 || _userRepository == null)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var users = await _userRepository.GetListAsync(u => ownerIds.Contains(u.Id));
+        return users.ToDictionary(
+            u => u.Id,
+            u => !string.IsNullOrWhiteSpace(u.Name) ? u.Name : u.UserName);
     }
 }

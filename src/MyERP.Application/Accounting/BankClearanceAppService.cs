@@ -81,12 +81,15 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
 
         // Payment Entries touching this bank account (either side)
         // Per ERPNext PR #60044: payment amounts reflect after-tax paid/received amount in bank currency
+        var fromDate = input.FromDate.Date;
+        var toDateExclusive = input.ToDate.Date.AddDays(1);
+
         var peQuery = await _paymentEntryRepository.WithDetailsAsync(p => p.Taxes);
         var pes = peQuery
             .Where(p => p.CompanyId == input.CompanyId
                 && p.Status == DocumentStatus.Posted
                 && (p.PaidFromAccountId == input.BankAccountId || p.PaidToAccountId == input.BankAccountId)
-                && p.PostingDate >= input.FromDate && p.PostingDate <= input.ToDate)
+                && p.PostingDate >= fromDate && p.PostingDate < toDateExclusive)
             .Where(p => input.IncludeCleared || p.ClearanceDate == null)
             .ToList();
 
@@ -117,7 +120,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             .Where(je => je.CompanyId == input.CompanyId
                 && je.Status == DocumentStatus.Posted
                 && !je.IsOpening
-                && je.PostingDate >= input.FromDate && je.PostingDate <= input.ToDate)
+                && je.PostingDate >= fromDate && je.PostingDate < toDateExclusive)
             .Where(je => input.IncludeCleared || je.ClearanceDate == null)
             .ToList();
 
