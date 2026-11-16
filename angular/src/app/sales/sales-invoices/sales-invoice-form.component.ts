@@ -291,6 +291,10 @@ export class SalesInvoiceFormComponent implements OnInit {
             priceListId: source.priceListId ?? '',
           });
           this.returnAgainstNumber.set(source.invoiceNumber ?? '');
+          // Per ERPNext PR #66918: return keeps taxes of source document; clear if source had no taxes
+          if (!(source.taxAmount > 0) && (source.items ?? []).every(i => !(i?.taxAmount > 0))) {
+            this.selectedTaxRules.set([]);
+          }
           // Return items have negative quantities
           source.items?.forEach((item) => {
             if (item) {
@@ -404,15 +408,21 @@ export class SalesInvoiceFormComponent implements OnInit {
       });
   }
 
+  private isReturnAgainst(): boolean {
+    return (!!this.form?.get('isReturn')?.value && !!this.form?.get('returnAgainstId')?.value)
+      || !!this.route.snapshot.queryParams['returnAgainst'];
+  }
+
   /** Load available tax charges templates (Selling type) for this company. */
   private loadTaxTemplates(): void {
     const companyId = this.form?.get('companyId')?.value || this.companyContext.currentCompanyId();
+    const skipDefault = this.isEditMode || this.isReturnAgainst();
     if (!companyId) {
       this.taxTemplateService.getList({ skipCount: 0, maxResultCount: 100, templateType: TaxTemplateType.Selling } as any).subscribe({
         next: res => {
           const templates = (res.items ?? []).filter((t: any) => t.isEnabled && (t.templateType == null || t.templateType === TaxTemplateType.Selling));
           this.taxTemplates.set(templates);
-          if (!this.isEditMode) {
+          if (!skipDefault) {
             const defaultTmpl = templates.find((t: any) => t.isDefault);
             if (defaultTmpl) this.applyTaxTemplate(defaultTmpl);
           }
@@ -426,15 +436,15 @@ export class SalesInvoiceFormComponent implements OnInit {
       next: list => {
         const templates = list ?? [];
         this.taxTemplates.set(templates);
-        if (!this.isEditMode) {
+        if (!skipDefault) {
           this.taxTemplateService.getDefault(companyId, TaxTemplateType.Selling).subscribe({
             next: def => {
               const target = def ?? templates.find((t: any) => t.isDefault);
-              if (target) this.applyTaxTemplate(target);
+              if (target && !this.isReturnAgainst()) this.applyTaxTemplate(target);
             },
             error: () => {
               const fallback = templates.find((t: any) => t.isDefault);
-              if (fallback) this.applyTaxTemplate(fallback);
+              if (fallback && !this.isReturnAgainst()) this.applyTaxTemplate(fallback);
             },
           });
         }
@@ -497,9 +507,9 @@ export class SalesInvoiceFormComponent implements OnInit {
           this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
           this.onPaymentTermsChanged();
         }
-        if (companyId && !this.isEditMode && details.taxCategoryId) {
+        if (companyId && !this.isEditMode && !this.isReturnAgainst() && details.taxCategoryId) {
           this.taxTemplateService.getDefault(companyId, TaxTemplateType.Selling, details.taxCategoryId).subscribe({
-            next: def => { if (def) this.applyTaxTemplate(def); },
+            next: def => { if (def && !this.isReturnAgainst()) this.applyTaxTemplate(def); },
             error: () => {},
           });
         }

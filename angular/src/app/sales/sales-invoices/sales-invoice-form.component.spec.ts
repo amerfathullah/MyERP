@@ -374,5 +374,58 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.items.at(0).get('salesOrderItemId')?.value).toBe('soi-1');
       expect(comp.showBillableSoPicker()).toBe(false);
     });
+
+    it('does not apply default tax template when creating a return against an invoice without taxes (PR #66918)', () => {
+      const siServiceMock = {
+        get: vi.fn().mockReturnValue(of({
+          id: 'si-orig',
+          invoiceNumber: 'SINV-0010',
+          companyId: 'comp-1',
+          customerId: 'cust-1',
+          customerName: 'Acme',
+          currencyCode: 'MYR',
+          taxAmount: 0,
+          items: [{ itemId: 'item-1', description: 'Zero-tax item', quantity: 2, unitPrice: 100, taxAmount: 0, uom: 'EA' }],
+        })),
+        getNextNumber: vi.fn().mockReturnValue(of('SINV-0011')),
+      };
+      const taxTemplateMock = {
+        getActiveTemplates: vi.fn().mockReturnValue(of([{ id: 'tmpl-1', isDefault: true, rows: [{ rate: 8, description: 'SST 8%' }] }])),
+        getDefault: vi.fn().mockReturnValue(of({ id: 'tmpl-1', isDefault: true, rows: [{ rate: 8, description: 'SST 8%' }] })),
+      };
+      const partyDetailsMock = {
+        getCustomerDetails: vi.fn().mockReturnValue(of({ taxCategoryId: 'tc-1', outstandingAmount: 0, creditLimit: 0 })),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: { returnAgainst: 'si-orig' } } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: SalesInvoiceService, useValue: siServiceMock },
+          { provide: SalesOrderService, useValue: { getBillableSalesOrders: vi.fn().mockReturnValue(of([])) } },
+          { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PartyDetailsService, useValue: partyDetailsMock },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: taxTemplateMock },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceFormComponent());
+      comp.ngOnInit();
+
+      expect(taxTemplateMock.getDefault).not.toHaveBeenCalled();
+      expect(comp.selectedTaxRules()).toEqual([]);
+      expect(comp.calcResult.totalTax).toBe(0);
+    });
   });
 });

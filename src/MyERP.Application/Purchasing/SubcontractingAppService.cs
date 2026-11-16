@@ -707,7 +707,30 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
         var backflushSetting = await SettingProvider.GetOrNullAsync(
             MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn);
+
+        HashSet<Guid>? wholeUnitRmItemIds = null;
+        if (scr.IsReturn && sco.SuppliedItems.Any())
+        {
+            var rmItemIds = sco.SuppliedItems.Select(si => si.ItemId).Distinct().ToList();
+            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
+            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+            if (itemRepo != null)
+            {
+                var rmItems = await itemRepo.GetListAsync(i => rmItemIds.Contains(i.Id));
+                var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (uomRepo != null)
+                {
+                    var uoms = await uomRepo.GetListAsync(u => u.MustBeWholeNumber);
+                    foreach (var u in uoms) wholeNumberUoms.Add(u.Name);
+                }
+                wholeUnitRmItemIds = rmItems
+                    .Where(i => i.HasSerialNo || wholeNumberUoms.Contains(i.Uom))
+                    .Select(i => i.Id)
+                    .ToHashSet();
+            }
+        }
+
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn, wholeUnitRmItemIds);
 
         // Per ERPNext PR #61505: validate batches on Subcontracting Receipt items and supplied items.
         // Supplied items only check for disabled/cancelled batches (expiry is not checked for raw material return/consumption).
@@ -853,7 +876,30 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
         var backflushSetting = await SettingProvider.GetOrNullAsync(
             MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn);
+
+        HashSet<Guid>? wholeUnitRmItemIds = null;
+        if (scr.IsReturn && sco.SuppliedItems.Any())
+        {
+            var rmItemIds = sco.SuppliedItems.Select(si => si.ItemId).Distinct().ToList();
+            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
+            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+            if (itemRepo != null)
+            {
+                var rmItems = await itemRepo.GetListAsync(i => rmItemIds.Contains(i.Id));
+                var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (uomRepo != null)
+                {
+                    var uoms = await uomRepo.GetListAsync(u => u.MustBeWholeNumber);
+                    foreach (var u in uoms) wholeNumberUoms.Add(u.Name);
+                }
+                wholeUnitRmItemIds = rmItems
+                    .Where(i => i.HasSerialNo || wholeNumberUoms.Contains(i.Uom))
+                    .Select(i => i.Id)
+                    .ToHashSet();
+            }
+        }
+
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn, wholeUnitRmItemIds);
 
         foreach (var rm in rmConsumptions)
         {

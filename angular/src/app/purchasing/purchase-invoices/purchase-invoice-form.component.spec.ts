@@ -1,5 +1,23 @@
-import { describe, it, expect } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { describe, it, expect, vi } from 'vitest';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { PurchaseInvoiceFormComponent } from './purchase-invoice-form.component';
+import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
+import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
 
 describe('PurchaseInvoice form DTO mapping', () => {
   const fb = new FormBuilder();
@@ -266,6 +284,56 @@ describe('PurchaseInvoice form DTO mapping', () => {
       expect(dnDto.updateStock).toBe(false);
       expect(dnDto.isReturnRefund).toBe(false);
       expect(dnDto.eInvoiceDocType).toBe(13);
+    });
+
+    it('does not apply default tax template when creating a return against a purchase invoice without taxes (PR #66918)', () => {
+      const piServiceMock = {
+        get: vi.fn().mockReturnValue(of({
+          id: 'pi-orig',
+          invoiceNumber: 'PINV-0010',
+          companyId: 'comp-1',
+          supplierId: 'sup-1',
+          currencyCode: 'MYR',
+          taxAmount: 0,
+          items: [{ itemId: 'item-1', description: 'Zero-tax goods', quantity: 5, unitPrice: 20, taxAmount: 0, uom: 'EA' }],
+        })),
+        checkDuplicateSupplierInvoice: vi.fn().mockReturnValue(of({ isDuplicate: false })),
+      };
+      const taxTemplateMock = {
+        getActiveTemplates: vi.fn().mockReturnValue(of([{ id: 'tmpl-b1', isDefault: true, rows: [{ rate: 6, description: 'Input SST 6%' }] }])),
+        getDefault: vi.fn().mockReturnValue(of({ id: 'tmpl-b1', isDefault: true, rows: [{ rate: 6, description: 'Input SST 6%' }] })),
+      };
+      const partyDetailsMock = {
+        getSupplierDetails: vi.fn().mockReturnValue(of({ taxCategoryId: 'tc-b1' })),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: { returnAgainst: 'pi-orig' } } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: PurchaseInvoiceService, useValue: piServiceMock },
+          { provide: SupplierService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: PartyDetailsService, useValue: partyDetailsMock },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: taxTemplateMock },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseInvoiceFormComponent());
+      comp.ngOnInit();
+
+      expect(taxTemplateMock.getDefault).not.toHaveBeenCalled();
+      expect(comp.selectedTaxRules()).toEqual([]);
+      expect(comp.calcResult.totalTax).toBe(0);
     });
   });
 });

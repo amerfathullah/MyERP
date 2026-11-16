@@ -185,9 +185,15 @@ public class SubcontractingManager : DomainService
     /// consumption is based on TransferredQty.
     /// Per ERPNext PR #46892 / commit 7479e1ec32: backflush setting is ignored on returns (isReturn = true),
     /// always falling back to BOM/RequiredQty.
+    /// Per ERPNext PR #66545 / commit 35de04d499: partial returns of serialized or whole-number UOM
+    /// raw materials round returned units up to whole units (capped at consumed/required qty).
     /// </summary>
     public SubcontractingRmConsumption[] CalculateRmConsumption(
-        SubcontractingOrder sco, decimal receivedFgQty, string? backflushBasedOn = "BOM", bool isReturn = false)
+        SubcontractingOrder sco,
+        decimal receivedFgQty,
+        string? backflushBasedOn = "BOM",
+        bool isReturn = false,
+        IReadOnlySet<Guid>? wholeUnitRmItemIds = null)
     {
         // Total FG qty ordered
         var totalFgQty = sco.Items.Sum(i => i.Qty);
@@ -200,11 +206,18 @@ public class SubcontractingManager : DomainService
             .Select(si =>
             {
                 var baseQty = useTransferred ? si.TransferredQty : si.RequiredQty;
+                var consumedQty = Math.Round(baseQty * ratio, 4);
+                if (isReturn && wholeUnitRmItemIds != null && wholeUnitRmItemIds.Contains(si.ItemId) && consumedQty < 0m)
+                {
+                    var ceilingQty = Math.Ceiling(Math.Abs(consumedQty));
+                    var maxReturnable = si.ConsumedQty > 0m ? si.ConsumedQty : si.RequiredQty;
+                    consumedQty = -Math.Min(ceilingQty, maxReturnable);
+                }
                 return new SubcontractingRmConsumption
                 {
                     ItemId = si.ItemId,
                     RequiredQty = si.RequiredQty,
-                    ConsumedQty = Math.Round(baseQty * ratio, 4),
+                    ConsumedQty = consumedQty,
                     WarehouseId = si.ReserveWarehouseId,
                     BatchId = si.BatchId
                 };

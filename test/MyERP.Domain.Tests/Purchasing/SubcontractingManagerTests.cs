@@ -97,6 +97,36 @@ public class SubcontractingAndWiringTests
     }
 
     [Fact]
+    public void CalculateRmConsumption_PartialReturn_RoundsUpWholeUnitRmAndCapsAtConsumedQty()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var sco = new SubcontractingOrder(Guid.NewGuid(), Guid.NewGuid(), "SCO-002",
+            DateTime.UtcNow, Guid.NewGuid());
+        sco.AddItem(new SubcontractingOrderItem(Guid.NewGuid(), sco.Id,
+            Guid.NewGuid(), "FG Assembly", 3m, 50m));
+
+        var wholeUnitItemId = Guid.NewGuid();
+        var fractionalItemId = Guid.NewGuid();
+        var wholeItem = new SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, wholeUnitItemId, "RM Chip", 1m)
+        {
+            ConsumedQty = 1m
+        };
+        var fractionalItem = new SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, fractionalItemId, "RM Wire", 1m)
+        {
+            ConsumedQty = 1m
+        };
+        sco.AddSuppliedItem(wholeItem);
+        sco.AddSuppliedItem(fractionalItem);
+
+        // Partial return of -1 out of 3 FG -> proportional 0.3333; whole-unit RM takes back -1, fractional keeps -0.3333
+        var wholeSet = new System.Collections.Generic.HashSet<Guid> { wholeUnitItemId };
+        var result = mgr.CalculateRmConsumption(sco, receivedFgQty: -1m, isReturn: true, wholeUnitRmItemIds: wholeSet);
+
+        result.Single(r => r.ItemId == wholeUnitItemId).ConsumedQty.ShouldBe(-1m);
+        result.Single(r => r.ItemId == fractionalItemId).ConsumedQty.ShouldBe(-0.3333m);
+    }
+
+    [Fact]
     public void SubcontractingOrder_PerReceived_DefaultsZero()
     {
         var sco = CreateSco();
