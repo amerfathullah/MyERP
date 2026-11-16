@@ -7,7 +7,7 @@ import { ProcessDeferredAccountingService } from '../../proxy/accounting/process
 import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { DeferredAccountingType } from '../../proxy/accounting/deferred-accounting-type.enum';
-import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
+import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-process-deferred-accounting-detail',
@@ -43,6 +43,10 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
             </button>
           }
           @if (isNew || (process && !process.isSubmitted)) {
+            <button type="button" class="btn btn-outline-info btn-sm" (click)="preview()" [disabled]="previewLoading || form.invalid">
+              @if (previewLoading) { <i class="fa fa-spinner fa-spin me-1"></i> } @else { <i class="fa fa-eye me-1"></i> }
+              Preview Recognition
+            </button>
             <button type="button" class="btn btn-primary btn-sm" (click)="save()">Save</button>
           }
         </div>
@@ -73,7 +77,7 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
               <select class="form-select" formControlName="accountId">
                 <option [ngValue]="null">All Deferred Accounts</option>
                 @for (a of accounts; track a.id) {
-                  <option [value]="a.id">{{ a.accountName }} ({{ a.accountNumber }})</option>
+                  <option [value]="a.id">{{ a.accountName }} ({{ a.accountCode }})</option>
                 }
               </select>
             </div>
@@ -93,6 +97,47 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
               <input type="date" class="form-control" formControlName="endDate">
             </div>
           </div>
+
+          @if (previewResult) {
+            <div class="card mt-3 border-info">
+              <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                <strong>Recognition Preview</strong>
+                <span class="small font-monospace">
+                  {{ previewResult.totalInvoicesCount ?? 0 }} items — Total: {{ (previewResult.totalAmountToRecognize ?? 0) | number:'1.2-2' }}
+                </span>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Invoice #</th>
+                        <th>Item</th>
+                        <th>Service Period</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">To Recognize</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of previewResult.items ?? []; track $index) {
+                        <tr>
+                          <td class="font-monospace small">{{ item.invoiceNumber }}</td>
+                          <td>{{ item.itemDescription }}</td>
+                          <td class="small">{{ item.serviceStartDate | date:'yyyy-MM-dd' }} ~ {{ item.serviceEndDate | date:'yyyy-MM-dd' }}</td>
+                          <td class="text-end font-monospace">{{ (item.totalAmount ?? 0) | number:'1.2-2' }}</td>
+                          <td class="text-end font-monospace fw-bold text-primary">{{ (item.amountToRecognize ?? 0) | number:'1.2-2' }}</td>
+                        </tr>
+                      } @empty {
+                        <tr>
+                          <td colspan="5" class="text-center text-muted py-3">No deferred items to recognize in this period.</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          }
 
           @if (!isNew && process && process.isSubmitted) {
             <div class="alert alert-info mt-3">
@@ -118,6 +163,8 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
   isNew = true;
   processId: string | null = null;
   process: ProcessDeferredAccountingDto | null = null;
+  previewResult: DeferredAccountingPreviewDto | null = null;
+  previewLoading = false;
   form: FormGroup;
   companies: any[] = [];
   accounts: any[] = [];
@@ -166,6 +213,28 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
         }
       });
     }
+  }
+
+  preview() {
+    if (this.form.invalid) return;
+    const v = this.form.getRawValue();
+    this.previewLoading = true;
+    this.service.previewDeferredAccounting({
+      companyId: v.companyId,
+      type: v.type,
+      accountId: v.accountId || null,
+      startDate: v.startDate,
+      endDate: v.endDate,
+    }).subscribe({
+      next: res => {
+        this.previewResult = res;
+        this.previewLoading = false;
+      },
+      error: (err) => {
+        this.previewLoading = false;
+        this.toaster.error(err?.error?.error?.message ?? 'Failed');
+      },
+    });
   }
 
   save() {

@@ -6236,7 +6236,10 @@
     "Merge": "Merge",
     "ProductionVisualizer": "Production Plan Visualizer",
     "Completion": "Completion",
-    "TotalPlanned": "Total Planned"
+    "TotalPlanned": "Total Planned",
+    "FetchCandidates": "Fetch Candidates",
+    "AddSelected": "Add Selected",
+    "SemiFgStockEntry": "Semi-FG Stock Entry"
   }
 }
 

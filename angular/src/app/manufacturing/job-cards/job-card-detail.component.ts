@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -123,6 +123,11 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 <button class="btn btn-outline-secondary" (click)="createMaterialTransfer()">
                   <i class="fa fa-dolly me-1"></i>{{ '::MaterialTransfer' | abpLocalization }}
                 </button>
+                @if (d.finishedGoodItemId || d.semiFgBomId) {
+                  <button class="btn btn-outline-info" (click)="createSemiFgStockEntry()">
+                    <i class="fa fa-boxes-packing me-1"></i>{{ '::SemiFgStockEntry' | abpLocalization }}
+                  </button>
+                }
               </div>
             </div></div>
           }
@@ -192,6 +197,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 })
 export class JobCardDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private service = inject(JobCardService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -286,14 +292,40 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  createSemiFgStockEntry(): void {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.service.createStockEntryForSemiFgItem(id).subscribe({
+      next: entry => {
+        this.toaster.success(this.l.instant('::SuccessfullyCreated'));
+        if (entry?.id) {
+          this.router.navigate(['/inventory/stock-entries', entry.id]);
+        } else {
+          this.load();
+        }
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
   /** Stop timer and record completion (adds time log via backend) */
   stopTimerAndComplete(): void {
     this.showCompletionQty.set(true);
-    // If user already set qty, proceed; otherwise show qty input first
+    // If user already set qty, proceed; otherwise pre-fill from backend completion defaults
     if (this.completionQtyInput > 0) {
       this.recordTimeLogAndComplete();
+      return;
     }
-    // Otherwise wait for user to enter qty and click complete again
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id && this.service.getCompletionDefaults) {
+      this.service.getCompletionDefaults(id).subscribe({
+        next: defaults => {
+          if (this.completionQtyInput <= 0 && (defaults.defaultCompletedQty ?? 0) > 0) {
+            this.completionQtyInput = defaults.defaultCompletedQty!;
+          }
+        },
+        error: () => {},
+      });
+    }
   }
 
   /** Called when user confirms completion qty */

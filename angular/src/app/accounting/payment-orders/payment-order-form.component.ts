@@ -6,9 +6,47 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaymentOrderService } from '../../proxy/accounting/payment-order.service';
+import type { CandidatePaymentEntryDto, CandidatePaymentRequestDto } from '../../proxy/accounting/models';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { BankAccountService } from '../../proxy/accounting/bank-account.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
+
+export interface PaymentOrderCandidateRow {
+  id: string;
+  label: string;
+  partyId: string;
+  partyName: string;
+  amount: number;
+  modeOfPayment: string;
+  referenceType: 'PaymentRequest' | 'PaymentEntry';
+  selected: boolean;
+}
+
+export function mapCandidateRequests(items: CandidatePaymentRequestDto[] | undefined): PaymentOrderCandidateRow[] {
+  return (items ?? []).filter(r => !!r.id).map(r => ({
+    id: r.id!,
+    label: r.referenceNumber ?? r.id!,
+    partyId: r.partyId ?? '',
+    partyName: r.partyName ?? '',
+    amount: r.outstandingAmount ?? r.grandTotal ?? 0,
+    modeOfPayment: 'Bank Transfer',
+    referenceType: 'PaymentRequest',
+    selected: false,
+  }));
+}
+
+export function mapCandidateEntries(items: CandidatePaymentEntryDto[] | undefined): PaymentOrderCandidateRow[] {
+  return (items ?? []).filter(e => !!e.id).map(e => ({
+    id: e.id!,
+    label: e.entryNumber ?? e.id!,
+    partyId: e.partyId ?? '',
+    partyName: e.partyName ?? '',
+    amount: e.paidAmount ?? e.receivedAmount ?? 0,
+    modeOfPayment: e.modeOfPayment ?? 'Bank Transfer',
+    referenceType: 'PaymentEntry',
+    selected: false,
+  }));
+}
 
 @Component({
   selector: 'app-payment-order-form',
@@ -44,8 +82,47 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="mb-0">{{ '::References' | abpLocalization }}</h6>
-            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addReference()"><i class="fa fa-plus"></i></button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-info" (click)="fetchCandidates()" [disabled]="loadingCandidates()">
+                <i class="fa fa-magnifying-glass me-1"></i>{{ '::FetchCandidates' | abpLocalization }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="addReference()"><i class="fa fa-plus"></i></button>
+            </div>
           </div>
+          @if (candidates().length > 0) {
+            <div class="border rounded p-2 mb-3 bg-light">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong class="small">{{ '::FetchCandidates' | abpLocalization }} ({{ candidates().length }})</strong>
+                <button type="button" class="btn btn-sm btn-success" (click)="addSelectedCandidates()">
+                  <i class="fa fa-check me-1"></i>{{ '::AddSelected' | abpLocalization }}
+                </button>
+              </div>
+              <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                <table class="table table-sm table-bordered bg-white mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width: 36px;"></th>
+                      <th>{{ '::Document' | abpLocalization }}</th>
+                      <th>{{ '::Supplier' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (c of candidates(); track c.id) {
+                      <tr>
+                        <td class="text-center">
+                          <input type="checkbox" class="form-check-input" [checked]="c.selected" (change)="toggleCandidate(c.id)" />
+                        </td>
+                        <td class="font-monospace small">{{ c.label }}</td>
+                        <td class="small">{{ c.partyName || c.partyId }}</td>
+                        <td class="text-end font-monospace small">{{ c.amount | number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
           <table class="table table-sm">
             <thead>
               <tr>
@@ -113,6 +190,8 @@ export class PaymentOrderFormComponent implements OnInit {
 
   suppliers = signal<any[]>([]);
   bankAccounts = signal<any[]>([]);
+  candidates = signal<PaymentOrderCandidateRow[]>([]);
+  loadingCandidates = signal(false);
 
   form = this.fb.group({
     paymentOrderType: [0],
@@ -152,6 +231,54 @@ export class PaymentOrderFormComponent implements OnInit {
   }
 
   removeReference(index: number): void { this.references.removeAt(index); }
+
+  fetchCandidates(): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) return;
+    this.loadingCandidates.set(true);
+    const isPaymentEntry = Number(this.form.get('paymentOrderType')?.value) === 1;
+    if (isPaymentEntry) {
+      this.service.getCandidatePaymentEntries(companyId).subscribe({
+        next: res => {
+          this.candidates.set(mapCandidateEntries(res));
+          this.loadingCandidates.set(false);
+        },
+        error: () => this.loadingCandidates.set(false),
+      });
+    } else {
+      this.service.getCandidatePaymentRequests(companyId).subscribe({
+        next: res => {
+          this.candidates.set(mapCandidateRequests(res));
+          this.loadingCandidates.set(false);
+        },
+        error: () => this.loadingCandidates.set(false),
+      });
+    }
+  }
+
+  toggleCandidate(id: string): void {
+    this.candidates.update(rows => rows.map(r => (r.id === id ? { ...r, selected: !r.selected } : r)));
+  }
+
+  addSelectedCandidates(): void {
+    const chosen = this.candidates().filter(c => c.selected);
+    if (chosen.length === 0) return;
+    if (this.references.length === 1 && !this.references.at(0).get('referenceId')?.value) {
+      this.references.removeAt(0);
+    }
+    const existingIds = new Set(this.references.controls.map(c => c.get('referenceId')?.value));
+    for (const c of chosen) {
+      if (existingIds.has(c.id)) continue;
+      this.references.push(this.fb.group({
+        supplierId: [c.partyId, Validators.required],
+        referenceType: [c.referenceType],
+        referenceId: [c.id, Validators.required],
+        amount: [c.amount, [Validators.required, Validators.min(0.01)]],
+        modeOfPayment: [c.modeOfPayment],
+      }));
+    }
+    this.candidates.set([]);
+  }
 
   save(): void {
     if (this.form.invalid || this.references.length === 0) return;
