@@ -31,17 +31,26 @@ public class SalesTeamService : DomainService
 {
     private readonly IRepository<SalesPerson, Guid> _salesPersonRepository;
     private readonly IRepository<SalesTeamEntry, Guid> _salesTeamRepository;
-    private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<SalesOrder, Guid>? _salesOrderRepository;
+    private readonly IRepository<DeliveryNote, Guid>? _deliveryNoteRepository;
 
     public SalesTeamService(
         IRepository<SalesPerson, Guid> salesPersonRepository,
         IRepository<SalesTeamEntry, Guid> salesTeamRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid>? itemRepository = null,
+        IRepository<SalesOrder, Guid>? salesOrderRepository = null,
+        IRepository<DeliveryNote, Guid>? deliveryNoteRepository = null)
     {
         _salesPersonRepository = salesPersonRepository;
         _salesTeamRepository = salesTeamRepository;
         _itemRepository = itemRepository;
+        _salesOrderRepository = salesOrderRepository;
+        _deliveryNoteRepository = deliveryNoteRepository;
     }
+
+    private T? ResolveLazyService<T>() where T : class
+        => LazyServiceProvider?.LazyGetService<T>();
 
     /// <summary>
     /// Calculates total eligible amount for commission from document items.
@@ -56,7 +65,10 @@ public class SalesTeamService : DomainService
         if (itemList.Count == 0) return 0m;
 
         var itemIds = itemList.Select(i => i.ItemId).Distinct().ToList();
-        var itemEntities = await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id));
+        var itemRepository = _itemRepository ?? ResolveLazyService<IRepository<Item, Guid>>();
+        var itemEntities = itemRepository != null
+            ? await itemRepository.GetListAsync(i => itemIds.Contains(i.Id))
+            : new List<Item>();
         var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
 
         var rate = exchangeRate > 0 ? exchangeRate : 1m;
@@ -237,7 +249,7 @@ public class SalesTeamService : DomainService
         if (linkedTeam.Count == 0) return null;
 
         var soIds = linkedTeam.Where(t => t.ParentType == "SalesOrder").Select(t => t.ParentId).Distinct().ToList();
-        var soRepo = LazyServiceProvider?.LazyGetService<IRepository<SalesOrder, Guid>>();
+        var soRepo = _salesOrderRepository ?? ResolveLazyService<IRepository<SalesOrder, Guid>>();
         if (soIds.Count > 0 && soRepo != null)
         {
             var soQuery = await soRepo.GetQueryableAsync();
@@ -255,7 +267,7 @@ public class SalesTeamService : DomainService
         }
 
         var dnIds = linkedTeam.Where(t => t.ParentType == "DeliveryNote").Select(t => t.ParentId).Distinct().ToList();
-        var dnRepo = LazyServiceProvider?.LazyGetService<IRepository<DeliveryNote, Guid>>();
+        var dnRepo = _deliveryNoteRepository ?? ResolveLazyService<IRepository<DeliveryNote, Guid>>();
         if (dnIds.Count > 0 && dnRepo != null)
         {
             var dnQuery = await dnRepo.GetQueryableAsync();

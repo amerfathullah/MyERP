@@ -16,10 +16,44 @@ namespace MyERP.Sales;
 public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
 {
     private readonly IRepository<SalesPerson, Guid> _repository;
+    private readonly Sales.DomainServices.SalesTeamService? _salesTeamService;
 
-    public SalesPersonAppService(IRepository<SalesPerson, Guid> repository)
+    public SalesPersonAppService(
+        IRepository<SalesPerson, Guid> repository,
+        Sales.DomainServices.SalesTeamService? salesTeamService = null)
     {
         _repository = repository;
+        _salesTeamService = salesTeamService;
+    }
+
+    private Sales.DomainServices.SalesTeamService? ResolveSalesTeamService()
+    {
+        var resolved = _salesTeamService ?? LazyServiceProvider?.LazyGetService<Sales.DomainServices.SalesTeamService>();
+        if (resolved != null)
+        {
+            return resolved;
+        }
+
+        if (LazyServiceProvider == null)
+        {
+            return null;
+        }
+
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        if (teamRepo == null)
+        {
+            return null;
+        }
+
+        return new Sales.DomainServices.SalesTeamService(
+            _repository,
+            teamRepo,
+            LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>(),
+            LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>(),
+            LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>())
+        {
+            LazyServiceProvider = LazyServiceProvider
+        };
     }
 
     public async Task<SalesPersonDto> GetAsync(Guid id)
@@ -238,24 +272,30 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         var sp = await _repository.GetAsync(id);
 
         // Per ERPNext PR #61835 (commit 1fe56c013a): reject disabling sales person if linked to unfinished Sales Orders or unbilled Delivery Notes
-        var salesTeamService = LazyServiceProvider.LazyGetRequiredService<Sales.DomainServices.SalesTeamService>();
-        var blocker = await salesTeamService.GetDisableBlockerAsync(sp);
-        if (!string.IsNullOrEmpty(blocker))
+        var salesTeamService = ResolveSalesTeamService();
+        if (salesTeamService != null)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", blocker);
+            var blocker = await salesTeamService.GetDisableBlockerAsync(sp);
+            if (!string.IsNullOrEmpty(blocker))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", blocker);
+            }
         }
 
         sp.Disable();
         await _repository.UpdateAsync(sp);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SalesPerson", sp.Id,
-            "Disabled", Guid.Empty,
-            sp.Name, "Active", "Disabled",
-            CurrentUser.Id,
-            $"Sales person '{sp.Name}' disabled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SalesPerson", sp.Id,
+                "Disabled", Guid.Empty,
+                sp.Name, "Active", "Disabled",
+                CurrentUser.Id,
+                $"Sales person '{sp.Name}' disabled", CurrentTenant.Id));
+        }
     }
 
     [Authorize(MyERPPermissions.SalesPersons.Delete)]
