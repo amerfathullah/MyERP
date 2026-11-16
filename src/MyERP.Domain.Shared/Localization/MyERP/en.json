@@ -6396,7 +6396,13 @@
     "LoadSelectedOrders": "Load Selected Orders",
     "NoBillableSalesOrders": "No billable sales orders found for this customer",
     "CheckRouting": "Check Routing",
-    "CheckActiveGroup": "Check Active Group"
+    "CheckActiveGroup": "Check Active Group",
+    "PerpetualInventoryAccounts": "Perpetual Inventory Accounts",
+    "StockBalanceAccount": "Stock Balance Account",
+    "StockReceivedButNotBilledAccount": "Stock Received But Not Billed Account",
+    "StockDeliveredButNotBilledAccount": "Stock Delivered But Not Billed Account",
+    "StockAdjustmentAccount": "Stock Adjustment Account",
+    "ClearAccountMapping": "Clear Account Mapping"
   }
 }
 

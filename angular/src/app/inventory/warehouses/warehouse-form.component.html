@@ -10,7 +10,7 @@
             <label class="form-label">{{ '::Company' | abpLocalization }}</label>
             <select class="form-select" formControlName="companyId" [class.is-invalid]="form.get('companyId')?.invalid && form.get('companyId')?.touched">
               @for (c of companies(); track c.id) {
-                <option [value]="c.id">{{ c.name }}</option>
+                <option [ngValue]="c.id">{{ c.name }}</option>
               }
             </select>
           </div>
@@ -56,7 +56,7 @@
             <select class="form-select" formControlName="defaultAccountId">
               <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
               @for (acc of accounts(); track acc.id) {
-                <option [value]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+                <option [ngValue]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
               }
             </select>
           </div>
@@ -71,6 +71,57 @@
                 <label class="form-check-label" for="whIsActive">{{ '::Active' | abpLocalization }}</label>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="fa fa-book me-2"></i>{{ '::PerpetualInventoryAccounts' | abpLocalization }}</h5>
+        @if (warehouseAccountId() || form.get('perpetualAccountId')?.value) {
+          <button type="button" class="btn btn-outline-danger btn-sm" (click)="clearPerpetualAccounts()">
+            <i class="fa fa-trash me-1"></i>{{ '::ClearAccountMapping' | abpLocalization }}
+          </button>
+        }
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::StockBalanceAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="perpetualAccountId">
+              <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (acc of accounts(); track acc.id) {
+                <option [ngValue]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::StockReceivedButNotBilledAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="stockReceivedButNotBilledAccountId">
+              <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (acc of allLeafAccounts(); track acc.id) {
+                <option [ngValue]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::StockDeliveredButNotBilledAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="stockDeliveredButNotBilledAccountId">
+              <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (acc of allLeafAccounts(); track acc.id) {
+                <option [ngValue]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label">{{ '::StockAdjustmentAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="stockAdjustmentAccountId">
+              <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (acc of allLeafAccounts(); track acc.id) {
+                <option [ngValue]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+              }
+            </select>
           </div>
         </div>
       </div>

@@ -88,6 +88,23 @@ public class UpstreamPR60161_60279_60283Tests
     }
 
     [Fact]
+    public void WorkOrder_ReservationStatus_FractionalQtyEqualAt4Decimals_ReturnsStockReserved()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-FRAC", Guid.NewGuid(), Guid.NewGuid(), 1m)
+        {
+            ReserveStock = true
+        };
+
+        var item1 = new WorkOrderItem(Guid.NewGuid(), wo.Id, Guid.NewGuid(), "RM Frac", 0.333333333m);
+        item1.SetStockReservedQty(0.3333m);
+
+        wo.RequiredItems.Add(item1);
+
+        var status = wo.GetReservationStatus();
+        status.ShouldBe(WorkOrderStatus.StockReserved);
+    }
+
+    [Fact]
     public void WorkOrder_ReservationStatus_NoReservations_ReturnsFallbackStatus()
     {
         var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-004", Guid.NewGuid(), Guid.NewGuid(), 10m)

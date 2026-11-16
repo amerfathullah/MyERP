@@ -63,7 +63,8 @@ public class WarehouseAccountAppService : ApplicationService, IWarehouseAccountA
     [Authorize(MyERPPermissions.WarehouseAccounts.Create)]
     public async Task<WarehouseAccountDto> SaveAsync(CreateWarehouseAccountDto input)
     {
-        // Per ERPNext PR #59191 / commit db6e089109: validate warehouse accounts belong to company
+        // Per ERPNext PR #59191 / commit db6e089109: validate warehouse and accounts belong to company
+        await ValidateWarehouseCompanyAsync(input.WarehouseId, input.CompanyId);
         await ValidateAccountCompanyAsync(input.AccountId, input.CompanyId);
         await ValidateAccountCompanyAsync(input.StockReceivedButNotBilledAccountId, input.CompanyId);
         await ValidateAccountCompanyAsync(input.StockDeliveredButNotBilledAccountId, input.CompanyId);
@@ -117,16 +118,34 @@ public class WarehouseAccountAppService : ApplicationService, IWarehouseAccountA
         StockAdjustmentAccountId = e.StockAdjustmentAccountId
     };
 
+    private async Task ValidateWarehouseCompanyAsync(Guid warehouseId, Guid companyId)
+    {
+        var warehouse = await _warehouseRepository.FindAsync(warehouseId);
+        if (warehouse != null && warehouse.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Warehouse '{warehouse.Name}' does not belong to Company.");
+        }
+    }
+
     private async Task ValidateAccountCompanyAsync(Guid? accountId, Guid companyId)
     {
         if (!accountId.HasValue || accountId.Value == Guid.Empty) return;
 
         var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
         var account = await accountRepo.FindAsync(accountId.Value);
-        if (account != null && account.CompanyId != companyId)
+        if (account != null)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Account '{account.AccountName}' does not belong to Company.");
+            if (account.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Account '{account.AccountName}' does not belong to Company.");
+            }
+            if (account.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Group account '{account.AccountName}' cannot be assigned to a warehouse.");
+            }
         }
     }
 }

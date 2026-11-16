@@ -227,7 +227,8 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (!RequiredItems.Any(r => r.StockReservedQty > 0))
             return fallbackStatus;
 
-        if (RequiredItems.Any(r => r.StockReservedQty < r.RequiredQuantity))
+        // Per ERPNext PR #66965: compare at 4-decimal precision so rounded multi-batch allocations count as reserved.
+        if (RequiredItems.Any(r => Math.Round(r.StockReservedQty, 4) < Math.Round(r.RequiredQuantity, 4)))
             return WorkOrderStatus.StockPartiallyReserved;
 
         return WorkOrderStatus.StockReserved;

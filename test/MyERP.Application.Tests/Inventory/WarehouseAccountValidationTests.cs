@@ -131,4 +131,97 @@ public abstract class WarehouseAccountValidationTests<TStartupModule> : MyERPApp
             result.DefaultAccountId.ShouldBe(account.Id);
         });
     }
+
+    [Fact]
+    public async Task SaveWarehouseAccount_WarehouseFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Entities.Warehouse, Guid>>();
+            var whAccountAppService = GetRequiredService<IWarehouseAccountAppService>();
+
+            var company1 = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "WH Cross Co 1"), autoSave: true);
+            var company2 = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "WH Cross Co 2"), autoSave: true);
+
+            var whOtherCompany = await warehouseRepo.InsertAsync(new Entities.Warehouse(Guid.NewGuid(), company2.Id, "WH Other"), autoSave: true);
+            var account1 = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company1.Id, "1310", "Stock In Hand - Co1", AccountType.Asset) { AccountSubType = AccountSubType.Stock }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                whAccountAppService.SaveAsync(new CreateWarehouseAccountDto
+                {
+                    WarehouseId = whOtherCompany.Id,
+                    CompanyId = company1.Id,
+                    AccountId = account1.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task SaveWarehouseAccount_GroupAccount_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Entities.Warehouse, Guid>>();
+            var whAccountAppService = GetRequiredService<IWarehouseAccountAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "WH Group Acc Co"), autoSave: true);
+            var wh = await warehouseRepo.InsertAsync(new Entities.Warehouse(Guid.NewGuid(), company.Id, "WH Group"), autoSave: true);
+            var groupAcc = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1300", "Stock Group", AccountType.Asset) { IsGroup = true }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                whAccountAppService.SaveAsync(new CreateWarehouseAccountDto
+                {
+                    WarehouseId = wh.Id,
+                    CompanyId = company.Id,
+                    AccountId = groupAcc.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task SaveAndDeleteWarehouseAccount_Valid_Works()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Entities.Warehouse, Guid>>();
+            var whAccountAppService = GetRequiredService<IWarehouseAccountAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "WH Crud Co"), autoSave: true);
+            var wh = await warehouseRepo.InsertAsync(new Entities.Warehouse(Guid.NewGuid(), company.Id, "WH Crud"), autoSave: true);
+            var stockAcc = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1310", "Stock In Hand", AccountType.Asset) { AccountSubType = AccountSubType.Stock }, autoSave: true);
+            var srbnbAcc = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2110", "SRBNB", AccountType.Liability), autoSave: true);
+
+            var saved = await whAccountAppService.SaveAsync(new CreateWarehouseAccountDto
+            {
+                WarehouseId = wh.Id,
+                CompanyId = company.Id,
+                AccountId = stockAcc.Id,
+                StockReceivedButNotBilledAccountId = srbnbAcc.Id
+            });
+
+            saved.AccountId.ShouldBe(stockAcc.Id);
+            saved.StockReceivedButNotBilledAccountId.ShouldBe(srbnbAcc.Id);
+
+            var list = await whAccountAppService.GetListAsync(company.Id);
+            list.Items.ShouldContain(x => x.Id == saved.Id && x.WarehouseId == wh.Id);
+
+            await whAccountAppService.DeleteAsync(saved.Id);
+            var afterDelete = await whAccountAppService.GetListAsync(company.Id);
+            afterDelete.Items.ShouldBeEmpty();
+        });
+    }
 }
