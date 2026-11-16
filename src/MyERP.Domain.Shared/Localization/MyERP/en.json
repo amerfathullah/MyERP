@@ -6340,7 +6340,13 @@
     "ValidateCoupon": "Validate & Apply Coupon",
     "ApplyCoupon": "Apply",
     "AddLostReason": "Add Lost Reason",
-    "NoBalanceRecords": "No balance records found."
+    "NoBalanceRecords": "No balance records found.",
+    "OperationalMetrics": "Operational Metrics",
+    "DraftDocuments": "Draft Documents",
+    "ItemsWithoutPrice": "Items Without Price",
+    "OpenWorkOrders": "Open Work Orders",
+    "ActiveSubscriptions": "Active Subscriptions",
+    "TransactionTimeline": "Transaction Activity Timeline"
   }
 }
 

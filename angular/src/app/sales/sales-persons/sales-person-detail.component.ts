@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -77,6 +77,35 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
             </table>
           </div>
         </div>
+
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="fa fa-chart-line me-2"></i>{{ '::TransactionTimeline' | abpLocalization }}</h6>
+            <span class="badge bg-primary">{{ totalTimelineTransactions() }} {{ '::Transactions' | abpLocalization }}</span>
+          </div>
+          <div class="card-body p-0">
+            @if (timelineEntries().length === 0) {
+              <div class="text-center text-muted small py-3">{{ '::NoData' | abpLocalization }}</div>
+            } @else {
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3">{{ '::Date' | abpLocalization }}</th>
+                    <th class="text-end pe-3">{{ '::Transactions' | abpLocalization }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (entry of timelineEntries(); track entry.date) {
+                    <tr>
+                      <td class="ps-3">{{ entry.date }}</td>
+                      <td class="text-end pe-3 fw-semibold">{{ entry.count }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
       }
     </abp-page>
   `
@@ -88,6 +117,11 @@ export class SalesPersonDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   person: any = null;
   isLoading = false;
+  timelineEntries = signal<{ date: string; count: number }[]>([]);
+
+  totalTimelineTransactions(): number {
+    return this.timelineEntries().reduce((sum, e) => sum + e.count, 0);
+  }
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -101,6 +135,15 @@ export class SalesPersonDetailComponent implements OnInit {
     this.service.get(id).subscribe({
       next: p => { this.person = p; this.isLoading = false; },
       error: () => { this.isLoading = false; }
+    });
+    this.service.getTimelineData(id).subscribe({
+      next: (data) => {
+        const rows = Object.entries(data ?? {})
+          .map(([date, count]) => ({ date, count: Number(count) || 0 }))
+          .sort((a, b) => b.date.localeCompare(a.date));
+        this.timelineEntries.set(rows);
+      },
+      error: () => this.timelineEntries.set([]),
     });
   }
 

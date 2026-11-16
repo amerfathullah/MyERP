@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { AuthService, LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { DashboardService } from '../proxy/core/dashboard.service';
 import { DocumentActivityLogService } from '../proxy/core/document-activity-log.service';
-import type { DashboardSummaryDto } from '../proxy/core/models';
+import type { DashboardSummaryDto, DeliveryDueAlertDto, OperationalMetricsDto } from '../proxy/core/models';
 import { CompanyContextService } from '../shared/services/company-context.service';
 import { CompanyCurrencyPipe } from '../shared/pipes/company-currency.pipe';
 
@@ -44,6 +44,8 @@ export class HomeComponent implements OnInit {
   upcomingDues = signal<any | null>(null);
   pendingMRs = signal<any[]>([]);
   supplierPerformance = signal<any | null>(null);
+  operationalMetrics = signal<OperationalMetricsDto | null>(null);
+  deliveryDueAlerts = signal<DeliveryDueAlertDto | null>(null);
 
   get hasLoggedIn(): boolean {
     return this.authService.isAuthenticated;
@@ -138,6 +140,10 @@ export class HomeComponent implements OnInit {
           .subscribe({ next: data => this.productionSummary.set(data), error: () => {} });
         this.dashboardService.getTodaysActivity(companyId)
           .subscribe({ next: (data: any) => this.todaysActivity.set(data), error: () => {} });
+        this.dashboardService.getOperationalMetrics(companyId)
+          .subscribe({ next: data => this.operationalMetrics.set(data ?? null), error: () => {} });
+        this.dashboardService.getDeliveryDueAlerts(companyId)
+          .subscribe({ next: data => this.deliveryDueAlerts.set(data ?? null), error: () => {} });
       }
     }
   }
