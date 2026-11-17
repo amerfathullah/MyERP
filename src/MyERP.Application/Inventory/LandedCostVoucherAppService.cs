@@ -65,12 +65,24 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         if (receiptType == "PurchaseReceipt")
         {
             var pr = await _purchaseReceiptRepository.FindAsync(receiptId);
-            return pr?.WarehouseId;
+            if (pr == null) return null;
+            if (itemId.HasValue)
+            {
+                var itemWh = pr.Items.FirstOrDefault(i => i.ItemId == itemId.Value && i.WarehouseId.HasValue)?.WarehouseId;
+                if (itemWh.HasValue) return itemWh.Value;
+            }
+            return pr.WarehouseId;
         }
         if (receiptType == "PurchaseInvoice")
         {
             var pi = await _purchaseInvoiceRepository.FindAsync(receiptId);
-            return pi?.WarehouseId;
+            if (pi == null) return null;
+            if (itemId.HasValue)
+            {
+                var itemWh = pi.Items.FirstOrDefault(i => i.ItemId == itemId.Value && i.WarehouseId.HasValue)?.WarehouseId;
+                if (itemWh.HasValue) return itemWh.Value;
+            }
+            return pi.WarehouseId;
         }
         if (receiptType == "StockEntry")
         {
@@ -115,7 +127,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             if (pi.CompanyId != companyId)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' belongs to a different company.");
-            if (pi.Status != Core.DocumentStatus.Submitted)
+            if (pi.Status != Core.DocumentStatus.Submitted && pi.Status != Core.DocumentStatus.Posted)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' must be submitted.");
             if (!pi.UpdateStock)
@@ -291,15 +303,14 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         lcv.Submit();
 
         // Resolve the real Warehouse for each item's receipt once (ReceiptId is a document ID, not a
-        // warehouse ID — see ResolveWarehouseIdAsync). Cached per (ReceiptType, ReceiptId) pair since
-        // multiple LCV items commonly share the same receipt.
-        var warehouseCache = new Dictionary<(string, Guid), Guid?>();
-        async Task<Guid?> GetWarehouseAsync(string receiptType, Guid receiptId)
+        // warehouse ID — see ResolveWarehouseIdAsync). Cached per (ReceiptType, ReceiptId, ItemId) tuple.
+        var warehouseCache = new Dictionary<(string, Guid, Guid), Guid?>();
+        async Task<Guid?> GetWarehouseAsync(string receiptType, Guid receiptId, Guid itemId)
         {
-            var key = (receiptType, receiptId);
+            var key = (receiptType, receiptId, itemId);
             if (!warehouseCache.TryGetValue(key, out var wid))
             {
-                wid = await ResolveWarehouseIdAsync(receiptType, receiptId);
+                wid = await ResolveWarehouseIdAsync(receiptType, receiptId, itemId);
                 warehouseCache[key] = wid;
             }
             return wid;
@@ -311,7 +322,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         {
             if (item.ApplicableCharges <= 0) continue;
 
-            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId);
+            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId, item.ItemId);
             if (!warehouseId.HasValue) continue;
 
             // Create a rate-adjustment SLE: qty=0, value=ApplicableCharges
@@ -335,7 +346,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         // Update serial number valuation rates (per DO-NOT: serials must reflect true landed cost)
         foreach (var item in lcv.Items.Where(i => i.ApplicableCharges > 0))
         {
-            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId);
+            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId, item.ItemId);
             if (!warehouseId.HasValue) continue;
 
             var serialQuery = await _serialNoRepository.GetQueryableAsync();
@@ -362,7 +373,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         var chargeWarehouseTotals = new Dictionary<Guid, decimal>();
         foreach (var item in lcv.Items.Where(i => i.ApplicableCharges > 0))
         {
-            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId);
+            var warehouseId = await GetWarehouseAsync(item.ReceiptType, item.ReceiptId, item.ItemId);
             if (!warehouseId.HasValue) continue;
             chargeWarehouseTotals[warehouseId.Value] = chargeWarehouseTotals.GetValueOrDefault(warehouseId.Value) + item.ApplicableCharges;
         }
@@ -469,7 +480,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         {
             if (item.ApplicableCharges <= 0) continue;
 
-            var warehouseId = await ResolveWarehouseIdAsync(item.ReceiptType, item.ReceiptId);
+            var warehouseId = await ResolveWarehouseIdAsync(item.ReceiptType, item.ReceiptId, item.ItemId);
             if (!warehouseId.HasValue) continue;
 
             await _valuationService.CreateLedgerEntryAsync(
@@ -618,7 +629,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
 
             foreach (var invoice in invoices)
             {
-                if (invoice.Status != Core.DocumentStatus.Submitted)
+                if (invoice.Status != Core.DocumentStatus.Submitted && invoice.Status != Core.DocumentStatus.Posted)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Purchase Invoice '{invoice.InvoiceNumber}' must be submitted.");

@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } fr
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityGoalStore } from '../store/quality-goal.store';
 import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
 
@@ -111,6 +112,7 @@ export class QualityGoalFormComponent implements OnInit {
   protected readonly store = inject(QualityGoalStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly toaster = inject(ToasterService);
 
   form!: FormGroup;
   isEdit = false;
@@ -134,20 +136,23 @@ export class QualityGoalFormComponent implements OnInit {
     this.id = this.route.snapshot.paramMap.get('id');
     if (this.id && this.id !== 'new') {
       this.isEdit = true;
-      this.service.getGoal(this.id).subscribe((res) => {
-        this.form.patchValue(res);
-        if (res.objectives) {
-          this.objectivesArray.clear();
-          res.objectives.forEach((obj) => {
-            this.objectivesArray.push(
-              this.fb.group({
-                objective: [obj.objective, Validators.required],
-                target: [obj.target, Validators.required],
-                uom: [obj.uom ?? ''],
-              })
-            );
-          });
-        }
+      this.service.getGoal(this.id).subscribe({
+        next: (res) => {
+          this.form.patchValue(res);
+          if (res.objectives) {
+            this.objectivesArray.clear();
+            res.objectives.forEach((obj) => {
+              this.objectivesArray.push(
+                this.fb.group({
+                  objective: [obj.objective, Validators.required],
+                  target: [obj.target, Validators.required],
+                  uom: [obj.uom ?? ''],
+                })
+              );
+            });
+          }
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToLoadQualityGoal'),
       });
     }
   }

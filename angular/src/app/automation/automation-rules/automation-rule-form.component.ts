@@ -2,6 +2,7 @@ import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AutomationRuleStore } from '../store/automation-rule.store';
@@ -23,6 +24,7 @@ export class AutomationRuleFormComponent {
   private router = inject(Router);
   private store = inject(AutomationRuleStore);
   private service = inject(AutomationRuleService);
+  private toaster = inject(ToasterService);
 
   form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(128)]],
@@ -82,7 +84,7 @@ export class AutomationRuleFormComponent {
       priority: value.priority ?? 0,
     } as any).subscribe({
       next: () => { this.form.markAsPristine(); this.router.navigate(['/automation']); },
-      error: () => {},
+      error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveAutomationRule'),
     });
   }
 

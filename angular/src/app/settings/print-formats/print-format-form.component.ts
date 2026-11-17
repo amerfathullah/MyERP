@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { PrintFormatService } from '../../proxy/settings/print-format.service';
 
 @Component({
@@ -54,6 +55,7 @@ export class PrintFormatFormComponent implements OnInit {
   private service = inject(PrintFormatService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
 
   form: FormGroup;
   isEdit = false;
@@ -85,8 +87,11 @@ export class PrintFormatFormComponent implements OnInit {
       ? this.service.update(this.id!, this.form.value)
       : this.service.create(this.form.value);
     
-    req.subscribe(() => {
-      this.router.navigate(['/settings/print-formats']);
+    req.subscribe({
+      next: () => {
+        this.router.navigate(['/settings/print-formats']);
+      },
+      error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSavePrintFormat'),
     });
   }
 }

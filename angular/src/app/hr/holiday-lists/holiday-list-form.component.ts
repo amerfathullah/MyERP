@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { HolidayListService } from '../../proxy/human-resources';
 
 @Component({
@@ -56,6 +57,7 @@ import { HolidayListService } from '../../proxy/human-resources';
 export class HolidayListFormComponent {
   private holidayListService = inject(HolidayListService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
   saving = false;
   isDirty = false;
   form: any = { name: '', year: new Date().getFullYear(), weeklyOff: 'Saturday,Sunday', holidays: [{ holidayDate: '', description: '' }] };
@@ -63,7 +65,13 @@ export class HolidayListFormComponent {
   save() {
     this.saving = true;
     this.holidayListService.create(this.form)
-      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/hr/holiday-lists']); }, error: () => { this.saving = false; } });
+      .subscribe({
+        next: () => { this.isDirty = false; this.router.navigate(['/hr/holiday-lists']); },
+        error: (err) => {
+          this.saving = false;
+          this.toaster.error(err?.error?.error?.message || '::FailedToSaveHolidayList');
+        }
+      });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

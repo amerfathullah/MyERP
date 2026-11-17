@@ -1,6 +1,7 @@
 import { Injector, runInInjectionContext } from '@angular/core';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { QualityFeedbackFormComponent } from './quality-feedback-form.component';
 import { QualityFeedbackListComponent } from './quality-feedback-list.component';
@@ -25,6 +26,7 @@ describe('QualityFeedback Template & Inspection', () => {
         { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
         { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ToasterService, useValue: { error: vi.fn(), success: vi.fn() } },
       ],
     });
 
@@ -35,6 +37,34 @@ describe('QualityFeedback Template & Inspection', () => {
 
     expect(qmsMock.getFeedbackTemplate).toHaveBeenCalledWith('tpl-1');
     expect(comp.parameterRows.map(r => r.parameter)).toEqual(['Speed', 'Packaging']);
+  });
+
+  it('shows error toast and resets saving flag when createFeedback fails', () => {
+    const toasterMock = { error: vi.fn(), success: vi.fn() };
+    const qmsMock = {
+      getFeedbackTemplateList: vi.fn().mockReturnValue(of({ items: [] })),
+      createFeedback: vi.fn().mockReturnValue(
+        throwError(() => ({ error: { error: { message: 'Feedback submission failed' } } }))
+      ),
+    };
+
+    const injector = Injector.create({
+      providers: [
+        { provide: QualityManagementService, useValue: qmsMock },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ToasterService, useValue: toasterMock },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new QualityFeedbackFormComponent());
+    comp.documentName = 'CUST-001';
+    comp.templateId = 'tpl-1';
+    comp.save();
+
+    expect(comp.saving).toBe(false);
+    expect(toasterMock.error).toHaveBeenCalledWith('Feedback submission failed');
   });
 
   it('loads full feedback details via getFeedback on inspectFeedback', () => {

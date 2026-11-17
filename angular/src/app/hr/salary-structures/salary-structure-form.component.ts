@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { SalaryStructureService } from '../../proxy/human-resources';
 
 @Component({
@@ -63,6 +64,7 @@ import { SalaryStructureService } from '../../proxy/human-resources';
 export class SalaryStructureFormComponent {
   private salaryStructureService = inject(SalaryStructureService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
   saving = false;
   isDirty = false;
   form: any = { name: '', payrollFrequency: 'Monthly', isHourlyBased: false, details: [{ componentName: 'Basic', amount: 0, formula: '' }] };
@@ -70,7 +72,13 @@ export class SalaryStructureFormComponent {
   save() {
     this.saving = true;
     this.salaryStructureService.create(this.form)
-      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/hr/salary-structures']); }, error: () => { this.saving = false; } });
+      .subscribe({
+        next: () => { this.isDirty = false; this.router.navigate(['/hr/salary-structures']); },
+        error: (err) => {
+          this.saving = false;
+          this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalaryStructure');
+        }
+      });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

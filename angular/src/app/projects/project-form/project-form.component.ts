@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ProjectStore } from '../store/project.store';
 import { ProjectService } from '../../proxy/projects/project.service';
 import { ProjectTemplateService } from '../../proxy/projects/project-template.service';
@@ -32,6 +33,7 @@ export class ProjectFormComponent implements OnInit {
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
   private projectTemplateService = inject(ProjectTemplateService);
+  private toaster = inject(ToasterService);
 
   form!: FormGroup;
   companies = signal<CompanyDto[]>([]);
@@ -79,12 +81,12 @@ export class ProjectFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/projects', this.entityId]); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveProject'),
       });
     } else {
       this.service.create(dto).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/projects']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveProject'),
       });
     }
   }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { WorkstationTypeService } from '../../proxy/manufacturing/workstation-type.service';
 import type { CreateOperationDto, OperationDto, WorkstationTypeDto } from '../../proxy/manufacturing/models';
@@ -107,6 +108,7 @@ export class OperationFormComponent implements OnInit {
   private workstationTypeService = inject(WorkstationTypeService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -161,7 +163,10 @@ export class OperationFormComponent implements OnInit {
       : this.service.createOperation(this.form);
     request.subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/manufacturing/operations']); },
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveOperation');
+      },
     });
   }
 

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -97,6 +98,7 @@ export class QualityFeedbackFormComponent implements OnInit {
   private customerService = inject(CustomerService);
   private companyContext = inject(CompanyContextService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
 
   documentType: QualityFeedbackDocumentType = QualityFeedbackDocumentType.User;
   documentName = '';
@@ -152,7 +154,10 @@ export class QualityFeedbackFormComponent implements OnInit {
     };
     this.service.createFeedback(input).subscribe({
       next: () => this.router.navigate(['/inventory/quality-feedback']),
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveQualityFeedback');
+      },
     });
   }
 }

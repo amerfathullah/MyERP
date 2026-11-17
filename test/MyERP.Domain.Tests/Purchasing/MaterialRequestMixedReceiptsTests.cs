@@ -179,4 +179,29 @@ public class MaterialRequestMixedReceiptsTests
         mr.PerReceived.ShouldBe(50m);
         mr.Status.ShouldBe(DocumentStatus.Submitted);
     }
+
+    [Fact]
+    public async Task UpdateReceiptFulfillmentForItemsAsync_SumsDuplicateMrItemsAndRoundsRepeatingDecimalConversion()
+    {
+        var mr = new MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-DOZ-01", MaterialRequestType.Purchase, DateTime.UtcNow);
+        mr.AddItem(Guid.NewGuid(), "Bolts", 1m, "Dozen", conversionFactor: 12m);
+        mr.Submit();
+        var mrItem = mr.Items[0];
+
+        var mrList = new List<MaterialRequest> { mr };
+        _mrRepository.GetQueryableAsync().Returns(Task.FromResult(mrList.AsQueryable()));
+
+        // Receipt 1 has two split lines for the same MR item: 2 Nos + 2 Nos = 4 Nos (4/12 = 0.333333... Dozen)
+        await _mrManager.UpdateReceiptFulfillmentForItemsAsync(
+            new[] { (mrItem.Id, 2m), (mrItem.Id, 2m) }, reverse: false);
+        mrItem.ReceivedQuantity.ShouldBeGreaterThan(0.3333m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+
+        // Receipt 2 receives remaining 8 Nos (8/12 = 0.666666... Dozen) -> rounds to 1 Dozen and completes MR
+        await _mrManager.UpdateReceiptFulfillmentForItemsAsync(
+            new[] { (mrItem.Id, 8m) }, reverse: false);
+        mrItem.ReceivedQuantity.ShouldBe(1m);
+        mr.PerReceived.ShouldBe(100m);
+        mr.Status.ShouldBe(DocumentStatus.Completed);
+    }
 }

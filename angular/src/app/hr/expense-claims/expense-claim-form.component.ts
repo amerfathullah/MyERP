@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ExpenseClaimService } from '../../proxy/human-resources';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
@@ -82,6 +83,7 @@ export class ExpenseClaimFormComponent implements OnInit {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private employeeService = inject(EmployeeService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -114,7 +116,10 @@ export class ExpenseClaimFormComponent implements OnInit {
     };
     this.expenseClaimService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/hr/expense-claims']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveExpenseClaim');
+      }
     });
   }
 

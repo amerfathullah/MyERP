@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityInspectionTemplateService } from '../../proxy/inventory/quality-inspection-template.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
@@ -92,6 +93,7 @@ export class QualityInspectionTemplateFormComponent implements OnInit {
   private service = inject(QualityInspectionTemplateService);
   private itemService = inject(ItemService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
 
   saving = false;
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
@@ -127,7 +129,10 @@ export class QualityInspectionTemplateFormComponent implements OnInit {
     };
     this.service.create(input).subscribe({
       next: () => this.router.navigate(['/inventory/quality-inspection-templates']),
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveQualityInspectionTemplate');
+      },
     });
   }
 }

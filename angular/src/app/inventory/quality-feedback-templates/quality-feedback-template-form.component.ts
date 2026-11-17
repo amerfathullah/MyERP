@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
 import type { CreateUpdateQualityFeedbackTemplateDto } from '../../proxy/inventory/models';
 
@@ -63,6 +64,7 @@ import type { CreateUpdateQualityFeedbackTemplateDto } from '../../proxy/invento
 export class QualityFeedbackTemplateFormComponent {
   private service = inject(QualityManagementService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
 
   templateName = '';
   parameters: string[] = [];
@@ -77,7 +79,10 @@ export class QualityFeedbackTemplateFormComponent {
     };
     this.service.createFeedbackTemplate(input).subscribe({
       next: () => this.router.navigate(['/inventory/quality-feedback-templates']),
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveQualityFeedbackTemplate');
+      },
     });
   }
 }

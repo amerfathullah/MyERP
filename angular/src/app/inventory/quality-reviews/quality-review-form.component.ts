@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } fr
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityReviewStore } from '../store/quality-review.store';
 import { QualityGoalStore } from '../store/quality-goal.store';
 import { QualityManagementService } from '../../proxy/inventory/quality-management.service';
@@ -138,6 +139,7 @@ export class QualityReviewFormComponent implements OnInit {
   protected readonly goalStore = inject(QualityGoalStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly toaster = inject(ToasterService);
 
   readonly QualityReviewStatus = QualityReviewStatus;
   form!: FormGroup;
@@ -163,27 +165,30 @@ export class QualityReviewFormComponent implements OnInit {
     this.id = this.route.snapshot.paramMap.get('id');
     if (this.id && this.id !== 'new') {
       this.isEdit = true;
-      this.service.getReview(this.id).subscribe((res) => {
-        this.form.patchValue({
-          qualityGoalId: res.qualityGoalId,
-          reviewDate: res.reviewDate ? res.reviewDate.substring(0, 10) : '',
-          actualValue: res.actualValue,
-          status: res.status,
-          notes: res.notes,
-        });
-        if (res.objectives) {
-          this.objectivesArray.clear();
-          res.objectives.forEach((obj) => {
-            this.objectivesArray.push(
-              this.fb.group({
-                objective: [obj.objective, Validators.required],
-                target: [obj.target, Validators.required],
-                actual: [obj.actual],
-                status: [obj.status ?? QualityReviewStatus.Open],
-              })
-            );
+      this.service.getReview(this.id).subscribe({
+        next: (res) => {
+          this.form.patchValue({
+            qualityGoalId: res.qualityGoalId,
+            reviewDate: res.reviewDate ? res.reviewDate.substring(0, 10) : '',
+            actualValue: res.actualValue,
+            status: res.status,
+            notes: res.notes,
           });
-        }
+          if (res.objectives) {
+            this.objectivesArray.clear();
+            res.objectives.forEach((obj) => {
+              this.objectivesArray.push(
+                this.fb.group({
+                  objective: [obj.objective, Validators.required],
+                  target: [obj.target, Validators.required],
+                  actual: [obj.actual],
+                  status: [obj.status ?? QualityReviewStatus.Open],
+                })
+              );
+            });
+          }
+        },
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToLoadQualityReview'),
       });
     }
   }

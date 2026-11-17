@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of, throwError } from 'rxjs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ExpenseClaimFormComponent } from './expense-claim-form.component';
+import { ExpenseClaimService } from '../../proxy/human-resources';
+import { EmployeeService } from '../../proxy/human-resources/employee.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 /**
  * Expense Claim Form Component — financial form tests.
@@ -171,6 +179,35 @@ describe('ExpenseClaimFormComponent', () => {
     it('handles large amounts', () => {
       form.expenses = [{ expenseDate: '', description: 'Conference', amount: 99999.99 }];
       expect(getTotal()).toBe(99999.99);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('shows error toast and resets saving flag when create fails', () => {
+      const toasterMock = { error: vi.fn(), success: vi.fn() };
+      const injector = Injector.create({
+        providers: [
+          {
+            provide: ExpenseClaimService,
+            useValue: {
+              create: vi.fn().mockReturnValue(
+                throwError(() => ({ error: { error: { message: 'Exceeds travel limit' } } }))
+              ),
+            },
+          },
+          { provide: EmployeeService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new ExpenseClaimFormComponent());
+      comp.form.expenses = [{ expenseDate: '2026-07-20', description: 'Flight', amount: 900 }];
+      comp.save();
+
+      expect(comp.saving).toBe(false);
+      expect(toasterMock.error).toHaveBeenCalledWith('Exceeds travel limit');
     });
   });
 });

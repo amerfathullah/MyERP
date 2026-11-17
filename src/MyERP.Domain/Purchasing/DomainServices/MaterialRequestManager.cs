@@ -101,7 +101,9 @@ public class MaterialRequestManager : DomainService
     /// <summary>
     /// Updates received quantities on MR items when downstream receipts (Purchase Receipts or
     /// stock-updating Purchase Invoices) are submitted or cancelled.
-    /// Supports combining receipt quantities on mixed receipts per ERPNext PR #60208 / commit ba48a9d0ad.
+    /// Supports combining receipt quantities on mixed receipts per ERPNext PR #60208 / commit ba48a9d0ad,
+    /// sums unrounded stock qty per MR item before converting to MR UOM (commit 127f4070e0),
+    /// and rounds at target precision when the MR item UOM is whole-number or reaches target qty (commits 04b2ca0ed1 &amp; c6a459d7d6).
     /// </summary>
     public async Task UpdateReceiptFulfillmentForItemsAsync(
         IEnumerable<(Guid MaterialRequestItemId, decimal Quantity)> lines, bool reverse = false)
@@ -109,22 +111,48 @@ public class MaterialRequestManager : DomainService
         var lineList = lines.ToList();
         if (!lineList.Any()) return;
 
-        var mrItemIds = lineList.Select(l => l.MaterialRequestItemId).Distinct().ToList();
+        var groupedByMrItem = lineList
+            .GroupBy(l => l.MaterialRequestItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+        var mrItemIds = groupedByMrItem.Keys.ToList();
         var affectedMRs = await FindAffectedMaterialRequestsAsync(mrItemIds);
+
+        var wholeNumberUoms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var uomRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Uom, Guid>>();
+        if (uomRepo != null)
+        {
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            if (uomQuery != null)
+            {
+                wholeNumberUoms = uomQuery
+                    .Where(u => u.MustBeWholeNumber)
+                    .Select(u => u.Name)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+        }
 
         foreach (var mr in affectedMRs)
         {
-            foreach (var line in lineList)
+            foreach (var (mrItemId, totalStockQty) in groupedByMrItem)
             {
-                var mrItem = mr.Items.FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == mrItemId);
                 if (mrItem == null) continue;
 
                 // Callers pass StockQty delta; convert back to MR transaction UOM so
                 // ReceivedQuantity aligns with mrItem.Quantity and PerReceived calculation.
                 var mrFactor = mrItem.ConversionFactor > 0m ? mrItem.ConversionFactor : 1m;
-                var qtyInMrUom = mrFactor == 1m ? line.Quantity : line.Quantity / mrFactor;
+                var qtyInMrUom = mrFactor == 1m ? totalStockQty : totalStockQty / mrFactor;
                 var delta = reverse ? -qtyInMrUom : qtyInMrUom;
-                mrItem.ReceivedQuantity = Math.Max(0, mrItem.ReceivedQuantity + delta);
+                var updated = Math.Max(0m, mrItem.ReceivedQuantity + delta);
+
+                var isWholeUom = !string.IsNullOrWhiteSpace(mrItem.Uom) && wholeNumberUoms.Contains(mrItem.Uom);
+                var rounded = Math.Round(updated, 4);
+                if (isWholeUom || Math.Abs(rounded - Math.Round(mrItem.Quantity, 4)) == 0m || rounded == 0m)
+                {
+                    updated = rounded;
+                }
+
+                mrItem.ReceivedQuantity = updated;
             }
             mr.UpdateFulfillmentStatus();
             await _mrRepository.UpdateAsync(mr);

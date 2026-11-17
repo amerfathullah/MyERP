@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { CreateRoutingDto, OperationDto, WorkstationDto } from '../../proxy/manufacturing/models';
 
@@ -75,6 +76,7 @@ export class RoutingFormComponent implements OnInit {
   private service = inject(ManufacturingService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -118,7 +120,10 @@ export class RoutingFormComponent implements OnInit {
       : this.service.createRouting(this.form);
     request.subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/manufacturing/routings']); },
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveRouting');
+      },
     });
   }
 

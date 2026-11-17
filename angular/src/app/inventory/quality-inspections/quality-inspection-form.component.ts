@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QualityInspectionService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -79,6 +80,7 @@ export class QualityInspectionFormComponent implements OnInit {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -115,7 +117,10 @@ export class QualityInspectionFormComponent implements OnInit {
     };
     this.qualityInspectionService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/inventory/quality-inspections']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveQualityInspection');
+      }
     });
   }
 

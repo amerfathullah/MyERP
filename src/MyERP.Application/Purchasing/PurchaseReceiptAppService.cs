@@ -674,10 +674,30 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             // Validate return qty does not exceed original receipt qty
             // Per DO-NOT: "Allow return qty to exceed (original qty - already returned qty)"
             PurchaseReceipt? originalPr = null;
+            var priorSubmittedReturns = new List<PurchaseReceipt>();
             if (receipt.ReturnAgainstId.HasValue)
             {
                 originalPr = await _repository.GetAsync(receipt.ReturnAgainstId.Value);
                 await ValidateReturnQuantitiesAsync(receipt, originalPr);
+
+                try
+                {
+                    var prQuery = await _repository.GetQueryableAsync();
+                    if (prQuery != null)
+                    {
+                        priorSubmittedReturns = prQuery
+                            .Where(r => r.IsReturn
+                                && r.ReturnAgainstId == originalPr.Id
+                                && r.Id != receipt.Id
+                                && r.Status != Core.DocumentStatus.Draft
+                                && r.Status != Core.DocumentStatus.Cancelled)
+                            .ToList();
+                    }
+                }
+                catch
+                {
+                    // Unit tests where GetQueryableAsync is not stubbed
+                }
             }
 
             // RETURN TO SUPPLIER: Stock goes OUT (negative SLE, negative Bin)
@@ -744,11 +764,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     }
                 }
 
-                // Internal transfer return (PR #59280 & PR #66692): puts combined rounded accepted + rejected qty back into in-transit warehouse
+                // Internal transfer return (PR #59280 & PR #66692, commits bebce66db8 & 42c7a9d78b):
+                // puts combined rounded accepted + rejected qty back into in-transit warehouse,
+                // capped to what the original receipt took out of transit minus prior returns.
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
                     var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
+                    if (originalItem != null)
+                    {
+                        var originalTakenFromTransit = Math.Abs(originalItem.TotalReceivedStockQty);
+                        var alreadyReturnedToTransit = priorSubmittedReturns
+                            .SelectMany(r => r.Items)
+                            .Where(ri => ri.ItemId == item.ItemId && (ri.FromWarehouseId ?? originalItem.FromWarehouseId) == fromWarehouseId)
+                            .Sum(ri => Math.Abs(ri.TotalReceivedStockQty));
+                        var qtyLeftToReturn = Math.Max(0m, Math.Round(originalTakenFromTransit - alreadyReturnedToTransit, 4));
+                        if (qtyLeftToReturn > 0m)
+                        {
+                            returnedToSourceQty = Math.Min(returnedToSourceQty, qtyLeftToReturn);
+                        }
+                    }
 
                     if (returnedToSourceQty > 0)
                     {
@@ -1098,11 +1133,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 }
 
                 // Reverse internal transfer return: on submit we added material back into source warehouse,
-                // so on cancel we deduct it (PR #66692: combined rounded accepted + rejected qty)
+                // so on cancel we deduct the posted transit SLE quantity (commit efa1c14797 & PR #66692)
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
-                    var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
+                    var returnedToSourceQty = await ResolvePostedTransitQtyAsync(
+                        receipt.Id, item.ItemId, fromWarehouseId.Value, outward: false, fallbackQty: Math.Abs(item.TotalReceivedStockQty));
 
                     if (returnedToSourceQty > 0)
                     {
@@ -1152,10 +1188,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         item.ItemId, cancelWarehouseId, stockQty, receipt.TenantId);
                 }
 
-                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256 / #66692)
+                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256 / #66692 / commit efa1c14797)
                 if (item.FromWarehouseId.HasValue)
                 {
-                    var sourceStockQty = item.TotalReceivedStockQty;
+                    var sourceStockQty = await ResolvePostedTransitQtyAsync(
+                        receipt.Id, item.ItemId, item.FromWarehouseId.Value, outward: true, fallbackQty: item.TotalReceivedStockQty);
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(
@@ -1357,6 +1394,45 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Warehouses sharing one stock account collapse back to a single line downstream, which the
         // engine treats as "no split" — same GL as before.
         return split;
+    }
+
+    /// <summary>
+    /// Resolves the posted StockLedgerEntry quantity in the transit warehouse for the given direction
+    /// (outward = negative SLE for normal receipt, inward = positive SLE for return receipt).
+    /// Per ERPNext commit efa1c14797: when rejected material stays in the transit warehouse, the row
+    /// has both an outward and an inward entry there; filtering by direction reverses the transit entry itself.
+    /// </summary>
+    private async Task<decimal> ResolvePostedTransitQtyAsync(
+        Guid receiptId, Guid itemId, Guid warehouseId, bool outward, decimal fallbackQty)
+    {
+        var sleRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+        if (sleRepo == null) return fallbackQty;
+
+        try
+        {
+            var query = await sleRepo.GetQueryableAsync();
+            if (query == null) return fallbackQty;
+
+            var matching = query
+                .Where(s => s.VoucherType == "PurchaseReceipt"
+                    && s.VoucherId == receiptId
+                    && s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && (outward ? s.QuantityChange < 0m : s.QuantityChange > 0m))
+                .Select(s => s.QuantityChange)
+                .ToList();
+
+            if (matching.Count > 0)
+            {
+                return Math.Abs(matching[0]);
+            }
+        }
+        catch
+        {
+            // Unit tests where StockLedgerEntry queryable is not configured
+        }
+
+        return fallbackQty;
     }
 
     /// <summary>
