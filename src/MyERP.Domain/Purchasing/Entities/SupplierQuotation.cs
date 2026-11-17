@@ -116,7 +116,17 @@ public class SupplierQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (item == null)
             return;
 
-        item.OrderedQty = Math.Max(0, item.OrderedQty + deltaQty);
+        var updated = Math.Max(0m, item.OrderedQty + deltaQty);
+        if (Math.Round(updated - item.StockQty, 4) == 0m)
+        {
+            updated = Math.Round(item.StockQty, 4);
+        }
+        else if (Math.Round(updated, 4) == 0m)
+        {
+            updated = 0m;
+        }
+
+        item.OrderedQty = updated;
         UpdateOrderStatus();
     }
 

@@ -178,7 +178,7 @@ export class ProductBundleFormComponent implements OnInit {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/product-bundles']);
       },
-      error: () => this.saving.set(false),
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveProductBundle'); },
     });
   }
 

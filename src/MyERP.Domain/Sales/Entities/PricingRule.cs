@@ -93,18 +93,21 @@ public class PricingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Check if this rule matches the given context.</summary>
     public bool Matches(Guid? itemId, Guid? itemGroupId, decimal qty, decimal amount, DateTime transactionDate,
-        string? campaign = null, string? utmCampaign = null)
+        string? campaign = null, string? utmCampaign = null, decimal conversionFactor = 1m, bool sameTransactionUom = false)
     {
         if (IsDisabled) return false;
         if (ValidFrom.HasValue && transactionDate < ValidFrom.Value) return false;
         if (ValidUpto.HasValue && transactionDate > ValidUpto.Value) return false;
-        // Per ERPNext PR #65805: strip IEEE/decimal float noise before slab comparisons
+        // Per ERPNext PR #65805 & PR #66801 (commits 1c2115d0b9, e6550008b5, a735c22e89):
+        // strip IEEE/decimal float noise after scaling slab bounds by rule UOM conversion factor
+        var effectiveFactor = conversionFactor > 0m ? conversionFactor : 1m;
+        var amountFactor = sameTransactionUom ? 1m : effectiveFactor;
         var roundedQty = Math.Round(qty, 9, MidpointRounding.AwayFromZero);
         var roundedAmount = Math.Round(amount, 9, MidpointRounding.AwayFromZero);
-        if (MinQty > 0 && roundedQty < Math.Round(MinQty, 9, MidpointRounding.AwayFromZero)) return false;
-        if (MaxQty > 0 && roundedQty > Math.Round(MaxQty, 9, MidpointRounding.AwayFromZero)) return false;
-        if (MinAmount > 0 && roundedAmount < Math.Round(MinAmount, 9, MidpointRounding.AwayFromZero)) return false;
-        if (MaxAmount > 0 && roundedAmount > Math.Round(MaxAmount, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MinQty > 0 && roundedQty < Math.Round(MinQty * effectiveFactor, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MaxQty > 0 && roundedQty > Math.Round(MaxQty * effectiveFactor, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MinAmount > 0 && roundedAmount < Math.Round(MinAmount * amountFactor, 9, MidpointRounding.AwayFromZero)) return false;
+        if (MaxAmount > 0 && roundedAmount > Math.Round(MaxAmount * amountFactor, 9, MidpointRounding.AwayFromZero)) return false;
 
         // Per ERPNext PR #59906 / commit 2a691858b3:
         // Match campaign pricing rules from transaction's campaign or utm_campaign

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Support.Entities;
 using MyERP.Maintenance;
@@ -37,11 +38,24 @@ public class MaintenanceManager : DomainService
 
         await _visitRepository.UpdateAsync(visit);
 
-        // In the existing MaintenanceVisit class, WarrantyClaimId is actually called WarrantyClaimId?
-        // Wait, looking at MaintenanceVisit.cs, it doesn't have WarrantyClaimId directly. 
-        // It has Purposes which has prevdoc_docname.
-        // For simplicity, let's just find claims that might be linked if any.
-        // Actually, we can skip WarrantyClaim cascade if WarrantyClaimId is not directly on the visit in the new schema,
-        // or we need to add WarrantyClaimId to MaintenanceVisit.
+        if (visit.WarrantyClaimId.HasValue)
+        {
+            var claim = await _warrantyClaimRepository.FindAsync(visit.WarrantyClaimId.Value);
+            if (claim != null && claim.Status != WarrantyClaimStatus.Cancelled)
+            {
+                if (status == MaintenanceVisitStatus.Completed && claim.Status != WarrantyClaimStatus.Closed)
+                {
+                    var resolutionText = visit.Purposes.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.WorkDone))?.WorkDone
+                        ?? $"Completed via Maintenance Visit {visit.Id.ToString()[..8]}";
+                    claim.Close(resolutionText);
+                    await _warrantyClaimRepository.UpdateAsync(claim);
+                }
+                else if (status == MaintenanceVisitStatus.PartiallyCompleted && claim.Status == WarrantyClaimStatus.Open)
+                {
+                    claim.StartWork();
+                    await _warrantyClaimRepository.UpdateAsync(claim);
+                }
+            }
+        }
     }
 }

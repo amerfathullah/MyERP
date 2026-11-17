@@ -158,7 +158,7 @@ export class SubcontractingBomFormComponent implements OnInit {
         this.toaster.success(this.bomId ? '::SuccessfullyUpdated' : '::SuccessfullySaved');
         this.router.navigate(['/purchasing/subcontracting-boms']);
       },
-      error: () => this.saving.set(false),
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveSubcontractingBom'); },
     });
   }
 }

@@ -112,4 +112,28 @@ public class PricingRuleTests
         rule.Matches(itemId, null, 10.000000000000004m, 100.00000000000004m, DateTime.UtcNow).ShouldBeTrue();
         rule.Matches(itemId, null, 9.99m, 100m, DateTime.UtcNow).ShouldBeFalse();
     }
+
+    [Fact]
+    public void Matches_WithConversionFactor_ScalesQtyAndPreservesTransactionUomAmount()
+    {
+        var itemId = Guid.NewGuid();
+        var rule = new PricingRule(Guid.NewGuid(), "Box Slab Rule",
+            PricingRuleApplyOn.ItemCode, PricingRuleType.Discount)
+        {
+            ApplyOnId = itemId,
+            MinQty = 2m,
+            MaxQty = 5m,
+            MinAmount = 50m,
+        };
+
+        // 1 Box = 12 Nos -> min 24, max 60 Nos
+        rule.Matches(itemId, null, 23m, 600m, DateTime.UtcNow, conversionFactor: 12m).ShouldBeFalse();
+        rule.Matches(itemId, null, 24m, 600m, DateTime.UtcNow, conversionFactor: 12m).ShouldBeTrue();
+        rule.Matches(itemId, null, 60m, 600m, DateTime.UtcNow, conversionFactor: 12m).ShouldBeTrue();
+        rule.Matches(itemId, null, 61m, 600m, DateTime.UtcNow, conversionFactor: 12m).ShouldBeFalse();
+
+        // Same transaction UOM: MinQty still scales by factor, MinAmount stays in transaction UOM
+        rule.Matches(itemId, null, 24m, 50m, DateTime.UtcNow, conversionFactor: 12m, sameTransactionUom: true).ShouldBeTrue();
+        rule.Matches(itemId, null, 24m, 49m, DateTime.UtcNow, conversionFactor: 12m, sameTransactionUom: true).ShouldBeFalse();
+    }
 }

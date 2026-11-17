@@ -219,15 +219,18 @@ export class DunningFormComponent implements OnInit {
     const postingDate = this.getPostingDate();
     return raw
       .map((inv: any) => {
-        const id = inv.invoiceId || inv.id;
-        const dueDate = new Date(inv.dueDate || inv.issueDate);
+        const id = inv.invoiceId || inv.voucherId || inv.id;
+        const rawDate = inv.dueDate || inv.issueDate || inv.postingDate;
+        const dueDate = new Date(rawDate);
         const overdueDays = Math.max(0, Math.floor((postingDate.getTime() - dueDate.getTime()) / 86400000));
+        const outstandingAmount = inv.outstandingAmount ?? inv.outstanding ?? 0;
+        const grandTotal = inv.grandTotal ?? inv.invoicedAmount ?? outstandingAmount;
         return {
           id,
           invoiceNumber: inv.invoiceNumber || inv.voucherNumber || '—',
-          dueDate: inv.dueDate || inv.issueDate,
-          grandTotal: inv.grandTotal ?? 0,
-          outstandingAmount: inv.outstandingAmount ?? 0,
+          dueDate: rawDate,
+          grandTotal,
+          outstandingAmount,
           overdueDays,
           selected: prevSelection?.has(id) ? prevSelection.get(id)! : overdueDays > 0,
         };
@@ -243,7 +246,7 @@ export class DunningFormComponent implements OnInit {
     this.paymentReconciliationService.getOutstandingInvoices('Customer', customerId)
       .subscribe({
         next: (res) => {
-          this.rawOutstandingInvoices = (res ?? []).filter((inv: any) => inv.outstandingAmount > 0);
+          this.rawOutstandingInvoices = (res ?? []).filter((inv: any) => (inv.outstandingAmount ?? inv.outstanding ?? 0) > 0);
           this.overdueInvoices.set(this.mapOverdueInvoices(this.rawOutstandingInvoices));
           this.recalculate();
           this.fetchingInvoices.set(false);
@@ -300,7 +303,7 @@ export class DunningFormComponent implements OnInit {
     };
     this.service.create(dto).subscribe({
       next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/dunnings']); },
-      error: () => this.saving = false,
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveDunning'); },
     });
   }
 

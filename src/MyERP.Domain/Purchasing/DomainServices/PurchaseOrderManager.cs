@@ -86,12 +86,15 @@ public class PurchaseOrderManager : DomainService
     /// <summary>
     /// Updates Material Request items' OrderedQuantity when PO is submitted.
     /// Increments ordered qty for each PO item linked to an MR item.
+    /// Per ERPNext PR #66806 (commits 0e77c8d15e & 3af55d53f6): aggregates split PO lines per MR item
+    /// before converting and snaps floating-point remainders within 4-decimal rounding.
     /// </summary>
     public async Task UpdateMaterialRequestOrderedQtyAsync(PurchaseOrder order, bool reverse = false)
     {
         var mrItemIds = order.Items
             .Where(i => i.MaterialRequestItemId.HasValue)
             .Select(i => i.MaterialRequestItemId!.Value)
+            .Distinct()
             .ToList();
 
         if (!mrItemIds.Any()) return;
@@ -101,29 +104,53 @@ public class PurchaseOrderManager : DomainService
             .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
             .ToList();
 
+        var groupedByMrItem = order.Items
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .GroupBy(i => i.MaterialRequestItemId!.Value)
+            .ToList();
+
         foreach (var mr in affectedMRs)
         {
-            foreach (var poItem in order.Items.Where(i => i.MaterialRequestItemId.HasValue))
+            var touched = false;
+            foreach (var group in groupedByMrItem)
             {
-                var mrItem = mr.Items.FirstOrDefault(i => i.Id == poItem.MaterialRequestItemId!.Value);
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == group.Key);
                 if (mrItem != null)
                 {
                     var mrFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
-                    var qtyInMrUom = poItem.ConversionFactor == mrFactor
-                        ? poItem.Quantity
-                        : poItem.StockQty / mrFactor;
+                    var allSameUom = group.All(poItem =>
+                        (poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m) == mrFactor);
+                    var qtyInMrUom = allSameUom
+                        ? group.Sum(poItem => poItem.Quantity)
+                        : group.Sum(poItem => poItem.Quantity * (poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m)) / mrFactor;
                     var delta = reverse ? -qtyInMrUom : qtyInMrUom;
-                    mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity + delta);
+                    var updated = Math.Max(0m, mrItem.OrderedQuantity + delta);
+                    if (Math.Round(updated - mrItem.Quantity, 4) == 0m)
+                    {
+                        updated = Math.Round(mrItem.Quantity, 4);
+                    }
+                    else if (Math.Round(updated, 4) == 0m)
+                    {
+                        updated = 0m;
+                    }
+
+                    mrItem.OrderedQuantity = updated;
+                    touched = true;
                 }
             }
-            await _mrRepository.UpdateAsync(mr);
+
+            if (touched)
+            {
+                mr.UpdateFulfillmentStatus();
+                await _mrRepository.UpdateAsync(mr);
+            }
         }
     }
 
     /// <summary>
     /// Updates Sales Order items' OrderedQty (stock UOM) when a PO created from a Sales Order is
     /// submitted or cancelled. Per ERPNext Purchase Order Item → Sales Order Item status updater
-    /// (source stock_qty → target ordered_qty). Reverse never drops below zero.
+    /// (source stock_qty → target ordered_qty, PR #66806 commits 21d02fa8bf & 08175848a3). Reverse never drops below zero.
     /// </summary>
     public async Task UpdateSalesOrderOrderedQtyAsync(
         PurchaseOrder order,
@@ -133,6 +160,7 @@ public class PurchaseOrderManager : DomainService
         var soItemIds = order.Items
             .Where(i => i.SalesOrderItemId.HasValue)
             .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
             .ToList();
 
         if (!soItemIds.Any()) return;
@@ -142,15 +170,31 @@ public class PurchaseOrderManager : DomainService
             .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)))
             .ToList();
 
+        var groupedBySoItem = order.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .GroupBy(i => i.SalesOrderItemId!.Value)
+            .ToList();
+
         foreach (var so in affectedSOs)
         {
-            foreach (var poItem in order.Items.Where(i => i.SalesOrderItemId.HasValue))
+            foreach (var group in groupedBySoItem)
             {
-                var soItem = so.Items.FirstOrDefault(i => i.Id == poItem.SalesOrderItemId!.Value);
+                var soItem = so.Items.FirstOrDefault(i => i.Id == group.Key);
                 if (soItem == null) continue;
 
-                var delta = reverse ? -poItem.StockQty : poItem.StockQty;
-                soItem.OrderedQty = Math.Max(0m, soItem.OrderedQty + delta);
+                var totalStockQty = group.Sum(poItem => poItem.Quantity * (poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m));
+                var delta = reverse ? -totalStockQty : totalStockQty;
+                var updated = Math.Max(0m, soItem.OrderedQty + delta);
+                if (Math.Round(updated - soItem.StockQty, 4) == 0m)
+                {
+                    updated = Math.Round(soItem.StockQty, 4);
+                }
+                else if (Math.Round(updated, 4) == 0m)
+                {
+                    updated = 0m;
+                }
+
+                soItem.OrderedQty = updated;
             }
             await soRepository.UpdateAsync(so);
         }
@@ -158,7 +202,7 @@ public class PurchaseOrderManager : DomainService
 
     /// <summary>
     /// Updates Supplier Quotation items' OrderedQty and status when PO is submitted or cancelled.
-    /// Per ERPNext PR #58572: tracks supplier quotation fulfillment and transitions status.
+    /// Per ERPNext PR #58572 & PR #66806: tracks supplier quotation fulfillment and transitions status.
     /// </summary>
     public async Task UpdateSupplierQuotationOrderedQtyAsync(
         PurchaseOrder order,
@@ -168,6 +212,7 @@ public class PurchaseOrderManager : DomainService
         var sqItemIds = order.Items
             .Where(i => i.SupplierQuotationItemId.HasValue)
             .Select(i => i.SupplierQuotationItemId!.Value)
+            .Distinct()
             .ToList();
 
         if (!sqItemIds.Any() && !order.SupplierQuotationId.HasValue) return;
@@ -192,6 +237,7 @@ public class PurchaseOrderManager : DomainService
                     .WithData("reason", $"Supplier Quotation {sq.QuotationNumber ?? sq.Id.ToString()} is in Draft status.");
             }
 
+            var matchedBySqItem = new Dictionary<Guid, decimal>();
             foreach (var poItem in order.Items)
             {
                 SupplierQuotationItem? sqItem = null;
@@ -206,9 +252,15 @@ public class PurchaseOrderManager : DomainService
 
                 if (sqItem != null)
                 {
-                    var delta = reverse ? -poItem.StockQty : poItem.StockQty;
-                    sq.UpdateOrderedQty(sqItem.Id, delta);
+                    var itemStockQty = poItem.Quantity * (poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m);
+                    matchedBySqItem[sqItem.Id] = matchedBySqItem.GetValueOrDefault(sqItem.Id) + itemStockQty;
                 }
+            }
+
+            foreach (var (sqItemId, totalStockQty) in matchedBySqItem)
+            {
+                var delta = reverse ? -totalStockQty : totalStockQty;
+                sq.UpdateOrderedQty(sqItemId, delta);
             }
             await sqRepository.UpdateAsync(sq);
         }
@@ -230,25 +282,41 @@ public class PurchaseOrderManager : DomainService
             .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
             .ToList();
 
+        var groupedDeltas = deltas.GroupBy(d => d.MaterialRequestItemId).ToList();
+
         foreach (var mr in affectedMRs)
         {
             var touched = false;
-            foreach (var d in deltas)
+            foreach (var group in groupedDeltas)
             {
-                var mrItem = mr.Items.FirstOrDefault(i => i.Id == d.MaterialRequestItemId);
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == group.Key);
                 if (mrItem == null) continue;
 
                 var mrFactor = mrItem.ConversionFactor > 0m ? mrItem.ConversionFactor : 1m;
-                var oldCf = d.OldConversionFactor > 0m ? d.OldConversionFactor : 1m;
-                var newCf = d.NewConversionFactor > 0m ? d.NewConversionFactor : 1m;
+                var totalDeltaInMrUom = 0m;
+                foreach (var d in group)
+                {
+                    var oldCf = d.OldConversionFactor > 0m ? d.OldConversionFactor : 1m;
+                    var newCf = d.NewConversionFactor > 0m ? d.NewConversionFactor : 1m;
 
-                var deltaInMrUom = (oldCf == mrFactor && newCf == mrFactor)
-                    ? (d.NewQuantity - d.OldQuantity)
-                    : ((d.NewQuantity * newCf) - (d.OldQuantity * oldCf)) / mrFactor;
+                    totalDeltaInMrUom += (oldCf == mrFactor && newCf == mrFactor)
+                        ? (d.NewQuantity - d.OldQuantity)
+                        : ((d.NewQuantity * newCf) - (d.OldQuantity * oldCf)) / mrFactor;
+                }
 
-                if (deltaInMrUom == 0m) continue;
+                if (totalDeltaInMrUom == 0m) continue;
 
-                mrItem.OrderedQuantity = Math.Max(0m, mrItem.OrderedQuantity + deltaInMrUom);
+                var updated = Math.Max(0m, mrItem.OrderedQuantity + totalDeltaInMrUom);
+                if (Math.Round(updated - mrItem.Quantity, 4) == 0m)
+                {
+                    updated = Math.Round(mrItem.Quantity, 4);
+                }
+                else if (Math.Round(updated, 4) == 0m)
+                {
+                    updated = 0m;
+                }
+
+                mrItem.OrderedQuantity = updated;
                 touched = true;
             }
 
@@ -262,7 +330,7 @@ public class PurchaseOrderManager : DomainService
 
     /// <summary>
     /// Adjusts Sales Order items' OrderedQty (in stock UOM) when linked PO items are
-    /// updated or removed via Update Items (per ERPNext commit cf91622391).
+    /// updated or removed via Update Items (per ERPNext commits cf91622391 & 08175848a3).
     /// </summary>
     public async Task AdjustSalesOrderOrderedQtyAsync(
         IReadOnlyList<(Guid SalesOrderItemId, decimal DeltaStockQty)> deltas,
@@ -278,15 +346,30 @@ public class PurchaseOrderManager : DomainService
             .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)))
             .ToList();
 
+        var groupedBySoItem = nonZero
+            .GroupBy(d => d.SalesOrderItemId)
+            .Select(g => (SalesOrderItemId: g.Key, TotalDeltaStockQty: g.Sum(x => x.DeltaStockQty)))
+            .ToList();
+
         foreach (var so in affectedSOs)
         {
             var touched = false;
-            foreach (var d in nonZero)
+            foreach (var d in groupedBySoItem)
             {
                 var soItem = so.Items.FirstOrDefault(i => i.Id == d.SalesOrderItemId);
                 if (soItem == null) continue;
 
-                soItem.OrderedQty = Math.Max(0m, soItem.OrderedQty + d.DeltaStockQty);
+                var updated = Math.Max(0m, soItem.OrderedQty + d.TotalDeltaStockQty);
+                if (Math.Round(updated - soItem.StockQty, 4) == 0m)
+                {
+                    updated = Math.Round(soItem.StockQty, 4);
+                }
+                else if (Math.Round(updated, 4) == 0m)
+                {
+                    updated = 0m;
+                }
+
+                soItem.OrderedQty = updated;
                 touched = true;
             }
 
@@ -326,7 +409,7 @@ public class PurchaseOrderManager : DomainService
 
         foreach (var sq in affectedSQs)
         {
-            var touched = false;
+            var matchedDeltas = new Dictionary<Guid, decimal>();
             foreach (var d in relevant)
             {
                 SupplierQuotationItem? sqItem = null;
@@ -341,13 +424,16 @@ public class PurchaseOrderManager : DomainService
 
                 if (sqItem != null)
                 {
-                    sq.UpdateOrderedQty(sqItem.Id, d.DeltaStockQty);
-                    touched = true;
+                    matchedDeltas[sqItem.Id] = matchedDeltas.GetValueOrDefault(sqItem.Id) + d.DeltaStockQty;
                 }
             }
 
-            if (touched)
+            if (matchedDeltas.Count > 0)
             {
+                foreach (var (sqItemId, totalDelta) in matchedDeltas)
+                {
+                    sq.UpdateOrderedQty(sqItemId, totalDelta);
+                }
                 await sqRepository.UpdateAsync(sq);
             }
         }

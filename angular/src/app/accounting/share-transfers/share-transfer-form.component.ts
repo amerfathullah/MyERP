@@ -216,7 +216,7 @@ export class ShareTransferFormComponent implements OnInit {
         this.toaster.success(this.transferId ? '::SuccessfullyUpdated' : '::SuccessfullySaved');
         if (!this.transferId) this.router.navigate(['/accounting/share-transfers', r.id]);
       },
-      error: () => this.saving.set(false),
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveShareTransfer'); },
     });
   }
 

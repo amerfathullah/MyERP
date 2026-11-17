@@ -121,7 +121,7 @@ export class LoyaltyProgramFormComponent implements OnInit {
     this.saving = true;
     this.service.create(this.form.value as any).subscribe({
       next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/loyalty-programs']); },
-      error: () => { this.saving = false; }
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveLoyaltyProgram'); }
     });
   }
 

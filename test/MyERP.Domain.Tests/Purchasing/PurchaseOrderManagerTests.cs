@@ -447,4 +447,100 @@ public class PurchaseOrderManagerTests
             manager.ValidateBillingQty(po, billingLines, 0m));
         ex.Code.ShouldBe("MyERP:08007");
     }
+
+    [Fact]
+    public async Task UpdateMaterialRequestOrderedQtyAsync_SplitRowsWithConversionDust_AggregatesAndSnaps()
+    {
+        var mrRepo = Substitute.For<IRepository<MaterialRequest, Guid>>();
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, mrRepo);
+
+        var itemId = Guid.NewGuid();
+        var mr = new MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-001", MaterialRequestType.Purchase, DateTime.UtcNow);
+        mr.AddItem(itemId, "Steel Rod", 1m, "Box");
+        var mrItem = mr.Items[0];
+        mrItem.ConversionFactor = 3m;
+        mr.Submit();
+
+        mrRepo.GetQueryableAsync().Returns(Task.FromResult(new List<MaterialRequest> { mr }.AsQueryable()));
+
+        var po = CreatePO();
+        po.AddItem(itemId, "Steel Rod Part 1", 1m, 10m, 0m);
+        po.Items.ElementAt(0).ConversionFactor = 1m;
+        po.Items.ElementAt(0).MaterialRequestItemId = mrItem.Id;
+
+        po.AddItem(itemId, "Steel Rod Part 2", 1m, 10m, 0m);
+        po.Items.ElementAt(1).ConversionFactor = 1m;
+        po.Items.ElementAt(1).MaterialRequestItemId = mrItem.Id;
+
+        po.AddItem(itemId, "Steel Rod Part 3", 1m, 10m, 0m);
+        po.Items.ElementAt(2).ConversionFactor = 1m;
+        po.Items.ElementAt(2).MaterialRequestItemId = mrItem.Id;
+
+        await manager.UpdateMaterialRequestOrderedQtyAsync(po);
+
+        mrItem.OrderedQuantity.ShouldBe(1m);
+        mr.PerOrdered.ShouldBe(100m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+
+        await manager.UpdateMaterialRequestOrderedQtyAsync(po, reverse: true);
+
+        mrItem.OrderedQuantity.ShouldBe(0m);
+        mr.PerOrdered.ShouldBe(0m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public async Task AdjustMaterialRequestOrderedQtyAsync_RemoveSplitRow_UpdatesStatusAndSnapsZero()
+    {
+        var mrRepo = Substitute.For<IRepository<MaterialRequest, Guid>>();
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, mrRepo);
+
+        var itemId = Guid.NewGuid();
+        var mr = new MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-002", MaterialRequestType.Purchase, DateTime.UtcNow);
+        mr.AddItem(itemId, "Wire", 1m, "Box");
+        var mrItem = mr.Items[0];
+        mrItem.ConversionFactor = 3m;
+        mr.Submit();
+        mrItem.OrderedQuantity = 1m;
+        mr.UpdateFulfillmentStatus();
+
+        mrRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<MaterialRequest, object>>[]>())
+            .Returns(Task.FromResult(new List<MaterialRequest> { mr }.AsQueryable()));
+
+        await manager.AdjustMaterialRequestOrderedQtyAsync(new[]
+        {
+            (mrItem.Id, 1m, 0m, 1m, 1m),
+            (mrItem.Id, 1m, 0m, 1m, 1m),
+            (mrItem.Id, 1m, 0m, 1m, 1m),
+        });
+
+        mrItem.OrderedQuantity.ShouldBe(0m);
+        mr.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public async Task UpdateSalesOrderOrderedQtyAsync_SplitRowsAndReverse_SnapsPrecision()
+    {
+        var soRepo = Substitute.For<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+
+        var itemId = Guid.NewGuid();
+        var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
+        so.AddItem(itemId, "Pipe", 3m, 10m, 0m);
+        var soItem = so.Items.First();
+
+        soRepo.GetQueryableAsync().Returns(Task.FromResult(new List<MyERP.Sales.Entities.SalesOrder> { so }.AsQueryable()));
+
+        var po = CreatePO();
+        po.AddItem(itemId, "Pipe Part 1", 1.5m, 10m, 0m);
+        po.Items.ElementAt(0).SalesOrderItemId = soItem.Id;
+        po.AddItem(itemId, "Pipe Part 2", 1.500001m, 10m, 0m);
+        po.Items.ElementAt(1).SalesOrderItemId = soItem.Id;
+
+        await manager.UpdateSalesOrderOrderedQtyAsync(po, soRepo);
+        soItem.OrderedQty.ShouldBe(3m);
+
+        await manager.UpdateSalesOrderOrderedQtyAsync(po, soRepo, reverse: true);
+        soItem.OrderedQty.ShouldBe(0m);
+    }
 }

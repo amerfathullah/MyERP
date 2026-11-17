@@ -151,7 +151,7 @@ export class MaterialRequestFormComponent implements OnInit {
     };
     this.service.create(dto).subscribe({
       next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/material-requests']); },
-      error: () => {},
+      error: (err) => { this.toaster.error(err?.error?.error?.message || '::FailedToSaveMaterialRequest'); },
     });
   }
 

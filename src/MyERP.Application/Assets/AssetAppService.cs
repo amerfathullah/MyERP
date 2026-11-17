@@ -399,9 +399,20 @@ public class AssetAppService : ApplicationService, IAssetAppService
     [Authorize(MyERPPermissions.Assets.Delete)]
     public async Task DeleteAsync(Guid id)
     {
-        var asset = await _assetRepository.FindAsync(id);
-        if (asset != null && asset.Status == AssetStatus.Draft)
+        var asset = (await _assetRepository.WithDetailsAsync(a => a.DepreciationSchedule, a => a.DepreciationDetails))
+            .FirstOrDefault(a => a.Id == id)
+            ?? await _assetRepository.FindAsync(id);
+        if (asset != null)
         {
+            if (asset.Status is not (AssetStatus.Draft or AssetStatus.WorkInProgress or AssetStatus.Cancelled))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("status", asset.Status);
+            }
+
+            // Per ERPNext commit 0123e5fec8: delete draft depreciation schedules and activities when draft asset is deleted
+            asset.DepreciationSchedule.Clear();
+            asset.DepreciationDetails.Clear();
             await _activityRepository.DeleteAsync(a => a.AssetId == id);
         }
         await _assetRepository.DeleteAsync(id);

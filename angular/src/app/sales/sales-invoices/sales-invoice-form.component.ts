@@ -812,7 +812,7 @@ export class SalesInvoiceFormComponent implements OnInit {
 
     this.service.create(dto).subscribe({
       next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/invoices']); },
-      error: () => { /* handled by global error interceptor */ },
+      error: (err) => { this.toaster.error(err?.error?.error?.message || '::FailedToSaveInvoice'); },
     });
   }
 

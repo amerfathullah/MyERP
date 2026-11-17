@@ -129,7 +129,7 @@ export class LoanFormComponent implements OnInit {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/hr/loans', created.id]);
       },
-      error: () => { this.saving = false; }
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveLoan'); }
     });
   }
 }

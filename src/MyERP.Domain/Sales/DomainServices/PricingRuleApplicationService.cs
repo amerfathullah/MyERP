@@ -63,7 +63,8 @@ public class PricingRuleApplicationService : DomainService
 
             var matching = allRules
                 .Where(r => string.Equals(r.ApplicableFor, itemApplicableFor, StringComparison.OrdinalIgnoreCase)
-                         && r.Matches(item.ItemId, item.ItemGroupId, item.Qty, item.Amount, transactionDate, item.Campaign, item.UtmCampaign))
+                         && r.Matches(item.ItemId, item.ItemGroupId, item.Qty, item.Amount, transactionDate,
+                             item.Campaign, item.UtmCampaign, item.ConversionFactor, item.SameTransactionUom))
                 .OrderByDescending(r => r.Priority)
                 .ToList();
 
@@ -210,6 +211,8 @@ public class PricingRuleContext
     public string? Doctype { get; set; }
     public string? Campaign { get; set; }
     public string? UtmCampaign { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public bool SameTransactionUom { get; set; }
 
     // Outputs (set by rule application)
     public decimal DiscountPercentage { get; set; }

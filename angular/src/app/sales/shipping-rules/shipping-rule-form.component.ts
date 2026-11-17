@@ -137,7 +137,7 @@ export class ShippingRuleFormComponent {
     const dto = { ...this.form.value, countries: this.countries, isEnabled: true };
     this.service.create(dto as any).subscribe({
       next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/shipping-rules']); },
-      error: () => { this.saving = false; }
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveShippingRule'); }
     });
   }
 

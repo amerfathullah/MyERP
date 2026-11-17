@@ -122,7 +122,7 @@ export class LeaveAllocationFormComponent implements OnInit {
         this.toaster.success('MyERP::SuccessfullySaved');
         this.router.navigate(['/hr/leave-allocations']);
       },
-      error: () => { this.saving = false; },
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveLeaveAllocation'); },
     });
   }
 }

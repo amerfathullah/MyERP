@@ -202,7 +202,7 @@ export class SalesForecastFormComponent implements OnInit {
           this.toaster.success('::SuccessfullySaved');
           this.router.navigate(['/manufacturing/sales-forecasts', r.id]);
         },
-        error: () => this.saving.set(false),
+        error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalesForecast'); },
       });
       return;
     }
@@ -216,7 +216,7 @@ export class SalesForecastFormComponent implements OnInit {
     };
     this.service.update(this.forecastId, dto as any).subscribe({
       next: (r) => { this.forecast = r; this.status = r.status ?? 0; this.saving.set(false); this.toaster.success('::SuccessfullyUpdated'); },
-      error: () => this.saving.set(false),
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalesForecast'); },
     });
   }
 

@@ -129,12 +129,13 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
     public async Task<MaintenanceVisitDto> CreateVisitAsync(CreateMaintenanceVisitDto input)
     {
         var visitItemIds = input.Purposes.Where(p => p.ItemId.HasValue).Select(p => p.ItemId!.Value).Distinct().ToArray();
-        await ValidateVisitReferencesAsync(input.CompanyId, input.CustomerId, input.MaintenanceScheduleId, visitItemIds);
+        await ValidateVisitReferencesAsync(input.CompanyId, input.CustomerId, input.MaintenanceScheduleId, input.WarrantyClaimId, visitItemIds);
 
         var visit = new MaintenanceVisit(GuidGenerator.Create(), input.CompanyId,
             input.VisitDate, input.MaintenanceType, CurrentTenant.Id)
         {
             MaintenanceScheduleId = input.MaintenanceScheduleId,
+            WarrantyClaimId = input.WarrantyClaimId,
             CustomerId = input.CustomerId,
             ContactId = input.ContactId,
         };
@@ -167,11 +168,12 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
         }
 
         var visitItemIds = input.Purposes.Where(p => p.ItemId.HasValue).Select(p => p.ItemId!.Value).Distinct().ToArray();
-        await ValidateVisitReferencesAsync(visit.CompanyId, input.CustomerId, input.MaintenanceScheduleId, visitItemIds);
+        await ValidateVisitReferencesAsync(visit.CompanyId, input.CustomerId, input.MaintenanceScheduleId, input.WarrantyClaimId, visitItemIds);
 
         visit.VisitDate = input.VisitDate;
         visit.MaintenanceType = input.MaintenanceType;
         visit.MaintenanceScheduleId = input.MaintenanceScheduleId;
+        visit.WarrantyClaimId = input.WarrantyClaimId;
         visit.CustomerId = input.CustomerId;
         visit.ContactId = input.ContactId;
 
@@ -183,6 +185,7 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
         Guid companyId,
         Guid? customerId,
         Guid? maintenanceScheduleId,
+        Guid? warrantyClaimId,
         Guid[] itemIds)
     {
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
@@ -210,6 +213,30 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
                 }
             }
         }
+
+        if (warrantyClaimId.HasValue)
+        {
+            var claimRepo = LazyServiceProvider.LazyGetService<IRepository<WarrantyClaim, Guid>>();
+            if (claimRepo != null)
+            {
+                var claim = await claimRepo.FindAsync(warrantyClaimId.Value);
+                if (claim != null)
+                {
+                    if (claim.CompanyId != companyId)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                            .WithData("warrantyClaimCompany", claim.CompanyId)
+                            .WithData("visitCompany", companyId);
+                    }
+
+                    if (customerId.HasValue && claim.CustomerId != customerId.Value)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Warranty Claim does not belong to the selected Customer.");
+                    }
+                }
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.Assets.Submit)]
@@ -231,6 +258,22 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
                 nextDetail.IsCompleted = true;
                 nextDetail.ActualDate = visit.VisitDate;
                 await _scheduleRepo.UpdateAsync(schedule!);
+            }
+        }
+
+        if (visit.WarrantyClaimId.HasValue)
+        {
+            var claimRepo = LazyServiceProvider.LazyGetService<IRepository<WarrantyClaim, Guid>>();
+            if (claimRepo != null)
+            {
+                var claim = await claimRepo.FindAsync(visit.WarrantyClaimId.Value);
+                if (claim != null && claim.Status != WarrantyClaimStatus.Cancelled && claim.Status != WarrantyClaimStatus.Closed)
+                {
+                    var resolutionText = visit.Purposes.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.WorkDone))?.WorkDone
+                        ?? $"Completed via Maintenance Visit {visit.Id.ToString()[..8]}";
+                    claim.Close(resolutionText);
+                    await claimRepo.UpdateAsync(claim);
+                }
             }
         }
 

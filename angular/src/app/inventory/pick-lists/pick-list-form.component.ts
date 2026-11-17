@@ -267,7 +267,10 @@ export class PickListFormComponent implements OnInit {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/inventory/pick-lists', created.id]);
       },
-      error: () => this.saving.set(false),
+      error: (err) => {
+        this.saving.set(false);
+        this.toaster.error(err?.error?.error?.message || '::FailedToSavePickList');
+      },
     });
   }
 

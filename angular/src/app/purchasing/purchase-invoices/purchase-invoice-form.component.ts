@@ -561,13 +561,13 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/invoices', this.entityId]); },
-        error: () => {},
+        error: (err) => { this.toaster.error(err?.error?.error?.message || '::FailedToSaveInvoice'); },
       });
       return;
     }
     this.service.create(dto).subscribe({
       next: () => { this.form.markAsPristine(); this.router.navigate(['/purchasing/invoices']); },
-      error: () => { /* handled by global error interceptor */ },
+      error: (err) => { this.toaster.error(err?.error?.error?.message || '::FailedToSaveInvoice'); },
     });
   }
 

@@ -154,7 +154,7 @@ export class ShipmentFormComponent implements OnInit {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/shipments', result.id]);
       },
-      error: () => this.saving.set(false)
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveShipment'); }
     });
   }
 

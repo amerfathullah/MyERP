@@ -101,7 +101,7 @@ export class ShareholderFormComponent implements OnInit {
         this.toaster.success(this.shareholderId ? '::SuccessfullyUpdated' : '::SuccessfullySaved');
         this.router.navigate(['/accounting/shareholders']);
       },
-      error: () => this.saving.set(false),
+      error: (err) => { this.saving.set(false); this.toaster.error(err?.error?.error?.message || '::FailedToSaveShareholder'); },
     });
   }
 }

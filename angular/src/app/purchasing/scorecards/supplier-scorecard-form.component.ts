@@ -162,7 +162,7 @@ export class SupplierScorecardFormComponent implements OnInit {
     this.saving = true;
     this.scorecardService.create(this.form.value as any).subscribe({
       next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/purchasing/scorecards']); },
-      error: () => { this.saving = false; }
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveSupplierScorecard'); }
     });
   }
 

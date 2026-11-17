@@ -652,10 +652,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
             // FG qty = sum of primary finished-good items going to target warehouse (excluding BOM secondary items)
+            // Per ERPNext PR #66634 (commits e9bf4521bb & 49aa47daed): use StockQty when FG row is in a secondary UOM.
             var fgQty = entry.Items
                 .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue
                          && string.IsNullOrWhiteSpace(i.SecondaryItemType))
-                .Sum(i => i.Quantity);
+                .Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
             var processLoss = entry.ProcessLossQty > 0
                 ? entry.ProcessLossQty
                 : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
@@ -920,7 +921,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var fgQty = entry.Items
                     .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue
                              && string.IsNullOrWhiteSpace(i.SecondaryItemType))
-                    .Sum(i => i.Quantity);
+                    .Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
                 var processLoss = entry.ProcessLossQty > 0
                     ? entry.ProcessLossQty
                     : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
@@ -1316,12 +1317,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
-        // Finished good item
+        // Finished good item (deduct BOM process loss per ERPNext PR #66796 / commit ba0cdb08da)
+        var processLossQty = bom.ProcessLossPercentage > 0m
+            ? Math.Round(produceQty * (bom.ProcessLossPercentage / 100m), 4)
+            : 0m;
+        var fgRequiredQty = Math.Max(0m, produceQty - processLossQty);
         result.Items.Add(new ManufactureItemLineDto
         {
             ItemId = bom.ItemId,
             ItemName = $"FG: {bom.BomNumber}",
-            RequiredQty = produceQty,
+            RequiredQty = fgRequiredQty,
             Rate = bom.TotalCost / (bom.Quantity > 0 ? bom.Quantity : 1m),
             TargetWarehouseId = result.FgWarehouseId,
             IsRawMaterial = false,

@@ -44,6 +44,7 @@ public class MaintenanceVisitDto : EntityDto<Guid>
     public DateTime VisitDate { get; set; }
     public string MaintenanceType { get; set; } = null!;
     public Guid? MaintenanceScheduleId { get; set; }
+    public Guid? WarrantyClaimId { get; set; }
     public Guid? CustomerId { get; set; }
     public Guid? ContactId { get; set; }
     public MaintenanceVisitStatus CompletionStatus { get; set; }
@@ -67,6 +68,7 @@ public class CreateMaintenanceVisitDto
     public DateTime VisitDate { get; set; }
     public string MaintenanceType { get; set; } = "Scheduled";
     public Guid? MaintenanceScheduleId { get; set; }
+    public Guid? WarrantyClaimId { get; set; }
     public Guid? CustomerId { get; set; }
     public Guid? ContactId { get; set; }
     public CreateMaintenanceVisitPurposeDto[] Purposes { get; set; } = [];

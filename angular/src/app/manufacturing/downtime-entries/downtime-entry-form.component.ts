@@ -141,7 +141,10 @@ export class DowntimeEntryFormComponent implements OnInit {
         this.toaster.success(this.entryId ? '::SuccessfullyUpdated' : '::SuccessfullySaved');
         this.router.navigate(['/manufacturing/downtime-entries']);
       },
-      error: () => this.saving.set(false),
+      error: (err) => {
+        this.saving.set(false);
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveDowntimeEntry');
+      },
     });
   }
 }

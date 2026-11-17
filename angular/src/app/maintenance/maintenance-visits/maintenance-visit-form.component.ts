@@ -191,7 +191,7 @@ export class MaintenanceVisitFormComponent implements OnInit {
         this.toaster.success('MyERP::SuccessfullySaved');
         this.router.navigate(['../'], { relativeTo: this.route });
       },
-      error: () => { this.saving = false; },
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveMaintenanceVisit'); },
     });
   }
 }

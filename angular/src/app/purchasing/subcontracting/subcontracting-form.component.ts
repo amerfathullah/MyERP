@@ -229,7 +229,10 @@ export class SubcontractingFormComponent implements OnInit {
         this.toaster.success('MyERP::SuccessfullySaved');
         this.router.navigate(['/purchasing/subcontracting', result.id]);
       },
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveSubcontractingOrder');
+      },
     });
   }
 }

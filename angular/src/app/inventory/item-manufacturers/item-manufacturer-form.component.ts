@@ -172,8 +172,9 @@ export class ItemManufacturerFormComponent implements OnInit {
         this.saving.set(false);
         this.router.navigate(['/inventory/item-manufacturers']);
       },
-      error: () => {
+      error: (err) => {
         this.saving.set(false);
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveItemManufacturer');
       },
     });
   }

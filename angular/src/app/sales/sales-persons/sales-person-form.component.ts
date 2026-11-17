@@ -84,7 +84,7 @@ export class SalesPersonFormComponent implements OnInit {
     if (!dto.parentSalesPersonId) dto.parentSalesPersonId = null;
     this.service.create(dto as any).subscribe({
       next: () => { this.form.markAsPristine(); this.toaster.success('::SuccessfullyCreated'); this.router.navigate(['/sales/sales-persons']); },
-      error: () => { this.saving = false; }
+      error: (err) => { this.saving = false; this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalesPerson'); }
     });
   }
 
