@@ -2436,7 +2436,7 @@ function configureRoutes() {
         path: '/manufacturing/bom-creators',
         name: '::Menu:BomCreators',
         iconClass: 'fas fa-diagram-project',
-        order: 8,
+        order: 12.5,
         parentName: '::Menu:Manufacturing',
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.Manufacturing',

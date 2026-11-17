@@ -11,11 +11,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import type { CrmNoteDto, LeadDto } from '../../proxy/crm/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-lead-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  imports: [BreadcrumbComponent, ActivityLogComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './lead-detail.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./lead-detail.component.scss'],

@@ -26,8 +26,8 @@
                   {{ log.previousStatus }} → {{ log.newStatus }}
                 </small>
               }
-              @if (log.details) {
-                <small class="d-block text-muted">{{ log.details }}</small>
+              @if (formatDescription(log.details); as formattedDetails) {
+                <small class="d-block text-muted">{{ formattedDetails }}</small>
               }
             </div>
           </li>

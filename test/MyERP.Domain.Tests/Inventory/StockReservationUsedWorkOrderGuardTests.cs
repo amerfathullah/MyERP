@@ -236,4 +236,58 @@ public class StockReservationUsedWorkOrderGuardTests
         inserted[1].ReservedQty.ShouldBe(2m);
         inserted[1].VoucherQty.ShouldBe(10m);
     }
+
+    [Fact]
+    public async Task ApplyAndRevertSubcontractingConsumptionAsync_UpdatesAndRevertsConsumedQty()
+    {
+        var scoId = Guid.NewGuid();
+        var supplierWhId = Guid.NewGuid();
+        var sre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, supplierWhId, "Subcontracting Order", scoId, 10m);
+        sre.Submit();
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { sre }.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        var consumed = await manager.ApplySubcontractingConsumptionAsync(scoId, ItemId, supplierWhId, 5m);
+        consumed.Length.ShouldBe(1);
+        sre.ConsumedQty.ShouldBe(5m);
+
+        await manager.RevertSubcontractingConsumptionAsync(scoId, ItemId, supplierWhId, 5m);
+        sre.ConsumedQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task RevertSubcontractingTransferAsync_ReopensBatchMatchedLifoReservationFirst()
+    {
+        var scoId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var sre1 = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "Subcontracting Order", scoId, 6m)
+        {
+            BatchId = batchId,
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        sre1.Submit();
+        sre1.TransferredQty = 6m;
+
+        var sre2 = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "Subcontracting Order", scoId, 4m)
+        {
+            BatchId = batchId,
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc)
+        };
+        sre2.Submit();
+        sre2.TransferredQty = 4m;
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { sre1, sre2 }.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        await manager.RevertSubcontractingTransferAsync(scoId, ItemId, WarehouseId, 4m, batchId);
+
+        sre1.TransferredQty.ShouldBe(6m);
+        sre2.TransferredQty.ShouldBe(0m);
+    }
 }

@@ -131,7 +131,12 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
 
         var employee = await _repository.GetAsync(id);
         await ValidateUserAccessAsync(input.UserId, employee.UserId);
-        await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
+        // Per ERPNext commit 56c70014af: an old Resigned/Terminated record keeps its link to a rehire's User,
+        // but no new link may be made to an active employee's User.
+        if (employee.Status == EmploymentStatus.Active || input.UserId != employee.UserId)
+        {
+            await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
+        }
 
         employee.FirstName = input.FirstName;
         employee.LastName = input.LastName;
@@ -260,7 +265,10 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         }
 
         var query = await _repository.GetQueryableAsync();
-        var alreadyLinked = query.Any(e => e.UserId == userId.Value && e.Id != currentEmployeeId);
+        var alreadyLinked = query.Any(e =>
+            e.UserId == userId.Value
+            && e.Status == EmploymentStatus.Active
+            && e.Id != currentEmployeeId);
         if (alreadyLinked)
         {
             throw new Volo.Abp.BusinessException("MyERP:HR:008", "This user account is already linked to another employee.");

@@ -73,4 +73,21 @@ export class ActivityLogComponent implements OnInit {
   formatTime(isoDate: string): string {
     return new Date(isoDate).toLocaleString();
   }
+
+  /**
+   * Formats HTML or multiline task/activity descriptions as plain text while keeping
+   * paragraphs, list items, and line breaks separated by spaces and handling null/empty values
+   * (per ERPNext commit 135403ad9d).
+   */
+  formatDescription(value: string | null | undefined): string {
+    if (!value || value === 'null' || value === 'undefined') {
+      return '';
+    }
+    return value
+      .replace(/<br *[/]?>|<[/](p|div|li|h[1-6])>/gi, '$& ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\r?\n+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
 }

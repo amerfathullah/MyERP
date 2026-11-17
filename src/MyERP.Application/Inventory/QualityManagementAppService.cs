@@ -377,6 +377,13 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     public async Task<QualityProcedureDto> UpdateProcedureAsync(Guid id, CreateUpdateQualityProcedureDto input)
     {
         var entity = await _procedureRepository.GetAsync(id);
+        var oldParentId = entity.ParentQualityProcedureId;
+        var oldChildProcIds = entity.Steps
+            .Where(s => s.ChildProcedureId.HasValue)
+            .Select(s => s.ChildProcedureId!.Value)
+            .Distinct()
+            .ToList();
+
         entity.Name = input.Name;
         entity.ParentQualityProcedureId = input.ParentQualityProcedureId;
         entity.IsGroup = input.IsGroup;
@@ -384,7 +391,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         entity.ProcessOwner = input.ProcessOwner;
         entity.Sequence = input.Sequence;
 
-        await SyncProcedureHierarchyAsync(entity, input);
+        await SyncProcedureHierarchyAsync(entity, input, oldParentId, oldChildProcIds);
 
         entity.ClearSteps();
         if (input.Steps != null)
@@ -401,10 +408,24 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
 
     /// <summary>
     /// Validates procedure parent/child links and auto-promotes non-group parents to group
-    /// when adding a child procedure (per ERPNext PR #66953 / commit 4d8f22d4c8).
+    /// when adding a child procedure, while keeping parent steps and child parent links in sync
+    /// (per ERPNext PR #66953 / commit 4d8f22d4c8).
     /// </summary>
-    private async Task SyncProcedureHierarchyAsync(QualityProcedure entity, CreateUpdateQualityProcedureDto input)
+    private async Task SyncProcedureHierarchyAsync(
+        QualityProcedure entity,
+        CreateUpdateQualityProcedureDto input,
+        Guid? oldParentId = null,
+        IReadOnlyCollection<Guid>? oldChildProcIds = null)
     {
+        if (oldParentId.HasValue && oldParentId != input.ParentQualityProcedureId)
+        {
+            var oldParent = await _procedureRepository.FindAsync(oldParentId.Value, includeDetails: true);
+            if (oldParent != null && oldParent.RemoveStepsByChildProcedureId(entity.Id) > 0)
+            {
+                await _procedureRepository.UpdateAsync(oldParent);
+            }
+        }
+
         if (input.ParentQualityProcedureId.HasValue)
         {
             if (input.ParentQualityProcedureId.Value == entity.Id)
@@ -413,48 +434,77 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
                     .WithData("detail", "A quality procedure cannot be its own parent.");
             }
 
-            var parent = await _procedureRepository.FindAsync(input.ParentQualityProcedureId.Value);
-            if (parent != null && !parent.IsGroup)
+            var parent = await _procedureRepository.FindAsync(input.ParentQualityProcedureId.Value, includeDetails: true);
+            if (parent != null)
             {
-                parent.IsGroup = true;
-                await _procedureRepository.UpdateAsync(parent);
+                var updatedParent = false;
+                if (!parent.IsGroup)
+                {
+                    parent.IsGroup = true;
+                    updatedParent = true;
+                }
+
+                if (parent.Steps.All(s => s.ChildProcedureId != entity.Id))
+                {
+                    var nextSequence = parent.Steps.Count > 0 ? parent.Steps.Max(s => s.Sequence) + 1 : 1;
+                    parent.AddStep(new QualityProcedureStep(
+                        GuidGenerator.Create(), parent.Id, entity.Name, nextSequence, entity.Id));
+                    updatedParent = true;
+                }
+
+                if (updatedParent)
+                {
+                    await _procedureRepository.UpdateAsync(parent);
+                }
             }
         }
 
-        if (input.Steps != null)
-        {
-            var childProcIds = input.Steps
-                .Where(s => s.ChildProcedureId.HasValue)
-                .Select(s => s.ChildProcedureId!.Value)
-                .Distinct()
-                .ToList();
+        var currentChildProcIds = input.Steps?
+            .Where(s => s.ChildProcedureId.HasValue)
+            .Select(s => s.ChildProcedureId!.Value)
+            .Distinct()
+            .ToList() ?? new List<Guid>();
 
-            if (childProcIds.Count > 0)
+        if (oldChildProcIds != null && oldChildProcIds.Count > 0)
+        {
+            var removedChildIds = oldChildProcIds.Except(currentChildProcIds).ToList();
+            if (removedChildIds.Count > 0)
             {
-                if (childProcIds.Contains(entity.Id))
+                var removedChildren = await _procedureRepository.GetListAsync(
+                    p => removedChildIds.Contains(p.Id) && p.ParentQualityProcedureId == entity.Id);
+                foreach (var rc in removedChildren)
+                {
+                    rc.ParentQualityProcedureId = null;
+                    await _procedureRepository.UpdateAsync(rc);
+                }
+            }
+        }
+
+        if (currentChildProcIds.Count > 0)
+        {
+            if (currentChildProcIds.Contains(entity.Id))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "A quality procedure cannot reference itself as a child step.");
+            }
+
+            var childProcs = await _procedureRepository.GetListAsync(p => currentChildProcIds.Contains(p.Id));
+            foreach (var cp in childProcs)
+            {
+                if (cp.ParentQualityProcedureId.HasValue && cp.ParentQualityProcedureId.Value != entity.Id)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", "A quality procedure cannot reference itself as a child step.");
+                        .WithData("detail", $"Quality procedure '{cp.Name}' already belongs to another parent procedure. A procedure can only belong to one parent.");
                 }
+            }
 
-                var childProcs = await _procedureRepository.GetListAsync(p => childProcIds.Contains(p.Id));
-                foreach (var cp in childProcs)
+            entity.IsGroup = true;
+            foreach (var cp in childProcs)
+            {
+                if (cp.ParentQualityProcedureId != entity.Id)
                 {
-                    if (cp.ParentQualityProcedureId.HasValue && cp.ParentQualityProcedureId.Value != entity.Id)
-                    {
-                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                            .WithData("detail", $"Quality procedure '{cp.Name}' already belongs to another parent procedure. A procedure can only belong to one parent.");
-                    }
-                }
-
-                entity.IsGroup = true;
-                foreach (var cp in childProcs)
-                {
-                    if (cp.ParentQualityProcedureId != entity.Id)
-                    {
-                        cp.ParentQualityProcedureId = entity.Id;
-                        await _procedureRepository.UpdateAsync(cp);
-                    }
+                    cp.ParentQualityProcedureId = entity.Id;
+                    await _procedureRepository.UpdateAsync(cp);
                 }
             }
         }

@@ -40,6 +40,19 @@ public abstract class QualityProcedureHierarchyTests<TStartupModule> : MyERPAppl
         child.ParentQualityProcedureId.ShouldBe(parent.Id);
         var reloadedParent = await _service.GetProcedureAsync(parent.Id);
         reloadedParent.IsGroup.ShouldBeTrue();
+        reloadedParent.Steps.ShouldContain(s => s.ChildProcedureId == child.Id);
+
+        // Moving child to root removes the child step from the old parent
+        await _service.UpdateProcedureAsync(child.Id, new CreateUpdateQualityProcedureDto
+        {
+            Name = "Visual Check",
+            ParentQualityProcedureId = null,
+            IsGroup = false,
+            Sequence = 1,
+        });
+
+        var parentAfterUnlink = await _service.GetProcedureAsync(parent.Id);
+        parentAfterUnlink.Steps.ShouldNotContain(s => s.ChildProcedureId == child.Id);
     }
 
     [Fact]

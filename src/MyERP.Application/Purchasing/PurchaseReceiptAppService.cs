@@ -724,7 +724,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         receipt.CompanyId, item.ItemId, returnWarehouseId,
                         receipt.PostingDate, -returnStockQty, ratePerStockUnit,
                         voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                        tenantId: receipt.TenantId);
+                        tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, returnWarehouseId,
@@ -753,7 +753,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                             receipt.CompanyId, item.ItemId, rejectedWarehouseId.Value,
                             receipt.PostingDate, -returnRejectedStockQty, rejectedRate,
                             voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                            tenantId: receipt.TenantId);
+                            tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                         await _binService.ApplyStockMovementAsync(
                             item.ItemId, rejectedWarehouseId.Value,
@@ -764,20 +764,33 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     }
                 }
 
-                // Internal transfer return (PR #59280 & PR #66692, commits bebce66db8 & 42c7a9d78b):
+                // Internal transfer return (PR #59280 & PR #66692, commits bebce66db8, 42c7a9d78b, 82aa27155f, d510a998d1):
                 // puts combined rounded accepted + rejected qty back into in-transit warehouse,
-                // capped to what the original receipt took out of transit minus prior returns.
+                // capped to what the original receipt took out of transit (outward SLE < 0) minus prior returns (inward SLE > 0).
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
                     var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
-                    if (originalItem != null)
+                    if (originalItem != null && receipt.ReturnAgainstId.HasValue)
                     {
-                        var originalTakenFromTransit = Math.Abs(originalItem.TotalReceivedStockQty);
-                        var alreadyReturnedToTransit = priorSubmittedReturns
-                            .SelectMany(r => r.Items)
-                            .Where(ri => ri.ItemId == item.ItemId && (ri.FromWarehouseId ?? originalItem.FromWarehouseId) == fromWarehouseId)
-                            .Sum(ri => Math.Abs(ri.TotalReceivedStockQty));
+                        var originalTakenFromTransit = await ResolvePostedTransitQtyAsync(
+                            receipt.ReturnAgainstId.Value, item.ItemId, fromWarehouseId.Value,
+                            outward: true, fallbackQty: Math.Abs(originalItem.TotalReceivedStockQty));
+
+                        decimal alreadyReturnedToTransit = 0m;
+                        foreach (var priorRet in priorSubmittedReturns)
+                        {
+                            var priorRetFallback = priorRet.Items
+                                .Where(ri => ri.ItemId == item.ItemId && (ri.FromWarehouseId ?? originalItem.FromWarehouseId) == fromWarehouseId)
+                                .Sum(ri => Math.Abs(ri.TotalReceivedStockQty));
+                            if (priorRetFallback > 0m)
+                            {
+                                alreadyReturnedToTransit += await ResolvePostedTransitQtyAsync(
+                                    priorRet.Id, item.ItemId, fromWarehouseId.Value,
+                                    outward: false, fallbackQty: priorRetFallback);
+                            }
+                        }
+
                         var qtyLeftToReturn = Math.Max(0m, Math.Round(originalTakenFromTransit - alreadyReturnedToTransit, 4));
                         if (qtyLeftToReturn > 0m)
                         {
@@ -791,7 +804,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                             receipt.CompanyId, item.ItemId, fromWarehouseId.Value,
                             receipt.PostingDate, returnedToSourceQty, ratePerStockUnit,
                             voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                            tenantId: receipt.TenantId);
+                            tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                         await _binService.ApplyStockMovementAsync(
                             item.ItemId, fromWarehouseId.Value,
@@ -857,7 +870,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                             receipt.CompanyId, item.ItemId, item.FromWarehouseId.Value,
                             receipt.PostingDate, -sourceStockQty, ratePerStockUnit,
                             voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                            tenantId: receipt.TenantId);
+                            tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                         await _binService.ApplyStockMovementAsync(
                             item.ItemId, item.FromWarehouseId.Value,
@@ -878,7 +891,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         receipt.CompanyId, item.ItemId, targetWarehouseId,
                         receipt.PostingDate, stockQty, ratePerStockUnit,
                         voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                        tenantId: receipt.TenantId);
+                        tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, targetWarehouseId,
@@ -905,7 +918,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
                         receipt.PostingDate, rejectedStockQty, rejectedRate,
                         voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                        tenantId: receipt.TenantId);
+                        tenantId: receipt.TenantId, voucherDetailNo: item.Id);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, item.RejectedWarehouseId.Value,

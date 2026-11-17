@@ -14,11 +14,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
 @Component({
   selector: 'app-opportunity-detail',
   standalone: true,
-  imports: [BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  imports: [BreadcrumbComponent, ActivityLogComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="opp()?.title ?? ('::Opportunity' | abpLocalization)">
@@ -215,6 +216,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             }
           </div>
         </div>
+
+        <app-activity-log documentType="Opportunity" [documentId]="o.id!" />
       }
     </abp-page>
   `,

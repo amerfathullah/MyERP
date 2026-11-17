@@ -44,6 +44,21 @@ public class EmployeeLifecycleManager : DomainService
             return;
         }
 
+        // Per ERPNext employee.validate_duplicate_user_id() & commit 56c70014af:
+        // Cannot reactivate a Resigned/Terminated employee if their UserId is already linked to another Active employee (e.g. rehire).
+        if (newStatus == EmploymentStatus.Active && employee.UserId.HasValue)
+        {
+            var hasActiveDuplicateUser = await _employeeRepository.AnyAsync(e =>
+                e.UserId == employee.UserId.Value &&
+                e.Status == EmploymentStatus.Active &&
+                e.Id != employee.Id);
+
+            if (hasActiveDuplicateUser)
+            {
+                throw new BusinessException("MyERP:HR:008", "This user account is already linked to another employee.");
+            }
+        }
+
         if (newStatus == EmploymentStatus.Resigned)
         {
             if (!dateOfResignation.HasValue)

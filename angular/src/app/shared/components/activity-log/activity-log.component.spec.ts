@@ -38,4 +38,15 @@ describe('ActivityLogComponent', () => {
     expect(mockService.getForDocument).toHaveBeenCalledWith('Lead', 'lead-123');
     expect(component.logs).toEqual(mockLogs);
   });
+
+  it('keeps paragraphs and line breaks apart and handles empty/null descriptions (ERPNext commit 135403ad9d)', () => {
+    const component = new ActivityLogComponent();
+    expect(component.formatDescription(null)).toBe('');
+    expect(component.formatDescription(undefined)).toBe('');
+    expect(component.formatDescription('null')).toBe('');
+    expect(component.formatDescription('<p>First paragraph</p><p>Second paragraph</p>')).toBe(
+      'First paragraph Second paragraph'
+    );
+    expect(component.formatDescription('Line one<br/>Line two')).toBe('Line one Line two');
+  });
 });

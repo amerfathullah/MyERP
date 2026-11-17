@@ -185,4 +185,71 @@ public abstract class EmployeeReportsToRelieveGuardTests<TStartupModule> : MyERP
             updatedSp.IsEnabled.ShouldBeTrue();
         });
     }
+
+    [Fact]
+    public async Task RehireAndInactiveDuplicateUserGuard_AllowsEditingOldRecord_BlocksNewLinkOrReactivation()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var employeeRepository = GetRequiredService<IRepository<Employee, Guid>>();
+            var employeeAppService = GetRequiredService<IEmployeeAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Rehire User Guard Co"), autoSave: true);
+            var sharedUserId = Guid.NewGuid();
+
+            // 1. Old employee who resigned
+            var oldEmployee = await employeeRepository.InsertAsync(
+                new Employee(Guid.NewGuid(), company.Id, "EMP-OLD-1", "Former")
+                {
+                    UserId = sharedUserId,
+                    Status = EmploymentStatus.Resigned,
+                    DateOfResignation = new DateTime(2025, 1, 1)
+                }, autoSave: true);
+
+            // 2. Active rehire with the same UserId
+            var rehire = await employeeRepository.InsertAsync(
+                new Employee(Guid.NewGuid(), company.Id, "EMP-REHIRE-1", "Rehired")
+                {
+                    UserId = sharedUserId,
+                    Status = EmploymentStatus.Active
+                }, autoSave: true);
+
+            // 3. Unrelated resigned employee with a different UserId
+            var otherLeft = await employeeRepository.InsertAsync(
+                new Employee(Guid.NewGuid(), company.Id, "EMP-LEFT-2", "OtherLeft")
+                {
+                    UserId = Guid.NewGuid(),
+                    Status = EmploymentStatus.Resigned,
+                    DateOfResignation = new DateTime(2025, 2, 1)
+                }, autoSave: true);
+
+            // Editing oldEmployee while keeping its existing UserId succeeds (test_edit_left_employee_after_rehire)
+            var updatedOld = await employeeAppService.UpdateAsync(oldEmployee.Id, new CreateUpdateEmployeeDto
+            {
+                CompanyId = company.Id,
+                FirstName = "Former Updated",
+                UserId = sharedUserId
+            });
+            updatedOld.FirstName.ShouldBe("Former Updated");
+
+            // Linking an active employee's UserId to another inactive employee throws MyERP:HR:008 (commit 56c70014af)
+            var linkEx = await Should.ThrowAsync<BusinessException>(() =>
+                employeeAppService.UpdateAsync(otherLeft.Id, new CreateUpdateEmployeeDto
+                {
+                    CompanyId = company.Id,
+                    FirstName = "OtherLeft",
+                    UserId = sharedUserId
+                }));
+            linkEx.Code.ShouldBe("MyERP:HR:008");
+
+            // Reactivating oldEmployee while rehire is Active throws MyERP:HR:008
+            var reactivateEx = await Should.ThrowAsync<BusinessException>(() =>
+                employeeAppService.ChangeStatusAsync(oldEmployee.Id, new ChangeEmployeeStatusDto
+                {
+                    Status = EmploymentStatus.Active
+                }));
+            reactivateEx.Code.ShouldBe("MyERP:HR:008");
+        });
+    }
 }

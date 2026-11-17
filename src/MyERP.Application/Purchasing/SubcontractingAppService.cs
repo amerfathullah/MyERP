@@ -765,6 +765,16 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 suppliedItem.ConsumedQty += rm.ConsumedQty;
             }
 
+            if (!scr.IsReturn && rm.ConsumedQty > 0)
+            {
+                var sreManager = LazyServiceProvider.LazyGetService<StockReservationManager>();
+                if (sreManager != null)
+                {
+                    await sreManager.ApplySubcontractingConsumptionAsync(
+                        sco.Id, rm.ItemId, scr.SupplierWarehouseId ?? rm.WarehouseId.Value, rm.ConsumedQty, rm.BatchId, suppliedItem?.Id);
+                }
+            }
+
             // Create SLE for RM consumption (stock-out from supplier warehouse if positive, stock-in if negative)
             // Per ERPNext PR #64797 / commit 51e5ba7ec9: return entries carry DependantSleVoucherDetailNo
             var dependantDetailNo = scr.IsReturn
@@ -872,6 +882,16 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             if (suppliedItem != null)
             {
                 suppliedItem.ConsumedQty = Math.Max(0, suppliedItem.ConsumedQty - rm.ConsumedQty);
+            }
+
+            if (!scr.IsReturn && rm.ConsumedQty > 0)
+            {
+                var sreManager = LazyServiceProvider.LazyGetService<StockReservationManager>();
+                if (sreManager != null)
+                {
+                    await sreManager.RevertSubcontractingConsumptionAsync(
+                        sco.Id, rm.ItemId, scr.SupplierWarehouseId ?? rm.WarehouseId.Value, rm.ConsumedQty, rm.BatchId, suppliedItem?.Id);
+                }
             }
 
             // Reverse SLE for RM consumption (stock back in / out)
@@ -1086,11 +1106,45 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
             foreach (var origSec in originalSecondaryItems)
             {
-                var priorSecQty = priorSecondaryItems
-                    .Where(s => origSec.BomSecondaryItemId.HasValue
-                        ? s.BomSecondaryItemId == origSec.BomSecondaryItemId
-                        : s.ItemId == origSec.ItemId && s.SecondaryItemType == origSec.SecondaryItemType)
-                    .Sum(s => Math.Abs(s.Qty));
+                decimal priorSecQty;
+                if (origSec.BomSecondaryItemId.HasValue)
+                {
+                    priorSecQty = priorSecondaryItems
+                        .Where(s => s.BomSecondaryItemId == origSec.BomSecondaryItemId)
+                        .Sum(s => Math.Abs(s.Qty));
+                }
+                else
+                {
+                    // Per ERPNext commits b180098c37, 2f92fcf85f, 0263dc3b72, 4f03188e04:
+                    // Legacy receipt rows without BomSecondaryItemId pair by (ItemId, SecondaryItemType)
+                    // ranked by quantity so duplicate secondary items on the same receipt each track their own return qty.
+                    var sameKeyOriginals = originalSecondaryItems
+                        .Where(x => !x.BomSecondaryItemId.HasValue
+                            && x.ItemId == origSec.ItemId
+                            && x.SecondaryItemType == origSec.SecondaryItemType)
+                        .OrderBy(x => Math.Abs(x.Qty))
+                        .ThenBy(x => x.Id)
+                        .ToList();
+                    var rankIndex = sameKeyOriginals.FindIndex(x => x.Id == origSec.Id);
+                    if (rankIndex < 0) rankIndex = 0;
+
+                    priorSecQty = 0m;
+                    foreach (var prRet in priorReturns)
+                    {
+                        var rankedRetSec = prRet.Items
+                            .Where(MyERP.Purchasing.DomainServices.SubcontractingManager.IsSecondaryItem)
+                            .Where(s => !s.BomSecondaryItemId.HasValue
+                                && s.ItemId == origSec.ItemId
+                                && s.SecondaryItemType == origSec.SecondaryItemType)
+                            .OrderBy(s => Math.Abs(s.Qty))
+                            .ThenBy(s => s.Id)
+                            .ToList();
+                        if (rankIndex < rankedRetSec.Count)
+                        {
+                            priorSecQty += Math.Abs(rankedRetSec[rankIndex].Qty);
+                        }
+                    }
+                }
 
                 var secReturnQty = MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateReturnSecondaryQty(
                     originalTotalFgQty,

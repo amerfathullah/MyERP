@@ -64,6 +64,11 @@ public class QualityProcedure : FullAuditedAggregateRoot<Guid>, IMultiTenant
         _steps.Clear();
     }
 
+    public int RemoveStepsByChildProcedureId(Guid childProcedureId)
+    {
+        return _steps.RemoveAll(s => s.ChildProcedureId == childProcedureId);
+    }
+
     public void SetParent(Guid? parentId)
     {
         ParentQualityProcedureId = parentId;

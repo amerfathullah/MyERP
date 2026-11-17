@@ -919,7 +919,8 @@ public class StockReservationManager : DomainService
                 && (voucherDetailId == null || s.VoucherDetailId == voucherDetailId)
                 && s.TransferredQty > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
-            .OrderByDescending(s => s.CreationTime)
+            .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenByDescending(s => s.CreationTime)
             .ToList()
             .Where(s => matchVoucherType(s.VoucherType))
             .ToList();
@@ -1007,23 +1008,46 @@ public class StockReservationManager : DomainService
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the consumed batch.
     /// Per ERPNext PR #60510 / commit 99ea89af89: split consumption over reservations a closed Work Order still holds.
     /// </summary>
-    public async Task<ReservationConsumption[]> ApplyWorkOrderConsumptionAsync(
+    public Task<ReservationConsumption[]> ApplyWorkOrderConsumptionAsync(
         Guid workOrderId, Guid itemId, Guid warehouseId, decimal consumedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+        => ApplyOrderConsumptionAsync(
+            IsWorkOrderVoucher, workOrderId, itemId, warehouseId, consumedQty, batchId, workOrderItemId);
+
+    /// <summary>
+    /// Updates consumed quantity on active Subcontracting Order reservations during Subcontracting Receipt submission
+    /// (ERPNext commits 4bf8b4ded2 &amp; 7d20a4bf36).
+    /// </summary>
+    public Task<ReservationConsumption[]> ApplySubcontractingConsumptionAsync(
+        Guid subcontractingOrderId, Guid itemId, Guid warehouseId, decimal consumedQty, Guid? batchId = null, Guid? subcontractingSuppliedItemId = null)
+        => ApplyOrderConsumptionAsync(
+            IsSubcontractingOrderVoucher, subcontractingOrderId, itemId, warehouseId, consumedQty, batchId, subcontractingSuppliedItemId, allowAnyWarehouseFallback: true);
+
+    private async Task<ReservationConsumption[]> ApplyOrderConsumptionAsync(
+        Func<string?, bool> matchVoucherType,
+        Guid voucherId,
+        Guid itemId,
+        Guid warehouseId,
+        decimal consumedQty,
+        Guid? batchId = null,
+        Guid? voucherDetailId = null,
+        bool allowAnyWarehouseFallback = false)
     {
         if (consumedQty <= 0) return Array.Empty<ReservationConsumption>();
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
-                && s.VoucherId == workOrderId
+            .Where(s => s.VoucherId == voucherId
                 && s.ItemId == itemId
-                && s.WarehouseId == warehouseId
+                && (s.WarehouseId == warehouseId || allowAnyWarehouseFallback)
                 && (s.Status == DocumentStatus.Submitted || s.ConsumedQty > 0 || s.TransferredQty > 0)
-                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (voucherDetailId == null || s.VoucherDetailId == null || s.VoucherDetailId == voucherDetailId)
                 && ((s.TransferredQty > 0 ? s.TransferredQty : s.ReservedQty) - s.ConsumedQty) > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
-            .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .OrderByDescending(s => s.WarehouseId == warehouseId)
+            .ThenByDescending(s => s.BatchId == batchId && batchId != null)
             .ThenBy(s => s.CreationTime)
+            .ToList()
+            .Where(s => matchVoucherType(s.VoucherType))
             .ToList();
 
         var consumed = new System.Collections.Generic.List<ReservationConsumption>();
@@ -1055,22 +1079,45 @@ public class StockReservationManager : DomainService
     /// Reverts consumed quantity on Work Order reservations when a Manufacture / Material Consumption entry is cancelled.
     /// Per ERPNext PR #60510 / commit 99ea89af89: match holding reservations on closed Work Orders.
     /// </summary>
-    public async Task RevertWorkOrderConsumptionAsync(
+    public Task RevertWorkOrderConsumptionAsync(
         Guid workOrderId, Guid itemId, Guid warehouseId, decimal revertedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+        => RevertOrderConsumptionAsync(
+            IsWorkOrderVoucher, workOrderId, itemId, warehouseId, revertedQty, batchId, workOrderItemId);
+
+    /// <summary>
+    /// Reverts consumed quantity on Subcontracting Order reservations when a Subcontracting Receipt is cancelled.
+    /// </summary>
+    public Task RevertSubcontractingConsumptionAsync(
+        Guid subcontractingOrderId, Guid itemId, Guid warehouseId, decimal revertedQty, Guid? batchId = null, Guid? subcontractingSuppliedItemId = null)
+        => RevertOrderConsumptionAsync(
+            IsSubcontractingOrderVoucher, subcontractingOrderId, itemId, warehouseId, revertedQty, batchId, subcontractingSuppliedItemId, allowAnyWarehouseFallback: true);
+
+    private async Task RevertOrderConsumptionAsync(
+        Func<string?, bool> matchVoucherType,
+        Guid voucherId,
+        Guid itemId,
+        Guid warehouseId,
+        decimal revertedQty,
+        Guid? batchId = null,
+        Guid? voucherDetailId = null,
+        bool allowAnyWarehouseFallback = false)
     {
         if (revertedQty <= 0) return;
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
-                && s.VoucherId == workOrderId
+            .Where(s => s.VoucherId == voucherId
                 && s.ItemId == itemId
-                && s.WarehouseId == warehouseId
+                && (s.WarehouseId == warehouseId || allowAnyWarehouseFallback)
                 && (s.Status == DocumentStatus.Submitted || s.ConsumedQty > 0)
-                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (voucherDetailId == null || s.VoucherDetailId == null || s.VoucherDetailId == voucherDetailId)
                 && s.ConsumedQty > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
-            .OrderByDescending(s => s.CreationTime)
+            .OrderByDescending(s => s.WarehouseId == warehouseId)
+            .ThenByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenByDescending(s => s.CreationTime)
+            .ToList()
+            .Where(s => matchVoucherType(s.VoucherType))
             .ToList();
 
         var remaining = revertedQty;
