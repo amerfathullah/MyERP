@@ -919,6 +919,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         added.PurchaseReceiptItemId = origItem.PurchaseReceiptItemId;
                     if (!added.MaterialRequestItemId.HasValue)
                         added.MaterialRequestItemId = origItem.MaterialRequestItemId;
+                    if (!added.SalesInvoiceItemId.HasValue)
+                        added.SalesInvoiceItemId = origItem.SalesInvoiceItemId;
                     if (!item.ConversionFactor.HasValue && origItem.ConversionFactor > 0)
                         added.ConversionFactor = origItem.ConversionFactor;
                     added.ClassificationCode ??= origItem.ClassificationCode;

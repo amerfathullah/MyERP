@@ -725,7 +725,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
                     if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                     {
-                        var setValuationForRejected = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
+                        var setValuationForRejected = item.FromWarehouseId.HasValue || (originalItem?.FromWarehouseId.HasValue ?? false) ||
+                            await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
                         var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
 
                         await _valuationService.CreateLedgerEntryAsync(
@@ -762,7 +763,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                             returnedToSourceQty, returnedToSourceQty * ratePerStockUnit, receipt.TenantId);
 
                         stockValueByWarehouse.TryGetValue(fromWarehouseId.Value, out var priorFromVal);
-                        stockValueByWarehouse[fromWarehouseId.Value] = priorFromVal + (returnedToSourceQty * ratePerStockUnit);
+                        stockValueByWarehouse[fromWarehouseId.Value] = priorFromVal - (returnedToSourceQty * ratePerStockUnit);
                     }
                 }
             }
@@ -1097,12 +1098,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 }
 
                 // Reverse internal transfer return: on submit we added material back into source warehouse,
-                // so on cancel we deduct it
+                // so on cancel we deduct it (PR #66692: combined rounded accepted + rejected qty)
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
-                    var returnedToSourceQty = (item.Quantity < 0 ? Math.Abs(item.StockQty) : 0m)
-                        + (item.RejectedQty < 0 ? Math.Abs(item.RejectedStockQty) : 0m);
+                    var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
 
                     if (returnedToSourceQty > 0)
                     {

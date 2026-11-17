@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 
 @Component({
@@ -84,6 +85,7 @@ import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 export class PricingRuleFormComponent {
   private service = inject(PricingRuleService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
   saving = false;
   isDirty = false;
   form: any = { title: '', applyOn: 0, ruleType: 0, priority: 1, discountPercentage: 0, minQty: 0, maxQty: 0, applicableFor: 'Selling' };
@@ -91,7 +93,13 @@ export class PricingRuleFormComponent {
   save() {
     this.saving = true;
     this.service.create(this.form)
-      .subscribe({ next: () => { this.isDirty = false; this.router.navigate(['/sales/pricing-rules']); }, error: () => { this.saving = false; } });
+      .subscribe({
+        next: () => { this.isDirty = false; this.router.navigate(['/sales/pricing-rules']); },
+        error: (err) => {
+          this.saving = false;
+          this.toaster.error(err?.error?.error?.message || '::FailedToSavePricingRule');
+        }
+      });
   }
 
   hasUnsavedChanges(): boolean { return this.isDirty && !this.saving; }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { StockReconciliationService } from '../../proxy/inventory';
 import type { StockReconciliationItemPreviewDto } from '../../proxy/dtos/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -113,6 +114,7 @@ export class StockReconciliationFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   fetchingItems = false;
@@ -206,7 +208,10 @@ export class StockReconciliationFormComponent implements OnInit {
     };
     this.stockReconciliationService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/inventory/stock-reconciliations']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveStockReconciliation');
+      }
     });
   }
 

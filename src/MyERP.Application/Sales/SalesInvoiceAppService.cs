@@ -933,6 +933,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 {
                     added.SalesOrderItemId ??= origItem.SalesOrderItemId;
                     added.DeliveryNoteItemId ??= origItem.DeliveryNoteItemId;
+                    added.PurchaseInvoiceItemId ??= origItem.PurchaseInvoiceItemId;
                     added.ProductBundleId ??= origItem.ProductBundleId;
                     added.ClassificationCode ??= origItem.ClassificationCode;
                 }
@@ -1262,6 +1263,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             await _invoiceManager.ValidateReturnAsync(invoice);
             // Block zero-qty items on stock-affecting returns (corrupts FIFO queue)
             SalesInvoiceManager.ValidateReturnWithStockNoZeroQty(invoice);
+        }
+
+        if (invoice.InterCompanyPurchaseInvoiceId.HasValue && invoice.Items.Any(i => i.PurchaseInvoiceItemId.HasValue))
+        {
+            var interCompanyService = LazyServiceProvider
+                .LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
+            if (interCompanyService != null)
+            {
+                var companyForAllowance = await _companyRepository.FindAsync(invoice.CompanyId);
+                await interCompanyService.ValidateInternalSalesInvoiceQtyAsync(
+                    invoice,
+                    companyForAllowance?.OverDeliveryReceiptAllowance ?? 0m);
+            }
         }
 
         // Per ERPNext PR #63881 (commit be69fdba29): reject duplicate assets on non-return sales invoices
@@ -2080,6 +2094,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         // Loyalty cancel guard: can't cancel if earned points have been redeemed
         var customer = await _customerRepository.GetAsync(invoice.CustomerId);
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue && customer.RepresentsCompanyId.HasValue)
+        {
+            var interCompanyService = LazyServiceProvider
+                .LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
+            if (interCompanyService != null)
+            {
+                var companyForAllowance = await _companyRepository.FindAsync(invoice.CompanyId);
+                await interCompanyService.ValidateInternalSalesInvoiceQtyAsync(
+                    invoice,
+                    companyForAllowance?.OverDeliveryReceiptAllowance ?? 0m,
+                    excludeSalesInvoiceId: invoice.Id);
+            }
+        }
         if (customer.LoyaltyProgramId.HasValue)
         {
             var loyaltyService = LazyServiceProvider.LazyGetRequiredService<LoyaltyPointService>();

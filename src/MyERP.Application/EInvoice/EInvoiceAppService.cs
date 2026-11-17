@@ -584,6 +584,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             };
             invoice.LhdnUuid = submission.DocumentUuid;
             invoice.LhdnLongId = submission.LongId;
+            invoice.QrCodeUrl = submission.QrCodeUrl;
             await _purchaseInvoiceRepository.UpdateAsync(invoice);
         }
     }

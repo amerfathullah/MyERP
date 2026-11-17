@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { LeadStore } from '../store/lead.store';
 import { LeadService } from '../../proxy/crm/lead.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -25,6 +26,7 @@ export class LeadFormComponent implements OnInit {
   private store = inject(LeadStore);
   private service = inject(LeadService);
   private companyContext = inject(CompanyContextService);
+  private toaster = inject(ToasterService);
 
   form!: FormGroup;
   isEditMode = false;
@@ -73,12 +75,12 @@ export class LeadFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, value as any).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/leads']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveLead'),
       });
     } else {
       this.service.create(value as any).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/leads']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveLead'),
       });
     }
   }

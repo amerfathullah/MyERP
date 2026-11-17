@@ -108,14 +108,15 @@ public class DropShipService : DomainService
     /// <summary>
     /// Resolves the Sales Order rows (and quantities) to order from each supplier for the manual
     /// "Purchase Order" action. Per ERPNext sales_order/mapper.py make_purchase_order
-    /// (commit 92a4ccffab): each selection must identify exactly one SO row (by row id, so repeated
-    /// item codes are not conflated); a row is included only when it is not closed and not yet fully
-    /// ordered; qty = qty - ordered_qty / conversion_factor. When a row is selected twice, the last
-    /// supplier wins (dictionary semantics).
+    /// (commits 92a4ccffab, 393217f004, c4c278ceb9): each selection must identify exactly one SO row
+    /// (by row id, so repeated item codes are not conflated); a row is included only when it is not
+    /// closed and has positive qty left in its own UOM (qty = round(qty - ordered_stock_qty / conversion_factor, 4)).
+    /// When a row is selected twice, the last supplier wins (dictionary semantics).
     /// </summary>
     public static IReadOnlyList<SalesOrderPurchaseLine> ResolvePurchaseLines(
         SalesOrder salesOrder,
-        IEnumerable<(Guid SalesOrderItemId, Guid SupplierId)> selections)
+        IEnumerable<(Guid SalesOrderItemId, Guid SupplierId)> selections,
+        IReadOnlyDictionary<Guid, decimal>? orderedStockQtyByRow = null)
     {
         var supplierByRow = new Dictionary<Guid, Guid>();
         foreach (var (rowId, supplierId) in selections)
@@ -132,10 +133,13 @@ public class DropShipService : DomainService
         foreach (var item in salesOrder.Items)
         {
             if (!supplierByRow.TryGetValue(item.Id, out var supplierId)) continue;
-            if (item.IsClosed || item.OrderedQty >= item.StockQty) continue;
+            if (item.IsClosed) continue;
 
             var conversionFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
-            var qty = Math.Round(item.Quantity - item.OrderedQty / conversionFactor, 4);
+            var orderedStockQty = orderedStockQtyByRow != null && orderedStockQtyByRow.TryGetValue(item.Id, out var fromPo)
+                ? Math.Max(fromPo, item.OrderedQty)
+                : item.OrderedQty;
+            var qty = Math.Round(item.Quantity - orderedStockQty / conversionFactor, 4);
             if (qty <= 0m) continue;
 
             lines.Add(new SalesOrderPurchaseLine(supplierId, item, qty));

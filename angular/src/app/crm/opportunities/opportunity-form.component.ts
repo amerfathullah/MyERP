@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } fr
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { OpportunityStore } from '../store/opportunity.store';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -25,6 +26,7 @@ export class OpportunityFormComponent implements OnInit {
   private store = inject(OpportunityStore);
   private service = inject(OpportunityService);
   private companyContext = inject(CompanyContextService);
+  private toaster = inject(ToasterService);
 
   form!: FormGroup;
   isEditMode = false;
@@ -89,12 +91,12 @@ export class OpportunityFormComponent implements OnInit {
     if (this.isEditMode) {
       this.service.update(this.entityId!, value as any).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/opportunities']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveOpportunity'),
       });
     } else {
       this.service.create(value as any).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/crm/opportunities']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveOpportunity'),
       });
     }
   }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BudgetService } from '../../proxy/accounting/budget.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { AccountService } from '../../proxy/accounting/account.service';
@@ -84,6 +85,7 @@ export class BudgetFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private accountService = inject(AccountService);
   private fiscalYearService = inject(FiscalYearService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -120,7 +122,10 @@ export class BudgetFormComponent implements OnInit {
     };
     this.budgetService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/accounting/budgets']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveBudget');
+      }
     });
   }
 

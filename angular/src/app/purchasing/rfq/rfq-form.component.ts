@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
 @Component({
   selector: 'app-rfq-form',
@@ -76,6 +77,7 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
 export class RfqFormComponent {
   private service = inject(RequestForQuotationService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
   saving = false;
   isDirty = false;
   form: any = {
@@ -90,7 +92,10 @@ export class RfqFormComponent {
     this.saving = true;
     this.service.create(this.form).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/purchasing/rfq']); },
-      error: () => { this.saving = false; },
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveRfq');
+      },
     });
   }
 

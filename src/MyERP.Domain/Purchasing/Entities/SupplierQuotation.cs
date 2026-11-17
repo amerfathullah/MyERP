@@ -167,6 +167,23 @@ public class SupplierQuotationItem : FullAuditedEntity<Guid>
     /// <summary>Remaining quantity to order (in stock UOM).</summary>
     public decimal PendingOrderQty => Math.Max(0, StockQty - OrderedQty);
 
+    /// <summary>
+    /// Remaining quantity to order in the row's own UOM (ERPNext buying/utils.py get_qty_to_order,
+    /// commits 393217f004 &amp; c4c278ceb9).
+    /// </summary>
+    public decimal QtyToOrder => GetQtyToOrder();
+
+    /// <summary>
+    /// Computes remaining quantity to order in the row's own UOM from an optional unrounded
+    /// ordered stock quantity override (falling back to <see cref="OrderedQty"/>).
+    /// </summary>
+    public decimal GetQtyToOrder(decimal? orderedStockQtyOverride = null)
+    {
+        var cf = ConversionFactor > 0 ? ConversionFactor : 1m;
+        var effectiveOrderedStock = orderedStockQtyOverride ?? OrderedQty;
+        return Math.Max(0m, Math.Round(Qty - (effectiveOrderedStock / cf), 4));
+    }
+
     /// <summary>Link to Material Request item (if applicable).</summary>
     public Guid? MaterialRequestItemId { get; set; }
 

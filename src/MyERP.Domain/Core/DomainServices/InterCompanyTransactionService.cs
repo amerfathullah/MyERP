@@ -607,6 +607,48 @@ public class InterCompanyTransactionService : DomainService
     }
 
     /// <summary>
+    /// Validates that submitting an internal Sales Invoice (made from a Purchase Invoice) or
+    /// cancelling a return against one does not push net invoiced quantity past the linked
+    /// Purchase Invoice (+ over-receipt allowance). Mirrors <see cref="ValidateInternalPurchaseInvoiceQtyAsync"/>.
+    /// </summary>
+    public async Task ValidateInternalSalesInvoiceQtyAsync(
+        SalesInvoice invoice,
+        decimal overReceiptAllowancePercent = 0m,
+        Guid? excludeSalesInvoiceId = null)
+    {
+        var linkedPiId = invoice.InterCompanyPurchaseInvoiceId;
+        if (!linkedPiId.HasValue && invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var returnAgainstSi = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+            linkedPiId = returnAgainstSi?.InterCompanyPurchaseInvoiceId;
+        }
+
+        if (!linkedPiId.HasValue) return;
+
+        var piQuery = await GetPurchaseInvoiceQueryAsync();
+        var pi = piQuery?.FirstOrDefault(p => p.Id == linkedPiId.Value)
+            ?? await _purchaseInvoiceRepository.FindAsync(linkedPiId.Value);
+        if (pi == null || pi.Status == DocumentStatus.Cancelled) return;
+
+        var (isMadeFromCounterpart, invoicedByItem, _) =
+            await AnalyzePurchaseInvoiceInterCompanyStateAsync(pi, excludeSalesInvoiceId);
+        if (isMadeFromCounterpart || invoicedByItem.Count == 0) return;
+
+        var allowanceMultiplier = 1m + (Math.Max(0m, overReceiptAllowancePercent) / 100m);
+        foreach (var piItem in pi.Items)
+        {
+            var maxAllowedStock = Math.Round(piItem.StockQty * allowanceMultiplier, 4);
+            var netInvoicedStock = Math.Round(invoicedByItem.GetValueOrDefault(piItem.Id), 4);
+            if (netInvoicedStock > maxAllowedStock + 0.0001m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.OverBilling)
+                    .WithData("detail",
+                        $"Total inter-company Sales Invoice quantity ({netInvoicedStock}) for item {piItem.Description} exceeds Purchase Invoice {pi.InvoiceNumber} quantity ({piItem.StockQty}).");
+            }
+        }
+    }
+
+    /// <summary>
     /// Creates a Purchase Order in the target company from a Sales Order in the source company.
     /// Per ERPNext make_inter_company_purchase_order / PR #66964: only maps non-closed items
     /// with pending qty > 0, and skips if the SO was already created from a counterpart PO.

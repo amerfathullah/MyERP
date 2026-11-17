@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { QuotationFormComponent } from './quotation-form.component';
 import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
 import { QuotationService } from '../../proxy/sales/quotation.service';
@@ -150,6 +151,7 @@ describe('QuotationFormComponent Prospect Details', () => {
         { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
         { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: PartyDetailsService, useValue: partyMock },
+        { provide: ToasterService, useValue: { error: vi.fn(), success: vi.fn() } },
       ],
     });
 
@@ -159,5 +161,29 @@ describe('QuotationFormComponent Prospect Details', () => {
     expect(partyMock.getProspectDetails).toHaveBeenCalledWith({ partyId: 'pros-1', companyId: 'comp-1' });
     expect(comp.form.get('customerName')?.value).toBe('Prospect Corp');
     expect(comp.form.get('priceListId')?.value).toBe('pl-retail');
+  });
+
+  it('shows error toast when save fails', () => {
+    const toasterMock = { error: vi.fn(), success: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: FormBuilder, useValue: new FormBuilder() },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: { get: () => null } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+        { provide: QuotationService, useValue: { create: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Quotation rejected' } } }))) } },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyDetailsService, useValue: { getCustomerDetails: vi.fn().mockReturnValue(of({})) } },
+        { provide: ToasterService, useValue: toasterMock },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new QuotationFormComponent());
+    comp.form.patchValue({ companyId: 'comp-1', customerId: 'cust-1', quotationDate: new Date() });
+    comp.save();
+
+    expect(toasterMock.error).toHaveBeenCalledWith('Quotation rejected');
   });
 });

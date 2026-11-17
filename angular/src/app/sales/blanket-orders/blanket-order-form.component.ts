@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
@@ -86,6 +87,7 @@ export class BlanketOrderFormComponent implements OnInit {
   private customerService = inject(CustomerService);
   private supplierService = inject(SupplierService);
   private itemService = inject(ItemService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -129,7 +131,10 @@ export class BlanketOrderFormComponent implements OnInit {
     };
     this.service.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/sales/blanket-orders']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveBlanketOrder');
+      }
     });
   }
 

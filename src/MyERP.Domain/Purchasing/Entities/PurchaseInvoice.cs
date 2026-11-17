@@ -176,6 +176,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public Guid? LhdnSubmissionId { get; set; }
     public DateTime? LhdnSubmittedAt { get; set; }
     public string? LhdnLongId { get; set; }
+    public string? QrCodeUrl { get; set; }
     /// <summary>
     /// Whether this invoice should be submitted to LHDN e-Invoice.
     /// Maps to MyInvois custom_is_submit_to_lhdn. Default: true.

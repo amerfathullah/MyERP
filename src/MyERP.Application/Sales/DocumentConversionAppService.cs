@@ -1020,8 +1020,34 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 .WithData("documentType", "SalesOrder");
         }
 
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+        var soItemIds = salesOrder.Items.Select(i => i.Id).ToList();
+        var orderedStockByRow = new Dictionary<Guid, decimal>();
+        var poQuery = await poRepo.GetQueryableAsync();
+        if (poQuery != null && soItemIds.Count > 0)
+        {
+            var submittedPoItems = poQuery
+                .Where(po => po.Status != Core.DocumentStatus.Draft && po.Status != Core.DocumentStatus.Cancelled)
+                .SelectMany(po => po.Items)
+                .Where(pi => pi.SalesOrderItemId.HasValue && soItemIds.Contains(pi.SalesOrderItemId.Value))
+                .Select(pi => new
+                {
+                    SoItemId = pi.SalesOrderItemId!.Value,
+                    pi.Quantity,
+                    pi.ConversionFactor
+                })
+                .ToList();
+
+            foreach (var group in submittedPoItems.GroupBy(x => x.SoItemId))
+            {
+                orderedStockByRow[group.Key] = group.Sum(x => x.Quantity * (x.ConversionFactor > 0 ? x.ConversionFactor : 1m));
+            }
+        }
+
         var lines = DomainServices.DropShipService.ResolvePurchaseLines(
-            salesOrder, selectedItems.Select(s => (s.SalesOrderItemId, s.SupplierId)));
+            salesOrder,
+            selectedItems.Select(s => (s.SalesOrderItemId, s.SupplierId)),
+            orderedStockByRow);
         if (lines.Count == 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
@@ -1030,7 +1056,6 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 .WithData("reason", "All selected items in this Sales Order are closed or have already been fully ordered.");
         }
 
-        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
         var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
         var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
         var exchangeService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CurrencyExchangeService>();
@@ -1439,6 +1464,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             addedItem.StockUom = origItem.StockUom;
             addedItem.SalesOrderItemId = origItem.SalesOrderItemId;
             addedItem.DeliveryNoteItemId = origItem.DeliveryNoteItemId;
+            addedItem.PurchaseInvoiceItemId = origItem.PurchaseInvoiceItemId;
             addedItem.BatchId = origItem.BatchId;
 
             // Per ERPNext make_sales_return: the credit note row keeps the original row's deferred

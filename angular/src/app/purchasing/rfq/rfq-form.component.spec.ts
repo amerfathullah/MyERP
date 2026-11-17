@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
+import { throwError } from 'rxjs';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
+import { RfqFormComponent } from './rfq-form.component';
 
 // RFQ Form — item/supplier management + validation tests
 
@@ -106,6 +112,25 @@ describe('RfqFormComponent', () => {
       expect(form.items[0]).toHaveProperty('itemId');
       expect(form.items[0]).toHaveProperty('qty');
       expect(form.suppliers[0]).toHaveProperty('supplierId');
+    });
+  });
+
+  describe('error handling', () => {
+    it('shows error toast and resets saving flag when create fails', () => {
+      const toasterMock = { error: vi.fn() };
+      const injector = Injector.create({
+        providers: [
+          { provide: RequestForQuotationService, useValue: { create: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Supplier required' } } }))) } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ToasterService, useValue: toasterMock },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new RfqFormComponent());
+      comp.save();
+
+      expect(comp.saving).toBe(false);
+      expect(toasterMock.error).toHaveBeenCalledWith('Supplier required');
     });
   });
 });

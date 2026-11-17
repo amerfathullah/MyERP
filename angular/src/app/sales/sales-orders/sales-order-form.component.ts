@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup, Va
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
@@ -47,6 +48,7 @@ export class SalesOrderFormComponent implements OnInit {
   private priceListService = inject(PriceListService);
   private partyDetailsService = inject(PartyDetailsService);
   private supplierService = inject(SupplierService);
+  private toaster = inject(ToasterService);
 
   warehouses = signal<any[]>([]);
   suppliers = signal<{ id: string; name: string }[]>([]);
@@ -235,12 +237,12 @@ export class SalesOrderFormComponent implements OnInit {
     if (this.isEditMode) {
       this.soService.update(this.entityId!, dto).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/orders', this.entityId]); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalesOrder'),
       });
     } else {
       this.soService.create(dto).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/sales/orders']); },
-        error: () => {},
+        error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveSalesOrder'),
       });
     }
   }

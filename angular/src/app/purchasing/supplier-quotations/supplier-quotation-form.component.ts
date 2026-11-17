@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -76,6 +77,7 @@ export class SupplierQuotationFormComponent implements OnInit {
   private router = inject(Router);
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
+  private toaster = inject(ToasterService);
 
   saving = false;
   isDirty = false;
@@ -111,7 +113,10 @@ export class SupplierQuotationFormComponent implements OnInit {
     };
     this.sqService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/purchasing/supplier-quotations']); },
-      error: () => { this.saving = false; }
+      error: (err) => {
+        this.saving = false;
+        this.toaster.error(err?.error?.error?.message || '::FailedToSaveSupplierQuotation');
+      }
     });
   }
 

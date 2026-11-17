@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup, Va
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from '../sales-invoices/components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { QuotationService } from '../../proxy/sales/quotation.service';
@@ -34,6 +35,7 @@ export class QuotationFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private priceListService = inject(PriceListService);
   private partyDetailsService = inject(PartyDetailsService);
+  private toaster = inject(ToasterService);
 
   customers = signal<any[]>([]);
   priceLists = signal<any[]>([]);
@@ -181,7 +183,7 @@ export class QuotationFormComponent implements OnInit {
 
     request$.subscribe({
       next: (result) => { this.form.markAsPristine(); this.router.navigate(['/sales/quotations', result?.id ?? this.entityId]); },
-      error: () => { /* handled by global error interceptor */ },
+      error: (err) => this.toaster.error(err?.error?.error?.message || '::FailedToSaveQuotation'),
     });
   }
 

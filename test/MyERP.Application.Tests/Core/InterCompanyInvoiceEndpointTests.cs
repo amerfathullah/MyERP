@@ -226,4 +226,76 @@ public abstract class InterCompanyInvoiceEndpointTests<TStartupModule> : MyERPAp
             counterpartSiDto.CanCreateInterCompanyPurchaseInvoice.ShouldBeFalse();
         });
     }
+
+    [Fact]
+    public async Task PurchaseInvoice_InternalReturnSalesInvoice_CountsAsUninvoiced_AndBlocksReturnCancelWhenOverbilled()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var siRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var siAppService = GetRequiredService<ISalesInvoiceAppService>();
+            var salesConversionAppService = GetRequiredService<IDocumentConversionAppService>();
+
+            var buyer = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "IC SI Ret Buyer"), autoSave: true);
+            var seller = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "IC SI Ret Seller"), autoSave: true);
+            await seriesRepo.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), seller.Id, "SI Return Series", "SalesInvoice", "SI-RET-"),
+                autoSave: true);
+
+            var internalSupplier = await supplierRepo.InsertAsync(
+                new Supplier(Guid.NewGuid(), buyer.Id, "Seller (Internal Supplier)") { RepresentsCompanyId = seller.Id },
+                autoSave: true);
+            await customerRepo.InsertAsync(
+                new Customer(Guid.NewGuid(), seller.Id, "Buyer (Internal Customer)") { RepresentsCompanyId = buyer.Id },
+                autoSave: true);
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), buyer.Id, "IC-SI-RET-01", "Returnable IC Item", ItemType.Service),
+                autoSave: true);
+            await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), seller.Id, "IC-SI-RET-01", "Returnable IC Item", ItemType.Service),
+                autoSave: true);
+
+            var pi = new PurchaseInvoice(Guid.NewGuid(), buyer.Id, internalSupplier.Id, "PI-IC-SIRET-01", DateTime.UtcNow.Date);
+            pi.AddItem(item.Id, "Returnable IC Item", 4m, 40m, 0m);
+            pi.Submit();
+            pi.Post();
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            var si1Dto = await piAppService.CreateInterCompanySalesInvoiceAsync(pi.Id);
+            var si1Entity = await siRepo.GetAsync(si1Dto.Id);
+            si1Entity.Submit();
+            si1Entity.Post();
+            await siRepo.UpdateAsync(si1Entity, autoSave: true);
+
+            // MakeSalesInvoiceReturnAsync copies PurchaseInvoiceItemId onto the return row
+            var retDraft = await salesConversionAppService.MakeSalesInvoiceReturnAsync(si1Entity.Id);
+            retDraft.Items[0].PurchaseInvoiceItemId.ShouldBe(pi.Items[0].Id);
+
+            var retEntity = await siRepo.GetAsync(retDraft.Id);
+            retEntity.Items[0].Quantity = -1m;
+            retEntity.Submit();
+            retEntity.Post();
+            await siRepo.UpdateAsync(retEntity, autoSave: true);
+
+            // 1 unit returned -> PI has pending qty again
+            var piWhilePending = await piAppService.GetAsync(pi.Id);
+            piWhilePending.CanCreateInterCompanySalesInvoice.ShouldBeTrue();
+
+            var si2Dto = await piAppService.CreateInterCompanySalesInvoiceAsync(pi.Id);
+            si2Dto.Items.Count.ShouldBe(1);
+            si2Dto.Items[0].Quantity.ShouldBe(1m);
+            si2Dto.Items[0].PurchaseInvoiceItemId.ShouldBe(pi.Items[0].Id);
+
+            // Cancelling the return SI would push net invoiced qty (4 + 1 = 5) past PI qty (4) -> blocked
+            var overEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => siAppService.CancelAsync(retEntity.Id));
+            overEx.Code.ShouldBe(MyERPDomainErrorCodes.OverBilling);
+        });
+    }
 }

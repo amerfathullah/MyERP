@@ -293,25 +293,44 @@ public class GlRepostService : DomainService
                 ? item.UnitPrice / item.ConversionFactor
                 : item.UnitPrice;
 
-            if (item.StockQty != 0)
+            var rejWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+            var roundedRejStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
+            var staysInTransit = item.FromWarehouseId.HasValue && rejWarehouseId == item.FromWarehouseId;
+
+            if (item.FromWarehouseId.HasValue)
+            {
+                // Per ERPNext commits 5c38112008, 1d5eb2a43d, d0942983e5:
+                // Accepted and rejected warehouses together take what left transit, plus landed cost.
+                var transitStockValue = Math.Round(Math.Abs(item.TotalReceivedStockQty) * ratePerStockUnit, 4);
+                var rejStockValue = Math.Round(roundedRejStockQty * ratePerStockUnit, 4);
+                var lcvInTxnCurrency = invoice.ExchangeRate > 0
+                    ? item.LandedCostVoucherAmount / invoice.ExchangeRate
+                    : item.LandedCostVoucherAmount;
+                var acceptedValue = Math.Max(0m, Math.Round(transitStockValue - rejStockValue + Math.Abs(lcvInTxnCurrency), 4));
+                if (acceptedValue > 0m)
+                {
+                    var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
+                    valueByWarehouse.TryGetValue(warehouseId, out var prior);
+                    valueByWarehouse[warehouseId] = prior + acceptedValue;
+                }
+            }
+            else if (item.StockQty != 0)
             {
                 var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
                 valueByWarehouse.TryGetValue(warehouseId, out var prior);
                 valueByWarehouse[warehouseId] = prior + (Math.Abs(item.StockQty) * ratePerStockUnit);
             }
 
-            // Rejected warehouse (PR #59257 & #59258, #59280):
+            // Rejected warehouse (PR #59257 & #59258, #59280, commit 54df1053d0):
             // Material that nothing paid for carries no value and still books nothing.
-            // When billed on this invoice or an internal transfer, value goes to rejected warehouse.
-            var rejWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-            var roundedRejStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
-            if (rejWarehouseId.HasValue && roundedRejStockQty > 0m)
+            // Rejected material that stays in transit (rejWarehouseId == FromWarehouseId) did not move and gets no entry of its own.
+            if (rejWarehouseId.HasValue && roundedRejStockQty > 0m && !staysInTransit)
             {
                 var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
                 if (isValued)
                 {
                     valueByWarehouse.TryGetValue(rejWarehouseId.Value, out var priorRej);
-                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (roundedRejStockQty * ratePerStockUnit);
+                    valueByWarehouse[rejWarehouseId.Value] = priorRej + Math.Round(roundedRejStockQty * ratePerStockUnit, 4);
                 }
             }
         }

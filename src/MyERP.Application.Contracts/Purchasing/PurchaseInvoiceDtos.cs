@@ -35,6 +35,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public EInvoiceDocumentType? EInvoiceDocType { get; set; }
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
+    public string? LhdnLongId { get; set; }
+    public string? QrCodeUrl { get; set; }
     public bool IsSubmitToLhdn { get; set; } = true;
     public bool IsReturn { get; set; }
     public bool IsDebitNote { get; set; }

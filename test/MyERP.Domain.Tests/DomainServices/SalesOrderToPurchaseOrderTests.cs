@@ -141,4 +141,31 @@ public class SalesOrderToPurchaseOrderTests
 
         await repo.DidNotReceive().GetQueryableAsync();
     }
+
+    [Fact]
+    public void ResolvePurchaseLines_And_SupplierQuotationGetQtyToOrder_MapRemainingQtyInRowUom()
+    {
+        var so = CreateSalesOrder();
+        so.AddItem(Guid.NewGuid(), "Fractional Box", 2m, 10m, 0m);
+        var soRow = so.Items[0];
+        soRow.ConversionFactor = 3m;
+        var supplierId = Guid.NewGuid();
+
+        // 1.3333 boxes ordered in stock UOM = 3.9999 stock units -> remaining in row UOM = round(2 - 3.9999 / 3, 4) = 0.6667
+        var orderedOverride = new Dictionary<Guid, decimal> { [soRow.Id] = 3.9999m };
+        var lines = DropShipService.ResolvePurchaseLines(so, new[] { (soRow.Id, supplierId) }, orderedOverride);
+        lines.Single().Quantity.ShouldBe(0.6667m);
+
+        // When remaining qty in row UOM rounds to 0 despite tiny stock difference, row is skipped (commit c4c278ceb9)
+        var dustOverride = new Dictionary<Guid, decimal> { [soRow.Id] = 5.9999m };
+        DropShipService.ResolvePurchaseLines(so, new[] { (soRow.Id, supplierId) }, dustOverride).ShouldBeEmpty();
+
+        var sq = new SupplierQuotation(Guid.NewGuid(), so.CompanyId, supplierId, DateTime.Today);
+        sq.AddItem(soRow.ItemId, 2m, 10m, "Fractional Box", "Box");
+        var sqRow = sq.Items[0];
+        sqRow.ConversionFactor = 3m;
+        sqRow.OrderedQty = 3.9999m;
+        sqRow.QtyToOrder.ShouldBe(0.6667m);
+        sqRow.GetQtyToOrder(5.9999m).ShouldBe(0m);
+    }
 }

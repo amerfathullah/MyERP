@@ -652,8 +652,43 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             throw new BusinessException(MyERPDomainErrorCodes.SupplierQuotationHasNoItems)
                 .WithData("reason", "Supplier Quotation has no items to convert");
 
-        // Filter items with pending order quantity
-        var pendingItems = sq.Items.Where(i => i.PendingOrderQty > 0 || (i.StockQty == 0 && i.OrderedQty == 0)).ToList();
+        // Compute unrounded ordered stock qty from submitted Purchase Orders per SQ item (ERPNext commits 393217f004 & c4c278ceb9)
+        var sqItemIds = sq.Items.Select(i => i.Id).ToList();
+        var orderedStockBySqItem = new Dictionary<Guid, decimal>();
+        var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+        if (poQuery != null && sqItemIds.Count > 0)
+        {
+            var submittedPoItems = poQuery
+                .Where(po => po.Status != Core.DocumentStatus.Draft && po.Status != Core.DocumentStatus.Cancelled)
+                .SelectMany(po => po.Items)
+                .Where(pi => pi.SupplierQuotationItemId.HasValue && sqItemIds.Contains(pi.SupplierQuotationItemId.Value))
+                .Select(pi => new
+                {
+                    SqItemId = pi.SupplierQuotationItemId!.Value,
+                    pi.Quantity,
+                    pi.ConversionFactor
+                })
+                .ToList();
+
+            foreach (var group in submittedPoItems.GroupBy(x => x.SqItemId))
+            {
+                orderedStockBySqItem[group.Key] = group.Sum(x => x.Quantity * (x.ConversionFactor > 0 ? x.ConversionFactor : 1m));
+            }
+        }
+
+        // Choose rows to order from the qty left in their own UOM (ERPNext commit c4c278ceb9)
+        var pendingItems = sq.Items
+            .Select(i =>
+            {
+                var orderedStock = orderedStockBySqItem.TryGetValue(i.Id, out var fromPo)
+                    ? Math.Max(fromPo, i.OrderedQty)
+                    : i.OrderedQty;
+                var qtyToOrder = i.GetQtyToOrder(orderedStock);
+                return (Item: i, QtyToOrder: qtyToOrder, OrderedStock: orderedStock);
+            })
+            .Where(x => x.QtyToOrder > 0m || (x.Item.Qty == 0m && x.OrderedStock == 0m))
+            .ToList();
+
         if (!pendingItems.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
@@ -676,14 +711,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         po.CurrencyCode = sq.Currency;
         po.ExchangeRate = sq.ExchangeRate;
 
-        foreach (var sqItem in pendingItems)
+        foreach (var (sqItem, convertQty, _) in pendingItems)
         {
-            var convertQty = sqItem.ConversionFactor > 0
-                ? Math.Round(sqItem.PendingOrderQty / sqItem.ConversionFactor, 4)
-                : Math.Round(sqItem.Qty, 4);
-
-            if (convertQty <= 0 && sqItem.Qty > 0) continue;
-
             po.AddItem(sqItem.ItemId, sqItem.ItemName ?? "", convertQty > 0 ? convertQty : sqItem.Qty, sqItem.Rate, 0m, sqItem.Uom ?? "Unit");
             var lastPoItem = po.Items.Last();
             lastPoItem.SupplierQuotationItemId = sqItem.Id;
