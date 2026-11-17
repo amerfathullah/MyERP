@@ -155,7 +155,8 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
 
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         var woRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
-        await reservationManager.ValidateCanCancelAsync(sre, woRepo);
+        var scoRepo = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.SubcontractingOrder, Guid>>();
+        await reservationManager.ValidateCanCancelAsync(sre, woRepo, scoRepo);
 
         var remainingReserved = sre.AvailableQty;
         sre.Cancel();

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { HolidayListDetailService } from '../../shared/services/detail-services';
 import type { HolidayListDto } from '../../proxy/human-resources/models';
 
@@ -38,9 +39,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class HolidayListDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(HolidayListDetailService);
+  private toaster = inject(ToasterService);
   data: HolidayListDto | null = null;
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
-    this.service.get(id).subscribe({ next: (r) => this.data = r, error: () => {} });
+    this.service.get(id).subscribe({
+      next: (r) => this.data = r,
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
   }
 }

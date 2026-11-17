@@ -212,4 +212,105 @@ public class BomPhantomExplosionAndWoReservationTests
         captured.Payments[0].ClosingAmount.ShouldBe(150m);
         captured.Payments[0].Difference.ShouldBe(0m);
     }
+
+    // =========================================================================
+    // ERPNext commits ff5f2d6667, 95bf4771c3, 62b2b6871c, 2c673e4f7e, b9fa398013:
+    // BOM valuation rate fallback, price list validity, zero conversion factor, and WO full-precision rate
+    // =========================================================================
+
+    [Fact]
+    public async Task BomCostPropagationService_ResolveBomItemValuationRate_NoBinOnSourceWarehouse_FallsBackToOwnCompanySle()
+    {
+        var otherCompanyId = Guid.NewGuid();
+        var emptySourceWarehouseId = Guid.NewGuid();
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+
+        // Source warehouse has no Bin at all (commit ff5f2d6667)
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(Enumerable.Empty<Bin>().AsQueryable()));
+        var wh = new Warehouse(emptySourceWarehouseId, _companyId, "Source WH");
+        whRepo.FindAsync(emptySourceWarehouseId).Returns(Task.FromResult<Warehouse?>(wh));
+
+        // SLE has a newer entry in another company (rate 999) and an entry in the BOM's own company (rate 42.5) (commit 95bf4771c3)
+        var ownCompanySle = new StockLedgerEntry(
+            Guid.NewGuid(), _companyId, _rmItemId, Guid.NewGuid(),
+            new DateTime(2026, 11, 10), 5m, 42.5m, 5m, 212.5m);
+        var otherCompanySle = new StockLedgerEntry(
+            Guid.NewGuid(), otherCompanyId, _rmItemId, Guid.NewGuid(),
+            new DateTime(2026, 11, 15), 5m, 999m, 5m, 4995m);
+
+        sleRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { ownCompanySle, otherCompanySle }.AsQueryable()));
+
+        var service = new BomCostPropagationService(bomRepo, binRepo, whRepo, sleRepo, itemRepo);
+
+        var rate = await service.ResolveBomItemValuationRateAsync(_rmItemId, _companyId, emptySourceWarehouseId);
+        rate.ShouldBe(42.5m);
+    }
+
+    [Fact]
+    public async Task BomCostPropagationService_ResolveBomItemPriceListRate_SkipsFutureAndExpiredItemPrices()
+    {
+        var priceListId = Guid.NewGuid();
+        var today = new DateTime(2026, 11, 17);
+
+        var expiredPrice = new ItemPrice(Guid.NewGuid(), _rmItemId, priceListId, 10m, "Unit", "MYR")
+        {
+            ValidFrom = today.AddDays(-30),
+            ValidUpto = today.AddDays(-1)
+        };
+        var validPrice = new ItemPrice(Guid.NewGuid(), _rmItemId, priceListId, 25m, "Unit", "MYR")
+        {
+            ValidFrom = today.AddDays(-5),
+            ValidUpto = today.AddDays(10)
+        };
+        var futurePrice = new ItemPrice(Guid.NewGuid(), _rmItemId, priceListId, 90m, "Unit", "MYR")
+        {
+            ValidFrom = today.AddDays(1),
+            ValidUpto = today.AddDays(30)
+        };
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var priceRepo = Substitute.For<IRepository<ItemPrice, Guid>>();
+        priceRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { expiredPrice, validPrice, futurePrice }.AsQueryable()));
+
+        var service = new BomCostPropagationService(bomRepo, itemPriceRepository: priceRepo);
+
+        var rate = await service.ResolveBomItemPriceListRateAsync(_rmItemId, priceListId, "Box", conversionFactor: 4m, asOfDate: today);
+        rate.ShouldBe(100m); // 25 * 4 conversion factor, skipping expired (10) and future (90)
+    }
+
+    [Fact]
+    public async Task WorkOrderManager_CalculateMaterialRequirements_ZeroConversionFactorAndSubCentRate_PreservesFullPrecision()
+    {
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var bomId = Guid.NewGuid();
+        var bom = new BillOfMaterials(bomId, _companyId, "BOM-PREC", _fgItemId) { Quantity = 1m };
+        // Legacy row with ConversionFactor = 0 and sub-cent stock UOM rate (0.00004)
+        var bomItem = new BomItem(Guid.NewGuid(), bomId, _rmItemId, "Micro Resistor", quantity: 1m, rate: 0.00004m, uom: "Unit", conversionFactor: 0m);
+        bom.Items.Add(bomItem);
+
+        // BomItem.StockQty and StockUomRate treat ConversionFactor = 0 as 1 (commit 2c673e4f7e)
+        bomItem.StockQty.ShouldBe(1m);
+        bomItem.StockUomRate.ShouldBe(0.00004m);
+
+        bomRepo.GetAsync(bomId).Returns(Task.FromResult(bom));
+        var rm = new Item(_rmItemId, _companyId, "RES", "Micro Resistor", ItemType.Goods);
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { rm }.AsQueryable()));
+
+        // Produce 100,000 units: rate must remain 0.00004 (not rounded to 0 at 4dp per commit b9fa398013)
+        var reqs = await manager.CalculateMaterialRequirementsAsync(bomId, produceQty: 100000m);
+        reqs.Length.ShouldBe(1);
+        reqs[0].RequiredQty.ShouldBe(100000m);
+        reqs[0].Rate.ShouldBe(0.00004m);
+        (reqs[0].RequiredQty * reqs[0].Rate).ShouldBe(4m);
+    }
 }

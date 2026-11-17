@@ -1102,6 +1102,34 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             }
         }
 
+        // ERPNext commit a4819db4f9: check if any deleted PO row has non-cancelled receipts (including fully returned rows where ReceivedQty is 0)
+        var receiptedPoRowIds = new HashSet<Guid>();
+        if (removedItemIds.Count > 0)
+        {
+            var prRepoForDelete = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            if (prRepoForDelete != null)
+            {
+                var prQuery = await prRepoForDelete.WithDetailsAsync(r => r.Items);
+                if (prQuery == null)
+                {
+                    prQuery = await prRepoForDelete.GetQueryableAsync();
+                }
+
+                if (prQuery != null)
+                {
+                    var removedSet = removedItemIds.ToHashSet();
+                    var linkedReceiptItemIds = prQuery
+                        .Where(r => r.Status != Core.DocumentStatus.Cancelled
+                            && r.Items.Any(ri => ri.PurchaseOrderItemId.HasValue && removedSet.Contains(ri.PurchaseOrderItemId.Value)))
+                        .SelectMany(r => r.Items)
+                        .Where(ri => ri.PurchaseOrderItemId.HasValue && removedSet.Contains(ri.PurchaseOrderItemId.Value))
+                        .Select(ri => ri.PurchaseOrderItemId!.Value)
+                        .ToList();
+                    receiptedPoRowIds = linkedReceiptItemIds.ToHashSet();
+                }
+            }
+        }
+
         foreach (var removeId in removedItemIds)
         {
             var poItemToRemove = po.Items.FirstOrDefault(i => i.Id == removeId);
@@ -1127,7 +1155,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 }
             }
 
-            _childItemUpdateService.ValidatePurchaseOrderItemDeletion(poItemToRemove, linkedSoNumberForRow);
+            var hasReturnedReceipt = receiptedPoRowIds.Contains(poItemToRemove.Id);
+            _childItemUpdateService.ValidatePurchaseOrderItemDeletion(poItemToRemove, linkedSoNumberForRow, hasReturnedReceipt);
 
             if (poItemToRemove.WarehouseId.HasValue)
             {

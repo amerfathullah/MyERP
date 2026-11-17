@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -86,11 +86,17 @@ export class AssetRepairDetailComponent implements OnInit {
   private router = inject(Router);
   private service = inject(AssetRepairService);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   repair = signal<AssetRepairDto | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) this.service.get(id).subscribe(r => this.repair.set(r));
+    if (id) {
+      this.service.get(id).subscribe({
+        next: r => this.repair.set(r),
+        error: (err: any) => this.handleError(err),
+      });
+    }
   }
 
   getActions(): WorkflowAction[] {
@@ -103,12 +109,25 @@ export class AssetRepairDetailComponent implements OnInit {
 
   onAction(name: string): void {
     const id = this.repair()!.id!;
-    const reload = () => this.service.get(id).subscribe(r => this.repair.set(r));
+    const reload = () => this.service.get(id).subscribe({
+      next: r => this.repair.set(r),
+      error: (err: any) => this.handleError(err),
+    });
     switch (name) {
-      case 'complete': this.service.complete(id).subscribe(reload); break;
-      case 'cancel': this.confirmation.warn('::CancelConfirmationMessage', '::Confirm').subscribe(s => {
-        if (s === Confirmation.Status.confirm) this.service.cancel(id).subscribe(reload);
-      }); break;
+      case 'complete':
+        this.service.complete(id).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
+        break;
+      case 'cancel':
+        this.confirmation.warn('::CancelConfirmationMessage', '::Confirm').subscribe(s => {
+          if (s === Confirmation.Status.confirm) {
+            this.service.cancel(id).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
+          }
+        });
+        break;
     }
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }

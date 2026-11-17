@@ -484,4 +484,59 @@ public class ChildItemUpdateServiceTests
         pr.Status.ShouldBe(MyERP.Accounting.Entities.PaymentRequestStatus.Cancelled);
         pr.OutstandingAmount.ShouldBe(0m);
     }
+
+    // =========================================================================
+    // ERPNext commits a4819db4f9, 14a3847119, 01c271e467, 11bdd53d53:
+    // Returned order rows and packed-item linked Purchase Orders block deletion
+    // =========================================================================
+
+    [Fact]
+    public void ValidateSalesOrderItemDeletion_ReturnedRowWithZeroDeliveredQty_ThrowsValidationFailed()
+    {
+        var item = new SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Returned Widget", 5m, 100m, 0m, "Unit")
+        {
+            DeliveredQty = 0m,
+            ReturnedQty = 5m
+        };
+
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateSalesOrderItemDeletion(item));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("already been delivered");
+    }
+
+    [Fact]
+    public void ValidateSalesOrderItemDeletion_OrderedOnPurchaseOrder_ThrowsValidationFailed()
+    {
+        var item = new SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Bundle Kit", 2m, 250m, 0m, "Unit");
+
+        var ex = Should.Throw<BusinessException>(() =>
+            _service.ValidateSalesOrderItemDeletion(item, hasKeptStockReservation: false, linkedPurchaseOrderNumber: "PO-2026-0042"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("already ordered on Purchase Order PO-2026-0042");
+    }
+
+    [Fact]
+    public void ValidatePurchaseOrderItemDeletion_ReturnedRowWithZeroReceivedQty_ThrowsValidationFailed()
+    {
+        var itemByFlag = new PurchaseOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Returned Bolt", 10m, 15m, 0m, "Unit")
+        {
+            ReceivedQty = 0m
+        };
+
+        var ex1 = Should.Throw<BusinessException>(() =>
+            _service.ValidatePurchaseOrderItemDeletion(itemByFlag, linkedInterCompanySalesOrderNumber: null, hasReturnedReceipt: true));
+        ex1.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex1.Data["detail"]!.ToString()!.ShouldContain("already been received");
+
+        var itemByReceiptDate = new PurchaseOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Returned Nut", 10m, 15m, 0m, "Unit")
+        {
+            ReceivedQty = 0m,
+            FirstReceiptDate = DateTime.UtcNow.Date
+        };
+
+        var ex2 = Should.Throw<BusinessException>(() =>
+            _service.ValidatePurchaseOrderItemDeletion(itemByReceiptDate));
+        ex2.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex2.Data["detail"]!.ToString()!.ShouldContain("already been received");
+    }
 }

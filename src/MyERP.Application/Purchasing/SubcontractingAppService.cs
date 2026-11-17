@@ -329,6 +329,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         sco.Cancel();
         await _scoRepository.UpdateAsync(sco);
 
+        var cancelSreManager = LazyServiceProvider.LazyGetService<StockReservationManager>();
+        if (cancelSreManager != null)
+        {
+            await cancelSreManager.CancelReservationsForVoucherAsync(sco.Id);
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "SubcontractingOrder", sco.Id,
@@ -341,7 +347,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
     /// <summary>
     /// Close an open/partially-received SCO, releasing RM reservation for unreceived supplied items.
-    /// Per upstream PR #57463: pending RM reservation must be released on close.
+    /// Per upstream PR #57463 &amp; commit 4bf8b4ded2: pending RM reservation must be released on close,
+    /// while used Stock Reservation Entry quantities remain reserved.
     /// </summary>
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
     public async Task<SubcontractingOrderDto> CloseOrderAsync(Guid id)
@@ -358,6 +365,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 await _binService.UpdateReservedQtyForSubContractAsync(
                     item.ItemId, item.ReserveWarehouseId.Value, -pendingQty);
             }
+        }
+
+        var closeSreManager = LazyServiceProvider?.LazyGetService<StockReservationManager>();
+        if (closeSreManager != null)
+        {
+            await closeSreManager.CancelReservationsForVoucherAsync(sco.Id);
         }
 
         await _scoRepository.UpdateAsync(sco);

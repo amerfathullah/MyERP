@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { WorkstationDto } from '../../proxy/manufacturing/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -91,6 +92,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 export class WorkstationDetailComponent implements OnInit {
   private manufacturingService = inject(ManufacturingService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
   ws: WorkstationDto | null = null;
   isLoading = false;
 
@@ -100,7 +102,10 @@ export class WorkstationDetailComponent implements OnInit {
       this.isLoading = true;
       this.manufacturingService.getWorkstation(id).subscribe({
         next: w => { this.ws = w; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
+        error: (err: any) => {
+          this.isLoading = false;
+          this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        }
       });
     }
   }

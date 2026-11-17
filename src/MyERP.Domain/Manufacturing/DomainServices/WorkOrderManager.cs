@@ -161,11 +161,12 @@ public class WorkOrderManager : DomainService
                     ?? item?.DefaultWarehouseId
                     ?? group?.DefaultWarehouseId;
 
-                // Per ERPNext commits e20967e15e and 8ae5e72ea6:
-                // BOM rows are costed per row UOM; Work Order rows require stock qty and rate per stock UOM.
+                // Per ERPNext commits e20967e15e, 8ae5e72ea6, 2c673e4f7e, fa6a517af9, and b9fa398013:
+                // BOM rows are costed per row UOM; Work Order rows require stock qty and full-precision rate per stock UOM
+                // (rounding rate to 4dp zeroed sub-cent component costs when multiplied by large quantities).
                 var convFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1m;
                 var rowStockQty = Math.Round(i.Quantity * convFactor, 4);
-                var rowStockRate = Math.Round(i.Rate / convFactor, 4);
+                var rowStockRate = i.Rate / convFactor;
 
                 collected.Add(new WorkOrderMaterialRequirement
                 {

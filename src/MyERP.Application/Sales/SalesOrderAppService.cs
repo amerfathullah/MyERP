@@ -1723,6 +1723,68 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 .ToDictionary(g => g.Key, g => g.Sum(r => r.AvailableQty));
         }
 
+        // Per ERPNext commits 14a3847119, 01c271e467, 11bdd53d53:
+        // Block deleting a Sales Order row if it (or any packed item from a Product Bundle row) is ordered on a non-cancelled Purchase Order.
+        var linkedPoBySoRowId = new Dictionary<Guid, string>();
+        if (input.RemovedItemIds != null && input.RemovedItemIds.Count > 0)
+        {
+            var removedSet = input.RemovedItemIds.ToHashSet();
+            var poRepoForDelete = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+            if (poRepoForDelete != null)
+            {
+                var poQuery = await poRepoForDelete.WithDetailsAsync(p => p.Items);
+                if (poQuery == null)
+                {
+                    poQuery = await poRepoForDelete.GetQueryableAsync();
+                }
+
+                if (poQuery != null)
+                {
+                    var linkedPos = poQuery
+                        .Where(p => p.Status != Core.DocumentStatus.Cancelled
+                            && (p.InterCompanySalesOrderId == so.Id
+                                || p.Items.Any(pi => pi.SalesOrderId == so.Id
+                                    || (pi.SalesOrderItemId.HasValue && removedSet.Contains(pi.SalesOrderItemId.Value)))))
+                        .ToList();
+
+                    if (linkedPos.Count > 0)
+                    {
+                        var bundleService = LazyServiceProvider.LazyGetService<DomainServices.ProductBundleDecompositionService>();
+                        var bundleComponentsByRowId = new Dictionary<Guid, HashSet<Guid>>();
+                        foreach (var candidateRow in so.Items.Where(i => removedSet.Contains(i.Id)))
+                        {
+                            if (bundleService != null && (candidateRow.ProductBundleId.HasValue || await bundleService.IsBundleItemAsync(candidateRow.ItemId)))
+                            {
+                                var comps = await bundleService.DecomposeAsync(
+                                    candidateRow.ItemId, candidateRow.Quantity, candidateRow.UnitPrice,
+                                    candidateRow.WarehouseId, candidateRow.Id, productBundleId: candidateRow.ProductBundleId);
+                                if (comps != null && comps.Count > 0)
+                                {
+                                    bundleComponentsByRowId[candidateRow.Id] = comps.Select(c => c.ComponentItemId).ToHashSet();
+                                }
+                            }
+                        }
+
+                        foreach (var candidateRow in so.Items.Where(i => removedSet.Contains(i.Id)))
+                        {
+                            bundleComponentsByRowId.TryGetValue(candidateRow.Id, out var packedComponentIds);
+                            var matchingPo = linkedPos.FirstOrDefault(p =>
+                                p.Items.Any(pi =>
+                                    pi.SalesOrderItemId == candidateRow.Id
+                                    || ((pi.SalesOrderId == so.Id || p.InterCompanySalesOrderId == so.Id)
+                                        && (pi.ItemId == candidateRow.ItemId
+                                            || (packedComponentIds != null && packedComponentIds.Contains(pi.ItemId))))));
+
+                            if (matchingPo != null)
+                            {
+                                linkedPoBySoRowId[candidateRow.Id] = matchingPo.OrderNumber;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         foreach (var removeId in input.RemovedItemIds ?? Enumerable.Empty<Guid>())
         {
             var soItemToRemove = so.Items.FirstOrDefault(i => i.Id == removeId);
@@ -1733,7 +1795,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
 
             var hasReservedStock = reservedByDetailId.GetValueOrDefault(soItemToRemove.Id) > 0;
-            _childItemUpdateService.ValidateSalesOrderItemDeletion(soItemToRemove, hasReservedStock);
+            linkedPoBySoRowId.TryGetValue(soItemToRemove.Id, out var linkedPoNumber);
+            _childItemUpdateService.ValidateSalesOrderItemDeletion(soItemToRemove, hasReservedStock, linkedPoNumber);
 
             if (soItemToRemove.WarehouseId.HasValue && !soItemToRemove.DeliveredBySupplier)
             {

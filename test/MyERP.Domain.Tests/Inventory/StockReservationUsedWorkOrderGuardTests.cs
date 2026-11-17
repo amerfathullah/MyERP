@@ -151,4 +151,89 @@ public class StockReservationUsedWorkOrderGuardTests
         consumed[0].ConsumedQty.ShouldBe(6m);
         sre.ConsumedQty.ShouldBe(10m);
     }
+
+    [Fact]
+    public async Task ValidateCanCancelAsync_UsedReservation_OnOpenOrClosedSubcontractingOrder_Throws()
+    {
+        var scoId = Guid.NewGuid();
+        var sco = new Purchasing.Entities.SubcontractingOrder(scoId, CompanyId, "SCO-001", DateTime.UtcNow.Date, Guid.NewGuid());
+        sco.AddItem(new Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), scoId, ItemId, "FG", 10m, 50m));
+        sco.Submit();
+
+        var sre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "Subcontracting Order", scoId, 10m);
+        sre.Submit();
+        sre.ConsumedQty = 3m;
+
+        var scoRepo = Substitute.For<IRepository<Purchasing.Entities.SubcontractingOrder, Guid>>();
+        scoRepo.FindAsync(scoId).Returns(Task.FromResult<Purchasing.Entities.SubcontractingOrder?>(sco));
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // Open SCO -> throws (commit 4bf8b4ded2)
+        var exOpen = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateCanCancelAsync(sre, null, scoRepo));
+        exOpen.Code.ShouldBe(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled);
+
+        // Closed SCO -> still throws because a closed SCO can be re-opened (commit 719a5cdd31)
+        sco.Close();
+        var exClosed = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateCanCancelAsync(sre, null, scoRepo));
+        exClosed.Code.ShouldBe(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled);
+
+        // Reopen and cancel SCO -> allowed on cancelled SCO
+        sco.Reopen();
+        sco.Cancel();
+        await manager.ValidateCanCancelAsync(sre, null, scoRepo);
+    }
+
+    [Fact]
+    public async Task TransferReservationEntriesAsync_SubcontractingOrder_UsesVoucherDemandQtyAndBatchFirst()
+    {
+        var planId = Guid.NewGuid();
+        var scoId = Guid.NewGuid();
+        var scoRowId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var qtySre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "ProductionPlan", planId, 5m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        qtySre.Submit();
+
+        var batchSre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "ProductionPlan", planId, 4m)
+        {
+            BatchId = batchId,
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc)
+        };
+        batchSre.Submit();
+
+        var inserted = new List<StockReservationEntry>();
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { qtySre, batchSre }.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(x => inserted.Add(x))).Returns(ci => Task.FromResult(ci.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // Transfer 6 units to SCO row with total required demand of 10 (commits 75c8bae283 & 3d4ca309aa)
+        await manager.TransferReservationEntriesAsync(
+            "ProductionPlan", planId,
+            "Subcontracting Order", scoId,
+            ItemId, WarehouseId,
+            qty: 6m,
+            toVoucherDetailId: scoRowId,
+            voucherDemandQty: 10m);
+
+        // Batch SRE (4 units) transferred first, then 2 units from qty SRE
+        batchSre.TransferredQty.ShouldBe(4m);
+        qtySre.TransferredQty.ShouldBe(2m);
+
+        inserted.Count.ShouldBe(2);
+        inserted[0].BatchId.ShouldBe(batchId);
+        inserted[0].ReservedQty.ShouldBe(4m);
+        inserted[0].VoucherQty.ShouldBe(10m);
+        inserted[1].BatchId.ShouldBeNull();
+        inserted[1].ReservedQty.ShouldBe(2m);
+        inserted[1].VoucherQty.ShouldBe(10m);
+    }
 }

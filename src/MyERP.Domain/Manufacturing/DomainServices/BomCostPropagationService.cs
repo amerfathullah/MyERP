@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -17,10 +18,186 @@ namespace MyERP.Manufacturing.DomainServices;
 public class BomCostPropagationService : DomainService
 {
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
+    private readonly IRepository<Bin, Guid>? _binRepository;
+    private readonly IRepository<Warehouse, Guid>? _warehouseRepository;
+    private readonly IRepository<StockLedgerEntry, Guid>? _sleRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<ItemPrice, Guid>? _itemPriceRepository;
 
     public BomCostPropagationService(IRepository<BillOfMaterials, Guid> bomRepository)
+        : this(bomRepository, null, null, null, null, null)
+    {
+    }
+
+    public BomCostPropagationService(
+        IRepository<BillOfMaterials, Guid> bomRepository,
+        IRepository<Bin, Guid>? binRepository = null,
+        IRepository<Warehouse, Guid>? warehouseRepository = null,
+        IRepository<StockLedgerEntry, Guid>? sleRepository = null,
+        IRepository<Item, Guid>? itemRepository = null,
+        IRepository<ItemPrice, Guid>? itemPriceRepository = null)
     {
         _bomRepository = bomRepository;
+        _binRepository = binRepository;
+        _warehouseRepository = warehouseRepository;
+        _sleRepository = sleRepository;
+        _itemRepository = itemRepository;
+        _itemPriceRepository = itemPriceRepository;
+    }
+
+    /// <summary>
+    /// Resolves a BOM row's valuation rate per stock UOM following ERPNext bom.py:get_valuation_rate
+    /// (commits ff5f2d6667 &amp; 95bf4771c3):
+    /// 1) Average valuation rate from Bins in the BOM's company (scoped to <paramref name="warehouseId"/> when provided).
+    /// 2) If <= 0 (including when <paramref name="warehouseId"/> has no Bin), fallback to the last non-cancelled
+    ///    StockLedgerEntry with ValuationRate &gt; 0 in the BOM's own company (never another company's SLE).
+    /// 3) If still <= 0, fallback to Item.StandardBuyingPrice.
+    /// </summary>
+    public async Task<decimal> ResolveBomItemValuationRateAsync(
+        Guid itemId,
+        Guid companyId,
+        Guid? warehouseId = null)
+    {
+        decimal valuationRate = 0m;
+
+        var binRepo = _binRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Bin, Guid>>();
+        var whRepo = _warehouseRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Warehouse, Guid>>();
+
+        if (binRepo != null)
+        {
+            var binQuery = await binRepo.GetQueryableAsync();
+            if (binQuery != null)
+            {
+                if (warehouseId.HasValue)
+                {
+                    bool warehouseMatchesCompany = true;
+                    if (whRepo != null)
+                    {
+                        var wh = await whRepo.FindAsync(warehouseId.Value);
+                        if (wh != null && wh.CompanyId != companyId)
+                        {
+                            warehouseMatchesCompany = false;
+                        }
+                    }
+
+                    if (warehouseMatchesCompany)
+                    {
+                        var scopedBins = binQuery
+                            .Where(b => b.ItemId == itemId && b.WarehouseId == warehouseId.Value)
+                            .ToList();
+                        var totalQty = scopedBins.Sum(b => b.ActualQty);
+                        var totalVal = scopedBins.Sum(b => b.StockValue);
+                        if (totalQty > 0m && totalVal > 0m)
+                        {
+                            valuationRate = totalVal / totalQty;
+                        }
+                    }
+                }
+                else if (whRepo != null)
+                {
+                    var whQuery = await whRepo.GetQueryableAsync();
+                    var companyWhIds = whQuery != null
+                        ? whQuery.Where(w => w.CompanyId == companyId).Select(w => w.Id).ToHashSet()
+                        : new HashSet<Guid>();
+                    if (companyWhIds.Count > 0)
+                    {
+                        var companyBins = binQuery
+                            .Where(b => b.ItemId == itemId && companyWhIds.Contains(b.WarehouseId))
+                            .ToList();
+                        var totalQty = companyBins.Sum(b => b.ActualQty);
+                        var totalVal = companyBins.Sum(b => b.StockValue);
+                        if (totalQty > 0m && totalVal > 0m)
+                        {
+                            valuationRate = totalVal / totalQty;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Per ERPNext commits ff5f2d6667 & 95bf4771c3:
+        // When no Bin exists (e.g. a source warehouse that never held the item) or Bin valuation <= 0,
+        // fallback to the last non-cancelled SLE valuation rate scoped to the BOM's own company.
+        if (valuationRate <= 0m)
+        {
+            var sleRepo = _sleRepository ?? LazyServiceProvider?.LazyGetService<IRepository<StockLedgerEntry, Guid>>();
+            if (sleRepo != null)
+            {
+                var sleQuery = await sleRepo.GetQueryableAsync();
+                if (sleQuery != null)
+                {
+                    var lastSle = sleQuery
+                        .Where(s => s.ItemId == itemId
+                            && s.CompanyId == companyId
+                            && s.ValuationRate > 0m
+                            && !s.IsCancelled)
+                        .OrderByDescending(s => s.PostingDateTime)
+                        .ThenByDescending(s => s.CreationTime)
+                        .FirstOrDefault();
+
+                    if (lastSle != null)
+                    {
+                        valuationRate = lastSle.ValuationRate;
+                    }
+                }
+            }
+        }
+
+        if (valuationRate <= 0m)
+        {
+            var itemRepo = _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
+            if (itemRepo != null)
+            {
+                var item = await itemRepo.FindAsync(itemId);
+                if (item?.StandardBuyingPrice > 0m)
+                {
+                    valuationRate = item.StandardBuyingPrice.Value;
+                }
+            }
+        }
+
+        return valuationRate;
+    }
+
+    /// <summary>
+    /// Resolves a BOM row's rate from a Buying Price List as of <paramref name="asOfDate"/> (defaults to today),
+    /// skipping future and expired Item Prices per ERPNext commit 62b2b6871c.
+    /// </summary>
+    public async Task<decimal> ResolveBomItemPriceListRateAsync(
+        Guid itemId,
+        Guid priceListId,
+        string? uom = null,
+        decimal conversionFactor = 1m,
+        DateTime? asOfDate = null)
+    {
+        var priceRepo = _itemPriceRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemPrice, Guid>>();
+        if (priceRepo == null) return 0m;
+
+        var priceQuery = await priceRepo.GetQueryableAsync();
+        if (priceQuery == null) return 0m;
+
+        var checkDate = (asOfDate ?? DateTime.UtcNow).Date;
+        var validPrices = priceQuery
+            .Where(p => p.ItemId == itemId && p.PriceListId == priceListId)
+            .ToList()
+            .Where(p => p.IsValidOnDate(checkDate))
+            .OrderByDescending(p => p.ValidFrom ?? DateTime.MinValue)
+            .ThenByDescending(p => p.CreationTime)
+            .ToList();
+
+        if (validPrices.Count == 0) return 0m;
+
+        if (!string.IsNullOrWhiteSpace(uom))
+        {
+            var exactUomPrice = validPrices.FirstOrDefault(p => string.Equals(p.Uom, uom, StringComparison.OrdinalIgnoreCase));
+            if (exactUomPrice != null)
+            {
+                return exactUomPrice.PriceListRate;
+            }
+        }
+
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return validPrices[0].PriceListRate * factor;
     }
 
     /// <summary>
@@ -30,6 +207,18 @@ public class BomCostPropagationService : DomainService
     public async Task<int> UpdateCostAndPropagateAsync(Guid bomId)
     {
         var bom = await _bomRepository.GetAsync(bomId, includeDetails: true);
+        foreach (var item in bom.Items)
+        {
+            if (item.Rate <= 0m && (!item.SubBomId.HasValue || (!item.SetRateOfSubAssemblyItemBasedOnBom && !item.IsPhantom)))
+            {
+                var resolvedRate = await ResolveBomItemValuationRateAsync(
+                    item.ItemId, bom.CompanyId, item.SourceWarehouseId ?? bom.SourceWarehouseId);
+                if (resolvedRate > 0m)
+                {
+                    item.Rate = resolvedRate * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                }
+            }
+        }
         bom.RecalculateCost();
         await _bomRepository.UpdateAsync(bom);
 

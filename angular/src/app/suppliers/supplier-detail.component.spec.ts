@@ -1,6 +1,7 @@
 import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { of } from 'rxjs';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import { SupplierDetailComponent } from './supplier-detail.component';
 import { SupplierService } from '../proxy/purchasing/supplier.service';
@@ -39,6 +40,7 @@ describe('SupplierDetailComponent Allowed Companies', () => {
         { provide: PaymentReconciliationService, useValue: { getOutstandingInvoices: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
         { provide: PartyDashboardService, useValue: { getSupplierDashboard: vi.fn().mockReturnValue(of(null)) } },
+        { provide: ToasterService, useValue: { error: vi.fn() } },
       ],
     });
 
@@ -51,5 +53,27 @@ describe('SupplierDetailComponent Allowed Companies', () => {
     expect(comp.allowedCompanies()).toEqual([{ id: 'comp-2', name: 'Trading Co' }]);
     expect(comp.companies()).toEqual([{ id: 'comp-2', name: 'Trading Co' }]);
     expect(comp.selectedCompanyId()).toBe('comp-2');
+  });
+
+  it('surfaces toaster error when supplier load fails', () => {
+    const toasterMock = { error: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 'sup-1' } } } },
+        { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Supplier load failed' } } }))) } },
+        { provide: SupplierScorecardService, useValue: { getBySupplierIdBySupplierId: vi.fn().mockReturnValue(of(null)) } },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PaymentReconciliationService, useValue: { getOutstandingInvoices: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
+        { provide: PartyDashboardService, useValue: { getSupplierDashboard: vi.fn().mockReturnValue(of(null)) } },
+        { provide: ToasterService, useValue: toasterMock },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new SupplierDetailComponent());
+    comp.ngOnInit();
+
+    expect(comp.loading()).toBe(false);
+    expect(toasterMock.error).toHaveBeenCalledWith('Supplier load failed');
   });
 });

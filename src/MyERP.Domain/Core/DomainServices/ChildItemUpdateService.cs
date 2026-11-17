@@ -17,9 +17,13 @@ public class ChildItemUpdateService : DomainService
 {
     /// <summary>
     /// Validates whether a Sales Order child row can be deleted or removed.
-    /// Throws BusinessException if the item has already been partially delivered or billed.
+    /// Throws BusinessException if the item has already been partially delivered, returned, ordered on a Purchase Order, or billed
+    /// (per ERPNext commits a4819db4f9, 14a3847119, 01c271e467, 11bdd53d53).
     /// </summary>
-    public void ValidateSalesOrderItemDeletion(SalesOrderItem item, bool hasKeptStockReservation = false)
+    public void ValidateSalesOrderItemDeletion(
+        SalesOrderItem item,
+        bool hasKeptStockReservation = false,
+        string? linkedPurchaseOrderNumber = null)
     {
         if (item.IsClosed)
         {
@@ -33,10 +37,20 @@ public class ChildItemUpdateService : DomainService
                 .WithData("detail", $"Cannot delete Sales Order item '{item.Description}' because stock is reserved. Unreserve stock before deleting the item.");
         }
 
-        if (item.DeliveredQty > 0)
+        if (!string.IsNullOrWhiteSpace(linkedPurchaseOrderNumber))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Cannot delete Sales Order item '{item.Description}' — {item.DeliveredQty} units have already been delivered.");
+                .WithData("detail",
+                    $"Cannot delete Sales Order item '{item.Description}' which is already ordered on Purchase Order {linkedPurchaseOrderNumber}.");
+        }
+
+        if (item.DeliveredQty > 0 || item.ReturnedQty > 0)
+        {
+            var detail = item.DeliveredQty > 0
+                ? $"Cannot delete Sales Order item '{item.Description}' — {item.DeliveredQty} units have already been delivered."
+                : $"Cannot delete Sales Order item '{item.Description}' which has already been delivered.";
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", detail);
         }
 
         if (item.BilledQty > 0)
@@ -48,10 +62,13 @@ public class ChildItemUpdateService : DomainService
 
     /// <summary>
     /// Validates whether a Purchase Order child row can be deleted or removed.
-    /// Throws BusinessException if the item has already been partially received or billed,
-    /// is closed, or is linked by an inter-company Sales Order (ERPNext PR #66992).
+    /// Throws BusinessException if the item has already been partially received, returned, or billed,
+    /// is closed, or is linked by an inter-company Sales Order (ERPNext PR #66992 &amp; commit a4819db4f9).
     /// </summary>
-    public void ValidatePurchaseOrderItemDeletion(PurchaseOrderItem item, string? linkedInterCompanySalesOrderNumber = null)
+    public void ValidatePurchaseOrderItemDeletion(
+        PurchaseOrderItem item,
+        string? linkedInterCompanySalesOrderNumber = null,
+        bool hasReturnedReceipt = false)
     {
         if (item.IsClosed)
         {
@@ -66,10 +83,13 @@ public class ChildItemUpdateService : DomainService
                     $"Cannot delete Purchase Order item '{item.Description}' which is already ordered on Sales Order {linkedInterCompanySalesOrderNumber}.");
         }
 
-        if (item.ReceivedQty > 0)
+        if (item.ReceivedQty > 0 || hasReturnedReceipt || item.FirstReceiptDate.HasValue)
         {
+            var detail = item.ReceivedQty > 0
+                ? $"Cannot delete Purchase Order item '{item.Description}' — {item.ReceivedQty} units have already been received."
+                : $"Cannot delete Purchase Order item '{item.Description}' which has already been received.";
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Cannot delete Purchase Order item '{item.Description}' — {item.ReceivedQty} units have already been received.");
+                .WithData("detail", detail);
         }
 
         if (item.BilledQty > 0)

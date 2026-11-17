@@ -363,13 +363,22 @@ public class StockReservationManager : DomainService
 
     /// <summary>
     /// Validates whether a Stock Reservation Entry can be cancelled directly.
-    /// Per ERPNext PR #60510 (commit b7e3383f5c / 2bee21840a):
-    /// Refuse to cancel a Work Order reservation if it has already transferred or consumed stock.
-    /// The stock is released by closing the Work Order, not by cancelling the reservation.
+    /// Per ERPNext PR #60510 (commit b7e3383f5c / 2bee21840a) and commits 4bf8b4ded2 &amp; 719a5cdd31:
+    /// Refuse to cancel a Work Order or Subcontracting Order reservation if it has already transferred or consumed stock.
+    /// The stock is released by closing the order, not by cancelling the reservation.
+    /// A closed Subcontracting Order can be re-opened, so its used reservations cannot be cancelled while closed.
     /// </summary>
-    public async Task ValidateCanCancelAsync(StockReservationEntry sre, IRepository<Manufacturing.Entities.WorkOrder, Guid>? woRepository = null)
+    public async Task ValidateCanCancelAsync(
+        StockReservationEntry sre,
+        IRepository<Manufacturing.Entities.WorkOrder, Guid>? woRepository = null,
+        IRepository<Purchasing.Entities.SubcontractingOrder, Guid>? scoRepository = null)
     {
-        if ((sre.VoucherType is "Work Order" or "WorkOrder") && (sre.TransferredQty > 0 || sre.ConsumedQty > 0))
+        if (sre.TransferredQty <= 0 && sre.ConsumedQty <= 0)
+        {
+            return;
+        }
+
+        if (sre.VoucherType is "Work Order" or "WorkOrder")
         {
             if (woRepository != null)
             {
@@ -379,6 +388,26 @@ public class StockReservationManager : DomainService
                     throw new BusinessException(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled)
                         .WithData("reservationId", sre.Id)
                         .WithData("voucherNo", wo.WorkOrderNumber);
+                }
+            }
+            else
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled)
+                    .WithData("reservationId", sre.Id)
+                    .WithData("voucherNo", sre.VoucherId);
+            }
+        }
+        else if (sre.VoucherType is "Subcontracting Order" or "SubcontractingOrder")
+        {
+            if (scoRepository != null)
+            {
+                var sco = await scoRepository.FindAsync(sre.VoucherId);
+                // Per ERPNext commit 719a5cdd31: a closed Subcontracting Order keeps its used reservations and can be re-opened
+                if (sco != null && sco.Status != Purchasing.SubcontractingOrderStatus.Cancelled)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled)
+                        .WithData("reservationId", sre.Id)
+                        .WithData("voucherNo", sco.OrderNumber);
                 }
             }
             else
@@ -565,15 +594,16 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
-    /// Transfers reservation entries from a source voucher (e.g. Production Plan) to a target voucher (e.g. Work Order).
+    /// Transfers reservation entries from a source voucher (e.g. Production Plan) to a target voucher (e.g. Work Order or Subcontracting Order).
     /// Updates source entries (marks transferred_qty) and creates target reservation entries linked via FromVoucher.
-    /// Per ERPNext commit 0bc3cfe29d: transfer_reservation_entries_to.
+    /// Per ERPNext commits 0bc3cfe29d, 3d4ca309aa, da63d14d7e: transfer_reservation_entries_to.
     /// </summary>
     public async Task TransferReservationEntriesAsync(
         string fromVoucherType, Guid fromVoucherId,
         string toVoucherType, Guid toVoucherId,
         Guid itemId, Guid warehouseId, decimal qty,
-        Guid? toVoucherDetailId = null)
+        Guid? toVoucherDetailId = null,
+        decimal? voucherDemandQty = null)
     {
         var sreQueryable = await _sreRepository.GetQueryableAsync();
         var sourceEntries = sreQueryable
@@ -583,19 +613,22 @@ public class StockReservationManager : DomainService
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
                 && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
-            .OrderBy(s => s.CreationTime)
+            .OrderByDescending(s => s.BatchId != null || s.SerialAndBatchBundleId != null)
+            .ThenBy(s => s.CreationTime)
             .ToList();
 
-        var remaining = qty;
+        var remaining = Math.Round(qty, 4);
         foreach (var src in sourceEntries)
         {
             if (remaining <= 0) break;
             var available = src.ReservedQty - src.DeliveredQty - src.TransferredQty - src.ConsumedQty;
-            var transferQty = Math.Min(available, remaining);
+            var transferQty = Math.Round(Math.Min(available, remaining), 4);
+            if (transferQty <= 0) continue;
 
-            src.TransferredQty += transferQty;
+            src.TransferredQty = Math.Round(src.TransferredQty + transferQty, 4);
             await _sreRepository.UpdateAsync(src);
 
+            var targetVoucherQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : transferQty;
             var newSre = new StockReservationEntry(
                 CreateGuid(),
                 src.CompanyId,
@@ -604,7 +637,7 @@ public class StockReservationManager : DomainService
                 toVoucherType,
                 toVoucherId,
                 transferQty,
-                transferQty,
+                targetVoucherQty,
                 src.TenantId)
             {
                 VoucherDetailId = toVoucherDetailId,
@@ -617,7 +650,7 @@ public class StockReservationManager : DomainService
             newSre.Submit();
             await _sreRepository.InsertAsync(newSre);
 
-            remaining -= transferQty;
+            remaining = Math.Max(0m, Math.Round(remaining - transferQty, 4));
         }
     }
 
@@ -822,7 +855,7 @@ public class StockReservationManager : DomainService
                 ConsumedQty = maxAllowed
             });
 
-            remaining -= maxAllowed;
+            remaining = Math.Max(0m, Math.Round(remaining - maxAllowed, 4));
         }
 
         return consumed.ToArray();
@@ -1003,7 +1036,7 @@ public class StockReservationManager : DomainService
             if (available <= 0) continue;
 
             var consume = Math.Min(remaining, available);
-            sre.ConsumedQty += consume;
+            sre.ConsumedQty = Math.Round(sre.ConsumedQty + consume, 4);
             await _sreRepository.UpdateAsync(sre);
 
             consumed.Add(new ReservationConsumption
@@ -1012,7 +1045,7 @@ public class StockReservationManager : DomainService
                 ConsumedQty = consume
             });
 
-            remaining -= consume;
+            remaining = Math.Max(0m, Math.Round(remaining - consume, 4));
         }
 
         return consumed.ToArray();

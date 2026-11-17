@@ -2,6 +2,7 @@ import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 
@@ -85,6 +86,7 @@ import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 export class PricingRuleDetailComponent implements OnInit {
   private service = inject(PricingRuleService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
   rule: any = null;
   isLoading = false;
 
@@ -94,7 +96,10 @@ export class PricingRuleDetailComponent implements OnInit {
       this.isLoading = true;
       this.service.get(id).subscribe({
         next: r => { this.rule = r; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
+        error: (err: any) => {
+          this.isLoading = false;
+          this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        }
       });
     }
   }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
@@ -124,6 +125,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 export class BlanketOrderDetailComponent implements OnInit {
   private service = inject(BlanketOrderService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
   order: any = null;
   isLoading = false;
 
@@ -133,38 +135,60 @@ export class BlanketOrderDetailComponent implements OnInit {
       this.isLoading = true;
       this.service.get(id).subscribe({
         next: o => { this.order = o; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
+        error: (err: any) => { this.isLoading = false; this.handleError(err); }
       });
     }
   }
 
   submit() {
     if (!this.order?.id) return;
-    this.service.submit(this.order.id).subscribe(o => this.order = o);
+    this.service.submit(this.order.id).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   close() {
     if (!this.order?.id) return;
-    this.service.close(this.order.id).subscribe(o => this.order = o);
+    this.service.close(this.order.id).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   reopen() {
     if (!this.order?.id) return;
-    this.service.reopen(this.order.id).subscribe(o => this.order = o);
+    this.service.reopen(this.order.id).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   cancel() {
     if (!this.order?.id) return;
-    this.service.cancel(this.order.id).subscribe(o => this.order = o);
+    this.service.cancel(this.order.id).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   closeItem(itemId: string) {
     if (!this.order?.id || !itemId) return;
-    this.service.closeItem(this.order.id, itemId).subscribe(o => this.order = o);
+    this.service.closeItem(this.order.id, itemId).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
   }
 
   reopenItem(itemId: string) {
     if (!this.order?.id || !itemId) return;
-    this.service.reopenItem(this.order.id, itemId).subscribe(o => this.order = o);
+    this.service.reopenItem(this.order.id, itemId).subscribe({
+      next: o => this.order = o,
+      error: (err: any) => this.handleError(err),
+    });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -301,6 +301,7 @@ export class AssetDetailComponent implements OnInit {
   private assetMaintenanceLogService = inject(AssetMaintenanceLogService);
   private accountService = inject(AccountService);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
 
   asset = signal<AssetDto | null>(null);
   assetActivities = signal<AssetActivityDto[]>([]);
@@ -323,7 +324,10 @@ export class AssetDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.service.get(id).subscribe(a => this.asset.set(a));
+      this.service.get(id).subscribe({
+        next: a => this.asset.set(a),
+        error: (err: any) => this.handleError(err),
+      });
       this.loadActivities(id);
       this.loadMaintenance(id);
     }
@@ -375,6 +379,7 @@ export class AssetDetailComponent implements OnInit {
           this.activityForm.details = '';
           this.loadActivities(assetId);
         },
+        error: (err: any) => this.handleError(err),
       });
   }
 
@@ -394,11 +399,14 @@ export class AssetDetailComponent implements OnInit {
 
   onAction(name: string): void {
     const id = this.asset()!.id!;
-    const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
+    const reload = () => this.service.get(id).subscribe({
+      next: a => this.asset.set(a),
+      error: (err: any) => this.handleError(err),
+    });
     const today = new Date().toISOString().substring(0, 10);
     switch (name) {
       case 'submit':
-        this.service.submit(id).subscribe(reload);
+        this.service.submit(id).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
         break;
       case 'sell':
         this.sellForm = { disposalDate: today, amount: 0, settlementAccountId: '' };
@@ -409,15 +417,15 @@ export class AssetDetailComponent implements OnInit {
         this.showSplitForm = true;
         break;
       case 'scrap':
-        this.service.scrap(id, today).subscribe(reload);
+        this.service.scrap(id, today).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
         break;
       case 'restore':
-        this.service.restore(id).subscribe(reload);
+        this.service.restore(id).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
         break;
       case 'cancel':
         this.confirmation.warn('::AssetCancelConfirmation', '::AreYouSure').subscribe(status => {
           if (status !== Confirmation.Status.confirm) return;
-          this.service.cancel(id).subscribe(reload);
+          this.service.cancel(id).subscribe({ next: reload, error: (err: any) => this.handleError(err) });
         });
         break;
     }
@@ -425,20 +433,36 @@ export class AssetDetailComponent implements OnInit {
 
   confirmSell(): void {
     const id = this.asset()!.id!;
-    const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
-    this.service.sell(id, this.sellForm.disposalDate, this.sellForm.amount, this.sellForm.settlementAccountId || null).subscribe(() => {
-      this.showSellForm = false;
-      reload();
+    const reload = () => this.service.get(id).subscribe({
+      next: a => this.asset.set(a),
+      error: (err: any) => this.handleError(err),
+    });
+    this.service.sell(id, this.sellForm.disposalDate, this.sellForm.amount, this.sellForm.settlementAccountId || null).subscribe({
+      next: () => {
+        this.showSellForm = false;
+        reload();
+      },
+      error: (err: any) => this.handleError(err),
     });
   }
 
   confirmSplit(): void {
     const id = this.asset()!.id!;
-    const reload = () => this.service.get(id).subscribe(a => this.asset.set(a));
-    this.service.split(id, this.splitQty).subscribe(newAsset => {
-      this.showSplitForm = false;
-      reload();
-      if (newAsset?.id) this.router.navigate(['/assets', newAsset.id]);
+    const reload = () => this.service.get(id).subscribe({
+      next: a => this.asset.set(a),
+      error: (err: any) => this.handleError(err),
     });
+    this.service.split(id, this.splitQty).subscribe({
+      next: newAsset => {
+        this.showSplitForm = false;
+        reload();
+        if (newAsset?.id) this.router.navigate(['/assets', newAsset.id]);
+      },
+      error: (err: any) => this.handleError(err),
+    });
+  }
+
+  private handleError(err: any): void {
+    this.toaster.error(err?.error?.error?.message || '::OperationFailed');
   }
 }

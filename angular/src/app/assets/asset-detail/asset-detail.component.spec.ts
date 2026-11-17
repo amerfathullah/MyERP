@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ConfirmationService } from '@abp/ng.theme.shared';
-import { of } from 'rxjs';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
+import { of, throwError } from 'rxjs';
 import { AssetDetailComponent } from './asset-detail.component';
 import { AssetService } from '../../proxy/assets/asset.service';
 import { AssetActivityService } from '../../proxy/assets/asset-activity.service';
@@ -169,6 +169,7 @@ describe('AssetDetailComponent Logic', () => {
           { provide: AssetMaintenanceLogService, useValue: logMock },
           { provide: AccountService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
           { provide: ConfirmationService, useValue: {} },
+          { provide: ToasterService, useValue: { error: vi.fn() } },
         ],
       });
 
@@ -179,6 +180,64 @@ describe('AssetDetailComponent Logic', () => {
       expect(logMock.getLogsByAsset).toHaveBeenCalledWith('asset-1');
       expect(comp.assetMaintenance()?.maintenanceTeamName).toBe('Facility Team');
       expect(comp.maintenanceLogs()).toHaveLength(1);
+    });
+
+    it('surfaces toaster error when load, submit, sell, split, scrap, restore, cancel, or activity fails', () => {
+      const toasterMock = { error: vi.fn() };
+      const assetServiceMock = {
+        get: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset load failed' } } }))),
+        submit: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset submit failed' } } }))),
+        scrap: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset scrap failed' } } }))),
+        restore: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset restore failed' } } }))),
+        cancel: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset cancel failed' } } }))),
+        sell: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset sell failed' } } }))),
+        split: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Asset split failed' } } }))),
+      };
+      const activityMock = {
+        getListByAsset: vi.fn().mockReturnValue(of([])),
+        create: vi.fn().mockReturnValue(throwError(() => ({ error: { error: { message: 'Activity create failed' } } }))),
+      };
+
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'asset-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: AssetService, useValue: assetServiceMock },
+          { provide: AssetActivityService, useValue: activityMock },
+          { provide: AssetMaintenanceService, useValue: { getByAsset: vi.fn().mockReturnValue(of(null)) } },
+          { provide: AssetMaintenanceLogService, useValue: { getLogsByAsset: vi.fn().mockReturnValue(of([])) } },
+          { provide: AccountService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ConfirmationService, useValue: { warn: vi.fn().mockReturnValue(of(Confirmation.Status.confirm)) } },
+          { provide: ToasterService, useValue: toasterMock },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new AssetDetailComponent());
+      comp.ngOnInit();
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset load failed');
+
+      comp.asset.set({ id: 'asset-1', assetName: 'Chiller', status: 1 } as any);
+      comp.onAction('submit');
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset submit failed');
+
+      comp.onAction('scrap');
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset scrap failed');
+
+      comp.onAction('restore');
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset restore failed');
+
+      comp.onAction('cancel');
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset cancel failed');
+
+      comp.confirmSell();
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset sell failed');
+
+      comp.confirmSplit();
+      expect(toasterMock.error).toHaveBeenCalledWith('Asset split failed');
+
+      comp.activityForm.subject = 'Inspect';
+      comp.submitAssetActivity();
+      expect(toasterMock.error).toHaveBeenCalledWith('Activity create failed');
     });
   });
 });

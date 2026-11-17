@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { SerialNoService } from '../../proxy/inventory/serial-no.service';
 import type { SerialNoDto } from '../../proxy/inventory/models';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -83,6 +84,7 @@ export class SerialNoDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private serialNoService = inject(SerialNoService);
   private router = inject(Router);
+  private toaster = inject(ToasterService);
 
   serial = signal<SerialNoDto | null>(null);
 
@@ -90,7 +92,10 @@ export class SerialNoDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.serialNoService.get(id).subscribe({
       next: (data: any) => this.serial.set(data),
-      error: () => this.router.navigate(['/inventory/serial-numbers'])
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.router.navigate(['/inventory/serial-numbers']);
+      }
     });
   }
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 
@@ -82,6 +83,7 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 export class ShippingRuleDetailComponent implements OnInit {
   private service = inject(ShippingRuleService);
   private route = inject(ActivatedRoute);
+  private toaster = inject(ToasterService);
   rule: any = null;
   isLoading = false;
 
@@ -91,7 +93,10 @@ export class ShippingRuleDetailComponent implements OnInit {
       this.isLoading = true;
       this.service.get(id).subscribe({
         next: r => { this.rule = r; this.isLoading = false; },
-        error: () => { this.isLoading = false; }
+        error: (err: any) => {
+          this.isLoading = false;
+          this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        }
       });
     }
   }

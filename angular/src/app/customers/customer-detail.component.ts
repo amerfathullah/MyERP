@@ -11,6 +11,7 @@ import { PaymentReconciliationService } from '../proxy/accounting/payment-reconc
 import { PartyPerformanceService } from '../proxy/core/party-performance.service';
 import { PartyDashboardService } from '../proxy/accounting/party-dashboard.service';
 import { LocalizationPipe } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../shared/components/activity-log/activity-log.component';
 import { AddressManagerComponent } from '../shared/components/address-manager/address-manager.component';
@@ -915,6 +916,7 @@ export class CustomerDetailComponent implements OnInit {
   private reconciliationService = inject(PaymentReconciliationService);
   private partyPerformanceService = inject(PartyPerformanceService);
   private partyDashboardService = inject(PartyDashboardService);
+  private toaster = inject(ToasterService);
 
   activeTab = signal<'overview' | 'details'>('overview');
   entity = signal<CustomerDto | null>(null);
@@ -960,7 +962,10 @@ export class CustomerDetailComponent implements OnInit {
         this.loading.set(false);
         this.loadCompaniesAndOverview();
       },
-      error: () => this.loading.set(false),
+      error: (err: any) => {
+        this.loading.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 
