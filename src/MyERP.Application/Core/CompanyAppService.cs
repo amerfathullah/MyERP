@@ -5,7 +5,10 @@ using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
+using MyERP.HumanResources.Entities;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
@@ -91,9 +94,40 @@ public class CompanyAppService :
 
     public override async Task<CompanyDto> UpdateAsync(Guid id, CreateUpdateCompanyDto input)
     {
-        await ValidateWarehousesAsync(id, input);
+        var existing = await Repository.GetAsync(id);
+        await ValidateDefaultCostCenterAsync(id, input.DefaultCostCenterId, existing.DefaultCostCenterId);
+        await ValidateWarehousesAsync(
+            id,
+            (input.DefaultWarehouseId, existing.DefaultWarehouseId, false),
+            (input.SampleRetentionWarehouseId, existing.SampleRetentionWarehouseId, false),
+            (input.DefaultInTransitWarehouseId, existing.DefaultInTransitWarehouseId, true),
+            (input.DefaultWarehouseForSalesReturnId, existing.DefaultWarehouseForSalesReturnId, false),
+            (input.DefaultWipWarehouseId, existing.DefaultWipWarehouseId, false),
+            (input.DefaultFgWarehouseId, existing.DefaultFgWarehouseId, false),
+            (input.DefaultScrapWarehouseId, existing.DefaultScrapWarehouseId, false));
         await ValidateAdvanceAccountsCurrencyAsync(id, input.CurrencyCode, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
         return await base.UpdateAsync(id, input);
+    }
+
+    public override async Task DeleteAsync(Guid id)
+    {
+        await CheckDeletePolicyAsync();
+
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        if ((await bomRepo.GetQueryableAsync()).Any(b => b.CompanyId == id))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete company while Bills of Materials exist for it.");
+        }
+
+        var empRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Employee, Guid>>();
+        if ((await empRepo.GetQueryableAsync()).Any(e => e.CompanyId == id))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete company while Employees exist for it.");
+        }
+
+        await base.DeleteAsync(id);
     }
 
     protected override Company MapToEntity(CreateUpdateCompanyDto input)
@@ -184,6 +218,28 @@ public class CompanyAppService :
 
         var currency = !string.IsNullOrWhiteSpace(input.DefaultCurrency) ? input.DefaultCurrency : company.CurrencyCode;
         await ValidateAdvanceAccountsCurrencyAsync(id, currency, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
+        await ValidateDefaultCostCenterAsync(id, input.DefaultCostCenterId, company.DefaultCostCenterId);
+        await ValidateWarehousesAsync(
+            id,
+            (input.DefaultWarehouseId, company.DefaultWarehouseId, false),
+            (input.SampleRetentionWarehouseId, company.SampleRetentionWarehouseId, false),
+            (input.DefaultInTransitWarehouseId, company.DefaultInTransitWarehouseId, true),
+            (input.DefaultWarehouseForSalesReturnId, company.DefaultWarehouseForSalesReturnId, false),
+            (input.DefaultWipWarehouseId, company.DefaultWipWarehouseId, false),
+            (input.DefaultFgWarehouseId, company.DefaultFgWarehouseId, false),
+            (input.DefaultScrapWarehouseId, company.DefaultScrapWarehouseId, false));
+
+        if (company.EnablePerpetualInventory && !input.EnablePerpetualInventory)
+        {
+            var sleRepoForPi = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+            var hasStockTransactions = (await sleRepoForPi.GetQueryableAsync())
+                .Any(sle => sle.CompanyId == company.Id && !sle.IsCancelled);
+            if (hasStockTransactions)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot disable Perpetual Inventory because stock transactions already exist for this company.");
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(input.DefaultCurrency))
             company.CurrencyCode = input.DefaultCurrency;
@@ -338,7 +394,7 @@ public class CompanyAppService :
             await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Work In Progress")
                 { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
             await whRepo.InsertAsync(new Warehouse(GuidGenerator.Create(), companyId, "Goods In Transit")
-                { ParentWarehouseId = allWarehouses.Id, IsActive = true }, autoSave: true);
+                { ParentWarehouseId = allWarehouses.Id, IsActive = true, WarehouseType = WarehouseType.Transit }, autoSave: true);
         }
 
         // Seed Manufacturing Settings
@@ -546,34 +602,80 @@ public class CompanyAppService :
         }
     }
 
-    private async Task ValidateWarehousesAsync(Guid companyId, CreateUpdateCompanyDto input)
+    private async Task ValidateDefaultCostCenterAsync(Guid companyId, Guid? newCostCenterId, Guid? previousCostCenterId)
     {
-        var warehouseIds = new[]
+        if (!newCostCenterId.HasValue || newCostCenterId == previousCostCenterId)
+            return;
+
+        var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+        var cc = await ccRepo.FindAsync(newCostCenterId.Value);
+        if (cc == null || cc.CompanyId != companyId)
         {
-            input.DefaultWarehouseId,
-            input.SampleRetentionWarehouseId,
-            input.DefaultInTransitWarehouseId,
-            input.DefaultWarehouseForSalesReturnId,
-            input.DefaultWipWarehouseId,
-            input.DefaultFgWarehouseId,
-            input.DefaultScrapWarehouseId
-        }.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Cost Center does not belong to this company.");
+        }
+
+        if (cc.IsGroup)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cost Center '{cc.Name}' is a group cost center.");
+        }
+
+        if (!cc.IsActive)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cost Center '{cc.Name}' is disabled.");
+        }
+    }
+
+    private async Task ValidateWarehousesAsync(
+        Guid companyId,
+        params (Guid? WarehouseId, Guid? PreviousId, bool RequireTransit)[] checks)
+    {
+        var warehouseIds = checks
+            .Where(c => c.WarehouseId.HasValue)
+            .Select(c => c.WarehouseId!.Value)
+            .Distinct()
+            .ToList();
 
         if (!warehouseIds.Any())
             return;
 
-        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
-        var warehouses = await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id));
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouses = (await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id)))
+            .ToDictionary(w => w.Id);
 
-        foreach (var wh in warehouses)
+        foreach (var check in checks)
         {
-            if (wh.CompanyId != companyId)
+            if (!check.WarehouseId.HasValue)
+                continue;
+
+            if (!warehouses.TryGetValue(check.WarehouseId.Value, out var wh) || wh.CompanyId != companyId)
+            {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Warehouse '{wh.Name}' does not belong to company.");
+                    .WithData("detail", $"Warehouse '{wh?.Name ?? check.WarehouseId.Value.ToString()}' does not belong to company.");
+            }
 
             if (wh.IsGroup)
+            {
                 throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
                     .WithData("detail", $"Warehouse '{wh.Name}' is a group warehouse. Default warehouse must be a leaf warehouse.");
+            }
+
+            if (check.WarehouseId != check.PreviousId)
+            {
+                if (!wh.IsActive)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Warehouse '{wh.Name}' is disabled.");
+                }
+
+                if (check.RequireTransit && !wh.IsTransitWarehouse)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Default In-Transit Warehouse '{wh.Name}' must have Transit warehouse type.");
+                }
+            }
         }
     }
 
