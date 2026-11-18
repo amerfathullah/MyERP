@@ -4237,6 +4237,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/stock-qty-vs-batch-qty',
+    loadComponent: () => import('./inventory/reports/stock-qty-vs-batch-qty/stock-qty-vs-batch-qty.component').then(c => c.StockQtyVsBatchQtyComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/reports/stock-projected-qty',
     loadComponent: () => import('./inventory/reports/stock-projected-qty/stock-projected-qty.component').then(c => c.StockProjectedQtyComponent),
     canActivate: [authGuard, permissionGuard],

@@ -575,4 +575,73 @@ public abstract class StockDiagnosticsTests<TStartupModule> : MyERPApplicationTe
         withAdjusted.DifferenceCount.ShouldBe(1);
         withAdjusted.Rows.Single().AdjustedBy.ShouldBe("SR-ADJ-001");
     }
+
+    [Fact]
+    public async Task StockQtyVsBatchQty_Should_Detect_Mismatch_And_Reconcile_Bin()
+    {
+        var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+        var batchRepo = GetRequiredService<IRepository<Batch, Guid>>();
+
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "Batch Diag Co"), autoSave: true);
+        var wh = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Batch WH"), autoSave: true);
+        var item = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "BATCH-ITEM-1", "Batched Chemical", ItemType.Goods)
+            {
+                HasBatchNo = true,
+            }, autoSave: true);
+
+        var batch1 = await batchRepo.InsertAsync(
+            new Batch(Guid.NewGuid(), item.Id, "BCH-001"), autoSave: true);
+
+        // Batch SLE shows +10 in Batch WH
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, wh.Id,
+            new DateTime(2026, 6, 1), 10m, 50m, 10m, 500m)
+        {
+            BatchId = batch1.Id,
+            VoucherType = "StockEntry",
+            VoucherId = Guid.NewGuid(),
+        }, autoSave: true);
+
+        // Corrupt Bin.ActualQty to 7 instead of 10 (diff = 7 - 10 = -3)
+        await binRepo.InsertAsync(new Bin(Guid.NewGuid(), item.Id, wh.Id)
+        {
+            ActualQty = 7m,
+            ValuationRate = 50m,
+            StockValue = 350m,
+        }, autoSave: true);
+
+        var report = await _diagnosticsService.GetStockQtyVsBatchQtyAsync(new StockQtyVsBatchQtyRequestDto
+        {
+            CompanyId = company.Id,
+            ItemId = item.Id,
+            ShowOnlyDifferences = true,
+        });
+
+        report.TotalMismatches.ShouldBe(1);
+        var row = report.Rows.Single();
+        row.StockQty.ShouldBe(7m);
+        row.BatchQty.ShouldBe(10m);
+        row.Difference.ShouldBe(-3m);
+        row.BatchNumbers.ShouldContain("BCH-001");
+
+        // Reconcile Bin from Batch Ledger
+        var rec = await _diagnosticsService.ReconcileBatchStockQtyAsync(new ReconcileBatchStockInputDto
+        {
+            Items = new() { new ReconcileBatchStockItemDto { ItemId = item.Id, WarehouseId = wh.Id } },
+        });
+        rec.UpdatedCount.ShouldBe(1);
+
+        // Healthy after reconciliation -> ShowOnlyDifferences returns 0 rows
+        var after = await _diagnosticsService.GetStockQtyVsBatchQtyAsync(new StockQtyVsBatchQtyRequestDto
+        {
+            CompanyId = company.Id,
+            ItemId = item.Id,
+            ShowOnlyDifferences = true,
+        });
+        after.Rows.ShouldBeEmpty();
+        after.TotalMismatches.ShouldBe(0);
+    }
 }

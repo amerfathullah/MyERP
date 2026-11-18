@@ -1716,4 +1716,237 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
 
         return sle.VoucherId.HasValue ? sle.VoucherId.Value.ToString()[..8] : sle.Id.ToString()[..8];
     }
+
+    /// <summary>
+    /// Compares warehouse Bin stock quantity against active batch ledger quantities
+    /// (StockLedgerEntry direct BatchId and non-cancelled SerialAndBatchBundle entries)
+    /// for batch-tracked items (ERPNext stock/report/stock_qty_vs_batch_qty).
+    /// </summary>
+    public async Task<StockQtyVsBatchQtyReportDto> GetStockQtyVsBatchQtyAsync(StockQtyVsBatchQtyRequestDto input)
+    {
+        var itemQuery = (await _itemRepository.GetQueryableAsync())
+            .Where(i => i.HasBatchNo);
+
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+            itemQuery = itemQuery.Where(i => i.CompanyId == input.CompanyId.Value);
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+            itemQuery = itemQuery.Where(i => i.Id == input.ItemId.Value);
+        if (!input.ShowDisabledItems)
+            itemQuery = itemQuery.Where(i => i.IsActive);
+
+        var items = await AsyncExecuter.ToListAsync(itemQuery);
+        if (items.Count == 0)
+            return new StockQtyVsBatchQtyReportDto();
+
+        var itemMap = items.ToDictionary(i => i.Id);
+        var itemIds = items.Select(i => i.Id).ToList();
+
+        var whQuery = (await _warehouseRepository.GetQueryableAsync())
+            .Where(w => !w.IsGroup);
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+            whQuery = whQuery.Where(w => w.CompanyId == input.CompanyId.Value);
+        if (input.WarehouseId.HasValue && input.WarehouseId.Value != Guid.Empty)
+            whQuery = whQuery.Where(w => w.Id == input.WarehouseId.Value);
+
+        var warehouses = await AsyncExecuter.ToListAsync(whQuery);
+        if (warehouses.Count == 0)
+            return new StockQtyVsBatchQtyReportDto();
+
+        var warehouseMap = warehouses.ToDictionary(w => w.Id);
+        var warehouseIds = warehouses.Select(w => w.Id).ToList();
+
+        var batchQuery = (await _batchRepository.GetQueryableAsync())
+            .Where(b => itemIds.Contains(b.ItemId) && !b.IsCancelled);
+        if (!input.ShowDisabledItems)
+            batchQuery = batchQuery.Where(b => !b.IsDisabled);
+        if (input.BatchId.HasValue && input.BatchId.Value != Guid.Empty)
+            batchQuery = batchQuery.Where(b => b.Id == input.BatchId.Value);
+
+        var activeBatches = await AsyncExecuter.ToListAsync(batchQuery);
+        var batchMap = activeBatches.ToDictionary(b => b.Id);
+        var activeBatchIds = batchMap.Keys.ToHashSet();
+
+        var bins = await AsyncExecuter.ToListAsync(
+            (await _binRepository.GetQueryableAsync())
+            .Where(b => itemIds.Contains(b.ItemId) && warehouseIds.Contains(b.WarehouseId)));
+        var binQtyMap = bins
+            .GroupBy(b => (b.ItemId, b.WarehouseId))
+            .ToDictionary(g => g.Key, g => g.Sum(b => b.ActualQty));
+
+        var sles = await AsyncExecuter.ToListAsync(
+            (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && itemIds.Contains(s.ItemId) && warehouseIds.Contains(s.WarehouseId)));
+
+        var bundleIds = sles
+            .Where(s => s.SerialAndBatchBundleId.HasValue)
+            .Select(s => s.SerialAndBatchBundleId!.Value)
+            .Distinct()
+            .ToList();
+
+        var bundleLookup = new Dictionary<Guid, SerialAndBatchBundle>();
+        if (bundleIds.Count > 0)
+        {
+            var bundles = (await _bundleRepository.WithDetailsAsync(b => b.Entries))
+                .Where(b => bundleIds.Contains(b.Id) && !b.IsCancelled)
+                .ToList();
+            bundleLookup = bundles.ToDictionary(b => b.Id);
+        }
+
+        // Accumulate net batch quantity per (ItemId, WarehouseId) and per (ItemId, WarehouseId, BatchId)
+        var pairBatchTotalMap = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+        var pairBatchNumbersMap = new Dictionary<(Guid ItemId, Guid WarehouseId), HashSet<string>>();
+
+        void AddBatchMovement(Guid itemId, Guid warehouseId, Guid batchId, decimal qty)
+        {
+            if (!activeBatchIds.Contains(batchId))
+                return;
+
+            var key = (itemId, warehouseId);
+            pairBatchTotalMap[key] = pairBatchTotalMap.GetValueOrDefault(key, 0m) + qty;
+
+            if (batchMap.TryGetValue(batchId, out var bMeta))
+            {
+                if (!pairBatchNumbersMap.TryGetValue(key, out var set))
+                    pairBatchNumbersMap[key] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                set.Add(bMeta.BatchNo);
+            }
+        }
+
+        foreach (var sle in sles)
+        {
+            if (sle.SerialAndBatchBundleId.HasValue &&
+                bundleLookup.TryGetValue(sle.SerialAndBatchBundleId.Value, out var bundle))
+            {
+                var sign = bundle.TypeOfTransaction == BundleTransactionType.Outward ? -1m : 1m;
+                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue))
+                {
+                    var whId = entry.WarehouseId ?? sle.WarehouseId;
+                    if (!warehouseMap.ContainsKey(whId)) continue;
+                    var signedEntryQty = entry.Qty < 0 ? entry.Qty : sign * entry.Qty;
+                    AddBatchMovement(sle.ItemId, whId, entry.BatchId!.Value, signedEntryQty);
+                }
+            }
+            else if (sle.BatchId.HasValue)
+            {
+                AddBatchMovement(sle.ItemId, sle.WarehouseId, sle.BatchId.Value, sle.QuantityChange);
+            }
+        }
+
+        var allPairs = new HashSet<(Guid ItemId, Guid WarehouseId)>();
+        foreach (var k in binQtyMap.Keys) allPairs.Add(k);
+        foreach (var k in pairBatchTotalMap.Keys) allPairs.Add(k);
+
+        var rows = new List<StockQtyVsBatchQtyRowDto>();
+        var search = input.SearchTerm?.Trim().ToLowerInvariant();
+
+        foreach (var pair in allPairs)
+        {
+            if (!itemMap.TryGetValue(pair.ItemId, out var item)) continue;
+            if (!warehouseMap.TryGetValue(pair.WarehouseId, out var wh)) continue;
+
+            var stockQty = Math.Round(binQtyMap.GetValueOrDefault(pair, 0m), 4);
+            var batchQty = Math.Round(pairBatchTotalMap.GetValueOrDefault(pair, 0m), 4);
+            var difference = Math.Round(stockQty - batchQty, 4);
+            var isMismatch = difference != 0m;
+
+            if (input.ShowOnlyDifferences && !isMismatch)
+                continue;
+
+            var batchNos = pairBatchNumbersMap.TryGetValue(pair, out var bSet)
+                ? string.Join(", ", bSet.OrderBy(n => n))
+                : string.Empty;
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                var matches = item.ItemCode.ToLowerInvariant().Contains(search)
+                    || item.ItemName.ToLowerInvariant().Contains(search)
+                    || wh.Name.ToLowerInvariant().Contains(search)
+                    || batchNos.ToLowerInvariant().Contains(search);
+                if (!matches) continue;
+            }
+
+            rows.Add(new StockQtyVsBatchQtyRowDto
+            {
+                ItemId = item.Id,
+                ItemCode = item.ItemCode,
+                ItemName = item.ItemName,
+                WarehouseId = wh.Id,
+                WarehouseName = wh.Name,
+                BatchCount = pairBatchNumbersMap.TryGetValue(pair, out var cnt) ? cnt.Count : 0,
+                BatchNumbers = batchNos,
+                BatchQty = batchQty,
+                StockQty = stockQty,
+                Difference = difference,
+                IsMismatch = isMismatch,
+            });
+        }
+
+        var sorted = rows
+            .OrderByDescending(r => Math.Abs(r.Difference))
+            .ThenBy(r => r.ItemCode)
+            .ThenBy(r => r.WarehouseName)
+            .ToList();
+
+        return new StockQtyVsBatchQtyReportDto
+        {
+            Rows = sorted,
+            TotalMismatches = sorted.Count(r => r.IsMismatch),
+            TotalBatchQty = Math.Round(sorted.Sum(r => r.BatchQty), 4),
+            TotalStockQty = Math.Round(sorted.Sum(r => r.StockQty), 4),
+            TotalDifference = Math.Round(sorted.Sum(r => r.Difference), 4),
+        };
+    }
+
+    /// <summary>
+    /// Reconciles Bin ActualQty from active batch ledger quantities for selected (ItemId, WarehouseId) pairs,
+    /// mirroring ERPNext stock_qty_vs_batch_qty.update_batch_qty.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Edit)]
+    public async Task<ReconcileBatchStockResultDto> ReconcileBatchStockQtyAsync(ReconcileBatchStockInputDto input)
+    {
+        if (input.Items == null || input.Items.Count == 0)
+            return new ReconcileBatchStockResultDto { UpdatedCount = 0, Message = "No rows selected." };
+
+        var report = await GetStockQtyVsBatchQtyAsync(new StockQtyVsBatchQtyRequestDto
+        {
+            ShowDisabledItems = true,
+            ShowOnlyDifferences = false,
+        });
+
+        var rowMap = report.Rows.ToDictionary(r => (r.ItemId, r.WarehouseId));
+        var updatedCount = 0;
+
+        foreach (var req in input.Items.Distinct())
+        {
+            if (!rowMap.TryGetValue((req.ItemId, req.WarehouseId), out var row))
+                continue;
+            if (row.Difference == 0m)
+                continue;
+
+            var bin = (await _binRepository.GetQueryableAsync())
+                .FirstOrDefault(b => b.ItemId == req.ItemId && b.WarehouseId == req.WarehouseId);
+            if (bin != null)
+            {
+                bin.ActualQty = row.BatchQty;
+                bin.StockValue = Math.Round(bin.ActualQty * bin.ValuationRate, 2);
+                await _binRepository.UpdateAsync(bin);
+                updatedCount++;
+            }
+            else if (row.BatchQty != 0m)
+            {
+                var newBin = new Bin(GuidGenerator.Create(), req.ItemId, req.WarehouseId, CurrentTenant.Id)
+                {
+                    ActualQty = row.BatchQty,
+                };
+                await _binRepository.InsertAsync(newBin);
+                updatedCount++;
+            }
+        }
+
+        return new ReconcileBatchStockResultDto
+        {
+            UpdatedCount = updatedCount,
+            Message = $"Reconciled {updatedCount} bin record(s) from batch ledger balances.",
+        };
+    }
 }

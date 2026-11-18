@@ -15,4 +15,6 @@ public interface IStockDiagnosticsAppService : IApplicationService
     Task<StockValuationComparisonReportDto> GetStockValuationComparisonAsync(StockValuationComparisonRequestDto input);
     Task<List<StockValuationComparisonRepostPreviewRowDto>> GetStockValuationRepostPreviewAsync(StockValuationComparisonRepostRequestDto input);
     Task<StockValuationComparisonRepostResultDto> CreateStockValuationRepostsAsync(StockValuationComparisonRepostRequestDto input);
+    Task<StockQtyVsBatchQtyReportDto> GetStockQtyVsBatchQtyAsync(StockQtyVsBatchQtyRequestDto input);
+    Task<ReconcileBatchStockResultDto> ReconcileBatchStockQtyAsync(ReconcileBatchStockInputDto input);
 }

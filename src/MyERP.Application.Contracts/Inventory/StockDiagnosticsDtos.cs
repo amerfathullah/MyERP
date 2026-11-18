@@ -288,3 +288,57 @@ public class StockValuationComparisonRepostResultDto
     public List<StockValuationComparisonRepostItemResultDto> Created { get; set; } = new();
     public List<StockValuationComparisonRepostItemResultDto> Skipped { get; set; } = new();
 }
+
+// --- Stock Qty vs Batch Qty (ERPNext stock/report/stock_qty_vs_batch_qty) ---
+public class StockQtyVsBatchQtyRequestDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? ItemId { get; set; }
+    public Guid? BatchId { get; set; }
+    public bool ShowDisabledItems { get; set; }
+    public bool ShowOnlyDifferences { get; set; } = true;
+    public string? SearchTerm { get; set; }
+}
+
+public class StockQtyVsBatchQtyRowDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public int BatchCount { get; set; }
+    public string BatchNumbers { get; set; } = string.Empty;
+    public decimal BatchQty { get; set; }
+    public decimal StockQty { get; set; }
+    public decimal Difference { get; set; }
+    public bool IsMismatch { get; set; }
+}
+
+public class StockQtyVsBatchQtyReportDto
+{
+    public List<StockQtyVsBatchQtyRowDto> Rows { get; set; } = new();
+    public int TotalRows => Rows.Count;
+    public int TotalMismatches { get; set; }
+    public decimal TotalBatchQty { get; set; }
+    public decimal TotalStockQty { get; set; }
+    public decimal TotalDifference { get; set; }
+}
+
+public class ReconcileBatchStockItemDto
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+}
+
+public class ReconcileBatchStockInputDto
+{
+    public List<ReconcileBatchStockItemDto> Items { get; set; } = new();
+}
+
+public class ReconcileBatchStockResultDto
+{
+    public int UpdatedCount { get; set; }
+    public string Message { get; set; } = string.Empty;
+}

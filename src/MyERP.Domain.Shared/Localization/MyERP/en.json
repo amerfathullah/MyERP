@@ -6644,7 +6644,12 @@
     "SalesPartnersCommission": "Sales Partners Commission",
     "InvoicedAmountExclTax": "Invoiced Amount (Excl. Tax)",
     "AmountEligibleForCommission": "Amount Eligible for Commission",
-    "AverageCommissionRate": "Average Commission Rate"
+    "AverageCommissionRate": "Average Commission Rate",
+    "Menu:StockQtyVsBatchQty": "Stock Qty vs Batch Qty",
+    "StockQtyVsBatchQty": "Stock Qty vs Batch Qty",
+    "StockQtyVsBatchQtyDescription": "Compare warehouse Bin stock quantity against active batch ledger quantities for batch-tracked items",
+    "UpdateBatchStockQty": "Reconcile Bin Qty from Batch Ledger",
+    "BatchCount": "Batches"
   }
 }
 

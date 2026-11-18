@@ -3908,3 +3908,50 @@ export interface StockValuationComparisonRepostResultDto {
   created?: StockValuationComparisonRepostItemResultDto[];
   skipped?: StockValuationComparisonRepostItemResultDto[];
 }
+
+export interface StockQtyVsBatchQtyRequestDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  batchId?: string | null;
+  showDisabledItems?: boolean;
+  showOnlyDifferences?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface StockQtyVsBatchQtyRowDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  batchCount?: number;
+  batchNumbers?: string;
+  batchQty?: number;
+  stockQty?: number;
+  difference?: number;
+  isMismatch?: boolean;
+}
+
+export interface StockQtyVsBatchQtyReportDto {
+  rows?: StockQtyVsBatchQtyRowDto[];
+  totalRows?: number;
+  totalMismatches?: number;
+  totalBatchQty?: number;
+  totalStockQty?: number;
+  totalDifference?: number;
+}
+
+export interface ReconcileBatchStockItemDto {
+  itemId: string;
+  warehouseId: string;
+}
+
+export interface ReconcileBatchStockInputDto {
+  items: ReconcileBatchStockItemDto[];
+}
+
+export interface ReconcileBatchStockResultDto {
+  updatedCount?: number;
+  message?: string;
+}

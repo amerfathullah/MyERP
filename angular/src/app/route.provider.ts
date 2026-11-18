@@ -1487,6 +1487,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-qty-vs-batch-qty',
+        name: '::Menu:StockQtyVsBatchQty',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-layer-group',
+        order: 39.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/reports/stock-projected-qty',
         name: '::Menu:StockProjectedQty',
         parentName: '::Menu:Inventory',

@@ -16,6 +16,10 @@ import type {
   StockValuationComparisonRepostRequestDto,
   StockValuationComparisonRepostResultDto,
   StockValuationComparisonRequestDto,
+  StockQtyVsBatchQtyReportDto,
+  StockQtyVsBatchQtyRequestDto,
+  ReconcileBatchStockInputDto,
+  ReconcileBatchStockResultDto,
 } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -185,6 +189,42 @@ export class StockDiagnosticsService {
         method: 'POST',
         headers: { Accept: 'application/json' },
         url: '/api/app/stock-diagnostics/create-stock-valuation-reposts',
+        body: input,
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  getStockQtyVsBatchQty = (
+    input: StockQtyVsBatchQtyRequestDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, StockQtyVsBatchQtyReportDto>(
+      {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/stock-qty-vs-batch-qty',
+        params: {
+          companyId: input.companyId,
+          warehouseId: input.warehouseId,
+          itemId: input.itemId,
+          batchId: input.batchId,
+          showDisabledItems: input.showDisabledItems,
+          showOnlyDifferences: input.showOnlyDifferences,
+          searchTerm: input.searchTerm,
+        },
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  reconcileBatchStockQty = (
+    input: ReconcileBatchStockInputDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, ReconcileBatchStockResultDto>(
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/reconcile-batch-stock-qty',
         body: input,
       },
       { apiName: this.apiName, ...config },
