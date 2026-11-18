@@ -2254,6 +2254,341 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
+    public async Task<GrossAndNetProfitReportDto> GetGrossAndNetProfitAsync(GrossAndNetProfitRequestDto input)
+    {
+        if (input.FromDate.Date > input.ToDate.Date)
+        {
+            throw new UserFriendlyException("From Date cannot be after To Date.");
+        }
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currencyCode = company?.CurrencyCode ?? "MYR";
+        var periods = BuildReportPeriods(input.FromDate.Date, input.ToDate.Date, input.Periodicity);
+        var periodCount = periods.Count;
+
+        var accounts = await _accountRepository.GetListAsync(a =>
+            a.CompanyId == input.CompanyId
+            && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
+
+        var endExclusive = input.ToDate.Date.AddDays(1);
+        var journalEntries = await _journalEntryRepository.GetListAsync(je =>
+            je.CompanyId == input.CompanyId
+            && je.Status == DocumentStatus.Posted
+            && je.PostingDate >= input.FromDate.Date
+            && je.PostingDate < endExclusive
+            && je.ReferenceType != "PeriodClosingVoucher");
+
+        var leafAmounts = new Dictionary<Guid, decimal[]>();
+        foreach (var acc in accounts.Where(a => !a.IsGroup))
+        {
+            leafAmounts[acc.Id] = new decimal[periodCount];
+        }
+
+        var accountById = accounts.ToDictionary(a => a.Id);
+
+        foreach (var je in journalEntries)
+        {
+            var periodIdx = FindPeriodIndex(periods, je.PostingDate.Date);
+            if (periodIdx < 0) continue;
+
+            foreach (var line in je.Lines)
+            {
+                if (!leafAmounts.TryGetValue(line.AccountId, out var arr)) continue;
+                if (input.CostCenterId.HasValue && line.CostCenterId != input.CostCenterId.Value) continue;
+                if (input.ProjectId.HasValue && line.ProjectId != input.ProjectId.Value) continue;
+
+                var acc = accountById[line.AccountId];
+                var signed = acc.AccountType == AccountType.Revenue
+                    ? (line.IsDebit ? -line.Amount : line.Amount)
+                    : (line.IsDebit ? line.Amount : -line.Amount);
+                arr[periodIdx] += signed;
+            }
+        }
+
+        if (input.AccumulatedValues && periodCount > 1)
+        {
+            foreach (var arr in leafAmounts.Values)
+            {
+                for (int i = 1; i < periodCount; i++)
+                {
+                    arr[i] += arr[i - 1];
+                }
+            }
+        }
+
+        var incomeAccounts = accounts.Where(a => a.AccountType == AccountType.Revenue).ToList();
+        var expenseAccounts = accounts.Where(a => a.AccountType == AccountType.Expense).ToList();
+
+        var grossIncome = BuildFilteredAccountTreeRows(incomeAccounts, leafAmounts, periodCount, includeInGross: true, input.AccumulatedValues);
+        var grossExpense = BuildFilteredAccountTreeRows(expenseAccounts, leafAmounts, periodCount, includeInGross: true, input.AccumulatedValues);
+        var nonGrossIncome = BuildFilteredAccountTreeRows(incomeAccounts, leafAmounts, periodCount, includeInGross: false, input.AccumulatedValues);
+        var nonGrossExpense = BuildFilteredAccountTreeRows(expenseAccounts, leafAmounts, periodCount, includeInGross: false, input.AccumulatedValues);
+
+        var rows = new List<GrossAndNetProfitRowDto>();
+        var nothingIncludedInGross = grossIncome.Count == 0 && grossExpense.Count == 0;
+
+        var (grossIncomePeriodTotals, grossIncomeRootTotal) = SumRootTotals(grossIncome, periodCount);
+        var (grossExpensePeriodTotals, grossExpenseRootTotal) = SumRootTotals(grossExpense, periodCount);
+        var (nonGrossIncomePeriodTotals, nonGrossIncomeRootTotal) = SumRootTotals(nonGrossIncome, periodCount);
+        var (nonGrossExpensePeriodTotals, nonGrossExpenseRootTotal) = SumRootTotals(nonGrossExpense, periodCount);
+
+        if (!nothingIncludedInGross)
+        {
+            rows.Add(new GrossAndNetProfitRowDto
+            {
+                AccountName = "Included in Gross Profit",
+                RowKind = "SectionHeader",
+                PeriodAmounts = new decimal[periodCount],
+            });
+            rows.AddRange(grossIncome);
+            rows.AddRange(grossExpense);
+
+            var gpPeriods = new decimal[periodCount];
+            for (int i = 0; i < periodCount; i++)
+            {
+                gpPeriods[i] = Math.Round(grossIncomePeriodTotals[i] - grossExpensePeriodTotals[i], 2);
+            }
+            rows.Add(new GrossAndNetProfitRowDto
+            {
+                AccountName = "Gross Profit",
+                RowKind = "GrossProfit",
+                PeriodAmounts = gpPeriods,
+                Total = Math.Round(grossIncomeRootTotal - grossExpenseRootTotal, 2),
+            });
+        }
+        else
+        {
+            rows.Add(new GrossAndNetProfitRowDto
+            {
+                AccountName = "Nothing is included in gross",
+                RowKind = "EmptyNote",
+                PeriodAmounts = new decimal[periodCount],
+            });
+        }
+
+        rows.AddRange(nonGrossIncome);
+        rows.AddRange(nonGrossExpense);
+
+        var npPeriods = new decimal[periodCount];
+        for (int i = 0; i < periodCount; i++)
+        {
+            var totIncome = grossIncomePeriodTotals[i] + nonGrossIncomePeriodTotals[i];
+            var totExpense = grossExpensePeriodTotals[i] + nonGrossExpensePeriodTotals[i];
+            npPeriods[i] = Math.Round(totIncome - totExpense, 2);
+        }
+        var netProfitTotal = Math.Round(
+            (grossIncomeRootTotal + nonGrossIncomeRootTotal) - (grossExpenseRootTotal + nonGrossExpenseRootTotal),
+            2);
+
+        if (rows.Any(r => r.RowKind == "Account") || netProfitTotal != 0m)
+        {
+            rows.Add(new GrossAndNetProfitRowDto
+            {
+                AccountName = "Net Profit",
+                RowKind = "NetProfit",
+                PeriodAmounts = npPeriods,
+                Total = netProfitTotal,
+            });
+        }
+
+        return new GrossAndNetProfitReportDto
+        {
+            CompanyId = input.CompanyId,
+            CurrencyCode = currencyCode,
+            FromDate = input.FromDate.Date,
+            ToDate = input.ToDate.Date,
+            PeriodLabels = periods.Select(p => p.Label).ToArray(),
+            NothingIncludedInGross = nothingIncludedInGross,
+            GrossIncomeTotal = Math.Round(grossIncomeRootTotal, 2),
+            GrossExpenseTotal = Math.Round(grossExpenseRootTotal, 2),
+            GrossProfit = Math.Round(grossIncomeRootTotal - grossExpenseRootTotal, 2),
+            NonGrossIncomeTotal = Math.Round(nonGrossIncomeRootTotal, 2),
+            NonGrossExpenseTotal = Math.Round(nonGrossExpenseRootTotal, 2),
+            NetProfit = netProfitTotal,
+            Rows = rows,
+        };
+    }
+
+    private sealed record ReportPeriodBucket(DateTime Start, DateTime End, string Label);
+
+    private static List<ReportPeriodBucket> BuildReportPeriods(DateTime fromDate, DateTime toDate, string? periodicity)
+    {
+        var norm = (periodicity ?? "Yearly").Trim().Replace("-", string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+        if (norm is not ("MONTHLY" or "QUARTERLY" or "HALFYEARLY"))
+        {
+            return new List<ReportPeriodBucket>
+            {
+                new(fromDate, toDate, $"{fromDate:yyyy-MM-dd} - {toDate:yyyy-MM-dd}")
+            };
+        }
+
+        var stepMonths = norm switch
+        {
+            "MONTHLY" => 1,
+            "QUARTERLY" => 3,
+            "HALFYEARLY" => 6,
+            _ => 12,
+        };
+
+        var result = new List<ReportPeriodBucket>();
+        var cursor = fromDate;
+        while (cursor <= toDate)
+        {
+            var nextStart = cursor.AddMonths(stepMonths);
+            var end = nextStart.AddDays(-1);
+            if (end > toDate) end = toDate;
+            var label = stepMonths == 1
+                ? cursor.ToString("MMM yyyy")
+                : $"{cursor:MMM yy}-{end:MMM yy}";
+            result.Add(new ReportPeriodBucket(cursor, end, label));
+            cursor = nextStart;
+        }
+        return result;
+    }
+
+    private static int FindPeriodIndex(List<ReportPeriodBucket> periods, DateTime postingDate)
+    {
+        for (int i = 0; i < periods.Count; i++)
+        {
+            if (postingDate >= periods[i].Start && postingDate <= periods[i].End)
+                return i;
+        }
+        return -1;
+    }
+
+    private static List<GrossAndNetProfitRowDto> BuildFilteredAccountTreeRows(
+        List<Account> typeAccounts,
+        Dictionary<Guid, decimal[]> leafAmounts,
+        int periodCount,
+        bool includeInGross,
+        bool accumulatedValues)
+    {
+        var kept = typeAccounts
+            .Where(a => a.IsGroup || a.IncludeInGross == includeInGross)
+            .OrderBy(a => a.AccountCode)
+            .ThenBy(a => a.AccountName)
+            .ToList();
+
+        // Prune group nodes that have no remaining children (ERPNext remove_parent_with_no_child)
+        var removedAny = true;
+        while (removedAny)
+        {
+            removedAny = false;
+            var parentIdsWithChildren = kept
+                .Where(a => a.ParentAccountId.HasValue)
+                .Select(a => a.ParentAccountId!.Value)
+                .ToHashSet();
+
+            for (int i = kept.Count - 1; i >= 0; i--)
+            {
+                if (kept[i].IsGroup && !parentIdsWithChildren.Contains(kept[i].Id))
+                {
+                    kept.RemoveAt(i);
+                    removedAny = true;
+                }
+            }
+        }
+
+        if (kept.Count == 0) return new List<GrossAndNetProfitRowDto>();
+
+        var keptIds = kept.Select(a => a.Id).ToHashSet();
+        var byId = kept.ToDictionary(a => a.Id);
+
+        // Compute period arrays for every node; group totals reflect only kept children (adjust_account_totals)
+        var nodePeriods = new Dictionary<Guid, decimal[]>();
+        foreach (var a in kept)
+        {
+            nodePeriods[a.Id] = a.IsGroup
+                ? new decimal[periodCount]
+                : (leafAmounts.TryGetValue(a.Id, out var arr) ? (decimal[])arr.Clone() : new decimal[periodCount]);
+        }
+
+        foreach (var leaf in kept.Where(a => !a.IsGroup))
+        {
+            var leafArr = nodePeriods[leaf.Id];
+            var curParentId = leaf.ParentAccountId;
+            var guard = 0;
+            while (curParentId.HasValue && guard++ < 64 && byId.TryGetValue(curParentId.Value, out var parentAcc))
+            {
+                var pArr = nodePeriods[parentAcc.Id];
+                for (int p = 0; p < periodCount; p++)
+                {
+                    pArr[p] += leafArr[p];
+                }
+                curParentId = parentAcc.ParentAccountId;
+            }
+        }
+
+        // Remove zero subtrees matching financial_statements.filter_out_zero_value_rows
+        var nonZeroIds = kept
+            .Where(a => nodePeriods[a.Id].Any(v => Math.Abs(v) >= 0.005m))
+            .Select(a => a.Id)
+            .ToHashSet();
+        kept = kept.Where(a => nonZeroIds.Contains(a.Id)).ToList();
+        keptIds = kept.Select(a => a.Id).ToHashSet();
+
+        if (kept.Count == 0) return new List<GrossAndNetProfitRowDto>();
+
+        var childrenLookup = kept
+            .Where(a => a.ParentAccountId.HasValue && keptIds.Contains(a.ParentAccountId.Value))
+            .OrderBy(a => a.AccountCode)
+            .ToLookup(a => a.ParentAccountId!.Value);
+
+        var roots = kept
+            .Where(a => !a.ParentAccountId.HasValue || !keptIds.Contains(a.ParentAccountId.Value))
+            .OrderBy(a => a.AccountCode)
+            .ToList();
+
+        var ordered = new List<GrossAndNetProfitRowDto>();
+        void Visit(Account acc, int indent)
+        {
+            var pArr = nodePeriods[acc.Id].Select(v => Math.Round(v, 2)).ToArray();
+            ordered.Add(new GrossAndNetProfitRowDto
+            {
+                AccountId = acc.Id,
+                AccountCode = acc.AccountCode,
+                AccountName = acc.AccountName,
+                AccountType = acc.AccountType.ToString(),
+                ParentAccountId = acc.ParentAccountId.HasValue && keptIds.Contains(acc.ParentAccountId.Value) ? acc.ParentAccountId : null,
+                IsGroup = acc.IsGroup,
+                IncludeInGross = acc.IncludeInGross,
+                Indent = indent,
+                RowKind = "Account",
+                PeriodAmounts = pArr,
+                Total = Math.Round(accumulatedValues && pArr.Length > 0 ? pArr[^1] : pArr.Sum(), 2),
+            });
+
+            foreach (var child in childrenLookup[acc.Id])
+            {
+                Visit(child, indent + 1);
+            }
+        }
+
+        foreach (var root in roots)
+        {
+            Visit(root, 0);
+        }
+
+        return ordered;
+    }
+
+    private static (decimal[] PeriodTotals, decimal RootTotal) SumRootTotals(
+        List<GrossAndNetProfitRowDto> sectionRows,
+        int periodCount)
+    {
+        var periodTotals = new decimal[periodCount];
+        decimal total = 0m;
+        foreach (var row in sectionRows.Where(r => r.Indent == 0))
+        {
+            for (int i = 0; i < periodCount && i < row.PeriodAmounts.Length; i++)
+            {
+                periodTotals[i] += row.PeriodAmounts[i];
+            }
+            total += row.Total;
+        }
+        return (periodTotals, total);
+    }
+
     private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
         Guid companyId,
         string? financeBook,

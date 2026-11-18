@@ -34,4 +34,6 @@ public class CreateUpdateAccountDto
     public bool IsFrozen { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public bool IncludeInGross { get; set; }
 }

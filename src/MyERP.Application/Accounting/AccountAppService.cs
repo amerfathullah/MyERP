@@ -195,6 +195,7 @@ public class AccountAppService :
         entity.Description = input.Description;
         entity.IsFrozen = input.IsFrozen;
         entity.IsActive = input.IsActive;
+        entity.IncludeInGross = input.IncludeInGross;
     }
 
     /// <summary>
@@ -292,6 +293,7 @@ public class AccountAppService :
             Currency = a.Currency,
             IsFrozen = a.IsFrozen,
             IsActive = a.IsActive,
+            IncludeInGross = a.IncludeInGross,
             Balance = 0
         }).ToList();
 

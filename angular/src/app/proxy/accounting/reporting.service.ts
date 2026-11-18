@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, GrossAndNetProfitReportDto, GrossAndNetProfitRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -137,4 +137,21 @@ export class ReportingService {
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, dimension: input.dimension, financeBook: input.financeBook, includeDefaultBookEntries: input.includeDefaultBookEntries, showZeroValues: input.showZeroValues },
     },
       { apiName: this.apiName,...config });
+
+  getGrossAndNetProfit = (input: GrossAndNetProfitRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, GrossAndNetProfitReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/gross-and-net-profit',
+      params: {
+        companyId: input.companyId,
+        fromDate: input.fromDate,
+        toDate: input.toDate,
+        periodicity: input.periodicity,
+        accumulatedValues: input.accumulatedValues,
+        costCenterId: input.costCenterId,
+        projectId: input.projectId,
+      },
+    },
+      { apiName: this.apiName, ...config });
 }

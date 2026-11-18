@@ -44,6 +44,7 @@ export class AccountFormComponent implements OnInit {
     isGroup: [false],
     isFrozen: [false],
     isActive: [true],
+    includeInGross: [false],
     currency: ['MYR'],
     description: [''],
   });
@@ -76,6 +77,7 @@ export class AccountFormComponent implements OnInit {
           isGroup: account.isGroup ?? false,
           isFrozen: account.isFrozen ?? false,
           isActive: account.isActive ?? true,
+          includeInGross: account.includeInGross ?? false,
           currency: account.currency ?? 'MYR',
           description: account.description ?? '',
         });

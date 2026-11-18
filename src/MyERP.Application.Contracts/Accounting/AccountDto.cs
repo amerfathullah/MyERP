@@ -16,6 +16,7 @@ public class AccountDto : FullAuditedEntityDto<Guid>
     public string? Description { get; set; }
     public bool IsFrozen { get; set; }
     public bool IsActive { get; set; }
+    public bool IncludeInGross { get; set; }
 }
 
 public class AccountTreeNodeDto : EntityDto<Guid>
@@ -30,6 +31,7 @@ public class AccountTreeNodeDto : EntityDto<Guid>
     public string? Currency { get; set; }
     public bool IsFrozen { get; set; }
     public bool IsActive { get; set; }
+    public bool IncludeInGross { get; set; }
     public decimal Balance { get; set; }
     public System.Collections.Generic.List<AccountTreeNodeDto> Children { get; set; } = new();
 }

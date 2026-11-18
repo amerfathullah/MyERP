@@ -547,6 +547,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/gross-and-net-profit',
+    loadComponent: () => import('./accounting/reports/gross-and-net-profit/gross-and-net-profit.component').then(c => c.GrossAndNetProfitComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/payments',
     loadComponent: () => import('./accounting/payments/payment-entry-list.component').then(c => c.PaymentEntryListComponent),
     canActivate: [authGuard, permissionGuard],

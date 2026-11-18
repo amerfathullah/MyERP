@@ -49,6 +49,7 @@ export interface AccountDto extends FullAuditedEntityDto<string> {
   description?: string | null;
   isFrozen?: boolean;
   isActive?: boolean;
+  includeInGross?: boolean;
 }
 
 export interface AccountFilterRowDto {
@@ -69,6 +70,7 @@ export interface AccountTreeNodeDto extends EntityDto<string> {
   currency?: string | null;
   isFrozen?: boolean;
   isActive?: boolean;
+  includeInGross?: boolean;
   balance?: number;
   children?: AccountTreeNodeDto[];
 }
@@ -1223,6 +1225,7 @@ export interface CreateUpdateAccountDto {
   description?: string | null;
   isFrozen?: boolean;
   isActive?: boolean;
+  includeInGross?: boolean;
 }
 
 export interface CreateUpdateBankAccountBalanceDto {
@@ -2664,6 +2667,46 @@ export interface DimensionWiseAccountsBalanceReportDto {
   rows?: DimensionWiseAccountBalanceRowDto[];
   dimensionTotals?: number[];
   grandTotal?: number;
+}
+
+export interface GrossAndNetProfitRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  periodicity?: string;
+  accumulatedValues?: boolean;
+  costCenterId?: string | null;
+  projectId?: string | null;
+}
+
+export interface GrossAndNetProfitRowDto {
+  accountId?: string | null;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: string;
+  parentAccountId?: string | null;
+  isGroup?: boolean;
+  includeInGross?: boolean;
+  indent?: number;
+  rowKind?: string;
+  periodAmounts?: number[];
+  total?: number;
+}
+
+export interface GrossAndNetProfitReportDto {
+  companyId?: string;
+  currencyCode?: string;
+  fromDate?: string;
+  toDate?: string;
+  periodLabels?: string[];
+  nothingIncludedInGross?: boolean;
+  grossIncomeTotal?: number;
+  grossExpenseTotal?: number;
+  grossProfit?: number;
+  nonGrossIncomeTotal?: number;
+  nonGrossExpenseTotal?: number;
+  netProfit?: number;
+  rows?: GrossAndNetProfitRowDto[];
 }
 
 export interface ProfitabilityAnalysisRequestDto {

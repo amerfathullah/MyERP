@@ -492,6 +492,49 @@ public class DimensionWiseAccountsBalanceReportDto
     public decimal GrandTotal { get; set; }
 }
 
+public class GrossAndNetProfitRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string Periodicity { get; set; } = "Yearly";
+    public bool AccumulatedValues { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
+}
+
+public class GrossAndNetProfitRowDto
+{
+    public Guid? AccountId { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public string AccountType { get; set; } = string.Empty;
+    public Guid? ParentAccountId { get; set; }
+    public bool IsGroup { get; set; }
+    public bool IncludeInGross { get; set; }
+    public int Indent { get; set; }
+    public string RowKind { get; set; } = "Account";
+    public decimal[] PeriodAmounts { get; set; } = Array.Empty<decimal>();
+    public decimal Total { get; set; }
+}
+
+public class GrossAndNetProfitReportDto
+{
+    public Guid CompanyId { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string[] PeriodLabels { get; set; } = Array.Empty<string>();
+    public bool NothingIncludedInGross { get; set; }
+    public decimal GrossIncomeTotal { get; set; }
+    public decimal GrossExpenseTotal { get; set; }
+    public decimal GrossProfit { get; set; }
+    public decimal NonGrossIncomeTotal { get; set; }
+    public decimal NonGrossExpenseTotal { get; set; }
+    public decimal NetProfit { get; set; }
+    public List<GrossAndNetProfitRowDto> Rows { get; set; } = new();
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -507,6 +550,7 @@ public interface IReportingAppService : IApplicationService
     Task<VoucherWiseBalanceReportDto> GetVoucherWiseBalanceAsync(VoucherWiseBalanceRequestDto input);
     Task<PaymentPeriodBasedOnInvoiceDateReportDto> GetPaymentPeriodBasedOnInvoiceDateAsync(PaymentPeriodBasedOnInvoiceDateRequestDto input);
     Task<DimensionWiseAccountsBalanceReportDto> GetDimensionWiseAccountsBalanceAsync(DimensionWiseAccountsBalanceRequestDto input);
+    Task<GrossAndNetProfitReportDto> GetGrossAndNetProfitAsync(GrossAndNetProfitRequestDto input);
 }
 
 

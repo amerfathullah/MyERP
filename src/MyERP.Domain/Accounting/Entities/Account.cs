@@ -48,6 +48,9 @@ public class Account : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public Guid? AccountCategoryId { get; set; }
 
+    /// <summary>Whether this Income or Expense account is included in Gross Profit in Gross and Net Profit Report.</summary>
+    public bool IncludeInGross { get; set; }
+
     protected Account() { }
 
     public Account(

@@ -634,6 +634,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/gross-and-net-profit',
+        name: '::Menu:GrossAndNetProfit',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-sack-dollar',
+        order: 13.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/reports/balance-sheet',
         name: '::Menu:BalanceSheet',
         parentName: '::Menu:Accounting',

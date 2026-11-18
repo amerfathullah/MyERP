@@ -6622,7 +6622,12 @@
     "WorkOrdersInProgress": "Work Orders in Progress",
     "Menu:CompletedWorkOrders": "Completed Work Orders",
     "CompletedWorkOrders": "Completed Work Orders",
-    "ToProduce": "To Produce"
+    "ToProduce": "To Produce",
+    "Menu:GrossAndNetProfit": "Gross and Net Profit",
+    "GrossAndNetProfit": "Gross and Net Profit",
+    "IncludeInGross": "Include in Gross Profit",
+    "IncludedInGrossProfit": "Included in Gross Profit",
+    "NothingIncludedInGross": "Nothing is included in gross"
   }
 }
 

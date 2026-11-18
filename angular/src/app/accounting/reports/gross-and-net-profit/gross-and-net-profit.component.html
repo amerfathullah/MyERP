@@ -1,0 +1,162 @@
+<abp-page [title]="'::GrossAndNetProfit' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="">{{ '::Select' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Periodicity' | abpLocalization }}</label>
+          <select class="form-select" formControlName="periodicity">
+            @for (p of periodicities; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-center pt-4">
+          <div class="form-check">
+            <input
+              type="checkbox"
+              id="accumulatedValues"
+              class="form-check-input"
+              formControlName="accumulatedValues"
+            />
+            <label for="accumulatedValues" class="form-check-label">
+              {{ '::AccumulatedValues' | abpLocalization }}
+            </label>
+          </div>
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-magnifying-glass"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::GrossProfit' | abpLocalization }}</div>
+            <div class="fs-4 fw-bold font-monospace" [class.text-danger]="(r.grossProfit ?? 0) < 0">
+              {{ r.currencyCode }} {{ (r.grossProfit ?? 0) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::NetProfit' | abpLocalization }}</div>
+            <div
+              class="fs-4 fw-bold font-monospace"
+              [class.text-success]="(r.netProfit ?? 0) >= 0"
+              [class.text-danger]="(r.netProfit ?? 0) < 0"
+            >
+              {{ r.currencyCode }} {{ (r.netProfit ?? 0) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::Revenue' | abpLocalization }} (Gross / Total)</div>
+            <div class="fs-5 fw-semibold font-monospace">
+              {{ (r.grossIncomeTotal ?? 0) | number:'1.2-2' }} /
+              {{ ((r.grossIncomeTotal ?? 0) + (r.nonGrossIncomeTotal ?? 0)) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::Expense' | abpLocalization }} (Gross / Total)</div>
+            <div class="fs-5 fw-semibold font-monospace">
+              {{ (r.grossExpenseTotal ?? 0) | number:'1.2-2' }} /
+              {{ ((r.grossExpenseTotal ?? 0) + (r.nonGrossExpenseTotal ?? 0)) | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ '::GrossAndNetProfit' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        @if (!r.rows?.length) {
+          <div class="text-center py-4 text-muted">{{ '::NoData' | abpLocalization }}</div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">{{ '::Account' | abpLocalization }}</th>
+                  @for (lbl of r.periodLabels ?? []; track lbl) {
+                    <th class="text-end">{{ lbl }}</th>
+                  }
+                  <th class="text-end pe-3">{{ '::Total' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of r.rows ?? []; track $index) {
+                  <tr
+                    [class.table-light]="row.rowKind === 'SectionHeader' || row.isGroup"
+                    [class.table-primary]="row.rowKind === 'GrossProfit' || row.rowKind === 'NetProfit'"
+                    [class.fw-bold]="isHighlightRow(row) || row.isGroup"
+                  >
+                    <td class="ps-3" [style.padding-left.px]="12 + ((row.indent ?? 0) * 20)">
+                      @if (row.accountCode) {
+                        <span class="text-muted me-1">{{ row.accountCode }}</span>
+                      }
+                      {{ row.accountName }}
+                    </td>
+                    @for (amt of row.periodAmounts ?? []; track $index) {
+                      <td class="text-end font-monospace">
+                        @if (row.rowKind !== 'SectionHeader' && row.rowKind !== 'EmptyNote') {
+                          {{ amt | number:'1.2-2' }}
+                        }
+                      </td>
+                    }
+                    <td class="text-end pe-3 font-monospace">
+                      @if (row.rowKind !== 'SectionHeader' && row.rowKind !== 'EmptyNote') {
+                        {{ (row.total ?? 0) | number:'1.2-2' }}
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</abp-page>
