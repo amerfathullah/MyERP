@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.DomainServices;
@@ -15,9 +16,11 @@ using MyERP.Sales;
 using MyERP.Sales.Entities;
 using NSubstitute;
 using Shouldly;
+using Volo.Abp.Authorization;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
+using Volo.Abp.Security.Claims;
 using Xunit;
 
 namespace MyERP.Accounting;
@@ -143,39 +146,48 @@ public abstract class SalesPartnersCommissionAndPePermissionTests<TStartupModule
         so.Submit();
         await _salesOrderRepository.InsertAsync(so, autoSave: true);
 
-        var authMock = Substitute.For<IAuthorizationService>();
+        var principalAccessor = Substitute.For<ICurrentPrincipalAccessor>();
+        principalAccessor.Principal.Returns(new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "testuser") }, "test")));
+
+        var authMock = Substitute.For<IAbpAuthorizationService>();
         authMock.AuthorizeAsync(
-                Arg.Any<System.Security.Claims.ClaimsPrincipal>(),
+                Arg.Any<ClaimsPrincipal>(),
                 Arg.Any<object?>(),
                 MyERPPermissions.SalesInvoices.Default)
-            .Returns(AuthorizationResult.Success());
+            .Returns(Task.FromResult(AuthorizationResult.Success()));
         authMock.AuthorizeAsync(
-                Arg.Any<System.Security.Claims.ClaimsPrincipal>(),
+                Arg.Any<ClaimsPrincipal>(),
                 Arg.Any<object?>(),
                 MyERPPermissions.SalesOrders.Default)
-            .Returns(AuthorizationResult.Failed());
+            .Returns(Task.FromResult(AuthorizationResult.Failed()));
 
         var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IAuthorizationService>().Returns(authMock);
         lazyProvider.LazyGetService<IAuthorizationService>().Returns(authMock);
+        lazyProvider.LazyGetRequiredService<ICurrentPrincipalAccessor>().Returns(principalAccessor);
+        lazyProvider.LazyGetService<ICurrentPrincipalAccessor>().Returns(principalAccessor);
         lazyProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>().Returns(_salesInvoiceRepository);
         lazyProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>().Returns(_salesOrderRepository);
 
-        var peAppService = new PaymentEntryAppService(
-            GetRequiredService<IRepository<PaymentEntry, Guid>>(),
-            _salesInvoiceRepository,
-            GetRequiredService<IRepository<PurchaseInvoice, Guid>>(),
-            GetRequiredService<IRepository<PaymentScheduleEntry, Guid>>(),
-            GetRequiredService<IRepository<PaymentLedgerEntry, Guid>>(),
-            GetRequiredService<IDocumentNumberGenerator>(),
-            GetRequiredService<DocumentPostingOrchestrator>(),
-            GetRequiredService<IRepository<DocumentActivityLog, Guid>>())
+        await WithUnitOfWorkAsync(async () =>
         {
-            LazyServiceProvider = lazyProvider,
-        };
+            var peAppService = new PaymentEntryAppService(
+                GetRequiredService<IRepository<PaymentEntry, Guid>>(),
+                _salesInvoiceRepository,
+                GetRequiredService<IRepository<PurchaseInvoice, Guid>>(),
+                GetRequiredService<IRepository<PaymentScheduleEntry, Guid>>(),
+                GetRequiredService<IRepository<PaymentLedgerEntry, Guid>>(),
+                GetRequiredService<IDocumentNumberGenerator>(),
+                GetRequiredService<DocumentPostingOrchestrator>(),
+                GetRequiredService<IRepository<DocumentActivityLog, Guid>>())
+            {
+                LazyServiceProvider = lazyProvider,
+            };
 
-        var result = await peAppService.GetPartyOutstandingAsync("Customer", customer.Id, company.Id);
+            var result = await peAppService.GetPartyOutstandingAsync("Customer", customer.Id, company.Id);
 
-        result.Invoices.Select(i => i.InvoiceId).ShouldContain(si.Id);
-        result.Orders.ShouldBeEmpty();
+            result.Invoices.Select(i => i.InvoiceId).ShouldContain(si.Id);
+            result.Orders.ShouldBeEmpty();
+        });
     }
 }
