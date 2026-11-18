@@ -30,7 +30,9 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
-            var filter = input.Filter; query = query.Where(x => x.OrderNumber.Contains(filter));
+            var filter = input.Filter;
+            query = query.Where(x => x.OrderNumber.Contains(filter)
+                || (x.PartyName != null && x.PartyName.Contains(filter)));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Status) && Enum.TryParse<DocumentStatus>(input.Status, true, out var status))

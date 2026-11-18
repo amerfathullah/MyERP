@@ -216,4 +216,37 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             fxDto.Items[0].BaseRate.ShouldBe(450m);
         });
     }
+
+    [Fact]
+    public async Task GetListAsync_FilterMatchesPartyName()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "BO Filter Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Alpha Aero"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-ITEM-FLT", "BO Filter Item", ItemType.Goods), autoSave: true);
+
+            var app = GetRequiredService<IBlanketOrderAppService>();
+            await app.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                PartyName = "Alpha Aero",
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 5m, Rate = 10m }]
+            });
+
+            var result = await app.GetListAsync(new MyERP.Shared.CompanyFilteredPagedRequestDto
+            {
+                CompanyId = company.Id,
+                Filter = "Alpha",
+                MaxResultCount = 10
+            });
+            result.TotalCount.ShouldBe(1);
+            result.Items[0].PartyName.ShouldBe("Alpha Aero");
+        });
+    }
 }

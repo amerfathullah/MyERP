@@ -246,7 +246,28 @@ public class JobCardManager : DomainService
                 .ToList();
 
             if (typeWorkstations.Count == 0)
+            {
+                // Keep the WorkstationType filter when no enabled workstation matches (ERPNext cb6e1bdee7)
+                var jcQueryable = await _jobCardRepository.GetQueryableAsync();
+                var activeTypeJcs = jcQueryable == null
+                    ? new List<JobCard>()
+                    : jcQueryable
+                        .Where(jc => jc.CompanyId == jobCard.CompanyId
+                            && jc.WorkstationType == jobCard.WorkstationType
+                            && jc.Id != jobCard.Id
+                            && jc.Status == JobCardStatus.WorkInProgress)
+                        .ToList();
+                var typeLogs = ExtractOverlappingLogs(activeTypeJcs, candidateFrom, candidateTo);
+                if (HasCapacityOverlap(1, typeLogs))
+                {
+                    var typeUsed = GetAllotedCapacity(MergeTimeLogsPerJobCard(typeLogs)).Count;
+                    throw new BusinessException("MyERP:10012")
+                        .WithData("workstation", jobCard.WorkstationType)
+                        .WithData("capacity", 1)
+                        .WithData("current", typeUsed);
+                }
                 return;
+            }
 
             var freeWs = await FindFreeWorkstationAsync(typeWorkstations, jobCard.Id, candidateFrom, candidateTo);
             if (freeWs != null)

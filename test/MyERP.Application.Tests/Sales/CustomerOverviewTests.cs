@@ -212,4 +212,57 @@ public abstract class CustomerOverviewTests<TStartupModule> : MyERPApplicationTe
             companies.ShouldContain("Co B Journal Entry");
         });
     }
+
+    [Fact]
+    public async Task GetCustomerOverviewAsync_NormalizesDueDateTime_AndUsesBaseNetTotalForMultiCurrency()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var siRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var customerService = GetRequiredService<ICustomerAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Overview FX Date Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Overview FX Date Cust"), autoSave: true);
+
+            var today = DateTime.UtcNow.Date;
+
+            // Due today with non-midnight time must NOT be treated as overdue in either Position or Ageing
+            var dueTodayInv = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "INV-FX-TODAY", today.AddDays(-10))
+            {
+                CurrencyCode = "USD",
+                ExchangeRate = 4m,
+                DueDate = today.AddHours(14)
+            };
+            dueTodayInv.AddItem(Guid.NewGuid(), "Item FX", 1, 100m, 0m);
+            dueTodayInv.Submit();
+            dueTodayInv.Post();
+            await siRepo.InsertAsync(dueTodayInv, autoSave: true);
+
+            // Due yesterday evening must be consistently overdue in both Position and Ageing
+            var overdueInv = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "INV-FX-LATE", today.AddDays(-20))
+            {
+                CurrencyCode = "USD",
+                ExchangeRate = 4m,
+                DueDate = today.AddDays(-1).AddHours(18)
+            };
+            overdueInv.AddItem(Guid.NewGuid(), "Item FX", 1, 50m, 0m);
+            overdueInv.Submit();
+            overdueInv.Post();
+            await siRepo.InsertAsync(overdueInv, autoSave: true);
+
+            var overview = await customerService.GetCustomerOverviewAsync(new GetCustomerOverviewInputDto
+            {
+                CustomerId = customer.Id,
+                CompanyId = company.Id,
+                Period = "Last 30 Days"
+            });
+
+            overview.Position.NetSales.Value.ShouldBe(600m); // (100 + 50) * 4
+            overview.Position.Overdue.Value.ShouldBe(50m);
+            overview.Position.Overdue.Count.ShouldBe(1);
+            overview.Ageing.Overdue.ShouldBe(50m);
+        });
+    }
 }

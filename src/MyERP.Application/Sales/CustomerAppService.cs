@@ -506,14 +506,14 @@ public class CustomerAppService :
         var currentPeriodInvoices = customerInvoices
             .Where(si => !si.IsReturn && si.IssueDate >= fromDate && si.IssueDate < toDateExclusive)
             .ToList();
-        var currentNetSales = currentPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+        var currentNetSales = currentPeriodInvoices.Sum(si => si.BaseNetTotal > 0 ? si.BaseNetTotal : (si.NetTotal > 0 ? si.NetTotal : si.GrandTotal));
 
         var prevFromDate = fromDate.AddYears(-1);
         var prevToDateExclusive = toDate.AddYears(-1).Date.AddDays(1);
         var prevPeriodInvoices = customerInvoices
             .Where(si => !si.IsReturn && si.IssueDate >= prevFromDate && si.IssueDate < prevToDateExclusive)
             .ToList();
-        var prevNetSales = prevPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+        var prevNetSales = prevPeriodInvoices.Sum(si => si.BaseNetTotal > 0 ? si.BaseNetTotal : (si.NetTotal > 0 ? si.NetTotal : si.GrandTotal));
 
         var outstandingInvoices = customerInvoices
             .Where(si => !si.IsReturn && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0)
@@ -524,7 +524,7 @@ public class CustomerAppService :
         var trailing365Start = asOfDate.AddDays(-365);
         var trailingSales = customerInvoices
             .Where(si => !si.IsReturn && si.IssueDate >= trailing365Start && si.IssueDate < asOfExclusive)
-            .Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+            .Sum(si => si.BaseNetTotal > 0 ? si.BaseNetTotal : (si.NetTotal > 0 ? si.NetTotal : si.GrandTotal));
         int? daysToPay = null;
         if (trailingSales > 0)
         {
@@ -568,7 +568,7 @@ public class CustomerAppService :
             var isMtd = cursor == currentMonthStart;
             var monthSales = customerInvoices
                 .Where(si => !si.IsReturn && si.IssueDate.Year == cursor.Year && si.IssueDate.Month == cursor.Month)
-                .Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+                .Sum(si => si.BaseNetTotal > 0 ? si.BaseNetTotal : (si.NetTotal > 0 ? si.NetTotal : si.GrandTotal));
 
             points.Add(new CustomerTrendPointDto
             {
@@ -590,13 +590,13 @@ public class CustomerAppService :
         foreach (var inv in outstandingInvoices)
         {
             var bal = inv.GrandTotal - inv.AmountPaid - inv.WriteOffAmount - inv.TotalAdvance;
-            if (!inv.DueDate.HasValue || inv.DueDate.Value >= asOfDate)
+            if (!inv.DueDate.HasValue || inv.DueDate.Value.Date >= asOfDate)
             {
                 notDueAmount += bal;
             }
             else
             {
-                var overdueDays = (int)(asOfDate - inv.DueDate.Value).TotalDays;
+                var overdueDays = (int)(asOfDate - inv.DueDate.Value.Date).TotalDays;
                 if (overdueDays <= 30) b1Amount += bal;
                 else if (overdueDays <= 60) b2Amount += bal;
                 else if (overdueDays <= 90) b3Amount += bal;
@@ -637,7 +637,7 @@ public class CustomerAppService :
 
         var deliverySos = openSos.Where(so => so.PerDelivered < 100 && !so.SkipDeliveryNote).ToList();
         var deliveryValue = deliverySos.Sum(so => so.GrandTotal * (100m - so.PerDelivered) / 100m);
-        var pastDueDelivery = deliverySos.Count(so => so.DeliveryDate.HasValue && so.DeliveryDate.Value < asOfDate);
+        var pastDueDelivery = deliverySos.Count(so => so.DeliveryDate.HasValue && so.DeliveryDate.Value.Date < asOfDate);
 
         var billingSos = openSos.Where(so => so.PerBilled < 100).ToList();
         var billingValue = billingSos.Sum(so => so.GrandTotal * (100m - so.PerBilled) / 100m);

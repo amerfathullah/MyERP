@@ -739,4 +739,33 @@ public class JobCardTests
 
         await Should.ThrowAsync<BusinessException>(() => manager.ValidateCapacityAsync(candidateJc));
     }
+
+    // ERPNext commit cb6e1bdee7: keep the WorkstationType filter when no enabled workstation matches
+    [Fact]
+    public async Task ValidateCapacityAsync_WorkstationType_NoEnabledWorkstations_ChecksOverlap()
+    {
+        var companyId = Guid.NewGuid();
+        var activeJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 10)
+        {
+            WorkstationType = "HeatTreatment",
+            PlannedTimeInMins = 60m,
+        };
+        activeJc.Start();
+
+        var candidateJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 20)
+        {
+            WorkstationType = "HeatTreatment",
+            PlannedTimeInMins = 30m,
+        };
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        jcRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JobCard> { activeJc }.AsQueryable()));
+
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        wsRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Workstation>().AsQueryable()));
+
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        await Should.ThrowAsync<BusinessException>(() => manager.ValidateCapacityAsync(candidateJc));
+    }
 }

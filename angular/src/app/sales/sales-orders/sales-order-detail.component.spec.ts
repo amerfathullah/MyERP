@@ -496,5 +496,22 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyCreated');
       expect(routerMock.navigate).toHaveBeenCalledWith(['/purchasing/orders', 'ic-po-1']);
     });
+
+    it('rounds pending qty before flagging item overdue or offering delivery selection', () => {
+      const { comp } = createComponent();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      expect(comp.isItemOverdue({ deliveryDate: yesterday.toISOString(), quantity: 10.1, deliveredQty: 10.1 - 1e-12 })).toBe(false);
+      expect(comp.isItemOverdue({ deliveryDate: yesterday.toISOString(), quantity: 10, deliveredQty: 9 })).toBe(true);
+
+      comp.order = {
+        id: 'so-1',
+        status: 'ToDeliverAndBill',
+        items: [{ id: 'soi-1', itemId: 'item-1', description: 'Rounded', quantity: 10.1, deliveredQty: 10.1 - 1e-12 }],
+      } as any;
+      comp.openDeliverySelection();
+      expect(comp.showDeliverySelection()).toBe(false);
+    });
   });
 });

@@ -158,10 +158,11 @@ export class SalesOrderDetailComponent implements OnInit {
   isItemOverdue(row: any): boolean {
     if (!row.deliveryDate) return false;
     const dueDate = new Date(row.deliveryDate);
+    dueDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const deliveredQty = row.deliveredQty ?? 0;
-    return dueDate < today && deliveredQty < row.quantity;
+    const pendingQty = Math.round(((row.quantity ?? 0) - (row.deliveredQty ?? 0)) * 10000) / 10000;
+    return dueDate < today && pendingQty > 0;
   }
 
   getTimelineSteps(): { label: string; icon: string; completed: boolean; active: boolean; date?: string }[] {
@@ -575,15 +576,15 @@ export class SalesOrderDetailComponent implements OnInit {
     if (!this.order?.items?.length) return;
     const items = this.order.items
       .filter((i: any) => {
-        const pending = (i.quantity ?? 0) - (i.deliveredQty ?? 0);
+        const pending = Math.round(((i.quantity ?? 0) - (i.deliveredQty ?? 0)) * 10000) / 10000;
         const maxDeliverable = i.maxDeliverableQty ?? i.quantity ?? 0;
-        const overDeliverable = maxDeliverable - (i.deliveredQty ?? 0);
+        const overDeliverable = Math.round((maxDeliverable - (i.deliveredQty ?? 0)) * 10000) / 10000;
         return pending > 0 || overDeliverable > 0;
       })
       .map((i: any) => {
-        const pending = Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0));
+        const pending = Math.max(0, Math.round(((i.quantity ?? 0) - (i.deliveredQty ?? 0)) * 10000) / 10000);
         const maxDeliverable = i.maxDeliverableQty ?? i.quantity ?? 0;
-        const overDeliverable = Math.max(0, maxDeliverable - (i.deliveredQty ?? 0));
+        const overDeliverable = Math.max(0, Math.round((maxDeliverable - (i.deliveredQty ?? 0)) * 10000) / 10000);
         const availableQty = pending > 0 ? pending : overDeliverable;
         return {
           salesOrderItemId: i.id,
