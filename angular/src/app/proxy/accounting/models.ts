@@ -392,6 +392,7 @@ export interface BankReconciliationStatementDto {
   amountsNotReflectedInSystem?: number;
   calculatedBankBalance?: number;
   unclearedEntries?: BankStatementEntryDto[];
+  incorrectlyClearedEntries?: BankStatementEntryDto[];
   currencyCode?: string;
   reportDate?: string;
   bankAccountName?: string;

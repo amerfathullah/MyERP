@@ -706,6 +706,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PaymentEntries',
       },
       {
+        path: '/accounting/reports/cheques-and-deposits-incorrectly-cleared',
+        name: '::Menu:ChequesAndDepositsIncorrectlyCleared',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-triangle-exclamation',
+        order: 22.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PaymentEntries',
+      },
+      {
         path: '/accounting/payment-reconciliation',
         name: '::Menu:PaymentReconciliation',
         parentName: '::Menu:Accounting',

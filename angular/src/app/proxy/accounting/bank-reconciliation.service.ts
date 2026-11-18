@@ -1,4 +1,4 @@
-import type { AutoMatchResultDto, BankReconciliationStatementDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, CreateJEFromTransactionDto, CreatePEFromTransactionDto, GetBankReconciliationStatementInput, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, JournalEntryCreatedResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto, VoucherCreatedResultDto } from './models';
+import type { AutoMatchResultDto, BankReconciliationStatementDto, BankReconciliationSummaryDto, BankStatementEntryDto, BankTransactionDto, CreateInternalTransferDto, CreateJEFromTransactionDto, CreatePEFromTransactionDto, GetBankReconciliationStatementInput, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, JournalEntryCreatedResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto, VoucherCreatedResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -73,6 +73,17 @@ export class BankReconciliationService {
       headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/match-candidates',
       params: { bankTransactionId, companyId, documentTypes },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getIncorrectlyClearedEntries = (input: GetBankReconciliationStatementInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BankStatementEntryDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/bank-reconciliation/incorrectly-cleared-entries',
+      params: { bankAccountId: input.bankAccountId, companyId: input.companyId, reportDate: input.reportDate },
     },
       { apiName: this.apiName,...config });
   

@@ -21,6 +21,7 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input);
     Task<JournalEntryCreatedResultDto> CreateJournalEntryFromTransactionAsync(CreateJEFromTransactionDto input);
     Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(GetBankReconciliationStatementInput input);
+    Task<List<BankStatementEntryDto>> GetIncorrectlyClearedEntriesAsync(GetBankReconciliationStatementInput input);
     Task<decimal> GetAccountOpeningBalanceAsync(Guid bankAccountId, DateTime tillDate);
 }
 
@@ -66,6 +67,9 @@ public class BankReconciliationStatementDto
 
     /// <summary>Individual uncleared entries for the statement listing</summary>
     public List<BankStatementEntryDto> UnclearedEntries { get; set; } = new();
+
+    /// <summary>Entries posted after ReportDate but cleared on or before ReportDate</summary>
+    public List<BankStatementEntryDto> IncorrectlyClearedEntries { get; set; } = new();
 
     public string CurrencyCode { get; set; } = "MYR";
     public DateTime ReportDate { get; set; }

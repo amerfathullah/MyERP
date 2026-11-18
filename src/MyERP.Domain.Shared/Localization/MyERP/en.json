@@ -6424,7 +6424,11 @@
     "NoVouchersInPeriod": "No vouchers found in the selected period",
     "ClickVoucherToDrillDown": "Click a voucher row to open its General Ledger entries",
     "TotalCostingAmount": "Total Costing Amount",
-    "CostingAndBilling": "Costing & Billing"
+    "CostingAndBilling": "Costing & Billing",
+    "Menu:ChequesAndDepositsIncorrectlyCleared": "Incorrectly Cleared Cheques",
+    "ChequesAndDepositsIncorrectlyCleared": "Cheques and Deposits Incorrectly Cleared",
+    "ChequesAndDepositsIncorrectlyClearedDescription": "Vouchers posted after the report date that were cleared on or before the report date",
+    "NoIncorrectlyClearedEntries": "No incorrectly cleared cheques or deposits found as of the selected report date"
   }
 }
 

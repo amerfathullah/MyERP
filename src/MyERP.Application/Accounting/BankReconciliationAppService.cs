@@ -848,7 +848,70 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         // Step 4: Amounts not reflected in system (Cheques and Deposits incorrectly cleared)
         // Per ERPNext get_amounts_not_reflected_in_system:
         // Entries posted AFTER ReportDate but cleared ON OR BEFORE ReportDate.
-        var notReflectedPEs = peQuery
+        var incorrectlyClearedEntries = await CollectIncorrectlyClearedEntriesAsync(
+            input,
+            bankCurrency,
+            companyCurrency,
+            peQuery.ToList(),
+            jeRepo,
+            jeLineRepo);
+        var amountsNotReflectedInSystem = incorrectlyClearedEntries.Sum(e => e.Debit - e.Credit);
+
+        return new BankReconciliationStatementDto
+        {
+            GlBalance = glBalance,
+            OutstandingDeposits = outstandingDeposits,
+            OutstandingPayments = outstandingPayments,
+            AmountsNotReflectedInSystem = amountsNotReflectedInSystem,
+            UnclearedEntries = unclearedEntries.OrderBy(e => e.PostingDate).ToList(),
+            IncorrectlyClearedEntries = incorrectlyClearedEntries,
+            CurrencyCode = bankCurrency,
+            ReportDate = input.ReportDate,
+            BankAccountName = accountName
+        };
+    }
+
+    /// <summary>
+    /// Cheques and Deposits Incorrectly Cleared report:
+    /// Returns posted Payment Entries and non-opening Journal Entries touching the bank account
+    /// where PostingDate &gt; ReportDate and ClearanceDate &lt;= ReportDate.
+    /// Per ERPNext accounts/report/cheques_and_deposits_incorrectly_cleared.
+    /// </summary>
+    public async Task<List<BankStatementEntryDto>> GetIncorrectlyClearedEntriesAsync(
+        GetBankReconciliationStatementInput input)
+    {
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var account = await accountRepo.FindAsync(input.BankAccountId);
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
+        var bankCurrency = account?.Currency ?? companyCurrency;
+
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var jeLineRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntryLine, Guid>>();
+        var peQuery = await _paymentEntryRepository.WithDetailsAsync(p => p.Taxes);
+
+        return await CollectIncorrectlyClearedEntriesAsync(
+            input,
+            bankCurrency,
+            companyCurrency,
+            peQuery.ToList(),
+            jeRepo,
+            jeLineRepo);
+    }
+
+    private async Task<List<BankStatementEntryDto>> CollectIncorrectlyClearedEntriesAsync(
+        GetBankReconciliationStatementInput input,
+        string bankCurrency,
+        string companyCurrency,
+        List<PaymentEntry> allPaymentEntries,
+        IRepository<JournalEntry, Guid> jeRepo,
+        IRepository<JournalEntryLine, Guid> jeLineRepo)
+    {
+        var entries = new List<BankStatementEntryDto>();
+
+        var notReflectedPEs = allPaymentEntries
             .Where(pe => pe.CompanyId == input.CompanyId
                 && pe.Status == Core.DocumentStatus.Posted
                 && pe.PostingDate > input.ReportDate
@@ -857,17 +920,26 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 && (pe.PaidFromAccountId == input.BankAccountId || pe.PaidToAccountId == input.BankAccountId))
             .ToList();
 
-        decimal notReflectedPeAmount = 0m;
         foreach (var pe in notReflectedPEs)
         {
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
             var bankSideAmount = pe.GetBankSideAmount(isDeposit);
             var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
             var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
-            if (isDeposit)
-                notReflectedPeAmount += amount;
-            else
-                notReflectedPeAmount -= amount;
+
+            entries.Add(new BankStatementEntryDto
+            {
+                PostingDate = pe.PostingDate,
+                DocumentType = "Payment Entry",
+                DocumentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
+                DocumentId = pe.Id,
+                Debit = isDeposit ? amount : 0m,
+                Credit = isDeposit ? 0m : amount,
+                ReferenceNumber = pe.ReferenceNumber,
+                ClearanceDate = pe.ClearanceDate,
+                PartyName = null,
+                AccountCurrency = bankCurrency
+            });
         }
 
         var notReflectedJEs = (await jeRepo.GetQueryableAsync())
@@ -879,7 +951,6 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 && je.ClearanceDate <= input.ReportDate)
             .ToList();
 
-        decimal notReflectedJeAmount = 0m;
         if (notReflectedJEs.Count > 0)
         {
             var notReflectedJeIds = notReflectedJEs.Select(je => je.Id).ToHashSet();
@@ -889,29 +960,33 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                     && (l.FinanceBook == null || l.FinanceBook == ""))
                 .ToList();
 
-            foreach (var l in notReflectedLines)
+            foreach (var group in notReflectedLines.GroupBy(l => l.JournalEntryId))
             {
-                var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount);
-                if (l.IsDebit)
-                    notReflectedJeAmount += amount;
-                else
-                    notReflectedJeAmount -= amount;
+                var je = notReflectedJEs.First(j => j.Id == group.Key);
+                var debit = group.Where(l => l.IsDebit)
+                    .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+                var credit = group.Where(l => !l.IsDebit)
+                    .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+
+                if (debit == 0m && credit == 0m) continue;
+
+                entries.Add(new BankStatementEntryDto
+                {
+                    PostingDate = je.PostingDate,
+                    DocumentType = "Journal Entry",
+                    DocumentNumber = je.EntryNumber ?? je.Id.ToString()[..8],
+                    DocumentId = je.Id,
+                    Debit = debit,
+                    Credit = credit,
+                    ReferenceNumber = je.ReferenceNumber,
+                    ClearanceDate = je.ClearanceDate,
+                    PartyName = null,
+                    AccountCurrency = bankCurrency
+                });
             }
         }
 
-        var amountsNotReflectedInSystem = notReflectedPeAmount + notReflectedJeAmount;
-
-        return new BankReconciliationStatementDto
-        {
-            GlBalance = glBalance,
-            OutstandingDeposits = outstandingDeposits,
-            OutstandingPayments = outstandingPayments,
-            AmountsNotReflectedInSystem = amountsNotReflectedInSystem,
-            UnclearedEntries = unclearedEntries.OrderBy(e => e.PostingDate).ToList(),
-            CurrencyCode = bankCurrency,
-            ReportDate = input.ReportDate,
-            BankAccountName = accountName
-        };
+        return entries.OrderBy(e => e.PostingDate).ThenBy(e => e.ClearanceDate).ToList();
     }
 
     /// <summary>

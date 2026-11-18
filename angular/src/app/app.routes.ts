@@ -487,6 +487,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/cheques-and-deposits-incorrectly-cleared',
+    loadComponent: () => import('./accounting/reports/cheques-and-deposits-incorrectly-cleared/cheques-and-deposits-incorrectly-cleared.component').then(c => c.ChequesAndDepositsIncorrectlyClearedComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],
