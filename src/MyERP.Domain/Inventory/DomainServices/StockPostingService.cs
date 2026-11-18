@@ -33,8 +33,26 @@ public class StockPostingService : DomainService
         IRepository<Item, Guid> itemRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
         BinService binService,
+        StockValuationService valuationService)
+        : this(
+            sleRepository,
+            companyRepository,
+            itemRepository,
+            warehouseRepository,
+            binService,
+            valuationService,
+            null)
+    {
+    }
+
+    public StockPostingService(
+        IRepository<StockLedgerEntry, Guid> sleRepository,
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Item, Guid> itemRepository,
+        IRepository<Warehouse, Guid> warehouseRepository,
+        BinService binService,
         StockValuationService valuationService,
-        IRepository<BomSecondaryItem, Guid>? bomSecondaryItemRepository = null)
+        IRepository<BomSecondaryItem, Guid>? bomSecondaryItemRepository)
     {
         _sleRepository = sleRepository;
         _companyRepository = companyRepository;
