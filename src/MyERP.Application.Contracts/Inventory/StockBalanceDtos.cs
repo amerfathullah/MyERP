@@ -192,3 +192,30 @@ public class ProductBundleBalanceRowDto
     public decimal BundleQty { get; set; }
 }
 
+// --- Quick Stock Balance DTOs ---
+
+public class QuickStockBalanceRequestDto
+{
+    public Guid WarehouseId { get; set; }
+    public DateTime? Date { get; set; }
+    public Guid? ItemId { get; set; }
+    public string? Barcode { get; set; }
+}
+
+public class QuickStockBalanceDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Uom { get; set; } = string.Empty;
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public DateTime AsOfDate { get; set; }
+    public decimal Qty { get; set; }
+    public decimal Value { get; set; }
+    public decimal ValuationRate { get; set; }
+    public string? MatchedBarcode { get; set; }
+    public List<string> Barcodes { get; set; } = new();
+}
+

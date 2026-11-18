@@ -1,0 +1,118 @@
+<abp-page [title]="'::QuickStockBalance' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">{{ '::QuickStockBalance' | abpLocalization }}</h5>
+      @if (filters.get('itemId')?.value) {
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="openStockBalanceReport()">
+          <i class="fa fa-up-right-from-square me-1"></i>{{ '::StockBalanceReport' | abpLocalization }}
+        </button>
+      }
+    </div>
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="lookupBalance()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Warehouse' | abpLocalization }} *</label>
+          <select class="form-select" formControlName="warehouseId" (change)="onWarehouseOrDateChange()">
+            <option value="">{{ '::Select' | abpLocalization }}</option>
+            @for (w of warehouses(); track w.id) {
+              <option [value]="w.id">{{ w.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::AsOfDate' | abpLocalization }} *</label>
+          <input
+            type="date"
+            class="form-control"
+            formControlName="date"
+            (change)="onWarehouseOrDateChange()"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemId" (change)="onItemChange()">
+            <option value="">{{ '::Select' | abpLocalization }}</option>
+            @for (it of items(); track it.id) {
+              <option [value]="it.id">{{ it.itemCode }} - {{ it.itemName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Barcode' | abpLocalization }}</label>
+          <input
+            type="text"
+            class="form-control"
+            formControlName="barcode"
+            (change)="onBarcodeChange()"
+          />
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (result(); as res) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card border-primary h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::Qty' | abpLocalization }} ({{ res.uom }})</div>
+            <div class="fs-3 fw-bold font-monospace">{{ (res.qty ?? 0) | number:'1.2-4' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-success h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::StockValue' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold font-monospace">{{ (res.value ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-info h-100">
+          <div class="card-body">
+            <div class="text-muted small">{{ '::ValuationRate' | abpLocalization }}</div>
+            <div class="fs-3 fw-bold font-monospace">{{ (res.valuationRate ?? 0) | number:'1.2-4' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header fw-bold">{{ '::ItemDetails' | abpLocalization }}</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-3">{{ '::Item' | abpLocalization }}</dt>
+          <dd class="col-sm-9">{{ res.itemCode }} - {{ res.itemName }}</dd>
+
+          <dt class="col-sm-3">{{ '::Warehouse' | abpLocalization }}</dt>
+          <dd class="col-sm-9">{{ res.warehouseName }}</dd>
+
+          <dt class="col-sm-3">{{ '::AsOfDate' | abpLocalization }}</dt>
+          <dd class="col-sm-9">{{ res.asOfDate | date:'yyyy-MM-dd' }}</dd>
+
+          <dt class="col-sm-3">{{ '::Description' | abpLocalization }}</dt>
+          <dd class="col-sm-9">{{ res.description || '-' }}</dd>
+
+          <dt class="col-sm-3">{{ '::Barcodes' | abpLocalization }}</dt>
+          <dd class="col-sm-9 font-monospace">
+            {{ res.barcodes?.length ? res.barcodes?.join(', ') : '-' }}
+          </dd>
+        </dl>
+      </div>
+    </div>
+  }
+</abp-page>

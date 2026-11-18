@@ -2184,6 +2184,29 @@ export interface ProductBundleBalanceRowDto {
   bundleQty?: number;
 }
 
+export interface QuickStockBalanceRequestDto {
+  warehouseId: string;
+  date?: string | null;
+  itemId?: string | null;
+  barcode?: string | null;
+}
+
+export interface QuickStockBalanceDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  description?: string | null;
+  uom?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  asOfDate?: string;
+  qty?: number;
+  value?: number;
+  valuationRate?: number;
+  matchedBarcode?: string | null;
+  barcodes?: string[];
+}
+
 export interface PutawayRuleDto extends EntityDto<string> {
   companyId?: string;
   itemId?: string | null;

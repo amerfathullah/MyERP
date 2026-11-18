@@ -1,4 +1,4 @@
-import type { BatchWiseBalanceReportDto, GetBatchWiseBalanceRequestDto, GetItemsAvailabilityInput, GetProductBundleBalanceRequestDto, GetStockBalanceReportRequestDto, GetStockBalanceRequestDto, ItemAvailabilityDto, ProductBundleBalanceReportDto, StockBalanceDto, StockBalanceReportDto } from './models';
+import type { BatchWiseBalanceReportDto, GetBatchWiseBalanceRequestDto, GetItemsAvailabilityInput, GetProductBundleBalanceRequestDto, GetStockBalanceReportRequestDto, GetStockBalanceRequestDto, ItemAvailabilityDto, ProductBundleBalanceReportDto, QuickStockBalanceDto, QuickStockBalanceRequestDto, StockBalanceDto, StockBalanceReportDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -84,4 +84,18 @@ export class StockBalanceService {
       params: { itemId, warehouseId },
     },
       { apiName: this.apiName,...config });
+
+  getQuickStockBalance = (input: QuickStockBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, QuickStockBalanceDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/stock-balance/quick-stock-balance',
+      params: {
+        warehouseId: input.warehouseId,
+        date: input.date,
+        itemId: input.itemId,
+        barcode: input.barcode,
+      },
+    },
+      { apiName: this.apiName, ...config });
 }

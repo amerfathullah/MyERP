@@ -6612,7 +6612,11 @@
     "RepostSelected": "Repost Selected",
     "QtyDifference": "Qty Diff",
     "ValuationRateDifference": "Rate Diff",
-    "StockValueDifferenceInBalance": "Value Diff"
+    "StockValueDifferenceInBalance": "Value Diff",
+    "Menu:QuickStockBalance": "Quick Stock Balance",
+    "QuickStockBalance": "Quick Stock Balance",
+    "StockBalanceReport": "Stock Balance Report",
+    "ItemDetails": "Item Details"
   }
 }
 

@@ -1316,6 +1316,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockBalance',
       },
       {
+        path: '/inventory/reports/quick-stock-balance',
+        name: '::Menu:QuickStockBalance',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-bolt',
+        order: 25.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/reports/items-to-be-requested',
         name: '::Menu:ItemsToBeRequested',
         parentName: '::Menu:Inventory',

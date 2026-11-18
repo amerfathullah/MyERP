@@ -805,5 +805,133 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
         return new ProductBundleBalanceReportDto { Rows = rows };
     }
+
+    public async Task<QuickStockBalanceDto> GetQuickStockBalanceAsync(QuickStockBalanceRequestDto input)
+    {
+        if (input.WarehouseId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please enter Warehouse and Date.");
+        }
+
+        var warehouse = await _warehouseRepository.GetAsync(input.WarehouseId);
+        var asOfDate = (input.Date ?? DateTime.UtcNow).Date;
+        var asOfEnd = asOfDate.AddDays(1).AddTicks(-1);
+
+        var itemQuery = await _itemRepository.WithDetailsAsync(i => i.Barcodes);
+        Item? item = null;
+        string? matchedBarcode = null;
+
+        if (!string.IsNullOrWhiteSpace(input.Barcode))
+        {
+            var trimmedBarcode = input.Barcode.Trim();
+            item = await AsyncExecuter.FirstOrDefaultAsync(
+                itemQuery.Where(i => i.Barcode == trimmedBarcode
+                                     || i.Barcodes.Any(b => b.Barcode == trimmedBarcode)));
+
+            if (item == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Invalid Barcode. There is no Item attached to this barcode.");
+            }
+
+            matchedBarcode = trimmedBarcode;
+        }
+        else if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+        {
+            item = await AsyncExecuter.FirstOrDefaultAsync(itemQuery.Where(i => i.Id == input.ItemId.Value));
+            if (item == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Item not found.");
+            }
+        }
+        else
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Specify Item or Barcode.");
+        }
+
+        var leafWarehouseIds = await ResolveLeafWarehouseIdsAsync(warehouse);
+
+        var sleQuery = (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled
+                        && s.ItemId == item.Id
+                        && leafWarehouseIds.Contains(s.WarehouseId)
+                        && s.PostingDate <= asOfEnd);
+
+        var sles = await AsyncExecuter.ToListAsync(sleQuery);
+        var latestByWarehouse = sles
+            .GroupBy(s => s.WarehouseId)
+            .Select(g => g.OrderByDescending(s => s.PostingDateTime)
+                .ThenByDescending(s => s.CreationTime)
+                .First())
+            .ToList();
+
+        var totalQty = latestByWarehouse.Sum(s => s.BalanceQuantity);
+        var totalValue = latestByWarehouse.Sum(s => s.BalanceValue);
+        var valuationRate = totalQty != 0m ? Math.Round(totalValue / totalQty, 4) : 0m;
+
+        var barcodes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.Barcode))
+            barcodes.Add(item.Barcode);
+        foreach (var b in item.Barcodes)
+        {
+            if (!string.IsNullOrWhiteSpace(b.Barcode) && !barcodes.Contains(b.Barcode))
+                barcodes.Add(b.Barcode);
+        }
+
+        return new QuickStockBalanceDto
+        {
+            ItemId = item.Id,
+            ItemCode = item.ItemCode,
+            ItemName = item.ItemName,
+            Description = item.Description,
+            Uom = item.Uom,
+            WarehouseId = warehouse.Id,
+            WarehouseName = warehouse.Name,
+            AsOfDate = asOfDate,
+            Qty = totalQty,
+            Value = totalValue,
+            ValuationRate = valuationRate,
+            MatchedBarcode = matchedBarcode,
+            Barcodes = barcodes,
+        };
+    }
+
+    private async Task<List<Guid>> ResolveLeafWarehouseIdsAsync(Warehouse rootWarehouse)
+    {
+        if (!rootWarehouse.IsGroup)
+        {
+            return new List<Guid> { rootWarehouse.Id };
+        }
+
+        var allWarehouses = await _warehouseRepository.GetListAsync(w => w.CompanyId == rootWarehouse.CompanyId);
+        var byParent = allWarehouses
+            .Where(w => w.ParentWarehouseId.HasValue)
+            .ToLookup(w => w.ParentWarehouseId!.Value);
+
+        var leafIds = new List<Guid>();
+        var visited = new HashSet<Guid> { rootWarehouse.Id };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootWarehouse.Id);
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var child in byParent[cur])
+            {
+                if (!visited.Add(child.Id))
+                    continue;
+
+                if (child.IsGroup)
+                    queue.Enqueue(child.Id);
+                else
+                    leafIds.Add(child.Id);
+            }
+        }
+
+        return leafIds.Count > 0 ? leafIds : new List<Guid> { rootWarehouse.Id };
+    }
 }
 

@@ -4105,6 +4105,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockBalance' },
   },
   {
+    path: 'inventory/reports/quick-stock-balance',
+    loadComponent: () => import('./inventory/reports/quick-stock-balance/quick-stock-balance.component').then(c => c.QuickStockBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'inventory/reports/items-to-be-requested',
     loadComponent: () => import('./inventory/reports/items-to-be-requested/items-to-be-requested.component').then(c => c.ItemsToBeRequestedComponent),
     canActivate: [authGuard, permissionGuard],

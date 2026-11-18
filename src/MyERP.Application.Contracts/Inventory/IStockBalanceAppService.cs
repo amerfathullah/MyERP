@@ -31,4 +31,11 @@ public interface IStockBalanceAppService : IApplicationService
     /// Bundle qty is never negative per ERPNext PR #60627 (max(0, actual_qty // minimum_qty)).
     /// </summary>
     Task<ProductBundleBalanceReportDto> GetProductBundleBalanceAsync(GetProductBundleBalanceRequestDto input);
+
+    /// <summary>
+    /// Quick Stock Balance lookup — resolves an Item directly or by Barcode and returns current qty,
+    /// stock value, and valuation rate as of the requested date across a leaf or group warehouse.
+    /// Maps to ERPNext stock/doctype/quick_stock_balance.
+    /// </summary>
+    Task<QuickStockBalanceDto> GetQuickStockBalanceAsync(QuickStockBalanceRequestDto input);
 }
