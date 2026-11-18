@@ -6488,7 +6488,18 @@
     "CostOfPurchasedItems": "Cost of Purchased Items",
     "CostOfIssuedItems": "Cost of Issued Items",
     "CostOfDeliveredItems": "Cost of Delivered Items",
-    "ProjectValue": "Project Value"
+    "ProjectValue": "Project Value",
+    "PartySummary": "Party Summary",
+    "SummaryByParty": "Summary by Party",
+    "CreditNoteAmount": "Credit Note Amount",
+    "NotYetDue": "Not Yet Due",
+    "CalculateAgeingWith": "Calculate Ageing With",
+    "TodayDate": "Today Date",
+    "ViewMode": "View Mode",
+    "PartyGroup": "Party Group",
+    "SalesOrderNumber": "SO Number",
+    "DeliveryNoteNumber": "DN Number",
+    "ItemWiseSalesRegister": "Item-wise Sales Register"
   }
 }
 

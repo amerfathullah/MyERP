@@ -251,11 +251,24 @@ export class JournalEntryFormComponent implements OnInit {
   private loadAccountDetails(index: number, accountId: string): void {
     const { companyId, entryDate } = this.form.getRawValue();
     if (!companyId || !entryDate) return;
+    const currentRow = this.lines.at(index);
+    const prevCurrency = currentRow?.get('accountCurrency')?.value ?? '';
+    const prevRate = Number(currentRow?.get('exchangeRate')?.value) || 0;
     this.journalEntryService.getAccountDetails(companyId, accountId, entryDate).subscribe({
       next: details => {
         const row = this.lines.at(index);
         if (!row || row.get('accountId')?.value !== accountId) return;
-        row.patchValue({ accountCurrency: details.accountCurrency ?? '', exchangeRate: details.exchangeRate ?? 1 });
+        const nextCurrency = details.accountCurrency ?? '';
+        // Per ERPNext PR #67962: keep custom exchange rate only while account currency stays the same
+        const keepCustomRate =
+          !!prevCurrency &&
+          nextCurrency === prevCurrency &&
+          prevRate !== 0 &&
+          prevRate !== 1;
+        row.patchValue({
+          accountCurrency: nextCurrency,
+          exchangeRate: keepCustomRate ? prevRate : (details.exchangeRate ?? 1),
+        });
         if (details.accountCurrency && details.accountCurrency !== details.companyCurrency) {
           this.form.patchValue({ isMultiCurrency: true });
         }

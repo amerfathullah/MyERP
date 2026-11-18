@@ -1,8 +1,24 @@
-<abp-page [title]="'::AgingReport' | abpLocalization">
+<abp-page [title]="(viewMode === 'summary' ? '::PartySummary' : '::AgingReport') | abpLocalization">
+  <div class="d-flex justify-content-end mb-2">
+    <div class="btn-group btn-group-sm">
+      <button type="button" class="btn"
+              [class.btn-primary]="viewMode === 'details'"
+              [class.btn-outline-primary]="viewMode !== 'details'"
+              (click)="switchView('details')">
+        {{ '::InvoiceDetails' | abpLocalization }}
+      </button>
+      <button type="button" class="btn"
+              [class.btn-primary]="viewMode === 'summary'"
+              [class.btn-outline-primary]="viewMode !== 'summary'"
+              (click)="switchView('summary')">
+        {{ '::SummaryByParty' | abpLocalization }}
+      </button>
+    </div>
+  </div>
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
             <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
@@ -11,10 +27,6 @@
             }
           </select>
         </div>
-        <div class="col-md-3">
-          <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
-          <input type="date" class="form-control" formControlName="asOfDate" />
-        </div>
         <div class="col-md-2">
           <label class="form-label">{{ '::ReportType' | abpLocalization }}</label>
           <select class="form-select" formControlName="reportType">
@@ -22,13 +34,48 @@
             <option value="payables">{{ '::Payables' | abpLocalization }}</option>
           </select>
         </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::PartyGroup' | abpLocalization }}</label>
+          <select class="form-select" formControlName="partyGroupId">
+            <option value="">-- {{ '::All' | abpLocalization }} --</option>
+            @for (pg of activePartyGroups; track pg.id) {
+              <option [value]="pg.id">{{ pg.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::AsOfDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="asOfDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::AgeingBasedOn' | abpLocalization }}</label>
+          <select class="form-select" formControlName="ageingBasedOn">
+            <option value="Due Date">{{ '::DueDate' | abpLocalization }}</option>
+            <option value="Posting Date">{{ '::PostingDate' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::CalculateAgeingWith' | abpLocalization }}</label>
+          <select class="form-select" formControlName="calculateAgeingWith">
+            <option value="Report Date">{{ '::ReportDate' | abpLocalization }}</option>
+            <option value="Today Date">{{ '::TodayDate' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
         <div class="col-md-3 d-flex align-items-end">
           <div class="form-check mb-2">
             <input type="checkbox" class="form-check-input" id="includeReval" formControlName="includeRevaluationJournals" />
             <label class="form-check-label" for="includeReval">{{ '::IncludeRevaluationJournals' | abpLocalization }}</label>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-2 ms-auto">
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
             <i class="fa fa-chart-bar me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
@@ -43,7 +90,7 @@
 
   @if (report(); as r) {
     <div class="row mb-4">
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="card text-center">
           <div class="card-body">
             <h4 class="text-primary">{{ r.totalOutstanding | number:'1.2-2' }}</h4>
@@ -51,7 +98,15 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h4 class="text-success">{{ (r.notYetDueAmount ?? 0) | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ '::NotYetDue' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
         <div class="card text-center">
           <div class="card-body">
             <h4>{{ r.invoiceCount }}</h4>
@@ -59,7 +114,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="card text-center">
           <div class="card-body">
             <h4>{{ r.reportType }}</h4>
@@ -100,7 +155,75 @@
       </div>
     </div>
 
-    @if (r.details && r.details.length) {
+    @if (viewMode === 'summary' && r.partySummaries && r.partySummaries.length) {
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="fa fa-users me-2"></i>{{ '::PartySummary' | abpLocalization }} ({{ r.partySummaries.length }})</h6>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::Party' | abpLocalization }}</th>
+                  <th>{{ '::PartyGroup' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::InvoicedAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PaidAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::CreditNoteAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AdvanceAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::NotYetDue' | abpLocalization }}</th>
+                  @for (label of r.bucketLabels; track label) {
+                    <th class="text-end">{{ label }}</th>
+                  }
+                  <th class="text-end">{{ '::TotalDue' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::InvoiceCount' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of r.partySummaries; track s.partyId) {
+                  <tr>
+                    <td class="small">
+                      <a [routerLink]="getSummaryPartyRoute(s)" class="text-decoration-none fw-medium">{{ s.partyName || '—' }}</a>
+                    </td>
+                    <td class="small text-muted">{{ s.partyGroupName || '—' }}</td>
+                    <td class="text-end font-monospace">{{ (s.invoicedAmount ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ (s.paidAmount ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ (s.creditNoteAmount ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-info">{{ (s.advanceAmount ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace fw-medium">{{ (s.outstandingAmount ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-success">{{ (s.notYetDueAmount ?? 0) | number:'1.2-2' }}</td>
+                    @for (b of s.bucketTotals; track $index) {
+                      <td class="text-end font-monospace" [class.text-danger]="$index >= 3 && (b ?? 0) > 0">{{ (b ?? 0) | number:'1.2-2' }}</td>
+                    }
+                    <td class="text-end font-monospace fw-bold">{{ (s.totalDue ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ s.invoiceCount ?? 0 }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="fw-bold table-light">
+                  <td colspan="2">{{ '::Total' | abpLocalization }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('invoicedAmount') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('paidAmount') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('creditNoteAmount') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('advanceAmount') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('outstandingAmount') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('notYetDueAmount') | number:'1.2-2' }}</td>
+                  @for (total of r.bucketTotals; track $index) {
+                    <td class="text-end font-monospace">{{ (total ?? 0) | number:'1.2-2' }}</td>
+                  }
+                  <td class="text-end font-monospace">{{ sumSummaryField('totalDue') | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ sumSummaryField('invoiceCount') }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (viewMode === 'details' && r.details && r.details.length) {
       <div class="card mt-3">
         <div class="card-header">
           <h6 class="mb-0"><i class="fa fa-list me-2"></i>{{ '::InvoiceDetails' | abpLocalization }} ({{ r.details.length }})</h6>

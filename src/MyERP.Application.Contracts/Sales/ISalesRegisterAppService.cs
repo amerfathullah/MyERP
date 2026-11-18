@@ -6,4 +6,5 @@ namespace MyERP.Sales;
 public interface ISalesRegisterAppService : IApplicationService
 {
     Task<RegisterReportDto<SalesRegisterLineDto>> GetReportAsync(RegisterFilterDto input);
+    Task<RegisterReportDto<ItemWiseSalesRegisterLineDto>> GetItemWiseReportAsync(ItemWiseSalesRegisterFilterDto input);
 }

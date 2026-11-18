@@ -1,21 +1,50 @@
-<abp-page [title]="'::SalesRegister' | abpLocalization">
+<abp-page [title]="(reportMode === 'item' ? '::ItemWiseSalesRegister' : '::SalesRegister') | abpLocalization">
+  <div class="d-flex justify-content-end mb-2">
+    <div class="btn-group btn-group-sm">
+      <button type="button" class="btn"
+              [class.btn-primary]="reportMode === 'invoice'"
+              [class.btn-outline-primary]="reportMode !== 'invoice'"
+              (click)="switchMode('invoice')">
+        {{ '::InvoiceWise' | abpLocalization }}
+      </button>
+      <button type="button" class="btn"
+              [class.btn-primary]="reportMode === 'item'"
+              [class.btn-outline-primary]="reportMode !== 'item'"
+              (click)="switchMode('item')">
+        {{ '::ItemWise' | abpLocalization }}
+      </button>
+    </div>
+  </div>
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ '::Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
             <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::CustomerGroup' | abpLocalization }}</label>
+          <select class="form-select" formControlName="customerGroupId">
+            <option value="">-- {{ '::All' | abpLocalization }} --</option>
+            @for (cg of customerGroups(); track cg.id) { <option [value]="cg.id">{{ cg.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-2">
           <label class="form-label">{{ '::Customer' | abpLocalization }}</label>
           <select class="form-select" formControlName="customerId">
             <option value="">-- {{ '::All' | abpLocalization }} --</option>
             @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
+        @if (reportMode === 'item') {
+          <div class="col-md-2">
+            <label class="form-label">{{ '::ItemCode' | abpLocalization }}</label>
+            <input type="text" class="form-control" formControlName="itemCode" />
+          </div>
+        }
         <div class="col-md-2">
           <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
@@ -25,10 +54,12 @@
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
         <div class="col-md-2">
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
-            <label class="form-check-label small" for="includePayments">{{ '::IncludePayments' | abpLocalization }}</label>
-          </div>
+          @if (reportMode === 'invoice') {
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
+              <label class="form-check-label small" for="includePayments">{{ '::IncludePayments' | abpLocalization }}</label>
+            </div>
+          }
           <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
             <i class="fa fa-table me-1"></i>{{ '::Generate' | abpLocalization }}
           </button>
@@ -39,7 +70,72 @@
 
   @if (isLoading()) { <div class="text-center py-5"><div class="spinner-border text-primary"></div></div> }
 
-  @if (report(); as r) {
+  @if (reportMode === 'item' && itemWiseReport(); as ir) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ ir.count }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">{{ '::InvoiceNumber' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::Customer' | abpLocalization }}</th>
+                <th>{{ '::ItemCode' | abpLocalization }}</th>
+                <th>{{ '::ItemName' | abpLocalization }}</th>
+                <th>{{ '::ItemGroup' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th>{{ '::UOM' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+                <th>{{ '::SalesOrderNumber' | abpLocalization }}</th>
+                <th class="pe-3">{{ '::DeliveryNoteNumber' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of ir.items ?? []; track $index) {
+                <tr [class.text-danger]="item.isReturn">
+                  <td class="ps-3 font-monospace small">
+                    {{ item.invoiceNumber }}
+                    @if (item.isReturn) { <span class="badge bg-danger ms-1">{{ '::Return' | abpLocalization }}</span> }
+                  </td>
+                  <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ item.customerName || '-' }}</td>
+                  <td class="font-monospace small">{{ item.itemCode }}</td>
+                  <td>{{ item.itemName }}</td>
+                  <td>{{ item.itemGroup || '-' }}</td>
+                  <td class="text-end font-monospace">{{ (item.stockQty ?? 0) | number:'1.0-2' }}</td>
+                  <td>{{ item.stockUom }}</td>
+                  <td class="text-end font-monospace">{{ (item.rate ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.amount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (item.totalTax ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ (item.total ?? 0) | number:'1.2-2' }}</td>
+                  <td class="font-monospace small">{{ item.salesOrderNumber || '-' }}</td>
+                  <td class="pe-3 font-monospace small">{{ item.deliveryNoteNumber || '-' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3" colspan="9">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (ir.totalNet ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (ir.totalTax ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (ir.totalGrand ?? 0) | number:'1.2-2' }}</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (reportMode === 'invoice' && report(); as r) {
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-bold">{{ r.count }} {{ '::Entries' | abpLocalization }}</span>

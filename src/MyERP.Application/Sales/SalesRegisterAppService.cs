@@ -6,6 +6,7 @@ using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +23,10 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
     private readonly IRepository<Customer, Guid>? _customerRepository;
     private readonly IRepository<CustomerGroup, Guid>? _customerGroupRepository;
     private readonly IRepository<JournalEntry, Guid>? _journalRepository;
+    private readonly IRepository<SalesOrder, Guid>? _salesOrderRepository;
+    private readonly IRepository<DeliveryNote, Guid>? _deliveryNoteRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<ItemGroup, Guid>? _itemGroupRepository;
 
     public SalesRegisterAppService(
         IRepository<SalesInvoice, Guid> invoiceRepository,
@@ -35,6 +40,24 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
         _customerRepository = customerRepository;
         _customerGroupRepository = customerGroupRepository;
         _journalRepository = journalRepository;
+    }
+
+    public SalesRegisterAppService(
+        IRepository<SalesInvoice, Guid> invoiceRepository,
+        IRepository<PaymentEntry, Guid> paymentRepository,
+        IRepository<Customer, Guid>? customerRepository,
+        IRepository<CustomerGroup, Guid>? customerGroupRepository,
+        IRepository<JournalEntry, Guid>? journalRepository,
+        IRepository<SalesOrder, Guid>? salesOrderRepository,
+        IRepository<DeliveryNote, Guid>? deliveryNoteRepository,
+        IRepository<Item, Guid>? itemRepository,
+        IRepository<ItemGroup, Guid>? itemGroupRepository)
+        : this(invoiceRepository, paymentRepository, customerRepository, customerGroupRepository, journalRepository)
+    {
+        _salesOrderRepository = salesOrderRepository;
+        _deliveryNoteRepository = deliveryNoteRepository;
+        _itemRepository = itemRepository;
+        _itemGroupRepository = itemGroupRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -346,6 +369,302 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             TotalTax = sortedInvoices.Sum(si => si.TaxAmount),
             TotalGrand = sortedInvoices.Sum(si => si.GrandTotal),
         };
+    }
+
+    /// <summary>
+    /// Item-wise Sales Register report.
+    /// Maps to ERPNext accounts/report/item_wise_sales_register:
+    /// - Expands child groups in Customer Group and Item Group filters
+    /// - Resolves Sales Order and Delivery Note references (direct or via SO item)
+    /// - Normalizes rate by StockUomRate when transaction UOM differs from stock UOM
+    /// </summary>
+    public async Task<RegisterReportDto<ItemWiseSalesRegisterLineDto>> GetItemWiseReportAsync(ItemWiseSalesRegisterFilterDto input)
+    {
+        var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
+        var to = input.ToDate ?? DateTime.UtcNow.Date;
+        var toExclusive = to.Date.AddDays(1);
+
+        var query = await GetInvoiceQueryableWithItemsAsync();
+        var invoicesQuery = query
+            .Where(si => si.CompanyId == input.CompanyId
+                      && si.Status == DocumentStatus.Posted
+                      && si.IssueDate >= from
+                      && si.IssueDate < toExclusive);
+
+        if (input.CustomerId.HasValue)
+        {
+            invoicesQuery = invoicesQuery.Where(si => si.CustomerId == input.CustomerId.Value);
+        }
+
+        if (input.CustomerGroupId.HasValue && _customerRepository != null)
+        {
+            var targetGroupIds = await GetCustomerGroupWithDescendantIdsAsync(input.CustomerGroupId.Value);
+            var custQuery = await _customerRepository.GetQueryableAsync();
+            var matchedCustomerIds = custQuery
+                .Where(c => c.CustomerGroupId.HasValue && targetGroupIds.Contains(c.CustomerGroupId.Value))
+                .Select(c => c.Id)
+                .ToList();
+            invoicesQuery = invoicesQuery.Where(si => matchedCustomerIds.Contains(si.CustomerId));
+        }
+
+        var invoices = invoicesQuery.ToList();
+        if (invoices.Count == 0)
+        {
+            return new RegisterReportDto<ItemWiseSalesRegisterLineDto>();
+        }
+
+        var customerIds = invoices.Select(si => si.CustomerId).Distinct().ToList();
+        Dictionary<Guid, Customer> customerMap = new();
+        Dictionary<Guid, string> customerGroupMap = new();
+        var custRepo = _customerRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Customer, Guid>>();
+        var custGroupRepo = _customerGroupRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CustomerGroup, Guid>>();
+        if (custRepo != null && customerIds.Count > 0)
+        {
+            using (TryDisableSoftDelete())
+            {
+                var custQuery = await custRepo.GetQueryableAsync();
+                customerMap = custQuery.Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);
+                if (custGroupRepo != null)
+                {
+                    var allGroups = await custGroupRepo.GetListAsync();
+                    if (allGroups != null)
+                    {
+                        customerGroupMap = allGroups.ToDictionary(g => g.Id, g => g.Name);
+                    }
+                }
+            }
+        }
+
+        var allItemIds = invoices.SelectMany(si => si.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
+        Dictionary<Guid, Item> itemMap = new();
+        if (itemRepo != null && allItemIds.Count > 0)
+        {
+            var iQuery = await itemRepo.GetQueryableAsync();
+            itemMap = iQuery.Where(i => allItemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+        }
+
+        HashSet<Guid>? validGroupIds = null;
+        if (input.ItemGroupId.HasValue)
+        {
+            validGroupIds = await GetItemGroupWithDescendantIdsAsync(input.ItemGroupId.Value);
+        }
+
+        var allSoItemIds = invoices.SelectMany(si => si.Items)
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        var soRepo = _salesOrderRepository ?? LazyServiceProvider?.LazyGetService<IRepository<SalesOrder, Guid>>();
+        Dictionary<Guid, string> soItemOrderNumberMap = new();
+        if (soRepo != null && allSoItemIds.Count > 0)
+        {
+            var soQuery = await GetSalesOrderQueryableWithItemsAsync(soRepo);
+            var soList = soQuery.Where(so => so.CompanyId == input.CompanyId && so.Items.Any(i => allSoItemIds.Contains(i.Id))).ToList();
+            foreach (var so in soList)
+            {
+                foreach (var soItem in so.Items.Where(i => allSoItemIds.Contains(i.Id)))
+                {
+                    soItemOrderNumberMap[soItem.Id] = so.OrderNumber;
+                }
+            }
+        }
+
+        var dnRepo = _deliveryNoteRepository ?? LazyServiceProvider?.LazyGetService<IRepository<DeliveryNote, Guid>>();
+        Dictionary<Guid, string> dnHeaderNumberMap = new();
+        Dictionary<Guid, string> dnItemDeliveryNumberMap = new();
+        Dictionary<Guid, List<string>> soItemDeliveryNumbersMap = new();
+        if (dnRepo != null)
+        {
+            var dnQuery = await GetDeliveryNoteQueryableWithItemsAsync(dnRepo);
+            var dnList = dnQuery.Where(dn => dn.CompanyId == input.CompanyId && dn.Status != DocumentStatus.Cancelled).ToList();
+            foreach (var dn in dnList)
+            {
+                dnHeaderNumberMap[dn.Id] = dn.DeliveryNumber;
+                foreach (var dnItem in dn.Items)
+                {
+                    dnItemDeliveryNumberMap[dnItem.Id] = dn.DeliveryNumber;
+                    if (dnItem.SalesOrderItemId.HasValue)
+                    {
+                        if (!soItemDeliveryNumbersMap.TryGetValue(dnItem.SalesOrderItemId.Value, out var list))
+                        {
+                            list = new List<string>();
+                            soItemDeliveryNumbersMap[dnItem.SalesOrderItemId.Value] = list;
+                        }
+                        if (!list.Contains(dn.DeliveryNumber))
+                        {
+                            list.Add(dn.DeliveryNumber);
+                        }
+                    }
+                }
+            }
+        }
+
+        var rows = new List<ItemWiseSalesRegisterLineDto>();
+        foreach (var si in invoices.OrderByDescending(i => i.IssueDate))
+        {
+            customerMap.TryGetValue(si.CustomerId, out var customer);
+            var custName = customer?.Name ?? si.CustomerId.ToString();
+            var custGroupName = string.Empty;
+            if (customer != null && customer.CustomerGroupId.HasValue)
+            {
+                customerGroupMap.TryGetValue(customer.CustomerGroupId.Value, out custGroupName);
+            }
+
+            decimal rateMultiplier = si.ExchangeRate > 0 ? si.ExchangeRate : 1m;
+
+            foreach (var item in si.Items)
+            {
+                if (input.ItemId.HasValue && item.ItemId != input.ItemId.Value) continue;
+                itemMap.TryGetValue(item.ItemId, out var itemMaster);
+                if (!string.IsNullOrWhiteSpace(input.ItemCode) &&
+                    (itemMaster == null || !string.Equals(itemMaster.ItemCode, input.ItemCode.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                if (validGroupIds != null)
+                {
+                    if (itemMaster == null || !itemMaster.ItemGroupId.HasValue || !validGroupIds.Contains(itemMaster.ItemGroupId.Value)) continue;
+                }
+
+                string? soNumber = null;
+                if (item.SalesOrderItemId.HasValue)
+                {
+                    soItemOrderNumberMap.TryGetValue(item.SalesOrderItemId.Value, out soNumber);
+                }
+
+                string? dnNumber = null;
+                if (item.DeliveryNoteItemId.HasValue && dnItemDeliveryNumberMap.TryGetValue(item.DeliveryNoteItemId.Value, out var directDn))
+                {
+                    dnNumber = directDn;
+                }
+                else if (si.DeliveryNoteId.HasValue && dnHeaderNumberMap.TryGetValue(si.DeliveryNoteId.Value, out var headerDn))
+                {
+                    dnNumber = headerDn;
+                }
+                else if (item.SalesOrderItemId.HasValue && soItemDeliveryNumbersMap.TryGetValue(item.SalesOrderItemId.Value, out var linkedDns) && linkedDns.Count > 0)
+                {
+                    dnNumber = string.Join(", ", linkedDns);
+                }
+
+                var itemCode = itemMaster?.ItemCode ?? item.ItemId.ToString();
+                var itemName = itemMaster?.ItemName ?? item.Description ?? string.Empty;
+                var itemGroup = itemMaster?.ItemGroup ?? string.Empty;
+                var rate = Math.Round(item.StockUomRate * rateMultiplier, 2);
+                var amount = Math.Round(item.LineTotal * rateMultiplier, 2);
+                var totalTax = Math.Round(item.TaxAmount * rateMultiplier, 2);
+                var total = amount + totalTax;
+
+                rows.Add(new ItemWiseSalesRegisterLineDto
+                {
+                    InvoiceId = si.Id,
+                    InvoiceNumber = si.InvoiceNumber ?? string.Empty,
+                    PostingDate = si.IssueDate,
+                    CustomerId = si.CustomerId,
+                    CustomerName = custName,
+                    CustomerGroupId = customer?.CustomerGroupId,
+                    CustomerGroupName = custGroupName,
+                    ItemId = item.ItemId,
+                    ItemCode = itemCode,
+                    ItemName = itemName,
+                    ItemGroup = itemGroup,
+                    Description = item.Description ?? string.Empty,
+                    StockQty = item.StockQty,
+                    StockUom = item.StockUom ?? string.Empty,
+                    Rate = rate,
+                    Amount = amount,
+                    TotalTax = totalTax,
+                    Total = total,
+                    IsReturn = si.IsReturn,
+                    SalesOrderNumber = soNumber,
+                    DeliveryNoteNumber = dnNumber,
+                    Currency = si.CurrencyCode ?? "MYR",
+                });
+            }
+        }
+
+        return new RegisterReportDto<ItemWiseSalesRegisterLineDto>
+        {
+            Count = rows.Count,
+            Items = rows,
+            TotalNet = rows.Sum(r => r.Amount),
+            TotalTax = rows.Sum(r => r.TotalTax),
+            TotalGrand = rows.Sum(r => r.Total),
+        };
+    }
+
+    private async Task<IQueryable<SalesInvoice>> GetInvoiceQueryableWithItemsAsync()
+    {
+        try
+        {
+            var withDetails = await _invoiceRepository.WithDetailsAsync(si => si.Items);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback when WithDetailsAsync is not mocked/configured
+        }
+        return await _invoiceRepository.GetQueryableAsync();
+    }
+
+    private static async Task<IQueryable<SalesOrder>> GetSalesOrderQueryableWithItemsAsync(IRepository<SalesOrder, Guid> soRepo)
+    {
+        try
+        {
+            var withDetails = await soRepo.WithDetailsAsync(so => so.Items);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback when WithDetailsAsync is not mocked/configured
+        }
+        return await soRepo.GetQueryableAsync();
+    }
+
+    private static async Task<IQueryable<DeliveryNote>> GetDeliveryNoteQueryableWithItemsAsync(IRepository<DeliveryNote, Guid> dnRepo)
+    {
+        try
+        {
+            var withDetails = await dnRepo.WithDetailsAsync(dn => dn.Items);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback when WithDetailsAsync is not mocked/configured
+        }
+        return await dnRepo.GetQueryableAsync();
+    }
+
+    private async Task<HashSet<Guid>> GetItemGroupWithDescendantIdsAsync(Guid rootGroupId)
+    {
+        var result = new HashSet<Guid> { rootGroupId };
+        var groupRepo = _itemGroupRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemGroup, Guid>>();
+        if (groupRepo == null) return result;
+
+        try
+        {
+            var allGroups = await groupRepo.GetListAsync();
+            if (allGroups != null)
+            {
+                var queue = new Queue<Guid>();
+                queue.Enqueue(rootGroupId);
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    var children = allGroups.Where(g => g.ParentId == current).Select(g => g.Id);
+                    foreach (var childId in children)
+                    {
+                        if (result.Add(childId)) queue.Enqueue(childId);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback if repository fails in unit test setup
+        }
+        return result;
     }
 
     private IDisposable? TryDisableSoftDelete()

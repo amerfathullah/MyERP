@@ -1,16 +1,47 @@
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../../../proxy/core/company.service';
+import { CustomerGroupService } from '../../../proxy/core/customer-group.service';
+import { SupplierGroupService } from '../../../proxy/core/supplier-group.service';
 import { AgingReportService } from '../../../proxy/accounting/aging-report.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-import type { CompanyDto } from '../../../proxy/core/models';
-import type { AgingReportDto, AgingDetailEntryDto } from '../../../proxy/accounting/models';
+import type { CompanyDto, CustomerGroupDto, SupplierGroupDto } from '../../../proxy/core/models';
+import type {
+  AgingReportDto,
+  AgingDetailEntryDto,
+  AgingPartySummaryDto,
+} from '../../../proxy/accounting/models';
+
+export function buildPartySummaryCsvRows(
+  summaries: AgingPartySummaryDto[] | undefined,
+  bucketLabels: string[] | undefined,
+): Record<string, string | number>[] {
+  const labels = bucketLabels ?? [];
+  return (summaries ?? []).map(s => {
+    const row: Record<string, string | number> = {
+      Party: s.partyName ?? '',
+      'Party Group': s.partyGroupName ?? '',
+      Invoiced: (s.invoicedAmount ?? 0).toFixed(2),
+      Paid: (s.paidAmount ?? 0).toFixed(2),
+      'Credit Note': (s.creditNoteAmount ?? 0).toFixed(2),
+      Advance: (s.advanceAmount ?? 0).toFixed(2),
+      Outstanding: (s.outstandingAmount ?? 0).toFixed(2),
+      'Not Yet Due': (s.notYetDueAmount ?? 0).toFixed(2),
+    };
+    labels.forEach((label, idx) => {
+      row[`${label} Days`] = (s.bucketTotals?.[idx] ?? 0).toFixed(2);
+    });
+    row['Total Due'] = (s.totalDue ?? 0).toFixed(2);
+    row.Invoices = s.invoiceCount ?? 0;
+    return row;
+  });
+}
 
 @Component({
   selector: 'app-aging-report',
@@ -24,7 +55,10 @@ export class AgingReportComponent implements OnInit {
   private fb = inject(FormBuilder);
   private agingReportService = inject(AgingReportService);
   private companyService = inject(CompanyService);
+  private customerGroupService = inject(CustomerGroupService);
+  private supplierGroupService = inject(SupplierGroupService);
   private companyContext = inject(CompanyContextService);
+  private route = inject(ActivatedRoute);
   private router = inject(Router);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -33,14 +67,41 @@ export class AgingReportComponent implements OnInit {
     companyId: ['', Validators.required],
     asOfDate: [new Date().toISOString().split('T')[0], Validators.required],
     reportType: ['receivables'],
+    partyGroupId: [''],
+    ageingBasedOn: ['Due Date'],
+    calculateAgeingWith: ['Report Date'],
+    fromDate: [''],
+    toDate: [''],
     includeRevaluationJournals: [false],
   });
 
+  viewMode: 'details' | 'summary' = 'details';
   companies = signal<CompanyDto[]>([]);
+  customerGroups = signal<CustomerGroupDto[]>([]);
+  supplierGroups = signal<SupplierGroupDto[]>([]);
   report = signal<AgingReportDto | null>(null);
   isLoading = signal(false);
 
+  get activePartyGroups(): Array<{ id?: string; name?: string | null }> {
+    return this.filters.get('reportType')?.value === 'payables'
+      ? this.supplierGroups()
+      : this.customerGroups();
+  }
+
   ngOnInit(): void {
+    const viewParam = this.route.snapshot.queryParamMap.get('view');
+    const typeParam = this.route.snapshot.queryParamMap.get('type');
+    if (viewParam === 'summary' || viewParam === 'details') {
+      this.viewMode = viewParam;
+    }
+    if (typeParam === 'receivables' || typeParam === 'payables') {
+      this.filters.patchValue({ reportType: typeParam });
+    }
+
+    this.filters.get('reportType')?.valueChanges.subscribe(() => {
+      this.filters.patchValue({ partyGroupId: '' }, { emitEvent: false });
+    });
+
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => {
         this.companies.set(res.items ?? []);
@@ -52,6 +113,16 @@ export class AgingReportComponent implements OnInit {
           this.generate();
         }
       });
+
+    this.customerGroupService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any)
+      .subscribe(res => this.customerGroups.set(res.items ?? []));
+
+    this.supplierGroupService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any)
+      .subscribe(res => this.supplierGroups.set(res.items ?? []));
+  }
+
+  switchView(mode: 'details' | 'summary'): void {
+    this.viewMode = mode;
   }
 
   generate(): void {
@@ -60,10 +131,25 @@ export class AgingReportComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
-    const { companyId, asOfDate, reportType, includeRevaluationJournals } = this.filters.getRawValue();
+    const {
+      companyId,
+      asOfDate,
+      reportType,
+      partyGroupId,
+      ageingBasedOn,
+      calculateAgeingWith,
+      fromDate,
+      toDate,
+      includeRevaluationJournals,
+    } = this.filters.getRawValue();
     const request = {
       companyId: companyId!,
       asOfDate: asOfDate!,
+      partyGroupId: partyGroupId || undefined,
+      ageingBasedOn: ageingBasedOn || 'Due Date',
+      calculateAgeingWith: calculateAgeingWith || 'Report Date',
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
       includeRevaluationJournals: includeRevaluationJournals ?? false,
     };
     const call$ = reportType === 'receivables'
@@ -79,6 +165,17 @@ export class AgingReportComponent implements OnInit {
   exportCsv(): void {
     const r = this.report();
     if (!r) return;
+    if (this.viewMode === 'summary') {
+      const summaries = r.partySummaries ?? [];
+      if (!summaries.length) return;
+      const rows = buildPartySummaryCsvRows(summaries, r.bucketLabels);
+      const bucketCols = (r.bucketLabels ?? []).map(l => `${l} Days`);
+      exportToCsv(`${r.reportType}-party-summary.csv`, rows, [
+        'Party', 'Party Group', 'Invoiced', 'Paid', 'Credit Note', 'Advance',
+        'Outstanding', 'Not Yet Due', ...bucketCols, 'Total Due', 'Invoices',
+      ]);
+      return;
+    }
     const details = r.details ?? [];
     if (details.length) {
       exportToCsv(`${r.reportType}-aging-detail.csv`, details.map(d => ({
@@ -96,6 +193,17 @@ export class AgingReportComponent implements OnInit {
       }, { total: r.totalOutstanding });
       exportToCsv(`${r.reportType}-aging.csv`, [row], [...r.bucketLabels!, 'total']);
     }
+  }
+
+  getSummaryPartyRoute(summary: AgingPartySummaryDto): string[] {
+    const type = this.filters.get('reportType')?.value;
+    return type === 'receivables'
+      ? ['/customers', summary.partyId ?? '']
+      : ['/suppliers', summary.partyId ?? ''];
+  }
+
+  sumSummaryField(field: 'invoicedAmount' | 'paidAmount' | 'creditNoteAmount' | 'advanceAmount' | 'outstandingAmount' | 'notYetDueAmount' | 'totalDue' | 'invoiceCount'): number {
+    return (this.report()?.partySummaries ?? []).reduce((sum, s) => sum + (s[field] ?? 0), 0);
   }
 
   getInvoiceRoute(entry: AgingDetailEntryDto): string[] {

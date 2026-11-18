@@ -227,5 +227,48 @@ describe('JournalEntry form logic', () => {
       expect(comp.totalCredit).toBe(500);
       expect(comp.isBalanced).toBe(true);
     });
+
+    it('keeps custom exchangeRate when switching to another account with same currency, refetches on currency change', () => {
+      const jeMock = {
+        getAccountDetails: vi.fn((_companyId: string, accountId: string) => {
+          if (accountId === 'acc-usd-2') {
+            return of({ accountCurrency: 'USD', companyCurrency: 'MYR', exchangeRate: 4.45 });
+          }
+          return of({ accountCurrency: 'EUR', companyCurrency: 'MYR', exchangeRate: 4.85 });
+        }),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: AccountService, useValue: { get: vi.fn().mockReturnValue(of({ currencyCode: 'USD' })) } },
+          { provide: JournalEntryService, useValue: jeMock },
+          { provide: JournalEntryTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'comp-1', currencyCode: 'MYR' }] })) } },
+          { provide: FiscalYearService, useValue: {} },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ChangeDetectorRef, useValue: { detectChanges: vi.fn(), markForCheck: vi.fn() } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new JournalEntryFormComponent());
+      comp.form.patchValue({ companyId: 'comp-1', entryDate: '2026-11-18' });
+      comp.addLine();
+      comp.lines.at(0).patchValue({ accountId: 'acc-usd-1', accountCurrency: 'USD', exchangeRate: 4.62 });
+
+      // Same currency (USD -> USD): preserve user-set custom exchangeRate 4.62
+      comp.lines.at(0).patchValue({ accountId: 'acc-usd-2' });
+      comp.onAccountLinkSelected(0, { id: 'acc-usd-2', accountName: 'USD Bank 2' } as any);
+      expect(comp.lines.at(0).get('accountCurrency')?.value).toBe('USD');
+      expect(comp.lines.at(0).get('exchangeRate')?.value).toBe(4.62);
+
+      // Different currency (USD -> EUR): update to fetched rate 4.85
+      comp.lines.at(0).patchValue({ accountId: 'acc-eur-1' });
+      comp.onAccountLinkSelected(0, { id: 'acc-eur-1', accountName: 'EUR Bank' } as any);
+      expect(comp.lines.at(0).get('accountCurrency')?.value).toBe('EUR');
+      expect(comp.lines.at(0).get('exchangeRate')?.value).toBe(4.85);
+    });
   });
 });

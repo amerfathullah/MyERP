@@ -1611,6 +1611,42 @@ export interface ItemWiseSalesHistoryRowDto {
   companyName?: string;
 }
 
+export interface ItemWiseSalesRegisterFilterDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  customerId?: string;
+  customerGroupId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemGroupId?: string;
+}
+
+export interface ItemWiseSalesRegisterLineDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  postingDate?: string;
+  customerId?: string;
+  customerName?: string;
+  customerGroupId?: string;
+  customerGroupName?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemGroup?: string;
+  description?: string;
+  stockQty?: number;
+  stockUom?: string;
+  rate?: number;
+  amount?: number;
+  totalTax?: number;
+  total?: number;
+  isReturn?: boolean;
+  salesOrderNumber?: string;
+  deliveryNoteNumber?: string;
+  currency?: string;
+}
+
 export interface LostQuotationReportRowDto {
   dimension?: string;
   lostQuotations?: number;
