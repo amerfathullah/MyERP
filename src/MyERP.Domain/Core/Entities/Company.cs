@@ -263,6 +263,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default Scrap/Secondary Items warehouse for manufacturing waste.</summary>
     public Guid? DefaultScrapWarehouseId { get; set; }
 
+    /// <summary>Optional parent group company ID for multi-company consolidation.</summary>
+    public Guid? ParentCompanyId { get; set; }
+
+    /// <summary>Whether this company is a group/holding company that can have subsidiaries.</summary>
+    public bool IsGroup { get; set; }
+
     protected Company() { } // EF Core constructor
 
     public Company(Guid id, string name, Guid? tenantId = null) : base(id)
@@ -274,6 +280,18 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetName(string name)
     {
         Name = Check.NotNullOrWhiteSpace(name, nameof(name), CompanyConsts.MaxNameLength);
+    }
+
+    /// <summary>Sets or clears parent group company with self-reference protection.</summary>
+    public void SetParentCompany(Guid? parentCompanyId)
+    {
+        if (parentCompanyId.HasValue && parentCompanyId.Value == Id)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company cannot be its own parent.");
+        }
+
+        ParentCompanyId = parentCompanyId;
     }
 
     /// <summary>

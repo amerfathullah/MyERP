@@ -62,6 +62,8 @@ public class CreateUpdateCompanyDto
     public int FiscalYearStartMonth { get; set; } = 1;
 
     public bool IsActive { get; set; } = true;
+    public System.Guid? ParentCompanyId { get; set; }
+    public bool IsGroup { get; set; }
     public decimal CreditLimit { get; set; }
 
     public bool AllowUomWithConversionRateDefinedInItem { get; set; }

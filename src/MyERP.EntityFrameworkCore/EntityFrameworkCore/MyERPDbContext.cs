@@ -634,6 +634,8 @@ public class MyERPDbContext :
             b.Property(x => x.Country).HasMaxLength(CompanyConsts.MaxCountryLength);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(CompanyConsts.MaxCurrencyCodeLength);
             b.Property(x => x.CreditLimit).HasPrecision(18, 2).HasDefaultValue(0m);
+            b.HasOne<Company>().WithMany().HasForeignKey(x => x.ParentCompanyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => x.ParentCompanyId);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 

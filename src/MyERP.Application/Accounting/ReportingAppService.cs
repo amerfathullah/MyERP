@@ -63,6 +63,16 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
     public async Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input)
     {
+        var rootCompany = await _companyRepository.FindAsync(input.CompanyId);
+        var reportingCurrency = !string.IsNullOrWhiteSpace(rootCompany?.ReportingCurrency)
+            ? rootCompany!.ReportingCurrency!
+            : (rootCompany?.CurrencyCode ?? "MYR");
+
+        if (input.IncludeSubsidiaries && rootCompany != null)
+        {
+            return await BuildConsolidatedTrialBalanceAsync(rootCompany, reportingCurrency, input.AsOfDate);
+        }
+
         var accounts = await _accountRepository.GetListAsync(a => a.CompanyId == input.CompanyId && !a.IsGroup);
 
         // Use the optimized balance service (leverages closing balance cache + delta GL)
@@ -98,10 +108,211 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         {
             AsOfDate = input.AsOfDate,
             CompanyId = input.CompanyId,
+            CurrencyCode = reportingCurrency,
+            IsConsolidated = false,
+            ConsolidatedCompanyCount = 1,
             Rows = rows,
             TotalDebit = Math.Round(rows.Sum(r => r.Debit), 2),
             TotalCredit = Math.Round(rows.Sum(r => r.Credit), 2),
         };
+    }
+
+    private async Task<TrialBalanceReportDto> BuildConsolidatedTrialBalanceAsync(
+        Company rootCompany,
+        string reportingCurrency,
+        DateTime asOfDate)
+    {
+        var allCompanies = await _companyRepository.GetListAsync();
+        var companiesByParent = allCompanies
+            .Where(c => c.ParentCompanyId.HasValue)
+            .GroupBy(c => c.ParentCompanyId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // BFS to expand holding company and all descendant subsidiaries
+        var companiesInScope = new List<Company>();
+        var visitedIds = new HashSet<Guid>();
+        var queue = new Queue<Company>();
+        queue.Enqueue(rootCompany);
+        visitedIds.Add(rootCompany.Id);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            companiesInScope.Add(current);
+
+            if (companiesByParent.TryGetValue(current.Id, out var children))
+            {
+                foreach (var child in children.OrderBy(c => c.Name))
+                {
+                    if (visitedIds.Add(child.Id))
+                    {
+                        queue.Enqueue(child);
+                    }
+                }
+            }
+        }
+
+        var scopeIds = companiesInScope.Select(c => c.Id).ToHashSet();
+        var allAccounts = await _accountRepository.GetListAsync(a => scopeIds.Contains(a.CompanyId) && !a.IsGroup);
+        var accountsByCompany = allAccounts
+            .GroupBy(a => a.CompanyId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var exchangeRepo = LazyServiceProvider?.LazyGetService<IRepository<CurrencyExchange, Guid>>();
+        var exchanges = exchangeRepo != null
+            ? await exchangeRepo.GetListAsync(e => e.Date <= asOfDate.Date.AddDays(1))
+            : new List<CurrencyExchange>();
+
+        // Merge leaf account balances across parent + subsidiaries by AccountCode (fallback AccountName)
+        var consolidated = new Dictionary<string, (Guid AccountId, string Code, string Name, string Type, decimal Debit, decimal Credit)>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var company in companiesInScope)
+        {
+            var rate = ResolveConsolidationExchangeRate(company.CurrencyCode, reportingCurrency, asOfDate, exchanges);
+            var companyAccounts = accountsByCompany.GetValueOrDefault(company.Id, new List<Account>());
+            var balanceMap = await _balanceService.GetTrialBalanceAsync(company.Id, asOfDate);
+
+            foreach (var account in companyAccounts)
+            {
+                if (!balanceMap.TryGetValue(account.Id, out var balance))
+                    continue;
+
+                if (balance.Debit == 0 && balance.Credit == 0)
+                    continue;
+
+                var translatedDebit = Math.Round(balance.Debit * rate, 2, MidpointRounding.AwayFromZero);
+                var translatedCredit = Math.Round(balance.Credit * rate, 2, MidpointRounding.AwayFromZero);
+
+                var mergeKey = !string.IsNullOrWhiteSpace(account.AccountCode)
+                    ? account.AccountCode.Trim()
+                    : account.AccountName.Trim();
+
+                if (consolidated.TryGetValue(mergeKey, out var existing))
+                {
+                    consolidated[mergeKey] = (
+                        company.Id == rootCompany.Id ? account.Id : existing.AccountId,
+                        existing.Code,
+                        existing.Name,
+                        existing.Type,
+                        existing.Debit + translatedDebit,
+                        existing.Credit + translatedCredit);
+                }
+                else
+                {
+                    consolidated[mergeKey] = (
+                        account.Id,
+                        account.AccountCode,
+                        account.AccountName,
+                        account.AccountType.ToString(),
+                        translatedDebit,
+                        translatedCredit);
+                }
+            }
+        }
+
+        var rows = consolidated.Values
+            .OrderBy(v => v.Code, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(v =>
+            {
+                var net = v.Debit - v.Credit;
+                return new TrialBalanceRowDto
+                {
+                    AccountId = v.AccountId,
+                    AccountCode = v.Code,
+                    AccountName = v.Name,
+                    AccountType = v.Type,
+                    IsGroup = false,
+                    Level = 0,
+                    Debit = Math.Round(v.Debit, 2),
+                    Credit = Math.Round(v.Credit, 2),
+                    ClosingDebit = Math.Round(net > 0 ? net : 0, 2),
+                    ClosingCredit = Math.Round(net < 0 ? Math.Abs(net) : 0, 2),
+                };
+            })
+            .ToList();
+
+        // Foreign Currency Translation Reserve (FCTR) per ERPNext consolidated_trial_balance.py:
+        // Balance any rounding / FX translation delta under Equity so consolidated Total Debit == Total Credit.
+        var totalDebit = Math.Round(rows.Sum(r => r.Debit), 2);
+        var totalCredit = Math.Round(rows.Sum(r => r.Credit), 2);
+        var fxDiff = Math.Round(totalDebit - totalCredit, 2);
+        if (fxDiff != 0m)
+        {
+            var fctrDebit = fxDiff < 0 ? Math.Abs(fxDiff) : 0m;
+            var fctrCredit = fxDiff > 0 ? fxDiff : 0m;
+            var fctrName = "Foreign Currency Translation Reserve";
+            if (LocalizationResource != null && LazyServiceProvider != null)
+            {
+                var localized = L["ForeignCurrencyTranslationReserve"];
+                if (!localized.ResourceNotFound)
+                    fctrName = localized.Value;
+            }
+            rows.Add(new TrialBalanceRowDto
+            {
+                AccountId = Guid.Empty,
+                AccountCode = "FCTR",
+                AccountName = fctrName,
+                AccountType = AccountType.Equity.ToString(),
+                IsGroup = false,
+                Level = 0,
+                Debit = fctrDebit,
+                Credit = fctrCredit,
+                ClosingDebit = fctrDebit,
+                ClosingCredit = fctrCredit,
+            });
+            totalDebit = Math.Round(rows.Sum(r => r.Debit), 2);
+            totalCredit = Math.Round(rows.Sum(r => r.Credit), 2);
+        }
+
+        return new TrialBalanceReportDto
+        {
+            AsOfDate = asOfDate,
+            CompanyId = rootCompany.Id,
+            CurrencyCode = reportingCurrency,
+            IsConsolidated = true,
+            ConsolidatedCompanyCount = companiesInScope.Count,
+            Rows = rows,
+            TotalDebit = totalDebit,
+            TotalCredit = totalCredit,
+        };
+    }
+
+    private static decimal ResolveConsolidationExchangeRate(
+        string fromCurrency,
+        string toCurrency,
+        DateTime asOfDate,
+        List<CurrencyExchange> exchanges)
+    {
+        if (string.Equals(fromCurrency, toCurrency, StringComparison.OrdinalIgnoreCase))
+            return 1m;
+
+        var cutoff = asOfDate.Date;
+        var direct = exchanges
+            .Where(e => string.Equals(e.FromCurrency, fromCurrency, StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(e.ToCurrency, toCurrency, StringComparison.OrdinalIgnoreCase)
+                     && e.Date.Date <= cutoff
+                     && e.ExchangeRate > 0)
+            .OrderByDescending(e => e.Date)
+            .FirstOrDefault();
+
+        if (direct != null)
+            return direct.ExchangeRate;
+
+        var inverse = exchanges
+            .Where(e => string.Equals(e.FromCurrency, toCurrency, StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(e.ToCurrency, fromCurrency, StringComparison.OrdinalIgnoreCase)
+                     && e.Date.Date <= cutoff
+                     && e.ExchangeRate > 0)
+            .OrderByDescending(e => e.Date)
+            .FirstOrDefault();
+
+        if (inverse != null)
+            return 1m / inverse.ExchangeRate;
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("detail", $"Exchange rate from '{fromCurrency}' to '{toCurrency}' on or before {cutoff:yyyy-MM-dd} is required for consolidated Trial Balance.");
     }
 
     public async Task<ProfitLossReportDto> GetProfitLossAsync(ProfitLossRequestDto input)

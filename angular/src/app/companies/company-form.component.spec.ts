@@ -11,9 +11,15 @@ import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 describe('CompanyFormComponent LHDN TIN Lookup', () => {
   function createComponent(id: string | null = null) {
     const companyServiceMock = {
-      get: vi.fn().mockReturnValue(of({ id: 'comp-1', name: 'ACME Sdn Bhd', registrationNumber: '202001012345' })),
+      get: vi.fn().mockReturnValue(of({ id: 'comp-1', name: 'ACME Sdn Bhd', registrationNumber: '202001012345', isGroup: false, parentCompanyId: null })),
+      getList: vi.fn().mockReturnValue(of({
+        items: [
+          { id: 'grp-1', name: 'ACME Holdings', currencyCode: 'MYR', isGroup: true },
+          { id: 'comp-1', name: 'ACME Sdn Bhd', currencyCode: 'MYR', isGroup: false },
+        ],
+      })),
       create: vi.fn(),
-      update: vi.fn(),
+      update: vi.fn().mockReturnValue(of({})),
       setupNewCompany: vi.fn(),
     };
     const einvoiceServiceMock = {
@@ -38,7 +44,7 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
     });
 
     const comp = runInInjectionContext(injector, () => new CompanyFormComponent());
-    return { comp, einvoiceServiceMock, toasterMock };
+    return { comp, companyServiceMock, einvoiceServiceMock, toasterMock };
   }
 
   it('calls searchTaxpayer with companyId and BRN and updates taxId form control', () => {
@@ -57,5 +63,20 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
     });
     expect(comp.form.get('taxId')?.value).toBe('C1234567890');
     expect(toasterMock.success).toHaveBeenCalled();
+  });
+
+  it('loads group companies on init and saves parentCompanyId and isGroup', () => {
+    const { comp, companyServiceMock } = createComponent('comp-1');
+    comp.ngOnInit();
+
+    expect(comp.groupCompanies().map(c => c.id)).toEqual(['grp-1']);
+
+    comp.form.patchValue({ parentCompanyId: 'grp-1', isGroup: false });
+    comp.save();
+
+    expect(companyServiceMock.update).toHaveBeenCalledWith(
+      'comp-1',
+      expect.objectContaining({ parentCompanyId: 'grp-1', isGroup: false }),
+    );
   });
 });

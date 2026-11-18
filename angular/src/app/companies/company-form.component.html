@@ -114,6 +114,21 @@
               <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
             </div>
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::ParentCompany' | abpLocalization }}</label>
+            <select class="form-select" formControlName="parentCompanyId">
+              <option [ngValue]="null">{{ '::SelectParentCompany' | abpLocalization }}</option>
+              @for (c of groupCompanies(); track c.id) {
+                <option [ngValue]="c.id">{{ c.name }} ({{ c.currencyCode }})</option>
+              }
+            </select>
+          </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="isGroup" formControlName="isGroup" />
+              <label class="form-check-label" for="isGroup">{{ '::GroupCompany' | abpLocalization }}</label>
+            </div>
+          </div>
         </div>
       </div>
     </div>

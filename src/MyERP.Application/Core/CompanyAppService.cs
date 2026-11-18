@@ -85,6 +85,7 @@ public class CompanyAppService :
 
     public override async Task<CompanyDto> CreateAsync(CreateUpdateCompanyDto input)
     {
+        await ValidateHierarchyAsync(null, input.ParentCompanyId);
         var result = await base.CreateAsync(input);
         await ValidateAdvanceAccountsCurrencyAsync(result.Id, input.CurrencyCode, input.DefaultAdvanceReceivedAccountId, input.DefaultAdvancePaidAccountId);
         // Auto-setup the new company with required master data (FY, CoA, warehouses, etc.)
@@ -95,6 +96,12 @@ public class CompanyAppService :
     public override async Task<CompanyDto> UpdateAsync(Guid id, CreateUpdateCompanyDto input)
     {
         var existing = await Repository.GetAsync(id);
+        await ValidateHierarchyAsync(id, input.ParentCompanyId);
+        if (existing.IsGroup && !input.IsGroup && await Repository.AnyAsync(c => c.ParentCompanyId == id))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot unmark '{existing.Name}' as a Group Company while subsidiary companies depend on it.");
+        }
         await ValidateDefaultCostCenterAsync(id, input.DefaultCostCenterId, existing.DefaultCostCenterId);
         await ValidateWarehousesAsync(
             id,
@@ -125,6 +132,12 @@ public class CompanyAppService :
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Cannot delete company while Employees exist for it.");
+        }
+
+        if (await Repository.AnyAsync(c => c.ParentCompanyId == id))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete group company while subsidiary companies exist under it.");
         }
 
         await base.DeleteAsync(id);
@@ -167,6 +180,8 @@ public class CompanyAppService :
         entity.DefaultSellingTermsId = input.DefaultSellingTermsId;
         entity.DefaultBuyingTermsId = input.DefaultBuyingTermsId;
         entity.IsActive = input.IsActive;
+        entity.IsGroup = input.IsGroup;
+        entity.SetParentCompany(input.ParentCompanyId);
         entity.CreditLimit = input.CreditLimit;
         entity.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
@@ -705,6 +720,46 @@ public class CompanyAppService :
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Advance account '{account.AccountName}' currency ({account.Currency}) must match company default currency ({companyCurrency}).");
             }
+        }
+    }
+
+    private async Task ValidateHierarchyAsync(Guid? companyId, Guid? parentCompanyId)
+    {
+        if (!parentCompanyId.HasValue)
+            return;
+
+        if (companyId.HasValue && parentCompanyId.Value == companyId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company cannot be its own parent.");
+        }
+
+        var parent = await Repository.FindAsync(parentCompanyId.Value)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Parent company not found.");
+
+        if (!parent.IsGroup)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Parent company '{parent.Name}' must have Group Company enabled.");
+        }
+
+        // Prevent cycles up the parent chain
+        var visited = new HashSet<Guid> { parent.Id };
+        if (companyId.HasValue)
+            visited.Add(companyId.Value);
+
+        var cursor = parent.ParentCompanyId;
+        while (cursor.HasValue)
+        {
+            if (!visited.Add(cursor.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Circular parent company hierarchy is not allowed.");
+            }
+
+            var ancestor = await Repository.FindAsync(cursor.Value);
+            cursor = ancestor?.ParentCompanyId;
         }
     }
 }

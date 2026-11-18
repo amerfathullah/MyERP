@@ -35,6 +35,12 @@
           <div class="card-body py-2">
             <div class="small text-muted">{{ '::Accounts' | abpLocalization }}</div>
             <div class="h5 mb-0">{{ accountCount() }}</div>
+            @if (isConsolidated()) {
+              <div class="small text-info mt-1">
+                {{ '::ConsolidatedCompanies' | abpLocalization }}: {{ consolidatedCompanyCount() }}
+                @if (reportCurrency()) { ({{ reportCurrency() }}) }
+              </div>
+            }
           </div>
         </div>
       </div>

@@ -6627,7 +6627,13 @@
     "GrossAndNetProfit": "Gross and Net Profit",
     "IncludeInGross": "Include in Gross Profit",
     "IncludedInGrossProfit": "Included in Gross Profit",
-    "NothingIncludedInGross": "Nothing is included in gross"
+    "NothingIncludedInGross": "Nothing is included in gross",
+    "ParentCompany": "Parent Company",
+    "GroupCompany": "Group Company (Holding)",
+    "SelectParentCompany": "-- None (Standalone / Root) --",
+    "ForeignCurrencyTranslationReserve": "Foreign Currency Translation Reserve",
+    "ConsolidatedReportingCurrency": "Reporting Currency",
+    "ConsolidatedCompanies": "Consolidated Companies"
   }
 }
 

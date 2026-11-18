@@ -25,6 +25,8 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultBuyingTermsId { get; set; }
     public int FiscalYearStartMonth { get; set; }
     public bool IsActive { get; set; }
+    public Guid? ParentCompanyId { get; set; }
+    public bool IsGroup { get; set; }
     public decimal CreditLimit { get; set; }
     public DateTime? StockFrozenUpto { get; set; }
     public DateTime? AccountsFrozenTillDate { get; set; }

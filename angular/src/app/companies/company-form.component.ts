@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../proxy/core/company.service';
+import type { CompanyDto } from '../proxy/core/models';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
@@ -30,6 +31,7 @@ export class CompanyFormComponent implements OnInit {
   isEditMode = false;
   entityId: string | null = null;
   searchingTaxpayer = signal(false);
+  groupCompanies = signal<CompanyDto[]>([]);
 
   form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(256)]],
@@ -48,6 +50,8 @@ export class CompanyFormComponent implements OnInit {
     country: ['Malaysia'],
     currencyCode: ['MYR', Validators.required],
     fiscalYearStartMonth: [1],
+    parentCompanyId: [null as string | null],
+    isGroup: [false],
     isActive: [true],
   });
 
@@ -63,9 +67,20 @@ export class CompanyFormComponent implements OnInit {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
 
+    this.service.getList?.({ skipCount: 0, maxResultCount: 200 }).subscribe({
+      next: res => {
+        const candidates = (res.items ?? []).filter(c => c.isGroup && c.id !== this.entityId);
+        this.groupCompanies.set(candidates);
+      },
+      error: () => {},
+    });
+
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe(company => {
-        this.form.patchValue(company as any);
+        this.form.patchValue({
+          ...(company as any),
+          parentCompanyId: company.parentCompanyId ?? null,
+        });
       });
     }
   }
@@ -75,7 +90,11 @@ export class CompanyFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const dto = this.form.getRawValue() as any;
+    const raw = this.form.getRawValue() as any;
+    const dto = {
+      ...raw,
+      parentCompanyId: raw.parentCompanyId || null,
+    };
 
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({

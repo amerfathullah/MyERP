@@ -36,6 +36,9 @@ public class TrialBalanceReportDto
 {
     public DateTime AsOfDate { get; set; }
     public Guid CompanyId { get; set; }
+    public string? CurrencyCode { get; set; }
+    public bool IsConsolidated { get; set; }
+    public int ConsolidatedCompanyCount { get; set; } = 1;
     public List<TrialBalanceRowDto> Rows { get; set; } = new();
     public decimal TotalDebit { get; set; }
     public decimal TotalCredit { get; set; }

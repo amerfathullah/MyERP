@@ -125,6 +125,8 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  parentCompanyId?: string | null;
+  isGroup?: boolean;
   creditLimit?: number;
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;
@@ -349,6 +351,8 @@ export interface CreateUpdateCompanyDto {
   defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  parentCompanyId?: string | null;
+  isGroup?: boolean;
   creditLimit?: number;
   allowUomWithConversionRateDefinedInItem?: boolean;
   defaultWarehouseId?: string | null;

@@ -2952,6 +2952,9 @@ export interface TestCurrencyExchangeApiResponseDto {
 export interface TrialBalanceReportDto {
   asOfDate?: string;
   companyId?: string;
+  currencyCode?: string | null;
+  isConsolidated?: boolean;
+  consolidatedCompanyCount?: number;
   rows?: TrialBalanceRowDto[];
   totalDebit?: number;
   totalCredit?: number;

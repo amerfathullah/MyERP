@@ -10443,6 +10443,9 @@ namespace MyERP.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("IsDeleted");
 
+                    b.Property<bool>("IsGroup")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("LastModificationTime");
@@ -10465,6 +10468,9 @@ namespace MyERP.Migrations
 
                     b.Property<decimal>("OverDeliveryReceiptAllowance")
                         .HasColumnType("numeric");
+
+                    b.Property<Guid?>("ParentCompanyId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -10543,6 +10549,8 @@ namespace MyERP.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ParentCompanyId");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
@@ -36530,6 +36538,14 @@ namespace MyERP.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Core.Entities.Company", b =>
+                {
+                    b.HasOne("MyERP.Core.Entities.Company", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MyERP.Core.Entities.DocumentSeries", b =>

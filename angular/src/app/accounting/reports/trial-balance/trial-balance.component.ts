@@ -41,6 +41,9 @@ export class TrialBalanceComponent implements OnInit {
   data = signal<TrialBalanceRowDto[]>([]);
   totalDebit = signal(0);
   totalCredit = signal(0);
+  reportCurrency = signal<string | null>(null);
+  isConsolidated = signal(false);
+  consolidatedCompanyCount = signal(1);
   isLoading = signal(false);
 
   isBalanced = computed(() => Math.abs(this.totalDebit() - this.totalCredit()) < 0.01);
@@ -85,6 +88,9 @@ export class TrialBalanceComponent implements OnInit {
         this.data.set(report.rows ?? []);
         this.totalDebit.set(report.totalDebit ?? 0);
         this.totalCredit.set(report.totalCredit ?? 0);
+        this.reportCurrency.set(report.currencyCode ?? null);
+        this.isConsolidated.set(report.isConsolidated ?? false);
+        this.consolidatedCompanyCount.set(report.consolidatedCompanyCount ?? 1);
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -95,6 +101,9 @@ export class TrialBalanceComponent implements OnInit {
   }
 
   drillDown(row: TrialBalanceRowDto): void {
+    if (!row.accountId || row.accountId === '00000000-0000-0000-0000-000000000000') {
+      return;
+    }
     const { companyId, fromDate, toDate } = this.filters.getRawValue();
     this.router.navigate(['/accounting/reports/general-ledger'], {
       queryParams: {
