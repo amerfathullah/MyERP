@@ -706,6 +706,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/deferred-revenue-and-expense',
+        name: '::Menu:DeferredRevenueAndExpense',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-calendar-check',
+        order: 15.97,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

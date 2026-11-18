@@ -6560,7 +6560,17 @@
     "SelectShareholder": "Select Shareholder",
     "NoOfShares": "No of Shares",
     "AverageRate": "Average Rate",
-    "AsOnDate": "As On Date"
+    "AsOnDate": "As On Date",
+    "Menu:DeferredRevenueAndExpense": "Deferred Revenue and Expense",
+    "DeferredRevenueAndExpense": "Deferred Revenue and Expense",
+    "ServiceStartDate": "Service Start Date",
+    "ServiceEndDate": "Service End Date",
+    "WithUpcomingPostings": "Show with upcoming revenue/expense",
+    "ActualPosting": "Actual Posting",
+    "FilterBasedOn": "Filter Based On",
+    "DateRange": "Date Range",
+    "FromFiscalYear": "From Fiscal Year",
+    "ToFiscalYear": "To Fiscal Year"
   }
 }
 

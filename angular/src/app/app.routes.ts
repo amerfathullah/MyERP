@@ -517,6 +517,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/deferred-revenue-and-expense',
+    loadComponent: () => import('./accounting/reports/deferred-revenue-and-expense/deferred-revenue-and-expense.component').then(c => c.DeferredRevenueAndExpenseComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],

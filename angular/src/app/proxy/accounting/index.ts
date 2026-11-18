@@ -36,6 +36,7 @@ export * from './cost-center.service';
 export * from './currency-exchange-settings.service';
 export * from './currency-exchange.service';
 export * from './deferred-accounting-type.enum';
+export * from './deferred-reporting.service';
 export * from './exchange-rate-revaluation.service';
 export * from './finance-book.service';
 export * from './financial-report-data-source.enum';

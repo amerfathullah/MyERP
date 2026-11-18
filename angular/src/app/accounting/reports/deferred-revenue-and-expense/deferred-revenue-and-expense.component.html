@@ -1,0 +1,175 @@
+<abp-page [title]="'::DeferredRevenueAndExpense' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FilterBasedOn' | abpLocalization }}</label>
+          <select class="form-select" formControlName="filterBasedOn">
+            <option value="Fiscal Year">{{ '::FiscalYear' | abpLocalization }}</option>
+            <option value="Date Range">{{ '::DateRange' | abpLocalization }}</option>
+          </select>
+        </div>
+
+        @if (filters.get('filterBasedOn')?.value === 'Fiscal Year') {
+          <div class="col-md-2">
+            <label class="form-label">{{ '::FromFiscalYear' | abpLocalization }}</label>
+            <select class="form-select" formControlName="fromFiscalYearId">
+              @for (fy of companyFiscalYears(); track fy.id) {
+                <option [value]="fy.id">{{ fy.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::ToFiscalYear' | abpLocalization }}</label>
+            <select class="form-select" formControlName="toFiscalYearId">
+              @for (fy of companyFiscalYears(); track fy.id) {
+                <option [value]="fy.id">{{ fy.name }}</option>
+              }
+            </select>
+          </div>
+        } @else {
+          <div class="col-md-2">
+            <label class="form-label">{{ '::StartDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="periodStartDate" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::EndDate' | abpLocalization }}</label>
+            <input type="date" class="form-control" formControlName="periodEndDate" />
+          </div>
+        }
+
+        <div class="col-md-1">
+          <label class="form-label">{{ '::Periodicity' | abpLocalization }}</label>
+          <select class="form-select" formControlName="periodicity">
+            <option value="Monthly">{{ '::Monthly' | abpLocalization }}</option>
+            <option value="Quarterly">{{ '::Quarterly' | abpLocalization }}</option>
+            <option value="Half-Yearly">{{ '::HalfYearly' | abpLocalization }}</option>
+            <option value="Yearly">{{ '::Yearly' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-1">
+          <label class="form-label">{{ '::InvoiceType' | abpLocalization }}</label>
+          <select class="form-select" formControlName="type">
+            <option value="Revenue">{{ '::Revenue' | abpLocalization }}</option>
+            <option value="Expense">{{ '::Expense' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <div class="form-check mb-1">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="withUpcomingPostings"
+              formControlName="withUpcomingPostings" />
+            <label class="form-check-label small" for="withUpcomingPostings">
+              {{ '::WithUpcomingPostings' | abpLocalization }}
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-table-columns me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">
+          {{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }} ({{ r.currencyCode }})
+        </span>
+        <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::Name' | abpLocalization }}</th>
+                <th>{{ '::ServiceStartDate' | abpLocalization }}</th>
+                <th>{{ '::ServiceEndDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                @for (p of r.periods ?? []; track p.key) {
+                  <th class="text-end">{{ p.label }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track $index) {
+                <tr [class.fw-bold]="(row.indent ?? 0) === 0" [class.table-light]="row.isTotalRow">
+                  <td class="ps-3" [style.padding-left.rem]="1 + ((row.indent ?? 0) * 1.25)">
+                    @if ((row.indent ?? 0) === 0 && row.invoiceId && !row.isTotalRow) {
+                      <a
+                        [routerLink]="[r.type === 'Expense' ? '/purchasing/purchase-invoices' : '/sales/sales-invoices', row.invoiceId]"
+                        class="text-decoration-none">
+                        {{ row.name }}
+                      </a>
+                    } @else {
+                      {{ row.name }}
+                    }
+                  </td>
+                  <td>{{ row.serviceStartDate ? (row.serviceStartDate | date:'yyyy-MM-dd') : '' }}</td>
+                  <td>{{ row.serviceEndDate ? (row.serviceEndDate | date:'yyyy-MM-dd') : '' }}</td>
+                  <td class="text-end font-monospace">{{ (row.amount ?? 0) | number:'1.2-2' }}</td>
+                  @for (val of row.periodValues ?? []; track $index) {
+                    <td class="text-end font-monospace">{{ val | number:'1.2-2' }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    @if ((r.periods?.length ?? 0) > 0) {
+      <div class="card">
+        <div class="card-header fw-bold">
+          {{ '::ActualPosting' | abpLocalization }} / {{ '::Expected' | abpLocalization }}
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">{{ '::Period' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ActualPosting' | abpLocalization }}</th>
+                  @if (r.withUpcomingPostings) {
+                    <th class="text-end pe-3">{{ '::Expected' | abpLocalization }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of r.periods ?? []; track p.key) {
+                  <tr>
+                    <td class="ps-3">{{ p.label }}</td>
+                    <td class="text-end font-monospace">{{ (p.actualTotal ?? 0) | number:'1.2-2' }}</td>
+                    @if (r.withUpcomingPostings) {
+                      <td class="text-end pe-3 font-monospace">{{ (p.expectedTotal ?? 0) | number:'1.2-2' }}</td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</abp-page>

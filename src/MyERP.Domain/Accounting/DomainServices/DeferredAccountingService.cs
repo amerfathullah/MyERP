@@ -617,6 +617,27 @@ public class DeferredAccountingService : DomainService
             .ToList();
 
     /// <summary>
+    /// Simulates remaining recognition periods from after <paramref name="previousPostingDate"/>
+    /// (or <paramref name="serviceStartDate"/>) through <paramref name="serviceEndDate"/>.
+    /// Used by the Deferred Revenue and Expense report to forecast upcoming postings.
+    /// </summary>
+    public static List<DeferredBookingPeriod> SimulateUpcomingPeriods(
+        DateTime serviceStartDate,
+        DateTime serviceEndDate,
+        DateTime? serviceStopDate,
+        decimal netAmount,
+        decimal baseNetAmount,
+        string basedOn,
+        DateTime? previousPostingDate,
+        decimal alreadyBooked,
+        decimal alreadyBookedBase)
+        => WalkPeriods(
+                serviceStartDate.Date, serviceEndDate.Date, serviceStopDate?.Date,
+                netAmount, baseNetAmount, basedOn, serviceEndDate.Date,
+                previousPostingDate?.Date, alreadyBooked, alreadyBookedBase)
+            .ToList();
+
+    /// <summary>
     /// Booking periods still open for a row, each with its amount, given what is already booked.
     /// A period whose amount comes out at zero is skipped but still moves the schedule on.
     /// </summary>
@@ -744,7 +765,7 @@ public class DeferredAccountingService : DomainService
     /// Each row's net amount: its line total, scaled when the invoice's net total differs from the
     /// sum of the lines (an invoice-level discount), which is how the discount is spread over rows.
     /// </summary>
-    internal static Dictionary<Guid, decimal> GetRowNetAmounts(IEnumerable<(Guid Id, decimal LineTotal)> rows, decimal netTotal)
+    public static Dictionary<Guid, decimal> GetRowNetAmounts(IEnumerable<(Guid Id, decimal LineTotal)> rows, decimal netTotal)
     {
         var list = rows.ToList();
         var lineSum = list.Sum(r => r.LineTotal);

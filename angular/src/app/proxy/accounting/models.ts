@@ -3262,3 +3262,48 @@ export interface ShareLedgerReportDto {
   totalNoOfShares?: number;
   totalAmount?: number;
 }
+
+export interface DeferredRevenueAndExpenseRequestDto {
+  companyId: string;
+  filterBasedOn?: string;
+  fromFiscalYearId?: string | null;
+  toFiscalYearId?: string | null;
+  periodStartDate?: string | null;
+  periodEndDate?: string | null;
+  periodicity?: string;
+  type?: string;
+  withUpcomingPostings?: boolean;
+}
+
+export interface DeferredReportPeriodDto {
+  key?: string;
+  label?: string;
+  fromDate?: string;
+  toDate?: string;
+  actualTotal?: number;
+  expectedTotal?: number;
+}
+
+export interface DeferredRevenueAndExpenseRowDto {
+  invoiceId?: string | null;
+  name?: string;
+  isTotalRow?: boolean;
+  indent?: number;
+  serviceStartDate?: string | null;
+  serviceEndDate?: string | null;
+  amount?: number;
+  periodValues?: number[];
+  actualPeriodValues?: number[];
+}
+
+export interface DeferredRevenueAndExpenseReportDto {
+  companyId?: string;
+  currencyCode?: string;
+  type?: string;
+  periodicity?: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+  withUpcomingPostings?: boolean;
+  periods?: DeferredReportPeriodDto[];
+  rows?: DeferredRevenueAndExpenseRowDto[];
+}
