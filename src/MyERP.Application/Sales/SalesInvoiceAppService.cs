@@ -1326,31 +1326,38 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Credit limit notification failed for SI {Id}", invoice.Id); }
 
-            // Selling price validation: selling rate must be >= valuation rate.
-            // Per ERPNext validate_selling_price — gated entirely by Selling Settings.validate_selling_price
-            // (a plain on/off Check field; ERPNext always hard-Stops when enabled, no Warn mode).
+            var customerEntity = await _customerRepository.FindAsync(invoice.CustomerId);
+            var isInternalCustomer = customerEntity?.RepresentsCompanyId.HasValue ?? false;
+            var isInternalTransfer = isInternalCustomer && customerEntity!.RepresentsCompanyId == invoice.CompanyId;
+
+            // Selling price validation: per ERPNext validate_selling_price (commits ed42be1c15 & 8cd5a12107):
+            // Skip return invoices and internal transfers; keep last purchase rate check for inter-company sales
+            // while skipping warehouse valuation rate; check both for external customers.
             if (!invoice.IsReturn
-                && invoice.WarehouseId.HasValue
+                && !isInternalTransfer
                 && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
             {
-                // Fixed assets can be sold at zero or nominal rates (ERPNext PR #47326 / commit 05afad78fc)
-                var siItemData = invoice.Items
-                    .Where(i => !i.IsFixedAsset)
-                    .Select(i => (i.ItemId, i.UnitPrice, i.Description))
-                    .ToList().AsReadOnly();
-                await SalesInvoiceManager.ValidateSellingPriceAsync(
-                    siItemData,
-                    async itemId =>
-                    {
-                        var balance = await _valuationService
-                            .GetCurrentBalanceAsync(itemId, invoice.WarehouseId.Value);
-                        return balance.ValuationRate;
-                    },
-                    action: "Stop");
+                var itemRepoForPrice = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+                var prRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+                var piRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+                var siPriceLines = invoice.Items
+                    .Select(i => new SalesInvoiceManager.SellingPriceLineCheck(
+                        i.ItemId, i.UnitPrice, i.Description, i.ConversionFactor, invoice.WarehouseId, i.IsFixedAsset))
+                    .ToList();
+                await SalesInvoiceManager.ValidateDocumentSellingPriceAsync(
+                    invoice.CompanyId,
+                    invoice.IsReturn,
+                    isInternalTransfer,
+                    isInternalCustomer,
+                    invoice.ExchangeRate,
+                    siPriceLines,
+                    _valuationService,
+                    itemRepoForPrice,
+                    prRepoForPrice,
+                    piRepoForPrice);
             }
 
             // Mandatory SO/DN linkage (Selling Settings or Customer flags: "Is SO/DN required for Sales Invoice?")
-            var customerEntity = await _customerRepository.FindAsync(invoice.CustomerId);
             // ERPNext so_dn_required: the Selling Settings switch enforces, and the customer flag
             // ("Allow sales invoice creation without sales order/delivery note") exempts.
             var soRequired = !(customerEntity?.SoRequired ?? false) && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
@@ -1968,7 +1975,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
 
             // Inter-Company: create corresponding PI in target company if customer represents another company
-            if (customer.RepresentsCompanyId.HasValue)
+            if (customer.RepresentsCompanyId.HasValue && customer.RepresentsCompanyId.Value != invoice.CompanyId)
             {
                 var interCompanyService = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.InterCompanyTransactionService>();
                 await interCompanyService.CreatePurchaseInvoiceFromSalesInvoiceAsync(

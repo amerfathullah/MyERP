@@ -736,24 +736,31 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await creditLimitService.ValidateCreditLimitAsync(
             order.CustomerId, order.GrandTotal, order.CompanyId, userRoles, isAtSalesOrder: true);
 
-        // Selling price validation — selling rate must be >= valuation rate
-        var valuationService = LazyServiceProvider
-            .LazyGetRequiredService<StockValuationService>();
-        var soItemData = order.Items
-            .Select(i => (i.ItemId, i.UnitPrice, i.Description))
-            .ToList()
-            .AsReadOnly();
-        await SalesInvoiceManager.ValidateSellingPriceAsync(
-            soItemData,
-            async itemId =>
-            {
-                var warehouseId = order.Items
-                    .FirstOrDefault(i => i.ItemId == itemId && i.WarehouseId.HasValue)?.WarehouseId;
-                if (!warehouseId.HasValue) return 0m;
-                var balance = await valuationService.GetCurrentBalanceAsync(itemId, warehouseId.Value);
-                return balance.ValuationRate;
-            },
-            action: "Warn");
+        // Selling price validation (ERPNext validate_selling_price: commits ed42be1c15 & 8cd5a12107)
+        if (await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
+        {
+            var isInternalCustomer = customer.RepresentsCompanyId.HasValue;
+            var isInternalTransfer = isInternalCustomer && customer.RepresentsCompanyId == order.CompanyId;
+            var valuationService = LazyServiceProvider.LazyGetRequiredService<StockValuationService>();
+            var itemRepoForPrice = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var prRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var piRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var soPriceLines = order.Items
+                .Select(i => new SalesInvoiceManager.SellingPriceLineCheck(
+                    i.ItemId, i.UnitPrice, i.Description, i.ConversionFactor, i.WarehouseId))
+                .ToList();
+            await SalesInvoiceManager.ValidateDocumentSellingPriceAsync(
+                order.CompanyId,
+                isReturn: false,
+                isInternalTransfer,
+                isInternalCustomer,
+                order.ExchangeRate,
+                soPriceLines,
+                valuationService,
+                itemRepoForPrice,
+                prRepoForPrice,
+                piRepoForPrice);
+        }
 
         // Reserve stock for each SO item (increases Bin.ReservedQty → reduces projected qty)
         // Product Bundles: reserve COMPONENT items, not the parent bundle item

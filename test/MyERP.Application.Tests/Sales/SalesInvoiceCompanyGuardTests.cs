@@ -10,6 +10,7 @@ using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Projects.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -457,6 +458,148 @@ public abstract class SalesInvoiceCompanyGuardTests<TStartupModule> : MyERPAppli
 
                 var submitted = await invoiceAppService.SubmitAsync(creditNote.Id);
                 submitted.Status.ShouldBe("Submitted");
+            });
+        }
+        finally
+        {
+            await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "false");
+        }
+    }
+
+    [Fact]
+    public async Task SubmitAsync_InternalTransfer_SkipsSellingPriceCheck()
+    {
+        var settingManager = GetRequiredService<ISettingManager>();
+        await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "true");
+        try
+        {
+            await WithUnitOfWorkAsync(async () =>
+            {
+                var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+                var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+                var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+                var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+                var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+                var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+                var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+                var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+                var costCenterRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+                var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+                var invoiceRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+                var valuationService = GetRequiredService<StockValuationService>();
+                var binService = GetRequiredService<BinService>();
+                var invoiceAppService = GetRequiredService<ISalesInvoiceAppService>();
+
+                var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SI IntXfer Co"), autoSave: true);
+                var customer = await customerRepo.InsertAsync(
+                    new Customer(Guid.NewGuid(), company.Id, "Same Co Transfer Cust") { RepresentsCompanyId = company.Id },
+                    autoSave: true);
+                var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Ext Supp"), autoSave: true);
+                var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Xfer WH"), autoSave: true);
+                var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "IXF-1", "Transfer Item", ItemType.Goods), autoSave: true);
+                var arAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1200-IXF", "AR", AccountType.Asset), autoSave: true);
+                var revAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "4000-IXF", "Rev", AccountType.Revenue), autoSave: true);
+                var cc = await costCenterRepo.InsertAsync(new CostCenter(Guid.NewGuid(), company.Id, "IXF CC"), autoSave: true);
+                company.DefaultCostCenterId = cc.Id;
+                company.DefaultReceivableAccountId = arAcct.Id;
+                company.DefaultIncomeAccountId = revAcct.Id;
+                await companyRepo.UpdateAsync(company, autoSave: true);
+                await fiscalYearRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY IXF", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)), autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI DR AR", "SalesInvoice", true, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 1, FixedAccountId = arAcct.Id }, autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Rev", "SalesInvoice", false, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 2, FixedAccountId = revAcct.Id }, autoSave: true);
+
+                await valuationService.CreateLedgerEntryAsync(company.Id, item.Id, warehouse.Id, DateTime.UtcNow.Date.AddDays(-1), 10m, 100m, "StockEntry", Guid.NewGuid(), null);
+                await binService.ApplyStockMovementAsync(item.Id, warehouse.Id, 10m, 1000m, null);
+
+                var pi = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-IXF-1", DateTime.UtcNow.Date);
+                pi.AddItem(item.Id, "Transfer Item", 5m, 95m, 0m);
+                pi.Submit();
+                await piRepo.InsertAsync(pi, autoSave: true);
+
+                var xferSi = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-IXF-1", DateTime.UtcNow.Date) { WarehouseId = warehouse.Id };
+                xferSi.AddItem(item.Id, "Transfer Item", 1m, 50m, 0m);
+                await invoiceRepo.InsertAsync(xferSi, autoSave: true);
+
+                var submitted = await invoiceAppService.SubmitAsync(xferSi.Id);
+                submitted.Status.ShouldBe("Submitted");
+            });
+        }
+        finally
+        {
+            await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "false");
+        }
+    }
+
+    [Fact]
+    public async Task SubmitAsync_InterCompanySale_EnforcesLastPurchaseRate_SkipsValuationRate()
+    {
+        var settingManager = GetRequiredService<ISettingManager>();
+        await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "true");
+        try
+        {
+            await WithUnitOfWorkAsync(async () =>
+            {
+                var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+                var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+                var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+                var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+                var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+                var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+                var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+                var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+                var costCenterRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+                var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+                var invoiceRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+                var valuationService = GetRequiredService<StockValuationService>();
+                var binService = GetRequiredService<BinService>();
+                var invoiceAppService = GetRequiredService<ISalesInvoiceAppService>();
+
+                var companyA = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SI IC CoA"), autoSave: true);
+                var companyB = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SI IC CoB"), autoSave: true);
+                var icCustomer = await customerRepo.InsertAsync(
+                    new Customer(Guid.NewGuid(), companyA.Id, "Internal CoB Cust") { RepresentsCompanyId = companyB.Id },
+                    autoSave: true);
+                await supplierRepo.InsertAsync(
+                    new Supplier(Guid.NewGuid(), companyB.Id, "Internal CoA Supp") { RepresentsCompanyId = companyA.Id },
+                    autoSave: true);
+                var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), companyA.Id, "IC Supp"), autoSave: true);
+                var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), companyA.Id, "IC WH"), autoSave: true);
+                var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyA.Id, "IC-1", "IC Item", ItemType.Goods), autoSave: true);
+                await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyB.Id, "IC-1", "IC Item", ItemType.Goods), autoSave: true);
+                var arAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), companyA.Id, "1200-IC", "AR", AccountType.Asset), autoSave: true);
+                var revAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), companyA.Id, "4000-IC", "Rev", AccountType.Revenue), autoSave: true);
+                var cc = await costCenterRepo.InsertAsync(new CostCenter(Guid.NewGuid(), companyA.Id, "IC CC"), autoSave: true);
+                companyA.DefaultCostCenterId = cc.Id;
+                companyA.DefaultReceivableAccountId = arAcct.Id;
+                companyA.DefaultIncomeAccountId = revAcct.Id;
+                await companyRepo.UpdateAsync(companyA, autoSave: true);
+                await fiscalYearRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), companyA.Id, "FY IC", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)), autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), companyA.Id, "SI DR AR", "SalesInvoice", true, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 1, FixedAccountId = arAcct.Id }, autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), companyA.Id, "SI CR Rev", "SalesInvoice", false, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 2, FixedAccountId = revAcct.Id }, autoSave: true);
+
+                // Seed stock at valuation rate 100 (no purchase yet -> LastPurchaseRate == 0)
+                await valuationService.CreateLedgerEntryAsync(companyA.Id, item.Id, warehouse.Id, DateTime.UtcNow.Date.AddDays(-1), 10m, 100m, "StockEntry", Guid.NewGuid(), null);
+                await binService.ApplyStockMovementAsync(item.Id, warehouse.Id, 10m, 1000m, null);
+
+                // Inter-company sale at 80 (< 100 valuation rate) succeeds because valuation check is skipped when LastPurchaseRate == 0
+                var icSiAllowed = new SalesInvoice(Guid.NewGuid(), companyA.Id, icCustomer.Id, "SI-IC-1", DateTime.UtcNow.Date) { WarehouseId = warehouse.Id };
+                icSiAllowed.AddItem(item.Id, "IC Item", 1m, 80m, 0m);
+                await invoiceRepo.InsertAsync(icSiAllowed, autoSave: true);
+                var ok = await invoiceAppService.SubmitAsync(icSiAllowed.Id);
+                ok.Status.ShouldBe("Submitted");
+
+                // Now record a Purchase Invoice with LastPurchaseRate = 95 -> inter-company sale at 80 MUST fail
+                var pi = new PurchaseInvoice(Guid.NewGuid(), companyA.Id, supplier.Id, "PI-IC-1", DateTime.UtcNow.Date);
+                pi.AddItem(item.Id, "IC Item", 5m, 95m, 0m);
+                pi.Submit();
+                await piRepo.InsertAsync(pi, autoSave: true);
+
+                var icSiBlocked = new SalesInvoice(Guid.NewGuid(), companyA.Id, icCustomer.Id, "SI-IC-2", DateTime.UtcNow.Date) { WarehouseId = warehouse.Id };
+                icSiBlocked.AddItem(item.Id, "IC Item", 1m, 80m, 0m);
+                await invoiceRepo.InsertAsync(icSiBlocked, autoSave: true);
+
+                var ex = await Should.ThrowAsync<BusinessException>(() => invoiceAppService.SubmitAsync(icSiBlocked.Id));
+                ex.Code.ShouldBe(MyERPDomainErrorCodes.SellingPriceBelowCost);
             });
         }
         finally

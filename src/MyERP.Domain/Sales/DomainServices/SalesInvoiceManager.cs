@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -526,6 +528,155 @@ public class SalesInvoiceManager : DomainService
         }
 
         return new SellingPriceCheckResult { Warnings = warnings };
+    }
+
+    /// <summary>Line descriptor for selling price validation against last purchase and stock valuation rates.</summary>
+    public record SellingPriceLineCheck(
+        Guid ItemId,
+        decimal UnitPrice,
+        string Description,
+        decimal ConversionFactor,
+        Guid? WarehouseId,
+        bool IsExempt = false);
+
+    /// <summary>
+    /// Validates selling price against last purchase rate and (for external stock items) warehouse valuation rate.
+    /// Per ERPNext selling_controller.py validate_selling_price (commits ed42be1c15 &amp; 8cd5a12107):
+    /// - Return documents and internal transfers (customer represents same company) skip both checks.
+    /// - Inter-company sales (internal customer representing another company) keep the last purchase rate check
+    ///   and skip the stock valuation rate check.
+    /// - External sales validate both last purchase rate (all items) and valuation rate (stock items).
+    /// </summary>
+    public static async Task ValidateDocumentSellingPriceAsync(
+        Guid companyId,
+        bool isReturn,
+        bool isInternalTransfer,
+        bool isInternalCustomer,
+        decimal exchangeRate,
+        IReadOnlyList<SellingPriceLineCheck> items,
+        StockValuationService valuationService,
+        IRepository<Item, Guid> itemRepository,
+        IRepository<PurchaseReceipt, Guid>? purchaseReceiptRepository = null,
+        IRepository<PurchaseInvoice, Guid>? purchaseInvoiceRepository = null)
+    {
+        if (isReturn || isInternalTransfer || items.Count == 0)
+            return;
+
+        var activeItems = items.Where(i => !i.IsExempt).ToList();
+        if (activeItems.Count == 0)
+            return;
+
+        var itemIds = activeItems.Select(i => i.ItemId).Distinct().ToList();
+        var itemQuery = await itemRepository.GetQueryableAsync();
+        var itemEntities = itemQuery != null
+            ? itemQuery.Where(i => itemIds.Contains(i.Id)).ToList()
+            : await itemRepository.GetListAsync(i => itemIds.Contains(i.Id));
+        var maintainStockMap = itemEntities.ToDictionary(i => i.Id, i => i.MaintainStock);
+
+        var lastPurchaseRates = await GetLastPurchaseRateMapAsync(
+            companyId, itemIds, purchaseReceiptRepository, purchaseInvoiceRepository);
+
+        var docExchangeRate = exchangeRate > 0m ? exchangeRate : 1m;
+        foreach (var row in activeItems)
+        {
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            var baseSellingRate = Math.Round(row.UnitPrice * docExchangeRate, 4);
+
+            if (lastPurchaseRates.TryGetValue(row.ItemId, out var lastPurchaseRate) && lastPurchaseRate > 0m)
+            {
+                var lprInSalesUom = Math.Round(lastPurchaseRate * factor, 4);
+                if (baseSellingRate < lprInSalesUom)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SellingPriceBelowCost)
+                        .WithData("item", row.Description)
+                        .WithData("sellingRate", baseSellingRate)
+                        .WithData("buyingRate", lprInSalesUom);
+                }
+            }
+
+            var maintainStock = maintainStockMap.GetValueOrDefault(row.ItemId, true);
+            if (isInternalCustomer || !maintainStock || !row.WarehouseId.HasValue)
+                continue;
+
+            var balance = await valuationService.GetCurrentBalanceAsync(row.ItemId, row.WarehouseId.Value);
+            if (balance.ValuationRate > 0m)
+            {
+                var valInSalesUom = Math.Round(balance.ValuationRate * factor, 4);
+                if (baseSellingRate < valInSalesUom)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SellingPriceBelowCost)
+                        .WithData("item", row.Description)
+                        .WithData("sellingRate", baseSellingRate)
+                        .WithData("buyingRate", valInSalesUom);
+                }
+            }
+        }
+    }
+
+    private static async Task<Dictionary<Guid, decimal>> GetLastPurchaseRateMapAsync(
+        Guid companyId,
+        IReadOnlyCollection<Guid> itemIds,
+        IRepository<PurchaseReceipt, Guid>? prRepository,
+        IRepository<PurchaseInvoice, Guid>? piRepository)
+    {
+        var candidates = new Dictionary<Guid, (DateTime Date, DateTime CreationTime, decimal BaseStockRate)>();
+        var idSet = itemIds.ToHashSet();
+
+        void Consider(Guid itemId, DateTime postingDate, DateTime creationTime, decimal unitPrice, decimal fxRate, decimal convFactor)
+        {
+            if (unitPrice <= 0m || !idSet.Contains(itemId)) return;
+            var rate = Math.Round((unitPrice * (fxRate > 0m ? fxRate : 1m)) / (convFactor > 0m ? convFactor : 1m), 4);
+            if (rate <= 0m) return;
+
+            if (!candidates.TryGetValue(itemId, out var cur)
+                || postingDate > cur.Date
+                || (postingDate == cur.Date && creationTime > cur.CreationTime))
+            {
+                candidates[itemId] = (postingDate, creationTime, rate);
+            }
+        }
+
+        if (prRepository != null)
+        {
+            var prQuery = await prRepository.WithDetailsAsync(p => p.Items) ?? await prRepository.GetQueryableAsync();
+            if (prQuery != null)
+            {
+                var prs = prQuery
+                    .Where(p => p.CompanyId == companyId
+                        && p.Status != DocumentStatus.Draft
+                        && p.Status != DocumentStatus.Cancelled
+                        && !p.IsReturn
+                        && p.Items.Any(i => idSet.Contains(i.ItemId)))
+                    .ToList();
+                foreach (var pr in prs)
+                {
+                    foreach (var item in pr.Items)
+                        Consider(item.ItemId, pr.PostingDate, pr.CreationTime, item.UnitPrice, pr.ExchangeRate, item.ConversionFactor);
+                }
+            }
+        }
+
+        if (piRepository != null)
+        {
+            var piQuery = await piRepository.WithDetailsAsync(p => p.Items) ?? await piRepository.GetQueryableAsync();
+            if (piQuery != null)
+            {
+                var pis = piQuery
+                    .Where(p => p.CompanyId == companyId
+                        && p.Status != DocumentStatus.Draft
+                        && p.Status != DocumentStatus.Cancelled
+                        && !p.IsReturn
+                        && p.Items.Any(i => idSet.Contains(i.ItemId)))
+                    .ToList();
+                foreach (var pi in pis)
+                {
+                    foreach (var item in pi.Items)
+                        Consider(item.ItemId, pi.IssueDate, pi.CreationTime, item.UnitPrice, pi.ExchangeRate, item.ConversionFactor);
+                }
+            }
+        }
+
+        return candidates.ToDictionary(kv => kv.Key, kv => kv.Value.BaseStockRate);
     }
 
     /// <summary>

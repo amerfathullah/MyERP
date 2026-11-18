@@ -567,18 +567,37 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal, dn.CompanyId, dnUserRoles);
         }
 
+        // Selling price validation (ERPNext validate_selling_price: commits ed42be1c15 & 8cd5a12107)
+        if (!dn.IsReturn && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
+        {
+            var custRepoForPrice = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customerForPrice = await custRepoForPrice.FindAsync(dn.CustomerId);
+            var isInternalCustomer = customerForPrice?.RepresentsCompanyId.HasValue ?? false;
+            var isInternalTransfer = isInternalCustomer && customerForPrice!.RepresentsCompanyId == dn.CompanyId;
+            var valuationSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
+            var itemRepoForPrice = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var prRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var piRepoForPrice = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var dnPriceLines = dn.Items
+                .Select(i => new SalesInvoiceManager.SellingPriceLineCheck(
+                    i.ItemId, i.UnitPrice, i.Description, i.ConversionFactor, i.WarehouseId ?? dn.WarehouseId))
+                .ToList();
+            await SalesInvoiceManager.ValidateDocumentSellingPriceAsync(
+                dn.CompanyId,
+                dn.IsReturn,
+                isInternalTransfer,
+                isInternalCustomer,
+                dn.ExchangeRate,
+                dnPriceLines,
+                valuationSvc,
+                itemRepoForPrice,
+                prRepoForPrice,
+                piRepoForPrice);
+        }
+
         // Over-delivery validation + SO status guard (domain service)
         if (!dn.IsReturn && dn.SalesOrderId.HasValue)
         {
-            // Selling price validation at DN submit (Warn mode)
-            var valuationSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
-            var dnItemData = dn.Items
-                .Select(i => (i.ItemId, i.UnitPrice, i.Description))
-                .ToList().AsReadOnly();
-            await SalesInvoiceManager.ValidateSellingPriceAsync(dnItemData,
-                async itemId => (await valuationSvc.GetCurrentBalanceAsync(itemId, dn.WarehouseId)).ValuationRate,
-                action: "Warn");
-
             var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
             await dnManager.ValidateAgainstSalesOrderAsync(dn);
 
