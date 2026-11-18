@@ -1,4 +1,6 @@
 import type {
+  FifoQueueVsQtyComparisonReportDto,
+  FifoQueueVsQtyComparisonRequestDto,
   FixSerialAndBatchBundlesInputDto,
   FixSerialAndBatchBundlesResultDto,
   IncorrectBalanceQtyReportDto,
@@ -106,6 +108,27 @@ export class StockDiagnosticsService {
         headers: { Accept: 'application/json' },
         url: '/api/app/stock-diagnostics/fix-incorrect-serial-and-batch-bundles',
         body: input,
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  getFifoQueueVsQtyComparison = (
+    input: FifoQueueVsQtyComparisonRequestDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, FifoQueueVsQtyComparisonReportDto>(
+      {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/fifo-queue-vs-qty-comparison',
+        params: {
+          companyId: input.companyId,
+          itemId: input.itemId,
+          itemGroupId: input.itemGroupId,
+          warehouseId: input.warehouseId,
+          fromDate: input.fromDate,
+          toDate: input.toDate,
+        },
       },
       { apiName: this.apiName, ...config },
     );

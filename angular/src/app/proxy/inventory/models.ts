@@ -3757,3 +3757,42 @@ export interface FixSerialAndBatchBundlesResultDto {
   restoredCount?: number;
   skippedCount?: number;
 }
+
+export interface FifoQueueVsQtyComparisonRequestDto {
+  companyId?: string | null;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  warehouseId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface FifoQueueVsQtyComparisonRowDto {
+  stockLedgerEntryId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  postingDate?: string;
+  postingTime?: string;
+  voucherType?: string;
+  voucherId?: string | null;
+  voucherNo?: string;
+  batchId?: string | null;
+  useBatchwiseValuation?: boolean;
+  actualQty?: number;
+  qtyAfterTransaction?: number;
+  stockQueue?: string;
+  fifoQueueQty?: number;
+  fifoQtyDiff?: number;
+  stockValue?: number;
+  fifoStockValue?: number;
+  fifoValueDiff?: number;
+  valuationRate?: number;
+  isPrecedingRow?: boolean;
+}
+
+export interface FifoQueueVsQtyComparisonReportDto {
+  rows?: FifoQueueVsQtyComparisonRowDto[];
+}

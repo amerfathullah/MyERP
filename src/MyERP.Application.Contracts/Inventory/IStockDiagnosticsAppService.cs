@@ -10,4 +10,5 @@ public interface IStockDiagnosticsAppService : IApplicationService
     Task<IncorrectSerialNoValuationReportDto> GetIncorrectSerialNoValuationAsync(IncorrectSerialNoValuationRequestDto input);
     Task<IncorrectSerialAndBatchBundleReportDto> GetIncorrectSerialAndBatchBundlesAsync(IncorrectSerialAndBatchBundleRequestDto input);
     Task<FixSerialAndBatchBundlesResultDto> FixIncorrectSerialAndBatchBundlesAsync(FixSerialAndBatchBundlesInputDto input);
+    Task<FifoQueueVsQtyComparisonReportDto> GetFifoQueueVsQtyComparisonAsync(FifoQueueVsQtyComparisonRequestDto input);
 }

@@ -6590,7 +6590,13 @@
     "IncorrectSerialAndBatchBundle": "Incorrect Serial and Batch Bundle",
     "SerialNoNumber": "Serial No",
     "VoucherDetailNo": "Voucher Detail No",
-    "FixSelected": "Fix Selected"
+    "FixSelected": "Fix Selected",
+    "Menu:FifoQueueVsQtyComparison": "FIFO Queue vs Qty After Transaction Comparison",
+    "FifoQueueVsQtyComparison": "FIFO Queue vs Qty After Transaction Comparison",
+    "BatchwiseValuation": "Batchwise Valuation",
+    "FifoQtyDiff": "A - C (Qty Diff)",
+    "FifoValueDiff": "D - E (Value Diff)",
+    "StockQueue": "FIFO/LIFO Queue"
   }
 }
 

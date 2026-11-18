@@ -143,3 +143,45 @@ public class FixSerialAndBatchBundlesResultDto
     public int RestoredCount { get; set; }
     public int SkippedCount { get; set; }
 }
+
+public class FifoQueueVsQtyComparisonRequestDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? ItemId { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+}
+
+public class FifoQueueVsQtyComparisonRowDto
+{
+    public Guid StockLedgerEntryId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public DateTime PostingDate { get; set; }
+    public TimeSpan PostingTime { get; set; }
+    public string VoucherType { get; set; } = string.Empty;
+    public Guid? VoucherId { get; set; }
+    public string VoucherNo { get; set; } = string.Empty;
+    public Guid? BatchId { get; set; }
+    public bool UseBatchwiseValuation { get; set; }
+    public decimal ActualQty { get; set; }
+    public decimal QtyAfterTransaction { get; set; }
+    public string StockQueue { get; set; } = string.Empty;
+    public decimal FifoQueueQty { get; set; }
+    public decimal FifoQtyDiff { get; set; }
+    public decimal StockValue { get; set; }
+    public decimal FifoStockValue { get; set; }
+    public decimal FifoValueDiff { get; set; }
+    public decimal ValuationRate { get; set; }
+    public bool IsPrecedingRow { get; set; }
+}
+
+public class FifoQueueVsQtyComparisonReportDto
+{
+    public List<FifoQueueVsQtyComparisonRowDto> Rows { get; set; } = new();
+}

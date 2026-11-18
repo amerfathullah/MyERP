@@ -1505,6 +1505,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/fifo-queue-vs-qty-comparison',
+        name: '::Menu:FifoQueueVsQtyComparison',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-layer-group',
+        order: 41.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/reports/available-serial-no',
         name: '::Menu:AvailableSerialNoReport',
         parentName: '::Menu:Inventory',

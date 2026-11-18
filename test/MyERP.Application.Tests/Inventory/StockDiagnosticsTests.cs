@@ -330,4 +330,80 @@ public abstract class StockDiagnosticsTests<TStartupModule> : MyERPApplicationTe
         reloadedDraft.Status.ShouldBe(MyERP.Core.DocumentStatus.Draft);
         reloadedDraft.IsCancelled.ShouldBeFalse();
     }
+
+    [Fact]
+    public async Task FifoQueueComparison_Should_Require_Filter_Flag_Mismatch_And_Skip_MovingAverage()
+    {
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "FIFO Cmp Co"), autoSave: true);
+        var wh = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "FIFO WH"), autoSave: true);
+
+        await Should.ThrowAsync<BusinessException>(async () =>
+            await _diagnosticsService.GetFifoQueueVsQtyComparisonAsync(
+                new FifoQueueVsQtyComparisonRequestDto { CompanyId = company.Id }));
+
+        var fifoItem = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "FIFO-CMP", "FIFO Item", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.FIFO,
+            }, autoSave: true);
+        var maItem = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "MA-CMP", "Moving Avg Item", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.WeightedAverage,
+            }, autoSave: true);
+        var pooledSerialItem = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "SER-FIFO", "Pooled Serial FIFO", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.FIFO,
+                HasSerialNo = true,
+                UseSerialNoWiseValuation = false,
+            }, autoSave: true);
+
+        // Moving average item without queue must never be flagged
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, maItem.Id, wh.Id,
+            new DateTime(2026, 6, 1), 10m, 100m, 10m, 1000m) { StockQueue = "[]" }, autoSave: true);
+
+        var maReport = await _diagnosticsService.GetFifoQueueVsQtyComparisonAsync(
+            new FifoQueueVsQtyComparisonRequestDto { CompanyId = company.Id, ItemId = maItem.Id });
+        maReport.Rows.ShouldBeEmpty();
+
+        // FIFO item: first healthy entry (qty 5 @ 100), second corrupted entry (queue holds 10, balance claims 7)
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, fifoItem.Id, wh.Id,
+            new DateTime(2026, 6, 1), 5m, 100m, 5m, 500m) { StockQueue = "[[5,100]]" }, autoSave: true);
+        var badFifoSle = await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, fifoItem.Id, wh.Id,
+            new DateTime(2026, 6, 2), 5m, 100m, 7m, 700m) { StockQueue = "[[10,100]]" }, autoSave: true);
+
+        var fifoReport = await _diagnosticsService.GetFifoQueueVsQtyComparisonAsync(
+            new FifoQueueVsQtyComparisonRequestDto
+            {
+                CompanyId = company.Id,
+                ItemId = fifoItem.Id,
+                WarehouseId = wh.Id,
+            });
+
+        fifoReport.Rows.Count.ShouldBe(2); // preceding row + first offending row
+        fifoReport.Rows[0].IsPrecedingRow.ShouldBeTrue();
+        fifoReport.Rows[1].StockLedgerEntryId.ShouldBe(badFifoSle.Id);
+        fifoReport.Rows[1].FifoQueueQty.ShouldBe(10m);
+        fifoReport.Rows[1].QtyAfterTransaction.ShouldBe(7m);
+        fifoReport.Rows[1].FifoQtyDiff.ShouldBe(-3m);
+
+        // Pooled serial item valued by FIFO (HasSerialNo && !UseSerialNoWiseValuation) must also be checked
+        var badPooledSerialSle = await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, pooledSerialItem.Id, wh.Id,
+            new DateTime(2026, 6, 1), 3m, 100m, 2m, 200m)
+        {
+            HasSerialNo = true,
+            StockQueue = "[[3,100]]",
+        }, autoSave: true);
+
+        var pooledReport = await _diagnosticsService.GetFifoQueueVsQtyComparisonAsync(
+            new FifoQueueVsQtyComparisonRequestDto { CompanyId = company.Id, ItemId = pooledSerialItem.Id });
+        pooledReport.Rows.Single().StockLedgerEntryId.ShouldBe(badPooledSerialSle.Id);
+    }
 }

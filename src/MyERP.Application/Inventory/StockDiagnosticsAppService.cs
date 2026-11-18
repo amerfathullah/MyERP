@@ -7,6 +7,7 @@ using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
@@ -34,6 +35,8 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<SerialAndBatchBundle, Guid> _bundleRepository;
     private readonly IRepository<SerialNo, Guid> _serialNoRepository;
+    private readonly IRepository<Batch, Guid> _batchRepository;
+    private readonly IRepository<ItemGroup, Guid> _itemGroupRepository;
 
     public StockDiagnosticsAppService(
         IRepository<StockLedgerEntry, Guid> sleRepository,
@@ -49,7 +52,9 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         IRepository<Account, Guid> accountRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
         IRepository<SerialAndBatchBundle, Guid> bundleRepository,
-        IRepository<SerialNo, Guid> serialNoRepository)
+        IRepository<SerialNo, Guid> serialNoRepository,
+        IRepository<Batch, Guid> batchRepository,
+        IRepository<ItemGroup, Guid> itemGroupRepository)
     {
         _sleRepository = sleRepository;
         _stockReconciliationRepository = stockReconciliationRepository;
@@ -65,6 +70,8 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         _journalEntryRepository = journalEntryRepository;
         _bundleRepository = bundleRepository;
         _serialNoRepository = serialNoRepository;
+        _batchRepository = batchRepository;
+        _itemGroupRepository = itemGroupRepository;
     }
 
     public async Task<IncorrectBalanceQtyReportDto> GetIncorrectBalanceQtyAsync(
@@ -647,6 +654,220 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         }
 
         return result;
+    }
+
+    public async Task<FifoQueueVsQtyComparisonReportDto> GetFifoQueueVsQtyComparisonAsync(
+        FifoQueueVsQtyComparisonRequestDto input)
+    {
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "From Date cannot be after To Date.");
+        }
+
+        if (!input.WarehouseId.HasValue && !input.ItemId.HasValue && !input.ItemGroupId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Any one of following filters required: Warehouse, Item, Item Group.");
+        }
+
+        var sleQuery = (await _sleRepository.GetQueryableAsync()).Where(s => !s.IsCancelled);
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+            sleQuery = sleQuery.Where(s => s.CompanyId == input.CompanyId.Value);
+
+        if (input.WarehouseId.HasValue && input.WarehouseId.Value != Guid.Empty)
+        {
+            var descendantWarehouseIds = await ExpandDescendantWarehouseIdsAsync(input.WarehouseId.Value);
+            sleQuery = sleQuery.Where(s => descendantWarehouseIds.Contains(s.WarehouseId));
+        }
+
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+        {
+            sleQuery = sleQuery.Where(s => s.ItemId == input.ItemId.Value);
+        }
+        else if (input.ItemGroupId.HasValue && input.ItemGroupId.Value != Guid.Empty)
+        {
+            var matchingItemIds = await GetItemIdsForGroupTreeAsync(input.ItemGroupId.Value);
+            if (matchingItemIds.Count == 0)
+                return new FifoQueueVsQtyComparisonReportDto();
+
+            sleQuery = sleQuery.Where(s => matchingItemIds.Contains(s.ItemId));
+        }
+
+        if (input.FromDate.HasValue)
+        {
+            var fromStart = input.FromDate.Value.Date;
+            sleQuery = sleQuery.Where(s => s.PostingDate >= fromStart);
+        }
+
+        if (input.ToDate.HasValue)
+        {
+            var toExclusive = input.ToDate.Value.Date.AddDays(1);
+            sleQuery = sleQuery.Where(s => s.PostingDate < toExclusive);
+        }
+
+        var sles = await AsyncExecuter.ToListAsync(
+            sleQuery.OrderBy(s => s.PostingDateTime).ThenBy(s => s.CreationTime));
+
+        if (sles.Count == 0)
+            return new FifoQueueVsQtyComparisonReportDto();
+
+        var itemMap = await LoadItemMapAsync(sles.Select(s => s.ItemId));
+        var whMap = await LoadWarehouseMapAsync(sles.Select(s => s.WarehouseId));
+        var batchIds = sles.Where(s => s.BatchId.HasValue).Select(s => s.BatchId!.Value).Distinct().ToList();
+        var batchMap = batchIds.Count > 0
+            ? (await _batchRepository.GetListAsync(b => batchIds.Contains(b.Id))).ToDictionary(b => b.Id)
+            : new Dictionary<Guid, Batch>();
+
+        var selectedPairs = new List<(StockLedgerEntry Sle, bool UseBatchwise, decimal FifoQty, decimal FifoQtyDiff, decimal FifoVal, decimal FifoValDiff, bool IsPreceding)>();
+
+        foreach (var group in sles.GroupBy(s => (s.ItemId, s.WarehouseId)))
+        {
+            if (!itemMap.TryGetValue(group.Key.ItemId, out var item))
+                continue;
+
+            var isFifoOrLifo = item.ValuationMethod == ValuationMethod.FIFO || item.ValuationMethod == ValuationMethod.LIFO;
+            if (!isFifoOrLifo)
+                continue;
+
+            var isLifo = item.ValuationMethod == ValuationMethod.LIFO;
+            var groupEntries = group.ToList();
+
+            (decimal FifoQty, decimal FifoQtyDiff, decimal FifoVal, decimal FifoValDiff, bool UseBatchwise) Evaluate(StockLedgerEntry e)
+            {
+                batchMap.TryGetValue(e.BatchId ?? Guid.Empty, out var batch);
+                var useBatchwise = batch?.UseBatchwiseValuation ?? false;
+                var queue = FifoValuation.Deserialize(e.StockQueue, isLifo);
+                var qQty = queue.TotalQty;
+                var qVal = queue.TotalValue;
+                return (qQty, e.BalanceQuantity - qQty, qVal, e.BalanceValue - qVal, useBatchwise);
+            }
+
+            for (var idx = 0; idx < groupEntries.Count; idx++)
+            {
+                var sle = groupEntries[idx];
+                var useBatchwise = sle.BatchId.HasValue
+                    && batchMap.TryGetValue(sle.BatchId.Value, out var b)
+                    && b.UseBatchwiseValuation;
+
+                var keepsQueue = (sle.HasSerialNo && !item.UseSerialNoWiseValuation)
+                    || (!sle.HasSerialNo && sle.SerialAndBatchBundleId == null && !(sle.HasBatchNo && useBatchwise));
+
+                if (!keepsQueue)
+                    continue;
+
+                var metrics = Evaluate(sle);
+                if (Math.Abs(metrics.FifoQtyDiff) > 0.001m || Math.Abs(metrics.FifoValDiff) > 0.1m)
+                {
+                    if (idx > 0)
+                    {
+                        var prev = groupEntries[idx - 1];
+                        var prevMetrics = Evaluate(prev);
+                        selectedPairs.Add((prev, prevMetrics.UseBatchwise, prevMetrics.FifoQty, prevMetrics.FifoQtyDiff, prevMetrics.FifoVal, prevMetrics.FifoValDiff, true));
+                    }
+
+                    selectedPairs.Add((sle, metrics.UseBatchwise, metrics.FifoQty, metrics.FifoQtyDiff, metrics.FifoVal, metrics.FifoValDiff, false));
+                    break;
+                }
+            }
+        }
+
+        if (selectedPairs.Count == 0)
+            return new FifoQueueVsQtyComparisonReportDto();
+
+        var voucherNoMap = await LoadVoucherNumbersAsync(selectedPairs.Select(p => p.Sle));
+        var rows = selectedPairs.Select(p =>
+        {
+            itemMap.TryGetValue(p.Sle.ItemId, out var item);
+            whMap.TryGetValue(p.Sle.WarehouseId, out var wh);
+            return new FifoQueueVsQtyComparisonRowDto
+            {
+                StockLedgerEntryId = p.Sle.Id,
+                ItemId = p.Sle.ItemId,
+                ItemCode = item?.ItemCode ?? string.Empty,
+                ItemName = item?.ItemName ?? string.Empty,
+                WarehouseId = p.Sle.WarehouseId,
+                WarehouseName = wh?.Name ?? string.Empty,
+                PostingDate = p.Sle.PostingDate,
+                PostingTime = p.Sle.PostingTime,
+                VoucherType = p.Sle.VoucherType ?? string.Empty,
+                VoucherId = p.Sle.VoucherId,
+                VoucherNo = ResolveVoucherNo(p.Sle, voucherNoMap),
+                BatchId = p.Sle.BatchId,
+                UseBatchwiseValuation = p.UseBatchwise,
+                ActualQty = p.Sle.QuantityChange,
+                QtyAfterTransaction = p.Sle.BalanceQuantity,
+                StockQueue = p.Sle.StockQueue ?? "[]",
+                FifoQueueQty = Math.Round(p.FifoQty, 4),
+                FifoQtyDiff = Math.Round(p.FifoQtyDiff, 4),
+                StockValue = p.Sle.BalanceValue,
+                FifoStockValue = Math.Round(p.FifoVal, 2),
+                FifoValueDiff = Math.Round(p.FifoValDiff, 2),
+                ValuationRate = p.Sle.ValuationRate,
+                IsPrecedingRow = p.IsPreceding,
+            };
+        }).ToList();
+
+        return new FifoQueueVsQtyComparisonReportDto { Rows = rows };
+    }
+
+    private async Task<List<Guid>> ExpandDescendantWarehouseIdsAsync(Guid rootWarehouseId)
+    {
+        var allWarehouses = await _warehouseRepository.GetListAsync();
+        var childrenLookup = allWarehouses
+            .Where(w => w.ParentWarehouseId.HasValue)
+            .ToLookup(w => w.ParentWarehouseId!.Value, w => w.Id);
+
+        var result = new HashSet<Guid> { rootWarehouseId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootWarehouseId);
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var childId in childrenLookup[cur])
+            {
+                if (result.Add(childId))
+                    queue.Enqueue(childId);
+            }
+        }
+
+        return result.ToList();
+    }
+
+    private async Task<List<Guid>> GetItemIdsForGroupTreeAsync(Guid rootGroupId)
+    {
+        var allGroups = await _itemGroupRepository.GetListAsync();
+        var childrenLookup = allGroups
+            .Where(g => g.ParentId.HasValue)
+            .ToLookup(g => g.ParentId!.Value, g => g.Id);
+
+        var groupIds = new HashSet<Guid> { rootGroupId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootGroupId);
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var childId in childrenLookup[cur])
+            {
+                if (groupIds.Add(childId))
+                    queue.Enqueue(childId);
+            }
+        }
+
+        var groupNames = allGroups
+            .Where(g => groupIds.Contains(g.Id))
+            .Select(g => g.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var matchingItems = await AsyncExecuter.ToListAsync(
+            (await _itemRepository.GetQueryableAsync())
+            .Where(i => (i.ItemGroupId.HasValue && groupIds.Contains(i.ItemGroupId.Value))
+                        || (i.ItemGroup != null && groupNames.Contains(i.ItemGroup)))
+            .Select(i => i.Id));
+
+        return matchingItems;
     }
 
     private static IncorrectSerialNoValuationRowDto CreateBalanceSummaryRow(decimal qty, decimal valuationRate) => new()
