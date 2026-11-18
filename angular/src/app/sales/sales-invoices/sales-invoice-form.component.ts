@@ -271,7 +271,11 @@ export class SalesInvoiceFormComponent implements OnInit {
             currencyCode: source.currencyCode,
             priceListId: source.priceListId ?? '',
           });
-          source.items?.forEach((item) => this.addItemRow(item));
+          source.items?.forEach((item) => this.addItemRow({
+            ...item,
+            salesOrderItemId: null,
+            deliveryNoteItemId: null,
+          }));
           this.recalculate();
         });
       } else if (returnAgainst) {

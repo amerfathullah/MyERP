@@ -262,4 +262,26 @@ public class EInvoiceAppServiceTaxpayerSearchTests
         await _purchaseInvoiceRepo.Received(1).UpdateAsync(purchaseInvoice);
         await _supplierRepo.Received(1).UpdateAsync(supplier);
     }
+
+    [Theory]
+    [InlineData(null, LhdnEnvironment.Sandbox)]
+    [InlineData("", LhdnEnvironment.Sandbox)]
+    [InlineData("invalid-env", LhdnEnvironment.Sandbox)]
+    [InlineData("production", LhdnEnvironment.Production)]
+    public async Task TaxpayerValidationService_ValidateTaxpayerAsync_ParsesEnvironmentSafely(string? rawEnv, LhdnEnvironment expectedEnv)
+    {
+        var settingProvider = Substitute.For<ISettingProvider>();
+        settingProvider.GetOrNullAsync("EInvoice.AccessToken").Returns("tok");
+        settingProvider.GetOrNullAsync("EInvoice.Environment").Returns(rawEnv);
+
+        var apiClient = Substitute.For<ILhdnApiClient>();
+        apiClient.SearchTaxpayerAsync("tok", "BRN", "123", expectedEnv, null)
+            .Returns(new LhdnTaxpayerSearchResponse { IsFound = true, Tin = "C123" });
+
+        var svc = new TaxpayerValidationService(apiClient, settingProvider);
+        var res = await svc.ValidateTaxpayerAsync("BRN", "123");
+
+        Assert.True(res.IsFound);
+        await apiClient.Received(1).SearchTaxpayerAsync("tok", "BRN", "123", expectedEnv, null);
+    }
 }

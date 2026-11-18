@@ -515,7 +515,8 @@ public class StockReservationManager : DomainService
     public async Task ReserveStockAsync(
         Guid itemId, Guid warehouseId, Guid companyId,
         decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null,
-        decimal? voucherDemandQty = null, Guid? voucherDetailId = null, DateTime? postingDate = null)
+        decimal? voucherDemandQty = null, Guid? voucherDetailId = null, DateTime? postingDate = null,
+        string? fromVoucherType = null, Guid? fromVoucherId = null)
     {
         qty = Math.Round(qty, 4);
         if (qty <= 0) return;
@@ -560,7 +561,7 @@ public class StockReservationManager : DomainService
             // so the row cannot be reserved past its required quantity.
             var existingRowReserved = rowReservedQuery
                 .ToList()
-                .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - (voucherType is "Work Order" or "Subcontracting Order" ? 0m : s.ConsumedQty));
+                .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - (voucherType is "Work Order" or "WorkOrder" or "Subcontracting Order" or "SubcontractingOrder" ? 0m : s.ConsumedQty));
 
             var roundedRequested = Math.Round(qty, 4, MidpointRounding.AwayFromZero);
             var allowedQty = Math.Max(0m, Math.Round(demandQty - existingRowReserved, 4, MidpointRounding.AwayFromZero));
@@ -576,7 +577,9 @@ public class StockReservationManager : DomainService
             voucherType, voucherId, qty, voucherQty: demandQty, tenantId: tenantId)
         {
             BatchId = batchId,
-            VoucherDetailId = voucherDetailId
+            VoucherDetailId = voucherDetailId,
+            FromVoucherType = fromVoucherType,
+            FromVoucherId = fromVoucherId
         };
 
         sre.Submit();
@@ -721,7 +724,7 @@ public class StockReservationManager : DomainService
                 && s.Status == DocumentStatus.Submitted)
             .ToList();
 
-        var binQueryable = await _binRepository.GetQueryableAsync();
+        var binQueryable = _binRepository != null ? await _binRepository.GetQueryableAsync() : null;
 
         foreach (var sre in activeSres)
         {
@@ -729,7 +732,7 @@ public class StockReservationManager : DomainService
             sre.Cancel();
             await _sreRepository.UpdateAsync(sre);
 
-            if (unreservedQty > 0)
+            if (unreservedQty > 0 && _binRepository != null && binQueryable != null)
             {
                 var bin = binQueryable.FirstOrDefault(b => b.ItemId == sre.ItemId && b.WarehouseId == sre.WarehouseId);
                 if (bin != null)

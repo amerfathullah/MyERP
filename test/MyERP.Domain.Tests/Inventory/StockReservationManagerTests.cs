@@ -495,6 +495,63 @@ public class StockReservationManagerTests
                 voucherDemandQty: 0.3m, voucherDetailId: detailId));
     }
 
+    // ERPNext bb29dd2027 + StockReservationManager: "WorkOrder" (no space) keeps ConsumedQty counted in row limit
+    [Fact]
+    public async Task ReserveStockAsync_WorkOrderWithoutSpace_CountsConsumedQtyInRowLimit()
+    {
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var detailId = Guid.NewGuid();
+
+        var bin = new Bin(Guid.NewGuid(), itemId, whId) { ActualQty = 50m };
+        var prior = new StockReservationEntry(Guid.NewGuid(), companyId, itemId, whId,
+            "WorkOrder", workOrderId, reservedQty: 10m, voucherQty: 10m)
+        {
+            VoucherDetailId = detailId,
+            ConsumedQty = 4m
+        };
+        prior.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { prior }, bins: new List<Bin> { bin });
+
+        // All 10m of demand is already accounted for by ReservedQty (10m) -> ConsumedQty must not free extra limit
+        await Should.ThrowAsync<BusinessException>(() =>
+            manager.ReserveStockAsync(
+                itemId, whId, companyId,
+                qty: 1m, voucherType: "WorkOrder", voucherId: workOrderId,
+                voucherDemandQty: 10m, voucherDetailId: detailId));
+    }
+
+    // ERPNext 5d4379918e: cancelling Manufacture / Subcontracting StockEntry releases its sourced StockReservationEntry
+    [Fact]
+    public async Task CancelReservationsFromVoucherAsync_WithStockEntrySource_ReleasesBinReservation()
+    {
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var soId = Guid.NewGuid();
+        var stockEntryId = Guid.NewGuid();
+
+        var bin = new Bin(Guid.NewGuid(), itemId, whId) { ActualQty = 20m };
+        var entries = new List<StockReservationEntry>();
+        var manager = CreateManager(entries, bins: new List<Bin> { bin });
+
+        await manager.ReserveStockAsync(
+            itemId, whId, companyId,
+            qty: 6m, voucherType: "SalesOrder", voucherId: soId,
+            fromVoucherType: "StockEntry", fromVoucherId: stockEntryId);
+
+        entries.Count.ShouldBe(1);
+        bin.ReservedQty.ShouldBe(6m);
+
+        var cancelled = await manager.CancelReservationsFromVoucherAsync("StockEntry", stockEntryId);
+        cancelled.Count.ShouldBe(1);
+        entries[0].Status.ShouldBe(Core.DocumentStatus.Cancelled);
+        bin.ReservedQty.ShouldBe(0m);
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,

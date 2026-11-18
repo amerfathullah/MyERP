@@ -427,5 +427,59 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.selectedTaxRules()).toEqual([]);
       expect(comp.calcResult.totalTax).toBe(0);
     });
+
+    it('duplicateFrom clears salesOrderItemId and deliveryNoteItemId on cloned rows', () => {
+      const siServiceMock = {
+        get: vi.fn().mockReturnValue(of({
+          id: 'si-orig',
+          invoiceNumber: 'SINV-0010',
+          companyId: 'comp-1',
+          customerId: 'cust-1',
+          customerName: 'Acme',
+          currencyCode: 'MYR',
+          items: [{
+            itemId: 'item-1',
+            description: 'Widget',
+            quantity: 2,
+            unitPrice: 100,
+            taxAmount: 0,
+            uom: 'EA',
+            salesOrderItemId: 'soi-1',
+            deliveryNoteItemId: 'dni-1',
+          }],
+        })),
+        getNextNumber: vi.fn().mockReturnValue(of('SINV-0012')),
+      };
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: { duplicateFrom: 'si-orig' } } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: SalesInvoiceService, useValue: siServiceMock },
+          { provide: SalesOrderService, useValue: { getBillableSalesOrders: vi.fn().mockReturnValue(of([])) } },
+          { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PartyDetailsService, useValue: { getCustomerDetails: vi.fn().mockReturnValue(of({})) } },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: { getActiveTemplates: vi.fn().mockReturnValue(of([])), getDefault: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceFormComponent());
+      comp.ngOnInit();
+
+      expect(comp.items.length).toBe(1);
+      expect(comp.items.at(0).get('salesOrderItemId')?.value).toBeNull();
+      expect(comp.items.at(0).get('deliveryNoteItemId')?.value).toBeNull();
+    });
   });
 });

@@ -774,7 +774,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                                 {
                                     await sreManager.ReserveStockAsync(
                                         soItem.ItemId, targetWarehouseId.Value, entry.CompanyId,
-                                        reserveQty, "SalesOrder", so.Id, null, entry.TenantId);
+                                        reserveQty, "SalesOrder", so.Id, null, entry.TenantId,
+                                        fromVoucherType: "StockEntry", fromVoucherId: entry.Id);
                                 }
                             }
                         }
@@ -991,6 +992,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
                     await woManager.RefreshPlannedQtyAsync(workOrderRepoForProduction, binService, producingWorkOrder.ItemId, fgWhId.Value, entry.TenantId);
                 }
+            }
+        }
+
+        // Release any stock reservations created from this Stock Entry (e.g. Manufacture FG or Send to Subcontractor, ERPNext 5d4379918e / 3914480936)
+        if (entry.EntryType is StockEntryType.Manufacture or StockEntryType.SendToSubcontractor)
+        {
+            var cancelFromSreManager = LazyServiceProvider.LazyGetService<StockReservationManager>();
+            if (cancelFromSreManager != null)
+            {
+                await cancelFromSreManager.CancelReservationsFromVoucherAsync("StockEntry", entry.Id);
             }
         }
 

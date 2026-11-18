@@ -468,4 +468,49 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             returnSe.Items.First().Quantity.ShouldBe(60m);
         });
     }
+
+    [Fact]
+    public async Task SubmitWorkOrderAsync_SkipTransferConsumedPastRequired_ReservesNothing()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var sreRepo = GetRequiredService<IRepository<StockReservationEntry, Guid>>();
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "WO Overconsumed Reserve Co"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-RES-01", "FG", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-RES-01", "RM", ItemType.Goods), autoSave: true);
+            var storesWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Stores WH"), autoSave: true);
+            var fgWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG WH"), autoSave: true);
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), rmItem.Id, storesWh.Id) { ActualQty = 50m }, autoSave: true);
+
+            var bom = await bomRepo.InsertAsync(new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-RES-01", fgItem.Id), autoSave: true);
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-RES-01", fgItem.Id, bom.Id, quantity: 10m)
+            {
+                SkipTransfer = true,
+                ReserveStock = true,
+                SourceWarehouseId = storesWh.Id,
+                FgWarehouseId = fgWh.Id,
+            };
+            wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "RM", requiredQuantity: 10m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                ConsumedQuantity = 12m,
+            });
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            // ERPNext bb29dd2027: row consumed past its required qty must reserve nothing
+            var dto = await mfgAppService.SubmitWorkOrderAsync(wo.Id);
+            var reloaded = await woRepo.GetAsync(dto.Id, includeDetails: true);
+            reloaded.RequiredItems.Single().StockReservedQty.ShouldBe(0m);
+            var sreQ = await sreRepo.GetQueryableAsync();
+            sreQ.Count(s => s.VoucherId == wo.Id).ShouldBe(0);
+        });
+    }
 }

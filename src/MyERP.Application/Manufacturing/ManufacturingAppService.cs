@@ -1845,7 +1845,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             {
                 foreach (var reqItem in wo.RequiredItems)
                 {
-                    if (reqItem.SourceWarehouseId.HasValue && reqItem.RequiredQuantity > 0)
+                    var qtyToReserve = wo.SkipTransfer
+                        ? Math.Max(0m, reqItem.RequiredQuantity - reqItem.ConsumedQuantity)
+                        : reqItem.PendingTransferQty;
+                    if (reqItem.SourceWarehouseId.HasValue && qtyToReserve > 0)
                     {
                         try
                         {
@@ -1853,14 +1856,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                                 reqItem.ItemId,
                                 reqItem.SourceWarehouseId.Value,
                                 wo.CompanyId,
-                                reqItem.RequiredQuantity,
+                                qtyToReserve,
                                 "WorkOrder",
                                 wo.Id,
                                 batchId: null,
                                 tenantId: wo.TenantId,
                                 voucherDemandQty: reqItem.RequiredQuantity,
                                 voucherDetailId: reqItem.Id);
-                            reqItem.SetStockReservedQty(reqItem.RequiredQuantity);
+                            reqItem.SetStockReservedQty(reqItem.StockReservedQty + qtyToReserve);
                         }
                         catch
                         {
