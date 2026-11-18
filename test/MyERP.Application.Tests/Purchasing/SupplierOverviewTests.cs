@@ -284,4 +284,30 @@ public abstract class SupplierOverviewTests<TStartupModule> : MyERPApplicationTe
             currentMonthPoint.Paid.ShouldBe(500m);
         });
     }
+
+    [Fact]
+    public async Task GetAsync_ReflectsLoadSupplierOverviewSetting()
+    {
+        Guid suppId = Guid.Empty;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "Supp Overview Setting Co"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(
+                new Supplier(Guid.NewGuid(), company.Id, "Supp Overview Setting"), autoSave: true);
+            suppId = supplier.Id;
+        });
+
+        var supplierService = GetRequiredService<ISupplierAppService>();
+        var settingsService = GetRequiredService<MyERP.Settings.IErpSettingsAppService>();
+
+        var defaultDto = await supplierService.GetAsync(suppId);
+        defaultDto.LoadSupplierOverview.ShouldBeTrue();
+
+        await settingsService.SetAsync(MyERP.Settings.MyERPSettings.Buying.LoadSupplierOverview, "false");
+        var deferredDto = await supplierService.GetAsync(suppId);
+        deferredDto.LoadSupplierOverview.ShouldBeFalse();
+
+        await settingsService.SetAsync(MyERP.Settings.MyERPSettings.Buying.LoadSupplierOverview, "true");
+    }
 }

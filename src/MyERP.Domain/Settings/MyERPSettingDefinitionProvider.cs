@@ -53,7 +53,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Selling.AllowDeliveryOfOverproducedQty, "false"),
             new SettingDefinition(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation, "false"),
             new SettingDefinition(MyERPSettings.Selling.SkipDeliveryNoteForServiceItems, "false"),
-            new SettingDefinition(MyERPSettings.Selling.HideTaxId, "false")
+            new SettingDefinition(MyERPSettings.Selling.HideTaxId, "false"),
+            new SettingDefinition(MyERPSettings.Selling.LoadCustomerOverview, "true")
         );
 
         // ═══════════ Buying Settings ═══════════
@@ -73,7 +74,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Buying.BlanketOrderAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation, "false"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation, "false"),
-            new SettingDefinition(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false")
+            new SettingDefinition(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false"),
+            new SettingDefinition(MyERPSettings.Buying.LoadSupplierOverview, "true")
         );
 
         // ═══════════ Manufacturing Settings ═══════════

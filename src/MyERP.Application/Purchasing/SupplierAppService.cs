@@ -8,10 +8,12 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Permissions;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -32,6 +34,14 @@ public class SupplierAppService :
         CreatePolicyName = MyERPPermissions.Suppliers.Create;
         UpdatePolicyName = MyERPPermissions.Suppliers.Edit;
         DeletePolicyName = MyERPPermissions.Suppliers.Delete;
+    }
+
+    public override async Task<SupplierDto> GetAsync(Guid id)
+    {
+        var dto = await base.GetAsync(id);
+        var settingVal = await SettingProvider.GetOrNullAsync(MyERPSettings.Buying.LoadSupplierOverview);
+        dto.LoadSupplierOverview = !string.Equals(settingVal, "false", StringComparison.OrdinalIgnoreCase) && settingVal != "0";
+        return dto;
     }
 
     /// <summary>

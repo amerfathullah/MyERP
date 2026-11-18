@@ -32,7 +32,9 @@ public partial class ItemToItemDtoMapper : MapperBase<Inventory.Entities.Item, I
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class CustomerToCustomerDtoMapper : MapperBase<Sales.Entities.Customer, Sales.CustomerDto>
 {
+    [MapperIgnoreTarget(nameof(Sales.CustomerDto.LoadCustomerOverview))]
     public override partial Sales.CustomerDto Map(Sales.Entities.Customer source);
+    [MapperIgnoreTarget(nameof(Sales.CustomerDto.LoadCustomerOverview))]
     public override partial void Map(Sales.Entities.Customer source, Sales.CustomerDto destination);
 }
 
@@ -67,7 +69,9 @@ public partial class DepartmentToDepartmentDtoMapper : MapperBase<HumanResources
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SupplierToSupplierDtoMapper : MapperBase<Purchasing.Entities.Supplier, Purchasing.SupplierDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.SupplierDto.LoadSupplierOverview))]
     public override partial Purchasing.SupplierDto Map(Purchasing.Entities.Supplier source);
+    [MapperIgnoreTarget(nameof(Purchasing.SupplierDto.LoadSupplierOverview))]
     public override partial void Map(Purchasing.Entities.Supplier source, Purchasing.SupplierDto destination);
 }
 

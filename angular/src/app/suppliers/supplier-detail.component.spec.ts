@@ -76,4 +76,38 @@ describe('SupplierDetailComponent Allowed Companies', () => {
     expect(comp.loading()).toBe(false);
     expect(toasterMock.error).toHaveBeenCalledWith('Supplier load failed');
   });
+
+  it('defers overview and transactions until requestOverview is clicked when loadSupplierOverview is false', () => {
+    const supplierMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'sup-1', name: 'MegaParts', companyId: 'comp-1', loadSupplierOverview: false })),
+      getSupplierCompanyIds: vi.fn().mockReturnValue(of(['comp-1'])),
+      getSupplierOverview: vi.fn().mockReturnValue(of(null)),
+      getSupplierTransactions: vi.fn().mockReturnValue(of([])),
+    };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 'sup-1' } } } },
+        { provide: SupplierService, useValue: supplierMock },
+        { provide: SupplierScorecardService, useValue: { getBySupplierIdBySupplierId: vi.fn().mockReturnValue(of(null)) } },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'comp-1', name: 'Co 1' }] })) } },
+        { provide: PaymentReconciliationService, useValue: { getOutstandingInvoices: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyPerformanceService, useValue: { getSupplierPerformance: vi.fn().mockReturnValue(of(null)) } },
+        { provide: PartyDashboardService, useValue: { getSupplierDashboard: vi.fn().mockReturnValue(of(null)) } },
+        { provide: ToasterService, useValue: { error: vi.fn() } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new SupplierDetailComponent());
+    comp.ngOnInit();
+
+    expect(comp.overviewDeferred()).toBe(true);
+    expect(supplierMock.getSupplierOverview).not.toHaveBeenCalled();
+    expect(supplierMock.getSupplierTransactions).not.toHaveBeenCalled();
+
+    comp.requestOverview();
+
+    expect(comp.overviewDeferred()).toBe(false);
+    expect(supplierMock.getSupplierOverview).toHaveBeenCalledTimes(1);
+    expect(supplierMock.getSupplierTransactions).toHaveBeenCalledTimes(1);
+  });
 });

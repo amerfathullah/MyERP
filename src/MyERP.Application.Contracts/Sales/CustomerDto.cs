@@ -42,4 +42,6 @@ public class CustomerDto : FullAuditedEntityDto<Guid>
     public Guid? LeadId { get; set; }
     public Guid? OpportunityId { get; set; }
     public Guid? ProspectId { get; set; }
+    /// <summary>When false, Customer Overview loads on-demand when clicked (ERPNext 2bb68a110e).</summary>
+    public bool LoadCustomerOverview { get; set; } = true;
 }

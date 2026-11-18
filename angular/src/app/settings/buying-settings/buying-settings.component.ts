@@ -114,6 +114,19 @@ import { ToasterService } from '@abp/ng.theme.shared';
               </div>
             </div>
 
+            <h6 class="text-muted mb-3 mt-4">{{ '::SupplierOverview' | abpLocalization }}</h6>
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="loadSupplierOverview"
+                    [ngModel]="settings['MyERP.Buying.LoadSupplierOverview'] !== 'false'"
+                    (ngModelChange)="settings['MyERP.Buying.LoadSupplierOverview'] = $event ? 'true' : 'false'" name="loadSupplierOverview" />
+                  <label class="form-check-label" for="loadSupplierOverview">{{ '::EnableSupplierOverviewDashboard' | abpLocalization }}</label>
+                </div>
+                <small class="text-muted d-block mt-1">When off, the Overview tab on a supplier shows a Load Overview button and loads only when clicked.</small>
+              </div>
+            </div>
+
             <div class="d-flex justify-content-end mt-4">
               <button type="submit" class="btn btn-primary" [disabled]="saving()">
                 <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Save' | abpLocalization }}

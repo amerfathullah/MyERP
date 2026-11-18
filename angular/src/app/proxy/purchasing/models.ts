@@ -1751,6 +1751,7 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   defaultPaymentTermsTemplateId?: string | null;
   defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
+  loadSupplierOverview?: boolean;
 }
 
 export interface SupplierLedgerSummaryReportDto {

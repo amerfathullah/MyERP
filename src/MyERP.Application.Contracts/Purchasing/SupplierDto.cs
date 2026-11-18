@@ -37,4 +37,6 @@ public class SupplierDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultPaymentTermsTemplateId { get; set; }
     public Guid? DefaultPriceListId { get; set; }
     public bool RestrictToCompanies { get; set; }
+    /// <summary>When false, Supplier Overview loads on-demand when clicked (ERPNext 2bb68a110e).</summary>
+    public bool LoadSupplierOverview { get; set; } = true;
 }

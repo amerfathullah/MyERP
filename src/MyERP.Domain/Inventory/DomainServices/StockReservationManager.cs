@@ -231,6 +231,7 @@ public class StockReservationManager : DomainService
                 && (salesOrderId == null || s.VoucherId == salesOrderId)
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenByDescending(s => s.BatchId != null || s.SerialAndBatchBundleId != null)
             .ThenBy(s => s.CreationTime)
             .ToList();
 
@@ -794,6 +795,7 @@ public class StockReservationManager : DomainService
                 && (s.ReservedQty - s.TransferredQty - s.ConsumedQty) > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenByDescending(s => s.BatchId != null || s.SerialAndBatchBundleId != null)
             .ThenBy(s => s.CreationTime)
             .ToList()
             .Where(s => matchVoucherType(s.VoucherType))
@@ -1048,6 +1050,7 @@ public class StockReservationManager : DomainService
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.WarehouseId == warehouseId)
             .ThenByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenByDescending(s => s.BatchId != null || s.SerialAndBatchBundleId != null)
             .ThenBy(s => s.CreationTime)
             .ToList()
             .Where(s => matchVoucherType(s.VoucherType))

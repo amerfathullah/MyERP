@@ -290,4 +290,35 @@ public class StockReservationUsedWorkOrderGuardTests
         sre1.TransferredQty.ShouldBe(6m);
         sre2.TransferredQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task ApplyWorkOrderTransferAsync_PrioritizesSerialAndBatchReservationBeforeQtyReservation()
+    {
+        var woId = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+
+        var olderQtySre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "WorkOrder", woId, 5m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        olderQtySre.Submit();
+
+        var newerBundleSre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "WorkOrder", woId, 4m)
+        {
+            SerialAndBatchBundleId = bundleId,
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc)
+        };
+        newerBundleSre.Submit();
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { olderQtySre, newerBundleSre }.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // Per ERPNext commit 75c8bae283: serial/batch reservations must be matched before qty-only ones even if newer
+        await manager.ApplyWorkOrderTransferAsync(woId, ItemId, WarehouseId, 4m);
+
+        newerBundleSre.TransferredQty.ShouldBe(4m);
+        olderQtySre.TransferredQty.ShouldBe(0m);
+    }
 }

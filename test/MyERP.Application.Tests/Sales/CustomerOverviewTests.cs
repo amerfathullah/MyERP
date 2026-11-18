@@ -265,4 +265,31 @@ public abstract class CustomerOverviewTests<TStartupModule> : MyERPApplicationTe
             overview.Ageing.Overdue.ShouldBe(50m);
         });
     }
+
+    [Fact]
+    public async Task GetAsync_ReflectsLoadCustomerOverviewSetting()
+    {
+        Guid custId = Guid.Empty;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "Overview Setting Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Overview Setting Cust"), autoSave: true);
+            custId = customer.Id;
+        });
+
+        var customerService = GetRequiredService<ICustomerAppService>();
+        var settingsService = GetRequiredService<MyERP.Settings.IErpSettingsAppService>();
+
+        var defaultDto = await customerService.GetAsync(custId);
+        defaultDto.LoadCustomerOverview.ShouldBeTrue();
+
+        await settingsService.SetAsync(MyERP.Settings.MyERPSettings.Selling.LoadCustomerOverview, "false");
+        var deferredDto = await customerService.GetAsync(custId);
+        deferredDto.LoadCustomerOverview.ShouldBeFalse();
+
+        // Restore default so other tests aren't affected
+        await settingsService.SetAsync(MyERP.Settings.MyERPSettings.Selling.LoadCustomerOverview, "true");
+    }
 }

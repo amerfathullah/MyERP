@@ -71,6 +71,7 @@ public static class MyERPSettings
         public const string AllowSalesOrderCreationForExpiredQuotation = G + ".AllowSalesOrderCreationForExpiredQuotation";
         public const string SkipDeliveryNoteForServiceItems = G + ".SkipDeliveryNoteForServiceItems";
         public const string HideTaxId = G + ".HideTaxId";
+        public const string LoadCustomerOverview = G + ".LoadCustomerOverview";
     }
 
     // ═══════════════════════════════════════════════════
@@ -97,6 +98,7 @@ public static class MyERPSettings
         public const string AllowZeroQtyInRequestForQuotation = G + ".AllowZeroQtyInRequestForQuotation";
         public const string SetLandedCostBasedOnPurchaseInvoiceRate = G + ".SetLandedCostBasedOnPurchaseInvoiceRate";
         public const string UseTransactionDateExchangeRate = G + ".UseTransactionDateExchangeRate";
+        public const string LoadSupplierOverview = G + ".LoadSupplierOverview";
     }
 
     // ═══════════════════════════════════════════════════

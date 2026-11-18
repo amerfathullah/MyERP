@@ -156,6 +156,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.UseLegacyJsReactivity,
             MyERPSettings.Selling.AllowDeliveryOfOverproducedQty,
             MyERPSettings.Selling.HideTaxId,
+            MyERPSettings.Selling.LoadCustomerOverview,
         ],
         "Buying" => [
             MyERPSettings.Buying.DefaultPriceList,
@@ -174,6 +175,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation,
             MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation,
             MyERPSettings.Buying.UseTransactionDateExchangeRate,
+            MyERPSettings.Buying.LoadSupplierOverview,
         ],
         "Manufacturing" => [
             MyERPSettings.Manufacturing.OverproductionPercentage,

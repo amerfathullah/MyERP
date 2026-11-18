@@ -68,4 +68,37 @@ describe('CustomerDetailComponent Allowed Companies', () => {
     expect(comp.loading()).toBe(false);
     expect(toasterMock.error).toHaveBeenCalledWith('Customer load failed');
   });
+
+  it('defers overview and transactions until requestOverview is clicked when loadCustomerOverview is false', () => {
+    const customerMock = {
+      get: vi.fn().mockReturnValue(of({ id: 'cust-1', name: 'Acme', companyId: 'comp-1', loadCustomerOverview: false })),
+      getCustomerCompanies: vi.fn().mockReturnValue(of(['comp-1'])),
+      getCustomerOverview: vi.fn().mockReturnValue(of(null)),
+      getCustomerTransactions: vi.fn().mockReturnValue(of([])),
+    };
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 'cust-1' } } } },
+        { provide: CustomerService, useValue: customerMock },
+        { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'comp-1', name: 'Co 1' }] })) } },
+        { provide: PaymentReconciliationService, useValue: { getOutstandingInvoices: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyPerformanceService, useValue: { getCustomerPerformance: vi.fn().mockReturnValue(of(null)) } },
+        { provide: PartyDashboardService, useValue: { getCustomerDashboard: vi.fn().mockReturnValue(of(null)) } },
+        { provide: ToasterService, useValue: { error: vi.fn() } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new CustomerDetailComponent());
+    comp.ngOnInit();
+
+    expect(comp.overviewDeferred()).toBe(true);
+    expect(customerMock.getCustomerOverview).not.toHaveBeenCalled();
+    expect(customerMock.getCustomerTransactions).not.toHaveBeenCalled();
+
+    comp.requestOverview();
+
+    expect(comp.overviewDeferred()).toBe(false);
+    expect(customerMock.getCustomerOverview).toHaveBeenCalledTimes(1);
+    expect(customerMock.getCustomerTransactions).toHaveBeenCalledTimes(1);
+  });
 });

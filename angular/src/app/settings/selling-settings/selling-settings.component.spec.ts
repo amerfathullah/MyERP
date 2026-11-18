@@ -30,4 +30,14 @@ describe('SellingSettings proforma invoicing configuration', () => {
 
     expect(settings['MyERP.Selling.ProformaEmailTemplate']).toBe('Custom Advance Notice');
   });
+
+  it('toggles LoadCustomerOverview dashboard setting', () => {
+    const settings: Record<string, string> = {
+      'MyERP.Selling.LoadCustomerOverview': 'true',
+    };
+    expect(settings['MyERP.Selling.LoadCustomerOverview'] !== 'false').toBe(true);
+
+    settings['MyERP.Selling.LoadCustomerOverview'] = 'false';
+    expect(settings['MyERP.Selling.LoadCustomerOverview'] !== 'false').toBe(false);
+  });
 });

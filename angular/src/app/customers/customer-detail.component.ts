@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Observable, catchError, finalize, forkJoin, of, shareReplay } from 'rxjs';
 import { CustomerService } from '../proxy/sales/customer.service';
 import type { CustomerDto, CustomerOverviewDto, CustomerTransactionDto } from '../proxy/sales/models';
 import { CompanyService } from '../proxy/core/company.service';
@@ -94,6 +94,20 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
       </ul>
 
       @if (activeTab() === 'overview') {
+        @if (overviewDeferred()) {
+          <div class="card border-dashed mb-4">
+            <div class="card-body text-center py-5">
+              <i class="fas fa-chart-column fa-2x text-muted mb-3 d-block"></i>
+              <h6 class="fw-semibold mb-1">{{ '::CustomerOverview' | abpLocalization }}</h6>
+              <p class="text-muted small mb-3">
+                {{ '::OverviewDashboardDeferredDescription' | abpLocalization }}
+              </p>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestOverview()">
+                <i class="fas fa-sync-alt me-1"></i>{{ '::LoadOverview' | abpLocalization }}
+              </button>
+            </div>
+          </div>
+        } @else {
         <!-- Filter Controls (Company & Period) -->
         <div class="card mb-4 bg-light">
           <div class="card-body py-2">
@@ -126,13 +140,16 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </select>
                 </div>
               </div>
-              <div class="col-12 col-md-4 text-md-end text-muted small">
+              <div class="col-12 col-md-4 text-md-end text-muted small d-flex align-items-center justify-content-md-end gap-2">
                 @if (overviewLoading()) {
-                  <span class="spinner-border spinner-border-sm text-primary me-1" role="status"></span>
+                  <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
                   <span>Refreshing...</span>
                 } @else if (overview(); as ov) {
                   <span>As of {{ ov.asOfDate | date:'mediumDate' }}</span>
                 }
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshOverview()" [title]="'::Refresh' | abpLocalization">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -560,6 +577,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
             </div>
           </div>
         }
+        }
       } @else {
         <!-- Details Tab (Info Grid, Address, Financial Summary, Performance Metrics, Addresses & Contacts, Activity Log) -->
         <div class="row mb-4">
@@ -937,6 +955,10 @@ export class CustomerDetailComponent implements OnInit {
   periodOptions = ['This fiscal year', 'Last 12 months', 'This quarter', 'Last fiscal year'];
   overview = signal<CustomerOverviewDto | null>(null);
   overviewLoading = signal(false);
+  overviewDeferred = signal(false);
+  overviewRequested = signal(false);
+  private companiesReady = false;
+  private companiesRequest$: Observable<{ companiesRes: any; allowedIds: string[] }> | null = null;
 
   // Transactions State
   transactions = signal<CustomerTransactionDto[]>([]);
@@ -966,7 +988,12 @@ export class CustomerDetailComponent implements OnInit {
       next: (data: CustomerDto) => {
         this.entity.set(data);
         this.loading.set(false);
-        this.loadCompaniesAndOverview();
+        if (data.loadCustomerOverview === false && !this.overviewRequested()) {
+          this.overviewDeferred.set(true);
+        } else {
+          this.overviewDeferred.set(false);
+          this.loadCompaniesAndOverview();
+        }
       },
       error: (err: any) => {
         this.loading.set(false);
@@ -975,11 +1002,37 @@ export class CustomerDetailComponent implements OnInit {
     });
   }
 
+  requestOverview(): void {
+    this.overviewRequested.set(true);
+    this.overviewDeferred.set(false);
+    this.loadCompaniesAndOverview();
+  }
+
+  refreshOverview(): void {
+    if (!this.companiesReady) {
+      this.loadCompaniesAndOverview();
+      return;
+    }
+    this.loadOverview();
+    this.loadTransactions();
+  }
+
   private loadCompaniesAndOverview(): void {
-    forkJoin({
+    if (this.companiesRequest$) {
+      this.companiesRequest$.subscribe();
+      return;
+    }
+
+    this.companiesReady = false;
+    this.companiesRequest$ = forkJoin({
       companiesRes: this.companyService.getList({ maxResultCount: 100 } as any).pipe(catchError(() => of({ items: [] as CompanyDto[] }))),
       allowedIds: this.customerService.getCustomerCompanies(this.entityId).pipe(catchError(() => of([] as string[]))),
-    }).subscribe({
+    }).pipe(
+      shareReplay(1),
+      finalize(() => { this.companiesRequest$ = null; }),
+    );
+
+    this.companiesRequest$.subscribe({
       next: ({ companiesRes, allowedIds }) => {
         let list = companiesRes.items ?? [];
         const cust = this.entity();
@@ -998,6 +1051,7 @@ export class CustomerDetailComponent implements OnInit {
           this.selectedCompanyId.set(selectable[0].id);
         }
 
+        this.companiesReady = true;
         if (this.selectedCompanyId()) {
           this.loadOverview();
           this.loadTransactions();
@@ -1008,6 +1062,7 @@ export class CustomerDetailComponent implements OnInit {
         if (cust?.companyId) {
           this.companies.set([{ id: cust.companyId, name: 'Default Company' } as CompanyDto]);
           this.selectedCompanyId.set(cust.companyId);
+          this.companiesReady = true;
           this.loadOverview();
           this.loadTransactions();
         }

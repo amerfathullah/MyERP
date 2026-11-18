@@ -7,11 +7,13 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
+using MyERP.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Sales;
 
@@ -32,6 +34,14 @@ public class CustomerAppService :
         CreatePolicyName = MyERPPermissions.Customers.Create;
         UpdatePolicyName = MyERPPermissions.Customers.Edit;
         DeletePolicyName = MyERPPermissions.Customers.Delete;
+    }
+
+    public override async Task<CustomerDto> GetAsync(Guid id)
+    {
+        var dto = await base.GetAsync(id);
+        var settingVal = await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.LoadCustomerOverview);
+        dto.LoadCustomerOverview = !string.Equals(settingVal, "false", StringComparison.OrdinalIgnoreCase) && settingVal != "0";
+        return dto;
     }
 
     /// <summary>

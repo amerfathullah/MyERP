@@ -814,6 +814,7 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   leadId?: string | null;
   opportunityId?: string | null;
   prospectId?: string | null;
+  loadCustomerOverview?: boolean;
 }
 
 export interface CustomerInvoiceTileDto {
