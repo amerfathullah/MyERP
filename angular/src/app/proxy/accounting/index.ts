@@ -45,6 +45,7 @@ export * from './financial-report-type.enum';
 export * from './fiscal-year.service';
 export * from './general-ledger.service';
 export * from './gl-repost.service';
+export * from './invalid-ledger-entries.service';
 export * from './invoice-discounting.service';
 export * from './journal-entry-template.service';
 export * from './journal-entry-voucher-type.enum';

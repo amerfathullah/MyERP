@@ -6570,7 +6570,11 @@
     "FilterBasedOn": "Filter Based On",
     "DateRange": "Date Range",
     "FromFiscalYear": "From Fiscal Year",
-    "ToFiscalYear": "To Fiscal Year"
+    "ToFiscalYear": "To Fiscal Year",
+    "Menu:InvalidLedgerEntries": "Invalid Ledger Entries",
+    "InvalidLedgerEntries": "Invalid Ledger Entries",
+    "LedgerSource": "Ledger Source",
+    "NoInvalidLedgerEntries": "No invalid ledger entries found"
   }
 }
 

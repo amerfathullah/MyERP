@@ -1,0 +1,86 @@
+<abp-page [title]="'::InvalidLedgerEntries' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Account' | abpLocalization }}</label>
+          <select class="form-select" formControlName="accountId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (a of accounts(); track a.id) {
+              <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::VoucherNo' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="voucherNo" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-magnifying-glass me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        @if (!r.rows?.length) {
+          <div class="text-center py-4 text-muted">{{ '::NoInvalidLedgerEntries' | abpLocalization }}</div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">{{ '::VoucherType' | abpLocalization }}</th>
+                  <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                  <th>{{ '::LedgerSource' | abpLocalization }}</th>
+                  <th class="pe-3">{{ '::Reason' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of r.rows ?? []; track row.voucherId) {
+                  <tr>
+                    <td class="ps-3">{{ row.voucherType }}</td>
+                    <td class="font-monospace">{{ row.voucherNo }}</td>
+                    <td>{{ row.ledgerSource }}</td>
+                    <td class="pe-3"><span class="badge bg-danger">{{ row.reason }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</abp-page>

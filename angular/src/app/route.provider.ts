@@ -715,6 +715,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/invalid-ledger-entries',
+        name: '::Menu:InvalidLedgerEntries',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-triangle-exclamation',
+        order: 15.98,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

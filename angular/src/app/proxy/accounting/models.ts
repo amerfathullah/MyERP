@@ -3307,3 +3307,26 @@ export interface DeferredRevenueAndExpenseReportDto {
   periods?: DeferredReportPeriodDto[];
   rows?: DeferredRevenueAndExpenseRowDto[];
 }
+
+export interface InvalidLedgerEntriesRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  accountIds?: string[] | null;
+  voucherNo?: string | null;
+}
+
+export interface InvalidLedgerEntryRowDto {
+  voucherType?: string;
+  voucherId?: string;
+  voucherNo?: string;
+  ledgerSource?: string;
+  reason?: string;
+}
+
+export interface InvalidLedgerEntriesReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  rows?: InvalidLedgerEntryRowDto[];
+}
