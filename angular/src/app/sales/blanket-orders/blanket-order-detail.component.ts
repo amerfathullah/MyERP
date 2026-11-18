@@ -5,7 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 
 @Component({
@@ -46,7 +46,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
-              <app-status-badge [status]="order.status" />
+              <app-status-badge [status]="getStatusLabel(order.status)" />
             </div></div>
           </div>
           <div class="col-md-2">
@@ -198,6 +198,10 @@ export class BlanketOrderDetailComponent implements OnInit {
       next: o => this.order = o,
       error: (err: any) => this.handleError(err),
     });
+  }
+
+  getStatusLabel(status?: number): string {
+    return getDocumentStatusLabel(status, 'Active');
   }
 
   private handleError(err: any): void {

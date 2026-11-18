@@ -32,7 +32,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                       <i class="fa fa-pen me-1"></i>{{ '::Edit' | abpLocalization }}
                     </a>
                   }
-                  <app-status-badge [status]="repair()!.status + ''" />
+                  <app-status-badge [status]="getRepairStatusLabel(repair()!.status)" />
                 </div>
               </div>
               <div class="card-body">
@@ -125,6 +125,10 @@ export class AssetRepairDetailComponent implements OnInit {
         });
         break;
     }
+  }
+
+  getRepairStatusLabel(status?: number): string {
+    return ['Pending', 'Completed', 'Cancelled'][status ?? 0] ?? 'Pending';
   }
 
   private handleError(err: any): void {

@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
 import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
 
@@ -12,7 +13,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 @Component({
   selector: 'app-supplier-quotation-list',
   standalone: true,
-  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::SupplierQuotations' | abpLocalization">
@@ -46,9 +47,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ sq.transactionDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ sq.validTill ? (sq.validTill | date:'dd/MM/yyyy') : '—' }}</td>
                   <td class="text-end fw-bold">{{ sq.grandTotal | number:'1.2-2' }}</td>
-                  <td><span class="badge" [ngClass]="{'bg-secondary': sq.status===0, 'bg-success': sq.status===1, 'bg-danger': sq.status===4}">
-                    {{ ['Draft','Submitted','','','Cancelled'][sq.status ?? 0] }}
-                  </span></td>
+                  <td><app-status-badge [status]="getStatusLabel(sq.status)" /></td>
                 </tr>
               }
             </tbody>
@@ -79,4 +78,8 @@ export class SupplierQuotationListComponent implements OnInit {
   }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
+
+  getStatusLabel(status?: number): string {
+    return getDocumentStatusLabel(status);
+  }
 }

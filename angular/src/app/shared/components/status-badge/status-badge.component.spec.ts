@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StatusBadgeComponent } from './status-badge.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from './status-badge.component';
 
 describe('StatusBadgeComponent', () => {
   function createComponent(status: string): StatusBadgeComponent {
@@ -89,5 +89,23 @@ describe('StatusBadgeComponent', () => {
       expect(comp.config.badgeClass).toBeTruthy();
       expect(comp.config.icon).toBeTruthy();
     }
+  });
+
+  it('should not throw when passed numeric or nullish status values', () => {
+    const comp = new StatusBadgeComponent();
+    for (const val of [0, 1, 14, null, undefined]) {
+      comp.status = val;
+      expect(() => comp.config).not.toThrow();
+      expect(comp.config.badgeClass).toBeTruthy();
+    }
+  });
+
+  it('should map numeric DocumentStatus values via getDocumentStatusLabel', () => {
+    expect(getDocumentStatusLabel(0)).toBe('Draft');
+    expect(getDocumentStatusLabel(1)).toBe('Submitted');
+    expect(getDocumentStatusLabel(1, 'Active')).toBe('Active');
+    expect(getDocumentStatusLabel(4)).toBe('Cancelled');
+    expect(getDocumentStatusLabel(14)).toBe('Closed');
+    expect(getDocumentStatusLabel('Posted')).toBe('Posted');
   });
 });

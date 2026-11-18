@@ -5,7 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { RequestForQuotationService } from '../../proxy/purchasing/request-for-quotation.service';
 import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 
@@ -24,7 +24,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
-              <app-status-badge [status]="rfq.status" />
+              <app-status-badge [status]="getStatusLabel(rfq.status)" />
             </div></div>
           </div>
           <div class="col-md-4">
@@ -120,6 +120,10 @@ export class RfqDetailComponent implements OnInit {
         error: () => { this.isLoading = false; }
       });
     }
+  }
+
+  getStatusLabel(status?: number): string {
+    return getDocumentStatusLabel(status);
   }
 
   viewSupplierQuotationComparison() {

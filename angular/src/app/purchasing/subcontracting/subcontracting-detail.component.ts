@@ -29,7 +29,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
             <div class="card">
               <div class="card-header d-flex justify-content-between">
                 <h5 class="mb-0">{{ order()!.orderNumber }}</h5>
-                <app-status-badge [status]="order()!.status + ''" />
+                <app-status-badge [status]="getOrderStatusLabel(order()!.status)" />
               </div>
               <div class="card-body">
                 <div class="row g-3">
@@ -109,7 +109,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
                     <tr>
                       <td>{{ r.receiptNumber }} @if (r.isReturn) { <span class="badge bg-secondary ms-1">{{ '::Return' | abpLocalization }}</span> }</td>
                       <td>{{ r.postingDate | date:'dd/MM/yyyy' }}</td>
-                      <td><app-status-badge [status]="r.status + ''" /></td>
+                      <td><app-status-badge [status]="getReceiptStatusLabel(r.status)" /></td>
                       <td class="text-end">{{ r.netTotal | number:'1.2-2' }}</td>
                       <td>
                         <div class="d-flex gap-1">
@@ -471,5 +471,13 @@ export class SubcontractingDetailComponent implements OnInit {
         this.toaster.error(err?.error?.error?.message || '::OperationFailed');
       }
     });
+  }
+
+  getOrderStatusLabel(status?: number): string {
+    return ['Draft', 'Open', 'Partially Received', 'Completed', 'Closed', 'Cancelled'][status ?? 0] ?? 'Draft';
+  }
+
+  getReceiptStatusLabel(status?: number): string {
+    return ['Draft', 'Submitted', 'Cancelled'][status ?? 0] ?? 'Draft';
   }
 }

@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 import type { BlanketOrderDto } from '../../proxy/sales/models';
 
@@ -83,11 +83,6 @@ export class BlanketOrderListComponent implements OnInit {
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
 
   getStatusLabel(status?: number): string {
-    switch (status) {
-      case 1: return 'Active';
-      case 4: return 'Cancelled';
-      case 14: return 'Closed';
-      default: return 'Draft';
-    }
+    return getDocumentStatusLabel(status, 'Active');
   }
 }

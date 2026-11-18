@@ -5,7 +5,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { getDocumentStatusLabel, StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -38,7 +38,7 @@ import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
-              <app-status-badge [status]="'' + (sq.status ?? 0)" />
+              <app-status-badge [status]="getStatusLabel(sq.status)" />
               @if (isExpired) {
                 <span class="badge bg-warning text-dark mt-1">{{ '::Expired' | abpLocalization }}</span>
               }
@@ -209,5 +209,9 @@ export class SupplierQuotationDetailComponent implements OnInit {
         });
         break;
     }
+  }
+
+  getStatusLabel(status?: number): string {
+    return getDocumentStatusLabel(status);
   }
 }
