@@ -1425,6 +1425,234 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
+    /// <summary>
+    /// Daily register of all posted vouchers with optional account legs (ERPNext PR #62896 / commit be89c1c68d).
+    /// </summary>
+    public async Task<DayBookReportDto> GetDayBookAsync(DayBookRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (input.FromDate.Date > input.ToDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(
+            input.CompanyId, input.FinanceBook, input.IncludeDefaultBookEntries);
+
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
+
+        var journalEntries = await _journalEntryRepository.GetListAsync(je =>
+            je.CompanyId == input.CompanyId &&
+            je.Status == DocumentStatus.Posted &&
+            je.PostingDate >= fromDate &&
+            je.PostingDate < toDateExclusive);
+
+        var matchingVouchers = new List<(JournalEntry Entry, string VoucherType, Guid VoucherId, string VoucherNo)>();
+        foreach (var je in journalEntries
+            .OrderBy(j => j.PostingDate)
+            .ThenBy(j => j.CreationTime)
+            .ThenBy(j => j.EntryNumber))
+        {
+            var effectiveType = !string.IsNullOrWhiteSpace(je.ReferenceType)
+                ? je.ReferenceType!
+                : je.VoucherType.ToString();
+
+            if (!string.IsNullOrWhiteSpace(input.VoucherType) &&
+                !string.Equals(effectiveType, input.VoucherType.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var hasRef = !string.IsNullOrWhiteSpace(je.ReferenceType) && je.ReferenceId.HasValue;
+            var effectiveId = hasRef ? je.ReferenceId!.Value : je.Id;
+            var voucherNo = !string.IsNullOrWhiteSpace(je.ReferenceNumber)
+                ? je.ReferenceNumber!
+                : (!string.IsNullOrWhiteSpace(je.EntryNumber) ? je.EntryNumber! : effectiveId.ToString());
+
+            matchingVouchers.Add((je, effectiveType, effectiveId, voucherNo));
+        }
+
+        if (matchingVouchers.Count == 0)
+        {
+            return new DayBookReportDto
+            {
+                CompanyId = input.CompanyId,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+                VoucherType = input.VoucherType,
+                Detailed = input.Detailed,
+                ShowRemarks = input.ShowRemarks,
+            };
+        }
+
+        var accounts = await _accountRepository.GetListAsync(a => a.CompanyId == input.CompanyId);
+        var accountMap = accounts.ToDictionary(a => a.Id);
+
+        var allLines = matchingVouchers.SelectMany(v => v.Entry.Lines).ToList();
+        var customerIds = allLines
+            .Where(l => string.Equals(l.PartyType, "Customer", StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue)
+            .Select(l => l.PartyId!.Value)
+            .Distinct()
+            .ToList();
+        var supplierIds = allLines
+            .Where(l => string.Equals(l.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue)
+            .Select(l => l.PartyId!.Value)
+            .Distinct()
+            .ToList();
+
+        var customerMap = customerIds.Count > 0
+            ? (await _customerRepository.GetListAsync(c => customerIds.Contains(c.Id))).ToDictionary(c => c.Id, c => c.Name)
+            : new Dictionary<Guid, string>();
+        var supplierMap = supplierIds.Count > 0
+            ? (await _supplierRepository.GetListAsync(s => supplierIds.Contains(s.Id))).ToDictionary(s => s.Id, s => s.Name)
+            : new Dictionary<Guid, string>();
+
+        string ResolvePartyName(string? partyType, Guid? partyId)
+        {
+            if (!partyId.HasValue) return string.Empty;
+            if (string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase)
+                && customerMap.TryGetValue(partyId.Value, out var cName))
+            {
+                return cName;
+            }
+            if (string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase)
+                && supplierMap.TryGetValue(partyId.Value, out var sName))
+            {
+                return sName;
+            }
+            return string.Empty;
+        }
+
+        string ResolveAccountDisplay(Guid accountId)
+        {
+            if (!accountMap.TryGetValue(accountId, out var acc))
+                return accountId.ToString();
+            return string.IsNullOrWhiteSpace(acc.AccountCode)
+                ? acc.AccountName
+                : $"{acc.AccountCode} - {acc.AccountName}";
+        }
+
+        var rows = new List<DayBookRowDto>();
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+        int voucherCount = 0;
+
+        foreach (var voucherGroup in matchingVouchers.GroupBy(v => (v.VoucherType, v.VoucherId)))
+        {
+            var firstEntry = voucherGroup.First().Entry;
+            var voucherType = voucherGroup.Key.VoucherType;
+            var voucherId = voucherGroup.Key.VoucherId;
+            var voucherNo = voucherGroup.Select(v => v.VoucherNo).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? voucherId.ToString();
+            var remarks = voucherGroup
+                .Select(v => v.Entry.Narration)
+                .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
+                ?? voucherGroup.SelectMany(v => v.Entry.Lines)
+                    .Select(l => l.Description)
+                    .FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
+
+            var legs = voucherGroup
+                .SelectMany(v => v.Entry.Lines)
+                .Where(l => allowedFinanceBooks.Contains(l.FinanceBook ?? string.Empty))
+                .GroupBy(l => (l.AccountId, PartyType: l.PartyType ?? string.Empty, l.PartyId))
+                .Select(g =>
+                {
+                    var debit = g.Sum(l => l.IsDebit ? l.Amount : 0m);
+                    var credit = g.Sum(l => !l.IsDebit ? l.Amount : 0m);
+                    var balance = Math.Round(debit - credit, 2);
+                    var accountDisplay = ResolveAccountDisplay(g.Key.AccountId);
+                    var partyName = ResolvePartyName(g.Key.PartyType, g.Key.PartyId);
+                    var particulars = !string.IsNullOrWhiteSpace(partyName) ? partyName : accountDisplay;
+                    return new
+                    {
+                        g.Key.AccountId,
+                        g.Key.PartyId,
+                        AccountDisplay = accountDisplay,
+                        Particulars = particulars,
+                        Balance = balance
+                    };
+                })
+                .ToList();
+
+            if (legs.Count == 0)
+                continue;
+
+            var withParty = legs.Where(l => l.PartyId.HasValue).ToList();
+            var positiveLegs = legs.Where(l => l.Balance > 0m).ToList();
+            var candidates = withParty.Count > 0 ? withParty : (positiveLegs.Count > 0 ? positiveLegs : legs);
+            var main = candidates.OrderByDescending(l => Math.Abs(l.Balance)).First();
+
+            var voucherKey = $"{voucherType}::{voucherId}";
+            var summaryDebit = main.Balance > 0m ? main.Balance : (decimal?)null;
+            var summaryCredit = main.Balance < 0m ? -main.Balance : (decimal?)null;
+
+            rows.Add(new DayBookRowDto
+            {
+                VoucherKey = voucherKey,
+                ParentVoucherKey = null,
+                Indent = 0,
+                PostingDate = firstEntry.PostingDate,
+                Particulars = main.Particulars,
+                VoucherType = voucherType,
+                VoucherId = voucherId,
+                VoucherNo = voucherNo,
+                Account = null,
+                Debit = summaryDebit,
+                Credit = summaryCredit,
+                Remarks = input.ShowRemarks ? remarks : null,
+            });
+
+            voucherCount++;
+            totalDebit += summaryDebit ?? 0m;
+            totalCredit += summaryCredit ?? 0m;
+
+            if (input.Detailed)
+            {
+                var idx = 0;
+                foreach (var leg in legs)
+                {
+                    if (leg.Balance == 0m)
+                        continue;
+
+                    rows.Add(new DayBookRowDto
+                    {
+                        VoucherKey = $"{voucherKey}::{idx++}",
+                        ParentVoucherKey = voucherKey,
+                        Indent = 1,
+                        PostingDate = null,
+                        Particulars = leg.Particulars,
+                        VoucherType = null,
+                        VoucherId = null,
+                        VoucherNo = null,
+                        Account = leg.AccountDisplay,
+                        Debit = leg.Balance > 0m ? leg.Balance : (decimal?)null,
+                        Credit = leg.Balance < 0m ? -leg.Balance : (decimal?)null,
+                        Remarks = null,
+                    });
+                }
+            }
+        }
+
+        return new DayBookReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            VoucherType = input.VoucherType,
+            Detailed = input.Detailed,
+            ShowRemarks = input.ShowRemarks,
+            Rows = rows,
+            VoucherCount = voucherCount,
+            TotalDebit = Math.Round(totalDebit, 2),
+            TotalCredit = Math.Round(totalCredit, 2),
+        };
+    }
+
     private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
         Guid companyId,
         string? financeBook,

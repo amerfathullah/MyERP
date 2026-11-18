@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -17,6 +17,17 @@ export class ReportingService {
       headers: { Accept: 'application/json' },
       url: '/api/app/reporting/balance-sheet',
       params: { companyId: input.companyId, asOfDate: input.asOfDate },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getDayBook = (input: DayBookRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DayBookReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/day-book',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, voucherType: input.voucherType, detailed: input.detailed, showRemarks: input.showRemarks, financeBook: input.financeBook, includeDefaultBookEntries: input.includeDefaultBookEntries },
     },
       { apiName: this.apiName,...config });
   

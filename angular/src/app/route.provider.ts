@@ -670,6 +670,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/day-book',
+        name: '::Menu:DayBook',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-book-open',
+        order: 15.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

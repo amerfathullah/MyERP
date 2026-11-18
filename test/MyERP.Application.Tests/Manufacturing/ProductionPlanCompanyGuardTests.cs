@@ -675,5 +675,63 @@ public abstract class ProductionPlanCompanyGuardTests<TStartupModule> : MyERPApp
             ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         });
     }
+
+    [Fact]
+    public async Task GenerateMaterialRequestsAsync_AllMaterialsInStockZeroPlannedQty_StaysSubmitted()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var binRepository = GetRequiredService<IRepository<Bin, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Stock Co"), autoSave: true);
+            var fg = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PP-STOCK-FG", "Stock FG", ItemType.Goods), autoSave: true);
+            var rm = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PP-STOCK-RM", "Stock RM", ItemType.Goods), autoSave: true);
+
+            var wh = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "PP Stores"), autoSave: true);
+            await binRepository.InsertAsync(
+                new Bin(Guid.NewGuid(), rm.Id, wh.Id)
+                {
+                    ActualQty = 100m,
+                    StockValue = 1000m,
+                    ValuationRate = 10m
+                },
+                autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-PP-INSTOCK", fg.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rm.Id, "Stock RM", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PP-Series-Stock", "PP", "PP-"), autoSave: true);
+
+            var planDto = await productionPlanAppService.CreateAsync(new CreateProductionPlanDto
+            {
+                CompanyId = company.Id,
+                PostingDate = DateTime.UtcNow,
+                ForWarehouseId = wh.Id,
+                IgnoreExistingOrderedQty = true,
+                Items = new List<CreateProductionPlanItemDto>
+                {
+                    new() { ItemId = fg.Id, ItemName = fg.ItemName, BomId = bom.Id, PlannedQty = 10 }
+                }
+            });
+
+            await productionPlanAppService.SubmitAsync(planDto.Id);
+            await productionPlanAppService.CalculateMaterialRequirementsAsync(planDto.Id);
+            var afterMr = await productionPlanAppService.GenerateMaterialRequestsAsync(planDto.Id);
+
+            afterMr.MaterialRequirements.Count.ShouldBe(1);
+            afterMr.MaterialRequirements[0].PlannedQty.ShouldBe(0m);
+            afterMr.Status.ShouldBe(ProductionPlanStatus.Submitted);
+        });
+    }
 }
 

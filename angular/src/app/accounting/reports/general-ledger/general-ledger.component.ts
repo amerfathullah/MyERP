@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyService } from '../../../proxy/core/company.service';
@@ -22,6 +22,7 @@ import type { AccountDto, GeneralLedgerFilterDto, GeneralLedgerReportDto, Genera
 })
 export class GeneralLedgerComponent implements OnInit {
   private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
   private generalLedgerService = inject(GeneralLedgerService);
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
@@ -43,15 +44,27 @@ export class GeneralLedgerComponent implements OnInit {
   isLoading = signal(false);
 
   ngOnInit(): void {
+    const qp = this.route.snapshot?.queryParamMap;
+    if (qp) {
+      const patch: Record<string, string> = {};
+      for (const key of ['companyId', 'accountId', 'fromDate', 'toDate', 'voucherNumber']) {
+        const val = qp.get(key);
+        if (val) patch[key] = val;
+      }
+      if (Object.keys(patch).length > 0) {
+        this.filters.patchValue(patch);
+      }
+    }
+
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe(res => {
         this.companies.set(res.items ?? []);
         const defaultId = this.companyContext.currentCompanyId();
         if (defaultId && !this.filters.get('companyId')?.value) {
           this.filters.patchValue({ companyId: defaultId });
-          this.onCompanyChange();
         }
         if (this.filters.get('companyId')?.value) {
+          this.onCompanyChange();
           this.generate();
         }
       });

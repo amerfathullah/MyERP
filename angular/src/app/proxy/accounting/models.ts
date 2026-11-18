@@ -2584,6 +2584,45 @@ export interface ProfitabilityAnalysisReportDto {
   totalGrossProfitOrLoss?: number;
 }
 
+export interface DayBookRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  voucherType?: string | null;
+  detailed?: boolean;
+  showRemarks?: boolean;
+  financeBook?: string | null;
+  includeDefaultBookEntries?: boolean;
+}
+
+export interface DayBookRowDto {
+  voucherKey?: string;
+  parentVoucherKey?: string | null;
+  indent?: number;
+  postingDate?: string | null;
+  particulars?: string;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  voucherNo?: string | null;
+  account?: string | null;
+  debit?: number | null;
+  credit?: number | null;
+  remarks?: string | null;
+}
+
+export interface DayBookReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  voucherType?: string | null;
+  detailed?: boolean;
+  showRemarks?: boolean;
+  rows?: DayBookRowDto[];
+  voucherCount?: number;
+  totalDebit?: number;
+  totalCredit?: number;
+}
+
 export interface ProfitabilityAnalysisRequestDto {
   companyId: string;
   fromDate: string;

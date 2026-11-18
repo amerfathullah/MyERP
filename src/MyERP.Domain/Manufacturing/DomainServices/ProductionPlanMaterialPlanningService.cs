@@ -215,6 +215,12 @@ public class ProductionPlanMaterialPlanningService : DomainService
                 break;
             }
 
+            // Per ERPNext PR #67488: skip the target warehouse itself so its stock is not counted as an external transfer source
+            if (item.WarehouseId.HasValue && loc.WarehouseId == item.WarehouseId.Value)
+            {
+                continue;
+            }
+
             if (loc.AvailableStockQty <= 0m)
             {
                 continue;

@@ -6413,7 +6413,16 @@
     "StockAdjustmentAccount": "Stock Adjustment Account",
     "ClearAccountMapping": "Clear Account Mapping",
     "QtyDiff": "Qty Diff",
-    "AmountDiff": "Amount Diff"
+    "AmountDiff": "Amount Diff",
+    "Menu:DayBook": "Day Book",
+    "DayBook": "Day Book",
+    "DayBookDescription": "Daily register of all posted vouchers and optional GL account legs",
+    "Particulars": "Particulars",
+    "Detailed": "Detailed",
+    "ShowRemarks": "Show Remarks",
+    "VoucherCount": "Vouchers",
+    "NoVouchersInPeriod": "No vouchers found in the selected period",
+    "ClickVoucherToDrillDown": "Click a voucher row to open its General Ledger entries"
   }
 }
 

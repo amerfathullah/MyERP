@@ -1150,8 +1150,17 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
-        if (plan.Status == ProductionPlanStatus.Submitted && plan.MaterialRequirements.Any(m => m.MaterialRequestId.HasValue))
+        // Per ERPNext PR #67484 (commit 725c3177cc): set MaterialRequested only when positive-qty
+        // purchase MR rows exist and every such row has a generated MaterialRequestId.
+        var rowsToRequest = plan.MaterialRequirements
+            .Where(m => m.ProcurementType != SubAssemblyType.InHouseManufacturing && Math.Round(m.PlannedQty, 4) > 0)
+            .ToList();
+        if (plan.Status == ProductionPlanStatus.Submitted
+            && rowsToRequest.Count > 0
+            && rowsToRequest.All(m => m.MaterialRequestId.HasValue))
+        {
             plan.MarkMaterialRequested();
+        }
 
         await _planRepository.UpdateAsync(plan);
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);

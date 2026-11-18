@@ -322,6 +322,49 @@ public class ProfitabilityAnalysisReportDto
     public decimal TotalGrossProfitOrLoss { get; set; }
 }
 
+// --- Day Book (ERPNext accounts/report/day_book, PR #62896 / commit be89c1c68d) ---
+public class DayBookRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public DateTime FromDate { get; set; }
+    [Required] public DateTime ToDate { get; set; }
+    public string? VoucherType { get; set; }
+    public bool Detailed { get; set; }
+    public bool ShowRemarks { get; set; }
+    public string? FinanceBook { get; set; }
+    public bool IncludeDefaultBookEntries { get; set; } = true;
+}
+
+public class DayBookRowDto
+{
+    public string VoucherKey { get; set; } = string.Empty;
+    public string? ParentVoucherKey { get; set; }
+    public int Indent { get; set; }
+    public DateTime? PostingDate { get; set; }
+    public string Particulars { get; set; } = string.Empty;
+    public string? VoucherType { get; set; }
+    public Guid? VoucherId { get; set; }
+    public string? VoucherNo { get; set; }
+    public string? Account { get; set; }
+    public decimal? Debit { get; set; }
+    public decimal? Credit { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class DayBookReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string? VoucherType { get; set; }
+    public bool Detailed { get; set; }
+    public bool ShowRemarks { get; set; }
+    public List<DayBookRowDto> Rows { get; set; } = new();
+    public int VoucherCount { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -333,6 +376,7 @@ public interface IReportingAppService : IApplicationService
     Task<FinancialRatiosReportDto> GetFinancialRatiosAsync(FinancialRatiosRequestDto input);
     Task<GeneralPaymentLedgerComparisonReportDto> GetGeneralAndPaymentLedgerComparisonAsync(GeneralPaymentLedgerComparisonRequestDto input);
     Task<ProfitabilityAnalysisReportDto> GetProfitabilityAnalysisAsync(ProfitabilityAnalysisRequestDto input);
+    Task<DayBookReportDto> GetDayBookAsync(DayBookRequestDto input);
 }
 
 

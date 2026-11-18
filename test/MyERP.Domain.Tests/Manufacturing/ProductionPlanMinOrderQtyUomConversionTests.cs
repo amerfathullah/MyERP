@@ -145,4 +145,39 @@ public class ProductionPlanMinOrderQtyUomConversionTests
         downloadRows[0].RequiredBomQty.ShouldBe(10m);
         downloadRows[0].RequiredQty.ShouldBe(10m);
     }
+
+    [Fact]
+    public void AllocateMaterialsFromOtherLocations_SkipsTargetWarehouseSoStockIsCountedOnce()
+    {
+        var targetWhId = Guid.NewGuid();
+        var otherWhId = Guid.NewGuid();
+        var item = new RawMaterialPlanRow
+        {
+            ItemCode = "RM-003",
+            ItemName = "Steel Rod",
+            StockUom = "Nos",
+            Warehouse = "WIP Store",
+            ItemId = Guid.NewGuid(),
+            WarehouseId = targetWhId,
+            RequiredBomQty = 12m,
+            Quantity = 10m,
+            Uom = "Nos",
+            ConversionFactor = 1m,
+        };
+
+        var splitRows = ProductionPlanMaterialPlanningService.AllocateMaterialsFromOtherLocations(
+            item,
+            new[]
+            {
+                ("WIP Store", (Guid?)targetWhId, 5m),
+                ("Main Stores", (Guid?)otherWhId, 4m),
+            });
+
+        splitRows.Count.ShouldBe(2); // 1 transfer from Main Stores (4) + 1 purchase for remaining (6)
+        splitRows[0].WarehouseId.ShouldBe(otherWhId);
+        splitRows[0].Quantity.ShouldBe(4m);
+        splitRows[1].WarehouseId.ShouldBe(targetWhId);
+        splitRows[1].Quantity.ShouldBe(6m);
+        splitRows.Sum(r => r.RequiredBomQty).ShouldBe(12m);
+    }
 }
