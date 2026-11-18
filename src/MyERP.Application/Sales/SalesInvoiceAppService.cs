@@ -1329,7 +1329,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             // Selling price validation: selling rate must be >= valuation rate.
             // Per ERPNext validate_selling_price — gated entirely by Selling Settings.validate_selling_price
             // (a plain on/off Check field; ERPNext always hard-Stops when enabled, no Warn mode).
-            if (invoice.WarehouseId.HasValue
+            if (!invoice.IsReturn
+                && invoice.WarehouseId.HasValue
                 && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
             {
                 // Fixed assets can be sold at zero or nominal rates (ERPNext PR #47326 / commit 05afad78fc)

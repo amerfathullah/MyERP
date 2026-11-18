@@ -738,12 +738,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     stockValueByWarehouse[returnWarehouseId] = priorReturnValue + (returnStockQty * ratePerStockUnit);
                 }
 
-                // Rejected stock return (PR #59280 / #66996): moves stock out when rounded rejected stock qty > 0
+                var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
+                var staysInTransit = fromWarehouseId.HasValue && rejectedWarehouseId == fromWarehouseId;
+
+                // Rejected stock return (PR #59280 / #66996): skip when rejected material stayed in transit (ERPNext commit 54df1053d0)
                 if (item.RejectedQty < 0)
                 {
-                    var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
                     var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
-                    if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
+                    if (!staysInTransit && rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                     {
                         var setValuationForRejected = item.FromWarehouseId.HasValue || (originalItem?.FromWarehouseId.HasValue ?? false) ||
                             await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
@@ -764,25 +767,28 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     }
                 }
 
-                // Internal transfer return (PR #59280 & PR #66692, commits bebce66db8, 42c7a9d78b, 82aa27155f, d510a998d1):
-                // puts combined rounded accepted + rejected qty back into in-transit warehouse,
-                // capped to what the original receipt took out of transit (outward SLE < 0) minus prior returns (inward SLE > 0).
-                var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                // Internal transfer return (PR #59280 & PR #66692, commits bebce66db8, 42c7a9d78b, 82aa27155f, d510a998d1, 54df1053d0):
+                // puts accepted (and rejected when left transit) qty back into in-transit warehouse.
                 if (fromWarehouseId.HasValue)
                 {
-                    var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
+                    var returnedToSourceQty = staysInTransit
+                        ? Math.Abs(item.StockQty)
+                        : Math.Abs(item.TotalReceivedStockQty);
                     if (originalItem != null && receipt.ReturnAgainstId.HasValue)
                     {
+                        var originalFallback = staysInTransit
+                            ? Math.Abs(originalItem.StockQty)
+                            : Math.Abs(originalItem.TotalReceivedStockQty);
                         var originalTakenFromTransit = await ResolvePostedTransitQtyAsync(
                             receipt.ReturnAgainstId.Value, item.ItemId, fromWarehouseId.Value,
-                            outward: true, fallbackQty: Math.Abs(originalItem.TotalReceivedStockQty));
+                            outward: true, fallbackQty: originalFallback);
 
                         decimal alreadyReturnedToTransit = 0m;
                         foreach (var priorRet in priorSubmittedReturns)
                         {
                             var priorRetFallback = priorRet.Items
                                 .Where(ri => ri.ItemId == item.ItemId && (ri.FromWarehouseId ?? originalItem.FromWarehouseId) == fromWarehouseId)
-                                .Sum(ri => Math.Abs(ri.TotalReceivedStockQty));
+                                .Sum(ri => staysInTransit ? Math.Abs(ri.StockQty) : Math.Abs(ri.TotalReceivedStockQty));
                             if (priorRetFallback > 0m)
                             {
                                 alreadyReturnedToTransit += await ResolvePostedTransitQtyAsync(
@@ -860,10 +866,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     : item.UnitPrice;
 
                 // Source warehouse for internal transfer (in-transit warehouse)
-                // Per ERPNext PR #59251 / #59256 / #66692: deduct combined rounded accepted + rejected qty from in-transit warehouse
+                // Per ERPNext PR #59251 / #59256 / #66692 & commit 54df1053d0:
+                // deduct accepted + rejected qty only when rejected leaves transit; rejected staying in transit never moved.
+                var staysInTransit = item.FromWarehouseId.HasValue && item.RejectedWarehouseId == item.FromWarehouseId;
                 if (item.FromWarehouseId.HasValue)
                 {
-                    var sourceStockQty = item.TotalReceivedStockQty;
+                    var sourceStockQty = staysInTransit ? stockQty : item.TotalReceivedStockQty;
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(
@@ -907,7 +915,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
                 // If rejected warehouse and rounded rejected stock qty exist, post rejected stock SLE in stock UOM (PR #51968 / #66996)
                 var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
-                if (item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
+                if (!staysInTransit && item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                 {
                     // For internal transfers, rejected materials are always valued at the incoming transfer rate
                     // (PR #59251 / commit c0f13b01de); otherwise check Buying Settings
@@ -1124,11 +1132,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         reverseStockQty, reverseStockQty * ratePerStockUnit, receipt.TenantId);
                 }
 
-                // Reverse rejected return: on submit we deducted rejected stock, so on cancel we add it back (PR #66996: skip if rounded to 0)
+                // Reverse rejected return: on submit we deducted rejected stock, so on cancel we add it back (PR #66996 & commit 54df1053d0)
                 var originalItem = originalItems?.GetValueOrDefault(item.ItemId);
+                var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
+                var staysInTransit = fromWarehouseId.HasValue && rejectedWarehouseId == fromWarehouseId;
                 var reverseRejectedStockQty = item.RejectedQty < 0 ? Math.Round(Math.Abs(item.RejectedStockQty), 4) : 0m;
-                if (rejectedWarehouseId.HasValue && reverseRejectedStockQty > 0m)
+                if (!staysInTransit && rejectedWarehouseId.HasValue && reverseRejectedStockQty > 0m)
                 {
                     var setValuationForRejected = item.FromWarehouseId.HasValue || (originalItem?.FromWarehouseId.HasValue ?? false) ||
                         await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
@@ -1147,11 +1157,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
                 // Reverse internal transfer return: on submit we added material back into source warehouse,
                 // so on cancel we deduct the posted transit SLE quantity (commit efa1c14797 & PR #66692)
-                var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 if (fromWarehouseId.HasValue)
                 {
+                    var returnFallback = staysInTransit ? Math.Abs(item.StockQty) : Math.Abs(item.TotalReceivedStockQty);
                     var returnedToSourceQty = await ResolvePostedTransitQtyAsync(
-                        receipt.Id, item.ItemId, fromWarehouseId.Value, outward: false, fallbackQty: Math.Abs(item.TotalReceivedStockQty));
+                        receipt.Id, item.ItemId, fromWarehouseId.Value, outward: false, fallbackQty: returnFallback);
 
                     if (returnedToSourceQty > 0)
                     {
@@ -1201,11 +1211,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         item.ItemId, cancelWarehouseId, stockQty, receipt.TenantId);
                 }
 
-                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256 / #66692 / commit efa1c14797)
+                // Reverse in-transit warehouse deduction for internal transfers (PR #59251 / #59256 / #66692 / commit efa1c14797 & 54df1053d0)
+                var staysInTransit = item.FromWarehouseId.HasValue && item.RejectedWarehouseId == item.FromWarehouseId;
                 if (item.FromWarehouseId.HasValue)
                 {
                     var sourceStockQty = await ResolvePostedTransitQtyAsync(
-                        receipt.Id, item.ItemId, item.FromWarehouseId.Value, outward: true, fallbackQty: item.TotalReceivedStockQty);
+                        receipt.Id, item.ItemId, item.FromWarehouseId.Value, outward: true, fallbackQty: staysInTransit ? stockQty : item.TotalReceivedStockQty);
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(
@@ -1222,7 +1233,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
                 // If rejected warehouse and rounded rejected stock qty exist, reverse rejected stock SLE (PR #51968 / #66996)
                 var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
-                if (item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
+                if (!staysInTransit && item.RejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                 {
                     var setValuationForRejected = item.FromWarehouseId.HasValue ||
                         await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);

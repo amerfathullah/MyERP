@@ -7,6 +7,7 @@ using MyERP.Accounting.Entities;
 using MyERP.Assets.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Projects.Entities;
 using MyERP.Sales.Entities;
@@ -14,6 +15,7 @@ using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
+using Volo.Abp.SettingManagement;
 using Xunit;
 
 namespace MyERP.Sales;
@@ -384,5 +386,82 @@ public abstract class SalesInvoiceCompanyGuardTests<TStartupModule> : MyERPAppli
             result.SalesTeam.First(s => s.SalesPersonId == sp1.Id).Incentives.ShouldBe(60m);
             result.SalesTeam.First(s => s.SalesPersonId == sp2.Id).Incentives.ShouldBe(20m);
         });
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ReturnInvoice_SkipsValidateSellingPrice()
+    {
+        var settingManager = GetRequiredService<ISettingManager>();
+        await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "true");
+        try
+        {
+            await WithUnitOfWorkAsync(async () =>
+            {
+                var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+                var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+                var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+                var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+                var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+                var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+                var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+                var costCenterRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+                var invoiceRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+                var valuationService = GetRequiredService<StockValuationService>();
+                var binService = GetRequiredService<BinService>();
+                var invoiceAppService = GetRequiredService<ISalesInvoiceAppService>();
+
+                var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SI Return Price Co"), autoSave: true);
+                var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Return Cust"), autoSave: true);
+                var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Return WH"), autoSave: true);
+                var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RET-PRC-1", "Return Price Item", ItemType.Goods), autoSave: true);
+                var arAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1200-RP", "Accounts Receivable", AccountType.Asset), autoSave: true);
+                var revAcct = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "4000-RP", "Sales Revenue", AccountType.Revenue), autoSave: true);
+                var costCenter = await costCenterRepo.InsertAsync(new CostCenter(Guid.NewGuid(), company.Id, "Return CC"), autoSave: true);
+                company.DefaultCostCenterId = costCenter.Id;
+                company.DefaultReceivableAccountId = arAcct.Id;
+                company.DefaultIncomeAccountId = revAcct.Id;
+                await companyRepo.UpdateAsync(company, autoSave: true);
+
+                await fiscalYearRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY RP", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)), autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI DR AR", "SalesInvoice", true, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 1, FixedAccountId = arAcct.Id }, autoSave: true);
+                await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Rev", "SalesInvoice", false, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 2, FixedAccountId = revAcct.Id }, autoSave: true);
+
+                // Seed stock at valuation rate 100
+                await valuationService.CreateLedgerEntryAsync(company.Id, item.Id, warehouse.Id, DateTime.UtcNow.Date.AddDays(-1), 10m, 100m, "StockEntry", Guid.NewGuid(), null);
+                await binService.ApplyStockMovementAsync(item.Id, warehouse.Id, 10m, 1000m, null);
+
+                // Control: normal invoice below valuation rate (50 < 100) throws SellingPriceBelowCost
+                var belowCost = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-RP-LOW", DateTime.UtcNow.Date) { WarehouseId = warehouse.Id };
+                belowCost.AddItem(item.Id, "Return Price Item", 1m, 50m, 0m);
+                await invoiceRepo.InsertAsync(belowCost, autoSave: true);
+                var exBelow = await Should.ThrowAsync<BusinessException>(() => invoiceAppService.SubmitAsync(belowCost.Id));
+                exBelow.Code.ShouldBe(MyERPDomainErrorCodes.SellingPriceBelowCost);
+
+                // Original sale at 120
+                var orig = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-RP-ORIG", DateTime.UtcNow.Date) { WarehouseId = warehouse.Id };
+                orig.AddItem(item.Id, "Return Price Item", 2m, 120m, 0m);
+                await invoiceRepo.InsertAsync(orig, autoSave: true);
+                await invoiceAppService.SubmitAsync(orig.Id);
+                await invoiceAppService.PostAsync(orig.Id);
+
+                // Credit note at discounted price 50 (< 100 valuation rate) must succeed because IsReturn skips ValidateSellingPrice
+                var creditNote = new SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-RP-CN", DateTime.UtcNow.Date)
+                {
+                    WarehouseId = warehouse.Id,
+                    IsReturn = true,
+                    ReturnAgainstId = orig.Id,
+                    EInvoiceDocType = EInvoiceDocumentType.CreditNote
+                };
+                creditNote.AddItem(item.Id, "Return Price Item", -1m, 50m, 0m);
+                await invoiceRepo.InsertAsync(creditNote, autoSave: true);
+
+                var submitted = await invoiceAppService.SubmitAsync(creditNote.Id);
+                submitted.Status.ShouldBe("Submitted");
+            });
+        }
+        finally
+        {
+            await settingManager.SetGlobalAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice, "false");
+        }
     }
 }
