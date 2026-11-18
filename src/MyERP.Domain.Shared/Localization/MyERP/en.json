@@ -6499,7 +6499,28 @@
     "PartyGroup": "Party Group",
     "SalesOrderNumber": "SO Number",
     "DeliveryNoteNumber": "DN Number",
-    "ItemWiseSalesRegister": "Item-wise Sales Register"
+    "ItemWiseSalesRegister": "Item-wise Sales Register",
+    "Menu:IssueSummary": "Issue Summary",
+    "IssueSummary": "Issue Summary",
+    "Menu:IssueAnalytics": "Issue Analytics",
+    "IssueAnalytics": "Issue Analytics",
+    "Menu:FirstResponseTimeForIssues": "First Response Time",
+    "FirstResponseTimeForIssues": "First Response Time for Issues",
+    "Menu:SupportHourDistribution": "Support Hour Distribution",
+    "SupportHourDistribution": "Support Hour Distribution",
+    "Range": "Range",
+    "TotalIssues": "Total Issues",
+    "SlaFulfilled": "SLA Fulfilled",
+    "SlaFailed": "SLA Failed",
+    "FirstResponseDue": "First Response Due",
+    "ResolutionDue": "Resolution Due",
+    "AvgFirstResponseTime": "Avg First Response (h)",
+    "AvgHoldTime": "Avg Hold (h)",
+    "AvgResolutionTime": "Avg Resolution (h)",
+    "Replied": "Replied",
+    "AssignedTo": "Assigned To",
+    "IssueCount": "Issue Count",
+    "AverageHours": "Average Hours"
   }
 }
 

@@ -163,3 +163,85 @@ export interface SupportSettingsDto extends EntityDto<string> {
   allowResettingServiceLevelAgreement?: boolean;
   closeIssueAfterDays?: number | null;
 }
+
+export interface SupportReportFilterDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  basedOn?: string;
+  range?: string;
+  status?: IssueStatus | null;
+  priority?: string | null;
+  customerId?: string | null;
+  assignedToId?: string | null;
+}
+
+export interface IssueSummaryRowDto {
+  dimensionKey?: string;
+  dimensionLabel?: string;
+  openCount?: number;
+  repliedCount?: number;
+  onHoldCount?: number;
+  closedCount?: number;
+  cancelledCount?: number;
+  totalIssues?: number;
+  slaFailedCount?: number;
+  slaFulfilledCount?: number;
+  firstResponseDueCount?: number;
+  resolutionDueCount?: number;
+  pausedCount?: number;
+  avgFirstResponseTimeHours?: number;
+  avgHoldTimeHours?: number;
+  avgResolutionTimeHours?: number;
+}
+
+export interface IssueSummaryReportDto {
+  basedOn?: string;
+  rows?: IssueSummaryRowDto[];
+  totalIssues?: number;
+  totalOpen?: number;
+  totalClosed?: number;
+  totalSlaFulfilled?: number;
+  totalSlaFailed?: number;
+}
+
+export interface IssueAnalyticsRowDto {
+  dimensionKey?: string;
+  dimensionLabel?: string;
+  periodCounts?: number[];
+  total?: number;
+}
+
+export interface IssueAnalyticsReportDto {
+  basedOn?: string;
+  range?: string;
+  periodLabels?: string[];
+  rows?: IssueAnalyticsRowDto[];
+  periodTotals?: number[];
+  grandTotal?: number;
+}
+
+export interface FirstResponseTimeRowDto {
+  date?: string;
+  issueCount?: number;
+  avgFirstResponseTimeHours?: number;
+}
+
+export interface FirstResponseTimeReportDto {
+  rows?: FirstResponseTimeRowDto[];
+  totalIssues?: number;
+  overallAverageHours?: number;
+}
+
+export interface SupportHourDistributionRowDto {
+  date?: string;
+  slotCounts?: number[];
+  total?: number;
+}
+
+export interface SupportHourDistributionReportDto {
+  timeSlotLabels?: string[];
+  rows?: SupportHourDistributionRowDto[];
+  slotTotals?: number[];
+  grandTotal?: number;
+}

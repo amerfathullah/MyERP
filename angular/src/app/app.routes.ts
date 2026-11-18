@@ -2729,6 +2729,30 @@ export const APP_ROUTES: Routes = [
   },
   // Support
   {
+    path: 'support/reports/issue-summary',
+    loadComponent: () => import('./support/reports/issue-summary/issue-summary.component').then(c => c.IssueSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+  {
+    path: 'support/reports/issue-analytics',
+    loadComponent: () => import('./support/reports/issue-analytics/issue-analytics.component').then(c => c.IssueAnalyticsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+  {
+    path: 'support/reports/first-response-time',
+    loadComponent: () => import('./support/reports/first-response-time/first-response-time.component').then(c => c.FirstResponseTimeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+  {
+    path: 'support/reports/support-hour-distribution',
+    loadComponent: () => import('./support/reports/support-hour-distribution/support-hour-distribution.component').then(c => c.SupportHourDistributionComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Issues' },
+  },
+  {
     path: 'support/issues',
     loadComponent: () => import('./support/issues/issue-list.component').then(c => c.IssueListComponent),
     canActivate: [authGuard, permissionGuard],

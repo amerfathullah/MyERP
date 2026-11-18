@@ -1,0 +1,143 @@
+<abp-page [title]="'::IssueSummary' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::BasedOn' | abpLocalization }}</label>
+          <select class="form-select" formControlName="basedOn">
+            <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+            <option value="Assigned To">{{ '::AssignedTo' | abpLocalization }}</option>
+            <option value="Issue Type">{{ '::IssueType' | abpLocalization }}</option>
+            <option value="Issue Priority">{{ '::IssuePriority' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::IssuePriority' | abpLocalization }}</label>
+          <select class="form-select" formControlName="priority">
+            <option value="">-- {{ '::All' | abpLocalization }} --</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-table"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-primary mb-0">{{ r.totalIssues }}</h4>
+            <small class="text-muted">{{ '::TotalIssues' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-warning mb-0">{{ r.totalOpen }}</h4>
+            <small class="text-muted">{{ '::Open' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-success mb-0">{{ r.totalSlaFulfilled }}</h4>
+            <small class="text-muted">{{ '::SlaFulfilled' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-danger mb-0">{{ r.totalSlaFailed }}</h4>
+            <small class="text-muted">{{ '::SlaFailed' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ r.basedOn }}</th>
+                <th class="text-end">{{ '::Open' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Replied' | abpLocalization }}</th>
+                <th class="text-end">{{ '::OnHold' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Closed' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Cancelled' | abpLocalization }}</th>
+                <th class="text-end fw-bold">{{ '::TotalIssues' | abpLocalization }}</th>
+                <th class="text-end">{{ '::SlaFulfilled' | abpLocalization }}</th>
+                <th class="text-end">{{ '::SlaFailed' | abpLocalization }}</th>
+                <th class="text-end">{{ '::FirstResponseDue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ResolutionDue' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AvgFirstResponseTime' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AvgHoldTime' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ '::AvgResolutionTime' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.dimensionKey) {
+                <tr>
+                  <td class="ps-3 fw-medium">{{ row.dimensionLabel }}</td>
+                  <td class="text-end font-monospace">{{ row.openCount }}</td>
+                  <td class="text-end font-monospace">{{ row.repliedCount }}</td>
+                  <td class="text-end font-monospace">{{ row.onHoldCount }}</td>
+                  <td class="text-end font-monospace">{{ row.closedCount }}</td>
+                  <td class="text-end font-monospace">{{ row.cancelledCount }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ row.totalIssues }}</td>
+                  <td class="text-end font-monospace text-success">{{ row.slaFulfilledCount }}</td>
+                  <td class="text-end font-monospace text-danger">{{ row.slaFailedCount }}</td>
+                  <td class="text-end font-monospace">{{ row.firstResponseDueCount }}</td>
+                  <td class="text-end font-monospace">{{ row.resolutionDueCount }}</td>
+                  <td class="text-end font-monospace">{{ (row.avgFirstResponseTimeHours ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (row.avgHoldTimeHours ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end pe-3 font-monospace">{{ (row.avgResolutionTimeHours ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

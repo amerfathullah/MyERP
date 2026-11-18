@@ -1,0 +1,86 @@
+<abp-page [title]="'::FirstResponseTimeForIssues' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-clock me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-primary mb-0">{{ r.totalIssues }}</h4>
+            <small class="text-muted">{{ '::TotalIssues' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-info mb-0">{{ (r.overallAverageHours ?? 0) | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ '::AverageHours' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::Date' | abpLocalization }}</th>
+                <th class="text-end">{{ '::IssueCount' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ '::AvgFirstResponseTime' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.date) {
+                <tr>
+                  <td class="ps-3">{{ row.date | date:'dd/MM/yyyy' }}</td>
+                  <td class="text-end font-monospace">{{ row.issueCount }}</td>
+                  <td class="text-end pe-3 font-monospace fw-bold">{{ (row.avgFirstResponseTimeHours ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>
