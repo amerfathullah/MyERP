@@ -70,4 +70,35 @@ public class BomCreatorDuplicateTests
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         creator.Status.ShouldBe(BomCreatorStatus.Failed);
     }
+
+    // ERPNext 2eb94ae3cb: block changes/deletion once a BOM Creator's BOMs are completed
+    [Fact]
+    public async Task UpdateAsync_And_DeleteAsync_CompletedBomCreator_Throws()
+    {
+        var fgItemId = Guid.NewGuid();
+        var creator = new BomCreator(Guid.NewGuid(), Guid.NewGuid(), fgItemId, 1m);
+        creator.AddItem(Guid.NewGuid(), "RM 1", fgItemId, 2m, 5m);
+        creator.MarkCompleted();
+
+        var creatorRepo = Substitute.For<IRepository<BomCreator, Guid>>();
+        creatorRepo.WithDetailsAsync().Returns(Task.FromResult(new[] { creator }.AsQueryable()));
+        creatorRepo.GetAsync(creator.Id).Returns(Task.FromResult(creator));
+
+        var service = new BomCreatorAppService(
+            creatorRepo,
+            new BomCreatorService(Substitute.For<IRepository<BillOfMaterials, Guid>>()),
+            Substitute.For<MyERP.Core.DomainServices.IDocumentNumberGenerator>());
+
+        var updateEx = await Should.ThrowAsync<BusinessException>(() =>
+            service.UpdateAsync(creator.Id, new CreateUpdateBomCreatorDto
+            {
+                CompanyId = creator.CompanyId,
+                FinishedGoodItemId = fgItemId,
+                Qty = 10m
+            }));
+        updateEx.Code.ShouldBe(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
+
+        var deleteEx = await Should.ThrowAsync<BusinessException>(() => service.DeleteAsync(creator.Id));
+        deleteEx.Code.ShouldBe(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
+    }
 }

@@ -75,4 +75,17 @@ describe('EInvoiceListComponent', () => {
     expect(comp.isCancelling()).toBe(false);
     expect(toasterMock.error).toHaveBeenCalledWith('72h window expired');
   });
+
+  it('disables cancellation once submission exceeds LHDN 72-hour window', () => {
+    const { comp } = createComponent();
+    const expiredAt = new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString();
+    const withinWindowAt = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
+
+    expect(comp.isCancellationWindowExpired({ id: '1', status: 'Valid', submittedAt: expiredAt } as any)).toBe(true);
+    expect(comp.isCancellationWindowExpired({ id: '2', status: 'Valid', submittedAt: withinWindowAt } as any)).toBe(false);
+    expect(comp.isCancellationWindowExpired({ id: '3', status: 'Valid' } as any)).toBe(false);
+
+    comp.openCancelModal({ id: '1', status: 'Valid', submittedAt: expiredAt } as any);
+    expect(comp.cancelTarget()).toBeNull();
+  });
 });

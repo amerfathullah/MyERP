@@ -125,8 +125,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
                 .WithData("reason", "LHDN access token not configured. Please authenticate first.");
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         // Step 5: Submit to LHDN
         var tenantId = LazyServiceProvider?.LazyGetService<Volo.Abp.MultiTenancy.ICurrentTenant>()?.Id;
@@ -534,8 +533,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
             ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
 
@@ -595,8 +593,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
             ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         var submission = await _eInvoiceService.CancelAsync(
             input.SubmissionId, input.Reason, accessToken, environment);
@@ -718,8 +715,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
                 .WithData("reason", "LHDN access token not configured.");
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         var submission = await _eInvoiceService.SubmitAsync(
             input.CompanyId, "SalesInvoice", input.SourceDocumentId,
@@ -1514,8 +1510,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
                 .WithData("reason", "LHDN access token not configured.");
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
         await PropagateStatusToSourceAsync(submission);

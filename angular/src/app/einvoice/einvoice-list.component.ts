@@ -121,7 +121,11 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
                           <i class="fa fa-refresh"></i>
                         </button>
                         @if (inv.status === 'Valid' || inv.status === 'Submitted') {
-                          <button class="btn btn-outline-danger" [title]="'::CancelEInvoice' | abpLocalization" (click)="openCancelModal(inv)">
+                          <button
+                            class="btn btn-outline-danger"
+                            [disabled]="isCancellationWindowExpired(inv)"
+                            [title]="isCancellationWindowExpired(inv) ? 'Cancellation not allowed after 72 hours of submission' : ('::CancelEInvoice' | abpLocalization)"
+                            (click)="openCancelModal(inv)">
                             <i class="fa fa-times"></i>
                           </button>
                         }
@@ -238,7 +242,15 @@ export class EInvoiceListComponent implements OnInit {
     });
   }
 
+  isCancellationWindowExpired(inv: EInvoiceSubmissionDto): boolean {
+    if (!inv?.submittedAt) return false;
+    const submittedMs = Date.parse(inv.submittedAt);
+    if (Number.isNaN(submittedMs)) return false;
+    return Date.now() - submittedMs > 72 * 60 * 60 * 1000;
+  }
+
   openCancelModal(inv: EInvoiceSubmissionDto): void {
+    if (this.isCancellationWindowExpired(inv)) return;
     this.cancelTarget.set(inv);
     this.cancelReason.set('');
   }

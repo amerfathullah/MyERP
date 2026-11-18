@@ -106,10 +106,10 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           <div class="d-flex gap-2">
             <a class="btn btn-secondary" routerLink="/manufacturing/bom-creators">{{ '::Cancel' | abpLocalization }}</a>
             @if (statusLabel() === 'Draft') {
-              <button class="btn btn-primary" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
+              <button class="btn" [class.btn-outline-primary]="isEdit()" [class.btn-primary]="!isEdit()" (click)="save()" [disabled]="saving()"><i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}</button>
             }
             @if (isEdit() && statusLabel() === 'Draft') {
-              <button class="btn btn-success" (click)="createBoms()" [disabled]="saving()"><i class="fa fa-sitemap me-1"></i>{{ '::CreateBOMs' | abpLocalization }}</button>
+              <button class="btn btn-primary" (click)="createBoms()" [disabled]="saving()"><i class="fa fa-sitemap me-1"></i>{{ '::CreateBOMs' | abpLocalization }}</button>
             }
           </div>
         </div>

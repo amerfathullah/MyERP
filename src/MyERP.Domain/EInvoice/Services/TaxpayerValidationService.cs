@@ -33,10 +33,7 @@ public class TaxpayerValidationService : ITransientDependency
             throw new Volo.Abp.UserFriendlyException("Cannot validate taxpayer. E-Invoice API is not connected or token is missing.");
         }
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment");
-        var environment = Enum.TryParse<LhdnEnvironment>(envString, ignoreCase: true, out var parsedEnv)
-            ? parsedEnv
-            : LhdnEnvironment.Sandbox;
+        var environment = ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         var result = await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment, taxpayerName);
         if (!result.IsFound && !string.IsNullOrEmpty(result.ErrorMessage))
@@ -46,4 +43,9 @@ public class TaxpayerValidationService : ITransientDependency
 
         return result;
     }
+
+    public static LhdnEnvironment ParseEnvironment(string? envString) =>
+        Enum.TryParse<LhdnEnvironment>(envString, ignoreCase: true, out var parsed)
+            ? parsed
+            : LhdnEnvironment.Sandbox;
 }

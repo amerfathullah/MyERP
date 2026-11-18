@@ -7,6 +7,7 @@ using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -62,6 +63,9 @@ public class BomCreatorAppService : ApplicationService, IBomCreatorAppService
     public async Task<BomCreatorDto> UpdateAsync(Guid id, CreateUpdateBomCreatorDto input)
     {
         var creator = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
+        if (creator.Status == BomCreatorStatus.Completed)
+            throw new BusinessException(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
+
         creator.FinishedGoodItemId = input.FinishedGoodItemId;
         creator.Qty = input.Qty;
         ApplyInput(creator, input);
@@ -70,7 +74,14 @@ public class BomCreatorAppService : ApplicationService, IBomCreatorAppService
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
-    public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
+    public async Task DeleteAsync(Guid id)
+    {
+        var creator = await _repository.GetAsync(id);
+        if (creator.Status == BomCreatorStatus.Completed)
+            throw new BusinessException(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
+
+        await _repository.DeleteAsync(id);
+    }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<BomCreatorDto> CreateBomsAsync(Guid id)

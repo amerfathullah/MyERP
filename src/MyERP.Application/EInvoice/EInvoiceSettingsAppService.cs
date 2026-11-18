@@ -88,7 +88,7 @@ public class EInvoiceSettingsAppService : ApplicationService, IEInvoiceSettingsA
     {
         var clientId = await _settingProvider.GetOrNullAsync("EInvoice.ClientId");
         var clientSecret = await _settingProvider.GetOrNullAsync("EInvoice.ClientSecret");
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
+        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment");
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
         {
@@ -99,7 +99,7 @@ public class EInvoiceSettingsAppService : ApplicationService, IEInvoiceSettingsA
             };
         }
 
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(envString);
 
         try
         {
@@ -162,8 +162,7 @@ public class EInvoiceSettingsAppService : ApplicationService, IEInvoiceSettingsA
             };
         }
 
-        var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
-        var environment = Enum.Parse<LhdnEnvironment>(envString);
+        var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
 
         try
         {

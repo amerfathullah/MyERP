@@ -284,4 +284,25 @@ public class EInvoiceAppServiceTaxpayerSearchTests
         Assert.True(res.IsFound);
         await apiClient.Received(1).SearchTaxpayerAsync("tok", "BRN", "123", expectedEnv, null);
     }
+
+    [Fact]
+    public async Task EInvoiceSettingsAppService_SearchTaxpayerAsync_DoesNotCrashWhenEnvironmentEmpty()
+    {
+        var settingsProvider = Substitute.For<ISettingProvider>();
+        settingsProvider.GetOrNullAsync("EInvoice.AccessToken").Returns("valid-access-token");
+        settingsProvider.GetOrNullAsync("EInvoice.Environment").Returns(string.Empty);
+
+        var apiClient = Substitute.For<ILhdnApiClient>();
+        apiClient.SearchTaxpayerAsync("valid-access-token", "BRN", "202001001234", LhdnEnvironment.Sandbox, null)
+            .Returns(new LhdnTaxpayerSearchResponse { IsFound = true, Tin = "C1234567890", TaxpayerName = "Co A" });
+
+        var settingsApp = new EInvoiceSettingsAppService(
+            settingsProvider,
+            Substitute.For<Volo.Abp.SettingManagement.ISettingManager>(),
+            apiClient);
+
+        var dto = await settingsApp.SearchTaxpayerAsync("BRN", "202001001234");
+        Assert.True(dto.IsSuccess);
+        Assert.Equal("C1234567890", dto.Tin);
+    }
 }

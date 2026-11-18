@@ -62,7 +62,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
                         <a class="btn btn-outline-primary" [routerLink]="['/manufacturing/bom-creators', c.id]">
                           <i class="fa fa-pen"></i>
                         </a>
-                        <button class="btn btn-outline-danger" (click)="remove(c)">
+                        <button class="btn btn-outline-danger" [disabled]="c.status === 1" (click)="remove(c)">
                           <i class="fa fa-trash"></i>
                         </button>
                       </div>
