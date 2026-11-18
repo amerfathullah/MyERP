@@ -6551,7 +6551,16 @@
     "Tin": "TIN",
     "LowerDeductionApplied": "LDC",
     "Menu:DimensionWiseAccountsBalance": "Dimension-wise Accounts Balance",
-    "DimensionWiseAccountsBalance": "Dimension-wise Accounts Balance"
+    "DimensionWiseAccountsBalance": "Dimension-wise Accounts Balance",
+    "Menu:ShareBalance": "Share Balance",
+    "ShareBalance": "Share Balance",
+    "Menu:ShareLedger": "Share Ledger",
+    "ShareLedger": "Share Ledger",
+    "Shareholder": "Shareholder",
+    "SelectShareholder": "Select Shareholder",
+    "NoOfShares": "No of Shares",
+    "AverageRate": "Average Rate",
+    "AsOnDate": "As On Date"
   }
 }
 

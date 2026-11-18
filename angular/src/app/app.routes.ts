@@ -1144,6 +1144,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ShareManagement.Edit' },
   },
   {
+    path: 'accounting/reports/share-balance',
+    loadComponent: () => import('./accounting/reports/share-balance/share-balance.component').then(c => c.ShareBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ShareManagement' },
+  },
+  {
+    path: 'accounting/reports/share-ledger',
+    loadComponent: () => import('./accounting/reports/share-ledger/share-ledger.component').then(c => c.ShareLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.ShareManagement' },
+  },
+  {
     path: 'accounting/monthly-distributions',
     loadComponent: () => import('./accounting/monthly-distributions/monthly-distribution-list.component').then(c => c.MonthlyDistributionListComponent),
     canActivate: [authGuard, permissionGuard],

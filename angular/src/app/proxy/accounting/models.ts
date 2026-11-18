@@ -3202,3 +3202,63 @@ export interface PaymentPeriodBasedOnInvoiceDateReportDto {
   totalRange61To90?: number;
   totalRange90Above?: number;
 }
+
+export interface ShareBalanceRequestDto {
+  date: string;
+  shareholderId?: string | null;
+  companyId?: string | null;
+}
+
+export interface ShareBalanceRowDto {
+  shareholderId?: string;
+  shareholderTitle?: string;
+  shareTypeId?: string;
+  shareTypeTitle?: string;
+  noOfShares?: number;
+  averageRate?: number;
+  amount?: number;
+}
+
+export interface ShareBalanceReportDto {
+  date?: string;
+  shareholderId?: string | null;
+  shareholderTitle?: string;
+  companyId?: string | null;
+  rows?: ShareBalanceRowDto[];
+  totalNoOfShares?: number;
+  totalAmount?: number;
+}
+
+export interface ShareLedgerRequestDto {
+  date: string;
+  shareholderId?: string | null;
+  companyId?: string | null;
+}
+
+export interface ShareLedgerRowDto {
+  shareholderId?: string;
+  shareholderTitle?: string;
+  date?: string;
+  transferType?: string;
+  rawTransferType?: number;
+  shareTypeId?: string;
+  shareTypeTitle?: string;
+  fromNo?: number;
+  toNo?: number;
+  noOfShares?: number;
+  rate?: number;
+  amount?: number;
+  companyId?: string;
+  companyName?: string;
+  shareTransferId?: string;
+}
+
+export interface ShareLedgerReportDto {
+  date?: string;
+  shareholderId?: string | null;
+  shareholderTitle?: string;
+  companyId?: string | null;
+  rows?: ShareLedgerRowDto[];
+  totalNoOfShares?: number;
+  totalAmount?: number;
+}

@@ -72,6 +72,7 @@ export * from './profit-loss-by-cost-center.service';
 export * from './reporting.service';
 export * from './repost-accounting-ledger.service';
 export * from './share-transfer-type.enum';
+export * from './share-reporting.service';
 export * from './share-transfer.service';
 export * from './share-type.service';
 export * from './shareholder.service';
