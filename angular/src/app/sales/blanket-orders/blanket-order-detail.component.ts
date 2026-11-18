@@ -43,28 +43,40 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
         </div>
 
         <div class="row g-3 mb-4">
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <app-status-badge [status]="order.status" />
             </div></div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">Order Type</div>
               <div class="fs-5 fw-bold">{{ order.orderType }}</div>
             </div></div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::From' | abpLocalization }}</div>
               <div>{{ order.fromDate | date:'dd/MM/yyyy' }}</div>
             </div></div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::To' | abpLocalization }}</div>
               <div>{{ order.toDate | date:'dd/MM/yyyy' }}</div>
+            </div></div>
+          </div>
+          <div class="col-md-2">
+            <div class="card text-center h-100"><div class="card-body">
+              <div class="text-muted small">{{ '::Currency' | abpLocalization }}</div>
+              <div class="fs-5 fw-bold">{{ order.currency || 'MYR' }}</div>
+            </div></div>
+          </div>
+          <div class="col-md-2">
+            <div class="card text-center h-100"><div class="card-body">
+              <div class="text-muted small">{{ '::ExchangeRate' | abpLocalization }}</div>
+              <div class="fs-5 fw-bold">{{ (order.exchangeRate ?? 1) | number:'1.2-4' }}</div>
             </div></div>
           </div>
         </div>

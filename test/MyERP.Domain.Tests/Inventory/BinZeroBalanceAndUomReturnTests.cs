@@ -135,4 +135,20 @@ public class BinZeroBalanceAndUomReturnTests
         var ex = await Should.ThrowAsync<BusinessException>(() => manager.ValidateReturnAsync(return2));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal);
     }
+
+    [Fact]
+    public async Task BinService_UpdateReservedQtyAsync_ClampsNegativeToZero()
+    {
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var bin = new Bin(Guid.NewGuid(), itemId, warehouseId) { ReservedQty = 3m };
+        binRepo.GetQueryableAsync().Returns(new List<Bin> { bin }.AsQueryable());
+
+        var binService = new MyERP.Inventory.DomainServices.BinService(binRepo);
+        await binService.UpdateReservedQtyAsync(itemId, warehouseId, -5m);
+
+        bin.ReservedQty.ShouldBe(0m);
+        await binRepo.Received(1).UpdateAsync(bin);
+    }
 }

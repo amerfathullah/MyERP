@@ -172,4 +172,48 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             first.OrderNumber.ShouldNotBe(second.OrderNumber);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DefaultsCompanyCurrency_AndResolvesExchangeRateAndBaseRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = new Company(Guid.NewGuid(), "BO FX Co") { CurrencyCode = "MYR" };
+            await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(company, autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "BO FX Customer"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-ITEM-FX", "BO FX Item", ItemType.Goods), autoSave: true);
+            await GetRequiredService<IRepository<MyERP.Accounting.Entities.CurrencyExchange, Guid>>().InsertAsync(
+                new MyERP.Accounting.Entities.CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.5m, DateTime.Today), autoSave: true);
+
+            var app = GetRequiredService<IBlanketOrderAppService>();
+
+            var defaultDto = await app.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 10m, Rate = 100m }]
+            });
+            defaultDto.Currency.ShouldBe("MYR");
+            defaultDto.ExchangeRate.ShouldBe(1m);
+            defaultDto.Items[0].BaseRate.ShouldBe(100m);
+
+            var fxDto = await app.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Currency = "usd",
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 10m, Rate = 100m }]
+            });
+            fxDto.Currency.ShouldBe("USD");
+            fxDto.ExchangeRate.ShouldBe(4.5m);
+            fxDto.Items[0].BaseRate.ShouldBe(450m);
+        });
+    }
 }

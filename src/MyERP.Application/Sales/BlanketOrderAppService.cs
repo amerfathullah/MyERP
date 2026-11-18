@@ -69,13 +69,41 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
             customerIds: string.Equals(input.OrderType, "Selling", StringComparison.OrdinalIgnoreCase) ? new[] { input.PartyId } : null,
             supplierIds: string.Equals(input.OrderType, "Selling", StringComparison.OrdinalIgnoreCase) ? null : new[] { input.PartyId });
 
+        var companyCurrency = "MYR";
+        if (LazyServiceProvider != null)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var company = companyRepo != null ? await companyRepo.FindAsync(input.CompanyId) : null;
+            if (!string.IsNullOrWhiteSpace(company?.CurrencyCode))
+                companyCurrency = company.CurrencyCode;
+        }
+
+        var currency = string.IsNullOrWhiteSpace(input.Currency)
+            ? companyCurrency
+            : input.Currency.Trim().ToUpperInvariant();
+        var exchangeRate = input.ExchangeRate;
+        if (string.Equals(currency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            if (exchangeRate <= 0)
+                exchangeRate = 1m;
+        }
+        else if (exchangeRate <= 0)
+        {
+            var exchangeService = LazyServiceProvider?.LazyGetService<MyERP.Accounting.DomainServices.CurrencyExchangeService>();
+            exchangeRate = exchangeService != null
+                ? await exchangeService.GetExchangeRateAsync(currency, companyCurrency, input.FromDate)
+                : 1m;
+            if (exchangeRate <= 0)
+                exchangeRate = 1m;
+        }
+
         var bo = new BlanketOrder(GuidGenerator.Create(), input.CompanyId,
             await GenerateOrderNumberAsync(input.CompanyId), input.OrderType,
             input.PartyId, input.FromDate, input.ToDate, CurrentTenant.Id)
         {
             PartyName = input.PartyName,
-            Currency = string.IsNullOrWhiteSpace(input.Currency) ? "MYR" : input.Currency,
-            ExchangeRate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m
+            Currency = currency,
+            ExchangeRate = exchangeRate
         };
         foreach (var item in input.Items)
             bo.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName, stockUom: item.StockUom);

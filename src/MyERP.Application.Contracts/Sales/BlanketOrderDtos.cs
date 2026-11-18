@@ -42,8 +42,8 @@ public class CreateBlanketOrderDto
     public string? PartyName { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
-    public string Currency { get; set; } = "MYR";
-    public decimal ExchangeRate { get; set; } = 1m;
+    public string? Currency { get; set; }
+    public decimal ExchangeRate { get; set; }
     public CreateBlanketOrderItemDto[] Items { get; set; } = [];
 }
 

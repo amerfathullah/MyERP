@@ -303,7 +303,8 @@ public class ProductionPlanSalesOrderLineGuardTests
         custRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer> { cust }.AsQueryable()));
 
         var bom = new BillOfMaterials(_bomId, _companyId, "BOM-A", _itemId) { IsActive = true, IsDefault = true };
-        bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials> { bom }.AsQueryable()));
+        var bom2 = new BillOfMaterials(Guid.NewGuid(), _companyId, "BOM-B", item2Id) { IsActive = true, IsDefault = true };
+        bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials> { bom, bom2 }.AsQueryable()));
 
         var appService = CreateAppService(planRepo, soRepo, null, itemRepo, custRepo, bomRepo);
 
@@ -476,5 +477,40 @@ public class ProductionPlanSalesOrderLineGuardTests
         // Assert: 15 + 25 = 40 Actual, 20 + 30 = 50 Projected (PR #60718 / commit 4f7f2aabc3)
         result.ActualQty.ShouldBe(40m);
         result.ProjectedQty.ShouldBe(50m);
+    }
+
+    [Fact]
+    public void Reopen_WithUnlinkedMaterialRequirements_RestoresSubmittedStatus()
+    {
+        var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-REOPEN-1", DateTime.UtcNow);
+        plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "Widget", _bomId, plannedQty: 5m));
+        plan.Submit();
+
+        // Simulate MR assembly row created for reporting/zero-qty without an actual linked Material Request
+        var mrRow = new ProductionPlanMrItem(Guid.NewGuid(), plan.Id, Guid.NewGuid(), "Raw A", 10m);
+        plan.AddMaterialRequirement(mrRow);
+        plan.Close();
+
+        plan.Reopen();
+        plan.Status.ShouldBe(ProductionPlanStatus.Submitted);
+    }
+
+    [Fact]
+    public void Reopen_WithLinkedMaterialRequestId_RestoresMaterialRequestedStatus()
+    {
+        var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-REOPEN-2", DateTime.UtcNow);
+        plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "Widget", _bomId, plannedQty: 5m));
+        plan.Submit();
+
+        var mrRow = new ProductionPlanMrItem(Guid.NewGuid(), plan.Id, Guid.NewGuid(), "Raw A", 10m)
+        {
+            MaterialRequestId = Guid.NewGuid()
+        };
+        plan.AddMaterialRequirement(mrRow);
+        plan.MarkMaterialRequested();
+        plan.Close();
+
+        plan.Reopen();
+        plan.Status.ShouldBe(ProductionPlanStatus.MaterialRequested);
     }
 }

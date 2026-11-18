@@ -124,7 +124,7 @@ public class BinService : DomainService
     public virtual async Task UpdateReservedQtyAsync(Guid itemId, Guid warehouseId, decimal reservedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
-        bin.ReservedQty += reservedQtyChange;
+        bin.ReservedQty = Math.Max(0m, bin.ReservedQty + reservedQtyChange);
         await _binRepository.UpdateAsync(bin);
     }
 

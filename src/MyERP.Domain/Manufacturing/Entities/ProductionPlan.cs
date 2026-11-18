@@ -120,7 +120,9 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != ProductionPlanStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        Status = MaterialRequirements.Count > 0 ? ProductionPlanStatus.MaterialRequested : ProductionPlanStatus.Submitted;
+        Status = MaterialRequirements.Any(m => m.MaterialRequestId.HasValue)
+            ? ProductionPlanStatus.MaterialRequested
+            : ProductionPlanStatus.Submitted;
         AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanReopenedEvent(Id, TenantId));
     }
 

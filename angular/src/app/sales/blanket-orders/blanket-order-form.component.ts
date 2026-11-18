@@ -19,7 +19,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
   template: `
     <abp-page [title]="'::NewBlanketOrder' | abpLocalization">
       <div class="card"><div class="card-body">
-        <div class="row mb-3">
+        <div class="row g-3 mb-3">
           <div class="col-md-3">
             <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" (ngModelChange)="isDirty=true; onTypeChange()" [(ngModel)]="form.orderType">
@@ -43,6 +43,14 @@ import { ItemService } from '../../proxy/inventory/item.service';
           <div class="col-md-3">
             <label class="form-label">{{ '::ValidUntil' | abpLocalization }}</label>
             <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.toDate" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::Currency' | abpLocalization }}</label>
+            <input type="text" class="form-control" maxlength="10" (ngModelChange)="onCurrencyChange($event)" [(ngModel)]="form.currency" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">{{ '::ExchangeRate' | abpLocalization }}</label>
+            <input type="number" step="0.0001" min="0.0001" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.exchangeRate" />
           </div>
         </div>
 
@@ -96,8 +104,20 @@ export class BlanketOrderFormComponent implements OnInit {
 
   form: any = {
     orderType: 'Selling', fromDate: '', toDate: '', partyId: '',
+    currency: this.companyContext.currentCurrency() || 'MYR',
+    exchangeRate: 1,
     items: [{ itemId: '', qty: 1, rate: 0, stockUom: '' }]
   };
+
+  onCurrencyChange(value: string): void {
+    this.isDirty = true;
+    const trimmed = (value || '').trim().toUpperCase();
+    this.form.currency = trimmed;
+    const baseCurrency = (this.companyContext.currentCurrency() || 'MYR').toUpperCase();
+    if (trimmed === baseCurrency) {
+      this.form.exchangeRate = 1;
+    }
+  }
 
   ngOnInit(): void {
     this.loadParties();
@@ -125,6 +145,8 @@ export class BlanketOrderFormComponent implements OnInit {
       partyId: this.form.partyId || undefined,
       fromDate: this.form.fromDate,
       toDate: this.form.toDate,
+      currency: (this.form.currency || this.companyContext.currentCurrency() || 'MYR').trim().toUpperCase(),
+      exchangeRate: this.form.exchangeRate > 0 ? Number(this.form.exchangeRate) : 1,
       items: this.form.items
         .filter((i: any) => i.itemId)
         .map((i: any) => ({ itemId: i.itemId, qty: i.qty || 0, rate: i.rate || 0, stockUom: i.stockUom || undefined }))
