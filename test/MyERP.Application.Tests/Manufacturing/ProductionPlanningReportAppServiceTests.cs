@@ -658,4 +658,57 @@ public class ProductionPlanningReportAppServiceTests
         result.Rows[1].AllottedQty.ShouldBe(1m);
         result.Rows[1].ShortageQty.ShouldBe(4m);
     }
+
+    // ERPNext commit 4f1d2e3dd8: compare a Manufacture request's ordered qty against StockQty.
+    [Fact]
+    public async Task GetReportAsync_ManufactureMaterialRequest_ComparesOrderedQuantityAgainstStockQty()
+    {
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var fgItem = new Item(fgItemId, _companyId, "FG-MR-UOM", "FG Boxed", ItemType.Goods) { Uom = "Unit" };
+        var rmItem = new Item(rmItemId, _companyId, "RM-MR-UOM", "RM Sheet", ItemType.Goods) { Uom = "Unit" };
+        var warehouse = new Warehouse(whId, _companyId, "Stores - MR");
+
+        var bom = new BillOfMaterials(bomId, _companyId, "BOM-MR-UOM", fgItemId)
+        {
+            Quantity = 1m,
+            IsActive = true,
+            SourceWarehouseId = whId,
+            TargetWarehouseId = whId
+        };
+        bom.Items.Add(new BomItem(Guid.NewGuid(), bomId, rmItemId, "RM Sheet", 2m, 10m) { SourceWarehouseId = whId });
+
+        // Request 2 Boxes with conversion factor 10 (= 20 Units); 10 Units already ordered via WO -> 10 Units pending
+        var mr = new MaterialRequest(Guid.NewGuid(), _companyId, "MR-MFG-001", MaterialRequestType.Manufacture, DateTime.UtcNow.Date)
+        {
+            TargetWarehouseId = whId,
+            SourceWarehouseId = whId
+        };
+        mr.AddItem(fgItemId, "FG Boxed", 2m, "Box", whId, conversionFactor: 10m);
+        mr.Submit();
+        mr.Items[0].OrderedQuantity = 10m;
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }));
+        _mrRepo.WithDetailsAsync(Arg.Any<Expression<Func<MaterialRequest, object>>[]>())
+            .Returns(Task.FromResult(new List<MaterialRequest> { mr }.AsQueryable()));
+        _bomRepo.WithDetailsAsync(Arg.Any<Expression<Func<BillOfMaterials, object>>[]>())
+            .Returns(Task.FromResult(new List<BillOfMaterials> { bom }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin>()));
+
+        var result = await _appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "MaterialRequest"
+        });
+
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].QtyToManufacture.ShouldBe(10m);
+        result.Rows[0].RequiredQty.ShouldBe(20m);
+    }
 }

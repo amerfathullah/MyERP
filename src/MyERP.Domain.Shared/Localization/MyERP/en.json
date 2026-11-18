@@ -6404,7 +6404,9 @@
     "StockReceivedButNotBilledAccount": "Stock Received But Not Billed Account",
     "StockDeliveredButNotBilledAccount": "Stock Delivered But Not Billed Account",
     "StockAdjustmentAccount": "Stock Adjustment Account",
-    "ClearAccountMapping": "Clear Account Mapping"
+    "ClearAccountMapping": "Clear Account Mapping",
+    "QtyDiff": "Qty Diff",
+    "AmountDiff": "Amount Diff"
   }
 }
 

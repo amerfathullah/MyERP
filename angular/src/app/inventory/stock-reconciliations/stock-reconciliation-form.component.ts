@@ -16,8 +16,53 @@ export interface ReconciliationFormRow {
   warehouseId: string;
   currentQuantity: number;
   currentValuationRate: number;
-  newQuantity: number;
-  newValuationRate: number;
+  newQuantity: number | null;
+  newValuationRate: number | null;
+}
+
+export interface ReconciliationPreviewValues {
+  effectiveQty: number;
+  effectiveRate: number;
+  currentAmount: number;
+  newAmount: number;
+  quantityDifference: number;
+  amountDifference: number;
+}
+
+function roundTo(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+/**
+ * Derives live Stock Reconciliation preview figures (ERPNext stock_reconciliation.js parity):
+ * - Blank/null newQuantity or newValuationRate falls back to current value (no false write-off).
+ * - Explicit 0 refreshes amounts and differences to 0 / -currentAmount.
+ * - Derives currentAmount from currentQuantity * currentValuationRate and rounds diffs cleanly.
+ */
+export function computeReconciliationPreview(row: ReconciliationFormRow): ReconciliationPreviewValues {
+  const curQty = Number(row.currentQuantity ?? 0);
+  const curRate = Number(row.currentValuationRate ?? 0);
+  const effectiveQty = row.newQuantity === null || row.newQuantity === undefined || (row.newQuantity as unknown) === ''
+    ? curQty
+    : Number(row.newQuantity);
+  const effectiveRate = row.newValuationRate === null || row.newValuationRate === undefined || (row.newValuationRate as unknown) === ''
+    ? curRate
+    : Number(row.newValuationRate);
+
+  const currentAmount = roundTo(curQty * curRate, 2);
+  const newAmount = roundTo(effectiveQty * effectiveRate, 2);
+  const quantityDifference = roundTo(effectiveQty - curQty, 4);
+  const amountDifference = roundTo(newAmount - currentAmount, 2);
+
+  return {
+    effectiveQty,
+    effectiveRate,
+    currentAmount,
+    newAmount,
+    quantityDifference,
+    amountDifference,
+  };
 }
 
 export function mapReconciliationPreviewRows(
@@ -73,9 +118,22 @@ export function mapReconciliationPreviewRows(
 
         <h6 class="mb-2">{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Warehouse' | abpLocalization }}</th><th>{{ '::CurrentQty' | abpLocalization }}</th><th>{{ '::CurrentValuationRate' | abpLocalization }}</th><th>{{ '::NewQty' | abpLocalization }}</th><th>{{ '::Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th>{{ '::Warehouse' | abpLocalization }}</th>
+              <th>{{ '::CurrentQty' | abpLocalization }}</th>
+              <th>{{ '::CurrentValuationRate' | abpLocalization }}</th>
+              <th>{{ '::NewQty' | abpLocalization }}</th>
+              <th>{{ '::Rate' | abpLocalization }}</th>
+              <th class="text-end">{{ '::QtyDiff' | abpLocalization }}</th>
+              <th class="text-end">{{ '::AmountDiff' | abpLocalization }}</th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
             @for (item of form.items; track $index) {
+              @let preview = getRowPreview(item);
               <tr>
                 <td>
                   <select class="form-select form-select-sm" (ngModelChange)="isDirty=true; onRowSelectionChanged(item)" [(ngModel)]="item.itemId">
@@ -93,10 +151,23 @@ export function mapReconciliationPreviewRows(
                 <td><input type="number" class="form-control form-control-sm" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.currentValuationRate" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" (ngModelChange)="isDirty=true" [(ngModel)]="item.newQuantity" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.newValuationRate" /></td>
+                <td class="text-end align-middle font-monospace" [class.text-success]="preview.quantityDifference > 0" [class.text-danger]="preview.quantityDifference < 0">
+                  {{ preview.quantityDifference | number:'1.0-4' }}
+                </td>
+                <td class="text-end align-middle font-monospace" [class.text-success]="preview.amountDifference > 0" [class.text-danger]="preview.amountDifference < 0">
+                  {{ preview.amountDifference | number:'1.2-2' }}
+                </td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index,1); isDirty=true"><i class="fa fa-trash"></i></button></td>
               </tr>
             }
           </tbody>
+          <tfoot>
+            <tr class="fw-semibold">
+              <td colspan="7" class="text-end">{{ '::DifferenceAmount' | abpLocalization }}</td>
+              <td class="text-end font-monospace">{{ getTotalDifferenceAmount() | number:'1.2-2' }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
         <button class="btn btn-sm btn-outline-primary mb-3" (click)="addItem()"><i class="fa fa-plus me-1"></i>{{ '::AddItem' | abpLocalization }}</button>
 
@@ -126,7 +197,7 @@ export class StockReconciliationFormComponent implements OnInit {
 
   form: any = {
     postingDate: new Date().toISOString().split('T')[0], purpose: 'Stock Count',
-    items: [{ itemId: '', warehouseId: '', currentQuantity: 0, currentValuationRate: 0, newQuantity: 0, newValuationRate: 0 }]
+    items: [{ itemId: '', warehouseId: '', currentQuantity: 0, currentValuationRate: 0, newQuantity: null, newValuationRate: null }]
   };
 
   ngOnInit(): void {
@@ -144,10 +215,23 @@ export class StockReconciliationFormComponent implements OnInit {
       warehouseId: this.fetchWarehouseId || '',
       currentQuantity: 0,
       currentValuationRate: 0,
-      newQuantity: 0,
-      newValuationRate: 0,
+      newQuantity: null,
+      newValuationRate: null,
     });
     this.isDirty = true;
+  }
+
+  getRowPreview(row: ReconciliationFormRow): ReconciliationPreviewValues {
+    return computeReconciliationPreview(row);
+  }
+
+  getTotalDifferenceAmount(): number {
+    return roundTo(
+      (this.form.items as ReconciliationFormRow[])
+        .filter(i => i.itemId && i.warehouseId)
+        .reduce((sum, item) => sum + computeReconciliationPreview(item).amountDifference, 0),
+      2,
+    );
   }
 
   fetchItemsFromWarehouse(): void {
@@ -184,7 +268,10 @@ export class StockReconciliationFormComponent implements OnInit {
       next: preview => {
         row.currentQuantity = preview.currentQuantity ?? 0;
         row.currentValuationRate = preview.currentValuationRate ?? 0;
-        if (!row.newValuationRate) {
+        if (row.newQuantity === null || row.newQuantity === undefined) {
+          row.newQuantity = preview.currentQuantity ?? 0;
+        }
+        if (row.newValuationRate === null || row.newValuationRate === undefined || !row.newValuationRate) {
           row.newValuationRate = preview.currentValuationRate ?? 0;
         }
       },
@@ -200,11 +287,17 @@ export class StockReconciliationFormComponent implements OnInit {
       purpose: this.form.purpose,
       items: this.form.items
         .filter((i: any) => i.itemId && i.warehouseId)
-        .map((i: any) => ({
-          itemId: i.itemId, warehouseId: i.warehouseId,
-          currentQuantity: i.currentQuantity || 0, currentValuationRate: i.currentValuationRate || 0,
-          newQuantity: i.newQuantity || 0, newValuationRate: i.newValuationRate || 0,
-        }))
+        .map((i: ReconciliationFormRow) => {
+          const preview = computeReconciliationPreview(i);
+          return {
+            itemId: i.itemId,
+            warehouseId: i.warehouseId,
+            currentQuantity: i.currentQuantity ?? 0,
+            currentValuationRate: i.currentValuationRate ?? 0,
+            newQuantity: preview.effectiveQty,
+            newValuationRate: preview.effectiveRate,
+          };
+        })
     };
     this.stockReconciliationService.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/inventory/stock-reconciliations']); },

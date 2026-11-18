@@ -498,6 +498,7 @@ public class CustomerAppService :
         var customerInvoices = siQ
             .Where(si => si.CustomerId == input.CustomerId
                 && si.CompanyId == input.CompanyId
+                && !si.IsOpening
                 && (si.Status == DocumentStatus.Posted || si.Status == DocumentStatus.Submitted))
             .ToList();
 
@@ -536,7 +537,7 @@ public class CustomerAppService :
         }
 
         var overdueInvoices = outstandingInvoices
-            .Where(si => si.DueDate.HasValue && si.DueDate.Value < asOfDate)
+            .Where(si => si.DueDate.HasValue && si.DueDate.Value.Date < asOfDate)
             .ToList();
         var overdueTotal = overdueInvoices.Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
 
@@ -544,7 +545,7 @@ public class CustomerAppService :
         var overdue30Total = customerInvoices
             .Where(si => !si.IsReturn
                 && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0
-                && si.DueDate.HasValue && si.DueDate.Value < asOf30DaysAgo)
+                && si.DueDate.HasValue && si.DueDate.Value.Date < asOf30DaysAgo)
             .Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
 
         // Credit limit resolution

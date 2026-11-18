@@ -53,13 +53,20 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     private readonly List<MaterialRequestItem> _items = new();
     public IReadOnlyList<MaterialRequestItem> Items => _items.AsReadOnly();
 
-    /// <summary>Ordered completion %. MIN% formula per ERPNext StatusUpdater.</summary>
+    /// <summary>Ordered completion %. MIN% formula per ERPNext StatusUpdater.
+    /// Manufacture requests track OrderedQuantity in stock UOM (WorkOrder.Quantity), so denominator is StockQty.</summary>
     public decimal PerOrdered
     {
         get
         {
             if (!_items.Any()) return 0;
-            return _items.Min(i => i.Quantity == 0 ? 100 : Math.Min(100, i.OrderedQuantity / i.Quantity * 100));
+            return _items.Min(i =>
+            {
+                var targetQty = RequestType == MaterialRequestType.Manufacture && i.StockQty > 0
+                    ? i.StockQty
+                    : i.Quantity;
+                return targetQty == 0 ? 100 : Math.Min(100, i.OrderedQuantity / targetQty * 100);
+            });
         }
     }
 

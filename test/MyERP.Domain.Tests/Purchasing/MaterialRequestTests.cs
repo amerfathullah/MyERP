@@ -298,6 +298,30 @@ public class MaterialRequestTests
         await manager.ValidateWithSalesOrderAsync(mr, soRepo); // Should not throw
     }
 
+    [Fact]
+    public void ManufactureRequest_PerOrdered_UsesStockQtyDenominator()
+    {
+        // ERPNext commit 4f1d2e3dd8: Work Orders update OrderedQuantity in stock UOM.
+        var mr = new MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-MFG-UOM-1",
+            MaterialRequestType.Manufacture, DateTime.UtcNow);
+        mr.AddItem(Guid.NewGuid(), "Widget", 2m, "Box", conversionFactor: 10m);
+        mr.Submit();
+
+        // Ordering 10 units out of 20 stock units = 50% (not 10/2 = 100%)
+        mr.Items[0].OrderedQuantity = 10m;
+        mr.UpdateFulfillmentStatus();
+
+        mr.PerOrdered.ShouldBe(50m);
+        mr.Status.ShouldBe(Core.DocumentStatus.Submitted);
+
+        // Ordering all 20 stock units = 100% -> Completed
+        mr.Items[0].OrderedQuantity = 20m;
+        mr.UpdateFulfillmentStatus();
+
+        mr.PerOrdered.ShouldBe(100m);
+        mr.Status.ShouldBe(Core.DocumentStatus.Completed);
+    }
+
     private static MaterialRequest CreateMaterialRequest() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "MR-0001",
             MaterialRequestType.Purchase, DateTime.UtcNow, Guid.NewGuid());

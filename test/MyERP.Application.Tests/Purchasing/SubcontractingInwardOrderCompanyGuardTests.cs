@@ -215,4 +215,66 @@ public abstract class SubcontractingInwardOrderCompanyGuardTests<TStartupModule>
                 }));
         });
     }
+
+    // ERPNext commit 7e93294514: allow_delivery_of_overproduced_qty setting on SCIO.
+    [Fact]
+    public async Task ReceiveItemsAsync_RespectsAllowDeliveryOfOverproducedQtySetting()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var scioAppService = GetRequiredService<ISubcontractingInwardOrderAppService>();
+            var settingsService = GetRequiredService<MyERP.Settings.IErpSettingsAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SCIO Overprod Co"), autoSave: true);
+            var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "SCIO Overprod Sup"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "SCIO-OVP-1", "SCIO OVP Item", ItemType.Goods), autoSave: true);
+            var wh = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "SCIO OVP WH"), autoSave: true);
+
+            var created = await scioAppService.CreateAsync(new CreateSubcontractingInwardOrderDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                OrderDate = DateTime.UtcNow.Date,
+                Items = new List<CreateScioItemDto>
+                {
+                    new() { ItemId = item.Id, Quantity = 10m, Rate = 20m, WarehouseId = wh.Id, ServiceCostPerQty = 5m }
+                }
+            });
+            await scioAppService.SubmitAsync(created.Id);
+
+            // Default false: receiving 12 > 10 fails
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                scioAppService.ReceiveItemsAsync(created.Id, new ScioReceiveItemsDto
+                {
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<ScioReceiveItemDto>
+                    {
+                        new() { SubcontractingInwardOrderItemId = created.Items[0].Id, ItemId = item.Id, Qty = 12m }
+                    }
+                }));
+
+            // Enable AllowDeliveryOfOverproducedQty: action summary exposes it and receipt > ordered succeeds
+            await settingsService.SetAsync(
+                MyERP.Settings.MyERPSettings.Selling.AllowDeliveryOfOverproducedQty,
+                "true");
+
+            var summary = await scioAppService.GetActionSummaryAsync(created.Id);
+            summary.AllowDeliveryOfOverproducedQty.ShouldBeTrue();
+
+            var updated = await scioAppService.ReceiveItemsAsync(created.Id, new ScioReceiveItemsDto
+            {
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<ScioReceiveItemDto>
+                {
+                    new() { SubcontractingInwardOrderItemId = created.Items[0].Id, ItemId = item.Id, Qty = 12m }
+                }
+            });
+            updated.Items[0].ReceivedQty.ShouldBe(12m);
+        });
+    }
 }

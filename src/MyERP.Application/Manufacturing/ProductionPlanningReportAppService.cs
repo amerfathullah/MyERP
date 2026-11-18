@@ -464,7 +464,8 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 var prodItemCode = prodItem?.ItemCode ?? string.Empty;
                 var prodItemName = prodItem?.ItemName ?? mrItem.ItemName;
 
-                var pendingQty = Math.Max(0m, mrItem.Quantity - mrItem.OrderedQuantity);
+                var targetQty = mrItem.StockQty > 0 ? mrItem.StockQty : mrItem.Quantity;
+                var pendingQty = Math.Max(0m, targetQty - mrItem.OrderedQuantity);
                 if (pendingQty <= 0) continue;
 
                 if (!bomMap.TryGetValue(mrItem.ItemId, out var bom))

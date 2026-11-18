@@ -87,4 +87,44 @@ describe('SubcontractingInwardDetailComponent Action Summary', () => {
     comp.cancelOrder();
     expect(toasterMock.error).toHaveBeenCalledWith('Cancel failed');
   });
+
+  it('allows opening receipt dialog for completed items when allowDeliveryOfOverproducedQty is enabled', () => {
+    const scioMock = {
+      get: vi.fn().mockReturnValue(of({
+        id: 'scio-1',
+        status: 3,
+        items: [{ id: 'row-1', itemId: 'item-1', quantity: 10, receivedQty: 10, pendingReceiptQty: 0 }],
+      })),
+      getActionSummary: vi.fn().mockReturnValue(of({
+        orderId: 'scio-1',
+        pendingItemCount: 0,
+        canClose: false,
+        canReopen: false,
+        canCancel: false,
+        allowDeliveryOfOverproducedQty: true,
+      })),
+    };
+
+    const injector = Injector.create({
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'scio-1' } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ConfirmationService, useValue: {} },
+        { provide: SubcontractingInwardOrderService, useValue: scioMock },
+        { provide: SubcontractingService, useValue: {} },
+        { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: SalesOrderService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        { provide: ItemService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new SubcontractingInwardDetailComponent());
+    comp.ngOnInit();
+    comp.openReceiptDialog();
+
+    expect(comp.showReceiptDialog()).toBe(true);
+    expect(comp.receiptItems()).toHaveLength(1);
+    expect(comp.receiptItems()[0].itemId).toBe('item-1');
+  });
 });

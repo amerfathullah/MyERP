@@ -1536,6 +1536,7 @@ export interface SubcontractingInwardOrderActionSummaryDto {
   canClose?: boolean;
   canCancel?: boolean;
   pendingItemCount?: number;
+  allowDeliveryOfOverproducedQty?: boolean;
 }
 
 export interface SubcontractingInwardOrderDto extends EntityDto<string> {

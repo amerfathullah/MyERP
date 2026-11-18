@@ -144,7 +144,7 @@ import type { SubcontractingInwardOrderActionSummaryDto } from '../../proxy/purc
               <i class="fa fa-paper-plane me-1"></i>{{ '::Submit' | abpLocalization }}
             </button>
           }
-          @if (o.status === 1 || o.status === 2) {
+          @if (o.status === 1 || o.status === 2 || (o.status === 3 && actionSummary()?.allowDeliveryOfOverproducedQty)) {
             <button class="btn btn-success btn-sm" (click)="openReceiptDialog()">
               <i class="fa fa-box-open me-1"></i>{{ '::CreateReceipt' | abpLocalization }}
             </button>
@@ -191,7 +191,9 @@ import type { SubcontractingInwardOrderActionSummaryDto } from '../../proxy/purc
                       </td>
                       <td class="text-center">
                         <input type="number" class="form-control form-control-sm text-center"
-                          [(ngModel)]="item.receiveQty" [max]="item.pendingQty" min="0" step="0.01">
+                          [(ngModel)]="item.receiveQty"
+                          [attr.max]="actionSummary()?.allowDeliveryOfOverproducedQty ? null : item.pendingQty"
+                          min="0" step="0.01">
                       </td>
                     </tr>
                   }
@@ -347,15 +349,20 @@ export class SubcontractingInwardDetailComponent implements OnInit {
   openReceiptDialog(): void {
     const o = this.order();
     if (!o?.items?.length) return;
-    const items = (o.items as any[]).filter(i => (i.pendingReceiptQty ?? (i.quantity - (i.receivedQty ?? 0))) > 0)
-      .map(i => ({
-        subcontractingInwardOrderItemId: i.id,
-        itemId: i.itemId,
-        orderedQty: i.quantity ?? 0,
-        receivedQty: i.receivedQty ?? 0,
-        pendingQty: i.pendingReceiptQty ?? Math.max(0, (i.quantity ?? 0) - (i.receivedQty ?? 0)),
-        receiveQty: i.pendingReceiptQty ?? Math.max(0, (i.quantity ?? 0) - (i.receivedQty ?? 0)),
-      }));
+    const allowOverproduced = !!this.actionSummary()?.allowDeliveryOfOverproducedQty;
+    const items = (o.items as any[])
+      .filter(i => allowOverproduced || (i.pendingReceiptQty ?? (i.quantity - (i.receivedQty ?? 0))) > 0)
+      .map(i => {
+        const pending = i.pendingReceiptQty ?? Math.max(0, (i.quantity ?? 0) - (i.receivedQty ?? 0));
+        return {
+          subcontractingInwardOrderItemId: i.id,
+          itemId: i.itemId,
+          orderedQty: i.quantity ?? 0,
+          receivedQty: i.receivedQty ?? 0,
+          pendingQty: pending,
+          receiveQty: pending,
+        };
+      });
     this.receiptItems.set(items);
     this.showReceiptDialog.set(true);
   }

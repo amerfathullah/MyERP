@@ -6,12 +6,14 @@ using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
+using MyERP.Settings;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -375,6 +377,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
     {
         var entity = await _repository.GetAsync(id);
         var pendingItems = entity.Items.Count(i => i.PendingReceiptQty > 0);
+        var allowOverproduced = await IsOverproducedDeliveryAllowedAsync();
 
         return new SubcontractingInwardOrderActionSummaryDto
         {
@@ -385,8 +388,21 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             CanReopen = entity.Status == SubcontractingInwardOrderStatus.Closed,
             CanClose = entity.Status == SubcontractingInwardOrderStatus.Open || entity.Status == SubcontractingInwardOrderStatus.PartiallyReceived,
             CanCancel = entity.Status == SubcontractingInwardOrderStatus.Open || entity.Status == SubcontractingInwardOrderStatus.PartiallyReceived,
-            PendingItemCount = pendingItems
+            PendingItemCount = pendingItems,
+            AllowDeliveryOfOverproducedQty = allowOverproduced
         };
+    }
+
+    private async Task<bool> IsOverproducedDeliveryAllowedAsync()
+    {
+        if (LazyServiceProvider == null)
+            return false;
+
+        var settingProvider = LazyServiceProvider.LazyGetService<ISettingProvider>();
+        if (settingProvider == null)
+            return false;
+
+        return await settingProvider.IsTrueAsync(MyERPSettings.Selling.AllowDeliveryOfOverproducedQty);
     }
 
     /// <summary>
@@ -406,8 +422,11 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
 
         var entity = await _repository.GetAsync(id);
 
+        var allowOverproduced = await IsOverproducedDeliveryAllowedAsync();
+        var canReceiveCompleted = allowOverproduced && entity.Status == SubcontractingInwardOrderStatus.Completed;
         if (entity.Status != SubcontractingInwardOrderStatus.Open &&
-            entity.Status != SubcontractingInwardOrderStatus.PartiallyReceived)
+            entity.Status != SubcontractingInwardOrderStatus.PartiallyReceived &&
+            !canReceiveCompleted)
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Items can only be received against an Open or Partially Received Subcontracting Inward Order.");
@@ -425,7 +444,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
                 ?? throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
                     .WithData("detail", "Item is not part of this Subcontracting Inward Order.");
 
-            if (receiveItem.Qty > item.PendingReceiptQty)
+            if (!allowOverproduced && receiveItem.Qty > item.PendingReceiptQty)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Receive quantity ({receiveItem.Qty}) exceeds pending quantity ({item.PendingReceiptQty}) for the item.");

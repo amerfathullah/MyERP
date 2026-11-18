@@ -265,6 +265,7 @@ public class SubcontractingInwardOrderActionSummaryDto
     public bool CanClose { get; set; }
     public bool CanCancel { get; set; }
     public int PendingItemCount { get; set; }
+    public bool AllowDeliveryOfOverproducedQty { get; set; }
 }
 
 public class ScioReceiveItemsDto
