@@ -161,6 +161,14 @@
                 <tr [formGroup]="$any(row)">
                   <td>
                     <app-item-picker formControlName="itemId" (itemSelected)="onItemSelected(i, $event)" />
+                    @let bo = getBlanketOrderInfo(i);
+                    @if (bo) {
+                      <div class="mt-1">
+                        <small class="text-primary">
+                          <i class="fa fa-link me-1"></i>{{ bo.orderNumber }} ({{ bo.remainingQty | number:'1.0-2' }} {{ '::Remaining' | abpLocalization }})
+                        </small>
+                      </div>
+                    }
                   </td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:ItemDescription' | abpLocalization" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>

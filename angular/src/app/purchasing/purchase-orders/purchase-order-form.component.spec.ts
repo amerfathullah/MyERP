@@ -1,5 +1,24 @@
-import { describe, it, expect } from 'vitest';
-import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { FormArray, FormBuilder, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { describe, it, expect, vi } from 'vitest';
+import { PurchaseOrderFormComponent } from './purchase-order-form.component';
+import { PurchaseOrderService } from '../../proxy/purchasing/purchase-order.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
+import { SupplierQuotationService } from '../../proxy/purchasing/supplier-quotation.service';
+import { CompanyService } from '../../proxy/core/company.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
+import { CurrencyExchangeService } from '../../proxy/accounting/currency-exchange.service';
+import { TaxCategoryService } from '../../proxy/tax/tax-category.service';
+import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
+import { TaxCalculationService } from '../../shared/services/tax-calculation.service';
+import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 /**
  * Tests for the Purchase Order form item management and calculation patterns.
@@ -130,6 +149,61 @@ describe('PurchaseOrder form item calculations', () => {
       form.get('supplierId')?.setValue('sup-1');
       form.get('supplierId')?.markAsDirty();
       expect(form.dirty).toBe(true);
+    });
+  });
+
+  describe('BlanketOrder auto-linking on item selection', () => {
+    it('patches blanketOrderId, displays hint, and shifts hints on row removal', () => {
+      const getItemDetailsMock = vi.fn().mockReturnValue(of({
+        rate: 42.5,
+        description: 'Contract Item',
+        blanketOrderId: 'bo-buy-1',
+        blanketOrderNumber: 'BO-BUY-2026-001',
+        blanketOrderRemainingQty: 80,
+      }));
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: fb },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+          { provide: PurchaseOrderService, useValue: {} },
+          { provide: SupplierService, useValue: {} },
+          { provide: SupplierQuotationService, useValue: {} },
+          { provide: CompanyService, useValue: {} },
+          { provide: WarehouseService, useValue: {} },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: PartyDetailsService, useValue: {} },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: TaxCategoryService, useValue: {} },
+          { provide: TaxRuleService, useValue: {} },
+          { provide: TaxCalculationService, useValue: {} },
+          { provide: PriceListService, useValue: {} },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: ToasterService, useValue: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), success: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseOrderFormComponent());
+      comp.form.patchValue({ companyId: 'comp-1', supplierId: 'sup-1', orderDate: '2026-11-18' });
+      comp.addItemRow();
+      comp.addItemRow();
+
+      comp.onItemSelected(1, { id: 'item-2', itemName: 'Widget', itemCode: 'W-2' } as any);
+
+      expect(getItemDetailsMock).toHaveBeenCalledWith(expect.objectContaining({
+        itemId: 'item-2',
+        transactionType: 'Buying',
+        supplierId: 'sup-1',
+        transactionDate: '2026-11-18',
+      }));
+      expect(comp.items.at(1).get('blanketOrderId')?.value).toBe('bo-buy-1');
+      expect(comp.items.at(1).get('unitPrice')?.value).toBe(42.5);
+      expect(comp.getBlanketOrderInfo(1)).toEqual({ orderNumber: 'BO-BUY-2026-001', remainingQty: 80 });
+
+      comp.removeItemRow(0);
+      expect(comp.getBlanketOrderInfo(0)).toEqual({ orderNumber: 'BO-BUY-2026-001', remainingQty: 80 });
+      expect(comp.getBlanketOrderInfo(1)).toBeNull();
     });
   });
 });

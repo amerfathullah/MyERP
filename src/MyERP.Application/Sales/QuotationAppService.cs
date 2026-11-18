@@ -799,23 +799,11 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                     .WithData("quotationCompany", companyId);
             }
 
-            bo.ValidateCanBeOrdered(issueDate, expectedOrderType: "Selling", partyId: customerId);
-
-            foreach (var row in itemList.Where(i => i.BlanketOrderId == bo.Id))
-            {
-                var boItem = bo.Items.FirstOrDefault(x => x.ItemId == row.ItemId);
-                if (boItem == null)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Item {row.ItemId} is not part of Blanket Order {bo.OrderNumber}.");
-                }
-
-                if (boItem.IsClosed)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                        .WithData("detail", $"Blanket Order item for item {row.ItemId} is closed.");
-                }
-            }
+            bo.ValidateOrderItems(
+                issueDate,
+                "Selling",
+                customerId,
+                itemList.Where(i => i.BlanketOrderId == bo.Id).Select(i => i.ItemId));
         }
     }
 }

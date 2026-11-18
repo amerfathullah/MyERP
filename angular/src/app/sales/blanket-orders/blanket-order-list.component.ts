@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
 import type { BlanketOrderDto } from '../../proxy/sales/models';
 
@@ -12,7 +13,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
 @Component({
   selector: 'app-blanket-order-list',
   standalone: true,
-  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::BlanketOrders' | abpLocalization">
@@ -49,9 +50,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td>{{ bo.fromDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ bo.toDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ (bo.items ?? []).length }}</td>
-                  <td><span class="badge" [ngClass]="{'bg-secondary': bo.status===0, 'bg-success': bo.status===1, 'bg-danger': bo.status===4}">
-                    {{ ['Draft','Active','','','Cancelled'][bo.status ?? 0] }}
-                  </span></td>
+                  <td><app-status-badge [status]="getStatusLabel(bo.status)" /></td>
                 </tr>
               }
             </tbody>
@@ -82,4 +81,13 @@ export class BlanketOrderListComponent implements OnInit {
   }
 
   onPageChange(event: PageEvent): void { this.currentPage = event.pageIndex; this.load(); }
+
+  getStatusLabel(status?: number): string {
+    switch (status) {
+      case 1: return 'Active';
+      case 4: return 'Cancelled';
+      case 14: return 'Closed';
+      default: return 'Draft';
+    }
+  }
 }

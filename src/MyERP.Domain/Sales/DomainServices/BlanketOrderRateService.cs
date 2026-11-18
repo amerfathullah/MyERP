@@ -31,6 +31,9 @@ public class BlanketOrderRateService : DomainService
         string orderType, DateTime transactionDate,
         string? targetCurrency = null, decimal targetExchangeRate = 1m)
     {
+        if (partyId == Guid.Empty || itemId == Guid.Empty)
+            return null;
+
         var queryable = await _boRepository.GetQueryableAsync();
         var orders = queryable
             .Where(bo => bo.CompanyId == companyId

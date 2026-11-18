@@ -343,4 +343,63 @@ public abstract class SalesOrderCompanyGuardTests<TStartupModule> : MyERPApplica
             ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyFrozen);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_MismatchedBlanketOrderTypePartyOrItem_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var boRepo = GetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var soAppService = GetRequiredService<ISalesOrderAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SO BO Guard Co"), autoSave: true);
+            var customerA = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SO BO Cust A"), autoSave: true);
+            var customerB = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SO BO Cust B"), autoSave: true);
+            var itemInBo = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SOBO-1", "SO BO Item 1", ItemType.Goods), autoSave: true);
+            var itemNotInBo = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SOBO-2", "SO BO Item 2", ItemType.Goods), autoSave: true);
+
+            var sellingBo = new BlanketOrder(Guid.NewGuid(), company.Id, "BO-SELL-1", "Selling", customerB.Id, DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(30));
+            sellingBo.AddItem(itemInBo.Id, 10m, 100m);
+            sellingBo.Submit();
+            await boRepo.InsertAsync(sellingBo, autoSave: true);
+
+            var buyingBo = new BlanketOrder(Guid.NewGuid(), company.Id, "BO-BUY-1", "Buying", customerA.Id, DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(30));
+            buyingBo.AddItem(itemInBo.Id, 10m, 100m);
+            buyingBo.Submit();
+            await boRepo.InsertAsync(buyingBo, autoSave: true);
+
+            // Wrong customer
+            await Should.ThrowAsync<BusinessException>(() =>
+                soAppService.CreateAsync(new CreateSalesOrderDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customerA.Id,
+                    OrderDate = DateTime.UtcNow.Date,
+                    Items = { new() { ItemId = itemInBo.Id, Description = "SO BO Item 1", Quantity = 1m, UnitPrice = 100m, BlanketOrderId = sellingBo.Id } }
+                }));
+
+            // Buying Blanket Order linked to a Sales Order
+            await Should.ThrowAsync<BusinessException>(() =>
+                soAppService.CreateAsync(new CreateSalesOrderDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customerA.Id,
+                    OrderDate = DateTime.UtcNow.Date,
+                    Items = { new() { ItemId = itemInBo.Id, Description = "SO BO Item 1", Quantity = 1m, UnitPrice = 100m, BlanketOrderId = buyingBo.Id } }
+                }));
+
+            // Non-member item linked to customer B's Blanket Order
+            await Should.ThrowAsync<BusinessException>(() =>
+                soAppService.CreateAsync(new CreateSalesOrderDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customerB.Id,
+                    OrderDate = DateTime.UtcNow.Date,
+                    Items = { new() { ItemId = itemNotInBo.Id, Description = "SO BO Item 2", Quantity = 1m, UnitPrice = 100m, BlanketOrderId = sellingBo.Id } }
+                }));
+        });
+    }
 }

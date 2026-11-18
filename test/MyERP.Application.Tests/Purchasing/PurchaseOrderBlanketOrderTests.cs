@@ -121,4 +121,63 @@ public abstract class PurchaseOrderBlanketOrderTests<TStartupModule> : MyERPAppl
             bo.Items[0].OrderedQty.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_MismatchedBlanketOrderSupplierTypeOrItem_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var boRepo = GetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var poAppService = GetRequiredService<IPurchaseOrderAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PO BO Guard Co"), autoSave: true);
+            var supplierA = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PO BO Supp A"), autoSave: true);
+            var supplierB = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PO BO Supp B"), autoSave: true);
+            var itemInBo = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "POBO-1", "PO BO Item 1", ItemType.Goods), autoSave: true);
+            var itemNotInBo = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "POBO-2", "PO BO Item 2", ItemType.Goods), autoSave: true);
+
+            var buyingBo = new BlanketOrder(Guid.NewGuid(), company.Id, "BO-PO-BUY", "Buying", supplierB.Id, DateTime.Today, DateTime.Today.AddMonths(1));
+            buyingBo.AddItem(itemInBo.Id, 10m, 10m);
+            buyingBo.Submit();
+            await boRepo.InsertAsync(buyingBo, autoSave: true);
+
+            var sellingBo = new BlanketOrder(Guid.NewGuid(), company.Id, "BO-PO-SELL", "Selling", supplierA.Id, DateTime.Today, DateTime.Today.AddMonths(1));
+            sellingBo.AddItem(itemInBo.Id, 10m, 10m);
+            sellingBo.Submit();
+            await boRepo.InsertAsync(sellingBo, autoSave: true);
+
+            // Wrong supplier
+            await Should.ThrowAsync<BusinessException>(() =>
+                poAppService.CreateAsync(new CreatePurchaseOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplierA.Id,
+                    OrderDate = DateTime.Today,
+                    Items = { new() { ItemId = itemInBo.Id, Description = "PO BO Item 1", Quantity = 1m, UnitPrice = 10m, BlanketOrderId = buyingBo.Id } }
+                }));
+
+            // Selling Blanket Order on a Purchase Order
+            await Should.ThrowAsync<BusinessException>(() =>
+                poAppService.CreateAsync(new CreatePurchaseOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplierA.Id,
+                    OrderDate = DateTime.Today,
+                    Items = { new() { ItemId = itemInBo.Id, Description = "PO BO Item 1", Quantity = 1m, UnitPrice = 10m, BlanketOrderId = sellingBo.Id } }
+                }));
+
+            // Non-member item on supplier B's Blanket Order
+            await Should.ThrowAsync<BusinessException>(() =>
+                poAppService.CreateAsync(new CreatePurchaseOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplierB.Id,
+                    OrderDate = DateTime.Today,
+                    Items = { new() { ItemId = itemNotInBo.Id, Description = "PO BO Item 2", Quantity = 1m, UnitPrice = 10m, BlanketOrderId = buyingBo.Id } }
+                }));
+        });
+    }
 }

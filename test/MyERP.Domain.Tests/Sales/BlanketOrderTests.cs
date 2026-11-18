@@ -258,4 +258,19 @@ public class BlanketOrderTests
 
         Should.Throw<BusinessException>(() => bo.CloseItem(itemId));
     }
+
+    [Fact]
+    public void ValidateOrderItems_RejectsWrongOrderTypeWrongPartyAndNonMemberItem()
+    {
+        var bo = CreateBO();
+        var itemId = Guid.NewGuid();
+        var partyId = bo.PartyId;
+        bo.AddItem(itemId, 50, 10m);
+        bo.Submit();
+
+        Should.NotThrow(() => bo.ValidateOrderItems(new DateTime(2026, 6, 1), "Selling", partyId, new[] { itemId }));
+        Should.Throw<BusinessException>(() => bo.ValidateOrderItems(new DateTime(2026, 6, 1), "Buying", partyId, new[] { itemId }));
+        Should.Throw<BusinessException>(() => bo.ValidateOrderItems(new DateTime(2026, 6, 1), "Selling", Guid.NewGuid(), new[] { itemId }));
+        Should.Throw<BusinessException>(() => bo.ValidateOrderItems(new DateTime(2026, 6, 1), "Selling", partyId, new[] { Guid.NewGuid() }));
+    }
 }

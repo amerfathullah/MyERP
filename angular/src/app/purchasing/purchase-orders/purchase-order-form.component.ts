@@ -75,6 +75,7 @@ export class PurchaseOrderFormComponent implements OnInit {
   supplierTin = signal<string>('');
   supplierScorecardWarning = signal<string>('');
   supplierBlocked = signal(false);
+  blanketOrderInfo = signal<Record<number, { orderNumber: string; remainingQty: number }>>({});
   isEditMode = false;
   entityId: string | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal', 'actions'];
@@ -162,11 +163,25 @@ export class PurchaseOrderFormComponent implements OnInit {
       uom: [item?.uom ?? 'Unit'],
       materialRequestItemId: [item?.materialRequestItemId ?? null],
       supplierQuotationItemId: [item?.supplierQuotationItemId ?? null],
+      blanketOrderId: [item?.blanketOrderId ?? null],
     }));
   }
 
   removeItemRow(index: number): void {
     this.items.removeAt(index);
+    this.blanketOrderInfo.update(m => {
+      const next: Record<number, { orderNumber: string; remainingQty: number }> = {};
+      for (const [key, value] of Object.entries(m)) {
+        const i = Number(key);
+        if (i < index) next[i] = value;
+        else if (i > index) next[i - 1] = value;
+      }
+      return next;
+    });
+  }
+
+  getBlanketOrderInfo(index: number): { orderNumber: string; remainingQty: number } | null {
+    return this.blanketOrderInfo()[index] ?? null;
   }
 
   onItemSelected(index: number, item: ItemDto | null): void {
@@ -175,7 +190,7 @@ export class PurchaseOrderFormComponent implements OnInit {
     if (item) {
       row.patchValue({ description: item.itemName || item.itemCode });
     }
-    // Auto-resolve last purchase rate + UOM from backend (with supplier-specific pricing)
+    // Auto-resolve last purchase rate + UOM + Buying Blanket Order rate from backend
     if (itemId) {
       this.itemDetailsService.getItemDetails({
         itemId,
@@ -183,16 +198,41 @@ export class PurchaseOrderFormComponent implements OnInit {
         companyId: this.form.get('companyId')?.value || undefined,
         supplierId: this.form.get('supplierId')?.value || undefined,
         priceListId: this.form.get('priceListId')?.value || undefined,
+        transactionDate: this.form.get('orderDate')?.value || undefined,
       }).subscribe({
         next: (details) => {
           if (details) {
             const patch: any = {};
             if (details.rate > 0 && !row.get('unitPrice')?.value) patch.unitPrice = details.rate;
             if (details.description && !row.get('description')?.value) patch.description = details.description;
+            patch.blanketOrderId = details.blanketOrderId ?? null;
             if (Object.keys(patch).length > 0) row.patchValue(patch);
+
+            if (details.blanketOrderId) {
+              this.blanketOrderInfo.update(m => ({
+                ...m,
+                [index]: {
+                  orderNumber: details.blanketOrderNumber ?? '',
+                  remainingQty: details.blanketOrderRemainingQty ?? 0,
+                },
+              }));
+            } else {
+              this.blanketOrderInfo.update(m => {
+                const next = { ...m };
+                delete next[index];
+                return next;
+              });
+            }
           }
         },
         error: () => {} // Graceful fallback
+      });
+    } else {
+      row.patchValue({ blanketOrderId: null });
+      this.blanketOrderInfo.update(m => {
+        const next = { ...m };
+        delete next[index];
+        return next;
       });
     }
   }
@@ -323,17 +363,17 @@ export class PurchaseOrderFormComponent implements OnInit {
         }
         // Clear existing items and load from MR
         while (this.items.length > 0) this.items.removeAt(0);
+        this.blanketOrderInfo.set({});
         mrItems.forEach(mrItem => {
-          this.items.push(this.fb.group({
-            itemId: [mrItem.itemId, Validators.required],
-            description: [mrItem.itemName, Validators.required],
-            quantity: [mrItem.pendingQty, [Validators.required, Validators.min(0.01)]],
-            unitPrice: [0, [Validators.required, Validators.min(0)]],
-            taxAmount: [0, Validators.min(0)],
-            uom: [mrItem.uom || 'Unit'],
-            materialRequestItemId: [mrItem.materialRequestItemId ?? null],
-            supplierQuotationItemId: [null],
-          }));
+          this.addItemRow({
+            itemId: mrItem.itemId,
+            description: mrItem.itemName,
+            quantity: mrItem.pendingQty,
+            unitPrice: 0,
+            taxAmount: 0,
+            uom: mrItem.uom || 'Unit',
+            materialRequestItemId: mrItem.materialRequestItemId ?? null,
+          });
         });
         this.toaster.success(`${mrItems.length} items loaded from Material Requests`);
       },
@@ -362,17 +402,17 @@ export class PurchaseOrderFormComponent implements OnInit {
         }
         // Clear existing items and load from SQ
         while (this.items.length > 0) this.items.removeAt(0);
+        this.blanketOrderInfo.set({});
         sq.items.forEach((sqItem: any) => {
-          this.items.push(this.fb.group({
-            itemId: [sqItem.itemId, Validators.required],
-            description: [sqItem.description || sqItem.itemName, Validators.required],
-            quantity: [sqItem.quantity, [Validators.required, Validators.min(0.01)]],
-            unitPrice: [sqItem.rate || sqItem.unitPrice || 0, [Validators.required, Validators.min(0)]],
-            taxAmount: [0, Validators.min(0)],
-            uom: [sqItem.uom || 'Unit'],
-            materialRequestItemId: [null],
-            supplierQuotationItemId: [sqItem.id ?? null],
-          }));
+          this.addItemRow({
+            itemId: sqItem.itemId,
+            description: sqItem.description || sqItem.itemName,
+            quantity: sqItem.quantity,
+            unitPrice: sqItem.rate || sqItem.unitPrice || 0,
+            taxAmount: 0,
+            uom: sqItem.uom || 'Unit',
+            supplierQuotationItemId: sqItem.id ?? null,
+          });
         });
         this.toaster.success(this.l.instant('::ItemsLoadedFromSQ', sq.items.length.toString()));
       },

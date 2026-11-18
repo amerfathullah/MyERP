@@ -1428,25 +1428,27 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         {
             var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
             var blanketOrders = await boRepo.GetListAsync(b => linkedBlanketOrderIds.Contains(b.Id));
-            var boMismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != companyId);
-            if (boMismatch != null)
+            var boMap = blanketOrders.ToDictionary(b => b.Id);
+            foreach (var boId in linkedBlanketOrderIds)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("blanketOrderCompany", boMismatch.CompanyId)
-                    .WithData("salesOrderCompany", companyId);
-            }
-            foreach (var bo in blanketOrders)
-            {
-                bo.ValidateCanBeOrdered(input.OrderDate);
-                foreach (var soItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
+                if (!boMap.TryGetValue(boId, out var bo))
                 {
-                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == soItem.ItemId);
-                    if (boItem != null && boItem.IsClosed)
-                    {
-                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                            .WithData("detail", $"Blanket Order item for item {soItem.ItemId} is closed.");
-                    }
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Blanket Order {boId} was not found.");
                 }
+
+                if (bo.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("blanketOrderCompany", bo.CompanyId)
+                        .WithData("salesOrderCompany", companyId);
+                }
+
+                bo.ValidateOrderItems(
+                    input.OrderDate,
+                    "Selling",
+                    input.CustomerId,
+                    input.Items.Where(i => i.BlanketOrderId == bo.Id).Select(i => i.ItemId));
             }
         }
 
@@ -1479,7 +1481,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         {
             var bo = await boRepository.FindAsync(group.Key);
             if (bo == null) continue;
-            bo.ValidateCanBeOrdered(order.OrderDate);
+            bo.ValidateOrderItems(order.OrderDate, "Selling", order.CustomerId, group.Select(i => i.ItemId));
             foreach (var item in group)
             {
                 var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);

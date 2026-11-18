@@ -290,36 +290,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             }
         }
 
-        var blanketOrderIds = input.Items
-            .Where(i => i.BlanketOrderId.HasValue)
-            .Select(i => i.BlanketOrderId!.Value)
-            .Distinct()
-            .ToList();
-        if (blanketOrderIds.Count > 0)
-        {
-            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
-            var blanketOrders = await boRepo.GetListAsync(b => blanketOrderIds.Contains(b.Id));
-            var mismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != input.CompanyId);
-            if (mismatch != null)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("blanketOrderCompany", mismatch.CompanyId)
-                    .WithData("purchaseOrderCompany", input.CompanyId);
-            }
-            foreach (var bo in blanketOrders)
-            {
-                bo.ValidateCanBeOrdered(input.OrderDate);
-                foreach (var poItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
-                {
-                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == poItem.ItemId);
-                    if (boItem != null && boItem.IsClosed)
-                    {
-                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                            .WithData("detail", $"Blanket Order item for item {poItem.ItemId} is closed.");
-                    }
-                }
-            }
-        }
+        await ValidateBlanketOrdersAsync(
+            input.CompanyId,
+            input.SupplierId,
+            input.OrderDate,
+            input.Items.Select(i => (i.ItemId, i.BlanketOrderId)));
 
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync(
@@ -962,36 +937,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             }
         }
 
-        var updateBlanketOrderIds = input.Items
-            .Where(i => i.BlanketOrderId.HasValue)
-            .Select(i => i.BlanketOrderId!.Value)
-            .Distinct()
-            .ToList();
-        if (updateBlanketOrderIds.Count > 0)
-        {
-            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
-            var blanketOrders = await boRepo.GetListAsync(b => updateBlanketOrderIds.Contains(b.Id));
-            var mismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != order.CompanyId);
-            if (mismatch != null)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("blanketOrderCompany", mismatch.CompanyId)
-                    .WithData("purchaseOrderCompany", order.CompanyId);
-            }
-            foreach (var bo in blanketOrders)
-            {
-                bo.ValidateCanBeOrdered(input.OrderDate);
-                foreach (var poItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
-                {
-                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == poItem.ItemId);
-                    if (boItem != null && boItem.IsClosed)
-                    {
-                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                            .WithData("detail", $"Blanket Order item for item {poItem.ItemId} is closed.");
-                    }
-                }
-            }
-        }
+        await ValidateBlanketOrdersAsync(
+            order.CompanyId,
+            input.SupplierId,
+            input.OrderDate,
+            input.Items.Select(i => (i.ItemId, i.BlanketOrderId)));
 
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
@@ -1355,6 +1305,48 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     }
 
     /// <summary>
+    /// Validates Buying Blanket Orders referenced by PO items (existence, company scope,
+    /// status, validity window, Buying type, Supplier match, and open item membership).
+    /// </summary>
+    private async Task ValidateBlanketOrdersAsync(
+        Guid companyId,
+        Guid supplierId,
+        DateTime orderDate,
+        IEnumerable<(Guid ItemId, Guid? BlanketOrderId)> items)
+    {
+        var itemList = items.Where(i => i.BlanketOrderId.HasValue).ToList();
+        if (itemList.Count == 0)
+            return;
+
+        var boIds = itemList.Select(i => i.BlanketOrderId!.Value).Distinct().ToList();
+        var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+        var blanketOrders = await boRepo.GetListAsync(b => boIds.Contains(b.Id));
+        var boMap = blanketOrders.ToDictionary(b => b.Id);
+
+        foreach (var boId in boIds)
+        {
+            if (!boMap.TryGetValue(boId, out var bo))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Blanket Order {boId} was not found.");
+            }
+
+            if (bo.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("blanketOrderCompany", bo.CompanyId)
+                    .WithData("purchaseOrderCompany", companyId);
+            }
+
+            bo.ValidateOrderItems(
+                orderDate,
+                "Buying",
+                supplierId,
+                itemList.Where(i => i.BlanketOrderId == bo.Id).Select(i => i.ItemId));
+        }
+    }
+
+    /// <summary>
     /// Deducts PO item qty from its linked Blanket Order's allocation (per line, via
     /// BlanketOrderItem.RecordOrder — validated against Qty × (1 + allowance%)).
     /// Allowance comes from MyERP.Buying.BlanketOrderAllowance, mirroring the Selling-side
@@ -1373,7 +1365,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         {
             var bo = await boRepository.FindAsync(group.Key);
             if (bo == null) continue;
-            bo.ValidateCanBeOrdered(po.OrderDate);
+            bo.ValidateOrderItems(po.OrderDate, "Buying", po.SupplierId, group.Select(i => i.ItemId));
             foreach (var item in group)
             {
                 var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);

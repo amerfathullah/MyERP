@@ -182,6 +182,36 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Currency {currency} does not match Blanket Order {OrderNumber} currency ({Currency}).");
     }
+
+    /// <summary>
+    /// Validates order-level Blanket Order eligibility (status, validity dates, order type, party, currency)
+    /// and verifies each linked item belongs to an open line on this Blanket Order.
+    /// </summary>
+    public void ValidateOrderItems(
+        DateTime orderDate,
+        string expectedOrderType,
+        Guid partyId,
+        IEnumerable<Guid> itemIds,
+        string? currency = null)
+    {
+        ValidateCanBeOrdered(orderDate, expectedOrderType: expectedOrderType, partyId: partyId, currency: currency);
+
+        foreach (var itemId in itemIds.Distinct())
+        {
+            var boItem = _items.FirstOrDefault(x => x.ItemId == itemId);
+            if (boItem == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {itemId} is not part of Blanket Order {OrderNumber}.");
+            }
+
+            if (boItem.IsClosed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("detail", $"Blanket Order item for item {itemId} is closed.");
+            }
+        }
+    }
 }
 
 public class BlanketOrderItem : FullAuditedEntity<Guid>
