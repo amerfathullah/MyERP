@@ -52,12 +52,14 @@ public class DeliveryNoteItemDto
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
+    public decimal SettledQty { get; set; }
     public decimal ReturnedQty { get; set; }
     public decimal PackedQty { get; set; }
     public decimal InstalledQty { get; set; }
     public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }
     public Guid? PickListItemId { get; set; }
+    public Guid? OriginalDeliveryNoteItemId { get; set; }
     public Guid? SerialAndBatchBundleId { get; set; }
 }
 
@@ -91,6 +93,7 @@ public class CreateDeliveryNoteItemDto
     [StringLength(50)] public string Uom { get; set; } = "Unit";
     public Guid? SalesOrderItemId { get; set; }
     public Guid? PickListItemId { get; set; }
+    public Guid? OriginalDeliveryNoteItemId { get; set; }
     public Guid? SerialAndBatchBundleId { get; set; }
     public decimal? ConversionFactor { get; set; }
 }

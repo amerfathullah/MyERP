@@ -813,7 +813,8 @@ public class SalesInvoiceManager : DomainService
                 {
                     var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
                     var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
-                    var billedDelta = (siItem.Quantity * siFactor) / dnFactor;
+                    var rawQty = dn.IsReturn && invoice.IsReturn ? Math.Abs(siItem.Quantity) : siItem.Quantity;
+                    var billedDelta = (rawQty * siFactor) / dnFactor;
 
                     if (reverse)
                         dnItem.BilledQty = Math.Max(0, dnItem.BilledQty - billedDelta);
@@ -823,6 +824,16 @@ public class SalesInvoiceManager : DomainService
             }
             dn.UpdateBillingStatus();
             await dnRepo.UpdateAsync(dn, autoSave: true);
+        }
+
+        var billingStatusService = LazyServiceProvider?.LazyGetService<DeliveryNoteBillingStatusService>();
+        if (billingStatusService != null)
+        {
+            foreach (var dn in affectedDns)
+            {
+                var targetDnId = dn.IsReturn && dn.ReturnAgainstId.HasValue ? dn.ReturnAgainstId.Value : dn.Id;
+                await billingStatusService.RecalculateSettledReturnsAsync(targetDnId);
+            }
         }
     }
 }

@@ -65,16 +65,22 @@
                   <td>{{ row.quantity | number:'1.2-2' }}</td>
                   <td>{{ row.uom }}</td>
                   <td class="text-end">
-                    @if ((row.billedQty ?? 0) >= (row.quantity ?? 0)) {
-                      <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Billed' | abpLocalization }}</span>
-                    } @else if ((row.returnedQty ?? 0) >= (row.quantity ?? 0)) {
-                      <span class="badge bg-info"><i class="fa fa-undo me-1"></i>{{ '::Returned' | abpLocalization }}</span>
-                    } @else if ((row.billedQty ?? 0) + (row.returnedQty ?? 0) >= (row.quantity ?? 0)) {
-                      <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Completed' | abpLocalization }}</span>
-                    } @else if ((row.billedQty ?? 0) > 0) {
-                      <span class="badge bg-warning text-dark">{{ row.billedQty | number:'1.0-0' }} / {{ row.quantity | number:'1.0-0' }}</span>
-                    } @else {
-                      <span class="badge bg-secondary">{{ '::Pending' | abpLocalization }}</span>
+                    @switch (getRowBillingState(row)) {
+                      @case ('billed') {
+                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Billed' | abpLocalization }}</span>
+                      }
+                      @case ('returned') {
+                        <span class="badge bg-info"><i class="fa fa-undo me-1"></i>{{ '::Returned' | abpLocalization }}</span>
+                      }
+                      @case ('completed') {
+                        <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Completed' | abpLocalization }}</span>
+                      }
+                      @case ('partial') {
+                        <span class="badge bg-warning text-dark">{{ (row.billedQty ?? 0) + (deliveryNote.isReturn ? (row.settledQty ?? 0) : 0) | number:'1.0-0' }} / {{ row.quantity | number:'1.0-0' }}</span>
+                      }
+                      @default {
+                        <span class="badge bg-secondary">{{ '::Pending' | abpLocalization }}</span>
+                      }
                     }
                   </td>
                 </tr>

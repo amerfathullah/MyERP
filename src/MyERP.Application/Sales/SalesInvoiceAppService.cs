@@ -1919,6 +1919,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Per ERPNext: update_billed_amount_based_on_dn FIFO billing status
         await _invoiceManager.UpdateLinkedDeliveryNoteBillingAsync(invoice);
 
+        // Per ERPNext PR #60607: recalculate settled return status for sibling DNs sharing SO rows
+        await RecalculateSettledReturnsForInvoiceAsync(invoice);
+
         // Update linked Fixed Assets: mark asset as Sold (ERPNext PR #47326 / commit 05afad78fc)
         if (fixedAssetItems.Any())
         {
@@ -2262,6 +2265,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Reverse DN BilledQty (domain service)
         await _invoiceManager.UpdateLinkedDeliveryNoteBillingAsync(invoice, reverse: true);
 
+        // Per ERPNext PR #60607: recalculate settled return status for sibling DNs sharing SO rows
+        await RecalculateSettledReturnsForInvoiceAsync(invoice);
+
         // Unlink billed timesheet entries (gotcha #2247)
         var tsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Timesheet, Guid>>();
         var tsList = await tsRepo.GetListAsync(t => t.Details.Any(d => d.SalesInvoiceId == invoice.Id), includeDetails: true);
@@ -2323,6 +2329,30 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+    }
+
+    private async Task RecalculateSettledReturnsForInvoiceAsync(SalesInvoice invoice)
+    {
+        if (invoice.UpdateStock)
+        {
+            return;
+        }
+
+        var billingStatusService = LazyServiceProvider?.LazyGetService<DeliveryNoteBillingStatusService>();
+        if (billingStatusService == null)
+        {
+            return;
+        }
+
+        var soItemIds = invoice.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (soItemIds.Count > 0)
+        {
+            await billingStatusService.RecalculateSettledReturnsForSalesOrderItemsAsync(soItemIds);
+        }
     }
 
     /// <summary>

@@ -205,5 +205,34 @@ describe('DeliveryNoteDetailComponent', () => {
       comp.onWorkflowAction('amend');
       expect(toasterMock.error).toHaveBeenCalledWith('DN amend failed');
     });
+
+    it('computes row billing state accurately for return and settled rows', () => {
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'dn-1' } } } },
+          { provide: DeliveryNoteService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: DocumentConversionService, useValue: {} },
+          { provide: DeliveryNoteStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: CompanyService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: DocumentEmailService, useValue: {} },
+          { provide: DocumentPrintService, useValue: {} },
+        ],
+      });
+      const comp = runInInjectionContext(injector, () => new DeliveryNoteDetailComponent());
+
+      comp.deliveryNote = { isReturn: true } as any;
+      expect(comp.getRowBillingState({ quantity: -2, billedQty: 0, settledQty: 0 } as any)).toBe('pending');
+      expect(comp.getRowBillingState({ quantity: -2, billedQty: 0, settledQty: 2 } as any)).toBe('completed');
+      expect(comp.getRowBillingState({ quantity: -2, billedQty: 2, settledQty: 0 } as any)).toBe('billed');
+      expect(comp.getRowBillingState({ quantity: -4, billedQty: 0, settledQty: 2 } as any)).toBe('partial');
+
+      comp.deliveryNote = { isReturn: false } as any;
+      expect(comp.getRowBillingState({ quantity: 5, billedQty: 5, returnedQty: 0 } as any)).toBe('billed');
+      expect(comp.getRowBillingState({ quantity: 5, billedQty: 0, returnedQty: 5 } as any)).toBe('returned');
+      expect(comp.getRowBillingState({ quantity: 5, billedQty: 3, returnedQty: 2 } as any)).toBe('completed');
+    });
   });
 });

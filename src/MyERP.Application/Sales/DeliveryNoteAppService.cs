@@ -319,6 +319,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 item.TaxAmount, item.Uom, soItemId, item.PickListItemId);
             var lastItem = dn.Items[^1];
             lastItem.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
+            lastItem.OriginalDeliveryNoteItemId = item.OriginalDeliveryNoteItemId;
             var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
             if (itemEntity != null)
             {
@@ -486,6 +487,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             var qty = dn.IsReturn ? -Math.Abs(item.Quantity) : item.Quantity;
             dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
             dn.Items[^1].SerialAndBatchBundleId = item.SerialAndBatchBundleId;
+            dn.Items[^1].OriginalDeliveryNoteItemId = item.OriginalDeliveryNoteItemId;
         }
 
         await ValidateSerialAndBatchBundlesAsync(dn);
@@ -665,8 +667,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     foreach (var returnItem in dn.Items)
                     {
                         var origItem = originalDn.Items.FirstOrDefault(i =>
-                            (returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
-                            (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
+                            (returnItem.OriginalDeliveryNoteItemId.HasValue && i.Id == returnItem.OriginalDeliveryNoteItemId.Value) ||
+                            (!returnItem.OriginalDeliveryNoteItemId.HasValue && returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
+                            (!returnItem.OriginalDeliveryNoteItemId.HasValue && !returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                         if (origItem != null)
                         {
                             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
@@ -898,50 +901,80 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: false, isReturn: true);
             }
 
-            // Auto-create Credit Note (negative Sales Invoice) for the return
-            // Per ERPNext: DN return → auto-creates Credit Note SI with is_return=true
-            // Per DO-NOT: "Allow returns with positive qty (must always be negative)"
+            // Per ERPNext PR #60607: recalculate settled returns before auto-creating a Credit Note.
+            // If the original DN has not been invoiced (or all returned items were settled by full return),
+            // skip creating a redundant standalone Credit Note.
+            if (dn.ReturnAgainstId.HasValue)
+            {
+                await _repository.UpdateAsync(dn, autoSave: true);
+                var billingStatusService = LazyServiceProvider?.LazyGetService<DeliveryNoteBillingStatusService>();
+                if (billingStatusService != null)
+                {
+                    await billingStatusService.RecalculateSettledReturnsAsync(dn.ReturnAgainstId.Value);
+                    var refreshed = await _repository.FindAsync(dn.Id);
+                    if (refreshed != null)
+                    {
+                        foreach (var item in dn.Items)
+                        {
+                            var r = refreshed.Items.FirstOrDefault(x => x.Id == item.Id);
+                            if (r != null) item.SettledQty = r.SettledQty;
+                        }
+                    }
+                }
+            }
+
+            // Auto-create Credit Note (negative Sales Invoice) when return is not settled and original DN was invoiced
             try
             {
-                var numberGen = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.IDocumentNumberGenerator>();
-                var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
-                var creditNoteNumber = await numberGen.GenerateAsync("SalesInvoice", dn.CompanyId);
-
+                var siRepo = LazyServiceProvider?.LazyGetService<IRepository<SalesInvoice, Guid>>();
+                if (siRepo == null)
+                {
+                    throw new InvalidOperationException("SalesInvoice repository not available.");
+                }
                 var originalDn = dn.ReturnAgainstId.HasValue ? await _repository.FindAsync(dn.ReturnAgainstId.Value) : null;
-                Guid? originalInvoiceId = null;
-                if (originalDn != null)
+                var origInv = originalDn != null
+                    ? await siRepo.FindAsync(i => i.DeliveryNoteId == originalDn.Id && i.Status != Core.DocumentStatus.Cancelled)
+                    : null;
+                var originalDnWasBilled = originalDn == null
+                    || origInv != null
+                    || originalDn.Items.Any(i => i.BilledQty > 0m);
+                var itemsToCredit = dn.Items
+                    .Where(i => i.PendingBillingQty > 0m)
+                    .ToList();
+
+                if (originalDnWasBilled && itemsToCredit.Count > 0)
                 {
-                    var origInv = await siRepo.FindAsync(i => i.DeliveryNoteId == originalDn.Id && i.Status != Core.DocumentStatus.Cancelled);
-                    originalInvoiceId = origInv?.Id;
+                    var creditNoteNumber = await _numberGenerator.GenerateAsync("SalesInvoice", dn.CompanyId);
+
+                    var creditNote = new SalesInvoice(
+                        GuidGenerator.Create(), dn.CompanyId, dn.CustomerId,
+                        creditNoteNumber, dn.PostingDate, dn.TenantId);
+                    creditNote.IsReturn = true;
+                    creditNote.ReturnAgainstId = origInv?.Id;
+                    creditNote.DeliveryNoteId = dn.Id;
+                    creditNote.Notes = $"Credit Note for Return {dn.DeliveryNumber}";
+
+                    foreach (var item in itemsToCredit)
+                    {
+                        // Return items have negative qty — per DO-NOT rule
+                        var qty = -Math.Abs(item.PendingBillingQty);
+                        creditNote.AddItem(item.ItemId, item.Description ?? "", qty, item.UnitPrice, item.TaxAmount, item.Uom);
+                        var added = creditNote.Items.Last();
+                        added.StockUom = item.StockUom;
+                        added.ConversionFactor = item.ConversionFactor;
+                    }
+
+                    creditNote.Submit();
+                    await siRepo.InsertAsync(creditNote, autoSave: true);
+
+                    creditNote.Post();
+                    var glService = LazyServiceProvider?.LazyGetService<Accounting.DomainServices.GlRepostService>();
+                    if (glService != null)
+                    {
+                        await glService.RebuildSalesInvoiceGlAsync(creditNote);
+                    }
+                    await siRepo.UpdateAsync(creditNote, autoSave: true);
                 }
-
-                var creditNote = new SalesInvoice(
-                    GuidGenerator.Create(), dn.CompanyId, dn.CustomerId,
-                    creditNoteNumber, dn.PostingDate, dn.TenantId);
-                creditNote.IsReturn = true;
-                creditNote.ReturnAgainstId = originalInvoiceId;
-                creditNote.DeliveryNoteId = dn.Id;
-                creditNote.Notes = $"Credit Note for Return {dn.DeliveryNumber}";
-
-                foreach (var item in dn.Items)
-                {
-                    // Return items have negative qty — per DO-NOT rule
-                    var qty = -Math.Abs(item.Quantity);
-                    creditNote.AddItem(item.ItemId, item.Description ?? "", qty, item.UnitPrice, item.TaxAmount);
-                }
-
-                creditNote.Submit();
-                await siRepo.InsertAsync(creditNote, autoSave: true);
-
-                // Submit() is a status-only transition (Draft -> Submitted); the actual GL
-                // journal entry only gets built by Post(), which this auto-generated credit
-                // note never reached — it sat in "Submitted" with the stock reversed but the
-                // customer's AR/COGS never reversed, and no error surfaced since nothing threw.
-                creditNote.Post();
-                var glService = LazyServiceProvider
-                    .LazyGetRequiredService<Accounting.DomainServices.GlRepostService>();
-                await glService.RebuildSalesInvoiceGlAsync(creditNote);
-                await siRepo.UpdateAsync(creditNote, autoSave: true);
             }
             catch (Exception ex)
             {
@@ -1218,13 +1251,40 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         await _repository.UpdateAsync(dn, autoSave: true);
 
+        await RecalculateSettledReturnsAfterDnChangeAsync(dn);
+
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "DeliveryNote", dn.Id, "Submitted",
             dn.CompanyId, dn.DeliveryNumber, "Draft", "Submitted",
             CurrentUser.Id, tenantId: dn.TenantId));
 
-        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+        var freshDn = await _repository.FindAsync(dn.Id) ?? dn;
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(freshDn);
+    }
+
+    private async Task RecalculateSettledReturnsAfterDnChangeAsync(DeliveryNote dn)
+    {
+        var billingStatusService = LazyServiceProvider?.LazyGetService<DeliveryNoteBillingStatusService>();
+        if (billingStatusService == null)
+        {
+            return;
+        }
+
+        if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
+        {
+            await billingStatusService.RecalculateSettledReturnsAsync(dn.ReturnAgainstId.Value);
+        }
+
+        var soItemIds = dn.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (soItemIds.Count > 0)
+        {
+            await billingStatusService.RecalculateSettledReturnsForSalesOrderItemsAsync(soItemIds);
+        }
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Cancel)]
@@ -1453,8 +1513,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 foreach (var returnItem in dn.Items)
                 {
                     var origItem = originalDn.Items.FirstOrDefault(i =>
-                        (returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
-                        (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
+                        (returnItem.OriginalDeliveryNoteItemId.HasValue && i.Id == returnItem.OriginalDeliveryNoteItemId.Value) ||
+                        (!returnItem.OriginalDeliveryNoteItemId.HasValue && returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
+                        (!returnItem.OriginalDeliveryNoteItemId.HasValue && !returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                     if (origItem != null)
                     {
                         var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
@@ -1470,6 +1531,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
+
+        await RecalculateSettledReturnsAfterDnChangeAsync(dn);
 
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(

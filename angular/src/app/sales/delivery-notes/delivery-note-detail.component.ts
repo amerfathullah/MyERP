@@ -23,7 +23,7 @@ import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { SalesTeamCardComponent } from '../../shared/components/sales-team-card/sales-team-card.component';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
 import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
-import type { DeliveryNoteDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
+import type { DeliveryNoteDto, DeliveryNoteItemDto, SalesTeamAllocationInputDto } from '../../proxy/sales/models';
 
 @Component({
   selector: 'app-delivery-note-detail',
@@ -273,5 +273,24 @@ export class DeliveryNoteDetailComponent implements OnInit {
   onDraftGuardCancelled(): void {
     this.showDraftGuard.set(false);
     this.pendingConversionAction = null;
+  }
+
+  getRowBillingState(row: DeliveryNoteItemDto): 'billed' | 'returned' | 'completed' | 'partial' | 'pending' {
+    const qty = Math.abs(row.quantity ?? 0);
+    const billed = Math.abs(row.billedQty ?? 0);
+    const settled = Math.abs(row.settledQty ?? 0);
+    const returned = Math.abs(row.returnedQty ?? 0);
+
+    if (this.deliveryNote?.isReturn) {
+      if (qty > 0 && billed + settled >= qty) {
+        return settled >= qty ? 'completed' : 'billed';
+      }
+      return billed + settled > 0 ? 'partial' : 'pending';
+    }
+
+    if (qty > 0 && billed >= qty) return 'billed';
+    if (qty > 0 && returned >= qty) return 'returned';
+    if (qty > 0 && billed + returned >= qty) return 'completed';
+    return billed > 0 ? 'partial' : 'pending';
   }
 }

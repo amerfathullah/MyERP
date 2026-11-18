@@ -61,6 +61,15 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal BilledQty { get; set; }
 
+    /// <summary>
+    /// Return quantity already settled/deducted on the original Delivery Note's Sales Invoice
+    /// (per ERPNext PR #60607 — no Credit Note required for this quantity).
+    /// </summary>
+    public decimal SettledQty { get; set; }
+
+    /// <summary>Link back to the specific original DeliveryNoteItem when created as a return.</summary>
+    public Guid? OriginalDeliveryNoteItemId { get; set; }
+
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
 
@@ -73,8 +82,8 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Effective billable quantity: Quantity - ReturnedQty.</summary>
     public decimal BillableQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(ReturnedQty));
 
-    /// <summary>Pending billing quantity = BillableQty - BilledQty. 0 if closed.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(BilledQty));
+    /// <summary>Pending billing quantity = BillableQty - BilledQty - SettledQty. 0 if closed.</summary>
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(BilledQty) - Math.Abs(SettledQty));
 
     /// <summary>
     /// Quantity packed into a submitted Packing Slip so far, updated by

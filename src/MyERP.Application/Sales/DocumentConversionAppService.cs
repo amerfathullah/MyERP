@@ -643,7 +643,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         // Account for draft Sales Invoices in the system (per ERPNext PR #58617 & PR #60570)
         var draftInvoices2 = siQuery2
-            .Where(si => si.Status == Core.DocumentStatus.Draft && !si.IsReturn && !si.IsDebitNote)
+            .Where(si => si.Status == Core.DocumentStatus.Draft && si.IsReturn == deliveryNote.IsReturn && !si.IsDebitNote)
             .SelectMany(si => si.Items)
             .Where(i => i.DeliveryNoteItemId.HasValue && dnItemIds.Contains(i.DeliveryNoteItemId.Value))
             .ToList();
@@ -655,7 +655,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             {
                 var siFactor = draftItem.ConversionFactor > 0 ? draftItem.ConversionFactor : 1m;
                 var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
-                var qtyInDnUom = (draftItem.Quantity * siFactor) / dnFactor;
+                var qtyInDnUom = (Math.Abs(draftItem.Quantity) * siFactor) / dnFactor;
                 draftMappedQtyByItem[dnItem.Id] = draftMappedQtyByItem.GetValueOrDefault(dnItem.Id, 0m) + qtyInDnUom;
             }
         }
@@ -674,12 +674,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             {
                 var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
                 var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
-                var qtyInDnUom = (siItem.Quantity * siFactor) / dnFactor;
+                var rawQty = deliveryNote.IsReturn ? Math.Abs(siItem.Quantity) : siItem.Quantity;
+                var qtyInDnUom = (rawQty * siFactor) / dnFactor;
                 invoicedQtyByItem[dnItem.Id] = invoicedQtyByItem.GetValueOrDefault(dnItem.Id, 0m) + qtyInDnUom;
             }
         }
 
-        // Guard: check pending billing qty per DN item to prevent double-billing
+        // Guard: check pending billing qty per DN item (including settled return qty per PR #60607) to prevent double-billing
         var hasConvertibleItems = false;
         foreach (var item in deliveryNote.Items)
         {
@@ -687,9 +688,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             var invoicedQty = invoicedQtyByItem.TryGetValue(item.Id, out var queriedBilled)
                 ? Math.Max(0m, queriedBilled)
                 : Math.Abs(item.BilledQty);
-            var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
+            var returnedQty = deliveryNote.IsReturn ? 0m : Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
+            var settledQty = deliveryNote.IsReturn ? Math.Abs(item.SettledQty) : 0m;
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - draftQty);
+            var pendingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - settledQty - draftQty);
             if (pendingQty > 0)
             {
                 hasConvertibleItems = true;
@@ -700,7 +702,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "DeliveryNote")
                 .WithData("documentNumber", deliveryNote.DeliveryNumber)
-                .WithData("reason", "All items in this Delivery Note have been fully invoiced, returned, or have pending draft invoices.");
+                .WithData("reason", "All items in this Delivery Note have been fully invoiced, settled, returned, or have pending draft invoices.");
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", deliveryNote.CompanyId);
 
@@ -714,6 +716,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         invoice.CurrencyCode = deliveryNote.CurrencyCode;
         invoice.UpdateStock = false; // Per ERPNext PR #60230 / commit 637fadfee9: disable update stock for sales invoice created from DN
+        invoice.IsReturn = deliveryNote.IsReturn;
+        if (deliveryNote.IsReturn && deliveryNote.ReturnAgainstId.HasValue)
+        {
+            var origDnInv = await _salesInvoiceRepository.FindAsync(
+                i => i.DeliveryNoteId == deliveryNote.ReturnAgainstId.Value && i.Status != Core.DocumentStatus.Cancelled);
+            invoice.ReturnAgainstId = origDnInv?.Id;
+        }
 
         var firstSoItemId = deliveryNote.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue)?.SalesOrderItemId;
         if (firstSoItemId.HasValue)
@@ -730,17 +739,21 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         foreach (var item in deliveryNote.Items)
         {
             if (item.IsClosed) continue;
-            // Per ERPNext: pending = qty - invoiced_qty - returned_qty - draft_qty
+            // Per ERPNext: pending = qty - invoiced_qty - returned_qty - settled_qty - draft_qty
             var invoicedQty = invoicedQtyByItem.TryGetValue(item.Id, out var queriedBilled)
                 ? Math.Max(0m, queriedBilled)
                 : Math.Abs(item.BilledQty);
-            var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
+            var returnedQty = deliveryNote.IsReturn ? 0m : Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
+            var settledQty = deliveryNote.IsReturn ? Math.Abs(item.SettledQty) : 0m;
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var billingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - draftQty);
+            var billingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - settledQty - draftQty);
             if (billingQty <= 0) continue;
 
-            var itemTax = Math.Abs(item.Quantity) > 0 ? Math.Round(item.TaxAmount * (billingQty / Math.Abs(item.Quantity)), 2) : 0m;
-            invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, itemTax, item.Uom);
+            var absTax = Math.Abs(item.TaxAmount);
+            var scaledTax = Math.Abs(item.Quantity) > 0 ? Math.Round(absTax * (billingQty / Math.Abs(item.Quantity)), 2) : 0m;
+            var itemQty = deliveryNote.IsReturn ? -billingQty : billingQty;
+            var itemTax = deliveryNote.IsReturn ? -scaledTax : scaledTax;
+            invoice.AddItem(item.ItemId, item.Description, itemQty, item.UnitPrice, itemTax, item.Uom);
             var lastItem = invoice.Items.Last();
             lastItem.SalesOrderItemId = item.SalesOrderItemId;
             lastItem.DeliveryNoteItemId = item.Id; // Track which DN item is being billed
@@ -1359,6 +1372,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             addedItem.StockUom = origItem.StockUom;
             addedItem.BatchId = origItem.BatchId;
             addedItem.SerialNoId = assignedSerialId;
+            addedItem.OriginalDeliveryNoteItemId = origItem.Id;
         }
 
         await _deliveryNoteRepository.InsertAsync(returnDn, autoSave: true);

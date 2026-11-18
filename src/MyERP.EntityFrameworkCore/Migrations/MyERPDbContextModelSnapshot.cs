@@ -27458,6 +27458,9 @@ namespace MyERP.Migrations
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("OriginalDeliveryNoteItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("PackedQty")
                         .HasColumnType("numeric");
 
@@ -27478,6 +27481,9 @@ namespace MyERP.Migrations
 
                     b.Property<Guid?>("SerialNoId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("SettledQty")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("StockUom")
                         .IsRequired()

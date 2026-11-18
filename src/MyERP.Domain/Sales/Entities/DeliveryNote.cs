@@ -109,17 +109,20 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             var basis = openItems.Count > 0 ? openItems : _items;
             if (basis.Count == 0) return 0m;
 
+            decimal EffectiveBilledQty(DeliveryNoteItem i) =>
+                Math.Abs(i.BilledQty) + (IsReturn ? Math.Abs(i.SettledQty) : 0m);
+
             var basisTotal = basis.Sum(i => Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)) * i.UnitPrice);
             if (basisTotal > 0)
             {
-                var billedAmount = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), Math.Abs(i.BilledQty)) * i.UnitPrice);
+                var billedAmount = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), EffectiveBilledQty(i)) * i.UnitPrice);
                 return Math.Min(100m, Math.Round(billedAmount / basisTotal * 100m, 2));
             }
 
             var totalNetQty = basis.Sum(i => Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)));
             if (totalNetQty > 0)
             {
-                var billedQty = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), Math.Abs(i.BilledQty)));
+                var billedQty = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), EffectiveBilledQty(i)));
                 return Math.Min(100m, Math.Round(billedQty / totalNetQty * 100m, 2));
             }
 
@@ -129,14 +132,14 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             var origTotal = basis.Sum(i => Math.Abs(i.Quantity) * i.UnitPrice);
             if (origTotal > 0)
             {
-                var billedAmt = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), Math.Abs(i.BilledQty)) * i.UnitPrice);
+                var billedAmt = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), EffectiveBilledQty(i)) * i.UnitPrice);
                 return Math.Min(100m, Math.Round(billedAmt / origTotal * 100m, 2));
             }
 
             var origQty = basis.Sum(i => Math.Abs(i.Quantity));
             if (origQty > 0)
             {
-                var billedQty = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), Math.Abs(i.BilledQty)));
+                var billedQty = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), EffectiveBilledQty(i)));
                 return Math.Min(100m, Math.Round(billedQty / origQty * 100m, 2));
             }
 

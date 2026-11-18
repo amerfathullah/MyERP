@@ -1132,12 +1132,14 @@ export interface DeliveryNoteItemDto {
   taxAmount?: number;
   lineTotal?: number;
   billedQty?: number;
+  settledQty?: number;
   returnedQty?: number;
   packedQty?: number;
   installedQty?: number;
   isClosed?: boolean;
   salesOrderItemId?: string | null;
   pickListItemId?: string | null;
+  originalDeliveryNoteItemId?: string | null;
   serialAndBatchBundleId?: string | null;
 }
 
