@@ -227,17 +227,37 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var customer = await _customerRepository.FindAsync(order.CustomerId);
         dto.IsInternalCustomer = customer?.RepresentsCompanyId.HasValue ?? false;
 
+        var (canViewCounterpart, canCreateCounterpart) = await Core.InterCompanyPermissionHelper.GetCounterpartPermissionsAsync(
+            AuthorizationService,
+            MyERPPermissions.PurchaseOrders.Default,
+            MyERPPermissions.PurchaseOrders.Create);
+
         var interCompanyService = LazyServiceProvider.LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
-        if (interCompanyService == null) return;
+        if (interCompanyService == null)
+        {
+            if (!canViewCounterpart)
+            {
+                dto.InterCompanyPurchaseOrderId = null;
+                dto.InterCompanyPurchaseOrderNumber = null;
+                dto.InterCompanyCompanyName = null;
+            }
+            return;
+        }
 
         var (isMadeFromCounterpart, orderedByItem, linkedPo) = await interCompanyService.AnalyzeSalesOrderInterCompanyStateAsync(order);
-        if (linkedPo != null)
+        if (linkedPo != null && canViewCounterpart)
         {
             dto.InterCompanyPurchaseOrderId = linkedPo.Id;
             dto.InterCompanyPurchaseOrderNumber = linkedPo.OrderNumber;
             var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
             var company = await companyRepo.FindAsync(linkedPo.CompanyId);
             dto.InterCompanyCompanyName = company?.Name;
+        }
+        else if (!canViewCounterpart)
+        {
+            dto.InterCompanyPurchaseOrderId = null;
+            dto.InterCompanyPurchaseOrderNumber = null;
+            dto.InterCompanyCompanyName = null;
         }
 
         var isSubmittedActive = order.Status != Core.DocumentStatus.Draft
@@ -250,7 +270,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             return Math.Round((i.StockQty - orderedByItem.GetValueOrDefault(i.Id)) / cf, 4) > 0;
         });
 
-        dto.CanCreateInterCompanyPurchaseOrder = isSubmittedActive && dto.IsInternalCustomer && !isMadeFromCounterpart && hasPendingQty;
+        dto.CanCreateInterCompanyPurchaseOrder = canCreateCounterpart
+            && isSubmittedActive
+            && dto.IsInternalCustomer
+            && !isMadeFromCounterpart
+            && hasPendingQty;
     }
 
     /// <summary>

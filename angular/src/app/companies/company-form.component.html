@@ -20,7 +20,13 @@
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::TinTaxId' | abpLocalization }}</label>
-            <input type="text" class="form-control" formControlName="taxId" [placeholder]="'::Placeholder:TaxIdExample' | abpLocalization" />
+            <div class="input-group">
+              <input type="text" class="form-control" formControlName="taxId" [placeholder]="'::Placeholder:TaxIdExample' | abpLocalization" />
+              <button type="button" class="btn btn-outline-info" [disabled]="searchingTaxpayer()"
+                [title]="'::TINLookup' | abpLocalization" (click)="verifyTaxpayer()">
+                <i class="fa" [class.fa-search]="!searchingTaxpayer()" [class.fa-spinner]="searchingTaxpayer()" [class.fa-spin]="searchingTaxpayer()"></i>
+              </button>
+            </div>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::RegistrationNoSsm' | abpLocalization }}</label>

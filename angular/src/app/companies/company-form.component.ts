@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../proxy/core/company.service';
+import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
 
@@ -23,10 +24,12 @@ export class CompanyFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private service = inject(CompanyService);
+  private einvoiceService = inject(EInvoiceService, { optional: true });
   private toaster = inject(ToasterService);
 
   isEditMode = false;
   entityId: string | null = null;
+  searchingTaxpayer = signal(false);
 
   form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(256)]],
@@ -100,6 +103,44 @@ export class CompanyFormComponent implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/companies']);
+  }
+
+  verifyTaxpayer(): void {
+    if (!this.einvoiceService) return;
+    const registrationNumber = (this.form.get('registrationNumber')?.value || '').trim();
+    const companyName = (this.form.get('name')?.value || '').trim();
+    const companyId = this.isEditMode && this.entityId ? this.entityId : undefined;
+
+    if (!registrationNumber && !companyName && !companyId) {
+      this.toaster.warn('Please enter SSM Registration Number or Company Name first.');
+      return;
+    }
+
+    this.searchingTaxpayer.set(true);
+    this.einvoiceService.searchTaxpayer({
+      idType: registrationNumber ? 'BRN' : undefined,
+      idValue: registrationNumber || undefined,
+      taxpayerName: companyName || undefined,
+      companyId,
+    }).subscribe({
+      next: (res) => {
+        this.searchingTaxpayer.set(false);
+        if (res.isSuccess && res.tin) {
+          this.form.patchValue({ taxId: res.tin });
+          if (!res.isPersisted) {
+            this.form.get('taxId')?.markAsDirty();
+          }
+          const savedMsg = res.isPersisted ? ' (saved)' : '';
+          this.toaster.success(`TIN verified${savedMsg}: ${res.tin}${res.name ? ' (' + res.name + ')' : ''}`);
+        } else {
+          this.toaster.error(res.errorMessage || 'Taxpayer not found with given company details');
+        }
+      },
+      error: (err: any) => {
+        this.searchingTaxpayer.set(false);
+        this.toaster.error(err?.error?.error?.message || 'LHDN TIN lookup failed');
+      },
+    });
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

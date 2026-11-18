@@ -101,20 +101,32 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
     private async Task PopulateInterCompanyStateAsync(PurchaseInvoiceDto dto, PurchaseInvoice invoice)
     {
+        var (canViewCounterpart, canCreateCounterpart) = await Core.InterCompanyPermissionHelper.GetCounterpartPermissionsAsync(
+            AuthorizationService,
+            MyERPPermissions.SalesInvoices.Default,
+            MyERPPermissions.SalesInvoices.Create);
+
         var interCompanyService = LazyServiceProvider.LazyGetService<Core.DomainServices.InterCompanyTransactionService>();
         if (interCompanyService == null)
         {
-            dto.CanCreateInterCompanySalesInvoice = invoice.Status == Core.DocumentStatus.Posted
+            dto.CanCreateInterCompanySalesInvoice = canCreateCounterpart
+                && invoice.Status == Core.DocumentStatus.Posted
                 && !invoice.IsReturn
                 && dto.IsInternalSupplier
                 && !invoice.InterCompanyInvoiceId.HasValue;
+            if (!canViewCounterpart)
+            {
+                dto.InterCompanyInvoiceId = null;
+                dto.InterCompanyInvoiceNumber = null;
+                dto.InterCompanyCompanyName = null;
+            }
             return;
         }
 
         var (isMadeFromCounterpart, invoicedByItem, latestLinkedSi) =
             await interCompanyService.AnalyzePurchaseInvoiceInterCompanyStateAsync(invoice);
 
-        if (latestLinkedSi != null)
+        if (latestLinkedSi != null && canViewCounterpart)
         {
             dto.InterCompanyInvoiceId = latestLinkedSi.Id;
             dto.InterCompanyInvoiceNumber = latestLinkedSi.InvoiceNumber;
@@ -124,6 +136,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         else
         {
             dto.InterCompanyInvoiceId = null;
+            dto.InterCompanyInvoiceNumber = null;
+            dto.InterCompanyCompanyName = null;
         }
 
         var hasPendingQty = invoice.Items.Any(i =>
@@ -132,7 +146,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             return Math.Round((i.StockQty - invoicedByItem.GetValueOrDefault(i.Id)) / cf, 4) > 0m;
         });
 
-        dto.CanCreateInterCompanySalesInvoice = invoice.Status == Core.DocumentStatus.Posted
+        dto.CanCreateInterCompanySalesInvoice = canCreateCounterpart
+            && invoice.Status == Core.DocumentStatus.Posted
             && !invoice.IsReturn
             && dto.IsInternalSupplier
             && !isMadeFromCounterpart

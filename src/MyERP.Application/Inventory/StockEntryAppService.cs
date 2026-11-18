@@ -765,9 +765,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                                 var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                                 var existingReserved = await sreManager.GetReservedQtyAsync(soItem.ItemId, targetWarehouseId.Value);
 
-                                // Per ERPNext PR #47382 / commit 5225d4c318:
-                                // Pending reservable qty = stock_qty - (stock_reserved_qty + delivered_qty)
-                                var pendingReservableQty = Math.Max(0, (soItem.Quantity - soItem.DeliveredQty) * soItem.ConversionFactor - existingReserved);
+                                // Per ERPNext PR #47382 & 01d061402d:
+                                // Exclude delivered AND returned qty when reserving manufactured FG
+                                var pendingReservableQty = Math.Max(0, soItem.PendingReservedDeliveryQty * soItem.ConversionFactor - existingReserved);
                                 var reserveQty = Math.Min(fgQty, pendingReservableQty);
 
                                 if (reserveQty > 0)

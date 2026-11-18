@@ -93,16 +93,30 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var supplier = await _supplierRepository.FindAsync(po.SupplierId);
         dto.IsInternalSupplier = supplier?.RepresentsCompanyId.HasValue ?? false;
 
+        var (canViewCounterpart, canCreateCounterpart) = await Core.InterCompanyPermissionHelper.GetCounterpartPermissionsAsync(
+            AuthorizationService,
+            MyERPPermissions.SalesOrders.Default,
+            MyERPPermissions.SalesOrders.Create);
+
+        var hasLinkedSo = false;
         if (po.InterCompanySalesOrderId.HasValue)
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
             var linkedSo = await soRepo.FindAsync(po.InterCompanySalesOrderId.Value);
             if (linkedSo != null && linkedSo.Status != Core.DocumentStatus.Cancelled)
             {
-                dto.InterCompanySalesOrderNumber = linkedSo.OrderNumber;
-                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
-                var company = await companyRepo.FindAsync(linkedSo.CompanyId);
-                dto.InterCompanyCompanyName = company?.Name;
+                hasLinkedSo = true;
+                if (canViewCounterpart)
+                {
+                    dto.InterCompanySalesOrderNumber = linkedSo.OrderNumber;
+                    var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+                    var company = await companyRepo.FindAsync(linkedSo.CompanyId);
+                    dto.InterCompanyCompanyName = company?.Name;
+                }
+                else
+                {
+                    dto.InterCompanySalesOrderId = null;
+                }
             }
             else
             {
@@ -113,9 +127,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var isSubmittedActive = po.Status != Core.DocumentStatus.Draft
             && po.Status != Core.DocumentStatus.Cancelled
             && po.Status != Core.DocumentStatus.Closed;
-        dto.CanCreateInterCompanySalesOrder = isSubmittedActive
+        dto.CanCreateInterCompanySalesOrder = canCreateCounterpart
+            && isSubmittedActive
             && dto.IsInternalSupplier
-            && !dto.InterCompanySalesOrderId.HasValue
+            && !hasLinkedSo
             && po.Items.Any(i => !i.IsClosed);
 
         return dto;
