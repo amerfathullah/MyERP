@@ -487,4 +487,104 @@ public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicatio
             remainingB.SourceDocumentItemId.ShouldBe(soItem.Id);
         });
     }
+
+    [Fact]
+    public async Task SubmitAndCancelDeliveryNote_FromMultiWarehousePickListBundle_DeductsAndRestoresEachWarehouse()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var bundleRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var binService = GetRequiredService<MyERP.Inventory.DomainServices.BinService>();
+            var valService = GetRequiredService<MyERP.Inventory.DomainServices.StockValuationService>();
+            var dnService = GetRequiredService<MyERP.Sales.IDeliveryNoteAppService>();
+
+            var company = await companyRepo.InsertAsync(new MyERP.Core.Entities.Company(Guid.NewGuid(), "PL MultiWH Co"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<MyERP.Core.Entities.DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(new MyERP.Core.Entities.DocumentSeries(Guid.NewGuid(), company.Id, "DNS-MW", "DeliveryNote", "DN-MW-"), autoSave: true);
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            await fyRepo.InsertAsync(new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-MW", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)), autoSave: true);
+            var accountRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var costCenterRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            var stockAccount = await accountRepo.InsertAsync(
+                new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1140-MW", "MW Stock", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var cogsAccount = await accountRepo.InsertAsync(
+                new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5000-MW", "MW COGS", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var costCenter = await costCenterRepo.InsertAsync(
+                new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "MW CC"), autoSave: true);
+            company.DefaultInventoryAccountId = stockAccount.Id;
+            company.DefaultExpenseAccountId = cogsAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+            await ruleRepo.InsertAsync(
+                new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "DN DR COGS MW", "DeliveryNote", true, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.StockCostTotal) { SortOrder = 1, FixedAccountId = cogsAccount.Id }, autoSave: true);
+            await ruleRepo.InsertAsync(
+                new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "DN CR Stock MW", "DeliveryNote", false, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.StockCostTotal) { SortOrder = 2, FixedAccountId = stockAccount.Id }, autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PL MultiWH Cust"), autoSave: true);
+            var wh1 = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "MultiWH 1"), autoSave: true);
+            var wh2 = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "MultiWH 2"), autoSave: true);
+
+            var bundleItem = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-MW", "MultiWH Bundle", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+            var compItem = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "COMP-MW", "Component MW", ItemType.Goods), autoSave: true);
+
+            // Seed stock: WH-1 has 6 @ 10, WH-2 has 4 @ 15
+            await valService.CreateLedgerEntryAsync(company.Id, compItem.Id, wh1.Id, DateTime.UtcNow.Date.AddDays(-1), 6m, 10m, "StockEntry", Guid.NewGuid());
+            await binService.ApplyStockMovementAsync(compItem.Id, wh1.Id, 6m, 60m);
+            await valService.CreateLedgerEntryAsync(company.Id, compItem.Id, wh2.Id, DateTime.UtcNow.Date.AddDays(-1), 4m, 15m, "StockEntry", Guid.NewGuid());
+            await binService.ApplyStockMovementAsync(compItem.Id, wh2.Id, 4m, 60m);
+
+            var bundle = new MyERP.Sales.Entities.ProductBundle(Guid.NewGuid(), bundleItem.Id);
+            bundle.AddItem(compItem.Id, 5m);
+            await bundleRepo.InsertAsync(bundle, autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-MW-001", DateTime.UtcNow.Date);
+            so.AddItem(bundleItem.Id, "MultiWH Bundle", 2m, 200m, 0m, "Unit");
+            so.Items[0].WarehouseId = wh1.Id;
+            so.Items[0].ProductBundleId = bundle.Id;
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var pl = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), company.Id, "Delivery", null)
+            {
+                SalesOrderId = so.Id,
+                CustomerId = customer.Id,
+                PickListNumber = "PL-MW-001",
+            };
+            pl.AddItem(compItem.Id, wh1.Id, 6m, 6m, "Component MW", productBundleItemId: bundle.Items[0].Id);
+            pl.Items[0].SourceDocumentItemId = so.Items[0].Id;
+            pl.AddItem(compItem.Id, wh2.Id, 4m, 4m, "Component MW", productBundleItemId: bundle.Items[0].Id);
+            pl.Items[1].SourceDocumentItemId = so.Items[0].Id;
+            pl.Submit();
+            await _pickListRepository.InsertAsync(pl, autoSave: true);
+
+            var dnId = await _pickListAppService.CreateDeliveryNoteFromPickListAsync(pl.Id);
+            await dnService.SubmitAsync(dnId);
+
+            // Both WH-1 (-6) and WH-2 (-4) must have been deducted rather than all -10 from WH-1
+            var wh1AfterSubmit = await valService.GetCurrentBalanceAsync(compItem.Id, wh1.Id);
+            var wh2AfterSubmit = await valService.GetCurrentBalanceAsync(compItem.Id, wh2.Id);
+            wh1AfterSubmit.Quantity.ShouldBe(0m);
+            wh2AfterSubmit.Quantity.ShouldBe(0m);
+
+            var postedSles = (await sleRepo.GetQueryableAsync())
+                .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == dnId && !s.IsCancelled && s.QuantityChange < 0)
+                .ToList();
+            postedSles.Count.ShouldBe(2);
+            postedSles.Single(s => s.WarehouseId == wh1.Id).QuantityChange.ShouldBe(-6m);
+            postedSles.Single(s => s.WarehouseId == wh2.Id).QuantityChange.ShouldBe(-4m);
+
+            await dnService.CancelAsync(dnId);
+
+            var wh1AfterCancel = await valService.GetCurrentBalanceAsync(compItem.Id, wh1.Id);
+            var wh2AfterCancel = await valService.GetCurrentBalanceAsync(compItem.Id, wh2.Id);
+            wh1AfterCancel.Quantity.ShouldBe(6m);
+            wh2AfterCancel.Quantity.ShouldBe(4m);
+        });
+    }
 }

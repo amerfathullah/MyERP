@@ -707,28 +707,53 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         }
                     }
 
-                    // Per ERPNext PR #65005 (commit ea7e451bcf):
-                    // When returned bundle components are returned against an original Delivery Note without a pick list,
-                    // fallback to the original Delivery Note's posted StockLedgerEntries so that component stock qty per unit
-                    // matches the delivered quantities even if component conversion factors changed afterwards.
-                    if (componentStockQtyPerUnit == null && origDnForRates != null)
+                    List<Inventory.Entities.StockLedgerEntry>? origDnSles = null;
+                    var returnedQtyByWhItem = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+                    if (origDnForRates != null)
                     {
                         var sleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
                         if (sleRepo != null)
                         {
                             var sleQuery = await sleRepo.GetQueryableAsync();
-                            var origSles = sleQuery
-                                .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == origDnForRates.Id && !s.IsCancelled)
+                            origDnSles = sleQuery
+                                .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == origDnForRates.Id && !s.IsCancelled && s.QuantityChange < 0)
                                 .ToList();
-                            var origDnItem = origDnForRates.Items.FirstOrDefault(i =>
-                                (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
-                                || i.ItemId == item.ItemId);
-                            var origQty = origDnItem?.Quantity ?? 1m;
-                            if (origSles.Count > 0 && origQty > 0)
+
+                            var priorReturnDnIds = (await _repository.GetQueryableAsync())
+                                .Where(r => r.ReturnAgainstId == origDnForRates.Id
+                                         && r.Id != dn.Id
+                                         && r.IsReturn
+                                         && r.Status != Core.DocumentStatus.Draft
+                                         && r.Status != Core.DocumentStatus.Cancelled)
+                                .Select(r => r.Id)
+                                .ToList();
+                            if (priorReturnDnIds.Count > 0)
                             {
-                                componentStockQtyPerUnit = origSles
-                                    .GroupBy(s => s.ItemId)
-                                    .ToDictionary(g => g.Key, g => Math.Round(g.Sum(s => Math.Abs(s.QuantityChange)) / origQty, 4));
+                                var priorRetSles = sleQuery
+                                    .Where(s => s.VoucherType == "DeliveryNote"
+                                             && s.VoucherId.HasValue
+                                             && priorReturnDnIds.Contains(s.VoucherId.Value)
+                                             && !s.IsCancelled
+                                             && s.QuantityChange > 0)
+                                    .ToList();
+                                foreach (var g in priorRetSles.GroupBy(s => (s.ItemId, s.WarehouseId)))
+                                {
+                                    returnedQtyByWhItem[g.Key] = g.Sum(s => s.QuantityChange);
+                                }
+                            }
+
+                            if (componentStockQtyPerUnit == null)
+                            {
+                                var origDnItem = origDnForRates.Items.FirstOrDefault(i =>
+                                    (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
+                                    || i.ItemId == item.ItemId);
+                                var origQty = origDnItem?.Quantity ?? 1m;
+                                if (origDnSles.Count > 0 && origQty > 0)
+                                {
+                                    componentStockQtyPerUnit = origDnSles
+                                        .GroupBy(s => s.ItemId)
+                                        .ToDictionary(g => g.Key, g => Math.Round(g.Sum(s => Math.Abs(s.QuantityChange)) / origQty, 4));
+                                }
                             }
                         }
                     }
@@ -737,6 +762,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         item.ItemId, item.Quantity, item.UnitPrice, isReturn: true,
                         productBundleId: returnBundleVersionId,
                         componentStockQtyPerUnit: componentStockQtyPerUnit);
+                    var origParentDnItem = origDnForRates?.Items.FirstOrDefault(i =>
+                        (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
+                        || i.ItemId == item.ItemId);
                     foreach (var comp in components)
                     {
                         var compEntity = await returnItemRepo.FindAsync(comp.ComponentItemId);
@@ -746,20 +774,39 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         var compReturnWarehouseId = item.WarehouseId ?? dn.WarehouseId;
                         var compReturnStockQty = Math.Abs(comp.Qty);
 
-                        var balance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compReturnWarehouseId);
-                        var compIncomingRate = balance.ValuationRate > 0
-                            ? balance.ValuationRate
+                        var fallbackBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compReturnWarehouseId);
+                        var fallbackRate = fallbackBalance.ValuationRate > 0
+                            ? fallbackBalance.ValuationRate
                             : (compEntity?.StandardBuyingPrice ?? 0m);
 
-                        await _valuationService.CreateLedgerEntryAsync(
-                            dn.CompanyId, comp.ComponentItemId, compReturnWarehouseId,
-                            dn.PostingDate, compReturnStockQty, compIncomingRate,
-                            voucherType: "DeliveryNote", voucherId: dn.Id,
-                            tenantId: dn.TenantId);
+                        var deliveredWhSlices = (origDnSles ?? Enumerable.Empty<Inventory.Entities.StockLedgerEntry>())
+                            .Where(s => s.ItemId == comp.ComponentItemId
+                                     && (!origParentDnItem?.Id.Equals(Guid.Empty) == true && (!s.VoucherDetailNo.HasValue || s.VoucherDetailNo == origParentDnItem!.Id)))
+                            .GroupBy(s => (s.WarehouseId, s.BatchId))
+                            .Select(g => (
+                                g.Key.WarehouseId,
+                                DeliveredQty: g.Sum(s => Math.Abs(s.QuantityChange)),
+                                ReturnedQty: returnedQtyByWhItem.GetValueOrDefault((comp.ComponentItemId, g.Key.WarehouseId), 0m),
+                                Rate: g.Select(s => s.OutgoingRate > 0 ? s.OutgoingRate : s.ValuationRate).FirstOrDefault(r => r > 0),
+                                g.Key.BatchId))
+                            .ToList();
 
-                        await _binService.ApplyStockMovementAsync(
-                            comp.ComponentItemId, compReturnWarehouseId,
-                            compReturnStockQty, compReturnStockQty * compIncomingRate, dn.TenantId);
+                        var returnSlices = ProductBundleDecompositionService.AllocateReturnedComponentSlices(
+                            compReturnStockQty, compReturnWarehouseId, fallbackRate, deliveredWhSlices);
+
+                        foreach (var rSlice in returnSlices)
+                        {
+                            await _valuationService.CreateLedgerEntryAsync(
+                                dn.CompanyId, comp.ComponentItemId, rSlice.WarehouseId,
+                                dn.PostingDate, rSlice.Qty, rSlice.Rate,
+                                voucherType: "DeliveryNote", voucherId: dn.Id,
+                                tenantId: dn.TenantId, batchId: rSlice.BatchId,
+                                voucherDetailNo: item.Id);
+
+                            await _binService.ApplyStockMovementAsync(
+                                comp.ComponentItemId, rSlice.WarehouseId,
+                                rSlice.Qty, rSlice.Qty * rSlice.Rate, dn.TenantId);
+                        }
                     }
                     continue;
                 }
@@ -942,6 +989,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     // Bundle item: decompose into components and deliver each component
                     Guid? bundleVersionId = null;
                     Dictionary<Guid, decimal>? componentStockQtyPerUnit = null;
+                    List<Inventory.Entities.PickListItem>? bundleMatchingPicks = null;
                     if (dn.SalesOrderId.HasValue && item.SalesOrderItemId.HasValue)
                     {
                         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
@@ -959,6 +1007,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                 var matchingPicks = pl?.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
                                 if (matchingPicks != null && matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
                                 {
+                                    bundleMatchingPicks = matchingPicks;
                                     componentStockQtyPerUnit = matchingPicks
                                         .GroupBy(p => p.ItemId)
                                         .ToDictionary(
@@ -984,6 +1033,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                     var matchingPicks = matchingPl.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
                                     if (matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
                                     {
+                                        bundleMatchingPicks = matchingPicks;
                                         componentStockQtyPerUnit = matchingPicks
                                             .GroupBy(p => p.ItemId)
                                             .ToDictionary(
@@ -1001,31 +1051,44 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         componentStockQtyPerUnit: componentStockQtyPerUnit);
 
                     // Capture component valuation rates BEFORE stock removal (Bug #4 fix)
+                    // Per ERPNext PR #66296 (commit afff59541c): deliver picked bundle components from each Pick List warehouse.
                     decimal bundleCostTotal = 0;
+                    var fallbackCompWhId = item.WarehouseId ?? dn.WarehouseId;
                     foreach (var comp in components)
                     {
                         var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
                         if (compEntity != null && !compEntity.MaintainStock)
                             continue;
 
-                        // Get valuation rate BEFORE consuming stock
-                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
-                        var compValuationRate = compBalance.ValuationRate;
-                        bundleCostTotal += compValuationRate * comp.Qty;
+                        var compPickRows = bundleMatchingPicks?
+                            .Where(p => p.ItemId == comp.ComponentItemId
+                                && (!comp.ProductBundleItemId.HasValue || !p.ProductBundleItemId.HasValue || p.ProductBundleItemId == comp.ProductBundleItemId))
+                            .Select(p => (p.WarehouseId, p.StockQty > 0 ? p.StockQty : p.Qty, p.DeliveredQty, p.BatchId))
+                            .ToList() ?? [];
 
-                        await _valuationService.CreateLedgerEntryAsync(
-                            dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
-                            dn.PostingDate, -comp.Qty, compValuationRate,
-                            voucherType: "DeliveryNote", voucherId: dn.Id,
-                            tenantId: dn.TenantId);
+                        var slices = ProductBundleDecompositionService.AllocatePickedComponentSlices(
+                            comp.Qty, fallbackCompWhId, compPickRows);
 
-                        // Bin value uses valuation rate (Bug #3 fix — was using selling price)
-                        await _binService.ApplyStockMovementAsync(
-                            comp.ComponentItemId, dn.WarehouseId,
-                            -comp.Qty, -(comp.Qty * compValuationRate), dn.TenantId);
+                        foreach (var slice in slices)
+                        {
+                            var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, slice.WarehouseId);
+                            var compValuationRate = compBalance.ValuationRate;
+                            bundleCostTotal += compValuationRate * slice.Qty;
 
-                        await _binService.UpdateReservedQtyAsync(
-                            comp.ComponentItemId, dn.WarehouseId, -comp.Qty, dn.TenantId);
+                            await _valuationService.CreateLedgerEntryAsync(
+                                dn.CompanyId, comp.ComponentItemId, slice.WarehouseId,
+                                dn.PostingDate, -slice.Qty, compValuationRate,
+                                voucherType: "DeliveryNote", voucherId: dn.Id,
+                                tenantId: dn.TenantId, batchId: slice.BatchId,
+                                voucherDetailNo: item.Id);
+
+                            await _binService.ApplyStockMovementAsync(
+                                comp.ComponentItemId, slice.WarehouseId,
+                                -slice.Qty, -(slice.Qty * compValuationRate), dn.TenantId);
+
+                            await _binService.UpdateReservedQtyAsync(
+                                comp.ComponentItemId, slice.WarehouseId, -slice.Qty, dn.TenantId);
+                        }
                     }
 
                     // Valuation for bundle = sum of component valuations captured before removal
@@ -1225,12 +1288,18 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var bundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
         var bundleItemIds = await bundleService.GetBundleItemIdsAsync(dn.Items.Select(i => i.ItemId).ToList());
         var cancelItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var cancelSleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+        var postedDnSles = cancelSleRepo != null
+            ? (await cancelSleRepo.GetQueryableAsync())
+                .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == dn.Id && !s.IsCancelled)
+                .ToList()
+            : new List<Inventory.Entities.StockLedgerEntry>();
 
         foreach (var item in dn.Items)
         {
             if (bundleItemIds.Contains(item.ItemId))
             {
-                // Product Bundle: reverse components that were affected on submit
+                // Product Bundle: reverse components at the exact warehouses posted on submit
                 var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, isReturn: dn.IsReturn);
                 foreach (var comp in components)
                 {
@@ -1238,29 +1307,71 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     if (compEntity != null && !compEntity.MaintainStock)
                         continue;
 
-                    var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
-                    var compValuationRate = compBalance.ValuationRate;
-                    var compQtyChange = dn.IsReturn ? -Math.Abs(comp.Qty) : Math.Abs(comp.Qty);
+                    var matchingSles = postedDnSles
+                        .Where(s => s.ItemId == comp.ComponentItemId
+                                 && (!s.VoucherDetailNo.HasValue || s.VoucherDetailNo == item.Id))
+                        .ToList();
 
-                    await _valuationService.CreateLedgerEntryAsync(
-                        dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
-                        dn.PostingDate, compQtyChange, compValuationRate,
-                        voucherType: "DeliveryNote", voucherId: dn.Id,
-                        tenantId: dn.TenantId);
-
-                    await _binService.ApplyStockMovementAsync(
-                        comp.ComponentItemId, dn.WarehouseId,
-                        compQtyChange, compQtyChange * compValuationRate, dn.TenantId);
-
-                    if (!dn.IsReturn)
+                    if (matchingSles.Count > 0)
                     {
-                        await _binService.UpdateReservedQtyAsync(
-                            comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+                        foreach (var sle in matchingSles)
+                        {
+                            var revQty = -sle.QuantityChange;
+                            var compValuationRate = sle.OutgoingRate > 0 ? sle.OutgoingRate : sle.ValuationRate;
+                            if (compValuationRate <= 0)
+                            {
+                                compValuationRate = (await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, sle.WarehouseId)).ValuationRate;
+                            }
 
-                        var sreManager = LazyServiceProvider
-                            .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
-                        await sreManager.RestoreOnCancelDeliveryAsync(
-                            comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.SalesOrderId);
+                            await _valuationService.CreateLedgerEntryAsync(
+                                dn.CompanyId, comp.ComponentItemId, sle.WarehouseId,
+                                dn.PostingDate, revQty, compValuationRate,
+                                voucherType: "DeliveryNote", voucherId: dn.Id,
+                                tenantId: dn.TenantId, batchId: sle.BatchId,
+                                voucherDetailNo: item.Id);
+
+                            await _binService.ApplyStockMovementAsync(
+                                comp.ComponentItemId, sle.WarehouseId,
+                                revQty, revQty * compValuationRate, dn.TenantId);
+
+                            if (!dn.IsReturn)
+                            {
+                                await _binService.UpdateReservedQtyAsync(
+                                    comp.ComponentItemId, sle.WarehouseId, Math.Abs(sle.QuantityChange), dn.TenantId);
+
+                                var sreManager = LazyServiceProvider
+                                    .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                                await sreManager.RestoreOnCancelDeliveryAsync(
+                                    comp.ComponentItemId, sle.WarehouseId, Math.Abs(sle.QuantityChange), dn.SalesOrderId, sle.BatchId);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
+                        var compValuationRate = compBalance.ValuationRate;
+                        var compQtyChange = dn.IsReturn ? -Math.Abs(comp.Qty) : Math.Abs(comp.Qty);
+
+                        await _valuationService.CreateLedgerEntryAsync(
+                            dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
+                            dn.PostingDate, compQtyChange, compValuationRate,
+                            voucherType: "DeliveryNote", voucherId: dn.Id,
+                            tenantId: dn.TenantId);
+
+                        await _binService.ApplyStockMovementAsync(
+                            comp.ComponentItemId, dn.WarehouseId,
+                            compQtyChange, compQtyChange * compValuationRate, dn.TenantId);
+
+                        if (!dn.IsReturn)
+                        {
+                            await _binService.UpdateReservedQtyAsync(
+                                comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+
+                            var sreManager = LazyServiceProvider
+                                .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                            await sreManager.RestoreOnCancelDeliveryAsync(
+                                comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.SalesOrderId);
+                        }
                     }
                 }
             }

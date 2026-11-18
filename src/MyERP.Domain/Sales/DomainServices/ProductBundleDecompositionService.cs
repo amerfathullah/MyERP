@@ -338,7 +338,98 @@ public class ProductBundleDecompositionService : DomainService
 
         return serialNos.Take(targetCount).ToList();
     }
+
+    /// <summary>
+    /// Allocates a bundle component quantity across undelivered Pick List locations in order,
+    /// placing any overflow onto the last matching Pick List row.
+    /// Per ERPNext PR #66296 (commit afff59541c): a bundle component picked from multiple
+    /// warehouses must be delivered from each picked warehouse rather than all from header warehouse.
+    /// </summary>
+    public static IReadOnlyList<PickedComponentSlice> AllocatePickedComponentSlices(
+        decimal componentQty,
+        Guid fallbackWarehouseId,
+        IEnumerable<(Guid WarehouseId, decimal PickedQty, decimal DeliveredQty, Guid? BatchId)> pickListRows)
+    {
+        var qty = Math.Abs(componentQty);
+        if (qty <= 0m)
+            return Array.Empty<PickedComponentSlice>();
+
+        var rows = pickListRows?.ToList();
+        if (rows == null || rows.Count == 0)
+            return new[] { new PickedComponentSlice(fallbackWarehouseId, qty) };
+
+        var remaining = qty;
+        var slices = new List<PickedComponentSlice>();
+        foreach (var row in rows)
+        {
+            if (remaining <= 0m) break;
+            var available = Math.Max(0m, row.PickedQty - row.DeliveredQty);
+            var take = Math.Min(available, remaining);
+            if (take > 0m)
+            {
+                slices.Add(new PickedComponentSlice(row.WarehouseId, take, row.BatchId));
+                remaining -= take;
+            }
+        }
+
+        if (slices.Count == 0)
+        {
+            slices.Add(new PickedComponentSlice(rows[0].WarehouseId, qty, rows[0].BatchId));
+        }
+        else if (remaining > 0m)
+        {
+            var last = slices[^1];
+            slices[^1] = last with { Qty = last.Qty + remaining };
+        }
+
+        return slices;
+    }
+
+    /// <summary>
+    /// Allocates a returned bundle component quantity across original delivered warehouse slices
+    /// up to each slice's remaining unreturned quantity (per ERPNext PR #66296 / commit 3517ae7297).
+    /// Any remaining quantity falls back to <paramref name="fallbackWarehouseId"/>.
+    /// </summary>
+    public static IReadOnlyList<ReturnedComponentSlice> AllocateReturnedComponentSlices(
+        decimal returnQty,
+        Guid fallbackWarehouseId,
+        decimal fallbackRate,
+        IEnumerable<(Guid WarehouseId, decimal DeliveredQty, decimal ReturnedQty, decimal Rate, Guid? BatchId)> deliveredSlices)
+    {
+        var qty = Math.Abs(returnQty);
+        if (qty <= 0m)
+            return Array.Empty<ReturnedComponentSlice>();
+
+        var rows = deliveredSlices?.ToList();
+        if (rows == null || rows.Count == 0)
+            return new[] { new ReturnedComponentSlice(fallbackWarehouseId, qty, fallbackRate) };
+
+        var remaining = qty;
+        var slices = new List<ReturnedComponentSlice>();
+        foreach (var row in rows)
+        {
+            if (remaining <= 0m) break;
+            var available = Math.Max(0m, row.DeliveredQty - row.ReturnedQty);
+            var take = Math.Min(available, remaining);
+            if (take > 0m)
+            {
+                slices.Add(new ReturnedComponentSlice(row.WarehouseId, take, row.Rate > 0m ? row.Rate : fallbackRate, row.BatchId));
+                remaining -= take;
+            }
+        }
+
+        if (remaining > 0m)
+        {
+            slices.Add(new ReturnedComponentSlice(fallbackWarehouseId, remaining, fallbackRate));
+        }
+
+        return slices;
+    }
 }
+
+public record PickedComponentSlice(Guid WarehouseId, decimal Qty, Guid? BatchId = null);
+
+public record ReturnedComponentSlice(Guid WarehouseId, decimal Qty, decimal Rate, Guid? BatchId = null);
 
 /// <summary>
 /// A single decomposed component from a Product Bundle.
