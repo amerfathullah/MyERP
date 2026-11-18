@@ -580,4 +580,63 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             updatedMps.Items[0].BomId.ShouldBe(validFgBom.Id);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch_Mps_ExcludesClosedSalesOrderRowsAndListsOrderOnce_67493_67495()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mpsAppService = GetRequiredService<IMasterProductionScheduleAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MPS Closed Row Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "MPS", "MPS", "MPS-67493-"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "MPS WH"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "MPS Cust 67493"), autoSave: true);
+
+            var closedItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "MPS-CLS-1", "Closed Item", ItemType.Goods) { Uom = "Nos", MaintainStock = true }, autoSave: true);
+            var openItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "MPS-OPN-1", "Open Item", ItemType.Goods) { Uom = "Nos", MaintainStock = true }, autoSave: true);
+
+            // SO with 2 open rows for openItem + 1 closed row for closedItem -> still open overall, listed ONCE
+            var mixedSo = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-MIXED-67493", new DateTime(2026, 6, 1))
+            {
+                DeliveryDate = new DateTime(2026, 6, 20)
+            };
+            mixedSo.AddItem(closedItem.Id, closedItem.ItemName, 4m, 100m, 0m);
+            mixedSo.AddItem(openItem.Id, openItem.ItemName, 3m, 100m, 0m);
+            mixedSo.AddItem(openItem.Id, openItem.ItemName, 2m, 100m, 0m);
+            var closedRow = mixedSo.Items.First(i => i.ItemId == closedItem.Id);
+            mixedSo.Submit();
+            mixedSo.CloseItem(closedRow.Id);
+            await soRepo.InsertAsync(mixedSo, autoSave: true);
+
+            var mps = await mpsAppService.CreateAsync(new CreateMasterProductionScheduleDto
+            {
+                CompanyId = company.Id,
+                PostingDate = new DateTime(2026, 6, 1),
+                FromDate = new DateTime(2026, 6, 1),
+                ParentWarehouseId = wh.Id
+            });
+
+            // Filtering by closedItem must exclude mixedSo since its closedItem row is closed
+            var fetchedForClosedItem = await mpsAppService.FetchSalesOrdersAsync(mps.Id, new FetchSalesOrdersDto { ItemId = closedItem.Id });
+            fetchedForClosedItem.SalesOrders.ShouldBeEmpty();
+
+            // Fetching by openItem lists mixedSo once even though it has 2 open rows for openItem
+            var fetchedForOpenItem = await mpsAppService.FetchSalesOrdersAsync(mps.Id, new FetchSalesOrdersDto { ItemId = openItem.Id });
+            fetchedForOpenItem.SalesOrders.Count.ShouldBe(1);
+            fetchedForOpenItem.SalesOrders[0].SalesOrderId.ShouldBe(mixedSo.Id);
+
+            // ComputeActualDemand must include only openItem (3 + 2 = 5) and exclude closedItem
+            var computed = await mpsAppService.ComputeActualDemandAsync(mps.Id);
+            computed.Items.Count.ShouldBe(1);
+            computed.Items[0].ItemId.ShouldBe(openItem.Id);
+            computed.Items[0].PlannedQty.ShouldBe(5m);
+        });
+    }
 }

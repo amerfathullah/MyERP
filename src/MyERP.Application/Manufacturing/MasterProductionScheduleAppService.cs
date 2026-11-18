@@ -299,11 +299,14 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var schedule = await _repository.GetAsync(id, includeDetails: true);
 
         var query = await _salesOrderRepository.WithDetailsAsync(so => so.Items);
-        var soQuery = query.Where(so => so.CompanyId == schedule.CompanyId && OpenSalesOrderStatuses.Contains(so.Status));
+        var soQuery = query.Where(so =>
+            so.CompanyId == schedule.CompanyId
+            && OpenSalesOrderStatuses.Contains(so.Status)
+            && so.Items.Any(i => !i.IsClosed));
         if (input.CustomerId.HasValue)
             soQuery = soQuery.Where(so => so.CustomerId == input.CustomerId.Value);
         if (input.ItemId.HasValue)
-            soQuery = soQuery.Where(so => so.Items.Any(i => i.ItemId == input.ItemId.Value));
+            soQuery = soQuery.Where(so => so.Items.Any(i => !i.IsClosed && i.ItemId == input.ItemId.Value));
         if (input.FromDate.HasValue)
         {
             var fromDate = DateRangeHelper.StartOfDay(input.FromDate.Value);
@@ -374,6 +377,9 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
             foreach (var line in so.Items)
             {
+                if (line.IsClosed)
+                    continue;
+
                 var pendingQty = line.PendingDeliveryQty * line.ConversionFactor;
                 if (pendingQty <= 0) continue;
 

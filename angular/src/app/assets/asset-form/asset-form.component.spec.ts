@@ -110,4 +110,11 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
     expect(comp.categoryAccount()?.fixedAssetAccountId).toBe('acc-fa-1');
     expect(comp.categoryAccountMissing()).toBe(false);
   });
+
+  it('includes expectedValueAfterUsefulLife in asset form defaults and submission payload', () => {
+    const { comp } = createComponent();
+    expect(comp.form.get('expectedValueAfterUsefulLife')?.value).toBe(0);
+    comp.form.patchValue({ expectedValueAfterUsefulLife: 500 });
+    expect(comp.form.getRawValue().expectedValueAfterUsefulLife).toBe(500);
+  });
 });

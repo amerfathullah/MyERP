@@ -86,6 +86,7 @@ export class AssetFormComponent implements OnInit {
       frequencyMonths: [12, [Validators.min(1)]],
       availableForUseDate: [null],
       openingAccumulatedDepreciation: [0, [Validators.min(0)]],
+      expectedValueAfterUsefulLife: [0, [Validators.min(0)]],
       notes: [''],
     });
 
@@ -151,6 +152,7 @@ export class AssetFormComponent implements OnInit {
           frequencyMonths: asset.frequencyMonths ?? 12,
           availableForUseDate: asset.availableForUseDate ? asset.availableForUseDate.split('T')[0] : null,
           openingAccumulatedDepreciation: asset.openingAccumulatedDepreciation ?? 0,
+          expectedValueAfterUsefulLife: asset.expectedValueAfterUsefulLife ?? 0,
           notes: asset.notes ?? '',
         });
 

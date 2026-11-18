@@ -70,7 +70,7 @@ public class WorkOrderProductionService : DomainService
                 var unconsumed = woItemQty - item.ConsumedQuantity;
                 var perUnit = item.RequiredQuantity / workOrder.Quantity;
                 var workOrderQty = workOrder.MaterialTransferred > 0 ? workOrder.MaterialTransferred : workOrder.Quantity;
-                var woQtyToProduce = workOrderQty - workOrder.ProducedQuantity;
+                var woQtyToProduce = workOrderQty - workOrder.ProducedQuantity - workOrder.ProcessLossQty;
                 var reqQtyEach = Math.Min(
                     unconsumed / (woQtyToProduce > 0 ? woQtyToProduce : 1m),
                     perUnit);

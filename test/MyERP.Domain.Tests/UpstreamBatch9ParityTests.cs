@@ -113,6 +113,31 @@ public class UpstreamBatch9ParityTests
     }
 
     [Fact]
+    public void WorkOrderProductionService_CalculateRawMaterialConsumption_AccountsForProcessLossQty_67724()
+    {
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+        var service = new WorkOrderProductionService(woRepo);
+
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-67724", Guid.NewGuid(), Guid.NewGuid(), 10m)
+        {
+            MaterialTransferred = 10m,
+            ProducedQuantity = 2m,
+            ProcessLossQty = 2m
+        };
+        var rmItemId = Guid.NewGuid();
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItemId, "Steel Rod", 20m)
+        {
+            TransferredQuantity = 20m,
+            ConsumedQuantity = 8m // Remaining 12 must spread over (10 - 2 - 2 = 6) units => 2/unit, not 12/8 = 1.5/unit
+        });
+
+        var result = service.CalculateRawMaterialConsumption(wo, fgCompletedQty: 6m, backflushMethod: "BOM");
+        result.Count.ShouldBe(1);
+        result[0].ItemId.ShouldBe(rmItemId);
+        result[0].Quantity.ShouldBe(12m);
+    }
+
+    [Fact]
     public void JobCard_CompleteTimeLogs_AssignsCycleQtyToLatestOpenTimeLogAndSupportsCompletedQtyWithoutEndTime_09f429f616_ad669c8f48()
     {
         var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, sequenceId: 1);
