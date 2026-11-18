@@ -602,7 +602,7 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
             var currentOutwardBundle = new MyERP.Inventory.Entities.SerialAndBatchBundle(
                 Guid.NewGuid(), company.Id, item.Id, wh1.Id,
                 MyERP.Inventory.Entities.BundleTransactionType.Outward,
-                "StockReconciliation", Guid.NewGuid(), tMinus2) { HasBatchNo = true };
+                "StockReconciliation", Guid.Empty, tMinus2) { HasBatchNo = true };
             currentOutwardBundle.AddEntry(new MyERP.Inventory.Entities.SerialAndBatchEntry(
                 Guid.NewGuid(), currentOutwardBundle.Id, 10m, 100m, batchId: batchA.Id));
             await bundleRepo.InsertAsync(currentOutwardBundle, autoSave: true);
@@ -610,7 +610,7 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
             var newInwardBundle = new MyERP.Inventory.Entities.SerialAndBatchBundle(
                 Guid.NewGuid(), company.Id, item.Id, wh1.Id,
                 MyERP.Inventory.Entities.BundleTransactionType.Inward,
-                "StockReconciliation", Guid.NewGuid(), tMinus2) { HasBatchNo = true };
+                "StockReconciliation", Guid.Empty, tMinus2) { HasBatchNo = true };
             newInwardBundle.AddEntry(new MyERP.Inventory.Entities.SerialAndBatchEntry(
                 Guid.NewGuid(), newInwardBundle.Id, 5m, 100m, batchId: batchA.Id));
             await bundleRepo.InsertAsync(newInwardBundle, autoSave: true);

@@ -960,6 +960,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piManagerCreate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
         piManagerCreate.ValidateDuplicateItems(invoice, allowMultiple);
 
+        await ValidateSerialAndBatchBundlesAsync(invoice);
+
         await _repository.InsertAsync(invoice, autoSave: true);
 
         // Auto-generate payment schedule from Payment Terms Template or resolve DueDate (ERPNext PR #49232 / commit 77478303fe)
@@ -1162,14 +1164,33 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piManagerUpdate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
         piManagerUpdate.ValidateDuplicateItems(invoice, allowMultipleUpdate);
 
+        await ValidateSerialAndBatchBundlesAsync(invoice);
+
         await _repository.UpdateAsync(invoice, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
+    }
+
+    private async Task ValidateSerialAndBatchBundlesAsync(PurchaseInvoice invoice)
+    {
+        var sabbValidator = LazyServiceProvider?.LazyGetService<Inventory.DomainServices.SerialBatchBundleValidationService>();
+        if (sabbValidator == null)
+        {
+            return;
+        }
+
+        await sabbValidator.ValidateBundleCompanyAsync(
+            invoice.CompanyId,
+            invoice.Items.Select(i => i.SerialAndBatchBundleId),
+            expectedVoucherType: "PurchaseInvoice",
+            expectedVoucherId: invoice.Id);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Submit)]
     public async Task<PurchaseInvoiceDto> SubmitAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
+
+        await ValidateSerialAndBatchBundlesAsync(invoice);
 
         // Authorization control: high-value transaction approval check
         var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();

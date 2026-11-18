@@ -318,6 +318,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice,
                 item.TaxAmount, item.Uom, soItemId, item.PickListItemId);
             var lastItem = dn.Items[^1];
+            lastItem.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
             var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
             if (itemEntity != null)
             {
@@ -333,6 +334,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 }
             }
         }
+
+        await ValidateSerialAndBatchBundlesAsync(dn);
 
         await _repository.InsertAsync(dn, autoSave: true);
 
@@ -482,7 +485,10 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         {
             var qty = dn.IsReturn ? -Math.Abs(item.Quantity) : item.Quantity;
             dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
+            dn.Items[^1].SerialAndBatchBundleId = item.SerialAndBatchBundleId;
         }
+
+        await ValidateSerialAndBatchBundlesAsync(dn);
 
         await _repository.UpdateAsync(dn, autoSave: true);
 
@@ -504,10 +510,27 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         return dto;
     }
 
+    private async Task ValidateSerialAndBatchBundlesAsync(DeliveryNote dn)
+    {
+        var sabbValidator = LazyServiceProvider?.LazyGetService<Inventory.DomainServices.SerialBatchBundleValidationService>();
+        if (sabbValidator == null)
+        {
+            return;
+        }
+
+        await sabbValidator.ValidateBundleCompanyAsync(
+            dn.CompanyId,
+            dn.Items.Select(i => i.SerialAndBatchBundleId),
+            expectedVoucherType: "DeliveryNote",
+            expectedVoucherId: dn.Id);
+    }
+
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
     public async Task<DeliveryNoteDto> SubmitAsync(Guid id)
     {
         var dn = await _repository.GetAsync(id);
+
+        await ValidateSerialAndBatchBundlesAsync(dn);
 
         var customer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>().FindAsync(dn.CustomerId);
         if (customer != null)

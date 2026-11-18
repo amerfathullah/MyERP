@@ -280,8 +280,24 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 item.AllowZeroValuationRate);
         }
 
+        await ValidateSerialAndBatchBundlesAsync(sr);
         await _repository.InsertAsync(sr);
         return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
+    }
+
+    private async Task ValidateSerialAndBatchBundlesAsync(StockReconciliation sr)
+    {
+        var sabbValidator = LazyServiceProvider?.LazyGetService<SerialBatchBundleValidationService>();
+        if (sabbValidator == null)
+        {
+            return;
+        }
+
+        await sabbValidator.ValidateBundleCompanyAsync(
+            sr.CompanyId,
+            sr.Items.SelectMany(i => new[] { i.SerialAndBatchBundleId, i.CurrentSerialAndBatchBundleId }),
+            expectedVoucherType: "StockReconciliation",
+            expectedVoucherId: sr.Id);
     }
 
     private async Task ValidateStandardCostRatesAsync(CreateStockReconciliationDto input)
@@ -328,6 +344,7 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(sr.CompanyId, sr.PostingDate, "StockReconciliation");
 
+        await ValidateSerialAndBatchBundlesAsync(sr);
         await ValidateNoActiveReservationsAsync(sr);
         await ValidateExpenseAccountAsync(sr);
 

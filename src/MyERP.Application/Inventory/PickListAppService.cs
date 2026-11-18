@@ -217,6 +217,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
                 conversionFactor: resolvedFactor,
                 stockUom: stockUom);
         }
+        await ValidateSerialAndBatchBundlesAsync(pl);
         await _repository.InsertAsync(pl);
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
@@ -225,6 +226,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
     public async Task<PickListDto> SubmitAsync(Guid id)
     {
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+        await ValidateSerialAndBatchBundlesAsync(pl);
         pl.Submit();
         await _repository.UpdateAsync(pl);
         if (pl.SalesOrderId.HasValue)
@@ -232,6 +234,21 @@ public class PickListAppService : ApplicationService, IPickListAppService
             await UpdateSalesOrderPickingStatusAsync(pl, isSubmit: true);
         }
         return ObjectMapper.Map<PickList, PickListDto>(pl);
+    }
+
+    private async Task ValidateSerialAndBatchBundlesAsync(PickList pl)
+    {
+        var sabbValidator = LazyServiceProvider?.LazyGetService<Inventory.DomainServices.SerialBatchBundleValidationService>();
+        if (sabbValidator == null)
+        {
+            return;
+        }
+
+        await sabbValidator.ValidateBundleCompanyAsync(
+            pl.CompanyId,
+            pl.Items.Select(i => i.SerialAndBatchBundleId),
+            expectedVoucherType: "PickList",
+            expectedVoucherId: pl.Id);
     }
 
     [Authorize(MyERPPermissions.StockEntries.Cancel)]
