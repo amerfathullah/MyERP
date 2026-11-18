@@ -113,8 +113,12 @@ public class ProductionPlanDetailEnhancementTests
     public void ProductionPlan_Reopen_WithMaterialRequirements_SetsMaterialRequested()
     {
         var pp = CreatePPWithItem();
-        pp.AddMaterialRequirement(new ProductionPlanMrItem(Guid.NewGuid(), pp.Id, ItemId, "Material A", 10m));
+        pp.AddMaterialRequirement(new ProductionPlanMrItem(Guid.NewGuid(), pp.Id, ItemId, "Material A", 10m)
+        {
+            MaterialRequestId = Guid.NewGuid()
+        });
         pp.Submit();
+        pp.MarkMaterialRequested();
         pp.Close();
 
         pp.Reopen();
