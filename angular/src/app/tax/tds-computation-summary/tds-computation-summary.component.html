@@ -1,0 +1,106 @@
+<abp-page [title]="'::TdsComputationSummary' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::PartyType' | abpLocalization }}</label>
+          <select class="form-select" formControlName="partyType">
+            <option value="">-- {{ '::All' | abpLocalization }} --</option>
+            <option value="Supplier">{{ '::Supplier' | abpLocalization }}</option>
+            <option value="Customer">{{ '::Customer' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::TaxWithholdingCategory' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="taxCategory" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-calculator"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">
+          {{ r.totalCount }} {{ '::Entries' | abpLocalization }}
+          @if (r.fiscalYearName) {
+            <span class="badge bg-secondary ms-2">{{ r.fiscalYearName }}</span>
+          }
+        </span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::Tin' | abpLocalization }}</th>
+                <th>{{ '::PartyType' | abpLocalization }}</th>
+                <th>{{ '::Party' | abpLocalization }}</th>
+                <th>{{ '::TaxWithholdingCategory' | abpLocalization }}</th>
+                <th class="text-end">{{ '::WithholdingRate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Count' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TaxableAmount' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ '::WithheldAmount' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track $index) {
+                <tr>
+                  <td class="ps-3 font-monospace small">{{ row.tin || '-' }}</td>
+                  <td class="small">{{ row.partyType }}</td>
+                  <td class="fw-medium">{{ row.partyName }}</td>
+                  <td>{{ row.taxCategory || '-' }}</td>
+                  <td class="text-end font-monospace">
+                    {{ (row.rate ?? 0) | number:'1.2-2' }}%
+                    @if (row.hasLdc) {
+                      <span class="badge bg-info ms-1">{{ '::LowerDeductionApplied' | abpLocalization }}</span>
+                    }
+                  </td>
+                  <td class="text-end font-monospace">{{ row.transactionCount }}</td>
+                  <td class="text-end font-monospace">{{ (row.totalTaxableAmount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end pe-3 font-monospace fw-bold">{{ (row.totalWithheldAmount ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3" colspan="6">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (r.totalTaxableAmount ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end pe-3 font-monospace">{{ (r.totalWithheldAmount ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

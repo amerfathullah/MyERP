@@ -294,3 +294,58 @@ export interface UpdateItemTaxTemplateDto {
 
 export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
 }
+
+export interface TaxWithholdingReportFilterDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  partyType?: string | null;
+  partyId?: string | null;
+  taxCategory?: string | null;
+}
+
+export interface TaxWithholdingDetailRowDto {
+  entryId?: string;
+  partyType?: string;
+  partyId?: string;
+  partyName?: string;
+  tin?: string | null;
+  taxCategory?: string;
+  rate?: number;
+  taxableAmount?: number;
+  withheldAmount?: number;
+  voucherType?: string;
+  voucherId?: string;
+  voucherNumber?: string;
+  postingDate?: string;
+  hasLdc?: boolean;
+  certificateNumber?: string | null;
+}
+
+export interface TaxWithholdingDetailsReportDto {
+  rows?: TaxWithholdingDetailRowDto[];
+  totalCount?: number;
+  totalTaxableAmount?: number;
+  totalWithheldAmount?: number;
+}
+
+export interface TdsComputationSummaryRowDto {
+  partyType?: string;
+  partyId?: string;
+  partyName?: string;
+  tin?: string | null;
+  taxCategory?: string;
+  rate?: number;
+  hasLdc?: boolean;
+  transactionCount?: number;
+  totalTaxableAmount?: number;
+  totalWithheldAmount?: number;
+}
+
+export interface TdsComputationSummaryReportDto {
+  fiscalYearName?: string | null;
+  rows?: TdsComputationSummaryRowDto[];
+  totalCount?: number;
+  totalTaxableAmount?: number;
+  totalWithheldAmount?: number;
+}

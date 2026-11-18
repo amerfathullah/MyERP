@@ -1670,6 +1670,22 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.TaxCategories',
       },
       {
+        path: '/tax/withholding-details',
+        name: '::Menu:TaxWithholdingDetails',
+        iconClass: 'fas fa-file-invoice',
+        order: 61.2,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxCategories',
+      },
+      {
+        path: '/tax/tds-computation-summary',
+        name: '::Menu:TdsComputationSummary',
+        iconClass: 'fas fa-calculator',
+        order: 61.4,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.TaxCategories',
+      },
+      {
         path: '/tax/rules',
         name: '::Menu:TaxRules',
         iconClass: 'fas fa-gavel',

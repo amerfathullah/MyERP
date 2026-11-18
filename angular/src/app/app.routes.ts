@@ -1831,6 +1831,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.TaxCategories' },
   },
   {
+    path: 'tax/withholding-details',
+    loadComponent: () => import('./tax/tax-withholding-details/tax-withholding-details.component').then(c => c.TaxWithholdingDetailsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
+  {
+    path: 'tax/tds-computation-summary',
+    loadComponent: () => import('./tax/tds-computation-summary/tds-computation-summary.component').then(c => c.TdsComputationSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.TaxCategories' },
+  },
+  {
     path: 'tax/rules',
     loadComponent: () => import('./tax/tax-rules/tax-rule-list.component').then(c => c.TaxRuleListComponent),
     canActivate: [authGuard, permissionGuard],

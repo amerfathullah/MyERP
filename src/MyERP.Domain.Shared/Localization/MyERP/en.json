@@ -6542,7 +6542,14 @@
     "ReferenceName": "Reference Name",
     "LastCommunication": "Last Communication",
     "LastCommunicationDate": "Last Communication Date",
-    "PipelineBy": "Pipeline By"
+    "PipelineBy": "Pipeline By",
+    "Menu:TaxWithholdingDetails": "Tax Withholding Details",
+    "TaxWithholdingDetails": "Tax Withholding Details",
+    "Menu:TdsComputationSummary": "TDS Computation Summary",
+    "TdsComputationSummary": "TDS Computation Summary",
+    "WithholdingRate": "Rate (%)",
+    "Tin": "TIN",
+    "LowerDeductionApplied": "LDC"
   }
 }
 
