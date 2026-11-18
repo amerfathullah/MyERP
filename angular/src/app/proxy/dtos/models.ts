@@ -154,6 +154,18 @@ export interface GetLandedCostReceiptItemsInput {
   receiptIds?: string[];
 }
 
+export interface GetEligibleLandedCostReceiptsInput {
+  companyId?: string;
+  receiptType?: string;
+}
+
+export interface LandedCostReceiptLookupDto {
+  id?: string;
+  receiptType?: string;
+  documentNumber?: string;
+  postingDate?: string;
+}
+
 export interface GetLandedCostVoucherListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   filter?: string | null;

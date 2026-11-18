@@ -1147,17 +1147,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines, reverse: true);
 
             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
-            foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue))
-            {
-                await sreManager.RevertSubcontractingTransferAsync(
-                    entry.SubcontractingOrderId.Value,
-                    seItem.ItemId,
-                    seItem.SourceWarehouseId!.Value,
-                    seItem.StockQty,
-                    seItem.BatchId,
-                    targetWarehouseId: seItem.TargetWarehouseId,
-                    stockEntryId: entry.Id);
-            }
+            var itemIds = entry.Items
+                .Where(i => i.SourceWarehouseId.HasValue)
+                .Select(i => i.ItemId)
+                .Distinct()
+                .ToList();
+            await sreManager.RebuildSubcontractingTransfersAsync(
+                entry.SubcontractingOrderId.Value,
+                _repository,
+                excludedStockEntryId: entry.Id,
+                itemIds: itemIds);
         }
 
         // Reverse SLE entries + Bin balances

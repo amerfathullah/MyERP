@@ -321,4 +321,124 @@ public class StockReservationUsedWorkOrderGuardTests
         newerBundleSre.TransferredQty.ShouldBe(4m);
         olderQtySre.TransferredQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task RebuildSubcontractingTransfersAsync_ReplaysOnlyOnReservationsCreatedBeforeTransfer()
+    {
+        var scoId = Guid.NewGuid();
+        var supplierWh = Guid.NewGuid();
+
+        var sre1 = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "SubcontractingOrder", scoId, 5m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        sre1.Submit();
+        sre1.TransferredQty = 5m;
+
+        var sre2 = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "SubcontractingOrder", scoId, 3m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc)
+        };
+        sre2.Submit();
+        sre2.TransferredQty = 3m;
+
+        var se1Id = Guid.NewGuid();
+        var se1 = new StockEntry(se1Id, CompanyId, MyERP.Inventory.StockEntryType.SendToSubcontractor, new DateTime(2026, 11, 1))
+        {
+            SubcontractingOrderId = scoId,
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc) // between sre1 and sre2; transferred 7 (5 reserved + 2 unreserved)
+        };
+        se1.AddItem(ItemId, 7m, sourceWarehouseId: WarehouseId, targetWarehouseId: supplierWh);
+        se1.Submit();
+        se1.Post();
+
+        var se2Id = Guid.NewGuid();
+        var se2 = new StockEntry(se2Id, CompanyId, MyERP.Inventory.StockEntryType.SendToSubcontractor, new DateTime(2026, 11, 1))
+        {
+            SubcontractingOrderId = scoId,
+            CreationTime = new DateTime(2026, 11, 1, 11, 0, 0, DateTimeKind.Utc) // after sre2; transferred 3
+        };
+        se2.AddItem(ItemId, 3m, sourceWarehouseId: WarehouseId, targetWarehouseId: supplierWh);
+        se2.Submit();
+        se2.Post();
+
+        var se2TargetSre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, supplierWh, "SubcontractingOrder", scoId, 3m)
+        {
+            FromVoucherType = "StockEntry",
+            FromVoucherId = se2Id
+        };
+        se2TargetSre.Submit();
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(new[] { sre1, sre2, se2TargetSre }.AsQueryable()));
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<StockEntry, object>>[]>())
+            .Returns(_ => Task.FromResult(new[] { se1, se2 }.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // Cancel se2: se1's 2 unreserved qty (from before sre2 existed) must NOT close sre2
+        await manager.RebuildSubcontractingTransfersAsync(scoId, seRepo, excludedStockEntryId: se2Id);
+
+        sre1.TransferredQty.ShouldBe(5m);
+        sre2.TransferredQty.ShouldBe(0m);
+        se2TargetSre.Status.ShouldBe(DocumentStatus.Cancelled);
+
+        // If se1 cancels instead while se2 (qty 3, created after sre1 & sre2) remains active,
+        // FIFO replay assigns se2's 3 to oldest open sre1 (leaving total transferred = 3m).
+        await manager.RebuildSubcontractingTransfersAsync(scoId, seRepo, excludedStockEntryId: se1Id);
+
+        sre1.TransferredQty.ShouldBe(3m);
+        sre2.TransferredQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task RebuildSubcontractingTransfersAsync_TimesTransferByFirstActiveStockLedgerEntry()
+    {
+        var scoId = Guid.NewGuid();
+        var supplierWh = Guid.NewGuid();
+
+        // Transfer draft was created early at 08:00, BEFORE sre2 at 09:00,
+        // but its first outward SLE was submitted/posted at 10:00 (after sre2)
+        var sre2 = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "SubcontractingOrder", scoId, 4m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc)
+        };
+        sre2.Submit();
+
+        var se1Id = Guid.NewGuid();
+        var se1 = new StockEntry(se1Id, CompanyId, MyERP.Inventory.StockEntryType.SendToSubcontractor, new DateTime(2026, 11, 1))
+        {
+            SubcontractingOrderId = scoId,
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        se1.AddItem(ItemId, 4m, sourceWarehouseId: WarehouseId, targetWarehouseId: supplierWh);
+        se1.Submit();
+        se1.Post();
+
+        var firstSle = new StockLedgerEntry(
+            Guid.NewGuid(), CompanyId, ItemId, WarehouseId,
+            new DateTime(2026, 11, 1), new TimeSpan(10, 0, 0),
+            -4m, 10m, 6m, 60m,
+            voucherType: "StockEntry", voucherId: se1Id);
+        typeof(StockLedgerEntry).GetProperty(nameof(StockLedgerEntry.CreationTime))!
+            .SetValue(firstSle, new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc));
+
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(new[] { sre2 }.AsQueryable()));
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<StockEntry, object>>[]>())
+            .Returns(_ => Task.FromResult(new[] { se1 }.AsQueryable()));
+
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        sleRepo.GetQueryableAsync().Returns(_ => Task.FromResult(new[] { firstSle }.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, sleRepo);
+
+        await manager.RebuildSubcontractingTransfersAsync(scoId, seRepo, sleRepo, excludedStockEntryId: Guid.NewGuid());
+
+        sre2.TransferredQty.ShouldBe(4m);
+    }
 }

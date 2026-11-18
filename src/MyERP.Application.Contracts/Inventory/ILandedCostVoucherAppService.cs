@@ -15,5 +15,6 @@ public interface ILandedCostVoucherAppService : IApplicationService
     Task<LandedCostVoucherDto> SubmitAsync(Guid id);
     Task<LandedCostVoucherDto> CancelAsync(Guid id);
     Task<List<LandedCostItemDto>> GetReceiptItemsAsync(GetLandedCostReceiptItemsInput input);
+    Task<List<LandedCostReceiptLookupDto>> GetEligibleReceiptsAsync(GetEligibleLandedCostReceiptsInput input);
     Task<LandedCostDistributionResultDto> CalculateDistributionAsync(CalculateLandedCostDistributionDto input);
 }

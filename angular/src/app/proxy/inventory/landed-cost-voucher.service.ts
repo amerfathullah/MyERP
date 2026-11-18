@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { CalculateLandedCostDistributionDto, CreateLandedCostVoucherDto, GetLandedCostReceiptItemsInput, GetLandedCostVoucherListDto, LandedCostDistributionResultDto, LandedCostItemDto, LandedCostVoucherDto } from '../dtos/models';
+import type { CalculateLandedCostDistributionDto, CreateLandedCostVoucherDto, GetEligibleLandedCostReceiptsInput, GetLandedCostReceiptItemsInput, GetLandedCostVoucherListDto, LandedCostDistributionResultDto, LandedCostItemDto, LandedCostReceiptLookupDto, LandedCostVoucherDto } from '../dtos/models';
 
 @Injectable({
   providedIn: 'root',
@@ -65,6 +65,15 @@ export class LandedCostVoucherService {
   
 
   
+  getEligibleReceipts = (input: GetEligibleLandedCostReceiptsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LandedCostReceiptLookupDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/landed-cost-voucher/eligible-receipts',
+      params: { companyId: input.companyId, receiptType: input.receiptType },
+    },
+      { apiName: this.apiName,...config });
+
   getReceiptItems = (input: GetLandedCostReceiptItemsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostItemDto[]>({
       method: 'GET',

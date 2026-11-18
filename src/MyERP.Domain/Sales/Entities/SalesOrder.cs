@@ -470,6 +470,40 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal PendingDeliveryQty => (SkipDelivery || IsClosed) ? 0 : Math.Max(0, Math.Round(Quantity - DeliveredQty, 4));
 
     /// <summary>
+    /// Net reserved qty still held by this row in Bin.ReservedQty.
+    /// Per ERPNext PR / commit 01d061402d: DeliveredQty is reduced on sales returns without re-reserving stock,
+    /// so net_reserved = max(0, qty - delivered_qty - returned_qty). Prevents replacement deliveries or close/cancel
+    /// from over-releasing another order's reservation.
+    /// </summary>
+    public decimal PendingReservedDeliveryQty =>
+        (SkipDelivery || IsClosed) ? 0m : Math.Max(0m, Math.Round(Quantity - DeliveredQty - ReturnedQty, 4));
+
+    /// <summary>
+    /// Stock-UOM reservation qty released when delivering <paramref name="qtyDeliveredInOrderUom"/> on this row.
+    /// </summary>
+    public decimal CalculateReservationReleaseForDelivery(decimal qtyDeliveredInOrderUom, decimal? priorDeliveredQty = null)
+    {
+        if (qtyDeliveredInOrderUom <= 0m || SkipDelivery || IsClosed) return 0m;
+        var prevDelivered = priorDeliveredQty ?? DeliveredQty;
+        var before = Math.Max(0m, Math.Round(Quantity - prevDelivered - ReturnedQty, 4));
+        var after = Math.Max(0m, Math.Round(Quantity - (prevDelivered + qtyDeliveredInOrderUom) - ReturnedQty, 4));
+        return Math.Max(0m, Math.Round((before - after) * ConversionFactor, 4));
+    }
+
+    /// <summary>
+    /// Stock-UOM reservation qty restored when cancelling a delivery of <paramref name="qtyCancelledInOrderUom"/> on this row.
+    /// </summary>
+    public decimal CalculateReservationRestoreForDeliveryCancel(decimal qtyCancelledInOrderUom, decimal? priorDeliveredQty = null)
+    {
+        if (qtyCancelledInOrderUom <= 0m || SkipDelivery || IsClosed) return 0m;
+        var prevDelivered = priorDeliveredQty ?? DeliveredQty;
+        var before = Math.Max(0m, Math.Round(Quantity - prevDelivered - ReturnedQty, 4));
+        var afterDelivered = Math.Max(0m, prevDelivered - qtyCancelledInOrderUom);
+        var after = Math.Max(0m, Math.Round(Quantity - afterDelivered - ReturnedQty, 4));
+        return Math.Max(0m, Math.Round((after - before) * ConversionFactor, 4));
+    }
+
+    /// <summary>
     /// Ordered qty plus the over delivery allowance, floored to whole units when the UOM requires it (PR #60140).
     /// </summary>
     public decimal GetMaxDeliverableQty(decimal allowancePct, bool mustBeWholeNumber = false)

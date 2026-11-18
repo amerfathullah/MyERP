@@ -926,12 +926,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         foreach (var item in order.Items)
         {
-            if (!item.WarehouseId.HasValue) continue;
+            if (item.DeliveredBySupplier) continue;
+            var pendingQty = item.PendingReservedDeliveryQty;
+            if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
+
+            var pendingStockQty = pendingQty * item.ConversionFactor;
 
             if (cancelBundleIds.Contains(item.ItemId))
             {
                 var components = await cancelBundleService.DecomposeAsync(
-                    item.ItemId, item.StockQty, item.UnitPrice);
+                    item.ItemId, pendingStockQty, item.UnitPrice);
                 foreach (var comp in components)
                 {
                     await _binService.UpdateReservedQtyAsync(
@@ -941,7 +945,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             else
             {
                 await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, item.WarehouseId.Value, -item.StockQty, order.TenantId);
+                    item.ItemId, item.WarehouseId.Value, -pendingStockQty, order.TenantId);
             }
         }
 
@@ -1042,7 +1046,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         foreach (var item in order.Items)
         {
             if (item.DeliveredBySupplier) continue; // drop-ship: no stock to release
-            var pendingQty = item.PendingDeliveryQty;
+            var pendingQty = item.PendingReservedDeliveryQty;
             if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
 
             // Convert pending qty to stock UOM for Bin release
@@ -1110,7 +1114,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         foreach (var item in order.Items)
         {
             if (item.DeliveredBySupplier) continue; // drop-ship: no stock to reserve
-            var pendingQty = item.PendingDeliveryQty;
+            var pendingQty = item.PendingReservedDeliveryQty;
             if (pendingQty <= 0 || !item.WarehouseId.HasValue) continue;
 
             // Convert pending qty to stock UOM for Bin reservation
@@ -1160,14 +1164,15 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }
 
         var pendingQty = item.PendingDeliveryQty;
+        var pendingReservedQty = item.PendingReservedDeliveryQty;
         order.CloseItem(itemId);
 
         // Release reserved stock for closed item
-        if (pendingQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
+        if (pendingReservedQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
         {
-            var pendingStockQty = pendingQty * item.ConversionFactor;
+            var pendingReservedStockQty = pendingReservedQty * item.ConversionFactor;
             await _binService.UpdateReservedQtyAsync(
-                item.ItemId, item.WarehouseId.Value, -pendingStockQty, order.TenantId);
+                item.ItemId, item.WarehouseId.Value, -pendingReservedStockQty, order.TenantId);
         }
 
         // Release Blanket Order allocation for closed item (PR #54593)
@@ -1201,11 +1206,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.ReopenItem(itemId);
 
         // Re-reserve stock for reopened item
-        if (item.PendingDeliveryQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
+        var pendingReservedQty = item.PendingReservedDeliveryQty;
+        if (pendingReservedQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
         {
-            var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
+            var pendingReservedStockQty = pendingReservedQty * item.ConversionFactor;
             await _binService.UpdateReservedQtyAsync(
-                item.ItemId, item.WarehouseId.Value, pendingStockQty, order.TenantId);
+                item.ItemId, item.WarehouseId.Value, pendingReservedStockQty, order.TenantId);
         }
 
         // Re-record Blanket Order allocation for reopened item (PR #54593)
@@ -1809,8 +1815,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
             if (soItemToRemove.WarehouseId.HasValue && !soItemToRemove.DeliveredBySupplier)
             {
-                await _binService.UpdateReservedQtyAsync(
-                    soItemToRemove.ItemId, soItemToRemove.WarehouseId.Value, -soItemToRemove.StockQty, so.TenantId);
+                var pendingReservedStock = soItemToRemove.PendingReservedDeliveryQty * soItemToRemove.ConversionFactor;
+                if (pendingReservedStock > 0m)
+                {
+                    await _binService.UpdateReservedQtyAsync(
+                        soItemToRemove.ItemId, soItemToRemove.WarehouseId.Value, -pendingReservedStock, so.TenantId);
+                }
             }
 
             // Per ERPNext PR #61618: release Blanket Order allocation when an open row is deleted via Update Items
@@ -1881,6 +1891,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
 
             var oldStockQty = soItem.StockQty;
+            var oldPendingReservedStock = soItem.PendingReservedDeliveryQty * soItem.ConversionFactor;
 
             soItem.Quantity = update.Quantity;
             if (!string.IsNullOrWhiteSpace(update.Uom))
@@ -1892,16 +1903,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             if (update.WarehouseId.HasValue)
                 soItem.WarehouseId = update.WarehouseId;
 
-            // Adjust Bin.ReservedQty for qty changes (delta in stock UOM)
+            // Adjust Bin.ReservedQty for net reserved qty changes (delta in stock UOM)
             var qtyDelta = soItem.StockQty - oldStockQty;
+            var newPendingReservedStock = soItem.PendingReservedDeliveryQty * soItem.ConversionFactor;
+            var reservedQtyDelta = newPendingReservedStock - oldPendingReservedStock;
             if (qtyDelta != 0)
             {
                 quotationItemDeltas.Add((soItem.QuotationItemId, soItem.ItemId, qtyDelta));
             }
-            if (qtyDelta != 0 && soItem.WarehouseId.HasValue && !soItem.DeliveredBySupplier)
+            if (reservedQtyDelta != 0 && soItem.WarehouseId.HasValue && !soItem.DeliveredBySupplier)
             {
                 await _binService.UpdateReservedQtyAsync(
-                    soItem.ItemId, soItem.WarehouseId.Value, qtyDelta, so.TenantId);
+                    soItem.ItemId, soItem.WarehouseId.Value, reservedQtyDelta, so.TenantId);
             }
 
             // Per ERPNext PR #61618: adjust linked Blanket Order allocation on Update Items

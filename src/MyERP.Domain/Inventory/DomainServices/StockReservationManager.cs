@@ -1009,6 +1009,163 @@ public class StockReservationManager : DomainService
             batchId, subcontractingSuppliedItemId, targetWarehouseId, stockEntryId);
 
     /// <summary>
+    /// Rebuilds source-side TransferredQty on Subcontracting Order reservations when a SendToSubcontractor
+    /// Stock Entry is cancelled (ERPNext commits aac9fc9a8a &amp; 47bd8f9c7f). Cancels target-warehouse
+    /// reservations created by <paramref name="excludedStockEntryId"/> and replays each remaining active
+    /// SendToSubcontractor transfer oldest-first—timed by its first active outward Stock Ledger Entry
+    /// (fallback StockEntry.CreationTime)—only against reservations created before that transfer.
+    /// </summary>
+    public async Task RebuildSubcontractingTransfersAsync(
+        Guid subcontractingOrderId,
+        IRepository<StockEntry, Guid> stockEntryRepository,
+        IRepository<StockLedgerEntry, Guid>? sleRepository = null,
+        Guid? excludedStockEntryId = null,
+        IEnumerable<Guid>? itemIds = null)
+    {
+        var sreQueryable = await _sreRepository.GetQueryableAsync();
+
+        if (excludedStockEntryId.HasValue)
+        {
+            var cancelledTargetSres = sreQueryable
+                .Where(s => s.VoucherId == subcontractingOrderId
+                    && s.Status == DocumentStatus.Submitted
+                    && s.FromVoucherType == "StockEntry"
+                    && s.FromVoucherId == excludedStockEntryId.Value)
+                .ToList()
+                .Where(s => IsSubcontractingOrderVoucher(s.VoucherType))
+                .ToList();
+
+            foreach (var tsre in cancelledTargetSres)
+            {
+                if (tsre.ConsumedQty > 0m)
+                {
+                    tsre.ReservedQty = tsre.ConsumedQty;
+                }
+                else
+                {
+                    tsre.Cancel();
+                }
+                await _sreRepository.UpdateAsync(tsre);
+            }
+        }
+
+        var itemFilter = itemIds?.Distinct().ToHashSet();
+        var sourceSres = sreQueryable
+            .Where(s => s.VoucherId == subcontractingOrderId
+                && s.FromVoucherType != "StockEntry"
+                && (s.Status == DocumentStatus.Submitted || s.TransferredQty > 0m))
+            .ToList()
+            .Where(s => IsSubcontractingOrderVoucher(s.VoucherType)
+                && (itemFilter == null || itemFilter.Count == 0 || itemFilter.Contains(s.ItemId)))
+            .ToList();
+
+        if (sourceSres.Count == 0)
+            return;
+
+        foreach (var sre in sourceSres)
+        {
+            sre.TransferredQty = 0m;
+        }
+
+        var seQuery = await stockEntryRepository.WithDetailsAsync(se => se.Items);
+        var remainingTransfers = seQuery
+            .Where(se => se.SubcontractingOrderId == subcontractingOrderId
+                && se.EntryType == StockEntryType.SendToSubcontractor
+                && se.Status != DocumentStatus.Draft
+                && se.Status != DocumentStatus.Cancelled
+                && (!excludedStockEntryId.HasValue || se.Id != excludedStockEntryId.Value))
+            .ToList();
+
+        if (remainingTransfers.Count > 0)
+        {
+            var firstSleTimeBySe = new Dictionary<Guid, DateTime>();
+            var activeSleRepo = sleRepository ?? _sleRepository;
+            if (activeSleRepo != null)
+            {
+                var remainingSeIds = remainingTransfers.Select(se => se.Id).ToList();
+                var sleQuery = await activeSleRepo.GetQueryableAsync();
+                firstSleTimeBySe = sleQuery
+                    .Where(sle => !sle.IsCancelled
+                        && sle.VoucherType == "StockEntry"
+                        && sle.VoucherId.HasValue
+                        && remainingSeIds.Contains(sle.VoucherId.Value)
+                        && sle.QuantityChange < 0m)
+                    .ToList()
+                    .GroupBy(sle => sle.VoucherId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Min(x => x.CreationTime));
+            }
+
+            var timedTransfers = remainingTransfers
+                .Select(se => (
+                    StockEntry: se,
+                    TransferTime: firstSleTimeBySe.TryGetValue(se.Id, out var sleTime) ? sleTime : se.CreationTime))
+                .OrderBy(x => x.TransferTime)
+                .ThenBy(x => x.StockEntry.CreationTime)
+                .ThenBy(x => x.StockEntry.Id)
+                .ToList();
+
+            foreach (var (se, transferTime) in timedTransfers)
+            {
+                var batchPool = se.Items
+                    .Where(i => i.BatchId.HasValue && i.SourceWarehouseId.HasValue)
+                    .GroupBy(i => i.BatchId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Sum(i => i.StockQty > 0m ? i.StockQty : i.Quantity));
+
+                foreach (var seItem in se.Items.Where(i => i.SourceWarehouseId.HasValue))
+                {
+                    if (itemFilter != null && itemFilter.Count > 0 && !itemFilter.Contains(seItem.ItemId))
+                        continue;
+
+                    var transferQty = seItem.StockQty > 0m ? seItem.StockQty : seItem.Quantity;
+                    if (transferQty <= 0m) continue;
+
+                    var candidates = sourceSres
+                        .Where(s => s.ItemId == seItem.ItemId
+                            && s.WarehouseId == seItem.SourceWarehouseId!.Value
+                            && (!seItem.TargetWarehouseId.HasValue || s.WarehouseId != seItem.TargetWarehouseId.Value)
+                            && s.CreationTime < transferTime
+                            && (s.ReservedQty - s.TransferredQty - s.ConsumedQty) > 0m
+                            && (s.BatchId == null || (seItem.BatchId != null && s.BatchId == seItem.BatchId)))
+                        .OrderByDescending(s => s.BatchId == seItem.BatchId && seItem.BatchId != null)
+                        .ThenByDescending(s => s.BatchId != null || s.SerialAndBatchBundleId != null)
+                        .ThenBy(s => s.CreationTime)
+                        .ToList();
+
+                    var remaining = transferQty;
+                    foreach (var sre in candidates)
+                    {
+                        if (remaining <= 0m) break;
+                        var available = sre.AvailableQty;
+                        if (available <= 0m) continue;
+
+                        var maxAllowed = Math.Min(remaining, available);
+                        var trackedBatchId = sre.BatchId ?? seItem.BatchId;
+                        if (trackedBatchId.HasValue && batchPool.TryGetValue(trackedBatchId.Value, out var batchAvail))
+                        {
+                            if (batchAvail <= 0m) continue;
+                            maxAllowed = Math.Min(maxAllowed, batchAvail);
+                        }
+
+                        if (maxAllowed <= 0m) continue;
+
+                        sre.TransferredQty = Math.Round(sre.TransferredQty + maxAllowed, 4);
+                        if (trackedBatchId.HasValue && batchPool.TryGetValue(trackedBatchId.Value, out var currentPool))
+                        {
+                            batchPool[trackedBatchId.Value] = Math.Max(0m, Math.Round(currentPool - maxAllowed, 4));
+                        }
+                        remaining = Math.Max(0m, Math.Round(remaining - maxAllowed, 4));
+                    }
+                }
+            }
+        }
+
+        foreach (var sre in sourceSres)
+        {
+            await _sreRepository.UpdateAsync(sre);
+        }
+    }
+
+    /// <summary>
     /// Updates consumed quantity on active Work Order reservations during Manufacture / Material Consumption.
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the consumed batch.
     /// Per ERPNext PR #60510 / commit 99ea89af89: split consumption over reservations a closed Work Order still holds.

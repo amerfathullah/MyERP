@@ -451,8 +451,12 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                         sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
                         valuationRate: rmRate);
 
-                    await binService.UpdateReservedQtyForProductionAsync(
-                        item.ItemId, warehouseId.Value, -issueQty, wo.TenantId);
+                    var releaseQty = item.CalculateProductionReservationReleaseForConsumption(issueQty);
+                    if (releaseQty > 0m)
+                    {
+                        await binService.UpdateReservedQtyForProductionAsync(
+                            item.ItemId, warehouseId.Value, -releaseQty, wo.TenantId);
+                    }
                 }
             }
 

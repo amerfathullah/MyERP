@@ -9,8 +9,6 @@ import { LandedCostVoucherService } from '../../proxy/inventory';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { AccountService } from '../../proxy/accounting/account.service';
-import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
-import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { CostCenterService } from '../../proxy/accounting/cost-center.service';
 import { ProjectService } from '../../proxy/projects/project.service';
 
@@ -40,9 +38,10 @@ import { ProjectService } from '../../proxy/projects/project.service';
         <div class="row mb-2 align-items-end">
           <div class="col-md-3">
             <label class="form-label">{{ '::ReceiptType' | abpLocalization }}</label>
-            <select class="form-select form-select-sm" [(ngModel)]="loadReceiptType" (ngModelChange)="loadReceiptId=''" [ngModelOptions]="{standalone: true}">
+            <select class="form-select form-select-sm" [(ngModel)]="loadReceiptType" (ngModelChange)="onReceiptTypeChanged()" [ngModelOptions]="{standalone: true}">
               <option value="PurchaseReceipt">PurchaseReceipt</option>
               <option value="PurchaseInvoice">PurchaseInvoice</option>
+              <option value="StockEntry">{{ '::StockEntry' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-6">
@@ -139,8 +138,6 @@ export class LandedCostFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private itemService = inject(ItemService);
   private accountService = inject(AccountService);
-  private purchaseReceiptService = inject(PurchaseReceiptService);
-  private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private costCenterService = inject(CostCenterService);
   private projectService = inject(ProjectService);
   private toaster = inject(ToasterService);
@@ -149,18 +146,23 @@ export class LandedCostFormComponent implements OnInit {
   saving = false;
   isDirty = false;
   calculatingDistribution = signal(false);
-  loadReceiptType = 'PurchaseReceipt';
+  selectedReceiptType = signal('PurchaseReceipt');
+  get loadReceiptType(): string { return this.selectedReceiptType(); }
+  set loadReceiptType(value: string) { this.selectedReceiptType.set(value); }
   loadReceiptId = '';
   availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   accounts = signal<{ id: string; accountCode: string; accountName: string }[]>([]);
-  receipts = signal<{ id: string; number: string; status?: string }[]>([]);
-  invoices = signal<{ id: string; number: string; status?: string }[]>([]);
+  receipts = signal<{ id: string; number: string }[]>([]);
+  invoices = signal<{ id: string; number: string }[]>([]);
+  stockEntries = signal<{ id: string; number: string }[]>([]);
   costCenters = signal<{ id: string; name: string }[]>([]);
   projects = signal<{ id: string; projectName: string }[]>([]);
 
   filteredReceipts = computed(() => {
-    const source = this.loadReceiptType === 'PurchaseInvoice' ? this.invoices() : this.receipts();
-    return source.filter(r => r.status === 'Submitted');
+    const type = this.selectedReceiptType();
+    if (type === 'PurchaseInvoice') return this.invoices();
+    if (type === 'StockEntry') return this.stockEntries();
+    return this.receipts();
   });
 
   form: any = {
@@ -176,14 +178,9 @@ export class LandedCostFormComponent implements OnInit {
     this.accountService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe(r =>
       this.accounts.set((r.items ?? []).map((a: any) => ({ id: a.id, accountCode: a.accountCode, accountName: a.accountName })))
     );
-    this.purchaseReceiptService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
-      next: (r) => this.receipts.set((r.items ?? []).map((p: any) => ({ id: p.id, number: p.receiptNumber ?? p.id, status: p.status }))),
-      error: () => {}
-    });
-    this.purchaseInvoiceService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
-      next: (r) => this.invoices.set((r.items ?? []).map((p: any) => ({ id: p.id, number: p.invoiceNumber ?? p.id, status: p.status }))),
-      error: () => {}
-    });
+    this.loadEligibleReceipts('PurchaseReceipt');
+    this.loadEligibleReceipts('PurchaseInvoice');
+    this.loadEligibleReceipts('StockEntry');
     this.costCenterService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r) => this.costCenters.set((r.items ?? []).map((cc: any) => ({ id: cc.id, name: cc.name }))),
       error: () => {}
@@ -191,6 +188,31 @@ export class LandedCostFormComponent implements OnInit {
     this.projectService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r) => this.projects.set((r.items ?? []).map((p: any) => ({ id: p.id, projectName: p.projectName }))),
       error: () => {}
+    });
+  }
+
+  onReceiptTypeChanged(): void {
+    this.loadReceiptId = '';
+  }
+
+  private loadEligibleReceipts(receiptType: string): void {
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId || !this.landedCostVoucherService.getEligibleReceipts) return;
+    this.landedCostVoucherService.getEligibleReceipts({ companyId, receiptType }).subscribe({
+      next: (rows) => {
+        const mapped = (rows ?? []).map(r => ({
+          id: r.id ?? '',
+          number: r.documentNumber ?? r.id ?? '',
+        }));
+        if (receiptType === 'PurchaseInvoice') {
+          this.invoices.set(mapped);
+        } else if (receiptType === 'StockEntry') {
+          this.stockEntries.set(mapped);
+        } else {
+          this.receipts.set(mapped);
+        }
+      },
+      error: () => {},
     });
   }
 

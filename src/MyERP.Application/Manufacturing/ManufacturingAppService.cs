@@ -1845,9 +1845,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             {
                 foreach (var reqItem in wo.RequiredItems)
                 {
-                    var qtyToReserve = wo.SkipTransfer
-                        ? Math.Max(0m, reqItem.RequiredQuantity - reqItem.ConsumedQuantity)
-                        : reqItem.PendingTransferQty;
+                    var qtyToReserve = reqItem.GetPendingProductionReservationQty(wo.SkipTransfer);
                     if (reqItem.SourceWarehouseId.HasValue && qtyToReserve > 0)
                     {
                         try
@@ -2190,8 +2188,21 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         // Issue raw materials and track total cost for FG valuation
         decimal totalRmCost = 0;
+        var priorConsumedByWoItemId = new Dictionary<Guid, decimal>();
         foreach (var (split, warehouseId) in plannedConsumptions)
         {
+            var matchedWoItem = wo.RequiredItems.FirstOrDefault(i =>
+                i.ItemId == split.ItemId && (!i.SourceWarehouseId.HasValue || i.SourceWarehouseId == warehouseId));
+            decimal ResolveAndAdvanceProductionRelease(decimal qtyDelta)
+            {
+                if (matchedWoItem == null) return qtyDelta;
+                var prevOffset = priorConsumedByWoItemId.GetValueOrDefault(matchedWoItem.Id);
+                var release = matchedWoItem.CalculateProductionReservationReleaseForConsumption(
+                    qtyDelta, matchedWoItem.ConsumedQuantity + prevOffset);
+                priorConsumedByWoItemId[matchedWoItem.Id] = prevOffset + qtyDelta;
+                return release;
+            }
+
             var rmBalance = await _valuationService.GetCurrentBalanceAsync(split.ItemId, warehouseId);
             var rmRate = rmBalance.ValuationRate;
 
@@ -2228,8 +2239,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                         originalItemId: split.OriginalItemId,
                         allowAlternativeItem: split.OriginalItemId.HasValue || wo.AllowAlternativeItem);
 
-                    await _binService.UpdateReservedQtyForProductionAsync(
-                        split.ItemId, warehouseId, -bSplit.Quantity, wo.TenantId);
+                    var releaseQty = ResolveAndAdvanceProductionRelease(bSplit.Quantity);
+                    if (releaseQty > 0m)
+                    {
+                        await _binService.UpdateReservedQtyForProductionAsync(
+                            split.ItemId, warehouseId, -releaseQty, wo.TenantId);
+                    }
                 }
             }
             else
@@ -2243,8 +2258,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                     originalItemId: split.OriginalItemId,
                     allowAlternativeItem: split.OriginalItemId.HasValue || wo.AllowAlternativeItem);
 
-                await _binService.UpdateReservedQtyForProductionAsync(
-                    split.ItemId, warehouseId, -split.Quantity, wo.TenantId);
+                var releaseQty = ResolveAndAdvanceProductionRelease(split.Quantity);
+                if (releaseQty > 0m)
+                {
+                    await _binService.UpdateReservedQtyForProductionAsync(
+                        split.ItemId, warehouseId, -releaseQty, wo.TenantId);
+                }
             }
         }
 

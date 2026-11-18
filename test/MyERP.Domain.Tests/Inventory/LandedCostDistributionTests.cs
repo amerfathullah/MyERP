@@ -249,4 +249,71 @@ public class LandedCostDistributionTests
         Assert.Equal(2m, result[0].Quantity);
         Assert.Equal(120m, result[0].Amount); // 2 * 100 * (1 - 0.4) = 120
     }
+
+    [Fact]
+    public async Task GetEligibleReceiptsAsync_ReturnsUpdateStockPurchaseInvoices_AndManufactureStockEntries()
+    {
+        var piEligible = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-STOCK-01", DateTime.UtcNow)
+        {
+            UpdateStock = true,
+        };
+        piEligible.AddItem(Guid.NewGuid(), "Stock Item", 2m, 50m, 0m);
+        piEligible.Submit();
+
+        var piServiceOnly = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-SVC-01", DateTime.UtcNow)
+        {
+            UpdateStock = false,
+        };
+        piServiceOnly.AddItem(Guid.NewGuid(), "Service Item", 1m, 50m, 0m);
+        piServiceOnly.Submit();
+
+        var piReturn = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-RET-01", DateTime.UtcNow)
+        {
+            UpdateStock = true,
+            IsReturn = true,
+        };
+        piReturn.AddItem(Guid.NewGuid(), "Returned Item", -1m, 50m, 0m);
+        piReturn.Submit();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { piEligible, piServiceOnly, piReturn }.AsQueryable()));
+
+        var seManufacture = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            EntryNumber = "STE-MFG-01"
+        };
+        seManufacture.AddItem(Guid.NewGuid(), 1m, targetWarehouseId: _warehouseId);
+        seManufacture.Submit();
+
+        var seTransfer = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
+        {
+            EntryNumber = "STE-TR-01"
+        };
+        seTransfer.AddItem(Guid.NewGuid(), 1m, sourceWarehouseId: _warehouseId, targetWarehouseId: Guid.NewGuid());
+        seTransfer.Submit();
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { seManufacture, seTransfer }.AsQueryable()));
+
+        var lazySvcProvider = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySvcProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>().Returns(seRepo);
+        var prop = typeof(LandedCostVoucherAppService)
+            .GetProperty("LazyServiceProvider", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.FlattenHierarchy);
+        prop!.SetValue(_appService, lazySvcProvider);
+
+        var pis = await _appService.GetEligibleReceiptsAsync(new GetEligibleLandedCostReceiptsInput
+        {
+            CompanyId = _companyId,
+            ReceiptType = "PurchaseInvoice",
+        });
+        Assert.Single(pis);
+        Assert.Equal("PINV-STOCK-01", pis[0].DocumentNumber);
+
+        var ses = await _appService.GetEligibleReceiptsAsync(new GetEligibleLandedCostReceiptsInput
+        {
+            CompanyId = _companyId,
+            ReceiptType = "StockEntry",
+        });
+        Assert.Single(ses);
+        Assert.Equal("STE-MFG-01", ses[0].DocumentNumber);
+    }
 }

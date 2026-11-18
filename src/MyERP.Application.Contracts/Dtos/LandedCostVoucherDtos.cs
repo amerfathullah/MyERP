@@ -82,6 +82,20 @@ public class GetLandedCostReceiptItemsInput
     public System.Collections.Generic.List<Guid> ReceiptIds { get; set; } = new();
 }
 
+public class GetEligibleLandedCostReceiptsInput
+{
+    public Guid CompanyId { get; set; }
+    public string ReceiptType { get; set; } = "PurchaseReceipt";
+}
+
+public class LandedCostReceiptLookupDto
+{
+    public Guid Id { get; set; }
+    public string ReceiptType { get; set; } = string.Empty;
+    public string DocumentNumber { get; set; } = string.Empty;
+    public DateTime PostingDate { get; set; }
+}
+
 public class CalculateLandedCostDistributionDto
 {
     public LandedCostDistributionMethod DistributionMethod { get; set; } = LandedCostDistributionMethod.BasedOnAmount;

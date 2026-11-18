@@ -62,6 +62,33 @@ public class WorkOrderItem : Entity<Guid>
     /// <summary>Pending consumption (transferred - already consumed). Only relevant for MaterialTransferred backflush.</summary>
     public decimal AvailableForConsumption => Math.Max(0, TransferredQuantity - ConsumedQuantity);
 
+    /// <summary>
+    /// Pending production reservation qty for this Work Order row.
+    /// Per ERPNext commit bb29dd2027: once consumed past RequiredQuantity, reserve nothing.
+    /// </summary>
+    public decimal GetPendingProductionReservationQty(bool skipTransfer)
+    {
+        if (ConsumedQuantity > RequiredQuantity)
+            return 0m;
+
+        return skipTransfer
+            ? Math.Max(0m, Math.Round(RequiredQuantity - ConsumedQuantity, 4))
+            : Math.Max(0m, Math.Round(RequiredQuantity - TransferredQuantity, 4));
+    }
+
+    /// <summary>
+    /// Production reservation qty released when consuming <paramref name="consumedDelta"/> units on this row,
+    /// capped so over-consumption past RequiredQuantity does not release another Work Order's Bin reservation.
+    /// </summary>
+    public decimal CalculateProductionReservationReleaseForConsumption(decimal consumedDelta, decimal? priorConsumedQty = null)
+    {
+        if (consumedDelta <= 0m) return 0m;
+        var prevConsumed = priorConsumedQty ?? ConsumedQuantity;
+        var prevPending = Math.Max(0m, Math.Round(RequiredQuantity - prevConsumed, 4));
+        var nextPending = Math.Max(0m, Math.Round(RequiredQuantity - (prevConsumed + consumedDelta), 4));
+        return Math.Max(0m, Math.Round(prevPending - nextPending, 4));
+    }
+
     /// <summary>Whether this item is an alternative item substitution.</summary>
     public bool IsAlternativeItem { get; set; }
 

@@ -725,6 +725,73 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
     }
 
     /// <summary>
+    /// Lists submitted receipts eligible for Landed Cost allocation without requiring separate
+    /// Purchase Invoice read permissions, so Stock Managers can pick update-stock Purchase Invoices
+    /// and Manufacture/Repack Stock Entries alongside Purchase Receipts (ERPNext commit c2f26f6f6c).
+    /// </summary>
+    public async Task<List<LandedCostReceiptLookupDto>> GetEligibleReceiptsAsync(GetEligibleLandedCostReceiptsInput input)
+    {
+        Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
+
+        if (string.Equals(input.ReceiptType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+        {
+            var prQuery = await _purchaseReceiptRepository.GetQueryableAsync();
+            return prQuery
+                .Where(pr => pr.CompanyId == input.CompanyId && pr.Status == Core.DocumentStatus.Submitted && !pr.IsReturn)
+                .OrderByDescending(pr => pr.PostingDate)
+                .Select(pr => new LandedCostReceiptLookupDto
+                {
+                    Id = pr.Id,
+                    ReceiptType = "PurchaseReceipt",
+                    DocumentNumber = pr.ReceiptNumber ?? string.Empty,
+                    PostingDate = pr.PostingDate
+                })
+                .ToList();
+        }
+
+        if (string.Equals(input.ReceiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+            return piQuery
+                .Where(pi => pi.CompanyId == input.CompanyId
+                    && (pi.Status == Core.DocumentStatus.Submitted || pi.Status == Core.DocumentStatus.Posted)
+                    && pi.UpdateStock
+                    && !pi.IsReturn)
+                .OrderByDescending(pi => pi.IssueDate)
+                .Select(pi => new LandedCostReceiptLookupDto
+                {
+                    Id = pi.Id,
+                    ReceiptType = "PurchaseInvoice",
+                    DocumentNumber = pi.InvoiceNumber ?? string.Empty,
+                    PostingDate = pi.IssueDate
+                })
+                .ToList();
+        }
+
+        if (string.Equals(input.ReceiptType, "StockEntry", StringComparison.OrdinalIgnoreCase))
+        {
+            var stockEntryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+            var seQuery = await stockEntryRepo.GetQueryableAsync();
+            return seQuery
+                .Where(se => se.CompanyId == input.CompanyId
+                    && se.Status == Core.DocumentStatus.Submitted
+                    && (se.EntryType == StockEntryType.Manufacture || se.EntryType == StockEntryType.Repack))
+                .OrderByDescending(se => se.PostingDate)
+                .Select(se => new LandedCostReceiptLookupDto
+                {
+                    Id = se.Id,
+                    ReceiptType = "StockEntry",
+                    DocumentNumber = se.EntryNumber ?? string.Empty,
+                    PostingDate = se.PostingDate
+                })
+                .ToList();
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("detail", $"Unsupported receipt type: {input.ReceiptType}");
+    }
+
+    /// <summary>
     /// Distributes total charges proportionally across item rows based on amount, quantity, or manual distribution (Gotcha #5996).
     /// </summary>
     public Task<LandedCostDistributionResultDto> CalculateDistributionAsync(CalculateLandedCostDistributionDto input)

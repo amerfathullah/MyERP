@@ -181,8 +181,12 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
                     sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
                     valuationRate: rmRate);
 
-                await _binService.UpdateReservedQtyForProductionAsync(
-                    item.ItemId, warehouseId.Value, -issueQty, wo.TenantId);
+                var releaseQty = item.CalculateProductionReservationReleaseForConsumption(issueQty);
+                if (releaseQty > 0m)
+                {
+                    await _binService.UpdateReservedQtyForProductionAsync(
+                        item.ItemId, warehouseId.Value, -releaseQty, wo.TenantId);
+                }
             }
         }
 

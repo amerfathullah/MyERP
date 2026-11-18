@@ -1015,6 +1015,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             var allItemIds = dn.Items.Select(i => i.ItemId).Distinct();
             var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds, isReturn: dn.IsReturn);
 
+            SalesOrder? soForReservation = dn.SalesOrderId.HasValue
+                ? await _salesOrderRepository.FindAsync(dn.SalesOrderId.Value)
+                : null;
+            var deliveredOrderQtyBySoItemId = new Dictionary<Guid, decimal>();
+
             // Packing Slip completeness gate: once ANY submitted Packing Slip exists for this
             // DN, every non-bundle item must be fully packed before the DN can submit. Per
             // ERPNext: "once you start packing, you must pack EVERYTHING." Product Bundle items
@@ -1109,6 +1114,23 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     // Capture component valuation rates BEFORE stock removal (Bug #4 fix)
                     // Per ERPNext PR #66296 (commit afff59541c): deliver picked bundle components from each Pick List warehouse.
                     decimal bundleCostTotal = 0;
+                    decimal bundleReservationRatio = 1m;
+                    if (soForReservation != null && item.SalesOrderItemId.HasValue && item.StockQty > 0m)
+                    {
+                        var matchedSoItem = soForReservation.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
+                        if (matchedSoItem != null)
+                        {
+                            var dnFactor = item.ConversionFactor > 0m ? item.ConversionFactor : 1m;
+                            var soFactor = matchedSoItem.ConversionFactor > 0m ? matchedSoItem.ConversionFactor : 1m;
+                            var orderQtyDelta = (Math.Abs(item.Quantity) * dnFactor) / soFactor;
+                            var priorDelta = deliveredOrderQtyBySoItemId.GetValueOrDefault(matchedSoItem.Id);
+                            var releaseSoStockQty = matchedSoItem.CalculateReservationReleaseForDelivery(
+                                orderQtyDelta, matchedSoItem.DeliveredQty + priorDelta);
+                            deliveredOrderQtyBySoItemId[matchedSoItem.Id] = priorDelta + orderQtyDelta;
+                            bundleReservationRatio = Math.Clamp(releaseSoStockQty / item.StockQty, 0m, 1m);
+                        }
+                    }
+
                     var fallbackCompWhId = item.WarehouseId ?? dn.WarehouseId;
                     foreach (var comp in components)
                     {
@@ -1142,8 +1164,12 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                 comp.ComponentItemId, slice.WarehouseId,
                                 -slice.Qty, -(slice.Qty * compValuationRate), dn.TenantId);
 
-                            await _binService.UpdateReservedQtyAsync(
-                                comp.ComponentItemId, slice.WarehouseId, -slice.Qty, dn.TenantId);
+                            var compReleaseQty = Math.Round(slice.Qty * bundleReservationRatio, 4);
+                            if (compReleaseQty > 0m)
+                            {
+                                await _binService.UpdateReservedQtyAsync(
+                                    comp.ComponentItemId, slice.WarehouseId, -compReleaseQty, dn.TenantId);
+                            }
                         }
                     }
 
@@ -1173,8 +1199,27 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         item.ItemId, itemWarehouseId,
                         -item.StockQty, -(item.StockQty * item.ValuationRate), dn.TenantId);
 
-                    await _binService.UpdateReservedQtyAsync(
-                        item.ItemId, itemWarehouseId, -item.StockQty, dn.TenantId);
+                    var releaseReservedQty = item.StockQty;
+                    if (soForReservation != null && item.SalesOrderItemId.HasValue)
+                    {
+                        var matchedSoItem = soForReservation.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
+                        if (matchedSoItem != null)
+                        {
+                            var dnFactor = item.ConversionFactor > 0m ? item.ConversionFactor : 1m;
+                            var soFactor = matchedSoItem.ConversionFactor > 0m ? matchedSoItem.ConversionFactor : 1m;
+                            var orderQtyDelta = (Math.Abs(item.Quantity) * dnFactor) / soFactor;
+                            var priorDelta = deliveredOrderQtyBySoItemId.GetValueOrDefault(matchedSoItem.Id);
+                            releaseReservedQty = matchedSoItem.CalculateReservationReleaseForDelivery(
+                                orderQtyDelta, matchedSoItem.DeliveredQty + priorDelta);
+                            deliveredOrderQtyBySoItemId[matchedSoItem.Id] = priorDelta + orderQtyDelta;
+                        }
+                    }
+
+                    if (releaseReservedQty > 0m)
+                    {
+                        await _binService.UpdateReservedQtyAsync(
+                            item.ItemId, itemWarehouseId, -releaseReservedQty, dn.TenantId);
+                    }
                 }
             }
 
@@ -1378,10 +1423,34 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 .ToList()
             : new List<Inventory.Entities.StockLedgerEntry>();
 
+        SalesOrder? soForCancelReservation = dn.SalesOrderId.HasValue
+            ? await _salesOrderRepository.FindAsync(dn.SalesOrderId.Value)
+            : null;
+        var cancelledOrderQtyBySoItemId = new Dictionary<Guid, decimal>();
+
         foreach (var item in dn.Items)
         {
+            decimal? cancelRestoreSoStockQty = null;
+            if (!dn.IsReturn && soForCancelReservation != null && item.SalesOrderItemId.HasValue)
+            {
+                var matchedSoItem = soForCancelReservation.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
+                if (matchedSoItem != null)
+                {
+                    var dnFactor = item.ConversionFactor > 0m ? item.ConversionFactor : 1m;
+                    var soFactor = matchedSoItem.ConversionFactor > 0m ? matchedSoItem.ConversionFactor : 1m;
+                    var orderQtyDelta = (Math.Abs(item.Quantity) * dnFactor) / soFactor;
+                    var priorCancelled = cancelledOrderQtyBySoItemId.GetValueOrDefault(matchedSoItem.Id);
+                    cancelRestoreSoStockQty = matchedSoItem.CalculateReservationRestoreForDeliveryCancel(
+                        orderQtyDelta, Math.Max(0m, matchedSoItem.DeliveredQty - priorCancelled));
+                    cancelledOrderQtyBySoItemId[matchedSoItem.Id] = priorCancelled + orderQtyDelta;
+                }
+            }
+
             if (bundleItemIds.Contains(item.ItemId))
             {
+                var bundleCancelRatio = cancelRestoreSoStockQty.HasValue && item.StockQty > 0m
+                    ? Math.Clamp(cancelRestoreSoStockQty.Value / item.StockQty, 0m, 1m)
+                    : 1m;
                 // Product Bundle: reverse components at the exact warehouses posted on submit
                 var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, isReturn: dn.IsReturn);
                 foreach (var comp in components)
@@ -1419,8 +1488,12 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                             if (!dn.IsReturn)
                             {
-                                await _binService.UpdateReservedQtyAsync(
-                                    comp.ComponentItemId, sle.WarehouseId, Math.Abs(sle.QuantityChange), dn.TenantId);
+                                var restoreCompQty = Math.Round(Math.Abs(sle.QuantityChange) * bundleCancelRatio, 4);
+                                if (restoreCompQty > 0m)
+                                {
+                                    await _binService.UpdateReservedQtyAsync(
+                                        comp.ComponentItemId, sle.WarehouseId, restoreCompQty, dn.TenantId);
+                                }
 
                                 var sreManager = LazyServiceProvider
                                     .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
@@ -1447,8 +1520,12 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                         if (!dn.IsReturn)
                         {
-                            await _binService.UpdateReservedQtyAsync(
-                                comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+                            var restoreCompQty = Math.Round(comp.Qty * bundleCancelRatio, 4);
+                            if (restoreCompQty > 0m)
+                            {
+                                await _binService.UpdateReservedQtyAsync(
+                                    comp.ComponentItemId, dn.WarehouseId, restoreCompQty, dn.TenantId);
+                            }
 
                             var sreManager = LazyServiceProvider
                                 .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
@@ -1481,9 +1558,12 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                 if (!dn.IsReturn)
                 {
-                    // Re-reserve qty in stock UOM (returns never held reservations)
-                    await _binService.UpdateReservedQtyAsync(
-                        item.ItemId, itemWarehouseId, Math.Abs(item.StockQty), dn.TenantId);
+                    var restoreQty = cancelRestoreSoStockQty ?? Math.Abs(item.StockQty);
+                    if (restoreQty > 0m)
+                    {
+                        await _binService.UpdateReservedQtyAsync(
+                            item.ItemId, itemWarehouseId, restoreQty, dn.TenantId);
+                    }
 
                     // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
                     var sreManager = LazyServiceProvider
