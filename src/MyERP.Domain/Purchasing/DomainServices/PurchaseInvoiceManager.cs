@@ -625,11 +625,31 @@ public class PurchaseInvoiceManager : DomainService
             .Distinct()
             .ToList();
 
-        if (!prItemIds.Any()) return;
+        // Per ERPNext PR #64006 (commit 0479c32dc3): order invoices (without PR item links) that bill
+        // against a PO already partially/unbilled received on submitted PRs must also match PR exchange rate.
+        var poItemIds = invoice.UpdateStock
+            ? new List<Guid>()
+            : invoice.Items
+                .Where(i => i.PurchaseOrderItemId.HasValue && !i.PurchaseReceiptItemId.HasValue)
+                .Select(i => i.PurchaseOrderItemId!.Value)
+                .Distinct()
+                .ToList();
 
-        var prQuery = await prRepository.GetQueryableAsync();
+        if (!prItemIds.Any() && !poItemIds.Any()) return;
+
+        var prQuery = await prRepository.WithDetailsAsync(p => p.Items)
+            ?? await prRepository.GetQueryableAsync();
         var linkedPrs = prQuery
-            .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id)))
+            .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id))
+                || (poItemIds.Count > 0
+                    && pr.Status == Core.DocumentStatus.Submitted
+                    && !pr.IsReturn
+                    && pr.Items.Any(pri => pri.PurchaseOrderItemId.HasValue && poItemIds.Contains(pri.PurchaseOrderItemId.Value))))
+            .ToList()
+            .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id))
+                || pr.Items.Any(pri => pri.PurchaseOrderItemId.HasValue
+                    && poItemIds.Contains(pri.PurchaseOrderItemId.Value)
+                    && pri.PendingBillingQty > 0m))
             .ToList();
 
         foreach (var pr in linkedPrs)

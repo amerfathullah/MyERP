@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -29,6 +30,11 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
 
     public async Task<StockLedgerReportDto> GetStockLedgerAsync(StockLedgerRequestDto input)
     {
+        if (input.FromDate.Date > input.ToDate.Date)
+        {
+            throw new UserFriendlyException("From Date must be before To Date.");
+        }
+
         var query = await _ledgerRepository.GetQueryableAsync();
         var toDateExclusive = input.ToDate.Date.AddDays(1);
 

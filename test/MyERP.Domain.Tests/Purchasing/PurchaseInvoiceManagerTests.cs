@@ -169,6 +169,41 @@ public class PurchaseInvoiceManagerTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task PI_ValidateExchangeRateWithPurchaseReceipt_BilledThroughPO_ThrowsOnMismatchAndIgnoresFullyBilled()
+    {
+        var prRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PurchaseReceipt, Guid>>();
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+
+        var poItemId = Guid.NewGuid();
+        var pr = new PurchaseReceipt(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PR-PO-001", DateTime.UtcNow)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.40m,
+        };
+        pr.AddItem(Guid.NewGuid(), "Item 1", 10m, 100m, 0m);
+        pr.Items[0].PurchaseOrderItemId = poItemId;
+        pr.Submit();
+
+        var pi = CreatePI();
+        pi.CurrencyCode = "USD";
+        pi.ExchangeRate = 4.50m;
+        pi.AddItem(Guid.NewGuid(), "Item 1", 5m, 100m, 0m);
+        pi.Items[0].PurchaseOrderItemId = poItemId;
+
+        prRepo.GetQueryableAsync().Returns(_ => System.Threading.Tasks.Task.FromResult(
+            new List<PurchaseReceipt> { pr }.AsQueryable()));
+
+        // Unbilled submitted PR against same PO item -> mismatch throws
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateExchangeRateWithPurchaseReceiptAsync(pi, prRepo, isPerpetualInventory: true, setLandedCostBasedOnPiRate: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnExchangeRateMismatch);
+
+        // Once PR row is already fully billed, subsequent PO invoice is allowed
+        pr.Items[0].BilledQty = 10m;
+        await manager.ValidateExchangeRateWithPurchaseReceiptAsync(pi, prRepo, isPerpetualInventory: true, setLandedCostBasedOnPiRate: false);
+    }
+
+    [Fact]
     public void ValidateDuplicateItems_WhenAllowed_DoesNotThrow()
     {
         var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);

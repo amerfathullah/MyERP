@@ -6,6 +6,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -423,6 +424,11 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
     /// </summary>
     public async Task<StockBalanceReportDto> GetStockBalanceReportAsync(GetStockBalanceReportRequestDto input)
     {
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new UserFriendlyException("From Date must be before To Date.");
+        }
+
         var fromDate = input.FromDate ?? DateTime.MinValue;
         var toDate = input.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.MaxValue;
 

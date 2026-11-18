@@ -176,4 +176,21 @@ public class StockReportsToDateCutoffTests
         result.ShouldHaveSingleItem();
         result[0].AvailableQuantity.ShouldBe(8m);
     }
+
+    [Fact]
+    public async Task StockLedger_GetStockLedger_ThrowsWhenFromDateAfterToDate()
+    {
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var svc = new StockLedgerAppService(sleRepo, itemRepo, whRepo);
+
+        await Should.ThrowAsync<Volo.Abp.UserFriendlyException>(() =>
+            svc.GetStockLedgerAsync(new StockLedgerRequestDto
+            {
+                CompanyId = _companyId,
+                FromDate = new DateTime(2026, 7, 10),
+                ToDate = new DateTime(2026, 7, 1),
+            }));
+    }
 }
