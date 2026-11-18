@@ -6422,7 +6422,9 @@
     "ShowRemarks": "Show Remarks",
     "VoucherCount": "Vouchers",
     "NoVouchersInPeriod": "No vouchers found in the selected period",
-    "ClickVoucherToDrillDown": "Click a voucher row to open its General Ledger entries"
+    "ClickVoucherToDrillDown": "Click a voucher row to open its General Ledger entries",
+    "TotalCostingAmount": "Total Costing Amount",
+    "CostingAndBilling": "Costing & Billing"
   }
 }
 

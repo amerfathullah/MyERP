@@ -1991,6 +1991,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (invoice.UpdateStock)
         {
             await UpdateStockFulfillmentWithRetryAsync(invoice, isReversal: invoice.IsReturn);
+
+            if (!invoice.IsReturn)
+            {
+                var ppReservationManager = LazyServiceProvider
+                    .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+                if (ppReservationManager != null)
+                {
+                    await ppReservationManager.ReserveReceivedStockForProductionPlansAsync(
+                        "PurchaseInvoice",
+                        invoice.Id,
+                        invoice.CompanyId,
+                        invoice.TenantId,
+                        invoice.Items
+                            .Where(i => (i.WarehouseId ?? invoice.WarehouseId).HasValue)
+                            .Select(i => (i.ItemId, (i.WarehouseId ?? invoice.WarehouseId)!.Value, i.StockQty, i.MaterialRequestItemId)));
+                }
+            }
         }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
@@ -2147,6 +2164,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
+            if (!invoice.IsReturn)
+            {
+                var cancelReservationManager = LazyServiceProvider
+                    .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+                if (cancelReservationManager != null)
+                {
+                    await cancelReservationManager.CancelReservationsFromVoucherAsync("PurchaseInvoice", invoice.Id);
+                }
+            }
+
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
             PurchaseInvoice? originalPi = null;
             if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)

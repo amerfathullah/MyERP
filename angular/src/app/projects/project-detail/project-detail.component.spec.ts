@@ -85,4 +85,19 @@ describe('ProjectDetailComponent Task Dependencies', () => {
     expect(comp.dependencyTask()).toBeNull();
     expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyDeleted');
   });
+
+  it('computes total project cost and gross margin from costing fields', () => {
+    const { comp } = createComponent();
+    comp.project.set({
+      id: 'proj-1',
+      projectName: 'ERP Launch',
+      totalCostingAmount: 1200,
+      totalConsumedMaterialCost: 300,
+      totalBilledAmount: 2500,
+      grossMargin: 0,
+    });
+
+    expect(comp.totalProjectCost()).toBe(1500);
+    expect(comp.computedGrossMargin()).toBe(1000);
+  });
 });

@@ -760,6 +760,12 @@ public class StockReservationManager : DomainService
             }
         }
 
+        var uow = LazyServiceProvider?.LazyGetService<Volo.Abp.Uow.IUnitOfWorkManager>()?.Current;
+        if (activeSres.Count > 0 && uow != null)
+        {
+            await uow.SaveChangesAsync();
+        }
+
         return activeSres;
     }
 
@@ -1422,6 +1428,212 @@ public class StockReservationManager : DomainService
         catch
         {
             return Guid.NewGuid();
+        }
+    }
+
+    /// <summary>
+    /// Reserves received stock from a submitted Purchase Receipt or stock-updating Purchase Invoice
+    /// for Production Plans whose Material Request items triggered the purchase, then hands off
+    /// reservations to any linked reserving Work Orders (ERPNext ReceivedStockReservation / PR #65180).
+    /// </summary>
+    public async Task ReserveReceivedStockForProductionPlansAsync(
+        string receiptVoucherType,
+        Guid receiptVoucherId,
+        Guid companyId,
+        Guid? tenantId,
+        IEnumerable<(Guid ItemId, Guid WarehouseId, decimal StockQty, Guid? MaterialRequestItemId)> lines)
+    {
+        var settingProvider = LazyServiceProvider?.LazyGetService<Volo.Abp.Settings.ISettingProvider>();
+        if (settingProvider != null)
+        {
+            var enabled = await settingProvider.GetOrNullAsync(Settings.MyERPSettings.Stock.EnableStockReservation);
+            if (!string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        var mrItemLines = lines
+            .Where(l => l.MaterialRequestItemId.HasValue && l.StockQty > 0m)
+            .ToList();
+        if (mrItemLines.Count == 0)
+        {
+            return;
+        }
+
+        var mrRepo = LazyServiceProvider?.LazyGetService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        var planRepo = LazyServiceProvider?.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlan, Guid>>();
+        if (mrRepo == null || planRepo == null)
+        {
+            return;
+        }
+
+        var mrItemIds = mrItemLines.Select(l => l.MaterialRequestItemId!.Value).Distinct().ToHashSet();
+        var mrWithDetails = await mrRepo.WithDetailsAsync(mr => mr.Items);
+        var mrs = (mrWithDetails != null
+                ? mrWithDetails.Where(mr =>
+                    mr.CompanyId == companyId
+                    && mr.Status != DocumentStatus.Draft
+                    && mr.Status != DocumentStatus.Cancelled).ToList()
+                : await mrRepo.GetListAsync(mr =>
+                    mr.CompanyId == companyId
+                    && mr.Status != DocumentStatus.Draft
+                    && mr.Status != DocumentStatus.Cancelled));
+
+        var mrItemPlanLookup = new Dictionary<Guid, (Guid ProductionPlanId, Guid? ProductionPlanMrItemId)>();
+        foreach (var mr in mrs)
+        {
+            foreach (var mrItem in mr.Items)
+            {
+                if (mrItemIds.Contains(mrItem.Id) && mrItem.ProductionPlanId.HasValue)
+                {
+                    mrItemPlanLookup[mrItem.Id] = (mrItem.ProductionPlanId.Value, mrItem.ProductionPlanMrItemId);
+                }
+            }
+        }
+
+        if (mrItemPlanLookup.Count == 0)
+        {
+            return;
+        }
+
+        var planIds = mrItemPlanLookup.Values.Select(v => v.ProductionPlanId).Distinct().ToList();
+        var planQueryable = await planRepo.WithDetailsAsync(p => p.MaterialRequirements);
+        var reservablePlans = planQueryable
+            .Where(p => planIds.Contains(p.Id)
+                && p.ReserveStock
+                && p.Status != Manufacturing.ProductionPlanStatus.Cancelled
+                && p.Status != Manufacturing.ProductionPlanStatus.Completed
+                && p.Status != Manufacturing.ProductionPlanStatus.Closed)
+            .ToDictionary(p => p.Id);
+
+        if (reservablePlans.Count == 0)
+        {
+            return;
+        }
+
+        var sreQueryable = await _sreRepository.GetQueryableAsync();
+        var existingClaimedByDetail = sreQueryable
+            .Where(s => s.VoucherType == "ProductionPlan"
+                && planIds.Contains(s.VoucherId)
+                && s.Status == DocumentStatus.Submitted
+                && s.VoucherDetailId.HasValue)
+            .ToList()
+            .GroupBy(s => s.VoucherDetailId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(s => s.ReservedQty));
+
+        var reservedPlanItems = new Dictionary<Guid, HashSet<(Guid ItemId, Guid WarehouseId)>>();
+
+        foreach (var line in mrItemLines)
+        {
+            if (!mrItemPlanLookup.TryGetValue(line.MaterialRequestItemId!.Value, out var planRef))
+                continue;
+            if (!reservablePlans.TryGetValue(planRef.ProductionPlanId, out var plan))
+                continue;
+
+            var planMrItem = planRef.ProductionPlanMrItemId.HasValue
+                ? plan.MaterialRequirements.FirstOrDefault(m => m.Id == planRef.ProductionPlanMrItemId.Value)
+                : plan.MaterialRequirements.FirstOrDefault(m => m.ItemId == line.ItemId);
+            if (planMrItem == null)
+                continue;
+
+            var alreadyClaimed = existingClaimedByDetail.GetValueOrDefault(planMrItem.Id, 0m);
+            var unclaimed = Math.Max(0m, Math.Round(planMrItem.RequiredQty - alreadyClaimed, 4));
+            var qtyToReserve = Math.Round(Math.Min(line.StockQty, unclaimed), 4);
+            if (qtyToReserve <= 0m)
+                continue;
+
+            existingClaimedByDetail[planMrItem.Id] = Math.Round(alreadyClaimed + qtyToReserve, 4);
+
+            await ReserveStockAsync(
+                line.ItemId,
+                line.WarehouseId,
+                companyId,
+                qtyToReserve,
+                voucherType: "ProductionPlan",
+                voucherId: plan.Id,
+                tenantId: tenantId,
+                voucherDemandQty: planMrItem.RequiredQty,
+                voucherDetailId: planMrItem.Id,
+                fromVoucherType: receiptVoucherType,
+                fromVoucherId: receiptVoucherId);
+
+            if (!reservedPlanItems.TryGetValue(plan.Id, out var pairs))
+            {
+                pairs = new HashSet<(Guid, Guid)>();
+                reservedPlanItems[plan.Id] = pairs;
+            }
+            pairs.Add((line.ItemId, line.WarehouseId));
+        }
+
+        if (reservedPlanItems.Count == 0)
+            return;
+
+        // Flush newly inserted ProductionPlan SREs so TransferReservationEntriesWithTotalAsync and
+        // same-UoW queries (including CancelReservationsFromVoucherAsync) see them immediately.
+        var uow = LazyServiceProvider?.LazyGetService<Volo.Abp.Uow.IUnitOfWorkManager>()?.Current;
+        if (uow != null)
+        {
+            await uow.SaveChangesAsync();
+        }
+
+        var woRepo = LazyServiceProvider?.LazyGetService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+        if (woRepo == null)
+            return;
+
+        var woQueryable = await woRepo.WithDetailsAsync(w => w.RequiredItems);
+        var reservingWos = woQueryable
+            .Where(w => w.ProductionPlanId.HasValue
+                && reservedPlanItems.Keys.Contains(w.ProductionPlanId.Value)
+                && w.ReserveStock
+                && w.Status != Manufacturing.WorkOrderStatus.Draft
+                && w.Status != Manufacturing.WorkOrderStatus.Cancelled
+                && w.Status != Manufacturing.WorkOrderStatus.Closed
+                && w.Status != Manufacturing.WorkOrderStatus.Completed)
+            .ToList();
+
+        foreach (var wo in reservingWos)
+        {
+            if (!wo.ProductionPlanId.HasValue || !reservedPlanItems.TryGetValue(wo.ProductionPlanId.Value, out var pairs))
+                continue;
+
+            var anyTransferred = false;
+            foreach (var reqItem in wo.RequiredItems)
+            {
+                var whId = reqItem.SourceWarehouseId;
+                if (!whId.HasValue)
+                    continue;
+                if (!pairs.Contains((reqItem.ItemId, whId.Value)))
+                    continue;
+
+                var remainingWoQty = Math.Max(0m, Math.Round(reqItem.RequiredQuantity - reqItem.StockReservedQty, 4));
+                if (remainingWoQty <= 0m)
+                    continue;
+
+                var transferredQty = await TransferReservationEntriesWithTotalAsync(
+                    "ProductionPlan", wo.ProductionPlanId.Value,
+                    "WorkOrder", wo.Id,
+                    reqItem.ItemId, whId.Value,
+                    remainingWoQty, reqItem.Id,
+                    voucherDemandQty: reqItem.RequiredQuantity);
+
+                if (transferredQty > 0m)
+                {
+                    reqItem.SetStockReservedQty(Math.Round(reqItem.StockReservedQty + transferredQty, 4));
+                    anyTransferred = true;
+                }
+            }
+
+            if (anyTransferred)
+            {
+                wo.UpdateReservationStatus();
+                await woRepo.UpdateAsync(wo);
+            }
+        }
+
+        if (uow != null)
+        {
+            await uow.SaveChangesAsync();
         }
     }
 }

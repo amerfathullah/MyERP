@@ -129,16 +129,35 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
               <h4>{{ project()!.taskCount }}</h4>
             </div>
           </div>
-          @if (project()!.grossMargin !== undefined && project()!.grossMargin !== 0) {
-            <div class="card">
-              <div class="card-body text-center">
-                <h6 class="text-muted">{{ '::GrossProfit' | abpLocalization }}</h6>
-                <h4 [class]="(project()!.grossMargin ?? 0) >= 0 ? 'text-success' : 'text-danger'">
-                  {{ project()!.grossMargin | number:'1.2-2' }}%
-                </h4>
+          <div class="card mb-3">
+            <div class="card-header py-2">
+              <h6 class="mb-0"><i class="fas fa-coins me-1"></i>{{ '::CostingAndBilling' | abpLocalization }}</h6>
+            </div>
+            <div class="card-body py-2 small">
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted">{{ '::TotalCostingAmount' | abpLocalization }}</span>
+                <span class="fw-semibold">{{ (project()!.totalCostingAmount ?? 0) | number:'1.2-2' }}</span>
+              </div>
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted">{{ '::MaterialCost' | abpLocalization }}</span>
+                <span class="fw-semibold">{{ (project()!.totalConsumedMaterialCost ?? 0) | number:'1.2-2' }}</span>
+              </div>
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted">{{ '::TotalBillingAmount' | abpLocalization }}</span>
+                <span class="fw-semibold">{{ (project()!.totalBillingAmount ?? 0) | number:'1.2-2' }}</span>
+              </div>
+              <div class="d-flex justify-content-between py-1 border-bottom">
+                <span class="text-muted">{{ '::TotalBilledAmount' | abpLocalization }}</span>
+                <span class="fw-semibold">{{ (project()!.totalBilledAmount ?? 0) | number:'1.2-2' }}</span>
+              </div>
+              <div class="d-flex justify-content-between pt-2">
+                <span class="fw-semibold">{{ '::GrossProfit' | abpLocalization }}</span>
+                <span class="fw-bold" [class]="computedGrossMargin() >= 0 ? 'text-success' : 'text-danger'">
+                  {{ computedGrossMargin() | number:'1.2-2' }}
+                </span>
               </div>
             </div>
-          }
+          </div>
         </div>
       </div>
 
@@ -795,4 +814,19 @@ export class ProjectDetailComponent implements OnInit {
       error: () => {}
     });
   }
+
+  totalProjectCost = computed(() => {
+    const p = this.project();
+    if (!p) return 0;
+    return (p.totalCostingAmount ?? 0) + (p.totalConsumedMaterialCost ?? 0);
+  });
+
+  computedGrossMargin = computed(() => {
+    const p = this.project();
+    if (!p) return 0;
+    if (p.grossMargin !== undefined && p.grossMargin !== null && p.grossMargin !== 0) {
+      return p.grossMargin;
+    }
+    return (p.totalBilledAmount ?? 0) - this.totalProjectCost();
+  });
 }

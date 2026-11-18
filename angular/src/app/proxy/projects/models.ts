@@ -180,6 +180,7 @@ export interface ProjectDto extends AuditedEntityDto<string> {
   totalCostingAmount?: number;
   totalBillingAmount?: number;
   totalBilledAmount?: number;
+  totalConsumedMaterialCost?: number;
   grossMargin?: number;
   notes?: string | null;
   costCenterId?: string | null;

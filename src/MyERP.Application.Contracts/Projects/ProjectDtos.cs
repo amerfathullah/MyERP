@@ -26,6 +26,7 @@ public class ProjectDto : AuditedEntityDto<Guid>
     public decimal TotalCostingAmount { get; set; }
     public decimal TotalBillingAmount { get; set; }
     public decimal TotalBilledAmount { get; set; }
+    public decimal TotalConsumedMaterialCost { get; set; }
     public decimal GrossMargin { get; set; }
     public string? Notes { get; set; }
     public Guid? CostCenterId { get; set; }

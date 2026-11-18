@@ -989,6 +989,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // When goods arrive, automatically reserve for pending SO items that need this stock
         if (!receipt.IsReturn)
         {
+            var ppReservationManager = LazyServiceProvider
+                .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+            if (ppReservationManager != null)
+            {
+                await ppReservationManager.ReserveReceivedStockForProductionPlansAsync(
+                    "PurchaseReceipt",
+                    receipt.Id,
+                    receipt.CompanyId,
+                    receipt.TenantId,
+                    receipt.Items.Select(i => (i.ItemId, i.WarehouseId ?? receipt.WarehouseId, i.StockQty, i.MaterialRequestItemId)));
+            }
+
             try
             {
                 var reservationManager = LazyServiceProvider
@@ -1087,6 +1099,17 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
 
         receipt.Cancel();
+
+        // Cancel Production Plan reservations originating from this Purchase Receipt (ERPNext ReceivedStockReservation)
+        if (!receipt.IsReturn)
+        {
+            var cancelReservationManager = LazyServiceProvider
+                .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+            if (cancelReservationManager != null)
+            {
+                await cancelReservationManager.CancelReservationsFromVoucherAsync("PurchaseReceipt", receipt.Id);
+            }
+        }
 
         // Reverse the posted GL Journal Entry (DR Stock / CR SRBNB on submit)
         await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseReceipt", receipt.Id);
