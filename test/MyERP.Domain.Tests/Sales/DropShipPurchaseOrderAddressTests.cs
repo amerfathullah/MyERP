@@ -72,4 +72,43 @@ public class DropShipPurchaseOrderAddressTests
 
         po.IsDropShip.ShouldBeFalse();
     }
+
+    [Fact]
+    public async Task CreateDropShipPurchaseOrdersAsync_FallbacksToTodayWhenOverdueAndKeepsFutureDate()
+    {
+        var pastDate = DateTime.UtcNow.Date.AddDays(-5);
+        var futureDate = DateTime.UtcNow.Date.AddDays(10);
+
+        var salesOrder = new SalesOrder(Guid.NewGuid(), _companyId, _customerId, "SO-DS-002", DateTime.UtcNow)
+        {
+            DeliveryDate = pastDate
+        };
+        salesOrder.AddItem(Guid.NewGuid(), "Overdue Drop Ship", 2m, 100m, 0m);
+        salesOrder.Items[0].DeliveredBySupplier = true;
+        salesOrder.Items[0].SupplierId = _supplierId;
+
+        salesOrder.AddItem(Guid.NewGuid(), "Scheduled Drop Ship", 3m, 100m, 0m);
+        salesOrder.Items[1].DeliveredBySupplier = true;
+        salesOrder.Items[1].SupplierId = _supplierId;
+        salesOrder.Items[1].DeliveryDate = futureDate;
+
+        PurchaseOrder? savedPo = null;
+        var poRepo = Substitute.For<IRepository<PurchaseOrder, Guid>>();
+        poRepo.InsertAsync(Arg.Do<PurchaseOrder>(po => savedPo = po), Arg.Any<bool>())
+            .Returns(callInfo => Task.FromResult(callInfo.Arg<PurchaseOrder>()));
+
+        var supplierRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(new Company(_companyId, "Test Co")));
+        var guidGen = Substitute.For<IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+
+        var dropShipService = new DropShipService(poRepo, supplierRepo, companyRepo, guidGen);
+        await dropShipService.CreateDropShipPurchaseOrdersAsync(salesOrder, (_, _) => Task.FromResult("PO-DS-002"));
+
+        savedPo.ShouldNotBeNull();
+        savedPo.ExpectedDeliveryDate.ShouldBe(DateTime.UtcNow.Date);
+        savedPo.Items[0].ExpectedDeliveryDate.ShouldBe(DateTime.UtcNow.Date);
+        savedPo.Items[1].ExpectedDeliveryDate.ShouldBe(futureDate);
+    }
 }

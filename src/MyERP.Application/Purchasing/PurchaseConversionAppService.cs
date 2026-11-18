@@ -409,11 +409,16 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", mr.CompanyId);
 
+        var today = Clock.Now.Date;
+        var expectedDate = mr.RequiredByDate.HasValue && mr.RequiredByDate.Value.Date >= today
+            ? mr.RequiredByDate.Value
+            : today;
+
         var po = new PurchaseOrder(
             GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
-            Clock.Now.Date, mr.TenantId)
+            today, mr.TenantId)
         {
-            ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date,
+            ExpectedDeliveryDate = expectedDate,
             IsSubcontracted = mr.RequestType == MaterialRequestType.Subcontracting
         };
 
@@ -455,6 +460,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             poItem.MaterialRequestItemId = mrItem.Id;
             poItem.ConversionFactor = mrFactor;
             poItem.StockUom = item?.Uom ?? mrItem.Uom;
+            poItem.ExpectedDeliveryDate = expectedDate;
         }
 
         if (!po.Items.Any())
@@ -519,6 +525,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         // Group items by supplier → one PO per supplier
         var groupedBySupplier = input.Items.GroupBy(i => i.SupplierId);
         var result = new SupplierSelectionResultDto();
+        var today = Clock.Now.Date;
+        var expectedDate = mr.RequiredByDate.HasValue && mr.RequiredByDate.Value.Date >= today
+            ? mr.RequiredByDate.Value
+            : today;
 
         foreach (var group in groupedBySupplier)
         {
@@ -527,9 +537,9 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
             var po = new PurchaseOrder(
                 GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
-                Clock.Now.Date, mr.TenantId)
+                today, mr.TenantId)
             {
-                ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date,
+                ExpectedDeliveryDate = expectedDate,
                 IsSubcontracted = mr.RequestType == MaterialRequestType.Subcontracting
             };
 
@@ -545,6 +555,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 poItem.MaterialRequestItemId = mrItem.Id;
                 poItem.ConversionFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
                 poItem.StockUom = item?.Uom ?? mrItem.Uom;
+                poItem.ExpectedDeliveryDate = expectedDate;
             }
 
             await _purchaseOrderRepository.InsertAsync(po, autoSave: true);

@@ -609,6 +609,18 @@ public class StockReservationManager : DomainService
         Guid? toVoucherDetailId = null,
         decimal? voucherDemandQty = null)
     {
+        await TransferReservationEntriesWithTotalAsync(
+            fromVoucherType, fromVoucherId, toVoucherType, toVoucherId,
+            itemId, warehouseId, qty, toVoucherDetailId, voucherDemandQty);
+    }
+
+    public async Task<decimal> TransferReservationEntriesWithTotalAsync(
+        string fromVoucherType, Guid fromVoucherId,
+        string toVoucherType, Guid toVoucherId,
+        Guid itemId, Guid warehouseId, decimal qty,
+        Guid? toVoucherDetailId = null,
+        decimal? voucherDemandQty = null)
+    {
         var sreQueryable = await _sreRepository.GetQueryableAsync();
         var sourceEntries = sreQueryable
             .Where(s => s.VoucherType == fromVoucherType
@@ -622,6 +634,7 @@ public class StockReservationManager : DomainService
             .ToList();
 
         var remaining = Math.Round(qty, 4);
+        var totalTransferred = 0m;
         foreach (var src in sourceEntries)
         {
             if (remaining <= 0) break;
@@ -654,8 +667,11 @@ public class StockReservationManager : DomainService
             newSre.Submit();
             await _sreRepository.InsertAsync(newSre);
 
+            totalTransferred = Math.Round(totalTransferred + transferQty, 4);
             remaining = Math.Max(0m, Math.Round(remaining - transferQty, 4));
         }
+
+        return totalTransferred;
     }
 
     /// <summary>

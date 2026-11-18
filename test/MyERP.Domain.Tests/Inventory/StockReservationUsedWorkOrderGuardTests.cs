@@ -441,4 +441,51 @@ public class StockReservationUsedWorkOrderGuardTests
 
         sre2.TransferredQty.ShouldBe(4m);
     }
+
+    [Fact]
+    public async Task TransferReservationEntriesWithTotalAsync_SeparatesBatchAndQtyReservationsAndReturnsTotal()
+    {
+        var planId = Guid.NewGuid();
+        var woId = Guid.NewGuid();
+        var woItemId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var batchSre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "ProductionPlan", planId, 4m)
+        {
+            BatchId = batchId,
+            CreationTime = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc)
+        };
+        batchSre.Submit();
+
+        var qtySre = new StockReservationEntry(Guid.NewGuid(), CompanyId, ItemId, WarehouseId, "ProductionPlan", planId, 3m)
+        {
+            CreationTime = new DateTime(2026, 11, 1, 9, 0, 0, DateTimeKind.Utc)
+        };
+        qtySre.Submit();
+
+        var inserted = new List<StockReservationEntry>();
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { batchSre, qtySre }.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(x => inserted.Add(x)))
+            .Returns(ci => Task.FromResult(ci.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        var totalTransferred = await manager.TransferReservationEntriesWithTotalAsync(
+            "ProductionPlan", planId,
+            "WorkOrder", woId,
+            ItemId, WarehouseId,
+            qty: 10m,
+            toVoucherDetailId: woItemId,
+            voucherDemandQty: 10m);
+
+        totalTransferred.ShouldBe(7m);
+        inserted.Count.ShouldBe(2);
+        inserted[0].BatchId.ShouldBe(batchId);
+        inserted[0].ReservedQty.ShouldBe(4m);
+        inserted[0].VoucherQty.ShouldBe(10m);
+        inserted[1].BatchId.ShouldBeNull();
+        inserted[1].ReservedQty.ShouldBe(3m);
+        inserted[1].VoucherQty.ShouldBe(10m);
+    }
 }

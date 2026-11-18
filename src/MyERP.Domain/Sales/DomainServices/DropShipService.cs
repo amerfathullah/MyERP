@@ -62,6 +62,9 @@ public class DropShipService : DomainService
         // Group by supplier (one PO per supplier)
         var grouped = dropShipItems.GroupBy(i => i.SupplierId!.Value);
 
+        var today = DateTime.UtcNow.Date;
+        var poExpectedDate = ResolveFutureOrTodayDate(salesOrder.DeliveryDate, today);
+
         foreach (var supplierGroup in grouped)
         {
             var supplierId = supplierGroup.Key;
@@ -73,7 +76,10 @@ public class DropShipService : DomainService
                 supplierId,
                 poNumber,
                 salesOrder.OrderDate,
-                salesOrder.TenantId);
+                salesOrder.TenantId)
+            {
+                ExpectedDeliveryDate = poExpectedDate
+            };
 
             var supplier = await _supplierRepository.FindAsync(supplierId);
             var company = await _companyRepository.FindAsync(salesOrder.CompanyId);
@@ -96,6 +102,7 @@ public class DropShipService : DomainService
                 poItem.SalesOrderId = salesOrder.Id;
                 poItem.SalesOrderItemId = soItem.Id;
                 poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                poItem.ExpectedDeliveryDate = ResolveFutureOrTodayDate(soItem.DeliveryDate ?? salesOrder.DeliveryDate, today);
             }
 
             await _poRepository.InsertAsync(po, autoSave: true);
@@ -167,6 +174,9 @@ public class DropShipService : DomainService
             .Select(i => i.ItemId)
             .ToHashSet();
     }
+
+    private static DateTime ResolveFutureOrTodayDate(DateTime? targetDate, DateTime today) =>
+        targetDate.HasValue && targetDate.Value.Date >= today ? targetDate.Value : today;
 }
 
 /// <summary>One Sales Order row to order from a supplier, with the still-unordered quantity.</summary>

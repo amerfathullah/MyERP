@@ -6,6 +6,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import type { LhdnStatusReportItemDto, LhdnVatReportDto } from '../../proxy/einvoice/models';
 
@@ -20,6 +21,7 @@ import type { LhdnStatusReportItemDto, LhdnVatReportDto } from '../../proxy/einv
 export class EinvoiceStatusReportComponent implements OnInit {
   private fb = new FormBuilder();
   private einvoiceService = inject(EInvoiceService);
+  private companyContext = inject(CompanyContextService, { optional: true });
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService, { optional: true });
 
@@ -45,10 +47,12 @@ export class EinvoiceStatusReportComponent implements OnInit {
   generate(): void {
     this.isLoading.set(true);
     const { fromDate, toDate, status, reportType } = this.filters.getRawValue();
+    const companyId = this.companyContext?.currentCompanyId() || null;
 
     if (reportType === 'vat') {
       this.statusReportData.set([]);
       this.einvoiceService.getVatReport({
+        companyId,
         fromDate: fromDate || null,
         toDate: toDate || null,
       }).subscribe({
@@ -61,6 +65,7 @@ export class EinvoiceStatusReportComponent implements OnInit {
     } else if (reportType === 'purchase') {
       this.vatReportData.set(null);
       this.einvoiceService.getPurchaseStatusReport({
+        companyId,
         fromDate: fromDate || null,
         toDate: toDate || null,
         status: status || null,
@@ -74,6 +79,7 @@ export class EinvoiceStatusReportComponent implements OnInit {
     } else {
       this.vatReportData.set(null);
       this.einvoiceService.getSalesStatusReport({
+        companyId,
         fromDate: fromDate || null,
         toDate: toDate || null,
         status: status || null,

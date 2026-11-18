@@ -973,20 +973,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             item.WorkOrderId = wo.Id;
             item.OrderedQty += qtyToOrder;
 
-            // Transfer stock reservations from Production Plan to Work Order (ERPNext commit 0bc3cfe29d)
+            // Transfer stock reservations from Production Plan to Work Order (ERPNext commits 0bc3cfe29d, 70c60af940, 3d4ca309aa)
             if (sreManager != null)
             {
-                foreach (var reqItem in wo.RequiredItems)
-                {
-                    if (reqItem.SourceWarehouseId.HasValue)
-                    {
-                        await sreManager.TransferReservationEntriesAsync(
-                            "ProductionPlan", plan.Id,
-                            "WorkOrder", wo.Id,
-                            reqItem.ItemId, reqItem.SourceWarehouseId.Value,
-                            reqItem.RequiredQuantity, reqItem.Id);
-                    }
-                }
+                await TransferPlanReservationsToWorkOrderAsync(plan, wo, sreManager);
             }
         }
 
@@ -1026,17 +1016,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             // Transfer stock reservations from Production Plan to Work Order
             if (sreManager != null)
             {
-                foreach (var reqItem in wo.RequiredItems)
-                {
-                    if (reqItem.SourceWarehouseId.HasValue)
-                    {
-                        await sreManager.TransferReservationEntriesAsync(
-                            "ProductionPlan", plan.Id,
-                            "WorkOrder", wo.Id,
-                            reqItem.ItemId, reqItem.SourceWarehouseId.Value,
-                            reqItem.RequiredQuantity, reqItem.Id);
-                    }
-                }
+                await TransferPlanReservationsToWorkOrderAsync(plan, wo, sreManager);
             }
         }
 
@@ -1045,6 +1025,38 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         await _planRepository.UpdateAsync(plan);
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
+    }
+
+    private async Task TransferPlanReservationsToWorkOrderAsync(
+        ProductionPlan plan,
+        WorkOrder wo,
+        MyERP.Inventory.DomainServices.StockReservationManager sreManager)
+    {
+        var anyReserved = false;
+        foreach (var reqItem in wo.RequiredItems)
+        {
+            if (!reqItem.SourceWarehouseId.HasValue || reqItem.RequiredQuantity <= 0m)
+                continue;
+
+            var transferredQty = await sreManager.TransferReservationEntriesWithTotalAsync(
+                "ProductionPlan", plan.Id,
+                "WorkOrder", wo.Id,
+                reqItem.ItemId, reqItem.SourceWarehouseId.Value,
+                reqItem.RequiredQuantity, reqItem.Id,
+                voucherDemandQty: reqItem.RequiredQuantity);
+
+            if (transferredQty > 0m)
+            {
+                reqItem.SetStockReservedQty(Math.Round(reqItem.StockReservedQty + transferredQty, 4));
+                anyReserved = true;
+            }
+        }
+
+        if (anyReserved)
+        {
+            wo.UpdateReservationStatus();
+            await _workOrderRepository.UpdateAsync(wo);
+        }
     }
 
     [Authorize(MyERPPermissions.MaterialRequests.Create)]
