@@ -303,27 +303,8 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
         }
 
-        var bookQueryable = await _financeBookRepository.GetQueryableAsync();
-        var defaultBook = bookQueryable.FirstOrDefault(fb => fb.CompanyId == input.CompanyId && fb.IsDefault);
-
-        if (input.IncludeDefaultBookAssets
-            && input.FinanceBookId.HasValue
-            && defaultBook != null
-            && input.FinanceBookId.Value != defaultBook.Id)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "To use a different finance book, please uncheck 'Include Default FB Assets'.");
-        }
-
-        Guid? effectiveFinanceBookId = null;
-        if (input.IncludeDefaultBookAssets && defaultBook != null)
-        {
-            effectiveFinanceBookId = defaultBook.Id;
-        }
-        else if (input.FinanceBookId.HasValue)
-        {
-            effectiveFinanceBookId = input.FinanceBookId.Value;
-        }
+        var effectiveFinanceBookId = await ResolveEffectiveFinanceBookAsync(
+            input.CompanyId, input.FinanceBookId, input.IncludeDefaultBookAssets);
 
         var assetQueryable = (await _assetRepository.WithDetailsAsync(a => a.DepreciationSchedule, a => a.DepreciationDetails)).AsQueryable();
         assetQueryable = assetQueryable.Where(a => a.CompanyId == input.CompanyId
@@ -396,7 +377,7 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
                 return a.DepreciationDetails.Any(d =>
                     d.FinanceBookId == null
                     || (input.FinanceBookId.HasValue && d.FinanceBookId == input.FinanceBookId.Value)
-                    || (defaultBook != null && d.FinanceBookId == defaultBook.Id));
+                    || (effectiveFinanceBookId.HasValue && d.FinanceBookId == effectiveFinanceBookId.Value));
             }
 
             return a.DepreciationDetails.Any(d =>
@@ -564,6 +545,176 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
             GroupBy = input.GroupBy,
             Rows = finalRows,
         };
+    }
+
+    /// <summary>
+    /// Asset Depreciation Ledger report: chronological booked depreciation entries per asset
+    /// with opening accumulated depreciation carried forward from prior entries, cost revaluations,
+    /// and running net carrying value. Per ERPNext accounts/report/asset_depreciation_ledger.
+    /// </summary>
+    public async Task<AssetDepreciationLedgerReportDto> GetAssetDepreciationLedgerAsync(
+        AssetDepreciationLedgerRequestDto input)
+    {
+        var fromDate = input.FromDate.Date;
+        var toDate = input.ToDate.Date;
+        if (fromDate > toDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
+        }
+
+        var effectiveFinanceBookId = await ResolveEffectiveFinanceBookAsync(
+            input.CompanyId, input.FinanceBookId, input.IncludeDefaultBookAssets);
+
+        string currencyCode = "MYR";
+        var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        if (companyRepo != null)
+        {
+            var company = await companyRepo.FindAsync(input.CompanyId);
+            currencyCode = company?.CurrencyCode ?? "MYR";
+        }
+
+        var assetQueryable = (await _assetRepository.WithDetailsAsync(a => a.DepreciationSchedule, a => a.DepreciationDetails)).AsQueryable();
+        assetQueryable = assetQueryable.Where(a => a.CompanyId == input.CompanyId
+            && a.Status != AssetStatus.Draft
+            && a.Status != AssetStatus.Cancelled);
+
+        if (input.AssetId.HasValue)
+            assetQueryable = assetQueryable.Where(a => a.Id == input.AssetId.Value);
+        if (input.AssetCategoryId.HasValue)
+            assetQueryable = assetQueryable.Where(a => a.AssetCategoryId == input.AssetCategoryId.Value);
+
+        if (input.CostCenterId.HasValue)
+        {
+            var ccIds = await GetCostCenterWithChildrenIdsAsync(input.CompanyId, input.CostCenterId.Value);
+            assetQueryable = assetQueryable.Where(a => a.CostCenterId.HasValue && ccIds.Contains(a.CostCenterId.Value));
+        }
+
+        var candidateAssets = assetQueryable.ToList();
+        var categories = (await _categoryRepository.GetListAsync())
+            .ToDictionary(c => c.Id, c => c.CategoryName);
+
+        var ccNames = CostCenterRepository != null
+            ? (await CostCenterRepository.GetListAsync(c => c.CompanyId == input.CompanyId))
+                .ToDictionary(c => c.Id, c => c.Name)
+            : new Dictionary<Guid, string>();
+
+        var adjQueryable = await _adjustmentRepository.GetQueryableAsync();
+        var adjustmentsByAsset = adjQueryable
+            .Where(a => a.CompanyId == input.CompanyId
+                && a.Status == DocumentStatus.Submitted
+                && a.Date.Date <= toDate
+                && (a.FinanceBookId == null || a.FinanceBookId == effectiveFinanceBookId))
+            .ToList()
+            .GroupBy(a => a.AssetId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var jeIds = candidateAssets
+            .SelectMany(a => a.DepreciationSchedule)
+            .Where(s => s.IsBooked && s.JournalEntryId.HasValue && s.ScheduleDate.Date >= fromDate && s.ScheduleDate.Date <= toDate)
+            .Select(s => s.JournalEntryId!.Value)
+            .Distinct()
+            .ToList();
+
+        var jeNumbers = new Dictionary<Guid, string>();
+        var jeRepo = LazyServiceProvider?.LazyGetService<IRepository<JournalEntry, Guid>>();
+        if (jeRepo != null && jeIds.Count > 0)
+        {
+            jeNumbers = (await jeRepo.GetListAsync(je => jeIds.Contains(je.Id)))
+                .ToDictionary(je => je.Id, je => je.EntryNumber ?? je.Id.ToString()[..8]);
+        }
+
+        var rows = new List<AssetDepreciationLedgerRowDto>();
+        foreach (var asset in candidateAssets.OrderBy(a => a.AssetNumber))
+        {
+            var scheduleEntries = asset.DepreciationSchedule
+                .Where(s => s.IsBooked && (s.FinanceBookId == null || s.FinanceBookId == effectiveFinanceBookId))
+                .OrderBy(s => s.ScheduleDate)
+                .ThenBy(s => s.CreationTime)
+                .ToList();
+
+            var inPeriod = scheduleEntries
+                .Where(s => s.ScheduleDate.Date >= fromDate && s.ScheduleDate.Date <= toDate)
+                .ToList();
+
+            if (inPeriod.Count == 0)
+                continue;
+
+            decimal runningAccumulated = asset.OpeningAccumulatedDepreciation + scheduleEntries
+                .Where(s => s.ScheduleDate.Date < fromDate)
+                .Sum(s => s.DepreciationAmount);
+
+            adjustmentsByAsset.TryGetValue(asset.Id, out var assetAdjs);
+            string? categoryName = asset.AssetCategoryId.HasValue && categories.TryGetValue(asset.AssetCategoryId.Value, out var cn) ? cn : null;
+            string? costCenterName = asset.CostCenterId.HasValue && ccNames.TryGetValue(asset.CostCenterId.Value, out var ccn) ? ccn : null;
+
+            foreach (var entry in inPeriod)
+            {
+                runningAccumulated += entry.DepreciationAmount;
+                var adjTillDate = assetAdjs != null
+                    ? assetAdjs.Where(a => a.Date.Date <= entry.ScheduleDate.Date).Sum(a => a.DifferenceAmount)
+                    : 0m;
+                var valueAfterDepr = asset.TotalAssetCost + adjTillDate - runningAccumulated;
+
+                string? jeNo = null;
+                if (entry.JournalEntryId.HasValue)
+                {
+                    jeNumbers.TryGetValue(entry.JournalEntryId.Value, out jeNo);
+                }
+
+                rows.Add(new AssetDepreciationLedgerRowDto
+                {
+                    AssetId = asset.Id,
+                    AssetNumber = asset.AssetNumber,
+                    AssetName = asset.AssetName,
+                    AssetCategoryName = categoryName,
+                    Status = asset.Status.ToString(),
+                    DepreciationDate = entry.ScheduleDate,
+                    GrossPurchaseAmount = asset.TotalAssetCost,
+                    DepreciationAmount = entry.DepreciationAmount,
+                    AccumulatedDepreciationAmount = runningAccumulated,
+                    ValueAfterDepreciation = valueAfterDepr,
+                    DepreciationEntryId = entry.JournalEntryId,
+                    DepreciationEntryNumber = jeNo,
+                    PurchaseDate = asset.PurchaseDate,
+                    CostCenterName = costCenterName,
+                });
+            }
+        }
+
+        return new AssetDepreciationLedgerReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            CurrencyCode = currencyCode,
+            Rows = rows,
+            TotalDepreciationAmount = rows.Sum(r => r.DepreciationAmount),
+        };
+    }
+
+    private async Task<Guid?> ResolveEffectiveFinanceBookAsync(
+        Guid companyId,
+        Guid? financeBookId,
+        bool includeDefaultBookAssets)
+    {
+        var bookQueryable = await _financeBookRepository.GetQueryableAsync();
+        var defaultBook = bookQueryable.FirstOrDefault(fb => fb.CompanyId == companyId && fb.IsDefault);
+
+        if (includeDefaultBookAssets
+            && financeBookId.HasValue
+            && defaultBook != null
+            && financeBookId.Value != defaultBook.Id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "To use a different finance book, please uncheck 'Include Default FB Assets'.");
+        }
+
+        if (includeDefaultBookAssets && defaultBook != null)
+        {
+            return defaultBook.Id;
+        }
+
+        return financeBookId;
     }
 
     /// <summary>

@@ -1,0 +1,136 @@
+<abp-page [title]="'::AssetDepreciationLedger' | abpLocalization">
+  <p class="text-muted small mb-3">{{ '::AssetDepreciationLedgerDescription' | abpLocalization }}</p>
+
+  @if (report()) {
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card border-start border-secondary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::VoucherCount' | abpLocalization }}</div>
+            <div class="h5 mb-0">{{ filteredRows().length }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::DepreciationAmount' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-primary">{{ report()!.currencyCode || 'MYR' }} {{ totalDepreciation() | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="companyId" (change)="loadReport()">
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::AssetCategory' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="assetCategoryId" (change)="loadReport()">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (cat of categories(); track cat.id) {
+              <option [value]="cat.id">{{ cat.categoryName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Search' | abpLocalization }}</label>
+          <input type="text" class="form-control form-control-sm" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" />
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button type="button" class="btn btn-primary btn-sm flex-fill" (click)="loadReport()" [disabled]="loading()">
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+          @if (filteredRows().length > 0) {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [title]="'::ExportCSV' | abpLocalization">
+              <i class="fa fa-download"></i>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (filteredRows().length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::Asset' | abpLocalization }}</th>
+                <th>{{ '::AssetName' | abpLocalization }}</th>
+                <th>{{ '::AssetCategory' | abpLocalization }}</th>
+                <th>{{ '::DepreciationDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::GrossPurchaseAmount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::DepreciationAmount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AccumulatedDepreciation' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ValueAfterDepreciation' | abpLocalization }}</th>
+                <th>{{ '::DepreciationEntry' | abpLocalization }}</th>
+                <th>{{ '::CostCenter' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of filteredRows(); track (row.assetId ?? '') + '-' + (row.depreciationDate ?? '') + '-' + $index) {
+                <tr class="cursor-pointer" (click)="openAsset(row)">
+                  <td class="font-monospace small text-primary">{{ row.assetNumber }}</td>
+                  <td class="small">{{ row.assetName }}</td>
+                  <td class="small">{{ row.assetCategoryName || '-' }}</td>
+                  <td class="font-monospace small">{{ formatDate(row.depreciationDate) }}</td>
+                  <td class="text-end font-monospace small">{{ (row.grossPurchaseAmount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small text-primary">{{ (row.depreciationAmount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small">{{ (row.accumulatedDepreciationAmount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small fw-semibold">{{ (row.valueAfterDepreciation ?? 0) | number:'1.2-2' }}</td>
+                  <td class="font-monospace small">
+                    @if (row.depreciationEntryId) {
+                      <a href="javascript:void(0)" (click)="openJournalEntry(row, $event)">{{ row.depreciationEntryNumber || row.depreciationEntryId }}</a>
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td class="small">{{ row.costCenterName || '-' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td colspan="5" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ totalDepreciation() | number:'1.2-2' }}</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (report() && !loading()) {
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+        {{ '::NoDepreciationEntriesFound' | abpLocalization }}
+      </div>
+    </div>
+  }
+</abp-page>

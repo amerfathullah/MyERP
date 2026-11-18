@@ -3681,6 +3681,15 @@ function configureRoutes() {
         layout: eLayoutType.application,
         requiredPolicy: 'MyERP.Assets',
       },
+      {
+        path: '/assets/reports/depreciation-ledger',
+        name: '::Menu:AssetDepreciationLedger',
+        parentName: '::Menu:Assets',
+        iconClass: 'fas fa-receipt',
+        order: 12,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Assets',
+      },
       // Maintenance & Support Module
       {
         path: '/maintenance',

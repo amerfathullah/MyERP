@@ -180,8 +180,56 @@ public class FixedAssetRegisterReportDto
     public List<FixedAssetRegisterRowDto> Rows { get; set; } = new();
 }
 
+// --- Asset Depreciation Ledger DTOs (ERPNext asset_depreciation_ledger) ---
+public class AssetDepreciationLedgerRequestDto
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    [Required]
+    public DateTime FromDate { get; set; }
+
+    [Required]
+    public DateTime ToDate { get; set; }
+
+    public Guid? AssetId { get; set; }
+    public Guid? AssetCategoryId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? FinanceBookId { get; set; }
+    public bool IncludeDefaultBookAssets { get; set; } = true;
+}
+
+public class AssetDepreciationLedgerRowDto
+{
+    public Guid AssetId { get; set; }
+    public string AssetNumber { get; set; } = string.Empty;
+    public string AssetName { get; set; } = string.Empty;
+    public string? AssetCategoryName { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime DepreciationDate { get; set; }
+    public decimal GrossPurchaseAmount { get; set; }
+    public decimal DepreciationAmount { get; set; }
+    public decimal AccumulatedDepreciationAmount { get; set; }
+    public decimal ValueAfterDepreciation { get; set; }
+    public Guid? DepreciationEntryId { get; set; }
+    public string? DepreciationEntryNumber { get; set; }
+    public DateTime PurchaseDate { get; set; }
+    public string? CostCenterName { get; set; }
+}
+
+public class AssetDepreciationLedgerReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+    public List<AssetDepreciationLedgerRowDto> Rows { get; set; } = new();
+    public decimal TotalDepreciationAmount { get; set; }
+}
+
 public interface IAssetReportingAppService : IApplicationService
 {
     Task<AssetDepreciationsAndBalancesReportDto> GetAssetDepreciationsAndBalancesAsync(AssetDepreciationsAndBalancesRequestDto input);
     Task<FixedAssetRegisterReportDto> GetFixedAssetRegisterAsync(FixedAssetRegisterRequestDto input);
+    Task<AssetDepreciationLedgerReportDto> GetAssetDepreciationLedgerAsync(AssetDepreciationLedgerRequestDto input);
 }

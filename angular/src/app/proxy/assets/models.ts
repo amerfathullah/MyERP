@@ -99,6 +99,43 @@ export interface AssetDepreciationsAndBalancesRequestDto {
   financeBookId?: string | null;
 }
 
+export interface AssetDepreciationLedgerRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  assetId?: string | null;
+  assetCategoryId?: string | null;
+  costCenterId?: string | null;
+  financeBookId?: string | null;
+  includeDefaultBookAssets?: boolean;
+}
+
+export interface AssetDepreciationLedgerRowDto {
+  assetId?: string;
+  assetNumber?: string;
+  assetName?: string;
+  assetCategoryName?: string | null;
+  status?: string;
+  depreciationDate?: string;
+  grossPurchaseAmount?: number;
+  depreciationAmount?: number;
+  accumulatedDepreciationAmount?: number;
+  valueAfterDepreciation?: number;
+  depreciationEntryId?: string | null;
+  depreciationEntryNumber?: string | null;
+  purchaseDate?: string;
+  costCenterName?: string | null;
+}
+
+export interface AssetDepreciationLedgerReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  currencyCode?: string;
+  rows?: AssetDepreciationLedgerRowDto[];
+  totalDepreciationAmount?: number;
+}
+
 export interface AssetDepreciationsAndBalancesRowDto {
   assetCategoryId?: string | null;
   assetCategoryName?: string | null;

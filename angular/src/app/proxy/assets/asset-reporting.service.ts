@@ -1,4 +1,4 @@
-import type { AssetDepreciationsAndBalancesReportDto, AssetDepreciationsAndBalancesRequestDto, FixedAssetRegisterReportDto, FixedAssetRegisterRequestDto } from './models';
+import type { AssetDepreciationLedgerReportDto, AssetDepreciationLedgerRequestDto, AssetDepreciationsAndBalancesReportDto, AssetDepreciationsAndBalancesRequestDto, FixedAssetRegisterReportDto, FixedAssetRegisterRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -28,6 +28,16 @@ export class AssetReportingService {
       headers: { Accept: 'application/json' },
       url: '/api/app/asset-reporting/fixed-asset-register',
       params: { companyId: input.companyId, status: input.status, assetCategoryId: input.assetCategoryId, financeBookId: input.financeBookId, includeDefaultBookAssets: input.includeDefaultBookAssets, onlyExistingAssets: input.onlyExistingAssets, filterBasedOn: input.filterBasedOn, dateBasedOn: input.dateBasedOn, fromDate: input.fromDate, toDate: input.toDate, locationId: input.locationId, costCenterId: input.costCenterId, groupBy: input.groupBy },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getAssetDepreciationLedger = (input: AssetDepreciationLedgerRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetDepreciationLedgerReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/asset-reporting/asset-depreciation-ledger',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, assetId: input.assetId, assetCategoryId: input.assetCategoryId, costCenterId: input.costCenterId, financeBookId: input.financeBookId, includeDefaultBookAssets: input.includeDefaultBookAssets },
     },
       { apiName: this.apiName,...config });
 }

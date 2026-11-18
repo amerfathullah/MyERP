@@ -6446,7 +6446,13 @@
     "PaymentPeriodBasedOnInvoiceDateDescription": "Ages invoice payments relative to invoice posting dates and tracks payment delay beyond due dates",
     "InvoicePostingDate": "Invoice Posting Date",
     "DelayInPaymentDays": "Delay (Days)",
-    "NoPaymentEntriesFound": "No invoice payment entries found for the selected criteria"
+    "NoPaymentEntriesFound": "No invoice payment entries found for the selected criteria",
+    "Menu:AssetDepreciationLedger": "Asset Depreciation Ledger",
+    "AssetDepreciationLedger": "Asset Depreciation Ledger",
+    "AssetDepreciationLedgerDescription": "Detailed ledger of posted asset depreciation entries, running accumulated depreciation, and net carrying values",
+    "DepreciationDate": "Depreciation Date",
+    "DepreciationEntry": "Depreciation Entry",
+    "NoDepreciationEntriesFound": "No booked asset depreciation entries found in the selected period"
   }
 }
 

@@ -5055,6 +5055,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Assets' },
   },
   {
+    path: 'assets/reports/depreciation-ledger',
+    loadComponent: () => import('./assets/reports/depreciation-ledger/asset-depreciation-ledger.component').then(c => c.AssetDepreciationLedgerComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Assets' },
+  },
+  {
     path: 'assets/:id',
     loadComponent: () => import('./assets/asset-detail/asset-detail.component').then(c => c.AssetDetailComponent),
     canActivate: [authGuard, permissionGuard],
