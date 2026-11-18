@@ -6428,7 +6428,19 @@
     "Menu:ChequesAndDepositsIncorrectlyCleared": "Incorrectly Cleared Cheques",
     "ChequesAndDepositsIncorrectlyCleared": "Cheques and Deposits Incorrectly Cleared",
     "ChequesAndDepositsIncorrectlyClearedDescription": "Vouchers posted after the report date that were cleared on or before the report date",
-    "NoIncorrectlyClearedEntries": "No incorrectly cleared cheques or deposits found as of the selected report date"
+    "NoIncorrectlyClearedEntries": "No incorrectly cleared cheques or deposits found as of the selected report date",
+    "Menu:BankClearanceSummary": "Bank Clearance Summary",
+    "BankClearanceSummary": "Bank Clearance Summary",
+    "BankClearanceSummaryDescription": "Summary of posted bank and cash vouchers within the selected period with clearance dates",
+    "AgainstAccount": "Against Account",
+    "NoBankClearanceEntries": "No bank or cash entries found for the selected account and date range",
+    "ClearedCount": "Cleared",
+    "UnclearedCount": "Uncleared",
+    "Menu:VoucherWiseBalance": "Voucher-wise Balance",
+    "VoucherWiseBalance": "Voucher-wise Balance",
+    "VoucherWiseBalanceDescription": "General Ledger audit report listing posted vouchers where total Debit does not equal total Credit",
+    "UnbalancedVouchers": "Unbalanced Vouchers",
+    "AllVouchersBalanced": "All posted vouchers are balanced (Total Debit equals Total Credit)"
   }
 }
 

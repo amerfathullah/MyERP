@@ -365,6 +365,38 @@ public class DayBookReportDto
     public decimal TotalCredit { get; set; }
 }
 
+// --- Voucher-wise Balance Report DTOs (ERPNext voucher_wise_balance) ---
+public class VoucherWiseBalanceRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public string? VoucherType { get; set; }
+}
+
+public class VoucherWiseBalanceRowDto
+{
+    public string VoucherType { get; set; } = string.Empty;
+    public Guid VoucherId { get; set; }
+    public string VoucherNo { get; set; } = string.Empty;
+    public DateTime PostingDate { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public decimal Difference => Debit - Credit;
+}
+
+public class VoucherWiseBalanceReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+    public List<VoucherWiseBalanceRowDto> Rows { get; set; } = new();
+    public int UnbalancedCount { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -377,6 +409,7 @@ public interface IReportingAppService : IApplicationService
     Task<GeneralPaymentLedgerComparisonReportDto> GetGeneralAndPaymentLedgerComparisonAsync(GeneralPaymentLedgerComparisonRequestDto input);
     Task<ProfitabilityAnalysisReportDto> GetProfitabilityAnalysisAsync(ProfitabilityAnalysisRequestDto input);
     Task<DayBookReportDto> GetDayBookAsync(DayBookRequestDto input);
+    Task<VoucherWiseBalanceReportDto> GetVoucherWiseBalanceAsync(VoucherWiseBalanceRequestDto input);
 }
 
 

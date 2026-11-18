@@ -48,6 +48,12 @@ public class BankClearanceEntryDto
     public decimal Credit { get; set; }
     public string? ReferenceNumber { get; set; }
     public DateTime? ClearanceDate { get; set; }
+    /// <summary>Counterparty (Customer/Supplier name) or contra GL account(s) per ERPNext Bank Clearance Summary.</summary>
+    public string? AgainstAccount { get; set; }
+    public string? AccountCurrency { get; set; }
+    /// <summary>Original voucher ID for SalesInvoice/PurchaseInvoice rows (falls back to DocumentId for PE/JE).</summary>
+    public Guid? SourceDocumentId { get; set; }
+    public decimal Amount => Debit - Credit;
 }
 
 public class SetClearanceDateDto

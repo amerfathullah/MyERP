@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -105,6 +105,16 @@ export class ReportingService {
       headers: { Accept: 'application/json' },
       url: '/api/app/reporting/trial-balance-for-party',
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, partyType: input.partyType, partyId: input.partyId, accountId: input.accountId, excludeZeroBalanceParties: input.excludeZeroBalanceParties, showZeroValues: input.showZeroValues },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getVoucherWiseBalance = (input: VoucherWiseBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, VoucherWiseBalanceReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/voucher-wise-balance',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, voucherType: input.voucherType },
     },
       { apiName: this.apiName,...config });
 }

@@ -493,6 +493,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PaymentEntries' },
   },
   {
+    path: 'accounting/reports/bank-clearance-summary',
+    loadComponent: () => import('./accounting/reports/bank-clearance-summary/bank-clearance-summary.component').then(c => c.BankClearanceSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PaymentEntries' },
+  },
+  {
+    path: 'accounting/reports/voucher-wise-balance',
+    loadComponent: () => import('./accounting/reports/voucher-wise-balance/voucher-wise-balance.component').then(c => c.VoucherWiseBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],

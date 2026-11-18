@@ -71,6 +71,12 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
 
     public async Task<List<BankClearanceEntryDto>> GetEntriesAsync(GetBankClearanceEntriesInput input)
     {
+        if (input.FromDate.Date > input.ToDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid)
+                .WithData("reason", "From Date cannot be greater than To Date");
+        }
+
         var entries = new List<BankClearanceEntryDto>();
 
         // Account and company currency resolution per ERPNext PR #60044 & PR #60024
@@ -78,6 +84,22 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
         var company = await CompanyRepository.FindAsync(input.CompanyId);
         var companyCurrency = company?.CurrencyCode ?? "MYR";
         var bankCurrency = account?.Currency ?? companyCurrency;
+
+        Dictionary<Guid, string> accountDisplayMap = new();
+        try
+        {
+            var companyAccounts = await AccountRepository.GetListAsync(a => a.CompanyId == input.CompanyId);
+            accountDisplayMap = companyAccounts.ToDictionary(
+                a => a.Id,
+                a => string.IsNullOrWhiteSpace(a.AccountCode) ? a.AccountName : $"{a.AccountCode} - {a.AccountName}");
+        }
+        catch
+        {
+            // Mock repositories in unit tests may only stub FindAsync
+        }
+
+        string? ResolveAccountDisplay(Guid accId) =>
+            accountDisplayMap.TryGetValue(accId, out var display) ? display : null;
 
         // Payment Entries touching this bank account (either side)
         // Per ERPNext PR #60044: payment amounts reflect after-tax paid/received amount in bank currency
@@ -93,25 +115,14 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             .Where(p => input.IncludeCleared || p.ClearanceDate == null)
             .ToList();
 
-        foreach (var pe in pes)
-        {
-            var isDeposit = pe.PaidToAccountId == input.BankAccountId;
-            var bankSideAmount = pe.GetBankSideAmount(isDeposit);
-            var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
-            var amount = BankReconciliationAppService.GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
-
-            entries.Add(new BankClearanceEntryDto
-            {
-                DocumentType = "PaymentEntry",
-                DocumentId = pe.Id,
-                DocumentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
-                PostingDate = pe.PostingDate,
-                Debit = isDeposit ? amount : 0,
-                Credit = isDeposit ? 0 : amount,
-                ReferenceNumber = pe.ReferenceNumber,
-                ClearanceDate = pe.ClearanceDate,
-            });
-        }
+        var customerIds = pes
+            .Where(p => p.PartyId.HasValue && string.Equals(p.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+            .Select(p => p.PartyId!.Value)
+            .ToHashSet();
+        var supplierIds = pes
+            .Where(p => p.PartyId.HasValue && string.Equals(p.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+            .Select(p => p.PartyId!.Value)
+            .ToHashSet();
 
         // Journal Entries with a line on this bank account.
         // Per ERPNext bank_clearance.py: opening entries excluded, lines aggregated per (account, je).
@@ -124,17 +135,133 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             .Where(je => input.IncludeCleared || je.ClearanceDate == null)
             .ToList();
 
+        var siById = new Dictionary<Guid, SalesInvoice>();
+        var piById = new Dictionary<Guid, PurchaseInvoice>();
+        var allJeLines = new List<JournalEntryLine>();
+
         if (jeCandidates.Count > 0)
         {
             var jeIds = jeCandidates.Select(je => je.Id).ToHashSet();
             var lineQuery = await _journalEntryLineRepository.GetQueryableAsync();
-            var lines = lineQuery
-                .Where(l => l.AccountId == input.BankAccountId
-                    && jeIds.Contains(l.JournalEntryId)
+            allJeLines = lineQuery
+                .Where(l => jeIds.Contains(l.JournalEntryId)
                     && (l.FinanceBook == null || l.FinanceBook == ""))
                 .ToList();
 
-            var linesByJe = lines.GroupBy(l => l.JournalEntryId);
+            var bankJeIds = allJeLines
+                .Where(l => l.AccountId == input.BankAccountId)
+                .Select(l => l.JournalEntryId)
+                .ToHashSet();
+
+            foreach (var je in jeCandidates.Where(j => bankJeIds.Contains(j.Id)))
+            {
+                if (je.ReferenceType == "SalesInvoice" && je.ReferenceId.HasValue && !siById.ContainsKey(je.ReferenceId.Value))
+                {
+                    try
+                    {
+                        var si = await SalesInvoiceRepository.FindAsync(je.ReferenceId.Value);
+                        if (si != null)
+                        {
+                            siById[si.Id] = si;
+                            customerIds.Add(si.CustomerId);
+                        }
+                    }
+                    catch
+                    {
+                        // Repository fallback if unavailable in unit test context
+                    }
+                }
+                else if (je.ReferenceType == "PurchaseInvoice" && je.ReferenceId.HasValue && !piById.ContainsKey(je.ReferenceId.Value))
+                {
+                    try
+                    {
+                        var pi = await PurchaseInvoiceRepository.FindAsync(je.ReferenceId.Value);
+                        if (pi != null)
+                        {
+                            piById[pi.Id] = pi;
+                            supplierIds.Add(pi.SupplierId);
+                        }
+                    }
+                    catch
+                    {
+                        // Repository fallback if unavailable in unit test context
+                    }
+                }
+            }
+        }
+
+        var customerNames = new Dictionary<Guid, string>();
+        var supplierNames = new Dictionary<Guid, string>();
+        if (LazyServiceProvider != null)
+        {
+            if (customerIds.Count > 0)
+            {
+                var customerRepo = LazyServiceProvider.LazyGetService<IRepository<Customer, Guid>>();
+                if (customerRepo != null)
+                {
+                    customerNames = (await customerRepo.GetListAsync(c => customerIds.Contains(c.Id)))
+                        .ToDictionary(c => c.Id, c => c.Name);
+                }
+            }
+            if (supplierIds.Count > 0)
+            {
+                var supplierRepo = LazyServiceProvider.LazyGetService<IRepository<Supplier, Guid>>();
+                if (supplierRepo != null)
+                {
+                    supplierNames = (await supplierRepo.GetListAsync(s => supplierIds.Contains(s.Id)))
+                        .ToDictionary(s => s.Id, s => s.Name);
+                }
+            }
+        }
+
+        foreach (var pe in pes)
+        {
+            var isDeposit = pe.PaidToAccountId == input.BankAccountId;
+            var bankSideAmount = pe.GetBankSideAmount(isDeposit);
+            var baseSideAmount = isDeposit ? pe.BaseReceivedAmountAfterTax : pe.BasePaidAmountAfterTax;
+            var amount = BankReconciliationAppService.GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
+
+            string? against = null;
+            if (pe.PartyId.HasValue)
+            {
+                if (string.Equals(pe.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+                    customerNames.TryGetValue(pe.PartyId.Value, out against);
+                else if (string.Equals(pe.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+                    supplierNames.TryGetValue(pe.PartyId.Value, out against);
+            }
+            against ??= ResolveAccountDisplay(isDeposit ? pe.PaidFromAccountId : pe.PaidToAccountId);
+
+            entries.Add(new BankClearanceEntryDto
+            {
+                DocumentType = "PaymentEntry",
+                DocumentId = pe.Id,
+                SourceDocumentId = pe.Id,
+                DocumentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
+                PostingDate = pe.PostingDate,
+                Debit = isDeposit ? amount : 0,
+                Credit = isDeposit ? 0 : amount,
+                ReferenceNumber = pe.ReferenceNumber,
+                ClearanceDate = pe.ClearanceDate,
+                AgainstAccount = against,
+                AccountCurrency = bankCurrency,
+            });
+        }
+
+        if (allJeLines.Count > 0)
+        {
+            var counterByJe = allJeLines
+                .Where(l => l.AccountId != input.BankAccountId)
+                .GroupBy(l => l.JournalEntryId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => string.Join(", ", g.Select(l => ResolveAccountDisplay(l.AccountId))
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Distinct()));
+
+            var linesByJe = allJeLines
+                .Where(l => l.AccountId == input.BankAccountId)
+                .GroupBy(l => l.JournalEntryId);
+
             foreach (var group in linesByJe)
             {
                 var je = jeCandidates.First(j => j.Id == group.Key);
@@ -152,52 +279,44 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                 var docType = je.ReferenceType is "SalesInvoice" or "PurchaseInvoice" ? je.ReferenceType : "JournalEntry";
                 var docNumber = je.EntryNumber ?? je.Id.ToString()[..8];
                 var refNumber = je.ReferenceNumber;
+                Guid sourceDocId = je.Id;
+                string? against = null;
 
-                if (je.ReferenceType == "SalesInvoice" && je.ReferenceId.HasValue)
+                if (je.ReferenceType == "SalesInvoice" && je.ReferenceId.HasValue && siById.TryGetValue(je.ReferenceId.Value, out var si))
                 {
-                    try
-                    {
-                        var si = await SalesInvoiceRepository.FindAsync(je.ReferenceId.Value);
-                        if (si != null)
-                        {
-                            docNumber = si.InvoiceNumber;
-                            // Per ERPNext PR #60044 / commit b5ecdf00f1: show POS / invoice reference number
-                            refNumber ??= si.Notes ?? si.InvoiceNumber;
-                        }
-                    }
-                    catch
-                    {
-                        // Repository fallback if unavailable in unit test context
-                    }
+                    docNumber = si.InvoiceNumber;
+                    sourceDocId = si.Id;
+                    // Per ERPNext PR #60044 / commit b5ecdf00f1: show POS / invoice reference number
+                    refNumber ??= si.Notes ?? si.InvoiceNumber;
+                    customerNames.TryGetValue(si.CustomerId, out against);
                 }
-                else if (je.ReferenceType == "PurchaseInvoice" && je.ReferenceId.HasValue)
+                else if (je.ReferenceType == "PurchaseInvoice" && je.ReferenceId.HasValue && piById.TryGetValue(je.ReferenceId.Value, out var pi))
                 {
-                    try
-                    {
-                        var pi = await PurchaseInvoiceRepository.FindAsync(je.ReferenceId.Value);
-                        if (pi != null)
-                        {
-                            docNumber = pi.InvoiceNumber;
-                            // Per ERPNext PR #60044: bill_no / supplier invoice number as cheque number
-                            refNumber ??= pi.SupplierInvoiceNumber ?? pi.InvoiceNumber;
-                        }
-                    }
-                    catch
-                    {
-                        // Repository fallback if unavailable in unit test context
-                    }
+                    docNumber = pi.InvoiceNumber;
+                    sourceDocId = pi.Id;
+                    // Per ERPNext PR #60044: bill_no / supplier invoice number as cheque number
+                    refNumber ??= pi.SupplierInvoiceNumber ?? pi.InvoiceNumber;
+                    supplierNames.TryGetValue(pi.SupplierId, out against);
+                }
+
+                if (string.IsNullOrWhiteSpace(against) && counterByJe.TryGetValue(je.Id, out var contraAccounts) && !string.IsNullOrWhiteSpace(contraAccounts))
+                {
+                    against = contraAccounts;
                 }
 
                 entries.Add(new BankClearanceEntryDto
                 {
                     DocumentType = docType,
                     DocumentId = je.Id,
+                    SourceDocumentId = sourceDocId,
                     DocumentNumber = docNumber,
                     PostingDate = je.PostingDate,
                     Debit = debit,
                     Credit = credit,
                     ReferenceNumber = refNumber,
                     ClearanceDate = je.ClearanceDate,
+                    AgainstAccount = against,
+                    AccountCurrency = bankCurrency,
                 });
             }
         }

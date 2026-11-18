@@ -734,5 +734,85 @@ private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Subst
         result.Count.ShouldBe(1);
         result[0].DocumentNumber.ShouldBe("PE-AFTERNOON");
         result[0].Debit.ShouldBe(250m);
+        result[0].Amount.ShouldBe(250m);
+        result[0].AccountCurrency.ShouldBe("MYR");
+        result[0].SourceDocumentId.ShouldBe(afternoonPe.Id);
+    }
+
+    [Fact]
+    public async Task GetEntriesAsync_RejectsReversedDateRange()
+    {
+        var appService = CreateAppService();
+        await Should.ThrowAsync<BusinessException>(() =>
+            appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+            {
+                CompanyId = _companyId,
+                BankAccountId = _bankAccountId,
+                FromDate = new DateTime(2026, 7, 10),
+                ToDate = new DateTime(2026, 7, 1),
+                IncludeCleared = true
+            }));
+    }
+
+    [Fact]
+    public async Task GetEntriesAsync_IncludeCleared_PopulatesAgainstAccountFromContraAccounts()
+    {
+        var company = new Company(_companyId, "Summary Co") { CurrencyCode = "MYR" };
+        var bankAccount = new Account(_bankAccountId, _companyId, "1120", "Bank", AccountType.Asset) { Currency = "MYR" };
+        var expenseAccount = new Account(_otherAccountId, _companyId, "5200", "Office Expense", AccountType.Expense);
+
+        _companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(company));
+        _accountRepo.FindAsync(_bankAccountId).Returns(Task.FromResult<Account?>(bankAccount));
+        _accountRepo.GetListAsync(Arg.Any<Expression<Func<Account, bool>>>())
+            .Returns(Task.FromResult(new List<Account> { bankAccount, expenseAccount }));
+
+        var pe = new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.Pay,
+            new DateTime(2026, 6, 12),
+            125m,
+            _bankAccountId,
+            _otherAccountId)
+        {
+            PaymentNumber = "PE-SUM-1",
+        };
+        pe.Submit();
+        pe.Post();
+        pe.SetClearanceDate(new DateTime(2026, 6, 13));
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, Guid.NewGuid(), new DateTime(2026, 6, 14))
+        {
+            EntryNumber = "JE-SUM-1",
+            ReferenceNumber = "CHQ-888"
+        };
+        je.AddLineWithDimensions(_bankAccountId, 300m, true);
+        je.AddLineWithDimensions(_otherAccountId, 300m, false);
+        je.Post();
+
+        MockPaymentQuery(new List<PaymentEntry> { pe });
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+        _journalLineRepo.GetQueryableAsync().Returns(Task.FromResult(je.Lines.AsQueryable()));
+
+        var appService = CreateAppService();
+        var result = await appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+        {
+            CompanyId = _companyId,
+            BankAccountId = _bankAccountId,
+            FromDate = new DateTime(2026, 6, 1),
+            ToDate = new DateTime(2026, 6, 30),
+            IncludeCleared = true
+        });
+
+        result.Count.ShouldBe(2);
+        result[0].DocumentNumber.ShouldBe("PE-SUM-1");
+        result[0].Amount.ShouldBe(-125m);
+        result[0].AgainstAccount.ShouldBe("5200 - Office Expense");
+        result[0].ClearanceDate.ShouldBe(new DateTime(2026, 6, 13));
+
+        result[1].DocumentNumber.ShouldBe("JE-SUM-1");
+        result[1].Amount.ShouldBe(300m);
+        result[1].AgainstAccount.ShouldBe("5200 - Office Expense");
+        result[1].ClearanceDate.ShouldBeNull();
     }
 }

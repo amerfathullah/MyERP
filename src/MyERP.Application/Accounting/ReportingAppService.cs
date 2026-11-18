@@ -1653,6 +1653,127 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
+    /// <summary>
+    /// Voucher-wise Balance GL audit report: lists posted vouchers whose total Debit does not equal total Credit.
+    /// Per ERPNext accounts/report/voucher_wise_balance.
+    /// </summary>
+    public async Task<VoucherWiseBalanceReportDto> GetVoucherWiseBalanceAsync(VoucherWiseBalanceRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currencyCode = company?.CurrencyCode ?? "MYR";
+
+        var fromDate = input.FromDate.HasValue ? DateRangeHelper.StartOfDay(input.FromDate.Value) : (DateTime?)null;
+        var toDateExclusive = input.ToDate.HasValue ? DateRangeHelper.ExclusiveNextDay(input.ToDate.Value) : (DateTime?)null;
+
+        var journalEntries = await _journalEntryRepository.GetListAsync(je =>
+            je.CompanyId == input.CompanyId &&
+            je.Status == DocumentStatus.Posted &&
+            (!fromDate.HasValue || je.PostingDate >= fromDate.Value) &&
+            (!toDateExclusive.HasValue || je.PostingDate < toDateExclusive.Value));
+
+        var filteredEntries = new List<(JournalEntry Entry, string VoucherType, Guid VoucherId, string VoucherNo)>();
+        foreach (var je in journalEntries)
+        {
+            var effectiveType = !string.IsNullOrWhiteSpace(je.ReferenceType)
+                ? je.ReferenceType!
+                : "JournalEntry";
+
+            if (!string.IsNullOrWhiteSpace(input.VoucherType) &&
+                !string.Equals(effectiveType, input.VoucherType.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var hasRef = !string.IsNullOrWhiteSpace(je.ReferenceType) && je.ReferenceId.HasValue;
+            var effectiveId = hasRef ? je.ReferenceId!.Value : je.Id;
+            var voucherNo = !string.IsNullOrWhiteSpace(je.ReferenceNumber)
+                ? je.ReferenceNumber!
+                : (!string.IsNullOrWhiteSpace(je.EntryNumber) ? je.EntryNumber! : effectiveId.ToString());
+
+            filteredEntries.Add((je, effectiveType, effectiveId, voucherNo));
+        }
+
+        if (filteredEntries.Count == 0)
+        {
+            return new VoucherWiseBalanceReportDto
+            {
+                CompanyId = input.CompanyId,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+                CurrencyCode = currencyCode,
+            };
+        }
+
+        var jeIds = filteredEntries.Select(v => v.Entry.Id).ToHashSet();
+        var dbLines = (await _journalLineRepository.GetQueryableAsync())
+            .Where(l => jeIds.Contains(l.JournalEntryId))
+            .ToList();
+        var linesByJe = dbLines.Count > 0
+            ? dbLines.GroupBy(l => l.JournalEntryId).ToDictionary(g => g.Key, g => g.ToList())
+            : filteredEntries.ToDictionary(v => v.Entry.Id, v => v.Entry.Lines.ToList());
+
+        var rows = new List<VoucherWiseBalanceRowDto>();
+        foreach (var voucherGroup in filteredEntries.GroupBy(v => (v.VoucherType, v.VoucherId)))
+        {
+            var firstEntry = voucherGroup.OrderBy(v => v.Entry.PostingDate).First().Entry;
+            var voucherNo = voucherGroup.Select(v => v.VoucherNo).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
+                ?? voucherGroup.Key.VoucherId.ToString();
+
+            decimal debit = 0m;
+            decimal credit = 0m;
+            foreach (var v in voucherGroup)
+            {
+                if (!linesByJe.TryGetValue(v.Entry.Id, out var jeLines)) continue;
+                debit += jeLines.Where(l => l.IsDebit).Sum(l => l.Amount);
+                credit += jeLines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+            }
+
+            debit = Math.Round(debit, 2);
+            credit = Math.Round(credit, 2);
+            if (debit == credit)
+                continue;
+
+            rows.Add(new VoucherWiseBalanceRowDto
+            {
+                VoucherType = voucherGroup.Key.VoucherType,
+                VoucherId = voucherGroup.Key.VoucherId,
+                VoucherNo = voucherNo,
+                PostingDate = firstEntry.PostingDate,
+                Debit = debit,
+                Credit = credit,
+            });
+        }
+
+        rows = rows
+            .OrderByDescending(r => Math.Abs(r.Difference))
+            .ThenByDescending(r => r.PostingDate)
+            .ThenBy(r => r.VoucherNo)
+            .ToList();
+
+        return new VoucherWiseBalanceReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            CurrencyCode = currencyCode,
+            Rows = rows,
+            UnbalancedCount = rows.Count,
+            TotalDebit = rows.Sum(r => r.Debit),
+            TotalCredit = rows.Sum(r => r.Credit),
+        };
+    }
+
     private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
         Guid companyId,
         string? financeBook,

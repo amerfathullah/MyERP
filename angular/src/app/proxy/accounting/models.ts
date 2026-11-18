@@ -335,6 +335,10 @@ export interface BankClearanceEntryDto {
   credit?: number;
   referenceNumber?: string | null;
   clearanceDate?: string | null;
+  againstAccount?: string | null;
+  accountCurrency?: string | null;
+  sourceDocumentId?: string | null;
+  amount?: number;
 }
 
 export interface BankDto extends FullAuditedEntityDto<string> {
@@ -3085,4 +3089,32 @@ export interface VoucherLedgerEntryDto {
   costCenterName?: string | null;
   description?: string | null;
   financeBook?: string | null;
+}
+
+export interface VoucherWiseBalanceRequestDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  voucherType?: string | null;
+}
+
+export interface VoucherWiseBalanceRowDto {
+  voucherType?: string;
+  voucherId?: string;
+  voucherNo?: string;
+  postingDate?: string;
+  debit?: number;
+  credit?: number;
+  difference?: number;
+}
+
+export interface VoucherWiseBalanceReportDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  currencyCode?: string;
+  rows?: VoucherWiseBalanceRowDto[];
+  unbalancedCount?: number;
+  totalDebit?: number;
+  totalCredit?: number;
 }
