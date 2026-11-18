@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, GrossAndNetProfitReportDto, GrossAndNetProfitRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, ConsolidatedFinancialStatementDto, ConsolidatedFinancialStatementRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, GrossAndNetProfitReportDto, GrossAndNetProfitRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -151,6 +151,25 @@ export class ReportingService {
         accumulatedValues: input.accumulatedValues,
         costCenterId: input.costCenterId,
         projectId: input.projectId,
+      },
+    },
+      { apiName: this.apiName, ...config });
+
+  getConsolidatedFinancialStatement = (input: ConsolidatedFinancialStatementRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ConsolidatedFinancialStatementDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/consolidated-financial-statement',
+      params: {
+        companyId: input.companyId,
+        reportType: input.reportType,
+        fromDate: input.fromDate,
+        toDate: input.toDate,
+        presentationCurrency: input.presentationCurrency,
+        financeBook: input.financeBook,
+        includeDefaultBookEntries: input.includeDefaultBookEntries,
+        accumulatedInGroupCompany: input.accumulatedInGroupCompany,
+        showZeroValues: input.showZeroValues,
       },
     },
       { apiName: this.apiName, ...config });

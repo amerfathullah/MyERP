@@ -6633,7 +6633,13 @@
     "SelectParentCompany": "-- None (Standalone / Root) --",
     "ForeignCurrencyTranslationReserve": "Foreign Currency Translation Reserve",
     "ConsolidatedReportingCurrency": "Reporting Currency",
-    "ConsolidatedCompanies": "Consolidated Companies"
+    "ConsolidatedCompanies": "Consolidated Companies",
+    "Menu:ConsolidatedFinancialStatement": "Consolidated Financial Statement",
+    "ConsolidatedFinancialStatement": "Consolidated Financial Statement",
+    "PresentationCurrency": "Presentation Currency",
+    "AccumulatedInGroupCompany": "Accumulate Values in Group Company",
+    "ProvisionalProfitLoss": "Provisional Profit / Loss",
+    "NetChangeInCash": "Net Change in Cash"
   }
 }
 

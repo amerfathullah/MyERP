@@ -538,6 +538,62 @@ public class GrossAndNetProfitReportDto
     public List<GrossAndNetProfitRowDto> Rows { get; set; } = new();
 }
 
+// --- Consolidated Financial Statement (ERPNext consolidated_financial_statement.py) ---
+public class ConsolidatedFinancialStatementRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    /// <summary>"BalanceSheet", "ProfitAndLoss", or "CashFlow".</summary>
+    public string ReportType { get; set; } = "BalanceSheet";
+    [Required] public DateTime FromDate { get; set; }
+    [Required] public DateTime ToDate { get; set; }
+    public string? PresentationCurrency { get; set; }
+    public string? FinanceBook { get; set; }
+    public bool IncludeDefaultBookEntries { get; set; } = true;
+    public bool AccumulatedInGroupCompany { get; set; } = false;
+    public bool ShowZeroValues { get; set; } = false;
+}
+
+public class ConsolidatedCompanyColumnDto
+{
+    public Guid CompanyId { get; set; }
+    public string CompanyName { get; set; } = null!;
+    public string CurrencyCode { get; set; } = null!;
+    public bool IsGroup { get; set; }
+}
+
+public class ConsolidatedStatementRowDto
+{
+    public string AccountKey { get; set; } = null!;
+    public string AccountCode { get; set; } = null!;
+    public string AccountName { get; set; } = null!;
+    public string Section { get; set; } = null!;
+    public bool IsGroup { get; set; }
+    public bool IsTotalRow { get; set; }
+    public int Level { get; set; }
+    public Dictionary<Guid, decimal> CompanyAmounts { get; set; } = new();
+    public decimal Total { get; set; }
+}
+
+public class ConsolidatedStatementSummaryItemDto
+{
+    public string Label { get; set; } = null!;
+    public decimal Value { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+}
+
+public class ConsolidatedFinancialStatementDto
+{
+    public Guid RootCompanyId { get; set; }
+    public string ReportType { get; set; } = "BalanceSheet";
+    public string PresentationCurrency { get; set; } = null!;
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public bool AccumulatedInGroupCompany { get; set; }
+    public List<ConsolidatedCompanyColumnDto> CompanyColumns { get; set; } = new();
+    public List<ConsolidatedStatementRowDto> Rows { get; set; } = new();
+    public List<ConsolidatedStatementSummaryItemDto> Summary { get; set; } = new();
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -554,6 +610,7 @@ public interface IReportingAppService : IApplicationService
     Task<PaymentPeriodBasedOnInvoiceDateReportDto> GetPaymentPeriodBasedOnInvoiceDateAsync(PaymentPeriodBasedOnInvoiceDateRequestDto input);
     Task<DimensionWiseAccountsBalanceReportDto> GetDimensionWiseAccountsBalanceAsync(DimensionWiseAccountsBalanceRequestDto input);
     Task<GrossAndNetProfitReportDto> GetGrossAndNetProfitAsync(GrossAndNetProfitRequestDto input);
+    Task<ConsolidatedFinancialStatementDto> GetConsolidatedFinancialStatementAsync(ConsolidatedFinancialStatementRequestDto input);
 }
 
 

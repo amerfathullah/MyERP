@@ -643,6 +643,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/consolidated-financial-statement',
+        name: '::Menu:ConsolidatedFinancialStatement',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-sitemap',
+        order: 13.8,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/reports/balance-sheet',
         name: '::Menu:BalanceSheet',
         parentName: '::Menu:Accounting',

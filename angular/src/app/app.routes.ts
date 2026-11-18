@@ -553,6 +553,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/consolidated-financial-statement',
+    loadComponent: () => import('./accounting/reports/consolidated-financial-statement/consolidated-financial-statement.component').then(c => c.ConsolidatedFinancialStatementComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/payments',
     loadComponent: () => import('./accounting/payments/payment-entry-list.component').then(c => c.PaymentEntryListComponent),
     canActivate: [authGuard, permissionGuard],

@@ -3376,3 +3376,52 @@ export interface InvalidLedgerEntriesReportDto {
   toDate?: string;
   rows?: InvalidLedgerEntryRowDto[];
 }
+
+export interface ConsolidatedFinancialStatementRequestDto {
+  companyId: string;
+  reportType?: string;
+  fromDate: string;
+  toDate: string;
+  presentationCurrency?: string | null;
+  financeBook?: string | null;
+  includeDefaultBookEntries?: boolean;
+  accumulatedInGroupCompany?: boolean;
+  showZeroValues?: boolean;
+}
+
+export interface ConsolidatedCompanyColumnDto {
+  companyId?: string;
+  companyName?: string;
+  currencyCode?: string;
+  isGroup?: boolean;
+}
+
+export interface ConsolidatedStatementRowDto {
+  accountKey?: string;
+  accountCode?: string;
+  accountName?: string;
+  section?: string;
+  isGroup?: boolean;
+  isTotalRow?: boolean;
+  level?: number;
+  companyAmounts?: Record<string, number>;
+  total?: number;
+}
+
+export interface ConsolidatedStatementSummaryItemDto {
+  label?: string;
+  value?: number;
+  currencyCode?: string;
+}
+
+export interface ConsolidatedFinancialStatementDto {
+  rootCompanyId?: string;
+  reportType?: string;
+  presentationCurrency?: string;
+  fromDate?: string;
+  toDate?: string;
+  accumulatedInGroupCompany?: boolean;
+  companyColumns?: ConsolidatedCompanyColumnDto[];
+  rows?: ConsolidatedStatementRowDto[];
+  summary?: ConsolidatedStatementSummaryItemDto[];
+}

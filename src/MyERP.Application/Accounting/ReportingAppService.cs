@@ -117,18 +117,15 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
-    private async Task<TrialBalanceReportDto> BuildConsolidatedTrialBalanceAsync(
+    private static (List<Company> CompaniesInScope, Dictionary<Guid, HashSet<Guid>> SubtreeIdsByCompany) ExpandCompanyHierarchy(
         Company rootCompany,
-        string reportingCurrency,
-        DateTime asOfDate)
+        List<Company> allCompanies)
     {
-        var allCompanies = await _companyRepository.GetListAsync();
         var companiesByParent = allCompanies
             .Where(c => c.ParentCompanyId.HasValue)
             .GroupBy(c => c.ParentCompanyId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // BFS to expand holding company and all descendant subsidiaries
         var companiesInScope = new List<Company>();
         var visitedIds = new HashSet<Guid>();
         var queue = new Queue<Company>();
@@ -151,6 +148,42 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 }
             }
         }
+
+        // Precompute full descendant scope for each company in scope (including itself)
+        var subtreeByCompany = new Dictionary<Guid, HashSet<Guid>>();
+        foreach (var company in companiesInScope)
+        {
+            var subtree = new HashSet<Guid>();
+            var subQueue = new Queue<Guid>();
+            subQueue.Enqueue(company.Id);
+            subtree.Add(company.Id);
+
+            while (subQueue.Count > 0)
+            {
+                var cid = subQueue.Dequeue();
+                if (companiesByParent.TryGetValue(cid, out var kids))
+                {
+                    foreach (var kid in kids)
+                    {
+                        if (subtree.Add(kid.Id))
+                            subQueue.Enqueue(kid.Id);
+                    }
+                }
+            }
+
+            subtreeByCompany[company.Id] = subtree;
+        }
+
+        return (companiesInScope, subtreeByCompany);
+    }
+
+    private async Task<TrialBalanceReportDto> BuildConsolidatedTrialBalanceAsync(
+        Company rootCompany,
+        string reportingCurrency,
+        DateTime asOfDate)
+    {
+        var allCompanies = await _companyRepository.GetListAsync();
+        var (companiesInScope, _) = ExpandCompanyHierarchy(rootCompany, allCompanies);
 
         var scopeIds = companiesInScope.Select(c => c.Id).ToHashSet();
         var allAccounts = await _accountRepository.GetListAsync(a => scopeIds.Contains(a.CompanyId) && !a.IsGroup);
@@ -2836,6 +2869,883 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
         var list = await repo.GetListAsync(fb => fb.CompanyId == companyId && fb.IsDefault);
         return list.FirstOrDefault()?.Name;
+    }
+
+    /// <summary>
+    /// Consolidated Financial Statement across a holding company and all subsidiaries.
+    /// Ports ERPNext consolidated_financial_statement.py (Balance Sheet, P&L, Cash Flow)
+    /// with per-company columns, accumulated-in-group-company rollup, and transaction/closing FX translation + FCTR.
+    /// </summary>
+    public async Task<ConsolidatedFinancialStatementDto> GetConsolidatedFinancialStatementAsync(
+        ConsolidatedFinancialStatementRequestDto input)
+    {
+        if (input.ToDate.Date < input.FromDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "To Date must be on or after From Date.");
+        }
+
+        var rootCompany = await _companyRepository.GetAsync(input.CompanyId);
+        var allCompanies = await _companyRepository.GetListAsync();
+        var (companiesInScope, subtreeByCompany) = ExpandCompanyHierarchy(rootCompany, allCompanies);
+
+        var normalizedReport = NormalizeConsolidatedReportType(input.ReportType);
+        var explicitPresentationCurrency = !string.IsNullOrWhiteSpace(input.PresentationCurrency)
+            ? input.PresentationCurrency.Trim().ToUpperInvariant()
+            : null;
+        var rootPresentationCurrency = explicitPresentationCurrency
+            ?? (!string.IsNullOrWhiteSpace(rootCompany.ReportingCurrency)
+                ? rootCompany.ReportingCurrency!.Trim().ToUpperInvariant()
+                : rootCompany.CurrencyCode.ToUpperInvariant());
+
+        var columnCurrencies = companiesInScope.ToDictionary(
+            c => c.Id,
+            c => explicitPresentationCurrency ?? c.CurrencyCode.ToUpperInvariant());
+
+        var companyColumns = companiesInScope.Select(c => new ConsolidatedCompanyColumnDto
+        {
+            CompanyId = c.Id,
+            CompanyName = c.Name,
+            CurrencyCode = columnCurrencies[c.Id],
+            IsGroup = c.IsGroup,
+        }).ToList();
+
+        var scopeIds = companiesInScope.Select(c => c.Id).ToHashSet();
+        var allAccounts = await _accountRepository.GetListAsync(a => scopeIds.Contains(a.CompanyId));
+        var accountById = allAccounts.ToDictionary(a => a.Id);
+
+        var toExclusive = input.ToDate.Date.AddDays(1);
+        var allJournals = await _journalEntryRepository.GetListAsync(je =>
+            scopeIds.Contains(je.CompanyId)
+            && je.Status == DocumentStatus.Posted
+            && je.PostingDate < toExclusive);
+
+        var allowedBooksByCompany = new Dictionary<Guid, HashSet<string>>();
+        foreach (var comp in companiesInScope)
+        {
+            allowedBooksByCompany[comp.Id] = await ResolveAllowedFinanceBooksAsync(
+                comp.Id, input.FinanceBook, input.IncludeDefaultBookEntries);
+        }
+
+        var exchangeRepo = LazyServiceProvider?.LazyGetService<IRepository<CurrencyExchange, Guid>>();
+        var exchanges = exchangeRepo != null
+            ? await exchangeRepo.GetListAsync(e => e.Date <= toExclusive)
+            : new List<CurrencyExchange>();
+
+        var context = new ConsolidatedStatementContext(
+            rootCompany.Id,
+            rootPresentationCurrency,
+            columnCurrencies,
+            companiesInScope,
+            subtreeByCompany,
+            allAccounts,
+            accountById,
+            allJournals,
+            allowedBooksByCompany,
+            exchanges,
+            input.FromDate.Date,
+            input.ToDate.Date,
+            input.AccumulatedInGroupCompany,
+            input.ShowZeroValues);
+
+        var (rows, summary) = normalizedReport switch
+        {
+            "ProfitAndLoss" => BuildConsolidatedProfitLoss(context),
+            "CashFlow" => BuildConsolidatedCashFlow(context),
+            _ => BuildConsolidatedBalanceSheet(context),
+        };
+
+        return new ConsolidatedFinancialStatementDto
+        {
+            RootCompanyId = rootCompany.Id,
+            ReportType = normalizedReport,
+            PresentationCurrency = rootPresentationCurrency,
+            FromDate = input.FromDate.Date,
+            ToDate = input.ToDate.Date,
+            AccumulatedInGroupCompany = input.AccumulatedInGroupCompany,
+            CompanyColumns = companyColumns,
+            Rows = rows,
+            Summary = summary,
+        };
+    }
+
+    private static string NormalizeConsolidatedReportType(string? reportType)
+    {
+        var key = (reportType ?? string.Empty).Trim().ToLowerInvariant().Replace(" ", string.Empty);
+        return key switch
+        {
+            "profitandloss" or "profitandlossstatement" or "pl" => "ProfitAndLoss",
+            "cashflow" or "cashflowstatement" => "CashFlow",
+            _ => "BalanceSheet",
+        };
+    }
+
+    private static string ResolveFctrLabel() => "Foreign Currency Translation Reserve";
+
+    private static decimal TranslateAmount(
+        decimal rawAmount,
+        string sourceCurrency,
+        string targetCurrency,
+        DateTime rateDate,
+        DateTime closingDate,
+        bool useTransactionRate,
+        List<CurrencyExchange> exchanges,
+        out decimal reserveDelta)
+    {
+        if (string.Equals(sourceCurrency, targetCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            reserveDelta = 0m;
+            return rawAmount;
+        }
+
+        var closingRate = ResolveConsolidationExchangeRate(sourceCurrency, targetCurrency, closingDate, exchanges);
+        var closingConverted = rawAmount * closingRate;
+        if (!useTransactionRate)
+        {
+            reserveDelta = 0m;
+            return closingConverted;
+        }
+
+        var txRate = ResolveConsolidationExchangeRate(sourceCurrency, targetCurrency, rateDate, exchanges);
+        var txConverted = rawAmount * txRate;
+        reserveDelta = closingConverted - txConverted;
+        return txConverted;
+    }
+
+    private static bool UsesTransactionRate(AccountType accountType)
+        => accountType == AccountType.Revenue || accountType == AccountType.Expense || accountType == AccountType.Equity;
+
+    private static List<Guid> GetColumnTargetCompanies(
+        Guid sourceCompanyId,
+        ConsolidatedStatementContext ctx)
+    {
+        if (!ctx.AccumulatedInGroupCompany)
+            return new List<Guid> { sourceCompanyId };
+
+        return ctx.CompaniesInScope
+            .Where(col => ctx.SubtreeIdsByCompany[col.Id].Contains(sourceCompanyId))
+            .Select(col => col.Id)
+            .ToList();
+    }
+
+    private static decimal ComputeTotalCell(
+        ConsolidatedStatementContext ctx,
+        Dictionary<Guid, decimal> rawCompanyValuesInColumnCurrency,
+        Dictionary<Guid, decimal> rootValuesBySourceCompany)
+    {
+        if (ctx.AccumulatedInGroupCompany)
+        {
+            return Math.Round(rawCompanyValuesInColumnCurrency.GetValueOrDefault(ctx.RootCompanyId, 0m), 2);
+        }
+
+        return Math.Round(rootValuesBySourceCompany.Values.Sum(), 2);
+    }
+
+    private (List<ConsolidatedStatementRowDto> Rows, List<ConsolidatedStatementSummaryItemDto> Summary) BuildConsolidatedBalanceSheet(
+        ConsolidatedStatementContext ctx)
+    {
+        var rows = new List<ConsolidatedStatementRowDto>();
+        var reserveByColumn = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+        var reserveInRootBySource = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+
+        var bsSections = new[]
+        {
+            (AccountType.Asset, "Asset", true, "Total Assets"),
+            (AccountType.Liability, "Liability", false, "Total Liabilities"),
+            (AccountType.Equity, "Equity", false, "Total Equity"),
+        };
+
+        // Per ERPNext add_profit_and_loss_difference(): P&L historical-vs-closing translation delta affects BS reserve
+        foreach (var je in ctx.AllJournals.Where(j => j.VoucherType != JournalEntryVoucherType.PeriodClosing && j.PostingDate >= ctx.FromDate))
+        {
+            if (!ctx.AllowedBooksByCompany.TryGetValue(je.CompanyId, out var allowedBooks)) continue;
+            var sourceCompany = ctx.CompaniesById[je.CompanyId];
+
+            foreach (var line in je.Lines)
+            {
+                if (!allowedBooks.Contains(line.FinanceBook ?? string.Empty)) continue;
+                if (!ctx.AccountById.TryGetValue(line.AccountId, out var acc)) continue;
+                if (acc.AccountType != AccountType.Revenue && acc.AccountType != AccountType.Expense) continue;
+
+                // Equity/Credits signed as credit - debit for reserve contribution matching ERPNext debit - credit sign
+                var creditMinusDebit = line.IsDebit ? -line.Amount : line.Amount;
+                foreach (var colCompanyId in GetColumnTargetCompanies(sourceCompany.Id, ctx))
+                {
+                    TranslateAmount(
+                        creditMinusDebit,
+                        sourceCompany.CurrencyCode,
+                        ctx.ColumnCurrencies[colCompanyId],
+                        je.PostingDate,
+                        ctx.ToDate,
+                        useTransactionRate: true,
+                        ctx.Exchanges,
+                        out var delta);
+                    reserveByColumn[colCompanyId] += delta;
+                }
+
+                TranslateAmount(
+                    creditMinusDebit,
+                    sourceCompany.CurrencyCode,
+                    ctx.RootPresentationCurrency,
+                    je.PostingDate,
+                    ctx.ToDate,
+                    useTransactionRate: true,
+                    ctx.Exchanges,
+                    out var rootDelta);
+                reserveInRootBySource[sourceCompany.Id] += rootDelta;
+            }
+        }
+
+        var sectionTotals = new Dictionary<string, Dictionary<Guid, decimal>>();
+        var sectionRootTotals = new Dictionary<string, decimal>();
+
+        foreach (var (accType, sectionName, debitNormal, totalLabel) in bsSections)
+        {
+            var leafColumnValues = new Dictionary<string, Dictionary<Guid, decimal>>(StringComparer.OrdinalIgnoreCase);
+            var leafRootValues = new Dictionary<string, Dictionary<Guid, decimal>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var je in ctx.AllJournals)
+            {
+                if (!ctx.AllowedBooksByCompany.TryGetValue(je.CompanyId, out var allowedBooks)) continue;
+                var sourceCompany = ctx.CompaniesById[je.CompanyId];
+
+                foreach (var line in je.Lines)
+                {
+                    if (!allowedBooks.Contains(line.FinanceBook ?? string.Empty)) continue;
+                    if (!ctx.AccountById.TryGetValue(line.AccountId, out var acc) || acc.AccountType != accType) continue;
+
+                    var key = GetConsolidatedAccountKey(acc);
+                    var rawAmount = debitNormal
+                        ? (line.IsDebit ? line.Amount : -line.Amount)
+                        : (line.IsDebit ? -line.Amount : line.Amount);
+
+                    if (!leafColumnValues.TryGetValue(key, out var colDict))
+                        leafColumnValues[key] = colDict = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+                    if (!leafRootValues.TryGetValue(key, out var rootDict))
+                        leafRootValues[key] = rootDict = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+
+                    var useTxRate = UsesTransactionRate(accType);
+                    foreach (var colId in GetColumnTargetCompanies(sourceCompany.Id, ctx))
+                    {
+                        var converted = TranslateAmount(
+                            rawAmount,
+                            sourceCompany.CurrencyCode,
+                            ctx.ColumnCurrencies[colId],
+                            je.PostingDate,
+                            ctx.ToDate,
+                            useTxRate,
+                            ctx.Exchanges,
+                            out var delta);
+                        colDict[colId] += converted;
+                        if (accType == AccountType.Equity)
+                            reserveByColumn[colId] += delta;
+                    }
+
+                    var rootConverted = TranslateAmount(
+                        rawAmount,
+                        sourceCompany.CurrencyCode,
+                        ctx.RootPresentationCurrency,
+                        je.PostingDate,
+                        ctx.ToDate,
+                        useTxRate,
+                        ctx.Exchanges,
+                        out var rootDelta);
+                    rootDict[sourceCompany.Id] += rootConverted;
+                    if (accType == AccountType.Equity)
+                        reserveInRootBySource[sourceCompany.Id] += rootDelta;
+                }
+            }
+
+            // On Equity section, inject Foreign Currency Translation Reserve when FX reserve != 0
+            ConsolidatedStatementRowDto? fctrRow = null;
+            if (accType == AccountType.Equity &&
+                (reserveByColumn.Values.Any(v => Math.Abs(v) >= 0.005m) ||
+                 Math.Abs(reserveInRootBySource.Values.Sum()) >= 0.005m))
+            {
+                var fctrCompanyAmounts = ctx.CompaniesInScope.ToDictionary(
+                    c => c.Id,
+                    c => Math.Round(reserveByColumn[c.Id], 2));
+                var fctrTotal = ctx.AccumulatedInGroupCompany
+                    ? Math.Round(reserveByColumn[ctx.RootCompanyId], 2)
+                    : Math.Round(reserveInRootBySource.Values.Sum(), 2);
+
+                fctrRow = new ConsolidatedStatementRowDto
+                {
+                    AccountKey = "FCTR",
+                    AccountCode = "FCTR",
+                    AccountName = ResolveFctrLabel(),
+                    Section = sectionName,
+                    IsGroup = false,
+                    IsTotalRow = false,
+                    Level = 0,
+                    CompanyAmounts = fctrCompanyAmounts,
+                    Total = fctrTotal,
+                };
+            }
+
+            var sectionRows = BuildConsolidatedSectionTree(ctx, accType, sectionName, leafColumnValues, leafRootValues);
+            if (fctrRow != null)
+            {
+                sectionRows.Insert(0, fctrRow);
+            }
+            rows.AddRange(sectionRows);
+
+            var colTotals = ctx.CompaniesInScope.ToDictionary(
+                c => c.Id,
+                c => Math.Round(
+                    sectionRows.Where(r => r.Level == 0 && !r.IsTotalRow)
+                               .Sum(r => r.CompanyAmounts.GetValueOrDefault(c.Id, 0m)), 2));
+            var secRootTotal = Math.Round(
+                sectionRows.Where(r => r.Level == 0 && !r.IsTotalRow).Sum(r => r.Total), 2);
+
+            sectionTotals[sectionName] = colTotals;
+            sectionRootTotals[sectionName] = secRootTotal;
+
+            rows.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = $"TOTAL_{sectionName.ToUpperInvariant()}",
+                AccountCode = string.Empty,
+                AccountName = totalLabel,
+                Section = sectionName,
+                IsGroup = true,
+                IsTotalRow = true,
+                Level = 0,
+                CompanyAmounts = colTotals,
+                Total = secRootTotal,
+            });
+        }
+
+        // Provisional Profit / Loss = Assets - Liabilities - Equity (including FCTR)
+        var provAmounts = ctx.CompaniesInScope.ToDictionary(
+            c => c.Id,
+            c => Math.Round(
+                sectionTotals["Asset"][c.Id] - sectionTotals["Liability"][c.Id] - sectionTotals["Equity"][c.Id], 2));
+        var provTotal = Math.Round(
+            sectionRootTotals["Asset"] - sectionRootTotals["Liability"] - sectionRootTotals["Equity"], 2);
+
+        if (provAmounts.Values.Any(v => v != 0m) || provTotal != 0m || ctx.ShowZeroValues)
+        {
+            rows.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = "PROVISIONAL_PL",
+                AccountCode = string.Empty,
+                AccountName = "Provisional Profit / Loss",
+                Section = "Equity",
+                IsGroup = true,
+                IsTotalRow = true,
+                Level = 0,
+                CompanyAmounts = provAmounts,
+                Total = provTotal,
+            });
+        }
+
+        var summary = new List<ConsolidatedStatementSummaryItemDto>
+        {
+            new() { Label = "Total Assets", Value = sectionRootTotals["Asset"], CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Total Liabilities", Value = sectionRootTotals["Liability"], CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Total Equity", Value = sectionRootTotals["Equity"], CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Provisional Profit / Loss", Value = provTotal, CurrencyCode = ctx.RootPresentationCurrency },
+        };
+
+        return (rows, summary);
+    }
+
+    private (List<ConsolidatedStatementRowDto> Rows, List<ConsolidatedStatementSummaryItemDto> Summary) BuildConsolidatedProfitLoss(
+        ConsolidatedStatementContext ctx)
+    {
+        var rows = new List<ConsolidatedStatementRowDto>();
+        var plSections = new[]
+        {
+            (AccountType.Revenue, "Revenue", false, "Total Income"),
+            (AccountType.Expense, "Expense", true, "Total Expense"),
+        };
+
+        var sectionTotals = new Dictionary<string, Dictionary<Guid, decimal>>();
+        var sectionRootTotals = new Dictionary<string, decimal>();
+
+        foreach (var (accType, sectionName, debitNormal, totalLabel) in plSections)
+        {
+            var leafColumnValues = new Dictionary<string, Dictionary<Guid, decimal>>(StringComparer.OrdinalIgnoreCase);
+            var leafRootValues = new Dictionary<string, Dictionary<Guid, decimal>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var je in ctx.AllJournals.Where(j =>
+                         j.PostingDate >= ctx.FromDate && j.VoucherType != JournalEntryVoucherType.PeriodClosing))
+            {
+                if (!ctx.AllowedBooksByCompany.TryGetValue(je.CompanyId, out var allowedBooks)) continue;
+                var sourceCompany = ctx.CompaniesById[je.CompanyId];
+
+                foreach (var line in je.Lines)
+                {
+                    if (!allowedBooks.Contains(line.FinanceBook ?? string.Empty)) continue;
+                    if (!ctx.AccountById.TryGetValue(line.AccountId, out var acc) || acc.AccountType != accType) continue;
+
+                    var key = GetConsolidatedAccountKey(acc);
+                    var rawAmount = debitNormal
+                        ? (line.IsDebit ? line.Amount : -line.Amount)
+                        : (line.IsDebit ? -line.Amount : line.Amount);
+
+                    if (!leafColumnValues.TryGetValue(key, out var colDict))
+                        leafColumnValues[key] = colDict = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+                    if (!leafRootValues.TryGetValue(key, out var rootDict))
+                        leafRootValues[key] = rootDict = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+
+                    foreach (var colId in GetColumnTargetCompanies(sourceCompany.Id, ctx))
+                    {
+                        colDict[colId] += TranslateAmount(
+                            rawAmount, sourceCompany.CurrencyCode, ctx.ColumnCurrencies[colId],
+                            je.PostingDate, ctx.ToDate, useTransactionRate: true, ctx.Exchanges, out _);
+                    }
+
+                    rootDict[sourceCompany.Id] += TranslateAmount(
+                        rawAmount, sourceCompany.CurrencyCode, ctx.RootPresentationCurrency,
+                        je.PostingDate, ctx.ToDate, useTransactionRate: true, ctx.Exchanges, out _);
+                }
+            }
+
+            var sectionRows = BuildConsolidatedSectionTree(ctx, accType, sectionName, leafColumnValues, leafRootValues);
+            rows.AddRange(sectionRows);
+
+            var colTotals = ctx.CompaniesInScope.ToDictionary(
+                c => c.Id,
+                c => Math.Round(
+                    sectionRows.Where(r => r.Level == 0 && !r.IsTotalRow)
+                               .Sum(r => r.CompanyAmounts.GetValueOrDefault(c.Id, 0m)), 2));
+            var secRootTotal = Math.Round(
+                sectionRows.Where(r => r.Level == 0 && !r.IsTotalRow).Sum(r => r.Total), 2);
+
+            sectionTotals[sectionName] = colTotals;
+            sectionRootTotals[sectionName] = secRootTotal;
+
+            rows.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = $"TOTAL_{sectionName.ToUpperInvariant()}",
+                AccountCode = string.Empty,
+                AccountName = totalLabel,
+                Section = sectionName,
+                IsGroup = true,
+                IsTotalRow = true,
+                Level = 0,
+                CompanyAmounts = colTotals,
+                Total = secRootTotal,
+            });
+        }
+
+        var netAmounts = ctx.CompaniesInScope.ToDictionary(
+            c => c.Id,
+            c => Math.Round(sectionTotals["Revenue"][c.Id] - sectionTotals["Expense"][c.Id], 2));
+        var netTotal = Math.Round(sectionRootTotals["Revenue"] - sectionRootTotals["Expense"], 2);
+
+        rows.Add(new ConsolidatedStatementRowDto
+        {
+            AccountKey = "NET_PROFIT",
+            AccountCode = string.Empty,
+            AccountName = "Net Profit / Loss",
+            Section = "Summary",
+            IsGroup = true,
+            IsTotalRow = true,
+            Level = 0,
+            CompanyAmounts = netAmounts,
+            Total = netTotal,
+        });
+
+        var summary = new List<ConsolidatedStatementSummaryItemDto>
+        {
+            new() { Label = "Total Income", Value = sectionRootTotals["Revenue"], CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Total Expense", Value = sectionRootTotals["Expense"], CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Net Profit / Loss", Value = netTotal, CurrencyCode = ctx.RootPresentationCurrency },
+        };
+
+        return (rows, summary);
+    }
+
+    private (List<ConsolidatedStatementRowDto> Rows, List<ConsolidatedStatementSummaryItemDto> Summary) BuildConsolidatedCashFlow(
+        ConsolidatedStatementContext ctx)
+    {
+        var periodJournals = ctx.AllJournals
+            .Where(j => j.PostingDate >= ctx.FromDate && j.VoucherType != JournalEntryVoucherType.PeriodClosing)
+            .ToList();
+
+        // Buckets keyed by (Section, LineKey, Label) -> CompanyId -> Amount & Root-currency Source amounts
+        var buckets = new Dictionary<(string Section, string Label), (Dictionary<Guid, decimal> Cols, Dictionary<Guid, decimal> Roots)>();
+        var reserveCols = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+        var reserveRoots = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+
+        void AddBucketAmount(string section, string label, Company sourceComp, decimal rawAmount, DateTime postingDate, bool useTxRate)
+        {
+            var bucketKey = (section, label);
+            if (!buckets.TryGetValue(bucketKey, out var entry))
+            {
+                entry = (
+                    ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m),
+                    ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m));
+                buckets[bucketKey] = entry;
+            }
+
+            foreach (var colId in GetColumnTargetCompanies(sourceComp.Id, ctx))
+            {
+                var converted = TranslateAmount(
+                    rawAmount, sourceComp.CurrencyCode, ctx.ColumnCurrencies[colId],
+                    postingDate, ctx.ToDate, useTxRate, ctx.Exchanges, out var delta);
+                entry.Cols[colId] += converted;
+                if (useTxRate) reserveCols[colId] += delta;
+            }
+
+            var rootConverted = TranslateAmount(
+                rawAmount, sourceComp.CurrencyCode, ctx.RootPresentationCurrency,
+                postingDate, ctx.ToDate, useTxRate, ctx.Exchanges, out var rDelta);
+            entry.Roots[sourceComp.Id] += rootConverted;
+            if (useTxRate) reserveRoots[sourceComp.Id] += rDelta;
+        }
+
+        foreach (var je in periodJournals)
+        {
+            if (!ctx.AllowedBooksByCompany.TryGetValue(je.CompanyId, out var allowedBooks)) continue;
+            var sourceComp = ctx.CompaniesById[je.CompanyId];
+
+            foreach (var line in je.Lines)
+            {
+                if (!allowedBooks.Contains(line.FinanceBook ?? string.Empty)) continue;
+                if (!ctx.AccountById.TryGetValue(line.AccountId, out var acc) || acc.IsGroup) continue;
+
+                var creditMinusDebit = line.IsDebit ? -line.Amount : line.Amount;
+                var debitMinusCredit = line.IsDebit ? line.Amount : -line.Amount;
+
+                if (acc.AccountType == AccountType.Revenue || acc.AccountType == AccountType.Expense)
+                {
+                    AddBucketAmount("Operating", "Net Profit", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: true);
+                }
+                else if (acc.AccountSubType == AccountSubType.CashAccount || acc.AccountSubType == AccountSubType.BankAccount)
+                {
+                    continue; // Cash movements are what the statement explains
+                }
+                else if (acc.AccountSubType == AccountSubType.AccumulatedDepreciation)
+                {
+                    AddBucketAmount("Operating", "Depreciation", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.AccountsReceivable)
+                {
+                    AddBucketAmount("Operating", "Change in Accounts Receivable", sourceComp, -debitMinusCredit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.Stock)
+                {
+                    AddBucketAmount("Operating", "Change in Inventory", sourceComp, -debitMinusCredit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.AccountsPayable)
+                {
+                    AddBucketAmount("Operating", "Change in Accounts Payable", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.TaxPayable)
+                {
+                    AddBucketAmount("Operating", "Change in Tax Payables", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.FixedAsset)
+                {
+                    AddBucketAmount("Investing", "Purchase of Fixed Assets", sourceComp, -debitMinusCredit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountSubType == AccountSubType.CapitalWorkInProgress)
+                {
+                    AddBucketAmount("Investing", "Capital Work in Progress", sourceComp, -debitMinusCredit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountType == AccountType.Equity)
+                {
+                    AddBucketAmount("Financing", "Change in Equity", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: true);
+                }
+                else if (acc.AccountSubType == AccountSubType.LongTermLiability)
+                {
+                    AddBucketAmount("Financing", "Net Borrowings / (Repayments)", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: false);
+                }
+                else if (acc.AccountType == AccountType.Asset || acc.AccountType == AccountType.Liability)
+                {
+                    AddBucketAmount("Operating", "Net Change in Other Balance Sheet Accounts", sourceComp, creditMinusDebit, je.PostingDate, useTxRate: false);
+                }
+            }
+        }
+
+        // Reconcile FX profit/equity transaction rate vs cash flow closing rate
+        if (reserveCols.Values.Any(v => Math.Abs(v) >= 0.005m) || Math.Abs(reserveRoots.Values.Sum()) >= 0.005m)
+        {
+            buckets[("Operating", ResolveFctrLabel())] = (
+                ctx.CompaniesInScope.ToDictionary(c => c.Id, c => reserveCols[c.Id]),
+                ctx.CompaniesInScope.ToDictionary(c => c.Id, c => reserveRoots[c.Id]));
+        }
+
+        var rows = new List<ConsolidatedStatementRowDto>();
+        var sectionTotals = new Dictionary<string, (Dictionary<Guid, decimal> Cols, decimal RootTotal)>();
+        var cfSections = new[]
+        {
+            ("Operating", "Cash Flow from Operating Activities", "Net Cash from Operations"),
+            ("Investing", "Cash Flow from Investing Activities", "Net Cash from Investing"),
+            ("Financing", "Cash Flow from Financing Activities", "Net Cash from Financing"),
+        };
+
+        foreach (var (sec, headerLabel, totalLabel) in cfSections)
+        {
+            rows.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = $"CF_HDR_{sec.ToUpperInvariant()}",
+                AccountCode = string.Empty,
+                AccountName = headerLabel,
+                Section = sec,
+                IsGroup = true,
+                IsTotalRow = false,
+                Level = 0,
+                CompanyAmounts = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m),
+                Total = 0m,
+            });
+
+            var secColTotals = ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m);
+            var secRootTotal = 0m;
+
+            foreach (var kv in buckets.Where(k => k.Key.Section == sec))
+            {
+                var colAmounts = ctx.CompaniesInScope.ToDictionary(c => c.Id, c => Math.Round(kv.Value.Cols[c.Id], 2));
+                var rowTotal = ComputeTotalCell(ctx, colAmounts, kv.Value.Roots);
+                if (!ctx.ShowZeroValues && colAmounts.Values.All(v => v == 0m) && rowTotal == 0m)
+                    continue;
+
+                rows.Add(new ConsolidatedStatementRowDto
+                {
+                    AccountKey = $"CF_{sec}_{kv.Key.Label}",
+                    AccountCode = string.Empty,
+                    AccountName = kv.Key.Label,
+                    Section = sec,
+                    IsGroup = false,
+                    IsTotalRow = false,
+                    Level = 1,
+                    CompanyAmounts = colAmounts,
+                    Total = rowTotal,
+                });
+
+                foreach (var c in ctx.CompaniesInScope)
+                    secColTotals[c.Id] = Math.Round(secColTotals[c.Id] + colAmounts[c.Id], 2);
+                secRootTotal = Math.Round(secRootTotal + rowTotal, 2);
+            }
+
+            sectionTotals[sec] = (secColTotals, secRootTotal);
+            rows.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = $"CF_TOTAL_{sec.ToUpperInvariant()}",
+                AccountCode = string.Empty,
+                AccountName = totalLabel,
+                Section = sec,
+                IsGroup = true,
+                IsTotalRow = true,
+                Level = 0,
+                CompanyAmounts = secColTotals,
+                Total = secRootTotal,
+            });
+        }
+
+        var netCashCols = ctx.CompaniesInScope.ToDictionary(
+            c => c.Id,
+            c => Math.Round(
+                sectionTotals["Operating"].Cols[c.Id]
+                + sectionTotals["Investing"].Cols[c.Id]
+                + sectionTotals["Financing"].Cols[c.Id], 2));
+        var netCashTotal = Math.Round(
+            sectionTotals["Operating"].RootTotal
+            + sectionTotals["Investing"].RootTotal
+            + sectionTotals["Financing"].RootTotal, 2);
+
+        rows.Add(new ConsolidatedStatementRowDto
+        {
+            AccountKey = "NET_CHANGE_IN_CASH",
+            AccountCode = string.Empty,
+            AccountName = "Net Change in Cash",
+            Section = "Summary",
+            IsGroup = true,
+            IsTotalRow = true,
+            Level = 0,
+            CompanyAmounts = netCashCols,
+            Total = netCashTotal,
+        });
+
+        var summary = new List<ConsolidatedStatementSummaryItemDto>
+        {
+            new() { Label = "Net Cash from Operations", Value = sectionTotals["Operating"].RootTotal, CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Net Cash from Investing", Value = sectionTotals["Investing"].RootTotal, CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Net Cash from Financing", Value = sectionTotals["Financing"].RootTotal, CurrencyCode = ctx.RootPresentationCurrency },
+            new() { Label = "Net Change in Cash", Value = netCashTotal, CurrencyCode = ctx.RootPresentationCurrency },
+        };
+
+        return (rows, summary);
+    }
+
+    private List<ConsolidatedStatementRowDto> BuildConsolidatedSectionTree(
+        ConsolidatedStatementContext ctx,
+        AccountType accType,
+        string sectionName,
+        Dictionary<string, Dictionary<Guid, decimal>> leafColumnValues,
+        Dictionary<string, Dictionary<Guid, decimal>> leafRootValues)
+    {
+        var typedAccounts = ctx.AllAccounts.Where(a => a.AccountType == accType).ToList();
+        if (typedAccounts.Count == 0)
+            return new List<ConsolidatedStatementRowDto>();
+
+        // Canonical node catalog merged across companies by AccountKey
+        var nodeMeta = new Dictionary<string, (string Code, string Name, bool IsGroup, string? ParentKey)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var acc in typedAccounts.OrderBy(a => a.CompanyId == ctx.RootCompanyId ? 0 : 1).ThenBy(a => a.AccountCode))
+        {
+            var key = GetConsolidatedAccountKey(acc);
+            string? parentKey = null;
+            if (acc.ParentAccountId.HasValue && ctx.AccountById.TryGetValue(acc.ParentAccountId.Value, out var parentAcc) && parentAcc.AccountType == accType)
+            {
+                var candidateParent = GetConsolidatedAccountKey(parentAcc);
+                if (!string.Equals(candidateParent, key, StringComparison.OrdinalIgnoreCase))
+                    parentKey = candidateParent;
+            }
+
+            if (!nodeMeta.TryGetValue(key, out var existing))
+            {
+                nodeMeta[key] = (acc.AccountCode, acc.AccountName, acc.IsGroup, parentKey);
+            }
+            else if (existing.ParentKey == null && parentKey != null)
+            {
+                nodeMeta[key] = (existing.Code, existing.Name, existing.IsGroup || acc.IsGroup, parentKey);
+            }
+        }
+
+        // Accumulate leaf amounts upward into parent keys per company column & per root-currency source company
+        var nodeCols = nodeMeta.Keys.ToDictionary(
+            k => k,
+            _ => ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m),
+            StringComparer.OrdinalIgnoreCase);
+        var nodeRoots = nodeMeta.Keys.ToDictionary(
+            k => k,
+            _ => ctx.CompaniesInScope.ToDictionary(c => c.Id, _ => 0m),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (leafKey, colDict) in leafColumnValues)
+        {
+            var rootDict = leafRootValues.GetValueOrDefault(leafKey);
+            var cursor = (string?)leafKey;
+            var guard = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            while (cursor != null && guard.Add(cursor) && nodeMeta.TryGetValue(cursor, out var meta))
+            {
+                foreach (var col in ctx.CompaniesInScope)
+                    nodeCols[cursor][col.Id] += colDict.GetValueOrDefault(col.Id, 0m);
+
+                if (rootDict != null)
+                {
+                    foreach (var src in ctx.CompaniesInScope)
+                        nodeRoots[cursor][src.Id] += rootDict.GetValueOrDefault(src.Id, 0m);
+                }
+
+                cursor = meta.ParentKey;
+            }
+        }
+
+        var childrenByParent = nodeMeta
+            .Where(kv => kv.Value.ParentKey != null && nodeMeta.ContainsKey(kv.Value.ParentKey))
+            .OrderBy(kv => kv.Value.Code, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kv => kv.Value.Name, StringComparer.OrdinalIgnoreCase)
+            .ToLookup(kv => kv.Value.ParentKey!, kv => kv.Key, StringComparer.OrdinalIgnoreCase);
+
+        var rootKeys = nodeMeta
+            .Where(kv => kv.Value.ParentKey == null || !nodeMeta.ContainsKey(kv.Value.ParentKey))
+            .OrderBy(kv => kv.Value.Code, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kv => kv.Value.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        var ordered = new List<ConsolidatedStatementRowDto>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Visit(string key, int level)
+        {
+            if (!visited.Add(key)) return;
+            var meta = nodeMeta[key];
+            var colAmounts = ctx.CompaniesInScope.ToDictionary(
+                c => c.Id,
+                c => Math.Round(nodeCols[key][c.Id], 2));
+            var total = ComputeTotalCell(ctx, colAmounts, nodeRoots[key]);
+
+            if (!ctx.ShowZeroValues && colAmounts.Values.All(v => Math.Abs(v) < 0.005m) && Math.Abs(total) < 0.005m)
+                return;
+
+            ordered.Add(new ConsolidatedStatementRowDto
+            {
+                AccountKey = key,
+                AccountCode = meta.Code,
+                AccountName = meta.Name,
+                Section = sectionName,
+                IsGroup = meta.IsGroup,
+                IsTotalRow = false,
+                Level = level,
+                CompanyAmounts = colAmounts,
+                Total = total,
+            });
+
+            foreach (var childKey in childrenByParent[key])
+            {
+                Visit(childKey, level + 1);
+            }
+        }
+
+        foreach (var rk in rootKeys)
+        {
+            Visit(rk, 0);
+        }
+
+        return ordered;
+    }
+
+    private static string GetConsolidatedAccountKey(Account account)
+        => !string.IsNullOrWhiteSpace(account.AccountCode)
+            ? account.AccountCode.Trim().ToUpperInvariant()
+            : account.AccountName.Trim().ToUpperInvariant();
+
+    private sealed class ConsolidatedStatementContext
+    {
+        public ConsolidatedStatementContext(
+            Guid rootCompanyId,
+            string rootPresentationCurrency,
+            Dictionary<Guid, string> columnCurrencies,
+            List<Company> companiesInScope,
+            Dictionary<Guid, HashSet<Guid>> subtreeIdsByCompany,
+            List<Account> allAccounts,
+            Dictionary<Guid, Account> accountById,
+            List<JournalEntry> allJournals,
+            Dictionary<Guid, HashSet<string>> allowedBooksByCompany,
+            List<CurrencyExchange> exchanges,
+            DateTime fromDate,
+            DateTime toDate,
+            bool accumulatedInGroupCompany,
+            bool showZeroValues)
+        {
+            RootCompanyId = rootCompanyId;
+            RootPresentationCurrency = rootPresentationCurrency;
+            ColumnCurrencies = columnCurrencies;
+            CompaniesInScope = companiesInScope;
+            CompaniesById = companiesInScope.ToDictionary(c => c.Id);
+            SubtreeIdsByCompany = subtreeIdsByCompany;
+            AllAccounts = allAccounts;
+            AccountById = accountById;
+            AllJournals = allJournals;
+            AllowedBooksByCompany = allowedBooksByCompany;
+            Exchanges = exchanges;
+            FromDate = fromDate;
+            ToDate = toDate;
+            AccumulatedInGroupCompany = accumulatedInGroupCompany;
+            ShowZeroValues = showZeroValues;
+        }
+
+        public Guid RootCompanyId { get; }
+        public string RootPresentationCurrency { get; }
+        public Dictionary<Guid, string> ColumnCurrencies { get; }
+        public List<Company> CompaniesInScope { get; }
+        public Dictionary<Guid, Company> CompaniesById { get; }
+        public Dictionary<Guid, HashSet<Guid>> SubtreeIdsByCompany { get; }
+        public List<Account> AllAccounts { get; }
+        public Dictionary<Guid, Account> AccountById { get; }
+        public List<JournalEntry> AllJournals { get; }
+        public Dictionary<Guid, HashSet<string>> AllowedBooksByCompany { get; }
+        public List<CurrencyExchange> Exchanges { get; }
+        public DateTime FromDate { get; }
+        public DateTime ToDate { get; }
+        public bool AccumulatedInGroupCompany { get; }
+        public bool ShowZeroValues { get; }
     }
 
     private sealed record ComparisonKey(
