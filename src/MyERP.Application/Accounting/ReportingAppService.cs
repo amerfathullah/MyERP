@@ -1774,6 +1774,245 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
+    /// <summary>
+    /// Payment Period Based On Invoice Date report: ages each invoice payment relative to the
+    /// underlying invoice posting date and calculates payment delay beyond invoice due date.
+    /// Per ERPNext accounts/report/payment_period_based_on_invoice_date.
+    /// </summary>
+    public async Task<PaymentPeriodBasedOnInvoiceDateReportDto> GetPaymentPeriodBasedOnInvoiceDateAsync(
+        PaymentPeriodBasedOnInvoiceDateRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var isOutgoing = string.Equals(input.PaymentType, "Outgoing", StringComparison.OrdinalIgnoreCase);
+        var normalizedPaymentType = isOutgoing ? "Outgoing" : "Incoming";
+
+        if (!string.IsNullOrWhiteSpace(input.PartyType))
+        {
+            if ((!isOutgoing && string.Equals(input.PartyType.Trim(), "Supplier", StringComparison.OrdinalIgnoreCase)) ||
+                (isOutgoing && string.Equals(input.PartyType.Trim(), "Customer", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"{normalizedPaymentType} payment entries can not be filtered by {input.PartyType}");
+            }
+        }
+
+        var expectedPartyType = isOutgoing ? "Supplier" : "Customer";
+        var expectedAgainstType = isOutgoing ? "PurchaseInvoice" : "SalesInvoice";
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currencyCode = company?.CurrencyCode ?? "MYR";
+
+        var fromDate = input.FromDate.HasValue ? DateRangeHelper.StartOfDay(input.FromDate.Value) : (DateTime?)null;
+        var toDateExclusive = input.ToDate.HasValue ? DateRangeHelper.ExclusiveNextDay(input.ToDate.Value) : (DateTime?)null;
+
+        var pleRepo = _pleRepository ?? LazyServiceProvider?.LazyGetService<IRepository<PaymentLedgerEntry, Guid>>();
+        var siRepo = LazyServiceProvider?.LazyGetService<IRepository<SalesInvoice, Guid>>();
+        var piRepo = LazyServiceProvider?.LazyGetService<IRepository<PurchaseInvoice, Guid>>();
+        var peRepo = LazyServiceProvider?.LazyGetService<IRepository<PaymentEntry, Guid>>();
+
+        var rawEntries = new List<(string PaymentDocType, Guid PaymentDocId, string? PaymentDocNo, Guid PartyId, DateTime PostingDate, decimal Amount, string? Remarks, Guid? AgainstId)>();
+
+        if (pleRepo != null)
+        {
+            var ples = (await pleRepo.GetQueryableAsync())
+                .Where(p => p.CompanyId == input.CompanyId
+                    && !p.Delinked
+                    && (p.VoucherType == "PaymentEntry" || p.VoucherType == "JournalEntry")
+                    && p.AgainstVoucherType == expectedAgainstType
+                    && p.PartyType == expectedPartyType
+                    && (!input.PartyId.HasValue || p.PartyId == input.PartyId.Value)
+                    && (!fromDate.HasValue || p.PostingDate >= fromDate.Value)
+                    && (!toDateExclusive.HasValue || p.PostingDate < toDateExclusive.Value))
+                .ToList();
+
+            foreach (var p in ples)
+            {
+                var amount = Math.Round(-p.Amount, 2);
+                if (amount == 0m) continue;
+                rawEntries.Add((p.VoucherType, p.VoucherId, null, p.PartyId, p.PostingDate, amount, p.Remarks,
+                    p.AgainstVoucherId != Guid.Empty ? p.AgainstVoucherId : null));
+            }
+        }
+
+        var siMap = new Dictionary<Guid, SalesInvoice>();
+        var piMap = new Dictionary<Guid, PurchaseInvoice>();
+
+        if (!isOutgoing && siRepo != null)
+        {
+            var invoices = await siRepo.GetListAsync(s => s.CompanyId == input.CompanyId && s.Status == DocumentStatus.Posted);
+            siMap = invoices.ToDictionary(s => s.Id);
+
+            foreach (var si in invoices.Where(s => s.IsPos
+                && s.AmountPaid != 0m
+                && (!input.PartyId.HasValue || s.CustomerId == input.PartyId.Value)
+                && (!fromDate.HasValue || s.IssueDate >= fromDate.Value)
+                && (!toDateExclusive.HasValue || s.IssueDate < toDateExclusive.Value)))
+            {
+                var amount = Math.Round(si.AmountPaid * si.ExchangeRate, 2);
+                var againstId = si.IsReturn && si.ReturnAgainstId.HasValue ? si.ReturnAgainstId.Value : si.Id;
+                rawEntries.Add(("SalesInvoice", si.Id, si.InvoiceNumber, si.CustomerId, si.IssueDate, amount, si.Notes, againstId));
+            }
+        }
+        else if (isOutgoing && piRepo != null)
+        {
+            var invoices = await piRepo.GetListAsync(p => p.CompanyId == input.CompanyId && p.Status == DocumentStatus.Posted);
+            piMap = invoices.ToDictionary(p => p.Id);
+
+            var againstIdsCoveredByPle = rawEntries
+                .Where(e => e.AgainstId.HasValue)
+                .Select(e => e.AgainstId!.Value)
+                .ToHashSet();
+
+            foreach (var pi in invoices.Where(p => p.AmountPaid != 0m
+                && !againstIdsCoveredByPle.Contains(p.Id)
+                && (!input.PartyId.HasValue || p.SupplierId == input.PartyId.Value)
+                && (!fromDate.HasValue || p.IssueDate >= fromDate.Value)
+                && (!toDateExclusive.HasValue || p.IssueDate < toDateExclusive.Value)))
+            {
+                var amount = Math.Round(pi.AmountPaid * pi.ExchangeRate, 2);
+                var againstId = pi.IsReturn && pi.ReturnAgainstId.HasValue ? pi.ReturnAgainstId.Value : pi.Id;
+                rawEntries.Add(("PurchaseInvoice", pi.Id, pi.InvoiceNumber, pi.SupplierId, pi.IssueDate, amount, pi.Notes, againstId));
+            }
+        }
+
+        if (rawEntries.Count == 0)
+        {
+            return new PaymentPeriodBasedOnInvoiceDateReportDto
+            {
+                CompanyId = input.CompanyId,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+                PaymentType = normalizedPaymentType,
+                CurrencyCode = currencyCode,
+            };
+        }
+
+        var peIds = rawEntries.Where(r => r.PaymentDocType == "PaymentEntry").Select(r => r.PaymentDocId).Distinct().ToList();
+        var peNumbers = new Dictionary<Guid, (string Number, string? Remarks)>();
+        if (peRepo != null && peIds.Count > 0)
+        {
+            peNumbers = (await peRepo.GetListAsync(pe => peIds.Contains(pe.Id)))
+                .ToDictionary(pe => pe.Id, pe => (pe.PaymentNumber ?? pe.Id.ToString()[..8], pe.Remarks));
+        }
+
+        var jeIds = rawEntries.Where(r => r.PaymentDocType == "JournalEntry").Select(r => r.PaymentDocId).Distinct().ToList();
+        var jeNumbers = new Dictionary<Guid, (string Number, string? Remarks)>();
+        if (jeIds.Count > 0)
+        {
+            jeNumbers = (await _journalEntryRepository.GetListAsync(je => jeIds.Contains(je.Id)))
+                .ToDictionary(je => je.Id, je => (je.EntryNumber ?? je.Id.ToString()[..8], je.Narration));
+        }
+
+        var partyIds = rawEntries.Select(r => r.PartyId).Distinct().ToList();
+        var partyNames = isOutgoing
+            ? (await _supplierRepository.GetListAsync(s => partyIds.Contains(s.Id))).ToDictionary(s => s.Id, s => s.Name)
+            : (await _customerRepository.GetListAsync(c => partyIds.Contains(c.Id))).ToDictionary(c => c.Id, c => c.Name);
+
+        var rows = new List<PaymentPeriodBasedOnInvoiceDateRowDto>();
+        foreach (var entry in rawEntries.OrderBy(r => r.PostingDate).ThenBy(r => r.PaymentDocId))
+        {
+            var docNo = entry.PaymentDocNo;
+            var remarks = entry.Remarks;
+            if (entry.PaymentDocType == "PaymentEntry" && peNumbers.TryGetValue(entry.PaymentDocId, out var peInfo))
+            {
+                docNo ??= peInfo.Number;
+                remarks ??= peInfo.Remarks;
+            }
+            else if (entry.PaymentDocType == "JournalEntry" && jeNumbers.TryGetValue(entry.PaymentDocId, out var jeInfo))
+            {
+                docNo ??= jeInfo.Number;
+                remarks ??= jeInfo.Remarks;
+            }
+            docNo ??= entry.PaymentDocId.ToString()[..8];
+
+            string? invoiceNo = null;
+            DateTime? invoicePostingDate = null;
+            DateTime? dueDate = null;
+            if (entry.AgainstId.HasValue)
+            {
+                if (!isOutgoing && siMap.TryGetValue(entry.AgainstId.Value, out var si))
+                {
+                    invoiceNo = si.InvoiceNumber;
+                    invoicePostingDate = si.IssueDate;
+                    dueDate = si.DueDate;
+                }
+                else if (isOutgoing && piMap.TryGetValue(entry.AgainstId.Value, out var pi))
+                {
+                    invoiceNo = pi.InvoiceNumber;
+                    invoicePostingDate = pi.IssueDate;
+                    dueDate = pi.DueDate;
+                }
+            }
+
+            var age = invoicePostingDate.HasValue
+                ? Math.Max(0, (entry.PostingDate.Date - invoicePostingDate.Value.Date).Days)
+                : 0;
+            var delayInDays = dueDate.HasValue
+                ? (entry.PostingDate.Date - dueDate.Value.Date).Days
+                : 0;
+
+            decimal r0_30 = 0m, r31_60 = 0m, r61_90 = 0m, r90Plus = 0m;
+            if (invoicePostingDate.HasValue)
+            {
+                if (age <= 30) r0_30 = entry.Amount;
+                else if (age <= 60) r31_60 = entry.Amount;
+                else if (age <= 90) r61_90 = entry.Amount;
+                else r90Plus = entry.Amount;
+            }
+
+            partyNames.TryGetValue(entry.PartyId, out var partyName);
+
+            rows.Add(new PaymentPeriodBasedOnInvoiceDateRowDto
+            {
+                PaymentDocumentType = entry.PaymentDocType,
+                PaymentDocumentId = entry.PaymentDocId,
+                PaymentDocumentNo = docNo,
+                PartyType = expectedPartyType,
+                PartyId = entry.PartyId,
+                PartyName = partyName ?? entry.PartyId.ToString()[..8],
+                PostingDate = entry.PostingDate,
+                InvoiceType = entry.AgainstId.HasValue ? expectedAgainstType : null,
+                InvoiceId = entry.AgainstId,
+                InvoiceNo = invoiceNo,
+                InvoicePostingDate = invoicePostingDate,
+                DueDate = dueDate,
+                Amount = entry.Amount,
+                Remarks = remarks,
+                Age = age,
+                Range0To30 = r0_30,
+                Range31To60 = r31_60,
+                Range61To90 = r61_90,
+                Range90Above = r90Plus,
+                DelayInPaymentDays = delayInDays,
+            });
+        }
+
+        return new PaymentPeriodBasedOnInvoiceDateReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            PaymentType = normalizedPaymentType,
+            CurrencyCode = currencyCode,
+            Rows = rows,
+            TotalAmount = rows.Sum(r => r.Amount),
+            TotalRange0To30 = rows.Sum(r => r.Range0To30),
+            TotalRange31To60 = rows.Sum(r => r.Range31To60),
+            TotalRange61To90 = rows.Sum(r => r.Range61To90),
+            TotalRange90Above = rows.Sum(r => r.Range90Above),
+        };
+    }
+
     private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
         Guid companyId,
         string? financeBook,

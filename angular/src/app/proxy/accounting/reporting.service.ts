@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -115,6 +115,16 @@ export class ReportingService {
       headers: { Accept: 'application/json' },
       url: '/api/app/reporting/voucher-wise-balance',
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, voucherType: input.voucherType },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getPaymentPeriodBasedOnInvoiceDate = (input: PaymentPeriodBasedOnInvoiceDateRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentPeriodBasedOnInvoiceDateReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/payment-period-based-on-invoice-date',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, paymentType: input.paymentType, partyType: input.partyType, partyId: input.partyId },
     },
       { apiName: this.apiName,...config });
 }

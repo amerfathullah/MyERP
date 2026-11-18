@@ -3118,3 +3118,49 @@ export interface VoucherWiseBalanceReportDto {
   totalDebit?: number;
   totalCredit?: number;
 }
+
+export interface PaymentPeriodBasedOnInvoiceDateRequestDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  paymentType?: string;
+  partyType?: string | null;
+  partyId?: string | null;
+}
+
+export interface PaymentPeriodBasedOnInvoiceDateRowDto {
+  paymentDocumentType?: string;
+  paymentDocumentId?: string;
+  paymentDocumentNo?: string;
+  partyType?: string;
+  partyId?: string;
+  partyName?: string;
+  postingDate?: string;
+  invoiceType?: string | null;
+  invoiceId?: string | null;
+  invoiceNo?: string | null;
+  invoicePostingDate?: string | null;
+  dueDate?: string | null;
+  amount?: number;
+  remarks?: string | null;
+  age?: number;
+  range0To30?: number;
+  range31To60?: number;
+  range61To90?: number;
+  range90Above?: number;
+  delayInPaymentDays?: number;
+}
+
+export interface PaymentPeriodBasedOnInvoiceDateReportDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  paymentType?: string;
+  currencyCode?: string;
+  rows?: PaymentPeriodBasedOnInvoiceDateRowDto[];
+  totalAmount?: number;
+  totalRange0To30?: number;
+  totalRange31To60?: number;
+  totalRange61To90?: number;
+  totalRange90Above?: number;
+}

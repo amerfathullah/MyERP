@@ -505,6 +505,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/payment-period-based-on-invoice-date',
+    loadComponent: () => import('./accounting/reports/payment-period-based-on-invoice-date/payment-period-based-on-invoice-date.component').then(c => c.PaymentPeriodBasedOnInvoiceDateComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],

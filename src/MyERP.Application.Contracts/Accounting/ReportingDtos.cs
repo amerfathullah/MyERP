@@ -397,6 +397,57 @@ public class VoucherWiseBalanceReportDto
     public decimal TotalCredit { get; set; }
 }
 
+// --- Payment Period Based On Invoice Date Report DTOs (ERPNext payment_period_based_on_invoice_date) ---
+public class PaymentPeriodBasedOnInvoiceDateRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    /// <summary>"Incoming" (Customer / SalesInvoice) or "Outgoing" (Supplier / PurchaseInvoice).</summary>
+    public string PaymentType { get; set; } = "Incoming";
+    public string? PartyType { get; set; }
+    public Guid? PartyId { get; set; }
+}
+
+public class PaymentPeriodBasedOnInvoiceDateRowDto
+{
+    public string PaymentDocumentType { get; set; } = string.Empty;
+    public Guid PaymentDocumentId { get; set; }
+    public string PaymentDocumentNo { get; set; } = string.Empty;
+    public string PartyType { get; set; } = string.Empty;
+    public Guid PartyId { get; set; }
+    public string PartyName { get; set; } = string.Empty;
+    public DateTime PostingDate { get; set; }
+    public string? InvoiceType { get; set; }
+    public Guid? InvoiceId { get; set; }
+    public string? InvoiceNo { get; set; }
+    public DateTime? InvoicePostingDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public decimal Amount { get; set; }
+    public string? Remarks { get; set; }
+    public int Age { get; set; }
+    public decimal Range0To30 { get; set; }
+    public decimal Range31To60 { get; set; }
+    public decimal Range61To90 { get; set; }
+    public decimal Range90Above { get; set; }
+    public int DelayInPaymentDays { get; set; }
+}
+
+public class PaymentPeriodBasedOnInvoiceDateReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public string PaymentType { get; set; } = "Incoming";
+    public string CurrencyCode { get; set; } = "MYR";
+    public List<PaymentPeriodBasedOnInvoiceDateRowDto> Rows { get; set; } = new();
+    public decimal TotalAmount { get; set; }
+    public decimal TotalRange0To30 { get; set; }
+    public decimal TotalRange31To60 { get; set; }
+    public decimal TotalRange61To90 { get; set; }
+    public decimal TotalRange90Above { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -410,6 +461,7 @@ public interface IReportingAppService : IApplicationService
     Task<ProfitabilityAnalysisReportDto> GetProfitabilityAnalysisAsync(ProfitabilityAnalysisRequestDto input);
     Task<DayBookReportDto> GetDayBookAsync(DayBookRequestDto input);
     Task<VoucherWiseBalanceReportDto> GetVoucherWiseBalanceAsync(VoucherWiseBalanceRequestDto input);
+    Task<PaymentPeriodBasedOnInvoiceDateReportDto> GetPaymentPeriodBasedOnInvoiceDateAsync(PaymentPeriodBasedOnInvoiceDateRequestDto input);
 }
 
 

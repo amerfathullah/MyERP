@@ -688,6 +688,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/payment-period-based-on-invoice-date',
+        name: '::Menu:PaymentPeriodBasedOnInvoiceDate',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-hourglass-half',
+        order: 15.9,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

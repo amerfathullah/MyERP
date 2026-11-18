@@ -6440,7 +6440,13 @@
     "VoucherWiseBalance": "Voucher-wise Balance",
     "VoucherWiseBalanceDescription": "General Ledger audit report listing posted vouchers where total Debit does not equal total Credit",
     "UnbalancedVouchers": "Unbalanced Vouchers",
-    "AllVouchersBalanced": "All posted vouchers are balanced (Total Debit equals Total Credit)"
+    "AllVouchersBalanced": "All posted vouchers are balanced (Total Debit equals Total Credit)",
+    "Menu:PaymentPeriodBasedOnInvoiceDate": "Payment Period by Invoice",
+    "PaymentPeriodBasedOnInvoiceDate": "Payment Period Based On Invoice Date",
+    "PaymentPeriodBasedOnInvoiceDateDescription": "Ages invoice payments relative to invoice posting dates and tracks payment delay beyond due dates",
+    "InvoicePostingDate": "Invoice Posting Date",
+    "DelayInPaymentDays": "Delay (Days)",
+    "NoPaymentEntriesFound": "No invoice payment entries found for the selected criteria"
   }
 }
 

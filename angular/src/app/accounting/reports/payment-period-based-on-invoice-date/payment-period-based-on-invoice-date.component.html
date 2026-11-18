@@ -1,0 +1,178 @@
+<abp-page [title]="'::PaymentPeriodBasedOnInvoiceDate' | abpLocalization">
+  <p class="text-muted small mb-3">{{ '::PaymentPeriodBasedOnInvoiceDateDescription' | abpLocalization }}</p>
+
+  @if (report()) {
+    <div class="row g-2 mb-3">
+      <div class="col-md-4 col-lg">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::Amount' | abpLocalization }}</div>
+            <div class="h6 mb-0 text-primary">{{ report()!.currencyCode || 'MYR' }} {{ (report()!.totalAmount ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 col-lg">
+        <div class="card border-start border-success border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">0-30</div>
+            <div class="h6 mb-0">{{ report()!.currencyCode || 'MYR' }} {{ (report()!.totalRange0To30 ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 col-lg">
+        <div class="card border-start border-info border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">31-60</div>
+            <div class="h6 mb-0">{{ report()!.currencyCode || 'MYR' }} {{ (report()!.totalRange31To60 ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg">
+        <div class="card border-start border-warning border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">61-90</div>
+            <div class="h6 mb-0">{{ report()!.currencyCode || 'MYR' }} {{ (report()!.totalRange61To90 ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg">
+        <div class="card border-start border-danger border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">90+</div>
+            <div class="h6 mb-0 text-danger">{{ report()!.currencyCode || 'MYR' }} {{ (report()!.totalRange90Above ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <form [formGroup]="filters" class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="companyId" (change)="generate()">
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::PaymentType' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="paymentType" (change)="onPaymentTypeChange()">
+            <option value="Incoming">{{ '::Incoming' | abpLocalization }}</option>
+            <option value="Outgoing">{{ '::Outgoing' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::Party' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" formControlName="partyId" (change)="generate()">
+            <option value="">{{ '::AllParties' | abpLocalization }}</option>
+            @for (p of parties(); track p.id) {
+              <option [value]="p.id">{{ p.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" formControlName="toDate" />
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button type="button" class="btn btn-primary btn-sm flex-fill" (click)="generate()" [disabled]="isLoading()">
+            @if (isLoading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+          @if (rows().length > 0) {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [title]="'::ExportCSV' | abpLocalization">
+              <i class="fa fa-download"></i>
+            </button>
+          }
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (rows().length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::VoucherType' | abpLocalization }}</th>
+                <th>{{ '::DocumentNumber' | abpLocalization }}</th>
+                <th>{{ '::Party' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::Invoice' | abpLocalization }}</th>
+                <th>{{ '::InvoicePostingDate' | abpLocalization }}</th>
+                <th>{{ '::DueDate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Age' | abpLocalization }}</th>
+                <th class="text-end">0-30</th>
+                <th class="text-end">31-60</th>
+                <th class="text-end">61-90</th>
+                <th class="text-end">90+</th>
+                <th class="text-end">{{ '::DelayInPaymentDays' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track (row.paymentDocumentId ?? '') + '-' + (row.invoiceId ?? '') + '-' + $index) {
+                <tr class="cursor-pointer" (click)="drillDownPayment(row)">
+                  <td><span class="badge bg-light text-dark border">{{ row.paymentDocumentType }}</span></td>
+                  <td class="font-monospace small text-primary">{{ row.paymentDocumentNo }}</td>
+                  <td class="small">{{ row.partyName }}</td>
+                  <td class="font-monospace small">{{ formatDate(row.postingDate) }}</td>
+                  <td class="font-monospace small">
+                    @if (row.invoiceNo) {
+                      <a href="javascript:void(0)" (click)="drillDownInvoice(row, $event)">{{ row.invoiceNo }}</a>
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td class="font-monospace small">{{ formatDate(row.invoicePostingDate) || '-' }}</td>
+                  <td class="font-monospace small">{{ formatDate(row.dueDate) || '-' }}</td>
+                  <td class="text-end font-monospace small">{{ (row.amount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small">{{ row.age ?? 0 }}</td>
+                  <td class="text-end font-monospace small">{{ (row.range0To30 ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small">{{ (row.range31To60 ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small">{{ (row.range61To90 ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small">{{ (row.range90Above ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small" [class.text-danger]="(row.delayInPaymentDays ?? 0) > 0" [class.text-success]="(row.delayInPaymentDays ?? 0) <= 0">
+                    {{ row.delayInPaymentDays ?? 0 }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td colspan="7" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalAmount ?? 0) | number:'1.2-2' }}</td>
+                <td></td>
+                <td class="text-end font-monospace">{{ (report()!.totalRange0To30 ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalRange31To60 ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalRange61To90 ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalRange90Above ?? 0) | number:'1.2-2' }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (report() && !isLoading()) {
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+        {{ '::NoPaymentEntriesFound' | abpLocalization }}
+      </div>
+    </div>
+  }
+</abp-page>
