@@ -6583,7 +6583,14 @@
     "ExpectedStockValue": "Expected Stock Value",
     "DifferenceValue": "Difference Value",
     "PostingTime": "Posting Time",
-    "NoStockDiscrepanciesFound": "No discrepancies found"
+    "NoStockDiscrepanciesFound": "No discrepancies found",
+    "Menu:IncorrectSerialNoValuation": "Incorrect Serial No Valuation",
+    "IncorrectSerialNoValuation": "Incorrect Serial No Valuation",
+    "Menu:IncorrectSerialAndBatchBundle": "Incorrect Serial and Batch Bundle",
+    "IncorrectSerialAndBatchBundle": "Incorrect Serial and Batch Bundle",
+    "SerialNoNumber": "Serial No",
+    "VoucherDetailNo": "Voucher Detail No",
+    "FixSelected": "Fix Selected"
   }
 }
 

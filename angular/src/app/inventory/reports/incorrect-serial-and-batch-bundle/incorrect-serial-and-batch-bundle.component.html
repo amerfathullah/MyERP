@@ -1,0 +1,111 @@
+<abp-page [title]="'::IncorrectSerialAndBatchBundle' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (it of items(); track it.id) {
+              <option [value]="it.id">{{ it.itemCode }} - {{ it.itemName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+          <select class="form-select" formControlName="warehouseId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (w of warehouses(); track w.id) {
+              <option [value]="w.id">{{ w.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="voucherType" />
+        </div>
+        <div class="col-md-1">
+          <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="postingDate" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-magnifying-glass me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <div class="d-flex gap-2">
+          <button
+            class="btn btn-sm btn-warning"
+            [disabled]="selectedBundleIds().size === 0 || isFixing()"
+            (click)="fixSelected()">
+            <i class="fa fa-wrench me-1"></i>{{ '::FixSelected' | abpLocalization }} ({{ selectedBundleIds().size }})
+          </button>
+          <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        @if (!r.rows?.length) {
+          <div class="text-center py-4 text-muted">{{ '::NoStockDiscrepanciesFound' | abpLocalization }}</div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3" style="width: 2.5rem;"></th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th>{{ '::VoucherType' | abpLocalization }}</th>
+                  <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                  <th>{{ '::IssueType' | abpLocalization }}</th>
+                  <th class="pe-3">{{ '::Status' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of r.rows ?? []; track row.bundleId) {
+                  <tr>
+                    <td class="ps-3">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        [checked]="row.bundleId ? selectedBundleIds().has(row.bundleId) : false"
+                        (change)="toggleSelection(row.bundleId)" />
+                    </td>
+                    <td>{{ row.itemCode }} - {{ row.itemName }}</td>
+                    <td>{{ row.warehouseName }}</td>
+                    <td>{{ row.voucherType }}</td>
+                    <td class="font-monospace">{{ row.voucherNo }}</td>
+                    <td><span class="badge bg-warning text-dark">{{ row.issueType }}</span></td>
+                    <td class="pe-3">{{ row.isCancelled ? ('::Cancelled' | abpLocalization) : ('::Active' | abpLocalization) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</abp-page>

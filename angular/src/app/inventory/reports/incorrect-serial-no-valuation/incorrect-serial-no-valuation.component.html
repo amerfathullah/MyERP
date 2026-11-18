@@ -1,0 +1,86 @@
+<abp-page [title]="'::IncorrectSerialNoValuation' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (it of items(); track it.id) {
+              <option [value]="it.id">{{ it.itemCode }} - {{ it.itemName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-magnifying-glass me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::VoucherType' | abpLocalization }}</th>
+                <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
+                <th>{{ '::SerialNoNumber' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end pe-3">{{ '::ValuationRate' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track $index) {
+                <tr [class.fw-bold]="row.isTotalRow || row.isBalanceRow" [class.table-light]="row.isBalanceRow">
+                  <td class="ps-3">{{ row.postingDate ? (row.postingDate | date:'yyyy-MM-dd') : '' }}</td>
+                  <td>{{ row.voucherType }}</td>
+                  <td class="font-monospace">{{ row.voucherNo }}</td>
+                  <td>{{ row.itemCode ? (row.itemCode + ' - ' + row.itemName) : '' }}</td>
+                  <td>{{ row.warehouseName }}</td>
+                  <td class="font-monospace">{{ row.serialNoNumber }}</td>
+                  <td class="text-end font-monospace">{{ (row.qty ?? 0) | number:'1.0-2' }}</td>
+                  <td class="text-end pe-3 font-monospace">{{ (row.valuationRate ?? 0) | number:'1.2-4' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

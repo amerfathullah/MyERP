@@ -4225,6 +4225,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/incorrect-serial-no-valuation',
+    loadComponent: () => import('./inventory/reports/incorrect-serial-no-valuation/incorrect-serial-no-valuation.component').then(c => c.IncorrectSerialNoValuationComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/incorrect-serial-and-batch-bundle',
+    loadComponent: () => import('./inventory/reports/incorrect-serial-and-batch-bundle/incorrect-serial-and-batch-bundle.component').then(c => c.IncorrectSerialAndBatchBundleComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/reports/available-serial-no',
     loadComponent: () => import('./inventory/reports/available-serial-no/available-serial-no.component').then(c => c.AvailableSerialNoComponent),
     canActivate: [authGuard, permissionGuard],

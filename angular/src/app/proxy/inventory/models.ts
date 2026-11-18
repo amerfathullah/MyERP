@@ -3687,3 +3687,73 @@ export interface IncorrectStockValueReportDto {
   resolvedFromDate?: string | null;
   rows?: IncorrectStockValueRowDto[];
 }
+
+export interface IncorrectSerialNoValuationRequestDto {
+  companyId?: string | null;
+  itemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface IncorrectSerialNoValuationRowDto {
+  companyId?: string | null;
+  stockLedgerEntryId?: string | null;
+  postingDate?: string | null;
+  postingTime?: string | null;
+  voucherType?: string;
+  voucherId?: string | null;
+  voucherNo?: string;
+  itemId?: string | null;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string | null;
+  warehouseName?: string;
+  serialNoId?: string | null;
+  serialNoNumber?: string;
+  qty?: number;
+  valuationRate?: number;
+  isTotalRow?: boolean;
+  isBalanceRow?: boolean;
+}
+
+export interface IncorrectSerialNoValuationReportDto {
+  rows?: IncorrectSerialNoValuationRowDto[];
+}
+
+export interface IncorrectSerialAndBatchBundleRequestDto {
+  companyId?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  voucherType?: string | null;
+  postingDate?: string | null;
+}
+
+export interface IncorrectSerialAndBatchBundleRowDto {
+  bundleId?: string;
+  companyId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  voucherType?: string;
+  voucherId?: string;
+  voucherNo?: string;
+  voucherDetailId?: string | null;
+  isCancelled?: boolean;
+  issueType?: string;
+}
+
+export interface IncorrectSerialAndBatchBundleReportDto {
+  rows?: IncorrectSerialAndBatchBundleRowDto[];
+}
+
+export interface FixSerialAndBatchBundlesInputDto {
+  bundleIds: string[];
+}
+
+export interface FixSerialAndBatchBundlesResultDto {
+  cancelledCount?: number;
+  restoredCount?: number;
+  skippedCount?: number;
+}

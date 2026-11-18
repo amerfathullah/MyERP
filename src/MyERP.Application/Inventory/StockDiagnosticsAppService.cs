@@ -32,6 +32,8 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<SerialAndBatchBundle, Guid> _bundleRepository;
+    private readonly IRepository<SerialNo, Guid> _serialNoRepository;
 
     public StockDiagnosticsAppService(
         IRepository<StockLedgerEntry, Guid> sleRepository,
@@ -45,7 +47,9 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<Account, Guid> accountRepository,
-        IRepository<JournalEntry, Guid> journalEntryRepository)
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<SerialAndBatchBundle, Guid> bundleRepository,
+        IRepository<SerialNo, Guid> serialNoRepository)
     {
         _sleRepository = sleRepository;
         _stockReconciliationRepository = stockReconciliationRepository;
@@ -59,6 +63,8 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         _companyRepository = companyRepository;
         _accountRepository = accountRepository;
         _journalEntryRepository = journalEntryRepository;
+        _bundleRepository = bundleRepository;
+        _serialNoRepository = serialNoRepository;
     }
 
     public async Task<IncorrectBalanceQtyReportDto> GetIncorrectBalanceQtyAsync(
@@ -311,6 +317,359 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         };
     }
 
+    public async Task<IncorrectSerialNoValuationReportDto> GetIncorrectSerialNoValuationAsync(
+        IncorrectSerialNoValuationRequestDto input)
+    {
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "From Date cannot be after To Date.");
+        }
+
+        var fromDate = input.FromDate?.Date;
+        var toExclusive = input.ToDate.HasValue ? input.ToDate.Value.Date.AddDays(1) : (DateTime?)null;
+
+        var baseQuery = (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && (s.SerialNoId.HasValue || s.SerialAndBatchBundleId.HasValue));
+
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+            baseQuery = baseQuery.Where(s => s.CompanyId == input.CompanyId.Value);
+
+        List<Guid>? periodItemIds = null;
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+        {
+            baseQuery = baseQuery.Where(s => s.ItemId == input.ItemId.Value);
+        }
+        else if (fromDate.HasValue && toExclusive.HasValue)
+        {
+            periodItemIds = await AsyncExecuter.ToListAsync(
+                baseQuery
+                    .Where(s => s.PostingDate >= fromDate.Value && s.PostingDate < toExclusive.Value)
+                    .Select(s => s.ItemId)
+                    .Distinct());
+
+            if (periodItemIds.Count == 0)
+            {
+                return new IncorrectSerialNoValuationReportDto
+                {
+                    Rows = new List<IncorrectSerialNoValuationRowDto> { CreateBalanceSummaryRow(0m, 0m) },
+                };
+            }
+
+            baseQuery = baseQuery.Where(s => periodItemIds.Contains(s.ItemId));
+        }
+
+        if (toExclusive.HasValue)
+            baseQuery = baseQuery.Where(s => s.PostingDate < toExclusive.Value);
+
+        var sles = await AsyncExecuter.ToListAsync(
+            baseQuery.OrderBy(s => s.PostingDateTime).ThenBy(s => s.CreationTime));
+
+        var bundleIds = sles.Where(s => s.SerialAndBatchBundleId.HasValue)
+            .Select(s => s.SerialAndBatchBundleId!.Value).Distinct().ToList();
+        var bundleMap = bundleIds.Count > 0
+            ? (await AsyncExecuter.ToListAsync(
+                (await _bundleRepository.WithDetailsAsync(b => b.Entries))
+                .Where(b => bundleIds.Contains(b.Id))))
+                .ToDictionary(b => b.Id)
+            : new Dictionary<Guid, SerialAndBatchBundle>();
+
+        var serialIds = sles.Where(s => s.SerialNoId.HasValue)
+            .Select(s => s.SerialNoId!.Value).Distinct().ToList();
+        var serialMap = serialIds.Count > 0
+            ? (await _serialNoRepository.GetListAsync(s => serialIds.Contains(s.Id))).ToDictionary(s => s.Id)
+            : new Dictionary<Guid, SerialNo>();
+
+        var itemMap = await LoadItemMapAsync(sles.Select(s => s.ItemId));
+        var whMap = await LoadWarehouseMapAsync(sles.Select(s => s.WarehouseId));
+        var voucherNoMap = await LoadVoucherNumbersAsync(sles);
+
+        var serialTimelines = new Dictionary<string, List<(StockLedgerEntry Sle, Guid? SerialNoId, decimal Qty, decimal ValuationRate)>>(
+            StringComparer.OrdinalIgnoreCase);
+
+        void AddSerialMovement(string serialNumber, Guid? serialId, StockLedgerEntry sle, decimal qty, decimal valuationRate)
+        {
+            if (!serialTimelines.TryGetValue(serialNumber, out var list))
+            {
+                list = new List<(StockLedgerEntry, Guid?, decimal, decimal)>();
+                serialTimelines[serialNumber] = list;
+            }
+            list.Add((sle, serialId, qty, valuationRate));
+        }
+
+        foreach (var sle in sles)
+        {
+            if (sle.SerialAndBatchBundleId.HasValue
+                && bundleMap.TryGetValue(sle.SerialAndBatchBundleId.Value, out var bundle))
+            {
+                foreach (var entry in bundle.Entries.Where(e => !string.IsNullOrWhiteSpace(e.SerialNo)))
+                {
+                    var signedRate = entry.IncomingRate * (entry.Qty > 0m ? 1m : -1m);
+                    AddSerialMovement(entry.SerialNo!, null, sle, entry.Qty, signedRate);
+                }
+            }
+            else if (sle.SerialNoId.HasValue
+                     && serialMap.TryGetValue(sle.SerialNoId.Value, out var serialObj))
+            {
+                var unitRate = sle.QuantityChange != 0m
+                    ? sle.StockValueDifference / sle.QuantityChange
+                    : sle.ValuationRate;
+                var qty = sle.QuantityChange > 0m ? 1m : -1m;
+                var signedRate = qty > 0m ? unitRate : -unitRate;
+                AddSerialMovement(serialObj.SerialNumber, serialObj.Id, sle, qty, signedRate);
+            }
+        }
+
+        var rows = new List<IncorrectSerialNoValuationRowDto>();
+        decimal balanceQty = 0m;
+        decimal balanceValuation = 0m;
+
+        foreach (var (serialNumber, timeline) in serialTimelines.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            decimal totalQty = 0m;
+            decimal totalVal = 0m;
+            var incorrect = false;
+
+            foreach (var movement in timeline)
+            {
+                totalQty += movement.Qty;
+                totalVal += movement.ValuationRate;
+
+                if (fromDate.HasValue && movement.Sle.PostingDate.Date < fromDate.Value)
+                    continue;
+
+                if ((totalQty == 0m && Math.Abs(totalVal) > 0.01m) || totalQty < 0m)
+                {
+                    incorrect = true;
+                }
+            }
+
+            if (!incorrect)
+                continue;
+
+            foreach (var movement in timeline)
+            {
+                if (fromDate.HasValue && movement.Sle.PostingDate.Date < fromDate.Value)
+                    continue;
+
+                itemMap.TryGetValue(movement.Sle.ItemId, out var item);
+                whMap.TryGetValue(movement.Sle.WarehouseId, out var wh);
+                rows.Add(new IncorrectSerialNoValuationRowDto
+                {
+                    CompanyId = movement.Sle.CompanyId,
+                    StockLedgerEntryId = movement.Sle.Id,
+                    PostingDate = movement.Sle.PostingDate,
+                    PostingTime = movement.Sle.PostingTime,
+                    VoucherType = movement.Sle.VoucherType ?? string.Empty,
+                    VoucherId = movement.Sle.VoucherId,
+                    VoucherNo = ResolveVoucherNo(movement.Sle, voucherNoMap),
+                    ItemId = movement.Sle.ItemId,
+                    ItemCode = item?.ItemCode ?? string.Empty,
+                    ItemName = item?.ItemName ?? string.Empty,
+                    WarehouseId = movement.Sle.WarehouseId,
+                    WarehouseName = wh?.Name ?? string.Empty,
+                    SerialNoId = movement.SerialNoId,
+                    SerialNoNumber = serialNumber,
+                    Qty = movement.Qty,
+                    ValuationRate = Math.Round(movement.ValuationRate, 4),
+                });
+            }
+
+            balanceQty += totalQty;
+            balanceValuation += totalVal;
+
+            if (totalQty != 0m || Math.Abs(totalVal) > 0.01m)
+            {
+                rows.Add(new IncorrectSerialNoValuationRowDto
+                {
+                    SerialNoNumber = "Total",
+                    Qty = totalQty,
+                    ValuationRate = Math.Round(totalVal, 4),
+                    IsTotalRow = true,
+                });
+            }
+        }
+
+        rows.Add(CreateBalanceSummaryRow(balanceQty, Math.Round(balanceValuation, 4)));
+        return new IncorrectSerialNoValuationReportDto { Rows = rows };
+    }
+
+    public async Task<IncorrectSerialAndBatchBundleReportDto> GetIncorrectSerialAndBatchBundlesAsync(
+        IncorrectSerialAndBatchBundleRequestDto input)
+    {
+        var bundleQuery = (await _bundleRepository.GetQueryableAsync()).AsQueryable();
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+            bundleQuery = bundleQuery.Where(b => b.CompanyId == input.CompanyId.Value);
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+            bundleQuery = bundleQuery.Where(b => b.ItemId == input.ItemId.Value);
+        if (input.WarehouseId.HasValue && input.WarehouseId.Value != Guid.Empty)
+            bundleQuery = bundleQuery.Where(b => b.WarehouseId == input.WarehouseId.Value);
+        if (!string.IsNullOrWhiteSpace(input.VoucherType))
+        {
+            var vt = input.VoucherType.Trim();
+            bundleQuery = bundleQuery.Where(b => b.VoucherType == vt);
+        }
+        if (input.PostingDate.HasValue)
+        {
+            var start = input.PostingDate.Value.Date;
+            var end = start.AddDays(1);
+            bundleQuery = bundleQuery.Where(b => b.PostingDate >= start && b.PostingDate < end);
+        }
+
+        var bundles = await AsyncExecuter.ToListAsync(bundleQuery);
+        if (bundles.Count == 0)
+            return new IncorrectSerialAndBatchBundleReportDto();
+
+        var bundleIds = bundles.Select(b => b.Id).ToList();
+        var activeLinkedBundleIds = (await AsyncExecuter.ToListAsync(
+            (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && s.SerialAndBatchBundleId.HasValue && bundleIds.Contains(s.SerialAndBatchBundleId.Value))
+            .Select(s => s.SerialAndBatchBundleId!.Value)
+            .Distinct()))
+            .ToHashSet();
+
+        var posVoucherIds = bundles
+            .Where(b => IsPosInvoiceVoucherType(b.VoucherType))
+            .Select(b => b.VoucherId)
+            .Distinct()
+            .ToList();
+        var activePosInvoiceIds = posVoucherIds.Count > 0
+            ? (await AsyncExecuter.ToListAsync(
+                (await _salesInvoiceRepository.GetQueryableAsync())
+                .Where(si => posVoucherIds.Contains(si.Id) && si.IsPos && si.Status == DocumentStatus.Posted)
+                .Select(si => si.Id)))
+                .ToHashSet()
+            : new HashSet<Guid>();
+
+        var offending = new List<(SerialAndBatchBundle Bundle, string IssueType)>();
+        foreach (var bundle in bundles)
+        {
+            var hasActiveSle = activeLinkedBundleIds.Contains(bundle.Id);
+            if (!hasActiveSle
+                && bundle.Status == DocumentStatus.Submitted
+                && !bundle.IsCancelled
+                && !IsIgnoredBundleVoucherType(bundle.VoucherType)
+                && !activePosInvoiceIds.Contains(bundle.VoucherId))
+            {
+                offending.Add((bundle, "UnlinkedBundle"));
+            }
+            else if (hasActiveSle
+                     && bundle.Status == DocumentStatus.Cancelled
+                     && bundle.IsCancelled)
+            {
+                offending.Add((bundle, "LinkedCancelledBundle"));
+            }
+        }
+
+        if (offending.Count == 0)
+            return new IncorrectSerialAndBatchBundleReportDto();
+
+        var itemMap = await LoadItemMapAsync(offending.Select(o => o.Bundle.ItemId));
+        var whMap = await LoadWarehouseMapAsync(offending.Select(o => o.Bundle.WarehouseId));
+        var voucherNoMap = await LoadVoucherNumbersByPairsAsync(
+            offending.Select(o => (o.Bundle.VoucherType, o.Bundle.VoucherId)));
+
+        var rows = offending.Select(o =>
+        {
+            var b = o.Bundle;
+            itemMap.TryGetValue(b.ItemId, out var item);
+            whMap.TryGetValue(b.WarehouseId, out var wh);
+            var no = voucherNoMap.TryGetValue((b.VoucherType, b.VoucherId), out var resolvedNo)
+                ? resolvedNo
+                : b.VoucherId.ToString()[..8];
+            return new IncorrectSerialAndBatchBundleRowDto
+            {
+                BundleId = b.Id,
+                CompanyId = b.CompanyId,
+                ItemId = b.ItemId,
+                ItemCode = item?.ItemCode ?? string.Empty,
+                ItemName = item?.ItemName ?? string.Empty,
+                WarehouseId = b.WarehouseId,
+                WarehouseName = wh?.Name ?? string.Empty,
+                VoucherType = b.VoucherType,
+                VoucherId = b.VoucherId,
+                VoucherNo = no,
+                VoucherDetailId = b.VoucherDetailId,
+                IsCancelled = b.IsCancelled,
+                IssueType = o.IssueType,
+            };
+        }).OrderBy(r => r.VoucherType).ThenBy(r => r.VoucherNo).ToList();
+
+        return new IncorrectSerialAndBatchBundleReportDto { Rows = rows };
+    }
+
+    [Authorize(MyERPPermissions.StockEntries.Cancel)]
+    public async Task<FixSerialAndBatchBundlesResultDto> FixIncorrectSerialAndBatchBundlesAsync(
+        FixSerialAndBatchBundlesInputDto input)
+    {
+        var result = new FixSerialAndBatchBundlesResultDto();
+        if (input.BundleIds == null || input.BundleIds.Count == 0)
+            return result;
+
+        var ids = input.BundleIds.Distinct().ToList();
+        var bundles = await _bundleRepository.GetListAsync(b => ids.Contains(b.Id));
+        var activeLinkedIds = (await AsyncExecuter.ToListAsync(
+            (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && s.SerialAndBatchBundleId.HasValue && ids.Contains(s.SerialAndBatchBundleId.Value))
+            .Select(s => s.SerialAndBatchBundleId!.Value)
+            .Distinct()))
+            .ToHashSet();
+
+        foreach (var bundle in bundles)
+        {
+            var hasActiveSle = activeLinkedIds.Contains(bundle.Id);
+            if (bundle.Status == DocumentStatus.Submitted && !bundle.IsCancelled && !hasActiveSle)
+            {
+                if (IsPosInvoiceVoucherType(bundle.VoucherType))
+                {
+                    var posInv = await _salesInvoiceRepository.FindAsync(bundle.VoucherId);
+                    if (posInv is { IsPos: true, Status: DocumentStatus.Posted })
+                    {
+                        result.SkippedCount++;
+                        continue;
+                    }
+                }
+
+                bundle.Cancel();
+                await _bundleRepository.UpdateAsync(bundle);
+                result.CancelledCount++;
+            }
+            else if (bundle.Status == DocumentStatus.Cancelled && bundle.IsCancelled && hasActiveSle)
+            {
+                bundle.RestoreSubmitted();
+                await _bundleRepository.UpdateAsync(bundle);
+                result.RestoredCount++;
+            }
+            else
+            {
+                result.SkippedCount++;
+            }
+        }
+
+        return result;
+    }
+
+    private static IncorrectSerialNoValuationRowDto CreateBalanceSummaryRow(decimal qty, decimal valuationRate) => new()
+    {
+        SerialNoNumber = "Balance",
+        Qty = qty,
+        ValuationRate = valuationRate,
+        IsBalanceRow = true,
+    };
+
+    private static bool IsIgnoredBundleVoucherType(string? voucherType)
+    {
+        if (string.IsNullOrWhiteSpace(voucherType)) return false;
+        return voucherType.Trim().Replace(" ", string.Empty).ToUpperInvariant() is
+            "INSTALLATIONNOTE" or "JOBCARD" or "MAINTENANCESCHEDULE" or "PICKLIST";
+    }
+
+    private static bool IsPosInvoiceVoucherType(string? voucherType)
+    {
+        if (string.IsNullOrWhiteSpace(voucherType)) return false;
+        return voucherType.Trim().Replace(" ", string.Empty).ToUpperInvariant() == "POSINVOICE";
+    }
+
     private async Task<DateTime?> FindFirstUnsyncDateAsync(
         Guid companyId,
         Guid accountId,
@@ -371,38 +730,45 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
 
     private async Task<Dictionary<(string VoucherType, Guid VoucherId), string>> LoadVoucherNumbersAsync(
         IEnumerable<StockLedgerEntry> sles)
+        => await LoadVoucherNumbersByPairsAsync(
+            sles.Where(s => !string.IsNullOrWhiteSpace(s.VoucherType) && s.VoucherId.HasValue)
+                .Select(s => (s.VoucherType!, s.VoucherId!.Value)));
+
+    private async Task<Dictionary<(string VoucherType, Guid VoucherId), string>> LoadVoucherNumbersByPairsAsync(
+        IEnumerable<(string VoucherType, Guid VoucherId)> pairs)
     {
         var result = new Dictionary<(string VoucherType, Guid VoucherId), string>();
-        var groups = sles
-            .Where(s => !string.IsNullOrWhiteSpace(s.VoucherType) && s.VoucherId.HasValue)
-            .GroupBy(s => s.VoucherType!)
-            .ToDictionary(g => g.Key, g => g.Select(s => s.VoucherId!.Value).Distinct().ToList());
+        var groups = pairs
+            .Where(p => !string.IsNullOrWhiteSpace(p.VoucherType) && p.VoucherId != Guid.Empty)
+            .GroupBy(p => p.VoucherType)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.VoucherId).Distinct().ToList());
 
         foreach (var (vType, ids) in groups)
         {
-            switch (vType)
+            switch (vType.Replace(" ", string.Empty).ToUpperInvariant())
             {
-                case "StockEntry":
+                case "STOCKENTRY":
                     foreach (var x in await _stockEntryRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.EntryNumber ?? x.Id.ToString()[..8];
                     break;
-                case "StockReconciliation":
+                case "STOCKRECONCILIATION":
                     foreach (var x in await _stockReconciliationRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.ReconciliationNumber ?? x.Id.ToString()[..8];
                     break;
-                case "PurchaseReceipt":
+                case "PURCHASERECEIPT":
                     foreach (var x in await _purchaseReceiptRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.ReceiptNumber;
                     break;
-                case "DeliveryNote":
+                case "DELIVERYNOTE":
                     foreach (var x in await _deliveryNoteRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.DeliveryNumber;
                     break;
-                case "SalesInvoice":
+                case "SALESINVOICE":
+                case "POSINVOICE":
                     foreach (var x in await _salesInvoiceRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.InvoiceNumber;
                     break;
-                case "PurchaseInvoice":
+                case "PURCHASEINVOICE":
                     foreach (var x in await _purchaseInvoiceRepository.GetListAsync(e => ids.Contains(e.Id)))
                         result[(vType, x.Id)] = x.InvoiceNumber;
                     break;

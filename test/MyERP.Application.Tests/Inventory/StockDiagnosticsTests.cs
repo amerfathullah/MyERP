@@ -175,4 +175,159 @@ public abstract class StockDiagnosticsTests<TStartupModule> : MyERPApplicationTe
         reportAcc2.Rows[0].StockValue.ShouldBe(1300m);
         reportAcc2.Rows[0].DifferenceValue.ShouldBe(500m);
     }
+
+    [Fact]
+    public async Task IncorrectSerialNoValuation_Should_Detect_Residual_Value_And_Respect_Date_Window()
+    {
+        var bundleRepo = GetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "Serial Diag Co"), autoSave: true);
+        var warehouse = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Serial WH"), autoSave: true);
+        var healthyItem = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "SER-OK", "Healthy Serial Item", ItemType.Goods) { HasSerialNo = true },
+            autoSave: true);
+        var badItem = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "SER-BAD", "Bad Serial Item", ItemType.Goods) { HasSerialNo = true },
+            autoSave: true);
+
+        // Healthy serial: +1 @ 100, -1 @ 100 -> nets to qty 0, valuation 0
+        var inHealthy = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, healthyItem.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 1))
+        { HasSerialNo = true };
+        inHealthy.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), inHealthy.Id, 1m, 100m, serialNo: "SN-OK-001"));
+        inHealthy.Submit();
+        await bundleRepo.InsertAsync(inHealthy, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, healthyItem.Id, warehouse.Id,
+            new DateTime(2026, 6, 1), 1m, 100m, 1m, 100m) { SerialAndBatchBundleId = inHealthy.Id }, autoSave: true);
+
+        var outHealthy = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, healthyItem.Id, warehouse.Id,
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 2))
+        { HasSerialNo = true };
+        outHealthy.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outHealthy.Id, -1m, 100m, serialNo: "SN-OK-001"));
+        outHealthy.Submit();
+        await bundleRepo.InsertAsync(outHealthy, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, healthyItem.Id, warehouse.Id,
+            new DateTime(2026, 6, 2), -1m, 100m, 0m, 0m) { SerialAndBatchBundleId = outHealthy.Id }, autoSave: true);
+
+        var healthyReport = await _diagnosticsService.GetIncorrectSerialNoValuationAsync(
+            new IncorrectSerialNoValuationRequestDto { CompanyId = company.Id, ItemId = healthyItem.Id });
+        healthyReport.Rows.Count.ShouldBe(1);
+        healthyReport.Rows[0].IsBalanceRow.ShouldBeTrue();
+        healthyReport.Rows[0].Qty.ShouldBe(0m);
+        healthyReport.Rows[0].ValuationRate.ShouldBe(0m);
+
+        // Bad serial: received May 31 @ 100, issued Jun 1 @ 60 -> net qty 0, residual +40
+        var inBad = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, badItem.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 5, 31))
+        { HasSerialNo = true };
+        inBad.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), inBad.Id, 1m, 100m, serialNo: "SN-BAD-001"));
+        inBad.Submit();
+        await bundleRepo.InsertAsync(inBad, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, badItem.Id, warehouse.Id,
+            new DateTime(2026, 5, 31), 1m, 100m, 1m, 100m) { SerialAndBatchBundleId = inBad.Id }, autoSave: true);
+
+        var outBad = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, badItem.Id, warehouse.Id,
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 1))
+        { HasSerialNo = true };
+        outBad.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outBad.Id, -1m, 60m, serialNo: "SN-BAD-001"));
+        outBad.Submit();
+        await bundleRepo.InsertAsync(outBad, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, badItem.Id, warehouse.Id,
+            new DateTime(2026, 6, 1), -1m, 60m, 0m, 40m) { SerialAndBatchBundleId = outBad.Id }, autoSave: true);
+
+        // Window Jun 1..Jun 30 shows Jun 1 issue row and uses May 31 opening balance -> Balance ValuationRate == 40
+        var periodReport = await _diagnosticsService.GetIncorrectSerialNoValuationAsync(
+            new IncorrectSerialNoValuationRequestDto
+            {
+                CompanyId = company.Id,
+                ItemId = badItem.Id,
+                FromDate = new DateTime(2026, 6, 1),
+                ToDate = new DateTime(2026, 6, 30),
+            });
+
+        var details = periodReport.Rows.Where(r => !r.IsTotalRow && !r.IsBalanceRow).ToList();
+        details.Count.ShouldBe(1);
+        details[0].SerialNoNumber.ShouldBe("SN-BAD-001");
+        details[0].PostingDate!.Value.Date.ShouldBe(new DateTime(2026, 6, 1));
+        periodReport.Rows.Last().IsBalanceRow.ShouldBeTrue();
+        periodReport.Rows.Last().Qty.ShouldBe(0m);
+        periodReport.Rows.Last().ValuationRate.ShouldBe(40m);
+    }
+
+    [Fact]
+    public async Task IncorrectSerialAndBatchBundle_Should_Detect_And_Fix_Unlinked_And_Cancelled_Bundles()
+    {
+        var bundleRepo = GetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "Bundle Diag Co"), autoSave: true);
+        var warehouse = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Bundle WH"), autoSave: true);
+        var item = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "BND-1", "Bundle Item", ItemType.Goods) { HasBatchNo = true },
+            autoSave: true);
+
+        // 1. Healthy bundle linked to active SLE -> NOT flagged
+        var healthy = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 1));
+        healthy.Submit();
+        await bundleRepo.InsertAsync(healthy, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            new DateTime(2026, 6, 1), 5m, 10m, 5m, 50m) { SerialAndBatchBundleId = healthy.Id }, autoSave: true);
+
+        // 2. Unlinked submitted bundle (no active SLE) -> FLAGGED, Fix cancels it
+        var unlinked = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 2));
+        unlinked.Submit();
+        await bundleRepo.InsertAsync(unlinked, autoSave: true);
+
+        // 3. Cancelled bundle still linked to active SLE -> FLAGGED, Fix restores it
+        var cancelledWithActiveSle = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 3));
+        cancelledWithActiveSle.Submit();
+        cancelledWithActiveSle.Cancel();
+        await bundleRepo.InsertAsync(cancelledWithActiveSle, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            new DateTime(2026, 6, 3), 3m, 10m, 8m, 80m) { SerialAndBatchBundleId = cancelledWithActiveSle.Id }, autoSave: true);
+
+        // 4. Draft bundle without SLE -> Fix MUST leave it in Draft
+        var draft = new SerialAndBatchBundle(
+            Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), new DateTime(2026, 6, 4));
+        await bundleRepo.InsertAsync(draft, autoSave: true);
+
+        var report = await _diagnosticsService.GetIncorrectSerialAndBatchBundlesAsync(
+            new IncorrectSerialAndBatchBundleRequestDto { CompanyId = company.Id });
+
+        report.Rows.Select(r => r.BundleId).ShouldNotContain(healthy.Id);
+        report.Rows.Single(r => r.BundleId == unlinked.Id).IssueType.ShouldBe("UnlinkedBundle");
+        report.Rows.Single(r => r.BundleId == cancelledWithActiveSle.Id).IssueType.ShouldBe("LinkedCancelledBundle");
+
+        var fixResult = await _diagnosticsService.FixIncorrectSerialAndBatchBundlesAsync(
+            new FixSerialAndBatchBundlesInputDto
+            {
+                BundleIds = new() { unlinked.Id, cancelledWithActiveSle.Id, draft.Id },
+            });
+
+        fixResult.CancelledCount.ShouldBe(1);
+        fixResult.RestoredCount.ShouldBe(1);
+        fixResult.SkippedCount.ShouldBe(1);
+
+        var reloadedDraft = await bundleRepo.GetAsync(draft.Id);
+        reloadedDraft.Status.ShouldBe(MyERP.Core.DocumentStatus.Draft);
+        reloadedDraft.IsCancelled.ShouldBeFalse();
+    }
 }

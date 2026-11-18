@@ -133,6 +133,13 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
         IsCancelled = true;
     }
 
+    /// <summary>Restores a cancelled bundle when active stock ledger entries still link to it.</summary>
+    public void RestoreSubmitted()
+    {
+        Status = DocumentStatus.Submitted;
+        IsCancelled = false;
+    }
+
     /// <summary>Validate bundle qty matches transaction line qty.</summary>
     public void ValidateQtyMatch(decimal transactionQty, int precision = 4)
     {
