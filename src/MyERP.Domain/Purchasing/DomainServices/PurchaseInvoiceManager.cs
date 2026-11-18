@@ -637,8 +637,11 @@ public class PurchaseInvoiceManager : DomainService
 
         if (!prItemIds.Any() && !poItemIds.Any()) return;
 
-        var prQuery = await prRepository.WithDetailsAsync(p => p.Items)
-            ?? await prRepository.GetQueryableAsync();
+        var prQuery = await prRepository.WithDetailsAsync(p => p.Items);
+        if (prQuery == null || !prQuery.Any())
+        {
+            prQuery = await prRepository.GetQueryableAsync();
+        }
         var linkedPrs = prQuery
             .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id))
                 || (poItemIds.Count > 0
