@@ -123,10 +123,16 @@ public class JobCardManager : DomainService
             var opSequence = op.SequenceId > 0 ? op.SequenceId : sequence;
 
             Guid? resolvedWorkstationId = op.WorkstationId;
-            if (!resolvedWorkstationId.HasValue && op.WorkstationTypeId.HasValue)
+            string? resolvedWorkstationType = null;
+            if (op.WorkstationTypeId.HasValue)
             {
                 var activeWorkstations = await GetWorkstationsByTypeAsync(op.WorkstationTypeId.Value, wo.CompanyId);
-                resolvedWorkstationId = activeWorkstations.FirstOrDefault()?.Id;
+                var firstWs = activeWorkstations.FirstOrDefault();
+                resolvedWorkstationType = firstWs?.WorkstationType;
+                if (!resolvedWorkstationId.HasValue)
+                {
+                    resolvedWorkstationId = firstWs?.Id;
+                }
             }
 
             while (remaining > 0)
@@ -145,6 +151,7 @@ public class JobCardManager : DomainService
                 {
                     BomOperationId = op.Id,
                     WorkstationId = resolvedWorkstationId,
+                    WorkstationType = resolvedWorkstationType,
                     WipWarehouseId = wo.WipWarehouseId,
                     PlannedTimeInMins = op.TimeInMins * (qty / batchSize),
                     FinishedGoodItemId = op.FinishedGoodItemId,
@@ -214,25 +221,117 @@ public class JobCardManager : DomainService
 
     /// <summary>
     /// Validates workstation capacity before starting a Job Card.
-    /// Per ERPNext PR #60650: multi-slot capacity check using slot allocation.
+    /// Per ERPNext PR #60650 &amp; PR #65888: multi-slot capacity check using slot allocation,
+    /// with spare workstation selection when only WorkstationType is specified.
     /// </summary>
     public async Task ValidateCapacityAsync(JobCard jobCard)
     {
-        if (!jobCard.WorkstationId.HasValue) return;
+        var candidateFrom = DateTime.UtcNow;
+        var candidateTo = candidateFrom.AddMinutes((double)(jobCard.PlannedTimeInMins > 0 ? jobCard.PlannedTimeInMins : 30m));
+
+        if (!jobCard.WorkstationId.HasValue)
+        {
+            if (string.IsNullOrWhiteSpace(jobCard.WorkstationType))
+                return;
+
+            var wsQueryable = await _workstationRepository.GetQueryableAsync();
+            if (wsQueryable == null)
+                return;
+
+            var typeWorkstations = wsQueryable
+                .Where(w => w.IsActive
+                    && w.CompanyId == jobCard.CompanyId
+                    && w.WorkstationType == jobCard.WorkstationType)
+                .OrderByDescending(w => w.ProductionCapacity)
+                .ToList();
+
+            if (typeWorkstations.Count == 0)
+                return;
+
+            var freeWs = await FindFreeWorkstationAsync(typeWorkstations, jobCard.Id, candidateFrom, candidateTo);
+            if (freeWs != null)
+            {
+                jobCard.WorkstationId = freeWs.Id;
+                return;
+            }
+
+            var firstWs = typeWorkstations[0];
+            var firstLogs = await GetOverlappingLogsAsync(firstWs.Id, jobCard.Id, candidateFrom, candidateTo);
+            var used = GetAllotedCapacity(MergeTimeLogsPerJobCard(firstLogs)).Count;
+            throw new BusinessException("MyERP:10012")
+                .WithData("workstation", firstWs.Name)
+                .WithData("capacity", firstWs.ProductionCapacity)
+                .WithData("current", used);
+        }
 
         var workstation = await _workstationRepository.GetAsync(jobCard.WorkstationId.Value);
         if (workstation.ProductionCapacity <= 0) return;
 
-        var candidateFrom = DateTime.UtcNow;
-        var candidateTo = candidateFrom.AddMinutes((double)(jobCard.PlannedTimeInMins > 0 ? jobCard.PlannedTimeInMins : 30m));
+        var logs = await GetOverlappingLogsAsync(workstation.Id, jobCard.Id, candidateFrom, candidateTo);
+        if (HasCapacityOverlap(workstation.ProductionCapacity, logs))
+        {
+            var slotsUsed = GetAllotedCapacity(MergeTimeLogsPerJobCard(logs)).Count;
+            throw new BusinessException("MyERP:10012")
+                .WithData("workstation", workstation.Name)
+                .WithData("capacity", workstation.ProductionCapacity)
+                .WithData("current", slotsUsed);
+        }
+    }
 
+    private async Task<Workstation?> FindFreeWorkstationAsync(
+        IReadOnlyList<Workstation> candidates,
+        Guid excludeJobCardId,
+        DateTime candidateFrom,
+        DateTime candidateTo)
+    {
+        var candidateIds = candidates.Select(w => w.Id).ToList();
         var queryable = await _jobCardRepository.GetQueryableAsync();
+        var activeJcs = queryable == null
+            ? new List<JobCard>()
+            : queryable
+                .Where(jc => jc.WorkstationId.HasValue
+                    && candidateIds.Contains(jc.WorkstationId.Value)
+                    && jc.Id != excludeJobCardId
+                    && jc.Status == JobCardStatus.WorkInProgress)
+                .ToList();
+
+        foreach (var ws in candidates)
+        {
+            if (ws.ProductionCapacity <= 0)
+                return ws;
+
+            var logs = ExtractOverlappingLogs(activeJcs.Where(jc => jc.WorkstationId == ws.Id), candidateFrom, candidateTo);
+            if (!HasCapacityOverlap(ws.ProductionCapacity, logs))
+                return ws;
+        }
+
+        return null;
+    }
+
+    private async Task<List<JobCardTimeLogRange>> GetOverlappingLogsAsync(
+        Guid workstationId,
+        Guid excludeJobCardId,
+        DateTime candidateFrom,
+        DateTime candidateTo)
+    {
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+        if (queryable == null)
+            return new List<JobCardTimeLogRange>();
+
         var activeJcs = queryable
-            .Where(jc => jc.WorkstationId == jobCard.WorkstationId
-                && jc.Id != jobCard.Id
+            .Where(jc => jc.WorkstationId == workstationId
+                && jc.Id != excludeJobCardId
                 && jc.Status == JobCardStatus.WorkInProgress)
             .ToList();
 
+        return ExtractOverlappingLogs(activeJcs, candidateFrom, candidateTo);
+    }
+
+    private static List<JobCardTimeLogRange> ExtractOverlappingLogs(
+        IEnumerable<JobCard> activeJcs,
+        DateTime candidateFrom,
+        DateTime candidateTo)
+    {
         var logs = new List<JobCardTimeLogRange>();
         foreach (var other in activeJcs)
         {
@@ -253,14 +352,7 @@ public class JobCardManager : DomainService
             }
         }
 
-        if (HasCapacityOverlap(workstation.ProductionCapacity, logs))
-        {
-            var slotsUsed = GetAllotedCapacity(MergeTimeLogsPerJobCard(logs)).Count;
-            throw new BusinessException("MyERP:10012")
-                .WithData("workstation", workstation.Name)
-                .WithData("capacity", workstation.ProductionCapacity)
-                .WithData("current", slotsUsed);
-        }
+        return logs;
     }
 
     /// <summary>

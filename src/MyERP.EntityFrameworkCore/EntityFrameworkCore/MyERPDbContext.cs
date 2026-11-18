@@ -1195,6 +1195,7 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BlanketOrderId);
         });
 
         // Sales Orders

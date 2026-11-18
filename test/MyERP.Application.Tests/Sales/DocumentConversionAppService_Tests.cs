@@ -795,4 +795,105 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         creditNote.Items[0].Quantity.ShouldBe(-5m);
         creditNote.Items[0].UnitPrice.ShouldBe(100m);
     }
+
+    [Fact]
+    public async Task Quotation_WithBlanketOrder_ValidatesPartyAndCarriesToSalesOrder()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var (companyId, customerId, _) = await SeedDataAsync();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var boRepo = GetRequiredService<IRepository<BlanketOrder, Guid>>();
+
+            var otherCustomer = await _customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), companyId, "Other Customer"), autoSave: true);
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), companyId, "ITEM-BO-QTN", "Blanket Item", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+            var bo = new BlanketOrder(
+                Guid.NewGuid(), companyId, "BO-QTN-01", "Selling", customerId,
+                DateTime.Today.AddDays(-5), DateTime.Today.AddDays(30));
+            bo.AddItem(item.Id, 50m, 120m, item.ItemName);
+            bo.Submit();
+            await boRepo.InsertAsync(bo, autoSave: true);
+
+            // Wrong customer cannot use another customer's Blanket Order on Quotation
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                _quotationService.CreateAsync(new CreateQuotationDto
+                {
+                    CompanyId = companyId,
+                    CustomerId = otherCustomer.Id,
+                    IssueDate = DateTime.Today,
+                    Items = new()
+                    {
+                        new() { ItemId = item.Id, Description = "Blanket Item", Quantity = 10m, UnitPrice = 120m, BlanketOrderId = bo.Id }
+                    }
+                }));
+
+            // Valid customer quotation carries BlanketOrderId without deducting BlanketOrder OrderedQty
+            var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
+            {
+                CompanyId = companyId,
+                CustomerId = customerId,
+                IssueDate = DateTime.Today,
+                Items = new()
+                {
+                    new() { ItemId = item.Id, Description = "Blanket Item", Quantity = 10m, UnitPrice = 120m, BlanketOrderId = bo.Id }
+                }
+            });
+            quotation.Items[0].BlanketOrderId.ShouldBe(bo.Id);
+            await _quotationService.SubmitAsync(quotation.Id);
+
+            var boAfterQtn = await boRepo.GetAsync(bo.Id);
+            boAfterQtn.Items[0].OrderedQty.ShouldBe(0m);
+
+            // Converting to Sales Order carries BlanketOrderId
+            var so = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id);
+            so.Items[0].BlanketOrderId.ShouldBe(bo.Id);
+        });
+    }
+
+    [Fact]
+    public async Task ConvertSalesOrderToPurchaseOrdersAsync_OverdueSalesOrder_ClampsScheduleDateToToday()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var (companyId, customerId, warehouseId) = await SeedDataAsync();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+            var poRepo = GetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+
+            var supplier = await supplierRepo.InsertAsync(
+                new Purchasing.Entities.Supplier(Guid.NewGuid(), companyId, "Overdue SO Supplier"), autoSave: true);
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), companyId, "ITEM-OVD-SO", "Overdue SO Item", ItemType.Goods) { MaintainStock = true }, autoSave: true);
+
+            var pastOrderDate = DateTime.UtcNow.Date.AddDays(-10);
+            var pastDeliveryDate = DateTime.UtcNow.Date.AddDays(-3);
+            var so = new SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-OVD-1", pastOrderDate)
+            {
+                DeliveryDate = pastDeliveryDate
+            };
+            so.AddItem(item.Id, "Overdue SO Item", 5m, 100m, 0m, "Unit", pastDeliveryDate);
+            so.Items[0].WarehouseId = warehouseId;
+            so.Submit();
+            await _salesOrderRepository.InsertAsync(so, autoSave: true);
+
+            var poIds = await _conversionService.ConvertSalesOrderToPurchaseOrdersAsync(
+                so.Id,
+                new List<SalesOrderPurchaseItemSelectionDto>
+                {
+                    new()
+                    {
+                        SalesOrderItemId = so.Items[0].Id,
+                        SupplierId = supplier.Id,
+                    }
+                });
+
+            poIds.Count.ShouldBe(1);
+            var po = await poRepo.GetAsync(poIds[0]);
+            po.Items[0].ExpectedDeliveryDate.ShouldNotBeNull();
+            po.Items[0].ExpectedDeliveryDate!.Value.Date.ShouldBeGreaterThanOrEqualTo(DateTime.UtcNow.Date);
+        });
+    }
 }

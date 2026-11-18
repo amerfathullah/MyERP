@@ -158,11 +158,16 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", bool isAlternative = false)
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", bool isAlternative = false, Guid? blanketOrderId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom) { IsAlternative = isAlternative, Idx = _items.Count });
+        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
+        {
+            IsAlternative = isAlternative,
+            Idx = _items.Count,
+            BlanketOrderId = blanketOrderId
+        });
         RecalculateTotals();
     }
 
@@ -298,6 +303,9 @@ public class QuotationItem : CreationAuditedEntity<Guid>
 
     /// <summary>This row is followed by at least one alternative row (ERPNext has_alternative_item).</summary>
     public bool HasAlternativeItem { get; set; }
+
+    /// <summary>Blanket Order this quotation line references for pricing/contract linkage.</summary>
+    public Guid? BlanketOrderId { get; set; }
 
     /// <summary>Remaining quantity to order in stock UOM (per ERPNext PR #58603).</summary>
     public decimal PendingOrderQty => Math.Max(0, StockQty - OrderedQty);

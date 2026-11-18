@@ -366,9 +366,15 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         await companyRestriction.ValidateTransactionCompanyAsync(
             "Quotation", input.CompanyId, itemIds: itemIds, customerIds: new[] { input.CustomerId });
 
+        await ValidateBlanketOrdersAsync(
+            input.CompanyId,
+            input.CustomerId,
+            input.IssueDate,
+            input.Items.Select(i => (i.ItemId, i.BlanketOrderId)));
+
         foreach (var item in input.Items)
         {
-            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
+            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative, item.BlanketOrderId);
         }
 
         await ApplyPricingRulesAsync(quotation);
@@ -445,11 +451,18 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
         await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
 
+        await ValidateBlanketOrdersAsync(
+            quotation.CompanyId,
+            effectiveCustomerId,
+            quotation.IssueDate,
+            input.Items.Select(i => (i.ItemId, i.BlanketOrderId)));
+
         // Replace items
         quotation.ClearItems();
+
         foreach (var item in input.Items)
         {
-            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
+            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative, item.BlanketOrderId);
         }
 
         await ApplyPricingRulesAsync(quotation);
@@ -466,6 +479,12 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
         await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
+
+        await ValidateBlanketOrdersAsync(
+            quotation.CompanyId,
+            quotation.CustomerId,
+            quotation.IssueDate,
+            quotation.Items.Select(i => (i.ItemId, i.BlanketOrderId)));
 
         // Per ERPNext PR #59378 (commit 4f1f676b24): Quotation revisions without cancelling
         var rootId = quotation.RevisionOfId ?? quotation.Id;
@@ -702,7 +721,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         foreach (var item in original.Items)
         {
-            revision.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
+            revision.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative, item.BlanketOrderId);
         }
 
         await _repository.InsertAsync(revision, autoSave: true);
@@ -736,13 +755,68 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         foreach (var item in original.Items)
         {
-            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
+            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative, item.BlanketOrderId);
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
         var amendDto = ObjectMapper.Map<Quotation, QuotationDto>(amended);
         amendDto.CustomerName = await ResolveCustomerNameAsync(amended.CustomerId);
         return amendDto;
+    }
+
+    /// <summary>
+    /// Validates Blanket Order linkage on Quotation lines per ERPNext validate_against_blanket_order
+    /// (commits ad16ee4b4b, 138a0e0c0a): checks company, Selling order type, customer match, date window,
+    /// and open item status, without consuming or capping Blanket Order quantity.
+    /// </summary>
+    private async Task ValidateBlanketOrdersAsync(
+        Guid companyId,
+        Guid customerId,
+        DateTime issueDate,
+        IEnumerable<(Guid ItemId, Guid? BlanketOrderId)> items)
+    {
+        var itemList = items.Where(i => i.BlanketOrderId.HasValue).ToList();
+        if (itemList.Count == 0)
+            return;
+
+        var boIds = itemList.Select(i => i.BlanketOrderId!.Value).Distinct().ToList();
+        var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+        var blanketOrders = await boRepo.GetListAsync(b => boIds.Contains(b.Id));
+
+        var boMap = blanketOrders.ToDictionary(b => b.Id);
+        foreach (var boId in boIds)
+        {
+            if (!boMap.TryGetValue(boId, out var bo))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Blanket Order {boId} was not found.");
+            }
+
+            if (bo.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("blanketOrderCompany", bo.CompanyId)
+                    .WithData("quotationCompany", companyId);
+            }
+
+            bo.ValidateCanBeOrdered(issueDate, expectedOrderType: "Selling", partyId: customerId);
+
+            foreach (var row in itemList.Where(i => i.BlanketOrderId == bo.Id))
+            {
+                var boItem = bo.Items.FirstOrDefault(x => x.ItemId == row.ItemId);
+                if (boItem == null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {row.ItemId} is not part of Blanket Order {bo.OrderNumber}.");
+                }
+
+                if (boItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                        .WithData("detail", $"Blanket Order item for item {row.ItemId} is closed.");
+                }
+            }
+        }
     }
 }
 

@@ -1803,7 +1803,11 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 if (unplannedQty <= 0m) continue;
 
                 itemMap.TryGetValue(item.ItemId, out var invItem);
-                defaultBomMap.TryGetValue(item.ItemId, out var bom);
+                var bom = defaultBomMap.GetValueOrDefault(item.ItemId)
+                    ?? (invItem?.VariantOfId.HasValue == true ? defaultBomMap.GetValueOrDefault(invItem.VariantOfId.Value) : null);
+
+                // Per ERPNext PR #65826 (commit 9154f3b237): only include Sales Order items that have an active BOM (or template BOM).
+                if (bom == null) continue;
 
                 result.Add(new OpenSalesOrderItemDto
                 {

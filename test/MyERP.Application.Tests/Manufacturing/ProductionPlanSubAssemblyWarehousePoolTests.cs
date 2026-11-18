@@ -295,4 +295,42 @@ public abstract class ProductionPlanSubAssemblyWarehousePoolTests<TStartupModule
                 }));
         });
     }
+
+    // ERPNext PR #65826 (commit 9154f3b237): GetOpenSalesOrderItemsAsync skips items without an active BOM
+    // and falls back to the variant template's active BOM.
+    [Fact]
+    public async Task GetOpenSalesOrderItemsAsync_SkipsItemsWithoutActiveBom_AndFallsBackToTemplateBom()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var soRepo = GetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var planAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PP SO Filter Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PP SO Customer"), autoSave: true);
+
+            var tradedItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "TRADED-NO-BOM", "Traded Item", ItemType.Goods), autoSave: true);
+            var templateItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "TPL-ITEM", "Template Item", ItemType.Goods) { HasVariants = true }, autoSave: true);
+            var variantItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "VAR-ITEM-RED", "Variant Red", ItemType.Goods) { VariantOfId = templateItem.Id }, autoSave: true);
+
+            var templateBom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-TPL-1", templateItem.Id) { Quantity = 1m, IsActive = true, IsDefault = true };
+            await bomRepo.InsertAsync(templateBom, autoSave: true);
+
+            var so = new Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PP-FILTER-1", DateTime.UtcNow.Date);
+            so.AddItem(tradedItem.Id, "Traded Item", 5m, 10m, 0m);
+            so.AddItem(variantItem.Id, "Variant Red", 3m, 25m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var openItems = await planAppService.GetOpenSalesOrderItemsAsync(company.Id, new List<Guid> { so.Id });
+
+            openItems.Count.ShouldBe(1);
+            openItems[0].ItemId.ShouldBe(variantItem.Id);
+            openItems[0].BomId.ShouldBe(templateBom.Id);
+        });
+    }
 }

@@ -673,4 +673,70 @@ public class JobCardTests
         jc.ReleaseHoldIfNoQtyLeft();
         jc.Status.ShouldBe(JobCardStatus.Open);
     }
+
+    // ERPNext PR #65888 (commit 38bff92913): when only WorkstationType is set, assign a free workstation of that type.
+    [Fact]
+    public async Task ValidateCapacityAsync_WorkstationType_SelectsFreeWorkstation()
+    {
+        var companyId = Guid.NewGuid();
+        var busyWs = new Workstation(Guid.NewGuid(), companyId, "CNC-1") { WorkstationType = "CNC", ProductionCapacity = 1 };
+        var freeWs = new Workstation(Guid.NewGuid(), companyId, "CNC-2") { WorkstationType = "CNC", ProductionCapacity = 1 };
+
+        var activeJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 10)
+        {
+            WorkstationId = busyWs.Id,
+            WorkstationType = "CNC",
+            PlannedTimeInMins = 60m,
+        };
+        activeJc.Start();
+
+        var candidateJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 20)
+        {
+            WorkstationType = "CNC",
+            PlannedTimeInMins = 30m,
+        };
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        jcRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JobCard> { activeJc }.AsQueryable()));
+
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        wsRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Workstation> { busyWs, freeWs }.AsQueryable()));
+
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        await manager.ValidateCapacityAsync(candidateJc);
+
+        candidateJc.WorkstationId.ShouldBe(freeWs.Id);
+    }
+
+    [Fact]
+    public async Task ValidateCapacityAsync_WorkstationType_AllBusy_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var ws1 = new Workstation(Guid.NewGuid(), companyId, "Laser-1") { WorkstationType = "Laser", ProductionCapacity = 1 };
+
+        var activeJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 10)
+        {
+            WorkstationId = ws1.Id,
+            WorkstationType = "Laser",
+            PlannedTimeInMins = 60m,
+        };
+        activeJc.Start();
+
+        var candidateJc = new JobCard(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, 20)
+        {
+            WorkstationType = "Laser",
+            PlannedTimeInMins = 30m,
+        };
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        jcRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JobCard> { activeJc }.AsQueryable()));
+
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        wsRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Workstation> { ws1 }.AsQueryable()));
+
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        await Should.ThrowAsync<BusinessException>(() => manager.ValidateCapacityAsync(candidateJc));
+    }
 }

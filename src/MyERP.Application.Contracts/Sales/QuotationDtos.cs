@@ -54,6 +54,7 @@ public class QuotationItemDto
     public decimal ConversionFactor { get; set; } = 1m;
     public bool IsAlternative { get; set; }
     public bool HasAlternativeItem { get; set; }
+    public Guid? BlanketOrderId { get; set; }
 }
 
 public class CreateQuotationDto
@@ -115,6 +116,9 @@ public class CreateQuotationItemDto
 
     /// <summary>Alternative offer for the preceding row; excluded from document totals.</summary>
     public bool IsAlternative { get; set; }
+
+    /// <summary>Blanket Order this quotation line references for pricing/contract linkage.</summary>
+    public Guid? BlanketOrderId { get; set; }
 }
 
 public class QuotationLostReasonDetailDto

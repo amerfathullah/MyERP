@@ -114,6 +114,7 @@ export class QuotationFormComponent implements OnInit {
             rate: [item.unitPrice ?? 0],
             discountPercent: [0],
             isAlternative: [item.isAlternative ?? false],
+            blanketOrderId: [item.blanketOrderId ?? null],
           }));
         });
         this.recalculate();
@@ -174,6 +175,7 @@ export class QuotationFormComponent implements OnInit {
         quantity: item.quantity ?? item.qty ?? 0,
         unitPrice: item.unitPrice ?? item.rate ?? 0,
         isAlternative: !!item.isAlternative,
+        blanketOrderId: item.blanketOrderId || null,
       })),
     };
 

@@ -194,6 +194,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         foreach (var item in itemsToOrder)
         {
             salesOrder.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, quotationItemId: item.Id);
+            if (item.BlanketOrderId.HasValue)
+            {
+                salesOrder.Items[^1].BlanketOrderId = item.BlanketOrderId;
+            }
         }
 
         quotation.ConvertedToSalesOrderId = salesOrder.Id;
@@ -1081,6 +1085,11 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             foreach (var line in supplierGroup)
             {
                 var soItem = line.Item;
+                var rawDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                var scheduleDate = rawDeliveryDate.HasValue && rawDeliveryDate.Value.Date >= orderDate
+                    ? rawDeliveryDate.Value
+                    : orderDate;
+
                 // ERPNext PR #61966 (commit a26ae5639f): decompose product bundle components and filter by purchase supplier
                 var isBundle = bundleService != null && (soItem.ProductBundleId.HasValue || await bundleService.IsBundleItemAsync(soItem.ItemId));
                 List<DomainServices.DecomposedItem>? components = null;
@@ -1107,7 +1116,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                             deliveredBySupplier: soItem.DeliveredBySupplier);
                         poItem.StockUom = comp.Uom ?? "Unit";
                         poItem.ConversionFactor = 1m;
-                        poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                        poItem.ExpectedDeliveryDate = scheduleDate;
                         poItem.SalesOrderId = salesOrder.Id;
                         poItem.SalesOrderItemId = soItem.Id;
                     }
@@ -1126,7 +1135,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                         deliveredBySupplier: soItem.DeliveredBySupplier);
                     poItem.StockUom = soItem.StockUom;
                     poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
-                    poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                    poItem.ExpectedDeliveryDate = scheduleDate;
                     poItem.SalesOrderId = salesOrder.Id;
                     poItem.SalesOrderItemId = soItem.Id;
                 }

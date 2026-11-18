@@ -705,7 +705,10 @@ public class InterCompanyTransactionService : DomainService
             salesOrder.OrderDate,
             tenantId);
 
-        po.ExpectedDeliveryDate = salesOrder.DeliveryDate;
+        var today = DateTime.UtcNow.Date;
+        po.ExpectedDeliveryDate = salesOrder.DeliveryDate.HasValue && salesOrder.DeliveryDate.Value.Date >= today
+            ? salesOrder.DeliveryDate
+            : today;
         po.CurrencyCode = salesOrder.CurrencyCode ?? "MYR";
         po.InterCompanySalesOrderId = salesOrder.Id;
         po.PriceListId = salesOrder.PriceListId;

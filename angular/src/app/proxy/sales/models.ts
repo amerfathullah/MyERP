@@ -408,6 +408,7 @@ export interface CreateQuotationItemDto {
   taxAmount?: number;
   uom?: string;
   isAlternative?: boolean;
+  blanketOrderId?: string | null;
 }
 
 export interface CreateSalesInvoiceDto {
@@ -2274,6 +2275,7 @@ export interface QuotationItemDto {
   conversionFactor?: number;
   isAlternative?: boolean;
   hasAlternativeItem?: boolean;
+  blanketOrderId?: string | null;
 }
 
 export interface QuotationLostReasonDetailDto {

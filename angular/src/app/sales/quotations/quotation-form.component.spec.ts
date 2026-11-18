@@ -186,4 +186,38 @@ describe('QuotationFormComponent Prospect Details', () => {
 
     expect(toasterMock.error).toHaveBeenCalledWith('Quotation rejected');
   });
+
+  it('preserves blanketOrderId on item rows when saving', () => {
+    const createSpy = vi.fn().mockReturnValue(of({ id: 'q-1' }));
+    const injector = Injector.create({
+      providers: [
+        { provide: FormBuilder, useValue: new FormBuilder() },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: { get: () => null } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+        { provide: QuotationService, useValue: { create: createSpy } },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyDetailsService, useValue: { getCustomerDetails: vi.fn().mockReturnValue(of({})) } },
+        { provide: ToasterService, useValue: { error: vi.fn(), success: vi.fn() } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new QuotationFormComponent());
+    const fbLocal = new FormBuilder();
+    comp.items.push(fbLocal.group({
+      itemId: ['item-1'],
+      itemName: ['Widget'],
+      qty: [5],
+      rate: [120],
+      discountPercent: [0],
+      blanketOrderId: ['bo-123'],
+    }));
+    comp.form.patchValue({ companyId: 'comp-1', customerId: 'cust-1', quotationDate: new Date() });
+    comp.save();
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0].items[0].blanketOrderId).toBe('bo-123');
+  });
 });
