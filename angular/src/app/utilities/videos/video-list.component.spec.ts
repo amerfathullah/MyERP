@@ -32,4 +32,27 @@ describe('VideoListComponent Update Stats', () => {
     expect(comp.editingStatsVideo).toBeNull();
     expect(toasterMock.success).toHaveBeenCalledWith('::SuccessfullyUpdated');
   });
+
+  it('opens valid http/https URLs in a safe tab and rejects unsafe schemes in watchVideo', () => {
+    const videoMock = { getList: vi.fn().mockReturnValue(of({ items: [] })) };
+    const toasterMock = { success: vi.fn(), error: vi.fn() };
+    const injector = Injector.create({
+      providers: [
+        { provide: VideoService, useValue: videoMock },
+        { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+        { provide: ToasterService, useValue: toasterMock },
+      ],
+    });
+    const comp = runInInjectionContext(injector, () => new VideoListComponent());
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+
+    comp.watchVideo({ id: '1', url: 'javascript:alert(1)' } as any);
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(toasterMock.error).toHaveBeenCalledWith('Invalid video URL');
+
+    comp.watchVideo({ id: '2', url: 'https://vimeo.com/76979871' } as any);
+    expect(openSpy).toHaveBeenCalledWith('https://vimeo.com/76979871', '_blank', 'noopener,noreferrer');
+
+    openSpy.mockRestore();
+  });
 });

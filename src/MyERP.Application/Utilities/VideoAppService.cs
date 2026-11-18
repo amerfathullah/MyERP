@@ -83,15 +83,16 @@ public class VideoAppService : MyERPAppService, IVideoAppService
     {
         var entity = await _repository.GetAsync(id);
 
-        entity.Title = input.Title.Trim();
-        entity.Provider = input.Provider;
-        entity.Url = input.Url.Trim();
-        entity.YoutubeVideoId = input.YoutubeVideoId?.Trim();
-        entity.PublishDate = input.PublishDate;
-        entity.DurationSeconds = input.DurationSeconds;
-        entity.Description = input.Description?.Trim();
-        entity.ImageUrl = input.ImageUrl?.Trim();
-        entity.IsActive = input.IsActive;
+        entity.UpdateDetails(
+            input.Title.Trim(),
+            input.Provider,
+            input.Url.Trim(),
+            input.YoutubeVideoId?.Trim(),
+            input.PublishDate,
+            input.DurationSeconds,
+            input.Description?.Trim(),
+            input.ImageUrl?.Trim(),
+            input.IsActive);
 
         await _repository.UpdateAsync(entity);
         return new VideoMapper().Map(entity);

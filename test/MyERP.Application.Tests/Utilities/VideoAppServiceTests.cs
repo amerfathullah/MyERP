@@ -28,8 +28,8 @@ public abstract class VideoAppServiceTests<TStartupModule> : MyERPApplicationTes
             {
                 Title = "Warehouse Management Tutorial",
                 Provider = VideoProvider.YouTube,
-                Url = "https://www.youtube.com/watch?v=sample123",
-                YoutubeVideoId = "sample123",
+                Url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                YoutubeVideoId = "dQw4w9WgXcQ",
                 DurationSeconds = 420,
                 IsActive = true
             });

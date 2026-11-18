@@ -70,7 +70,8 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
                     {{ item.isActive ? 'Active' : 'Inactive' }}
                   </span>
                 </td>
-                <td class="text-end">
+                <td class="text-end text-nowrap">
+                  <button type="button" class="btn btn-sm btn-outline-success me-2" (click)="watchVideo(item)">Watch</button>
                   <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="openStatsEditor(item)">Stats</button>
                   <a [routerLink]="['/utilities/videos', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
                   <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
@@ -193,5 +194,22 @@ export class VideoListComponent implements OnInit {
       case VideoProvider.Custom: return 'bg-secondary';
       default: return 'bg-light text-dark';
     }
+  }
+
+  watchVideo(item: VideoDto): void {
+    const rawUrl = item.url?.trim() ?? '';
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
+      this.toaster.error('Invalid video URL');
+      return;
+    }
+
+    window.open(parsed.href, '_blank', 'noopener,noreferrer');
   }
 }

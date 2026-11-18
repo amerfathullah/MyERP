@@ -97,12 +97,12 @@ export class VideoFormComponent implements OnInit {
     this.form = this.fb.group({
       title: ['', [Validators.required, Validators.maxLength(250)]],
       provider: [VideoProvider.YouTube, Validators.required],
-      url: ['', [Validators.required, Validators.maxLength(1000)]],
+      url: ['', [Validators.required, Validators.maxLength(1000), Validators.pattern(/^https?:\/\/[^\s"'<>]+$/i)]],
       youtubeVideoId: ['', Validators.maxLength(100)],
       publishDate: [null],
       durationSeconds: [null],
       description: ['', Validators.maxLength(4000)],
-      imageUrl: ['', Validators.maxLength(1000)],
+      imageUrl: ['', [Validators.maxLength(1000), Validators.pattern(/^https?:\/\/[^\s"'<>]+$/i)]],
       isActive: [true],
     });
   }
