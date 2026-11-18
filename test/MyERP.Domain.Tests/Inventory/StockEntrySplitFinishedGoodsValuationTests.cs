@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
+using MyERP.Manufacturing.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
@@ -424,8 +426,107 @@ public class StockEntrySplitFinishedGoodsValuationTests
         se.TotalIncomingValue.ShouldBe(100.00m);
         se.TotalOutgoingValue.ShouldBe(100.00m);
         se.TotalValueDifference.ShouldBe(0m);
+    }
 
+    [Fact]
+    public void CalculateCoProductRate_Shares_Allocated_Cost_Across_Split_Rows()
+    {
+        var secItemId = Guid.NewGuid();
+        var bomSecId = Guid.NewGuid();
+        var bomlessScrapId = Guid.NewGuid();
 
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        // RM: 10 @ 100 = 1000
+        entry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+        // Costed-out scrap without BOM link: 2 @ 50 = 100 (deducted -> basis = 900)
+        entry.AddItem(bomlessScrapId, 2m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id,
+            valuationRate: 50m, secondaryItemType: "Scrap", valuationType: SecondaryItemValuationType.ValuationRate);
+        // Split co-product rows referencing the same BomSecondaryItemId (30% allocation -> 900 * 30% = 270 / (4 + 6) = 27)
+        entry.AddItem(secItemId, 4m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id,
+            secondaryItemType: "Co-Product", valuationType: SecondaryItemValuationType.PercentageOfComponentCost, bomSecondaryItemId: bomSecId);
+        entry.AddItem(secItemId, 6m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id,
+            secondaryItemType: "Co-Product", valuationType: SecondaryItemValuationType.PercentageOfComponentCost, bomSecondaryItemId: bomSecId);
+
+        var rate = StockEntryManager.CalculateCoProductRate(entry.Items, bomSecId, costAllocationPercentage: 30m, secondaryItemsCostBasis: 1000m);
+        rate.ShouldBe(27m);
+
+        var fgManager = CreateManager();
+        var fgEntry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        fgEntry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+        fgEntry.AddItem(bomlessScrapId, 2m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id,
+            valuationRate: 50m, secondaryItemType: "Scrap", valuationType: SecondaryItemValuationType.ValuationRate);
+        fgEntry.AddItem(_fgItemId, 10m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true);
+        var fgRate = fgManager.CalculateManufactureFgRate(fgEntry.Items, costAllocationPercentage: 70m);
+        // (1000 - 100) * 70% / 10 = 63
+        fgRate.ShouldBe(63m);
+    }
+
+    [Fact]
+    public async Task StockPostingService_PostStockEntry_Manufacture_Splits_CoProduct_Cost_Across_Split_Rows()
+    {
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var company = new Company(_companyId, "Test Company");
+        companyRepo.GetAsync(_companyId).Returns(company);
+        companyRepo.FindAsync(_companyId).Returns(company);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        var settingProvider = Substitute.For<ISettingProvider>();
+        var bomSecRepo = Substitute.For<IRepository<BomSecondaryItem, Guid>>();
+
+        var coProductItemId = Guid.NewGuid();
+        var bomSecId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var rmItem = new Item(_rmItemId, _companyId, "RM-01", "Raw Material 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        var fgItem = new Item(_fgItemId, _companyId, "FG-01", "Finished Good 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        var coItem = new Item(coProductItemId, _companyId, "CO-01", "Co Product 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        itemRepo.FindAsync(_rmItemId).Returns(rmItem);
+        itemRepo.FindAsync(_fgItemId).Returns(fgItem);
+        itemRepo.FindAsync(coProductItemId).Returns(coItem);
+        itemRepo.GetAsync(_rmItemId).Returns(rmItem);
+        itemRepo.GetAsync(_fgItemId).Returns(fgItem);
+        itemRepo.GetAsync(coProductItemId).Returns(coItem);
+
+        var bomSecEntity = new BomSecondaryItem(bomSecId, bomId, coProductItemId, SecondaryItemType.CoProduct, 10m)
+        {
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 30m,
+        };
+        bomSecRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<BomSecondaryItem, bool>>>())
+            .Returns(new List<BomSecondaryItem> { bomSecEntity });
+
+        var binService = new BinService(binRepo);
+        var valService = new StockValuationService(sleRepo, itemRepo, settingProvider);
+        var valSp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        valSp.LazyGetService<Volo.Abp.Guids.IGuidGenerator>().Returns(Volo.Abp.Guids.SimpleGuidGenerator.Instance);
+        typeof(Volo.Abp.Domain.Services.DomainService)
+            .GetProperty("LazyServiceProvider", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?
+            .SetValue(valService, valSp);
+
+        var postingService = new StockPostingService(
+            sleRepo, companyRepo, itemRepo, whRepo, binService, valService, bomSecRepo);
+
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        // RM: 10 @ 100 = 1000
+        se.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+        // FG: 10 units -> 70% of 1000 = 700 -> 70/unit
+        var fg = se.AddItem(_fgItemId, 10m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true);
+        // Co-product split across 2 warehouses (4 + 6 = 10 units) -> 30% of 1000 = 300 -> 30/unit on both rows
+        var co1 = se.AddItem(coProductItemId, 4m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id,
+            secondaryItemType: "Co-Product", valuationType: SecondaryItemValuationType.PercentageOfComponentCost, bomSecondaryItemId: bomSecId);
+        var co2 = se.AddItem(coProductItemId, 6m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id,
+            secondaryItemType: "Co-Product", valuationType: SecondaryItemValuationType.PercentageOfComponentCost, bomSecondaryItemId: bomSecId);
+
+        await postingService.PostStockEntryAsync(se);
+
+        fg.ValuationRate.ShouldBe(70m);
+        co1.ValuationRate.ShouldBe(30m);
+        co2.ValuationRate.ShouldBe(30m);
+        se.TotalIncomingValue.ShouldBe(1000m);
+        se.TotalOutgoingValue.ShouldBe(1000m);
+        se.TotalValueDifference.ShouldBe(0m);
     }
 }
 

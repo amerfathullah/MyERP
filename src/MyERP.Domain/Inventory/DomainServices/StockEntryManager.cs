@@ -868,20 +868,21 @@ public class StockEntryManager : DomainService
         var hasConsumptionBasis = rawMaterialItems.Count > 0;
 
         var outgoingCost = rawMaterialItems.Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
+        var costedOutCost = GetCostedOutItemsCost(items);
 
         var manualCost = items
-            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+            .Where(d => (d.IsFinishedItem || (!d.SourceWarehouseId.HasValue && !IsCostedOutOfFinishedItem(d)))
                 && d.TargetWarehouseId.HasValue
                 && d.SetBasicRateManually
                 && !d.AllowZeroValuationRate)
             .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
 
-        if (!hasConsumptionBasis && bomEstimatedCost.HasValue && manualCost <= 0)
+        if (!hasConsumptionBasis && bomEstimatedCost.HasValue && manualCost <= 0 && costedOutCost <= 0)
         {
             outgoingCost = bomEstimatedCost.Value;
         }
 
-        var costLeft = outgoingCost - manualCost;
+        var costLeft = outgoingCost - costedOutCost - manualCost;
         if (costAllocationPercentage < 100m && costAllocationPercentage >= 0m)
         {
             costLeft *= (costAllocationPercentage / 100m);
@@ -897,16 +898,66 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Whether a secondary output row takes its value out of the finished good instead of adding to it
+    /// (Valuation Rate, Manual, or BOM-less legacy scrap).
+    /// Per ERPNext PR #59021 / commit bec627c3eb & commit 4e3093831e.
+    /// </summary>
+    public static bool IsCostedOutOfFinishedItem(StockEntryItem row) =>
+        row.TargetWarehouseId.HasValue
+        && !row.SourceWarehouseId.HasValue
+        && (row.ValuationType is SecondaryItemValuationType.ValuationRate or SecondaryItemValuationType.Manual
+            || (!string.IsNullOrWhiteSpace(row.SecondaryItemType) && !row.BomSecondaryItemId.HasValue));
+
+    /// <summary>
+    /// Total value of secondary rows deducted from the cost pool before allocating FG/co-product shares.
+    /// </summary>
+    public static decimal GetCostedOutItemsCost(IEnumerable<StockEntryItem> items) =>
+        items.Where(d => IsCostedOutOfFinishedItem(d) && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+    /// <summary>
+    /// Calculates the per-unit basic rate for a BOM-linked co-product / secondary output row.
+    /// Per ERPNext commit 4e3093831e: when multiple rows reference the same BomSecondaryItemId
+    /// (e.g., split across warehouses or batches), their quantities are summed so they share the
+    /// allocated percentage rather than duplicating the full co-product cost on each row.
+    /// </summary>
+    public static decimal CalculateCoProductRate(
+        IReadOnlyList<StockEntryItem> items,
+        Guid bomSecondaryItemId,
+        decimal costAllocationPercentage,
+        decimal secondaryItemsCostBasis)
+    {
+        var secondaryItemsQty = items
+            .Where(item => item.BomSecondaryItemId == bomSecondaryItemId
+                && !item.SourceWarehouseId.HasValue
+                && item.TargetWarehouseId.HasValue
+                && !item.SetBasicRateManually
+                && !item.AllowZeroValuationRate
+                && !IsCostedOutOfFinishedItem(item))
+            .Sum(item => item.Quantity);
+
+        if (secondaryItemsQty <= 0m) return 0m;
+
+        var allocationBasis = Math.Max(0m, secondaryItemsCostBasis - GetCostedOutItemsCost(items));
+        return Math.Round((allocationBasis * (costAllocationPercentage / 100m)) / secondaryItemsQty, 4);
+    }
+
+    /// <summary>
     /// Computes cost allocation percentage for finished goods, giving it the share of co-products not made.
     /// Per ERPNext PR #60421 / commit 00ca106bf5: if co-products defined in BOM are omitted in the Stock Entry,
     /// their cost share is retained by the finished good instead of being lost.
     /// </summary>
     public decimal GetFinishedGoodCostAllocationPercentage(
         IReadOnlyList<StockEntryItem> items,
+        IReadOnlyList<(Guid BomSecondaryItemId, decimal CostAllocationPercentage)> bomSecondaryItems) =>
+        ComputeFinishedGoodCostAllocationPercentage(items, bomSecondaryItems);
+
+    public static decimal ComputeFinishedGoodCostAllocationPercentage(
+        IReadOnlyList<StockEntryItem> items,
         IReadOnlyList<(Guid BomSecondaryItemId, decimal CostAllocationPercentage)> bomSecondaryItems)
     {
         var presentBomSecondaryItemIds = items
-            .Where(i => i.BomSecondaryItemId.HasValue && i.Quantity > 0)
+            .Where(i => i.BomSecondaryItemId.HasValue && i.Quantity > 0 && !IsCostedOutOfFinishedItem(i))
             .Select(i => i.BomSecondaryItemId!.Value)
             .ToHashSet();
 

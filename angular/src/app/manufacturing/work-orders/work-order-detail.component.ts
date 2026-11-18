@@ -10,6 +10,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto, ProductionCostBreakdownDto, AlternativeFinishedGoodsDetailsDto } from '../../proxy/manufacturing/models';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
+import { InspectionStatus } from '../../proxy/inventory/inspection-status.enum';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 
@@ -595,6 +597,7 @@ export class WorkOrderDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private manufacturingService = inject(ManufacturingService);
   private itemService = inject(ItemService);
+  private qualityInspectionService = inject(QualityInspectionService);
   private stockReservationService = inject(StockReservationService);
   private l = inject(LocalizationService);
 
@@ -1100,10 +1103,37 @@ export class WorkOrderDetailComponent implements OnInit {
   }
 
   private loadQiStatus(workOrderId: string, itemId: string): void {
-    // TODO: Replace with QualityInspectionService.getList when parameters align
     this.itemService.get(itemId).subscribe({
       next: (item: any) => {
-        this.qiRequired.set(item?.inspectionRequiredBeforeDelivery ?? false);
+        const required = item?.inspectionRequiredBeforeDelivery ?? false;
+        this.qiRequired.set(required);
+        if (!required) {
+          this.qiStatus.set('');
+          return;
+        }
+        const woCompanyId = this.wo()?.companyId;
+        this.qualityInspectionService.getList({
+          companyId: woCompanyId,
+          itemId,
+          skipCount: 0,
+          maxResultCount: 50,
+        }).subscribe({
+          next: res => {
+            const items = res?.items ?? [];
+            const linked = items.filter(q => q.referenceId === workOrderId);
+            const match = (linked.length > 0 ? linked : items)[0];
+            if (!match) {
+              this.qiStatus.set('');
+            } else if (match.status === InspectionStatus.Accepted) {
+              this.qiStatus.set('Accepted');
+            } else if (match.status === InspectionStatus.Rejected) {
+              this.qiStatus.set('Rejected');
+            } else {
+              this.qiStatus.set('');
+            }
+          },
+          error: () => {},
+        });
       },
       error: () => {},
     });

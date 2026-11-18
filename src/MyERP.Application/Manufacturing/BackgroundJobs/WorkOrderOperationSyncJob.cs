@@ -245,6 +245,8 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
                         sourceWarehouseId: null, targetWarehouseId: secWarehouseId.Value,
                         valuationRate: secRate,
                         secondaryItemType: secItem.SecondaryItemType.ToString(),
+                        valuationType: secItem.ValuationType,
+                        bomSecondaryItemId: secItem.Id,
                         processLossPercentage: secItem.ProcessLossPercentage);
                 }
             }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -24,6 +25,7 @@ public class StockPostingService : DomainService
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly BinService _binService;
     private readonly StockValuationService _valuationService;
+    private readonly IRepository<BomSecondaryItem, Guid>? _bomSecondaryItemRepository;
 
     public StockPostingService(
         IRepository<StockLedgerEntry, Guid> sleRepository,
@@ -31,7 +33,8 @@ public class StockPostingService : DomainService
         IRepository<Item, Guid> itemRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
         BinService binService,
-        StockValuationService valuationService)
+        StockValuationService valuationService,
+        IRepository<BomSecondaryItem, Guid>? bomSecondaryItemRepository = null)
     {
         _sleRepository = sleRepository;
         _companyRepository = companyRepository;
@@ -39,6 +42,7 @@ public class StockPostingService : DomainService
         _warehouseRepository = warehouseRepository;
         _binService = binService;
         _valuationService = valuationService;
+        _bomSecondaryItemRepository = bomSecondaryItemRepository;
     }
 
     /// <summary>
@@ -209,13 +213,45 @@ public class StockPostingService : DomainService
 
             if (producedOutputs.Count > 0 && (!stockEntry.WorkOrderId.HasValue || stockEntry.EntryType == StockEntryType.Repack))
             {
+                var bomSecIds = producedOutputs
+                    .Where(d => d.BomSecondaryItemId.HasValue && !StockEntryManager.IsCostedOutOfFinishedItem(d))
+                    .Select(d => d.BomSecondaryItemId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var bomSecAllocMap = new Dictionary<Guid, decimal>();
+                var bomSecTuples = new List<(Guid BomSecondaryItemId, decimal CostAllocationPercentage)>();
+                if (stockEntry.EntryType == StockEntryType.Manufacture && bomSecIds.Count > 0)
+                {
+                    var bomSecRepo = _bomSecondaryItemRepository
+                        ?? LazyServiceProvider?.LazyGetService<IRepository<BomSecondaryItem, Guid>>();
+                    if (bomSecRepo != null)
+                    {
+                        var bomSecRows = await bomSecRepo.GetListAsync(b => bomSecIds.Contains(b.Id));
+                        foreach (var b in bomSecRows)
+                        {
+                            bomSecAllocMap[b.Id] = b.CostAllocationPercentage;
+                            bomSecTuples.Add((b.Id, b.CostAllocationPercentage));
+                        }
+                    }
+                }
+
                 var finishedItemsQty = stockEntry.GetFinishedItemsQty();
-                var costedOutItemsCost = producedOutputs
-                    .Where(d => d.SetBasicRateManually && !d.AllowZeroValuationRate)
+                var costedOutItemsCost = StockEntryManager.GetCostedOutItemsCost(producedOutputs);
+                var manualFgCost = producedOutputs
+                    .Where(d => (d.IsFinishedItem || (!d.SourceWarehouseId.HasValue && !StockEntryManager.IsCostedOutOfFinishedItem(d)))
+                                && d.SetBasicRateManually
+                                && !d.AllowZeroValuationRate)
                     .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
 
-                var netOutgoingCost = Math.Max(0m, totalRawMaterialOutwardValue - costedOutItemsCost);
-                var basicRate = finishedItemsQty > 0 ? (netOutgoingCost / finishedItemsQty) : 0m;
+                var netOutgoingCost = Math.Max(0m, totalRawMaterialOutwardValue - costedOutItemsCost - manualFgCost);
+                var fgAllocationPct = bomSecTuples.Count > 0
+                    ? StockEntryManager.ComputeFinishedGoodCostAllocationPercentage(producedOutputs, bomSecTuples)
+                    : 100m;
+                var fgCostBasis = fgAllocationPct < 100m
+                    ? netOutgoingCost * (fgAllocationPct / 100m)
+                    : netOutgoingCost;
+                var basicRate = finishedItemsQty > 0 ? (fgCostBasis / finishedItemsQty) : 0m;
 
                 foreach (var output in producedOutputs)
                 {
@@ -226,6 +262,23 @@ public class StockPostingService : DomainService
                     else if (output.AllowZeroValuationRate)
                     {
                         output.ValuationRate = 0m;
+                    }
+                    else if (StockEntryManager.IsCostedOutOfFinishedItem(output))
+                    {
+                        // Secondary items costed out of FG retain their own valuation rate
+                    }
+                    else if (stockEntry.EntryType == StockEntryType.Manufacture
+                             && output.BomSecondaryItemId.HasValue
+                             && !string.IsNullOrWhiteSpace(output.SecondaryItemType))
+                    {
+                        var secAllocPct = bomSecAllocMap.GetValueOrDefault(output.BomSecondaryItemId.Value, 0m);
+                        var coProductRate = StockEntryManager.CalculateCoProductRate(
+                            producedOutputs,
+                            output.BomSecondaryItemId.Value,
+                            secAllocPct,
+                            totalRawMaterialOutwardValue - manualFgCost);
+                        var additionalCostPerUnit = output.Quantity > 0 ? (output.AdditionalCost / output.Quantity) : 0m;
+                        output.ValuationRate = Math.Round(coProductRate + additionalCostPerUnit, 2);
                     }
                     else
                     {

@@ -3254,6 +3254,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                     targetWarehouseId: secWarehouseId.Value,
                     valuationRate: secRate,
                     secondaryItemType: secItem.SecondaryItemType.ToString(),
+                    valuationType: secItem.ValuationType,
+                    bomSecondaryItemId: secItem.Id,
                     processLossPercentage: secItem.ProcessLossPercentage);
             }
         }

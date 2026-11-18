@@ -7,6 +7,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { WorkOrderDetailComponent } from './work-order-detail.component';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
+import { InspectionStatus } from '../../proxy/inventory/inspection-status.enum';
 import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
 
 describe('WorkOrderDetailComponent BOM & Return Actions', () => {
@@ -25,6 +27,9 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
     const confirmationMock = { warn: vi.fn().mockReturnValue(of(confirmStatus)) };
     const toasterMock = { success: vi.fn(), error: vi.fn(), warn: vi.fn() };
 
+    const itemMock = { get: vi.fn().mockReturnValue(of({})) };
+    const qiMock = { getList: vi.fn().mockReturnValue(of({ items: [] })) };
+
     const injector = Injector.create({
       providers: [
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
@@ -32,14 +37,15 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
         { provide: ManufacturingService, useValue: mfgMock },
         { provide: ConfirmationService, useValue: confirmationMock },
         { provide: ToasterService, useValue: toasterMock },
-        { provide: ItemService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+        { provide: ItemService, useValue: itemMock },
+        { provide: QualityInspectionService, useValue: qiMock },
         { provide: StockReservationService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
         { provide: LocalizationService, useValue: { instant: (k: string) => k } },
       ],
     });
 
     const comp = runInInjectionContext(injector, () => new WorkOrderDetailComponent());
-    return { comp, mfgMock, routerMock, confirmationMock, toasterMock };
+    return { comp, mfgMock, routerMock, confirmationMock, toasterMock, itemMock, qiMock };
   }
 
   it('detects returnable excess materials only when Completed or Closed', () => {
@@ -118,5 +124,28 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
     expect(comp.showFgConversionModal()).toBe(false);
     expect(toasterMock.success).toHaveBeenCalled();
     expect(routerMock.navigate).toHaveBeenCalledWith(['/inventory/stock-entries', 'se-fg-1']);
+  });
+
+  it('resolves Quality Inspection Accepted status via QualityInspectionService.getList', () => {
+    const { comp, itemMock, qiMock } = createComponent();
+    comp.wo.set({ id: 'wo-1', companyId: 'co-1', itemId: 'fg-1', status: 3 } as any);
+    itemMock.get.mockReturnValue(of({ inspectionRequiredBeforeDelivery: true }));
+    qiMock.getList.mockReturnValue(of({
+      items: [
+        { id: 'qi-other', referenceId: 'wo-other', status: InspectionStatus.Rejected },
+        { id: 'qi-1', referenceId: 'wo-1', status: InspectionStatus.Accepted },
+      ],
+    }));
+
+    (comp as any).loadQiStatus('wo-1', 'fg-1');
+
+    expect(qiMock.getList).toHaveBeenCalledWith({
+      companyId: 'co-1',
+      itemId: 'fg-1',
+      skipCount: 0,
+      maxResultCount: 50,
+    });
+    expect(comp.qiRequired()).toBe(true);
+    expect(comp.qiStatus()).toBe('Accepted');
   });
 });
