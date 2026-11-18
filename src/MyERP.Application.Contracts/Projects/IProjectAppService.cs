@@ -28,4 +28,6 @@ public interface IProjectAppService : IApplicationService
     Task<ProjectTaskDto> AddTaskDependencyAsync(Guid taskId, Guid dependsOnTaskId);
     Task<ProjectTaskDto> RemoveTaskDependencyAsync(Guid taskId, Guid dependencyId);
     Task<ProjectDto> DuplicateProjectAsync(Guid sourceProjectId, string newProjectName);
+    Task<ProjectSummaryReportDto> GetProjectSummaryReportAsync(ProjectSummaryRequestDto input);
+    Task<DelayedTasksSummaryReportDto> GetDelayedTasksSummaryAsync(DelayedTasksSummaryRequestDto input);
 }

@@ -6458,7 +6458,22 @@
     "SalesPartnerCommissionSummaryDescription": "Summary of sales orders, invoices, and POS invoices attributed to sales partners with commission amounts",
     "Menu:SalesPartnerTransactionSummary": "Sales Partner Transaction Summary",
     "SalesPartnerTransactionSummary": "Sales Partner Transaction Summary",
-    "SalesPartnerTransactionSummaryDescription": "Item-wise breakdown of sales partner transactions respecting commission eligibility and item groups"
+    "SalesPartnerTransactionSummaryDescription": "Item-wise breakdown of sales partner transactions respecting commission eligibility and item groups",
+    "Menu:ProjectSummary": "Project Summary",
+    "ProjectSummary": "Project Summary",
+    "ProjectSummaryDescription": "Portfolio summary showing task totals, completions, overdue counts, and project completion percentages",
+    "TotalTasks": "Total Tasks",
+    "CompletedTasks": "Tasks Completed",
+    "OverdueTasks": "Tasks Overdue",
+    "PercentComplete": "Completion %",
+    "ExpectedStartDate": "Start Date",
+    "ExpectedEndDate": "End Date",
+    "Menu:DelayedTasksSummary": "Delayed Tasks Summary",
+    "DelayedTasksSummary": "Delayed Tasks Summary",
+    "DelayedTasksSummaryDescription": "Tracks project tasks by schedule variance relative to expected end date and task completion",
+    "DelayInDays": "Delay (Days)",
+    "DelayedCount": "Delayed",
+    "OnTrackCount": "On Track"
   }
 }
 

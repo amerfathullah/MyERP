@@ -637,5 +637,186 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         await UpdateProjectProgress(newProject.Id);
         return ObjectMapper.Map<Project, ProjectDto>(newProject);
     }
+
+    /// <summary>
+    /// Project Summary report: task completion/overdue counts and progress across projects.
+    /// Per ERPNext projects/report/project_summary.
+    /// </summary>
+    public async Task<ProjectSummaryReportDto> GetProjectSummaryReportAsync(ProjectSummaryRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var projQuery = await _projectRepository.GetQueryableAsync();
+        var projects = projQuery
+            .Where(p => p.CompanyId == input.CompanyId
+                && (!input.Status.HasValue || p.Status == input.Status.Value)
+                && (!input.ProjectTypeId.HasValue || p.ProjectTypeId == input.ProjectTypeId.Value)
+                && (!input.IsActive.HasValue || (input.IsActive.Value ? p.Status != ProjectStatus.Cancelled : p.Status == ProjectStatus.Cancelled)))
+            .OrderBy(p => p.ExpectedEndDate ?? DateTime.MaxValue)
+            .ThenBy(p => p.ProjectNumber)
+            .ToList();
+
+        if (projects.Count == 0)
+        {
+            return new ProjectSummaryReportDto();
+        }
+
+        var projectIds = projects.Select(p => p.Id).ToHashSet();
+        var taskQuery = await _taskRepository.GetQueryableAsync();
+        var tasksByProject = taskQuery
+            .Where(t => projectIds.Contains(t.ProjectId))
+            .ToList()
+            .GroupBy(t => t.ProjectId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var typeNames = new System.Collections.Generic.Dictionary<Guid, string>();
+        var typeRepo = LazyServiceProvider?.LazyGetService<IRepository<ProjectType, Guid>>();
+        if (typeRepo != null)
+        {
+            typeNames = (await typeRepo.GetListAsync())
+                .ToDictionary(t => t.Id, t => t.Name);
+        }
+
+        var rows = new System.Collections.Generic.List<ProjectSummaryRowDto>(projects.Count);
+        foreach (var project in projects)
+        {
+            tasksByProject.TryGetValue(project.Id, out var projTasks);
+            projTasks ??= new System.Collections.Generic.List<ProjectTask>();
+
+            var completed = projTasks.Count(t => t.Status == ProjectTaskStatus.Completed);
+            var overdue = projTasks.Count(t =>
+                t.Status == ProjectTaskStatus.Overdue ||
+                (t.Status != ProjectTaskStatus.Completed
+                    && t.Status != ProjectTaskStatus.Cancelled
+                    && t.ExpectedEndDate.HasValue
+                    && t.ExpectedEndDate.Value.Date < today));
+
+            string? typeName = null;
+            if (project.ProjectTypeId.HasValue)
+            {
+                typeNames.TryGetValue(project.ProjectTypeId.Value, out typeName);
+            }
+
+            rows.Add(new ProjectSummaryRowDto
+            {
+                ProjectId = project.Id,
+                ProjectNumber = project.ProjectNumber,
+                ProjectName = project.ProjectName,
+                ProjectTypeName = typeName,
+                Status = project.Status,
+                TotalTasks = projTasks.Count,
+                CompletedTasks = completed,
+                OverdueTasks = overdue,
+                PercentComplete = project.PercentComplete,
+                ExpectedStartDate = project.ExpectedStartDate,
+                ExpectedEndDate = project.ExpectedEndDate,
+            });
+        }
+
+        return new ProjectSummaryReportDto
+        {
+            TotalProjects = rows.Count,
+            OpenProjects = rows.Count(r => r.Status == ProjectStatus.Open),
+            CompletedProjects = rows.Count(r => r.Status == ProjectStatus.Completed),
+            TotalTasks = rows.Sum(r => r.TotalTasks),
+            CompletedTasks = rows.Sum(r => r.CompletedTasks),
+            OverdueTasks = rows.Sum(r => r.OverdueTasks),
+            Rows = rows,
+        };
+    }
+
+    /// <summary>
+    /// Delayed Tasks Summary report: computes task delay in days relative to ExpectedEndDate.
+    /// Per ERPNext projects/report/delayed_tasks_summary.
+    /// </summary>
+    public async Task<DelayedTasksSummaryReportDto> GetDelayedTasksSummaryAsync(DelayedTasksSummaryRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var asOfDate = (input.AsOfDate ?? DateTime.UtcNow).Date;
+        var fromDate = input.FromDate?.Date;
+        var toDate = input.ToDate?.Date;
+
+        var projQuery = await _projectRepository.GetQueryableAsync();
+        var projects = projQuery
+            .Where(p => p.CompanyId == input.CompanyId
+                && (!input.ProjectId.HasValue || p.Id == input.ProjectId.Value))
+            .ToDictionary(p => p.Id);
+
+        if (projects.Count == 0)
+        {
+            return new DelayedTasksSummaryReportDto();
+        }
+
+        var projectIds = projects.Keys.ToHashSet();
+        var taskQuery = await _taskRepository.GetQueryableAsync();
+        var tasks = taskQuery
+            .Where(t => projectIds.Contains(t.ProjectId)
+                && t.Status != ProjectTaskStatus.Cancelled
+                && (!input.Priority.HasValue || t.Priority == input.Priority.Value)
+                && (!input.Status.HasValue || t.Status == input.Status.Value)
+                && (!fromDate.HasValue || (t.ExpectedEndDate.HasValue && t.ExpectedEndDate.Value.Date >= fromDate.Value))
+                && (!toDate.HasValue || (t.ExpectedStartDate.HasValue && t.ExpectedStartDate.Value.Date <= toDate.Value)))
+            .ToList();
+
+        var rows = new System.Collections.Generic.List<DelayedTaskSummaryRowDto>(tasks.Count);
+        foreach (var task in tasks)
+        {
+            int delayDays = 0;
+            if (task.ExpectedEndDate.HasValue)
+            {
+                if (task.ActualEndDate.HasValue)
+                    delayDays = (task.ActualEndDate.Value.Date - task.ExpectedEndDate.Value.Date).Days;
+                else if (task.Status != ProjectTaskStatus.Completed)
+                    delayDays = (asOfDate - task.ExpectedEndDate.Value.Date).Days;
+            }
+
+            projects.TryGetValue(task.ProjectId, out var proj);
+
+            rows.Add(new DelayedTaskSummaryRowDto
+            {
+                TaskId = task.Id,
+                TaskNumber = task.TaskNumber,
+                Subject = task.Subject,
+                ProjectId = task.ProjectId,
+                ProjectNumber = proj?.ProjectNumber ?? string.Empty,
+                ProjectName = proj?.ProjectName ?? string.Empty,
+                Status = task.Status,
+                Priority = task.Priority,
+                Progress = task.Progress,
+                ExpectedStartDate = task.ExpectedStartDate,
+                ExpectedEndDate = task.ExpectedEndDate,
+                ActualEndDate = task.ActualEndDate,
+                DelayInDays = delayDays,
+            });
+        }
+
+        rows = rows
+            .OrderByDescending(r => r.DelayInDays)
+            .ThenBy(r => r.ExpectedEndDate ?? DateTime.MaxValue)
+            .ToList();
+
+        return new DelayedTasksSummaryReportDto
+        {
+            TotalTasks = rows.Count,
+            DelayedCount = rows.Count(r => r.DelayInDays > 0),
+            OnTrackCount = rows.Count(r => r.DelayInDays <= 0),
+            Rows = rows,
+        };
+    }
 }
 

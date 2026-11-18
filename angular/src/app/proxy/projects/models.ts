@@ -358,3 +358,67 @@ export interface UpdateProjectUserDto {
   viewAttachments?: boolean;
   hideTimesheets?: boolean;
 }
+
+export interface ProjectSummaryRequestDto {
+  companyId?: string;
+  status?: ProjectStatus | null;
+  projectTypeId?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface ProjectSummaryRowDto {
+  projectId?: string;
+  projectNumber?: string;
+  projectName?: string;
+  projectTypeName?: string | null;
+  status?: ProjectStatus;
+  totalTasks?: number;
+  completedTasks?: number;
+  overdueTasks?: number;
+  percentComplete?: number;
+  expectedStartDate?: string | null;
+  expectedEndDate?: string | null;
+}
+
+export interface ProjectSummaryReportDto {
+  totalProjects?: number;
+  openProjects?: number;
+  completedProjects?: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  overdueTasks?: number;
+  rows?: ProjectSummaryRowDto[];
+}
+
+export interface DelayedTasksSummaryRequestDto {
+  companyId?: string;
+  projectId?: string | null;
+  priority?: ProjectPriority | null;
+  status?: ProjectTaskStatus | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  asOfDate?: string | null;
+}
+
+export interface DelayedTaskSummaryRowDto {
+  taskId?: string;
+  taskNumber?: string;
+  subject?: string;
+  projectId?: string;
+  projectNumber?: string;
+  projectName?: string;
+  status?: ProjectTaskStatus;
+  priority?: ProjectPriority;
+  progress?: number;
+  expectedStartDate?: string | null;
+  expectedEndDate?: string | null;
+  actualEndDate?: string | null;
+  delayInDays?: number;
+}
+
+export interface DelayedTasksSummaryReportDto {
+  totalTasks?: number;
+  delayedCount?: number;
+  onTrackCount?: number;
+  rows?: DelayedTaskSummaryRowDto[];
+}

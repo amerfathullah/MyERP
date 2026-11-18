@@ -1,4 +1,4 @@
-import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, GetProjectListDto, ProjectDto, ProjectTaskDto, ProjectUserDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
+import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, DelayedTasksSummaryReportDto, DelayedTasksSummaryRequestDto, GetProjectListDto, ProjectDto, ProjectSummaryReportDto, ProjectSummaryRequestDto, ProjectTaskDto, ProjectUserDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
 import type { ProjectTaskStatus } from './project-task-status.enum';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
@@ -226,6 +226,26 @@ export class ProjectService {
       headers: { Accept: 'application/json' },
       url: `/api/app/project/user/${projectUserId}`,
       body: input,
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getProjectSummaryReport = (input: ProjectSummaryRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectSummaryReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/project/project-summary-report',
+      params: { companyId: input.companyId, status: input.status, projectTypeId: input.projectTypeId, isActive: input.isActive },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getDelayedTasksSummary = (input: DelayedTasksSummaryRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DelayedTasksSummaryReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/project/delayed-tasks-summary',
+      params: { companyId: input.companyId, projectId: input.projectId, priority: input.priority, status: input.status, fromDate: input.fromDate, toDate: input.toDate, asOfDate: input.asOfDate },
     },
       { apiName: this.apiName,...config });
 }

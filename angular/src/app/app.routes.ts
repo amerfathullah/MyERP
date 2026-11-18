@@ -2369,6 +2369,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.ProjectUpdates' },
   },
   {
+    path: 'projects/reports/project-summary',
+    loadComponent: () => import('./projects/reports/project-summary/project-summary.component').then(c => c.ProjectSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/reports/delayed-tasks-summary',
+    loadComponent: () => import('./projects/reports/delayed-tasks-summary/delayed-tasks-summary.component').then(c => c.DelayedTasksSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
     path: 'projects/:id',
     loadComponent: () => import('./projects/project-detail/project-detail.component').then(c => c.ProjectDetailComponent),
     canActivate: [authGuard, permissionGuard],

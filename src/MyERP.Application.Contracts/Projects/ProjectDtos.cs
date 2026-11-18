@@ -333,3 +333,74 @@ public class SetActivityCostDto
     public decimal BillingRate { get; set; }
     public decimal CostingRate { get; set; }
 }
+
+// --- Project Summary & Delayed Tasks Summary Reports (ERPNext projects/report) ---
+public class ProjectSummaryRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public ProjectStatus? Status { get; set; }
+    public Guid? ProjectTypeId { get; set; }
+    public bool? IsActive { get; set; }
+}
+
+public class ProjectSummaryRowDto
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectNumber { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public string? ProjectTypeName { get; set; }
+    public ProjectStatus Status { get; set; }
+    public int TotalTasks { get; set; }
+    public int CompletedTasks { get; set; }
+    public int OverdueTasks { get; set; }
+    public decimal PercentComplete { get; set; }
+    public DateTime? ExpectedStartDate { get; set; }
+    public DateTime? ExpectedEndDate { get; set; }
+}
+
+public class ProjectSummaryReportDto
+{
+    public int TotalProjects { get; set; }
+    public int OpenProjects { get; set; }
+    public int CompletedProjects { get; set; }
+    public int TotalTasks { get; set; }
+    public int CompletedTasks { get; set; }
+    public int OverdueTasks { get; set; }
+    public List<ProjectSummaryRowDto> Rows { get; set; } = new();
+}
+
+public class DelayedTasksSummaryRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public ProjectPriority? Priority { get; set; }
+    public ProjectTaskStatus? Status { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public DateTime? AsOfDate { get; set; }
+}
+
+public class DelayedTaskSummaryRowDto
+{
+    public Guid TaskId { get; set; }
+    public string TaskNumber { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public Guid ProjectId { get; set; }
+    public string ProjectNumber { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public ProjectTaskStatus Status { get; set; }
+    public ProjectPriority Priority { get; set; }
+    public decimal Progress { get; set; }
+    public DateTime? ExpectedStartDate { get; set; }
+    public DateTime? ExpectedEndDate { get; set; }
+    public DateTime? ActualEndDate { get; set; }
+    public int DelayInDays { get; set; }
+}
+
+public class DelayedTasksSummaryReportDto
+{
+    public int TotalTasks { get; set; }
+    public int DelayedCount { get; set; }
+    public int OnTrackCount { get; set; }
+    public List<DelayedTaskSummaryRowDto> Rows { get; set; } = new();
+}
