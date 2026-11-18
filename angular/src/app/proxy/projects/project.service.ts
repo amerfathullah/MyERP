@@ -1,4 +1,4 @@
-import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, DelayedTasksSummaryReportDto, DelayedTasksSummaryRequestDto, GetProjectListDto, ProjectDto, ProjectSummaryReportDto, ProjectSummaryRequestDto, ProjectTaskDto, ProjectUserDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
+import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, DelayedTasksSummaryReportDto, DelayedTasksSummaryRequestDto, GetProjectListDto, ProjectDto, ProjectSummaryReportDto, ProjectSummaryRequestDto, ProjectTaskDto, ProjectUserDto, ProjectWiseStockTrackingReportDto, ProjectWiseStockTrackingRequestDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
 import type { ProjectTaskStatus } from './project-task-status.enum';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
@@ -246,6 +246,16 @@ export class ProjectService {
       headers: { Accept: 'application/json' },
       url: '/api/app/project/delayed-tasks-summary',
       params: { companyId: input.companyId, projectId: input.projectId, priority: input.priority, status: input.status, fromDate: input.fromDate, toDate: input.toDate, asOfDate: input.asOfDate },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getProjectWiseStockTracking = (input: ProjectWiseStockTrackingRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectWiseStockTrackingReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/project/project-wise-stock-tracking',
+      params: { companyId: input.companyId, projectId: input.projectId, status: input.status },
     },
       { apiName: this.apiName,...config });
 }

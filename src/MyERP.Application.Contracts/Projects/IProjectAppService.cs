@@ -30,4 +30,5 @@ public interface IProjectAppService : IApplicationService
     Task<ProjectDto> DuplicateProjectAsync(Guid sourceProjectId, string newProjectName);
     Task<ProjectSummaryReportDto> GetProjectSummaryReportAsync(ProjectSummaryRequestDto input);
     Task<DelayedTasksSummaryReportDto> GetDelayedTasksSummaryAsync(DelayedTasksSummaryRequestDto input);
+    Task<ProjectWiseStockTrackingReportDto> GetProjectWiseStockTrackingAsync(ProjectWiseStockTrackingRequestDto input);
 }

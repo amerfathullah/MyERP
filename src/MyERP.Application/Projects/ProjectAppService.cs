@@ -1,10 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Projects.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
@@ -817,6 +822,503 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             OnTrackCount = rows.Count(r => r.DelayInDays <= 0),
             Rows = rows,
         };
+    }
+
+    /// <summary>
+    /// Project-wise Stock Tracking report: purchased, issued, and delivered item costs per project.
+    /// Per ERPNext projects/report/project_wise_stock_tracking.
+    /// </summary>
+    public async Task<ProjectWiseStockTrackingReportDto> GetProjectWiseStockTrackingAsync(
+        ProjectWiseStockTrackingRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        var companyRepo = GetRepo<Company>();
+        var company = companyRepo != null ? await companyRepo.FindAsync(input.CompanyId) : null;
+        var currencyCode = string.IsNullOrWhiteSpace(company?.CurrencyCode) ? "MYR" : company.CurrencyCode;
+        var companyName = company?.Name ?? string.Empty;
+
+        var projQuery = await _projectRepository.GetQueryableAsync();
+        var projects = projQuery
+            .Where(p => p.CompanyId == input.CompanyId
+                && p.Status != ProjectStatus.Cancelled
+                && (!input.ProjectId.HasValue || p.Id == input.ProjectId.Value)
+                && (!input.Status.HasValue || p.Status == input.Status.Value))
+            .OrderBy(p => p.ProjectNumber)
+            .ToList();
+
+        if (projects.Count == 0)
+        {
+            return new ProjectWiseStockTrackingReportDto { CurrencyCode = currencyCode };
+        }
+
+        var projectIds = projects.Select(p => p.Id).ToHashSet();
+        var customerNames = await LoadCustomerNamesAsync(projects);
+
+        var (poProjectMap, poItemProjectMap) = await LoadPurchaseOrderProjectMapsAsync(input.CompanyId);
+        var (soProjectMap, soItemOrderMap) = await LoadSalesOrderProjectMapsAsync(input.CompanyId);
+
+        var purchasedMap = await GetPurchasedItemsCostByProjectAsync(
+            input.CompanyId, projectIds, poProjectMap, poItemProjectMap);
+        var issuedMap = await GetIssuedItemsCostByProjectAsync(input.CompanyId, projectIds);
+        var deliveredMap = await GetDeliveredItemsCostByProjectAsync(
+            input.CompanyId, projectIds, soProjectMap, soItemOrderMap);
+
+        var rows = new List<ProjectWiseStockTrackingRowDto>(projects.Count);
+        foreach (var project in projects)
+        {
+            string? customerName = null;
+            if (project.CustomerId.HasValue)
+            {
+                customerNames.TryGetValue(project.CustomerId.Value, out customerName);
+            }
+
+            rows.Add(new ProjectWiseStockTrackingRowDto
+            {
+                ProjectId = project.Id,
+                ProjectNumber = project.ProjectNumber,
+                ProjectName = project.ProjectName,
+                Status = project.Status,
+                CompanyId = project.CompanyId,
+                CompanyName = companyName,
+                CustomerId = project.CustomerId,
+                CustomerName = customerName,
+                CostOfPurchasedItems = purchasedMap.GetValueOrDefault(project.Id),
+                CostOfIssuedItems = issuedMap.GetValueOrDefault(project.Id),
+                CostOfDeliveredItems = deliveredMap.GetValueOrDefault(project.Id),
+                EstimatedCost = project.EstimatedCost,
+                ExpectedStartDate = project.ExpectedStartDate,
+                ExpectedEndDate = project.ExpectedEndDate,
+            });
+        }
+
+        return new ProjectWiseStockTrackingReportDto
+        {
+            CurrencyCode = currencyCode,
+            TotalPurchasedCost = rows.Sum(r => r.CostOfPurchasedItems),
+            TotalIssuedCost = rows.Sum(r => r.CostOfIssuedItems),
+            TotalDeliveredCost = rows.Sum(r => r.CostOfDeliveredItems),
+            TotalEstimatedCost = rows.Sum(r => r.EstimatedCost),
+            Rows = rows,
+        };
+    }
+
+    private async Task<Dictionary<Guid, string>> LoadCustomerNamesAsync(List<Project> projects)
+    {
+        var customerIds = projects
+            .Where(p => p.CustomerId.HasValue)
+            .Select(p => p.CustomerId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        if (customerIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var customerRepo = GetRepo<Customer>();
+        if (customerRepo == null)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var query = await customerRepo.GetQueryableAsync();
+        return query
+            .Where(c => customerIds.Contains(c.Id))
+            .ToDictionary(c => c.Id, c => c.Name);
+    }
+
+    private IRepository<TEntity, Guid>? GetRepo<TEntity>()
+        where TEntity : class, Volo.Abp.Domain.Entities.IEntity<Guid>
+        => LazyServiceProvider?.LazyGetService<IRepository<TEntity, Guid>>();
+
+    private async Task<(Dictionary<Guid, Guid?> PoProjects, Dictionary<Guid, Guid?> PoItemProjects)>
+        LoadPurchaseOrderProjectMapsAsync(Guid companyId)
+    {
+        var poProjects = new Dictionary<Guid, Guid?>();
+        var poItemProjects = new Dictionary<Guid, Guid?>();
+
+        var poRepo = GetRepo<PurchaseOrder>();
+        var poItemRepo = GetRepo<PurchaseOrderItem>();
+        if (poRepo == null || poItemRepo == null)
+        {
+            return (poProjects, poItemProjects);
+        }
+
+        var poQuery = await poRepo.GetQueryableAsync();
+        var orders = poQuery
+            .Where(po => po.CompanyId == companyId
+                && po.Status != DocumentStatus.Draft
+                && po.Status != DocumentStatus.Cancelled
+                && po.Status != DocumentStatus.Rejected)
+            .Select(po => new { po.Id, po.ProjectId })
+            .ToList();
+
+        if (orders.Count == 0)
+        {
+            return (poProjects, poItemProjects);
+        }
+
+        foreach (var po in orders)
+        {
+            poProjects[po.Id] = po.ProjectId;
+        }
+
+        var poIds = poProjects.Keys.ToHashSet();
+        var poItemQuery = await poItemRepo.GetQueryableAsync();
+        var items = poItemQuery
+            .Where(i => poIds.Contains(i.PurchaseOrderId))
+            .Select(i => new { i.Id, i.PurchaseOrderId, i.ProjectId })
+            .ToList();
+
+        foreach (var item in items)
+        {
+            poProjects.TryGetValue(item.PurchaseOrderId, out var headerProj);
+            poItemProjects[item.Id] = item.ProjectId ?? headerProj;
+        }
+
+        return (poProjects, poItemProjects);
+    }
+
+    private async Task<(Dictionary<Guid, Guid?> SoProjects, Dictionary<Guid, Guid> SoItemToOrder)>
+        LoadSalesOrderProjectMapsAsync(Guid companyId)
+    {
+        var soProjects = new Dictionary<Guid, Guid?>();
+        var soItemToOrder = new Dictionary<Guid, Guid>();
+
+        var soRepo = GetRepo<SalesOrder>();
+        var soItemRepo = GetRepo<SalesOrderItem>();
+        if (soRepo == null || soItemRepo == null)
+        {
+            return (soProjects, soItemToOrder);
+        }
+
+        var soQuery = await soRepo.GetQueryableAsync();
+        var orders = soQuery
+            .Where(so => so.CompanyId == companyId
+                && so.Status != DocumentStatus.Draft
+                && so.Status != DocumentStatus.Cancelled
+                && so.Status != DocumentStatus.Rejected)
+            .Select(so => new { so.Id, so.ProjectId })
+            .ToList();
+
+        if (orders.Count == 0)
+        {
+            return (soProjects, soItemToOrder);
+        }
+
+        foreach (var so in orders)
+        {
+            soProjects[so.Id] = so.ProjectId;
+        }
+
+        var soIds = soProjects.Keys.ToHashSet();
+        var soItemQuery = await soItemRepo.GetQueryableAsync();
+        var items = soItemQuery
+            .Where(i => soIds.Contains(i.SalesOrderId))
+            .Select(i => new { i.Id, i.SalesOrderId })
+            .ToList();
+
+        foreach (var item in items)
+        {
+            soItemToOrder[item.Id] = item.SalesOrderId;
+        }
+
+        return (soProjects, soItemToOrder);
+    }
+
+    private async Task<Dictionary<Guid, decimal>> GetPurchasedItemsCostByProjectAsync(
+        Guid companyId,
+        HashSet<Guid> targetProjects,
+        Dictionary<Guid, Guid?> poProjects,
+        Dictionary<Guid, Guid?> poItemProjects)
+    {
+        var result = new Dictionary<Guid, decimal>();
+
+        var prRepo = GetRepo<PurchaseReceipt>();
+        var prItemRepo = GetRepo<PurchaseReceiptItem>();
+        if (prRepo != null && prItemRepo != null)
+        {
+            var prQuery = await prRepo.GetQueryableAsync();
+            var prs = prQuery
+                .Where(pr => pr.CompanyId == companyId
+                    && pr.Status != DocumentStatus.Draft
+                    && pr.Status != DocumentStatus.Cancelled
+                    && pr.Status != DocumentStatus.Rejected)
+                .Select(pr => new { pr.Id, pr.PurchaseOrderId, pr.ExchangeRate })
+                .ToDictionary(pr => pr.Id);
+
+            if (prs.Count > 0)
+            {
+                var prIds = prs.Keys.ToHashSet();
+                var prItemQuery = await prItemRepo.GetQueryableAsync();
+                var prItems = prItemQuery
+                    .Where(i => prIds.Contains(i.PurchaseReceiptId))
+                    .Select(i => new { i.PurchaseReceiptId, i.PurchaseOrderItemId, i.Quantity, i.UnitPrice })
+                    .ToList();
+
+                foreach (var item in prItems)
+                {
+                    var pr = prs[item.PurchaseReceiptId];
+                    Guid? projId = null;
+                    if (item.PurchaseOrderItemId.HasValue
+                        && poItemProjects.TryGetValue(item.PurchaseOrderItemId.Value, out var itemProj))
+                    {
+                        projId = itemProj;
+                    }
+
+                    if (!projId.HasValue && pr.PurchaseOrderId.HasValue
+                        && poProjects.TryGetValue(pr.PurchaseOrderId.Value, out var prHeaderProj))
+                    {
+                        projId = prHeaderProj;
+                    }
+
+                    if (projId.HasValue && targetProjects.Contains(projId.Value))
+                    {
+                        var rate = pr.ExchangeRate > 0m ? pr.ExchangeRate : 1m;
+                        var amount = item.Quantity * item.UnitPrice * rate;
+                        result[projId.Value] = result.GetValueOrDefault(projId.Value) + amount;
+                    }
+                }
+            }
+        }
+
+        var piRepo = GetRepo<PurchaseInvoice>();
+        var piItemRepo = GetRepo<PurchaseInvoiceItem>();
+        if (piRepo != null && piItemRepo != null)
+        {
+            var piQuery = await piRepo.GetQueryableAsync();
+            var pis = piQuery
+                .Where(pi => pi.CompanyId == companyId
+                    && pi.UpdateStock
+                    && pi.Status != DocumentStatus.Draft
+                    && pi.Status != DocumentStatus.Cancelled
+                    && pi.Status != DocumentStatus.Rejected)
+                .Select(pi => new { pi.Id, pi.ProjectId, pi.ExchangeRate })
+                .ToDictionary(pi => pi.Id);
+
+            if (pis.Count > 0)
+            {
+                var piIds = pis.Keys.ToHashSet();
+                var piItemQuery = await piItemRepo.GetQueryableAsync();
+                var piItems = piItemQuery
+                    .Where(i => piIds.Contains(i.PurchaseInvoiceId))
+                    .Select(i => new { i.PurchaseInvoiceId, i.PurchaseOrderItemId, i.BilledQuantity, i.UnitPrice })
+                    .ToList();
+
+                foreach (var item in piItems)
+                {
+                    var pi = pis[item.PurchaseInvoiceId];
+                    Guid? projId = null;
+                    if (item.PurchaseOrderItemId.HasValue
+                        && poItemProjects.TryGetValue(item.PurchaseOrderItemId.Value, out var poItemProj))
+                    {
+                        projId = poItemProj;
+                    }
+
+                    projId ??= pi.ProjectId;
+                    if (projId.HasValue && targetProjects.Contains(projId.Value))
+                    {
+                        var rate = pi.ExchangeRate > 0m ? pi.ExchangeRate : 1m;
+                        var amount = item.BilledQuantity * item.UnitPrice * rate;
+                        result[projId.Value] = result.GetValueOrDefault(projId.Value) + amount;
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<Guid, decimal>> GetIssuedItemsCostByProjectAsync(
+        Guid companyId,
+        HashSet<Guid> targetProjects)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        var seRepo = GetRepo<StockEntry>();
+        var seItemRepo = GetRepo<StockEntryItem>();
+        if (seRepo == null || seItemRepo == null)
+        {
+            return result;
+        }
+
+        var seQuery = await seRepo.GetQueryableAsync();
+        var entries = seQuery
+            .Where(se => se.CompanyId == companyId
+                && se.Status != DocumentStatus.Draft
+                && se.Status != DocumentStatus.Cancelled
+                && se.Status != DocumentStatus.Rejected)
+            .Select(se => new { se.Id, se.ProjectId })
+            .ToDictionary(se => se.Id, se => se.ProjectId);
+
+        if (entries.Count == 0)
+        {
+            return result;
+        }
+
+        var seIds = entries.Keys.ToHashSet();
+        var seItemQuery = await seItemRepo.GetQueryableAsync();
+        var items = seItemQuery
+            .Where(i => seIds.Contains(i.StockEntryId) && i.TargetWarehouseId == null)
+            .Select(i => new { i.StockEntryId, i.ProjectId, i.Quantity, i.ValuationRate, i.AdditionalCost })
+            .ToList();
+
+        foreach (var item in items)
+        {
+            entries.TryGetValue(item.StockEntryId, out var headerProj);
+            var projId = item.ProjectId ?? headerProj;
+            if (projId.HasValue && targetProjects.Contains(projId.Value))
+            {
+                var amount = item.Quantity * (item.ValuationRate ?? 0m) + item.AdditionalCost;
+                result[projId.Value] = result.GetValueOrDefault(projId.Value) + amount;
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<Guid, decimal>> GetDeliveredItemsCostByProjectAsync(
+        Guid companyId,
+        HashSet<Guid> targetProjects,
+        Dictionary<Guid, Guid?> soProjects,
+        Dictionary<Guid, Guid> soItemToOrder)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        var sleRepo = GetRepo<StockLedgerEntry>();
+        if (sleRepo == null)
+        {
+            return result;
+        }
+
+        var sleQuery = await sleRepo.GetQueryableAsync();
+        var sles = sleQuery
+            .Where(s => s.CompanyId == companyId
+                && !s.IsCancelled
+                && (s.VoucherType == "DeliveryNote"
+                    || s.VoucherType == "Delivery Note"
+                    || s.VoucherType == "SalesInvoice"
+                    || s.VoucherType == "Sales Invoice"))
+            .Select(s => new
+            {
+                s.VoucherType,
+                s.VoucherId,
+                s.VoucherDetailNo,
+                s.ProjectId,
+                s.StockValueDifference,
+            })
+            .ToList();
+
+        if (sles.Count == 0)
+        {
+            return result;
+        }
+
+        var dnOrderMap = new Dictionary<Guid, Guid?>();
+        var dnItemSoItemMap = new Dictionary<Guid, Guid?>();
+        var dnIds = sles
+            .Where(s => (s.VoucherType == "DeliveryNote" || s.VoucherType == "Delivery Note") && s.VoucherId.HasValue)
+            .Select(s => s.VoucherId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        if (dnIds.Count > 0)
+        {
+            var dnRepo = GetRepo<DeliveryNote>();
+            var dnItemRepo = GetRepo<DeliveryNoteItem>();
+            if (dnRepo != null)
+            {
+                var dnQuery = await dnRepo.GetQueryableAsync();
+                dnOrderMap = dnQuery
+                    .Where(d => dnIds.Contains(d.Id))
+                    .ToDictionary(d => d.Id, d => d.SalesOrderId);
+            }
+
+            if (dnItemRepo != null)
+            {
+                var dnItemQuery = await dnItemRepo.GetQueryableAsync();
+                dnItemSoItemMap = dnItemQuery
+                    .Where(i => dnIds.Contains(i.DeliveryNoteId))
+                    .ToDictionary(i => i.Id, i => i.SalesOrderItemId);
+            }
+        }
+
+        var siProjMap = new Dictionary<Guid, Guid?>();
+        var siItemSoItemMap = new Dictionary<Guid, Guid?>();
+        var siIds = sles
+            .Where(s => (s.VoucherType == "SalesInvoice" || s.VoucherType == "Sales Invoice") && s.VoucherId.HasValue)
+            .Select(s => s.VoucherId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        if (siIds.Count > 0)
+        {
+            var siRepo = GetRepo<SalesInvoice>();
+            var siItemRepo = GetRepo<SalesInvoiceItem>();
+            if (siRepo != null)
+            {
+                var siQuery = await siRepo.GetQueryableAsync();
+                siProjMap = siQuery
+                    .Where(s => siIds.Contains(s.Id))
+                    .ToDictionary(s => s.Id, s => s.ProjectId);
+            }
+
+            if (siItemRepo != null)
+            {
+                var siItemQuery = await siItemRepo.GetQueryableAsync();
+                siItemSoItemMap = siItemQuery
+                    .Where(i => siIds.Contains(i.SalesInvoiceId))
+                    .ToDictionary(i => i.Id, i => i.SalesOrderItemId);
+            }
+        }
+
+        foreach (var sle in sles)
+        {
+            var isDeliveryNote = sle.VoucherType == "DeliveryNote" || sle.VoucherType == "Delivery Note";
+            var itemSoMap = isDeliveryNote ? dnItemSoItemMap : siItemSoItemMap;
+            var projId = ResolveSalesOrderItemProject(sle.VoucherDetailNo, itemSoMap, soItemToOrder, soProjects);
+
+            if (!projId.HasValue && sle.VoucherId.HasValue)
+            {
+                if (isDeliveryNote && dnOrderMap.TryGetValue(sle.VoucherId.Value, out var dnSoId) && dnSoId.HasValue)
+                {
+                    soProjects.TryGetValue(dnSoId.Value, out projId);
+                }
+                else if (!isDeliveryNote)
+                {
+                    siProjMap.TryGetValue(sle.VoucherId.Value, out projId);
+                }
+            }
+
+            projId ??= sle.ProjectId;
+            if (projId.HasValue && targetProjects.Contains(projId.Value))
+            {
+                result[projId.Value] = result.GetValueOrDefault(projId.Value) + (-sle.StockValueDifference);
+            }
+        }
+
+        return result;
+    }
+
+    private static Guid? ResolveSalesOrderItemProject(
+        Guid? voucherDetailNo,
+        Dictionary<Guid, Guid?> itemSoMap,
+        Dictionary<Guid, Guid> soItemToOrder,
+        Dictionary<Guid, Guid?> soProjects)
+    {
+        if (voucherDetailNo.HasValue
+            && itemSoMap.TryGetValue(voucherDetailNo.Value, out var soItemId)
+            && soItemId.HasValue
+            && soItemToOrder.TryGetValue(soItemId.Value, out var soId)
+            && soProjects.TryGetValue(soId, out var projId))
+        {
+            return projId;
+        }
+
+        return null;
     }
 }
 

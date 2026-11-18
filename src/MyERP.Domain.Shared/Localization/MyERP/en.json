@@ -6481,7 +6481,14 @@
     "TimesheetBillingSummary": "Timesheet Billing Summary",
     "TimesheetBillingSummaryDescription": "Summary of working hours, billable hours, and billing amounts per date, timesheet, and project",
     "BillingHours": "Billing Hours",
-    "IncludeDraftTimesheets": "Include Draft Timesheets"
+    "IncludeDraftTimesheets": "Include Draft Timesheets",
+    "Menu:ProjectWiseStockTracking": "Project-wise Stock Tracking",
+    "ProjectWiseStockTracking": "Project-wise Stock Tracking",
+    "ProjectWiseStockTrackingDescription": "Tracks purchased, issued, and delivered inventory costs against each project and budget",
+    "CostOfPurchasedItems": "Cost of Purchased Items",
+    "CostOfIssuedItems": "Cost of Issued Items",
+    "CostOfDeliveredItems": "Cost of Delivered Items",
+    "ProjectValue": "Project Value"
   }
 }
 

@@ -474,3 +474,39 @@ public class TimesheetBillingSummaryReportDto
     public decimal TotalBillingAmount { get; set; }
     public List<TimesheetBillingSummaryRowDto> Rows { get; set; } = new();
 }
+
+// --- Project-wise Stock Tracking Report (ERPNext projects/report/project_wise_stock_tracking) ---
+public class ProjectWiseStockTrackingRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public ProjectStatus? Status { get; set; }
+}
+
+public class ProjectWiseStockTrackingRowDto
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectNumber { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public ProjectStatus Status { get; set; }
+    public Guid CompanyId { get; set; }
+    public string CompanyName { get; set; } = string.Empty;
+    public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public decimal CostOfPurchasedItems { get; set; }
+    public decimal CostOfIssuedItems { get; set; }
+    public decimal CostOfDeliveredItems { get; set; }
+    public decimal EstimatedCost { get; set; }
+    public DateTime? ExpectedStartDate { get; set; }
+    public DateTime? ExpectedEndDate { get; set; }
+}
+
+public class ProjectWiseStockTrackingReportDto
+{
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal TotalPurchasedCost { get; set; }
+    public decimal TotalIssuedCost { get; set; }
+    public decimal TotalDeliveredCost { get; set; }
+    public decimal TotalEstimatedCost { get; set; }
+    public List<ProjectWiseStockTrackingRowDto> Rows { get; set; } = new();
+}

@@ -2393,6 +2393,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/reports/project-wise-stock-tracking',
+    loadComponent: () => import('./projects/reports/project-wise-stock-tracking/project-wise-stock-tracking.component').then(c => c.ProjectWiseStockTrackingComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
     path: 'projects/:id',
     loadComponent: () => import('./projects/project-detail/project-detail.component').then(c => c.ProjectDetailComponent),
     canActivate: [authGuard, permissionGuard],

@@ -485,3 +485,35 @@ export interface TimesheetBillingSummaryReportDto {
   totalBillingAmount?: number;
   rows?: TimesheetBillingSummaryRowDto[];
 }
+
+export interface ProjectWiseStockTrackingRequestDto {
+  companyId?: string;
+  projectId?: string | null;
+  status?: ProjectStatus | null;
+}
+
+export interface ProjectWiseStockTrackingRowDto {
+  projectId?: string;
+  projectNumber?: string;
+  projectName?: string;
+  status?: ProjectStatus;
+  companyId?: string;
+  companyName?: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  costOfPurchasedItems?: number;
+  costOfIssuedItems?: number;
+  costOfDeliveredItems?: number;
+  estimatedCost?: number;
+  expectedStartDate?: string | null;
+  expectedEndDate?: string | null;
+}
+
+export interface ProjectWiseStockTrackingReportDto {
+  currencyCode?: string;
+  totalPurchasedCost?: number;
+  totalIssuedCost?: number;
+  totalDeliveredCost?: number;
+  totalEstimatedCost?: number;
+  rows?: ProjectWiseStockTrackingRowDto[];
+}

@@ -2316,6 +2316,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Projects',
       },
       {
+        path: '/projects/reports/project-wise-stock-tracking',
+        name: '::Menu:ProjectWiseStockTracking',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 19,
+        parentName: '::Menu:Projects',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Projects',
+      },
+      {
         path: '/projects/templates',
         name: '::Menu:ProjectTemplates',
         iconClass: 'fas fa-diagram-project',
