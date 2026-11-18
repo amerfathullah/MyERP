@@ -6520,7 +6520,29 @@
     "Replied": "Replied",
     "AssignedTo": "Assigned To",
     "IssueCount": "Issue Count",
-    "AverageHours": "Average Hours"
+    "AverageHours": "Average Hours",
+    "Menu:LeadDetailsReport": "Lead Details",
+    "LeadDetailsReport": "Lead Details",
+    "Menu:LeadConversionTime": "Lead Conversion Time",
+    "LeadConversionTime": "Lead Conversion Time",
+    "Menu:ProspectsEngagedButNotConverted": "Prospects Engaged But Not Converted",
+    "ProspectsEngagedButNotConverted": "Prospects Engaged But Not Converted",
+    "Menu:SalesPipelineAnalytics": "Sales Pipeline Analytics",
+    "SalesPipelineAnalytics": "Sales Pipeline Analytics",
+    "LeadNumber": "Lead #",
+    "LeadName": "Lead Name",
+    "JobTitle": "Job Title",
+    "UtmSource": "UTM Source",
+    "MobileNo": "Mobile No",
+    "Interactions": "Interactions",
+    "DurationInDays": "Duration (Days)",
+    "SupportTickets": "Support Tickets",
+    "MinInteractions": "Min Interactions",
+    "LeadAgeDays": "Lead Age (Days)",
+    "ReferenceName": "Reference Name",
+    "LastCommunication": "Last Communication",
+    "LastCommunicationDate": "Last Communication Date",
+    "PipelineBy": "Pipeline By"
   }
 }
 

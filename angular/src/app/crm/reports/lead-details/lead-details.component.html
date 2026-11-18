@@ -1,0 +1,109 @@
+<abp-page [title]="'::LeadDetailsReport' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Status' | abpLocalization }}</label>
+          <select class="form-select" formControlName="status">
+            <option [ngValue]="null">-- {{ '::All' | abpLocalization }} --</option>
+            @for (s of statusOptions; track s.value) {
+              <option [ngValue]="s.value">{{ s.key }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Source' | abpLocalization }}</label>
+          <select class="form-select" formControlName="source">
+            <option [ngValue]="null">-- {{ '::All' | abpLocalization }} --</option>
+            @for (s of sourceOptions; track s.value) {
+              <option [ngValue]="s.value">{{ s.key }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Country' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="country" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" formControlName="toDate" />
+            <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+              <i class="fa fa-search"></i>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.totalCount }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::LeadNumber' | abpLocalization }}</th>
+                <th>{{ '::LeadName' | abpLocalization }}</th>
+                <th>{{ '::JobTitle' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::Source' | abpLocalization }}</th>
+                <th>{{ '::UtmSource' | abpLocalization }}</th>
+                <th>{{ '::Email' | abpLocalization }}</th>
+                <th>{{ '::MobileNo' | abpLocalization }}</th>
+                <th>{{ '::LeadOwner' | abpLocalization }}</th>
+                <th>{{ '::Organization' | abpLocalization }}</th>
+                <th>{{ '::City' | abpLocalization }}</th>
+                <th class="pe-3">{{ '::Country' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.leadId) {
+                <tr>
+                  <td class="ps-3 font-monospace small">
+                    <a [routerLink]="['/crm/leads', row.leadId]" class="text-decoration-none">{{ row.leadNumber }}</a>
+                  </td>
+                  <td class="fw-medium">{{ row.leadName }}</td>
+                  <td class="small text-muted">{{ row.jobTitle || '-' }}</td>
+                  <td><span class="badge bg-secondary">{{ row.status }}</span></td>
+                  <td class="small">{{ row.source }}</td>
+                  <td class="small text-muted">{{ row.utmSource || '-' }}</td>
+                  <td class="small">{{ row.email || '-' }}</td>
+                  <td class="small">{{ row.mobileNo || row.phone || '-' }}</td>
+                  <td class="small">{{ row.leadOwner || '-' }}</td>
+                  <td class="small">{{ row.organizationName || '-' }}</td>
+                  <td class="small">{{ row.city || '-' }}</td>
+                  <td class="pe-3 small">{{ row.country || '-' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

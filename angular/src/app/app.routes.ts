@@ -2199,6 +2199,30 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Opportunities' },
   },
+  {
+    path: 'crm/reports/lead-details',
+    loadComponent: () => import('./crm/reports/lead-details/lead-details.component').then(c => c.LeadDetailsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/reports/lead-conversion-time',
+    loadComponent: () => import('./crm/reports/lead-conversion-time/lead-conversion-time.component').then(c => c.LeadConversionTimeComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/reports/prospects-engaged',
+    loadComponent: () => import('./crm/reports/prospects-engaged/prospects-engaged.component').then(c => c.ProspectsEngagedComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
+  {
+    path: 'crm/reports/sales-pipeline-analytics',
+    loadComponent: () => import('./crm/reports/sales-pipeline-analytics/sales-pipeline-analytics.component').then(c => c.SalesPipelineAnalyticsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Opportunities' },
+  },
   // Sales — Shipments
   {
     path: 'sales/shipments',

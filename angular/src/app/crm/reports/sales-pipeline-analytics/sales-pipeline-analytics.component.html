@@ -1,0 +1,125 @@
+<abp-page [title]="'::SalesPipelineAnalytics' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::PipelineBy' | abpLocalization }}</label>
+          <select class="form-select" formControlName="pipelineBy">
+            <option value="Sales Stage">{{ '::SalesStage' | abpLocalization }}</option>
+            <option value="Owner">{{ '::Owner' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::BasedOn' | abpLocalization }}</label>
+          <select class="form-select" formControlName="basedOn">
+            <option value="Amount">{{ '::Amount' | abpLocalization }}</option>
+            <option value="Number">{{ '::Count' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Range' | abpLocalization }}</label>
+          <select class="form-select" formControlName="range">
+            <option value="Monthly">{{ '::Monthly' | abpLocalization }}</option>
+            <option value="Quarterly">{{ '::Quarterly' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" formControlName="toDate" />
+            <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+              <i class="fa fa-chart-bar"></i>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ r.pipelineBy }}</th>
+                @for (p of r.periodLabels ?? []; track p) {
+                  <th class="text-end">{{ p }}</th>
+                }
+                <th class="text-end pe-3 fw-bold">{{ '::Total' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.groupKey) {
+                <tr>
+                  <td class="ps-3 fw-medium">{{ row.groupLabel }}</td>
+                  @for (val of row.periodValues ?? []; track $index) {
+                    <td class="text-end font-monospace">
+                      @if (r.basedOn === 'Amount') {
+                        {{ val | number:'1.2-2' }}
+                      } @else {
+                        {{ val | number:'1.0-0' }}
+                      }
+                    </td>
+                  }
+                  <td class="text-end pe-3 font-monospace fw-bold">
+                    @if (r.basedOn === 'Amount') {
+                      {{ (row.total ?? 0) | number:'1.2-2' }}
+                    } @else {
+                      {{ (row.total ?? 0) | number:'1.0-0' }}
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3">{{ '::Total' | abpLocalization }}</td>
+                @for (pt of r.periodTotals ?? []; track $index) {
+                  <td class="text-end font-monospace">
+                    @if (r.basedOn === 'Amount') {
+                      {{ pt | number:'1.2-2' }}
+                    } @else {
+                      {{ pt | number:'1.0-0' }}
+                    }
+                  </td>
+                }
+                <td class="text-end pe-3 font-monospace">
+                  @if (r.basedOn === 'Amount') {
+                    {{ (r.grandTotal ?? 0) | number:'1.2-2' }}
+                  } @else {
+                    {{ (r.grandTotal ?? 0) | number:'1.0-0' }}
+                  }
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>

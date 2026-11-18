@@ -893,3 +893,112 @@ export interface UpdateOpportunityStageDto {
 export interface VerifyAppointmentDto {
   token: string;
 }
+
+export interface CrmReportDateFilterDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface LeadDetailsFilterDto extends CrmReportDateFilterDto {
+  status?: LeadStatus | null;
+  source?: LeadSource | null;
+  country?: string | null;
+  assignedUserId?: string | null;
+}
+
+export interface LeadDetailsRowDto {
+  leadId?: string;
+  leadNumber?: string;
+  leadName?: string;
+  jobTitle?: string | null;
+  status?: string;
+  source?: string;
+  utmSource?: string | null;
+  email?: string | null;
+  mobileNo?: string | null;
+  phone?: string | null;
+  leadOwner?: string | null;
+  organizationName?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  creationTime?: string;
+}
+
+export interface LeadDetailsReportDto {
+  rows?: LeadDetailsRowDto[];
+  totalCount?: number;
+}
+
+export interface LeadConversionTimeRowDto {
+  leadId?: string;
+  leadNumber?: string;
+  leadName?: string;
+  customerId?: string;
+  customerName?: string;
+  interactions?: number;
+  durationInDays?: number;
+  supportTickets?: number;
+  leadCreatedOn?: string;
+  convertedOn?: string;
+}
+
+export interface LeadConversionTimeReportDto {
+  rows?: LeadConversionTimeRowDto[];
+  totalConverted?: number;
+  avgInteractions?: number;
+  avgDurationInDays?: number;
+  avgSupportTickets?: number;
+}
+
+export interface ProspectsEngagedFilterDto {
+  companyId?: string;
+  leadAgeDays?: number;
+  minInteractions?: number;
+  leadId?: string | null;
+}
+
+export interface ProspectsEngagedRowDto {
+  leadId?: string;
+  leadNumber?: string;
+  leadName?: string;
+  organizationName?: string | null;
+  referenceType?: string;
+  referenceId?: string;
+  referenceName?: string;
+  interactionCount?: number;
+  lastCommunication?: string;
+  lastCommunicationDate?: string;
+}
+
+export interface ProspectsEngagedReportDto {
+  rows?: ProspectsEngagedRowDto[];
+  totalCount?: number;
+}
+
+export interface SalesPipelineAnalyticsFilterDto extends CrmReportDateFilterDto {
+  pipelineBy?: string;
+  basedOn?: string;
+  range?: string;
+  opportunityType?: OpportunityType | null;
+  status?: OpportunityStatus | null;
+}
+
+export interface SalesPipelineAnalyticsRowDto {
+  groupKey?: string;
+  groupLabel?: string;
+  periodValues?: number[];
+  total?: number;
+}
+
+export interface SalesPipelineAnalyticsReportDto {
+  pipelineBy?: string;
+  basedOn?: string;
+  range?: string;
+  periodLabels?: string[];
+  rows?: SalesPipelineAnalyticsRowDto[];
+  periodTotals?: number[];
+  grandTotal?: number;
+}

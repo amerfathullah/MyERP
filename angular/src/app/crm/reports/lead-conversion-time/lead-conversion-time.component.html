@@ -1,0 +1,121 @@
+<abp-page [title]="'::LeadConversionTime' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-hourglass-half me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-primary mb-0">{{ r.totalConverted }}</h4>
+            <small class="text-muted">{{ '::Converted' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-info mb-0">{{ (r.avgInteractions ?? 0) | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ '::Interactions' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-success mb-0">{{ (r.avgDurationInDays ?? 0) | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ '::DurationInDays' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body py-2">
+            <h4 class="text-warning mb-0">{{ (r.avgSupportTickets ?? 0) | number:'1.2-2' }}</h4>
+            <small class="text-muted">{{ '::SupportTickets' | abpLocalization }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.totalConverted }} {{ '::Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::Customer' | abpLocalization }}</th>
+                <th>{{ '::LeadNumber' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Interactions' | abpLocalization }}</th>
+                <th class="text-end">{{ '::DurationInDays' | abpLocalization }}</th>
+                <th class="text-end">{{ '::SupportTickets' | abpLocalization }}</th>
+                <th class="pe-3">{{ '::Date' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.leadId) {
+                <tr>
+                  <td class="ps-3 fw-medium">
+                    <a [routerLink]="['/customers', row.customerId]" class="text-decoration-none">{{ row.customerName }}</a>
+                  </td>
+                  <td class="font-monospace small">{{ row.leadNumber }}</td>
+                  <td class="text-end font-monospace">{{ row.interactions }}</td>
+                  <td class="text-end font-monospace fw-bold">{{ (row.durationInDays ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ row.supportTickets }}</td>
+                  <td class="pe-3 small">{{ row.convertedOn | date:'dd/MM/yyyy' }}</td>
+                </tr>
+              }
+            </tbody>
+            @if ((r.rows?.length ?? 0) > 0) {
+              <tfoot>
+                <tr class="fw-bold table-light">
+                  <td class="ps-3" colspan="2">{{ '::Average' | abpLocalization }}</td>
+                  <td class="text-end font-monospace">{{ (r.avgInteractions ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (r.avgDurationInDays ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ (r.avgSupportTickets ?? 0) | number:'1.2-2' }}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            }
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>
