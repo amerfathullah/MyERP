@@ -6574,7 +6574,16 @@
     "Menu:InvalidLedgerEntries": "Invalid Ledger Entries",
     "InvalidLedgerEntries": "Invalid Ledger Entries",
     "LedgerSource": "Ledger Source",
-    "NoInvalidLedgerEntries": "No invalid ledger entries found"
+    "NoInvalidLedgerEntries": "No invalid ledger entries found",
+    "Menu:IncorrectBalanceQtyAfterTransaction": "Incorrect Balance Qty After Transaction",
+    "IncorrectBalanceQtyAfterTransaction": "Incorrect Balance Qty After Transaction",
+    "Menu:IncorrectStockValueReport": "Incorrect Stock Value Report",
+    "IncorrectStockValueReport": "Incorrect Stock Value Report",
+    "ActualBalanceQty": "Actual Balance Qty",
+    "ExpectedStockValue": "Expected Stock Value",
+    "DifferenceValue": "Difference Value",
+    "PostingTime": "Posting Time",
+    "NoStockDiscrepanciesFound": "No discrepancies found"
   }
 }
 

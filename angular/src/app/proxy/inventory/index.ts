@@ -69,6 +69,7 @@ export * from './stock-ageing.service';
 export * from './stock-analytics.service';
 export * from './stock-balance.service';
 export * from './stock-closing.service';
+export * from './stock-diagnostics.service';
 export * from './stock-entry-type.enum';
 export * from './stock-entry.service';
 export * from './stock-gl-comparison.service';

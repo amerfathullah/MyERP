@@ -4213,6 +4213,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/incorrect-balance-qty-after-transaction',
+    loadComponent: () => import('./inventory/reports/incorrect-balance-qty-after-transaction/incorrect-balance-qty-after-transaction.component').then(c => c.IncorrectBalanceQtyAfterTransactionComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/incorrect-stock-value-report',
+    loadComponent: () => import('./inventory/reports/incorrect-stock-value-report/incorrect-stock-value-report.component').then(c => c.IncorrectStockValueReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/reports/available-serial-no',
     loadComponent: () => import('./inventory/reports/available-serial-no/available-serial-no.component').then(c => c.AvailableSerialNoComponent),
     canActivate: [authGuard, permissionGuard],

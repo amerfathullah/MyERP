@@ -3630,3 +3630,60 @@ export interface UomConversionDto extends EntityDto<string> {
   conversionFactor?: number;
   itemId?: string | null;
 }
+
+export interface IncorrectBalanceQtyRequestDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  precision?: number;
+}
+
+export interface IncorrectBalanceQtyRowDto {
+  stockLedgerEntryId?: string;
+  postingDate?: string;
+  voucherType?: string;
+  voucherId?: string | null;
+  voucherNo?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  expectedBalanceQty?: number;
+  actualBalanceQty?: number;
+  difference?: number;
+}
+
+export interface IncorrectBalanceQtyReportDto {
+  rows?: IncorrectBalanceQtyRowDto[];
+}
+
+export interface IncorrectStockValueRequestDto {
+  companyId: string;
+  accountId: string;
+  fromDate?: string | null;
+}
+
+export interface IncorrectStockValueRowDto {
+  stockLedgerEntryId?: string;
+  postingDate?: string;
+  postingTime?: string;
+  voucherType?: string;
+  voucherId?: string | null;
+  voucherNo?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  expectedStockValue?: number;
+  stockValue?: number;
+  differenceValue?: number;
+}
+
+export interface IncorrectStockValueReportDto {
+  companyId?: string;
+  accountId?: string;
+  resolvedFromDate?: string | null;
+  rows?: IncorrectStockValueRowDto[];
+}
