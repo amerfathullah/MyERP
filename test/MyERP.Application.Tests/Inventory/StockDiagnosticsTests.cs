@@ -406,4 +406,173 @@ public abstract class StockDiagnosticsTests<TStartupModule> : MyERPApplicationTe
             new FifoQueueVsQtyComparisonRequestDto { CompanyId = company.Id, ItemId = pooledSerialItem.Id });
         pooledReport.Rows.Single().StockLedgerEntryId.ShouldBe(badPooledSerialSle.Id);
     }
+
+    [Fact]
+    public async Task StockValuationComparison_Should_Detect_Drift_And_Queue_Repost()
+    {
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "Val Comp Co"), autoSave: true);
+        var wh = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Main Val WH"), autoSave: true);
+
+        var fifoHealthy = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "FIFO-OK", "Healthy FIFO", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.FIFO,
+            }, autoSave: true);
+        var maDrifted = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "MA-DRIFT", "Drifted Moving Avg", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.WeightedAverage,
+            }, autoSave: true);
+
+        // Healthy FIFO: receive 10 @ 100, issue 4 @ 100 -> 6 @ 100 = 600
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, fifoHealthy.Id, wh.Id,
+            new DateTime(2026, 6, 1), 10m, 100m, 10m, 1000m)
+        {
+            IncomingRate = 100m,
+            StockValueDifference = 1000m,
+        }, autoSave: true);
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, fifoHealthy.Id, wh.Id,
+            new DateTime(2026, 6, 2), -4m, 100m, 6m, 600m)
+        {
+            StockValueDifference = -400m,
+        }, autoSave: true);
+
+        // Drifted Moving Average: 10 @ 100, then 10 @ 200 -> expected rate 150 / value 3000, but stored as rate 120 / value 2400
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, maDrifted.Id, wh.Id,
+            new DateTime(2026, 6, 1), 10m, 100m, 10m, 1000m)
+        {
+            IncomingRate = 100m,
+            StockValueDifference = 1000m,
+        }, autoSave: true);
+        var driftedSle = await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, maDrifted.Id, wh.Id,
+            new DateTime(2026, 6, 2), 10m, 120m, 20m, 2400m)
+        {
+            IncomingRate = 200m,
+            StockValueDifference = 1400m,
+        }, autoSave: true);
+
+        // Subsequent out entry also drifted (carried expected value would differ)
+        var secondDriftedSle = await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, maDrifted.Id, wh.Id,
+            new DateTime(2026, 6, 3), -5m, 120m, 15m, 1800m)
+        {
+            StockValueDifference = -600m,
+        }, autoSave: true);
+
+        var firstDiffReport = await _diagnosticsService.GetStockValuationComparisonAsync(
+            new StockValuationComparisonRequestDto { CompanyId = company.Id });
+
+        firstDiffReport.DifferenceCount.ShouldBe(1);
+        var diffRow = firstDiffReport.Rows.Single();
+        diffRow.StockLedgerEntryId.ShouldBe(driftedSle.Id);
+        diffRow.ExpectedValuationRate.ShouldBe(150m);
+        diffRow.ExpectedStockValue.ShouldBe(3000m);
+        diffRow.ValuationRateDifference.ShouldBe(-30m);
+        diffRow.StockValueDifferenceInBalance.ShouldBe(-600m);
+        diffRow.HasDifference.ShouldBeTrue();
+
+        var allDiffsReport = await _diagnosticsService.GetStockValuationComparisonAsync(
+            new StockValuationComparisonRequestDto
+            {
+                CompanyId = company.Id,
+                Show = StockValuationComparisonShowModes.AllDifferences,
+            });
+        allDiffsReport.Rows.Select(r => r.StockLedgerEntryId).ShouldContain(driftedSle.Id);
+        allDiffsReport.Rows.Select(r => r.StockLedgerEntryId).ShouldContain(secondDriftedSle.Id);
+        allDiffsReport.Rows.Select(r => r.ItemId).ShouldNotContain(fifoHealthy.Id);
+
+        // Preview and create repost once; second call skips as already pending
+        var preview = await _diagnosticsService.GetStockValuationRepostPreviewAsync(
+            new StockValuationComparisonRepostRequestDto
+            {
+                CompanyId = company.Id,
+                StockLedgerEntryIds = new() { secondDriftedSle.Id, driftedSle.Id },
+            });
+        preview.Count.ShouldBe(1);
+        preview[0].StockLedgerEntryId.ShouldBe(driftedSle.Id);
+        preview[0].PendingRepostId.ShouldBeNull();
+
+        var created = await _diagnosticsService.CreateStockValuationRepostsAsync(
+            new StockValuationComparisonRepostRequestDto
+            {
+                CompanyId = company.Id,
+                StockLedgerEntryIds = new() { driftedSle.Id },
+            });
+        created.Created.Count.ShouldBe(1);
+        created.Skipped.ShouldBeEmpty();
+
+        var secondCreate = await _diagnosticsService.CreateStockValuationRepostsAsync(
+            new StockValuationComparisonRepostRequestDto
+            {
+                CompanyId = company.Id,
+                StockLedgerEntryIds = new() { driftedSle.Id },
+            });
+        secondCreate.Created.ShouldBeEmpty();
+        secondCreate.Skipped.Count.ShouldBe(1);
+        secondCreate.Skipped[0].Reason.ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task StockValuationComparison_Should_Hide_Settled_Adjustment_Differences_By_Default()
+    {
+        var company = await _companyRepository.InsertAsync(
+            new Company(Guid.NewGuid(), "Adj Settlement Co"), autoSave: true);
+        var wh = await _warehouseRepository.InsertAsync(
+            new Warehouse(Guid.NewGuid(), company.Id, "Adj WH"), autoSave: true);
+        var item = await _itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ADJ-FIFO", "Adjusted FIFO Item", ItemType.Goods)
+            {
+                ValuationMethod = ValuationMethod.FIFO,
+            }, autoSave: true);
+
+        // Prior drifted entry before adjustment date
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, wh.Id,
+            new DateTime(2026, 5, 1), 5m, 80m, 5m, 400m)
+        {
+            IncomingRate = 100m,
+            StockValueDifference = 400m,
+        }, autoSave: true);
+
+        // Adjustment Entry resets item balance cleanly to 5 @ 120 = 600
+        var adjRecon = new StockReconciliation(Guid.NewGuid(), company.Id, new DateTime(2026, 6, 1))
+        {
+            ReconciliationNumber = "SR-ADJ-001",
+            Purpose = "Adjustment Entry",
+        };
+        adjRecon.AddItem(item.Id, wh.Id, newQuantity: 5m, newValuationRate: 120m, currentQuantity: 5m, currentValuationRate: 80m);
+        adjRecon.Submit();
+        await _reconRepository.InsertAsync(adjRecon, autoSave: true);
+
+        await _sleRepository.InsertAsync(new StockLedgerEntry(
+            Guid.NewGuid(), company.Id, item.Id, wh.Id,
+            new DateTime(2026, 6, 1), 0m, 120m, 5m, 600m)
+        {
+            VoucherType = "StockReconciliation",
+            VoucherId = adjRecon.Id,
+            VoucherDetailNo = adjRecon.Items.Single().Id,
+            IsAdjustmentEntry = true,
+            StockValueDifference = 200m,
+        }, autoSave: true);
+
+        var defaultReport = await _diagnosticsService.GetStockValuationComparisonAsync(
+            new StockValuationComparisonRequestDto { CompanyId = company.Id });
+        defaultReport.DifferenceCount.ShouldBe(0);
+        defaultReport.Rows.ShouldBeEmpty();
+
+        var withAdjusted = await _diagnosticsService.GetStockValuationComparisonAsync(
+            new StockValuationComparisonRequestDto
+            {
+                CompanyId = company.Id,
+                ShowAdjustedDifferences = true,
+            });
+        withAdjusted.DifferenceCount.ShouldBe(1);
+        withAdjusted.Rows.Single().AdjustedBy.ShouldBe("SR-ADJ-001");
+    }
 }

@@ -11,6 +11,11 @@ import type {
   IncorrectSerialNoValuationRequestDto,
   IncorrectStockValueReportDto,
   IncorrectStockValueRequestDto,
+  StockValuationComparisonReportDto,
+  StockValuationComparisonRepostPreviewRowDto,
+  StockValuationComparisonRepostRequestDto,
+  StockValuationComparisonRepostResultDto,
+  StockValuationComparisonRequestDto,
 } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -129,6 +134,58 @@ export class StockDiagnosticsService {
           fromDate: input.fromDate,
           toDate: input.toDate,
         },
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  getStockValuationComparison = (
+    input: StockValuationComparisonRequestDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, StockValuationComparisonReportDto>(
+      {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/stock-valuation-comparison',
+        params: {
+          companyId: input.companyId,
+          fromDate: input.fromDate,
+          toDate: input.toDate,
+          itemId: input.itemId,
+          itemGroupId: input.itemGroupId,
+          warehouseId: input.warehouseId,
+          show: input.show,
+          tolerance: input.tolerance,
+          showAdjustedDifferences: input.showAdjustedDifferences,
+        },
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  getStockValuationRepostPreview = (
+    input: StockValuationComparisonRepostRequestDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, StockValuationComparisonRepostPreviewRowDto[]>(
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/stock-valuation-repost-preview',
+        body: input,
+      },
+      { apiName: this.apiName, ...config },
+    );
+
+  createStockValuationReposts = (
+    input: StockValuationComparisonRepostRequestDto,
+    config?: Partial<Rest.Config>,
+  ) =>
+    this.restService.request<any, StockValuationComparisonRepostResultDto>(
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        url: '/api/app/stock-diagnostics/create-stock-valuation-reposts',
+        body: input,
       },
       { apiName: this.apiName, ...config },
     );

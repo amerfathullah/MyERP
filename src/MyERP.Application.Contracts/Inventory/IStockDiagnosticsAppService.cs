@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 
@@ -11,4 +12,7 @@ public interface IStockDiagnosticsAppService : IApplicationService
     Task<IncorrectSerialAndBatchBundleReportDto> GetIncorrectSerialAndBatchBundlesAsync(IncorrectSerialAndBatchBundleRequestDto input);
     Task<FixSerialAndBatchBundlesResultDto> FixIncorrectSerialAndBatchBundlesAsync(FixSerialAndBatchBundlesInputDto input);
     Task<FifoQueueVsQtyComparisonReportDto> GetFifoQueueVsQtyComparisonAsync(FifoQueueVsQtyComparisonRequestDto input);
+    Task<StockValuationComparisonReportDto> GetStockValuationComparisonAsync(StockValuationComparisonRequestDto input);
+    Task<List<StockValuationComparisonRepostPreviewRowDto>> GetStockValuationRepostPreviewAsync(StockValuationComparisonRepostRequestDto input);
+    Task<StockValuationComparisonRepostResultDto> CreateStockValuationRepostsAsync(StockValuationComparisonRepostRequestDto input);
 }

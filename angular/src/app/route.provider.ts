@@ -1514,6 +1514,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-valuation-comparison',
+        name: '::Menu:StockValuationComparison',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-scale-unbalanced',
+        order: 41.6,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/reports/available-serial-no',
         name: '::Menu:AvailableSerialNoReport',
         parentName: '::Menu:Inventory',

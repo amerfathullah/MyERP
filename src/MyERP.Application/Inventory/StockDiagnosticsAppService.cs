@@ -12,9 +12,11 @@ using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -37,6 +39,10 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
     private readonly IRepository<SerialNo, Guid> _serialNoRepository;
     private readonly IRepository<Batch, Guid> _batchRepository;
     private readonly IRepository<ItemGroup, Guid> _itemGroupRepository;
+    private readonly IRepository<Bin, Guid> _binRepository;
+    private readonly IRepository<ItemStandardCost, Guid> _itemStandardCostRepository;
+    private readonly IRepository<RepostItemValuation, Guid> _repostItemValuationRepository;
+    private readonly IRepository<PeriodClosingVoucher, Guid> _periodClosingVoucherRepository;
 
     public StockDiagnosticsAppService(
         IRepository<StockLedgerEntry, Guid> sleRepository,
@@ -54,7 +60,11 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         IRepository<SerialAndBatchBundle, Guid> bundleRepository,
         IRepository<SerialNo, Guid> serialNoRepository,
         IRepository<Batch, Guid> batchRepository,
-        IRepository<ItemGroup, Guid> itemGroupRepository)
+        IRepository<ItemGroup, Guid> itemGroupRepository,
+        IRepository<Bin, Guid> binRepository,
+        IRepository<ItemStandardCost, Guid> itemStandardCostRepository,
+        IRepository<RepostItemValuation, Guid> repostItemValuationRepository,
+        IRepository<PeriodClosingVoucher, Guid> periodClosingVoucherRepository)
     {
         _sleRepository = sleRepository;
         _stockReconciliationRepository = stockReconciliationRepository;
@@ -72,6 +82,10 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         _serialNoRepository = serialNoRepository;
         _batchRepository = batchRepository;
         _itemGroupRepository = itemGroupRepository;
+        _binRepository = binRepository;
+        _itemStandardCostRepository = itemStandardCostRepository;
+        _repostItemValuationRepository = repostItemValuationRepository;
+        _periodClosingVoucherRepository = periodClosingVoucherRepository;
     }
 
     public async Task<IncorrectBalanceQtyReportDto> GetIncorrectBalanceQtyAsync(
@@ -809,6 +823,697 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         }).ToList();
 
         return new FifoQueueVsQtyComparisonReportDto { Rows = rows };
+    }
+
+    public async Task<StockValuationComparisonReportDto> GetStockValuationComparisonAsync(
+        StockValuationComparisonRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select a Company.");
+        }
+
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange)
+                .WithData("detail", "From Date cannot be after To Date.");
+        }
+
+        var showMode = string.IsNullOrWhiteSpace(input.Show)
+            ? StockValuationComparisonShowModes.FirstDifferencePerItemWarehouse
+            : input.Show.Trim();
+        var tolerance = input.Tolerance ?? 0.01m;
+        var effectiveTolerance = Math.Max(tolerance, ExpectedValuationReplayEngine.QtyNoise);
+
+        await _companyRepository.GetAsync(input.CompanyId);
+        var doNotUseBatchwise = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation);
+
+        var companyWarehouses = await _warehouseRepository.GetListAsync(w => w.CompanyId == input.CompanyId);
+        var whMap = companyWarehouses.ToDictionary(w => w.Id);
+
+        HashSet<Guid>? allowedWarehouseIds = null;
+        if (input.WarehouseId.HasValue && input.WarehouseId.Value != Guid.Empty)
+        {
+            allowedWarehouseIds = (await ExpandDescendantWarehouseIdsAsync(input.WarehouseId.Value)).ToHashSet();
+        }
+        else
+        {
+            allowedWarehouseIds = whMap.Keys.ToHashSet();
+        }
+
+        HashSet<Guid>? allowedItemIds = null;
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+        {
+            allowedItemIds = new HashSet<Guid> { input.ItemId.Value };
+        }
+        else if (input.ItemGroupId.HasValue && input.ItemGroupId.Value != Guid.Empty)
+        {
+            allowedItemIds = (await GetItemIdsForGroupTreeAsync(input.ItemGroupId.Value)).ToHashSet();
+            if (allowedItemIds.Count == 0)
+            {
+                return new StockValuationComparisonReportDto
+                {
+                    CompanyId = input.CompanyId,
+                    Tolerance = tolerance,
+                    Show = showMode,
+                };
+            }
+        }
+
+        var sleQuery = (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && s.CompanyId == input.CompanyId);
+
+        if (allowedWarehouseIds != null)
+        {
+            var whFilter = allowedWarehouseIds.ToList();
+            sleQuery = sleQuery.Where(s => whFilter.Contains(s.WarehouseId));
+        }
+
+        if (allowedItemIds != null)
+        {
+            var itemFilter = allowedItemIds.ToList();
+            sleQuery = sleQuery.Where(s => itemFilter.Contains(s.ItemId));
+        }
+
+        if (input.ToDate.HasValue)
+        {
+            var end = input.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            sleQuery = sleQuery.Where(s => s.PostingDate <= end);
+        }
+
+        var allSles = await AsyncExecuter.ToListAsync(
+            sleQuery.OrderBy(s => s.ItemId).ThenBy(s => s.WarehouseId)
+                .ThenBy(s => s.PostingDateTime).ThenBy(s => s.CreationTime));
+
+        if (allSles.Count == 0)
+        {
+            return new StockValuationComparisonReportDto
+            {
+                CompanyId = input.CompanyId,
+                Tolerance = tolerance,
+                Show = showMode,
+            };
+        }
+
+        var sleItemIds = allSles.Select(s => s.ItemId).Distinct().ToList();
+        var itemMap = (await _itemRepository.GetListAsync(i => sleItemIds.Contains(i.Id) && i.MaintainStock))
+            .ToDictionary(i => i.Id);
+
+        var binPairs = (await AsyncExecuter.ToListAsync(
+            (await _binRepository.GetQueryableAsync())
+            .Where(b => sleItemIds.Contains(b.ItemId))
+            .Select(b => new { b.ItemId, b.WarehouseId })))
+            .Select(b => (b.ItemId, b.WarehouseId));
+
+        var itemWarehousePairs = allSles
+            .Where(s => itemMap.ContainsKey(s.ItemId))
+            .Select(s => (s.ItemId, s.WarehouseId))
+            .Concat(binPairs.Where(p => itemMap.ContainsKey(p.ItemId)
+                                        && (allowedWarehouseIds == null || allowedWarehouseIds.Contains(p.WarehouseId))))
+            .Distinct()
+            .OrderBy(p => itemMap[p.ItemId].ItemCode)
+            .ThenBy(p => whMap.TryGetValue(p.WarehouseId, out var w) ? w.Name : string.Empty)
+            .ToList();
+
+        // Bulk load auxiliary replay inputs
+        var bundleIds = allSles.Where(s => s.SerialAndBatchBundleId.HasValue).Select(s => s.SerialAndBatchBundleId!.Value).Distinct().ToList();
+        var bundleMap = bundleIds.Count > 0
+            ? (await AsyncExecuter.ToListAsync(
+                (await _bundleRepository.WithDetailsAsync(b => b.Entries))
+                .Where(b => bundleIds.Contains(b.Id))))
+                .ToDictionary(b => b.Id)
+            : new Dictionary<Guid, SerialAndBatchBundle>();
+
+        var allBatchIds = allSles.Where(s => s.BatchId.HasValue).Select(s => s.BatchId!.Value)
+            .Concat(bundleMap.Values.SelectMany(b => b.Entries).Where(e => e.BatchId.HasValue).Select(e => e.BatchId!.Value))
+            .Distinct()
+            .ToList();
+        var batchMap = allBatchIds.Count > 0
+            ? (await _batchRepository.GetListAsync(b => allBatchIds.Contains(b.Id))).ToDictionary(b => b.Id)
+            : new Dictionary<Guid, Batch>();
+        var batchwiseBatchIds = batchMap.Values.Where(b => b.UseBatchwiseValuation).Select(b => b.Id).ToHashSet();
+
+        var serialIds = allSles.Where(s => s.SerialNoId.HasValue).Select(s => s.SerialNoId!.Value).Distinct().ToList();
+        var serialMap = serialIds.Count > 0
+            ? (await _serialNoRepository.GetListAsync(sn => serialIds.Contains(sn.Id))).ToDictionary(sn => sn.Id)
+            : new Dictionary<Guid, SerialNo>();
+
+        var reconIds = allSles
+            .Where(s => s.VoucherId.HasValue && IsStockReconciliationVoucher(s.VoucherType))
+            .Select(s => s.VoucherId!.Value)
+            .Distinct()
+            .ToList();
+        var reconMap = reconIds.Count > 0
+            ? (await AsyncExecuter.ToListAsync(
+                (await _stockReconciliationRepository.WithDetailsAsync(r => r.Items))
+                .Where(r => reconIds.Contains(r.Id))))
+                .ToDictionary(r => r.Id)
+            : new Dictionary<Guid, StockReconciliation>();
+
+        var reconItemById = reconMap.Values
+            .SelectMany(r => r.Items)
+            .ToDictionary(i => i.Id);
+
+        var adjustmentVoucherIds = reconMap.Values
+            .Where(r => string.Equals(r.Purpose, ExpectedValuationReplayEngine.AdjustmentEntryPurpose, StringComparison.OrdinalIgnoreCase))
+            .Select(r => r.Id)
+            .ToHashSet();
+
+        // Latest adjustment entry cutoff per (Item, Warehouse)
+        var adjustedUntilMap = BuildAdjustedUntilMap(reconMap.Values, adjustmentVoucherIds, input.ToDate);
+
+        // Pending RepostItemValuation per (Item, Warehouse)
+        var pendingReposts = await LoadPendingItemWarehouseRepostMapAsync(input.CompanyId, sleItemIds);
+
+        // Purchase return rates (for FIFO purchase returns)
+        var purchaseReturnRates = await LoadPurchaseReturnRateMapAsync(allSles);
+
+        // Standard Cost schedule per Item
+        var standardCostItems = itemMap.Values
+            .Where(i => i.ValuationMethod == ValuationMethod.StandardCost)
+            .Select(i => i.Id)
+            .ToList();
+        var standardCostMap = standardCostItems.Count > 0
+            ? (await AsyncExecuter.ToListAsync(
+                (await _itemStandardCostRepository.GetQueryableAsync())
+                .Where(sc => sc.CompanyId == input.CompanyId
+                             && sc.Status == DocumentStatus.Submitted
+                             && standardCostItems.Contains(sc.ItemId))
+                .OrderBy(sc => sc.EffectiveDate).ThenBy(sc => sc.CreationTime)))
+                .GroupBy(sc => sc.ItemId)
+                .ToDictionary(g => g.Key, g => g.ToList())
+            : new Dictionary<Guid, List<ItemStandardCost>>();
+
+        var voucherNoMap = await LoadVoucherNumbersAsync(allSles);
+        var slesByPair = allSles.GroupBy(s => (s.ItemId, s.WarehouseId)).ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = new List<StockValuationComparisonRowDto>();
+        var totalEvaluated = 0;
+        var fromDate = input.FromDate?.Date;
+
+        foreach (var pair in itemWarehousePairs)
+        {
+            if (!slesByPair.TryGetValue(pair, out var pairSles) || pairSles.Count == 0)
+                continue;
+
+            var item = itemMap[pair.ItemId];
+            whMap.TryGetValue(pair.WarehouseId, out var wh);
+            pendingReposts.TryGetValue(pair, out var pendingRepostId);
+            adjustedUntilMap.TryGetValue(pair, out var adjustedUntil);
+
+            var lastAdjustmentSleIds = pairSles
+                .Where(s => s.VoucherId.HasValue
+                            && IsStockReconciliationVoucher(s.VoucherType)
+                            && adjustmentVoucherIds.Contains(s.VoucherId.Value))
+                .GroupBy(s => s.VoucherId!.Value)
+                .Select(g => g.Last().Id)
+                .ToHashSet();
+
+            var inputs = pairSles.Select(sle => BuildReplayEntryInput(
+                sle,
+                item,
+                bundleMap,
+                serialMap,
+                reconMap,
+                reconItemById,
+                adjustmentVoucherIds,
+                lastAdjustmentSleIds,
+                purchaseReturnRates,
+                standardCostMap)).ToList();
+
+            var context = new ExpectedValuationReplayEngine.ItemReplayContext(
+                item.ValuationMethod,
+                item.HasSerialNo,
+                item.HasBatchNo,
+                item.UseSerialNoWiseValuation,
+                doNotUseBatchwise,
+                2,
+                0.001m,
+                0.01m,
+                batchwiseBatchIds);
+
+            var replayed = ExpectedValuationReplayEngine.ReplayLedger(inputs, context);
+
+            foreach (var (entry, expected) in replayed)
+            {
+                totalEvaluated++;
+                if (fromDate.HasValue && entry.PostingDate.Date < fromDate.Value)
+                    continue;
+
+                var originalSle = pairSles.First(s => s.Id == entry.SleId);
+                var qtyDiff = ApplyTolerance(originalSle.BalanceQuantity - expected.QtyAfterTransaction, effectiveTolerance);
+                var diffChange = ApplyTolerance(originalSle.StockValueDifference - expected.StockValueDifference, effectiveTolerance);
+                var rateDiff = expected.QtyAfterTransaction == 0m
+                    ? 0m
+                    : ApplyTolerance(originalSle.ValuationRate - expected.ValuationRate, effectiveTolerance);
+                var balValDiff = ApplyTolerance(originalSle.BalanceValue - expected.StockValue, effectiveTolerance);
+
+                var hasDiff = qtyDiff != 0m || diffChange != 0m || rateDiff != 0m || balValDiff != 0m;
+                string? adjustedBy = null;
+
+                if (hasDiff && adjustedUntil != null && entry.PostingDateTime < adjustedUntil.Value.PostingDateTime)
+                {
+                    adjustedBy = adjustedUntil.Value.VoucherNo;
+                    if (!input.ShowAdjustedDifferences)
+                    {
+                        hasDiff = false;
+                        if (showMode == StockValuationComparisonShowModes.AllEntries)
+                        {
+                            qtyDiff = 0m;
+                            diffChange = 0m;
+                            rateDiff = 0m;
+                            balValDiff = 0m;
+                        }
+                    }
+                }
+
+                if (showMode == StockValuationComparisonShowModes.AllEntries || hasDiff)
+                {
+                    batchMap.TryGetValue(originalSle.BatchId ?? Guid.Empty, out var batch);
+                    rows.Add(new StockValuationComparisonRowDto
+                    {
+                        StockLedgerEntryId = originalSle.Id,
+                        PostingDate = originalSle.PostingDate,
+                        PostingTime = originalSle.PostingTime,
+                        PostingDateTime = originalSle.PostingDateTime,
+                        ItemId = item.Id,
+                        ItemCode = item.ItemCode,
+                        ItemName = item.ItemName,
+                        WarehouseId = originalSle.WarehouseId,
+                        WarehouseName = wh?.Name ?? string.Empty,
+                        VoucherType = originalSle.VoucherType ?? string.Empty,
+                        VoucherId = originalSle.VoucherId,
+                        VoucherNo = ResolveVoucherNo(originalSle, voucherNoMap),
+                        SerialAndBatchBundleId = originalSle.SerialAndBatchBundleId,
+                        BatchId = originalSle.BatchId,
+                        BatchNo = batch?.BatchNo,
+                        ActualQty = originalSle.QuantityChange,
+                        QtyAfterTransaction = originalSle.BalanceQuantity,
+                        ExpectedQtyAfterTransaction = Math.Round(expected.QtyAfterTransaction, 4),
+                        QtyDifference = Math.Round(qtyDiff, 4),
+                        StockValueDifference = originalSle.StockValueDifference,
+                        ExpectedStockValueDifference = Math.Round(expected.StockValueDifference, 2),
+                        StockValueDifferenceDifference = Math.Round(diffChange, 2),
+                        ValuationRate = originalSle.ValuationRate,
+                        ExpectedValuationRate = Math.Round(expected.ValuationRate, 4),
+                        ValuationRateDifference = Math.Round(rateDiff, 4),
+                        StockValue = originalSle.BalanceValue,
+                        ExpectedStockValue = Math.Round(expected.StockValue, 2),
+                        StockValueDifferenceInBalance = Math.Round(balValDiff, 2),
+                        ExpectedBasis = expected.Basis,
+                        HasDifference = hasDiff,
+                        AdjustedBy = adjustedBy,
+                        PendingRepostId = pendingRepostId == Guid.Empty ? null : pendingRepostId,
+                    });
+                }
+
+                if (showMode == StockValuationComparisonShowModes.FirstDifferencePerItemWarehouse && hasDiff)
+                    break;
+            }
+        }
+
+        return new StockValuationComparisonReportDto
+        {
+            CompanyId = input.CompanyId,
+            Tolerance = tolerance,
+            Show = showMode,
+            TotalEntriesEvaluated = totalEvaluated,
+            DifferenceCount = rows.Count(r => r.HasDifference),
+            Rows = rows,
+        };
+    }
+
+    public async Task<List<StockValuationComparisonRepostPreviewRowDto>> GetStockValuationRepostPreviewAsync(
+        StockValuationComparisonRepostRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select a Company.");
+        }
+
+        if (input.StockLedgerEntryIds == null || input.StockLedgerEntryIds.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Select the differences to fix.");
+        }
+
+        var sleIds = input.StockLedgerEntryIds.Distinct().ToList();
+        var sles = await AsyncExecuter.ToListAsync(
+            (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled && s.CompanyId == input.CompanyId && sleIds.Contains(s.Id))
+            .OrderBy(s => s.PostingDateTime).ThenBy(s => s.CreationTime));
+
+        var earliestPerPair = new Dictionary<(Guid ItemId, Guid WarehouseId), StockLedgerEntry>();
+        foreach (var sle in sles)
+        {
+            earliestPerPair.TryAdd((sle.ItemId, sle.WarehouseId), sle);
+        }
+
+        if (earliestPerPair.Count == 0)
+            return new List<StockValuationComparisonRepostPreviewRowDto>();
+
+        var itemMap = await LoadItemMapAsync(earliestPerPair.Keys.Select(k => k.ItemId));
+        var whMap = await LoadWarehouseMapAsync(earliestPerPair.Keys.Select(k => k.WarehouseId));
+        var pendingReposts = await LoadPendingItemWarehouseRepostMapAsync(
+            input.CompanyId, earliestPerPair.Keys.Select(k => k.ItemId));
+
+        var maxClosedDate = await AsyncExecuter.FirstOrDefaultAsync(
+            (await _periodClosingVoucherRepository.GetQueryableAsync())
+            .Where(p => p.CompanyId == input.CompanyId && p.Status == DocumentStatus.Submitted)
+            .OrderByDescending(p => p.PostingDate)
+            .Select(p => (DateTime?)p.PostingDate));
+
+        return earliestPerPair.Values.Select(sle =>
+        {
+            itemMap.TryGetValue(sle.ItemId, out var item);
+            whMap.TryGetValue(sle.WarehouseId, out var wh);
+            pendingReposts.TryGetValue((sle.ItemId, sle.WarehouseId), out var pendingId);
+            return new StockValuationComparisonRepostPreviewRowDto
+            {
+                StockLedgerEntryId = sle.Id,
+                ItemId = sle.ItemId,
+                ItemCode = item?.ItemCode ?? string.Empty,
+                ItemName = item?.ItemName ?? string.Empty,
+                WarehouseId = sle.WarehouseId,
+                WarehouseName = wh?.Name ?? string.Empty,
+                PostingDate = sle.PostingDate,
+                PostingTime = sle.PostingTime,
+                IsInClosedPeriod = maxClosedDate.HasValue && sle.PostingDate.Date <= maxClosedDate.Value.Date,
+                PendingRepostId = pendingId == Guid.Empty ? null : pendingId,
+            };
+        }).ToList();
+    }
+
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<StockValuationComparisonRepostResultDto> CreateStockValuationRepostsAsync(
+        StockValuationComparisonRepostRequestDto input)
+    {
+        var previewRows = await GetStockValuationRepostPreviewAsync(input);
+        var result = new StockValuationComparisonRepostResultDto();
+
+        foreach (var row in previewRows)
+        {
+            if (row.PendingRepostId.HasValue)
+            {
+                result.Skipped.Add(new StockValuationComparisonRepostItemResultDto
+                {
+                    ItemId = row.ItemId,
+                    ItemCode = row.ItemCode,
+                    WarehouseId = row.WarehouseId,
+                    WarehouseName = row.WarehouseName,
+                    PostingDate = row.PostingDate,
+                    RepostId = row.PendingRepostId,
+                    Reason = $"Repost {row.PendingRepostId.Value.ToString()[..8]} is already pending.",
+                });
+                continue;
+            }
+
+            if (row.IsInClosedPeriod)
+            {
+                result.Skipped.Add(new StockValuationComparisonRepostItemResultDto
+                {
+                    ItemId = row.ItemId,
+                    ItemCode = row.ItemCode,
+                    WarehouseId = row.WarehouseId,
+                    WarehouseName = row.WarehouseName,
+                    PostingDate = row.PostingDate,
+                    Reason = $"Posting date {row.PostingDate:yyyy-MM-dd} falls in a closed accounting period.",
+                });
+                continue;
+            }
+
+            var repost = new RepostItemValuation(
+                GuidGenerator.Create(),
+                input.CompanyId,
+                RepostMethod.ItemAndWarehouse,
+                row.PostingDate,
+                row.ItemId,
+                row.WarehouseId,
+                CurrentTenant.Id)
+            {
+                PostingTime = row.PostingTime,
+                RepostGlEntries = true,
+            };
+
+            await _repostItemValuationRepository.InsertAsync(repost, autoSave: true);
+            result.Created.Add(new StockValuationComparisonRepostItemResultDto
+            {
+                ItemId = row.ItemId,
+                ItemCode = row.ItemCode,
+                WarehouseId = row.WarehouseId,
+                WarehouseName = row.WarehouseName,
+                PostingDate = row.PostingDate,
+                RepostId = repost.Id,
+            });
+        }
+
+        return result;
+    }
+
+    private static decimal ApplyTolerance(decimal diff, decimal tolerance)
+        => Math.Abs(diff) < tolerance ? 0m : diff;
+
+    private static bool IsStockReconciliationVoucher(string? voucherType)
+        => !string.IsNullOrWhiteSpace(voucherType)
+           && string.Equals(voucherType.Replace(" ", string.Empty), "StockReconciliation", StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<(Guid ItemId, Guid WarehouseId), (DateTime PostingDateTime, string VoucherNo)?> BuildAdjustedUntilMap(
+        IEnumerable<StockReconciliation> reconciliations,
+        HashSet<Guid> adjustmentVoucherIds,
+        DateTime? toDate)
+    {
+        var map = new Dictionary<(Guid ItemId, Guid WarehouseId), (DateTime PostingDateTime, string VoucherNo)?>();
+        foreach (var rec in reconciliations.Where(r => adjustmentVoucherIds.Contains(r.Id)
+                                                       && r.Status == DocumentStatus.Submitted
+                                                       && (!toDate.HasValue || r.PostingDate.Date <= toDate.Value.Date)))
+        {
+            var voucherNo = rec.ReconciliationNumber ?? rec.Id.ToString()[..8];
+            foreach (var row in rec.Items)
+            {
+                var key = (row.ItemId, row.WarehouseId);
+                if (!map.TryGetValue(key, out var existing) || rec.PostingDate > existing!.Value.PostingDateTime)
+                {
+                    map[key] = (rec.PostingDate, voucherNo);
+                }
+            }
+        }
+        return map;
+    }
+
+    private async Task<Dictionary<(Guid ItemId, Guid WarehouseId), Guid>> LoadPendingItemWarehouseRepostMapAsync(
+        Guid companyId,
+        IEnumerable<Guid> itemIds)
+    {
+        var ids = itemIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<(Guid, Guid), Guid>();
+
+        var pending = (await AsyncExecuter.ToListAsync(
+            (await _repostItemValuationRepository.GetQueryableAsync())
+            .Where(r => r.CompanyId == companyId
+                        && r.BasedOn == RepostMethod.ItemAndWarehouse
+                        && (r.Status == RepostStatus.Queued || r.Status == RepostStatus.InProgress)
+                        && r.ItemId.HasValue
+                        && r.WarehouseId.HasValue
+                        && ids.Contains(r.ItemId.Value))))
+            .OrderBy(r => r.PostingDate)
+            .ThenBy(r => r.PostingTime)
+            .ToList();
+
+        var map = new Dictionary<(Guid, Guid), Guid>();
+        foreach (var r in pending)
+        {
+            map.TryAdd((r.ItemId!.Value, r.WarehouseId!.Value), r.Id);
+        }
+        return map;
+    }
+
+    private async Task<Dictionary<Guid, decimal>> LoadPurchaseReturnRateMapAsync(List<StockLedgerEntry> sles)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        var prOut = sles.Where(s => s.QuantityChange < 0m
+                                    && s.VoucherId.HasValue
+                                    && string.Equals(s.VoucherType?.Replace(" ", string.Empty), "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var piOut = sles.Where(s => s.QuantityChange < 0m
+                                    && s.VoucherId.HasValue
+                                    && string.Equals(s.VoucherType?.Replace(" ", string.Empty), "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var returnedSourceByVoucher = new Dictionary<(string NormalizedType, Guid ReturnVoucherId), Guid>();
+
+        if (prOut.Count > 0)
+        {
+            var prIds = prOut.Select(s => s.VoucherId!.Value).Distinct().ToList();
+            foreach (var pr in await _purchaseReceiptRepository.GetListAsync(r => prIds.Contains(r.Id) && r.IsReturn && r.ReturnAgainstId.HasValue))
+            {
+                returnedSourceByVoucher[("PURCHASERECEIPT", pr.Id)] = pr.ReturnAgainstId!.Value;
+            }
+        }
+
+        if (piOut.Count > 0)
+        {
+            var piIds = piOut.Select(s => s.VoucherId!.Value).Distinct().ToList();
+            foreach (var pi in await _purchaseInvoiceRepository.GetListAsync(i => piIds.Contains(i.Id) && i.IsReturn && i.ReturnAgainstId.HasValue))
+            {
+                returnedSourceByVoucher[("PURCHASEINVOICE", pi.Id)] = pi.ReturnAgainstId!.Value;
+            }
+        }
+
+        if (returnedSourceByVoucher.Count == 0)
+            return result;
+
+        var sourceVoucherIds = returnedSourceByVoucher.Values.Distinct().ToList();
+        var receiptSles = await AsyncExecuter.ToListAsync(
+            (await _sleRepository.GetQueryableAsync())
+            .Where(s => !s.IsCancelled
+                        && s.QuantityChange > 0m
+                        && s.VoucherId.HasValue
+                        && sourceVoucherIds.Contains(s.VoucherId.Value))
+            .OrderBy(s => s.PostingDateTime).ThenBy(s => s.CreationTime));
+
+        var receiptRateMap = new Dictionary<(string NormalizedType, Guid VoucherId, Guid ItemId, Guid WarehouseId), decimal>();
+        foreach (var rs in receiptSles)
+        {
+            var norm = (rs.VoucherType ?? string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+            receiptRateMap.TryAdd((norm, rs.VoucherId!.Value, rs.ItemId, rs.WarehouseId), rs.IncomingRate);
+        }
+
+        foreach (var sle in prOut.Concat(piOut))
+        {
+            var norm = (sle.VoucherType ?? string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+            if (returnedSourceByVoucher.TryGetValue((norm, sle.VoucherId!.Value), out var origId)
+                && receiptRateMap.TryGetValue((norm, origId, sle.ItemId, sle.WarehouseId), out var rate))
+            {
+                result[sle.Id] = rate;
+            }
+        }
+
+        return result;
+    }
+
+    private static ExpectedValuationReplayEngine.LedgerEntryInput BuildReplayEntryInput(
+        StockLedgerEntry sle,
+        Item item,
+        Dictionary<Guid, SerialAndBatchBundle> bundleMap,
+        Dictionary<Guid, SerialNo> serialMap,
+        Dictionary<Guid, StockReconciliation> reconMap,
+        Dictionary<Guid, StockReconciliationItem> reconItemById,
+        HashSet<Guid> adjustmentVoucherIds,
+        HashSet<Guid> lastAdjustmentSleIds,
+        Dictionary<Guid, decimal> purchaseReturnRates,
+        Dictionary<Guid, List<ItemStandardCost>> standardCostMap)
+    {
+        IReadOnlyList<ExpectedValuationReplayEngine.LotMovement>? bundleMovements = null;
+        if (sle.SerialAndBatchBundleId.HasValue
+            && bundleMap.TryGetValue(sle.SerialAndBatchBundleId.Value, out var bundle))
+        {
+            bundleMovements = bundle.Entries
+                .Select(e => new ExpectedValuationReplayEngine.LotMovement(
+                    Math.Abs(e.Qty),
+                    e.IncomingRate,
+                    e.BatchId,
+                    e.SerialNo))
+                .ToList();
+        }
+
+        string? serialNoNumber = null;
+        if (sle.SerialNoId.HasValue && serialMap.TryGetValue(sle.SerialNoId.Value, out var sn))
+        {
+            serialNoNumber = sn.SerialNumber;
+        }
+
+        ExpectedValuationReplayEngine.ReconciledBalance? reconciledBalance = null;
+        if (IsStockReconciliationVoucher(sle.VoucherType))
+        {
+            if (sle.VoucherDetailNo.HasValue && reconItemById.TryGetValue(sle.VoucherDetailNo.Value, out var ri))
+            {
+                reconciledBalance = new ExpectedValuationReplayEngine.ReconciledBalance(
+                    ri.NewQuantity, ri.NewValuationRate, ri.CurrentValuationRate);
+            }
+            else if (sle.VoucherId.HasValue && reconMap.TryGetValue(sle.VoucherId.Value, out var rec))
+            {
+                var matchedRow = rec.Items.FirstOrDefault(r => r.ItemId == sle.ItemId && r.WarehouseId == sle.WarehouseId);
+                if (matchedRow != null)
+                {
+                    reconciledBalance = new ExpectedValuationReplayEngine.ReconciledBalance(
+                        matchedRow.NewQuantity, matchedRow.NewValuationRate, matchedRow.CurrentValuationRate);
+                }
+            }
+        }
+
+        var isAdjustmentVoucher = sle.VoucherId.HasValue
+                                  && IsStockReconciliationVoucher(sle.VoucherType)
+                                  && adjustmentVoucherIds.Contains(sle.VoucherId.Value);
+
+        IReadOnlyList<ExpectedValuationReplayEngine.AdjustmentRowInput>? adjustmentRows = null;
+        if (isAdjustmentVoucher && sle.VoucherId.HasValue && reconMap.TryGetValue(sle.VoucherId.Value, out var adjRec))
+        {
+            adjustmentRows = adjRec.Items
+                .Where(i => i.ItemId == sle.ItemId && i.WarehouseId == sle.WarehouseId)
+                .Select(i =>
+                {
+                    IReadOnlyList<string>? adjSerials = null;
+                    Guid? adjBatchId = null;
+                    if (i.SerialAndBatchBundleId.HasValue
+                        && bundleMap.TryGetValue(i.SerialAndBatchBundleId.Value, out var adjBundle))
+                    {
+                        var serialList = adjBundle.Entries
+                            .Where(e => !string.IsNullOrWhiteSpace(e.SerialNo))
+                            .Select(e => e.SerialNo!)
+                            .ToList();
+                        if (serialList.Count > 0)
+                            adjSerials = serialList;
+                        adjBatchId = adjBundle.Entries.FirstOrDefault(e => e.BatchId.HasValue)?.BatchId;
+                    }
+                    return new ExpectedValuationReplayEngine.AdjustmentRowInput(
+                        i.NewQuantity, i.NewValuationRate, adjBatchId, adjSerials);
+                })
+                .ToList();
+        }
+
+        decimal? effectiveStandardRate = null;
+        if (item.ValuationMethod == ValuationMethod.StandardCost
+            && standardCostMap.TryGetValue(item.Id, out var schedules))
+        {
+            foreach (var sc in schedules)
+            {
+                if (sc.EffectiveDate.Date > sle.PostingDate.Date)
+                    break;
+                effectiveStandardRate = sc.StandardRate;
+            }
+        }
+
+        decimal? purchaseReturnRate = purchaseReturnRates.TryGetValue(sle.Id, out var prRate) ? prRate : null;
+
+        return new ExpectedValuationReplayEngine.LedgerEntryInput(
+            sle.Id,
+            sle.PostingDate,
+            sle.PostingDateTime,
+            sle.CreationTime,
+            sle.VoucherType,
+            sle.VoucherId,
+            sle.VoucherDetailNo,
+            sle.QuantityChange,
+            sle.IncomingRate,
+            sle.OutgoingRate,
+            sle.BalanceQuantity,
+            sle.ValuationRate,
+            sle.BalanceValue,
+            sle.StockValueDifference,
+            sle.BatchId,
+            sle.SerialNoId,
+            serialNoNumber,
+            sle.SerialAndBatchBundleId,
+            sle.IsAdjustmentEntry,
+            BundleMovements: bundleMovements,
+            ReconciledBalance: reconciledBalance,
+            IsAdjustmentVoucher: isAdjustmentVoucher,
+            IsLastAdjustmentEntry: isAdjustmentVoucher && lastAdjustmentSleIds.Contains(sle.Id),
+            AdjustmentRows: adjustmentRows,
+            PurchaseReturnRate: purchaseReturnRate,
+            EffectiveStandardRate: effectiveStandardRate);
     }
 
     private async Task<List<Guid>> ExpandDescendantWarehouseIdsAsync(Guid rootWarehouseId)

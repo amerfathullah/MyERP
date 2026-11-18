@@ -6596,7 +6596,23 @@
     "BatchwiseValuation": "Batchwise Valuation",
     "FifoQtyDiff": "A - C (Qty Diff)",
     "FifoValueDiff": "D - E (Value Diff)",
-    "StockQueue": "FIFO/LIFO Queue"
+    "StockQueue": "FIFO/LIFO Queue",
+    "Menu:StockValuationComparison": "Stock Valuation Comparison",
+    "StockValuationComparison": "Stock Valuation Comparison",
+    "FirstDifferencePerItemWarehouse": "First Difference per Item-Warehouse",
+    "AllDifferences": "All Differences",
+    "AllEntries": "All Entries",
+    "IgnoreDifferencesBelow": "Ignore Differences Below",
+    "ShowAdjustedDifferences": "Show Differences Settled by Adjustment Entries",
+    "ExpectedStockValueDifference": "Expected Change in Stock Value",
+    "ExpectedValuationRate": "Expected Valuation Rate",
+    "ExpectedBasis": "Expected Value Based On",
+    "AdjustedBy": "Adjusted By",
+    "PendingRepost": "Pending Repost",
+    "RepostSelected": "Repost Selected",
+    "QtyDifference": "Qty Diff",
+    "ValuationRateDifference": "Rate Diff",
+    "StockValueDifferenceInBalance": "Value Diff"
   }
 }
 

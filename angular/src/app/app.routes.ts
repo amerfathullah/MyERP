@@ -4243,6 +4243,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/stock-valuation-comparison',
+    loadComponent: () => import('./inventory/reports/stock-valuation-comparison/stock-valuation-comparison.component').then(c => c.StockValuationComparisonComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/reports/available-serial-no',
     loadComponent: () => import('./inventory/reports/available-serial-no/available-serial-no.component').then(c => c.AvailableSerialNoComponent),
     canActivate: [authGuard, permissionGuard],

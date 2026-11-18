@@ -1,0 +1,181 @@
+<abp-page [title]="'::StockValuationComparison' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId" (change)="onCompanyChange()">
+            <option value="">{{ '::Select' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Item' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (it of items(); track it.id) {
+              <option [value]="it.id">{{ it.itemCode }} - {{ it.itemName }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ItemGroup' | abpLocalization }}</label>
+          <select class="form-select" formControlName="itemGroupId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (g of itemGroups(); track g.id) {
+              <option [value]="g.id">{{ g.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Warehouse' | abpLocalization }}</label>
+          <select class="form-select" formControlName="warehouseId">
+            <option value="">{{ '::All' | abpLocalization }}</option>
+            @for (w of warehouses(); track w.id) {
+              <option [value]="w.id">{{ w.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">{{ '::Status' | abpLocalization }}</label>
+          <select class="form-select" formControlName="show">
+            @for (mode of showModes; track mode) {
+              <option [value]="mode">{{ mode }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::IgnoreDifferencesBelow' | abpLocalization }}</label>
+          <input type="number" step="0.001" class="form-control" formControlName="tolerance" />
+        </div>
+        <div class="col-md-4 d-flex align-items-center pt-4">
+          <div class="form-check">
+            <input
+              type="checkbox"
+              id="showAdjustedDifferences"
+              class="form-check-input"
+              formControlName="showAdjustedDifferences"
+            />
+            <label for="showAdjustedDifferences" class="form-check-label">
+              {{ '::ShowAdjustedDifferences' | abpLocalization }}
+            </label>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-magnifying-glass me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">
+          {{ r.differenceCount ?? 0 }} / {{ r.totalEntriesEvaluated ?? 0 }} {{ '::Entries' | abpLocalization }}
+        </span>
+        <div class="d-flex gap-2">
+          <button
+            class="btn btn-sm btn-outline-warning"
+            [disabled]="!diffRows().length || isReposting()"
+            (click)="repostSelected()"
+          >
+            <i class="fa fa-rotate me-1"></i>{{ '::RepostSelected' | abpLocalization }}
+          </button>
+          <button class="btn btn-sm btn-outline-success" [disabled]="!r.rows?.length" (click)="exportCsv()">
+            <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        @if (!r.rows?.length) {
+          <div class="text-center py-4 text-muted">{{ '::NoStockDiscrepanciesFound' | abpLocalization }}</div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      (change)="toggleAll($any($event.target).checked)"
+                    />
+                  </th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::QtyAfterTransaction' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ExpectedBalanceQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::QtyDifference' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ExpectedValuationRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValuationRateDifference' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ExpectedStockValue' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::StockValueDifferenceInBalance' | abpLocalization }}</th>
+                  <th class="pe-3">{{ '::ExpectedBasis' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of r.rows ?? []; track row.stockLedgerEntryId) {
+                  <tr>
+                    <td class="ps-3">
+                      @if (row.hasDifference) {
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          [checked]="isSelected(row.stockLedgerEntryId)"
+                          (change)="toggleRow(row.stockLedgerEntryId, $any($event.target).checked)"
+                        />
+                      }
+                    </td>
+                    <td>{{ row.postingDate | date:'yyyy-MM-dd' }}</td>
+                    <td>{{ row.itemCode }} - {{ row.itemName }}</td>
+                    <td>{{ row.warehouseName }}</td>
+                    <td class="font-monospace">{{ row.voucherNo }}</td>
+                    <td class="text-end font-monospace">{{ (row.actualQty ?? 0) | number:'1.2-4' }}</td>
+                    <td class="text-end font-monospace">{{ (row.qtyAfterTransaction ?? 0) | number:'1.2-4' }}</td>
+                    <td class="text-end font-monospace">{{ (row.expectedQtyAfterTransaction ?? 0) | number:'1.2-4' }}</td>
+                    <td class="text-end font-monospace fw-bold" [class.text-danger]="hasNonZero(row.qtyDifference)">
+                      {{ (row.qtyDifference ?? 0) | number:'1.2-4' }}
+                    </td>
+                    <td class="text-end font-monospace">{{ (row.valuationRate ?? 0) | number:'1.2-4' }}</td>
+                    <td class="text-end font-monospace">{{ (row.expectedValuationRate ?? 0) | number:'1.2-4' }}</td>
+                    <td class="text-end font-monospace fw-bold" [class.text-danger]="hasNonZero(row.valuationRateDifference)">
+                      {{ (row.valuationRateDifference ?? 0) | number:'1.2-4' }}
+                    </td>
+                    <td class="text-end font-monospace">{{ (row.stockValue ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ (row.expectedStockValue ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace fw-bold" [class.text-danger]="hasNonZero(row.stockValueDifferenceInBalance)">
+                      {{ (row.stockValueDifferenceInBalance ?? 0) | number:'1.2-2' }}
+                    </td>
+                    <td class="pe-3">{{ row.expectedBasis }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</abp-page>

@@ -3796,3 +3796,92 @@ export interface FifoQueueVsQtyComparisonRowDto {
 export interface FifoQueueVsQtyComparisonReportDto {
   rows?: FifoQueueVsQtyComparisonRowDto[];
 }
+
+export interface StockValuationComparisonRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  warehouseId?: string | null;
+  show?: string | null;
+  tolerance?: number | null;
+  showAdjustedDifferences?: boolean;
+}
+
+export interface StockValuationComparisonRowDto {
+  stockLedgerEntryId?: string;
+  postingDate?: string;
+  postingTime?: string;
+  postingDateTime?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  voucherType?: string;
+  voucherId?: string | null;
+  voucherNo?: string;
+  serialAndBatchBundleId?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  actualQty?: number;
+  qtyAfterTransaction?: number;
+  expectedQtyAfterTransaction?: number;
+  qtyDifference?: number;
+  stockValueDifference?: number;
+  expectedStockValueDifference?: number;
+  stockValueDifferenceDifference?: number;
+  valuationRate?: number;
+  expectedValuationRate?: number;
+  valuationRateDifference?: number;
+  stockValue?: number;
+  expectedStockValue?: number;
+  stockValueDifferenceInBalance?: number;
+  expectedBasis?: string;
+  hasDifference?: boolean;
+  adjustedBy?: string | null;
+  pendingRepostId?: string | null;
+}
+
+export interface StockValuationComparisonReportDto {
+  companyId?: string;
+  tolerance?: number;
+  show?: string;
+  totalEntriesEvaluated?: number;
+  differenceCount?: number;
+  rows?: StockValuationComparisonRowDto[];
+}
+
+export interface StockValuationComparisonRepostRequestDto {
+  companyId: string;
+  stockLedgerEntryIds: string[];
+}
+
+export interface StockValuationComparisonRepostPreviewRowDto {
+  stockLedgerEntryId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  postingDate?: string;
+  postingTime?: string;
+  isInClosedPeriod?: boolean;
+  pendingRepostId?: string | null;
+}
+
+export interface StockValuationComparisonRepostItemResultDto {
+  itemId?: string;
+  itemCode?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  postingDate?: string;
+  repostId?: string | null;
+  reason?: string | null;
+}
+
+export interface StockValuationComparisonRepostResultDto {
+  created?: StockValuationComparisonRepostItemResultDto[];
+  skipped?: StockValuationComparisonRepostItemResultDto[];
+}
