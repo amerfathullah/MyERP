@@ -16,4 +16,6 @@ public interface ITimesheetAppService : IApplicationService
     Task<TimesheetDto> CancelAsync(Guid id);
     Task<TimesheetBillingResultDto> CreateInvoiceFromTimesheetsAsync(CreateTimesheetInvoiceDto input);
     Task<List<UnbilledTimesheetSummaryDto>> GetUnbilledSummaryAsync(Guid companyId, Guid? projectId, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<DailyTimesheetSummaryReportDto> GetDailyTimesheetSummaryAsync(DailyTimesheetSummaryRequestDto input);
+    Task<TimesheetBillingSummaryReportDto> GetTimesheetBillingSummaryAsync(TimesheetBillingSummaryRequestDto input);
 }

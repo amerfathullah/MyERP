@@ -404,3 +404,73 @@ public class DelayedTasksSummaryReportDto
     public int OnTrackCount { get; set; }
     public List<DelayedTaskSummaryRowDto> Rows { get; set; } = new();
 }
+
+// --- Daily Timesheet Summary & Timesheet Billing Summary Reports ---
+public class DailyTimesheetSummaryRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid? ProjectId { get; set; }
+}
+
+public class DailyTimesheetSummaryRowDto
+{
+    public Guid TimesheetId { get; set; }
+    public string TimesheetLabel { get; set; } = string.Empty;
+    public Guid EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public DateTime FromTime { get; set; }
+    public DateTime ToTime { get; set; }
+    public decimal Hours { get; set; }
+    public string ActivityType { get; set; } = string.Empty;
+    public Guid? TaskId { get; set; }
+    public string? TaskNumber { get; set; }
+    public string? TaskSubject { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? ProjectNumber { get; set; }
+    public string? ProjectName { get; set; }
+    public TimesheetStatus Status { get; set; }
+}
+
+public class DailyTimesheetSummaryReportDto
+{
+    public decimal TotalHours { get; set; }
+    public int EntryCount { get; set; }
+    public List<DailyTimesheetSummaryRowDto> Rows { get; set; } = new();
+}
+
+public class TimesheetBillingSummaryRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public bool IncludeDraftTimesheets { get; set; }
+}
+
+public class TimesheetBillingSummaryRowDto
+{
+    public DateTime Date { get; set; }
+    public Guid TimesheetId { get; set; }
+    public string TimesheetLabel { get; set; } = string.Empty;
+    public Guid EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public Guid? ProjectId { get; set; }
+    public string? ProjectNumber { get; set; }
+    public string? ProjectName { get; set; }
+    public decimal WorkingHours { get; set; }
+    public decimal BillingHours { get; set; }
+    public decimal BillingAmount { get; set; }
+}
+
+public class TimesheetBillingSummaryReportDto
+{
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal TotalWorkingHours { get; set; }
+    public decimal TotalBillingHours { get; set; }
+    public decimal TotalBillingAmount { get; set; }
+    public List<TimesheetBillingSummaryRowDto> Rows { get; set; } = new();
+}

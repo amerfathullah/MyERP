@@ -1,4 +1,4 @@
-import type { CreateTimesheetDto, CreateTimesheetInvoiceDto, GetTimesheetListDto, TimesheetBillingResultDto, TimesheetDto, UnbilledTimesheetSummaryDto } from './models';
+import type { CreateTimesheetDto, CreateTimesheetInvoiceDto, DailyTimesheetSummaryReportDto, DailyTimesheetSummaryRequestDto, GetTimesheetListDto, TimesheetBillingResultDto, TimesheetBillingSummaryReportDto, TimesheetBillingSummaryRequestDto, TimesheetDto, UnbilledTimesheetSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -92,6 +92,26 @@ export class TimesheetService {
       headers: { Accept: 'application/json' },
       url: `/api/app/timesheet/${id}`,
       body: input,
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getDailyTimesheetSummary = (input: DailyTimesheetSummaryRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DailyTimesheetSummaryReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/timesheet/daily-timesheet-summary',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, employeeId: input.employeeId, projectId: input.projectId },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getTimesheetBillingSummary = (input: TimesheetBillingSummaryRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TimesheetBillingSummaryReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/timesheet/timesheet-billing-summary',
+      params: { companyId: input.companyId, employeeId: input.employeeId, projectId: input.projectId, fromDate: input.fromDate, toDate: input.toDate, includeDraftTimesheets: input.includeDraftTimesheets },
     },
       { apiName: this.apiName,...config });
 }

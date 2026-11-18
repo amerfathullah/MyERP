@@ -6473,7 +6473,15 @@
     "DelayedTasksSummaryDescription": "Tracks project tasks by schedule variance relative to expected end date and task completion",
     "DelayInDays": "Delay (Days)",
     "DelayedCount": "Delayed",
-    "OnTrackCount": "On Track"
+    "OnTrackCount": "On Track",
+    "Menu:DailyTimesheetSummary": "Daily Timesheet Summary",
+    "DailyTimesheetSummary": "Daily Timesheet Summary",
+    "DailyTimesheetSummaryDescription": "Detailed daily log of submitted timesheet entries across employees, activities, and projects",
+    "Menu:TimesheetBillingSummary": "Timesheet Billing Summary",
+    "TimesheetBillingSummary": "Timesheet Billing Summary",
+    "TimesheetBillingSummaryDescription": "Summary of working hours, billable hours, and billing amounts per date, timesheet, and project",
+    "BillingHours": "Billing Hours",
+    "IncludeDraftTimesheets": "Include Draft Timesheets"
   }
 }
 

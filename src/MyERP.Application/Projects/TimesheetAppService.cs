@@ -644,5 +644,226 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
 
         return unbilled;
     }
+
+    /// <summary>
+    /// Daily Timesheet Summary report: flat view of submitted/billed timesheet time logs.
+    /// Per ERPNext projects/report/daily_timesheet_summary.
+    /// </summary>
+    public async Task<DailyTimesheetSummaryReportDto> GetDailyTimesheetSummaryAsync(
+        DailyTimesheetSummaryRequestDto input)
+    {
+        var logs = await LoadTimesheetDetailLogsAsync(
+            input.CompanyId,
+            input.FromDate,
+            input.ToDate,
+            input.EmployeeId,
+            input.ProjectId,
+            includeDrafts: false);
+
+        var rows = logs.Select(l => new DailyTimesheetSummaryRowDto
+        {
+            TimesheetId = l.Timesheet.Id,
+            TimesheetLabel = l.TimesheetLabel,
+            EmployeeId = l.Timesheet.EmployeeId,
+            EmployeeName = l.EmployeeName,
+            FromTime = l.Detail.FromTime,
+            ToTime = l.Detail.ToTime,
+            Hours = Math.Round(l.Detail.Hours, 2),
+            ActivityType = l.Detail.ActivityType,
+            TaskId = l.Detail.TaskId,
+            TaskNumber = l.TaskNumber,
+            TaskSubject = l.TaskSubject,
+            ProjectId = l.Detail.ProjectId,
+            ProjectNumber = l.ProjectNumber,
+            ProjectName = l.ProjectName,
+            Status = l.Timesheet.Status,
+        }).ToList();
+
+        return new DailyTimesheetSummaryReportDto
+        {
+            TotalHours = Math.Round(rows.Sum(r => r.Hours), 2),
+            EntryCount = rows.Count,
+            Rows = rows,
+        };
+    }
+
+    /// <summary>
+    /// Timesheet Billing Summary report: aggregates working hours, billing hours, and billing amount
+    /// by date, timesheet, employee, and project. Per ERPNext projects/report/timesheet_billing_summary.
+    /// </summary>
+    public async Task<TimesheetBillingSummaryReportDto> GetTimesheetBillingSummaryAsync(
+        TimesheetBillingSummaryRequestDto input)
+    {
+        string currency = "MYR";
+        var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        if (companyRepo != null)
+        {
+            var company = await companyRepo.FindAsync(input.CompanyId);
+            currency = company?.CurrencyCode ?? "MYR";
+        }
+
+        var logs = await LoadTimesheetDetailLogsAsync(
+            input.CompanyId,
+            input.FromDate,
+            input.ToDate,
+            input.EmployeeId,
+            input.ProjectId,
+            includeDrafts: input.IncludeDraftTimesheets);
+
+        var rows = logs
+            .GroupBy(l => new
+            {
+                Date = l.Detail.FromTime.Date,
+                TimesheetId = l.Timesheet.Id,
+                l.TimesheetLabel,
+                l.Timesheet.EmployeeId,
+                l.EmployeeName,
+                l.Detail.ProjectId,
+                l.ProjectNumber,
+                l.ProjectName,
+            })
+            .Select(g => new TimesheetBillingSummaryRowDto
+            {
+                Date = g.Key.Date,
+                TimesheetId = g.Key.TimesheetId,
+                TimesheetLabel = g.Key.TimesheetLabel,
+                EmployeeId = g.Key.EmployeeId,
+                EmployeeName = g.Key.EmployeeName,
+                ProjectId = g.Key.ProjectId,
+                ProjectNumber = g.Key.ProjectNumber,
+                ProjectName = g.Key.ProjectName,
+                WorkingHours = Math.Round(g.Sum(x => x.Detail.Hours), 2),
+                BillingHours = Math.Round(g.Sum(x => x.Detail.BillingHours), 2),
+                BillingAmount = Math.Round(g.Sum(x => x.Detail.BillingAmount), 2),
+            })
+            .OrderByDescending(r => r.Date)
+            .ThenBy(r => r.EmployeeName)
+            .ThenBy(r => r.TimesheetLabel)
+            .ToList();
+
+        return new TimesheetBillingSummaryReportDto
+        {
+            CurrencyCode = currency,
+            TotalWorkingHours = Math.Round(rows.Sum(r => r.WorkingHours), 2),
+            TotalBillingHours = Math.Round(rows.Sum(r => r.BillingHours), 2),
+            TotalBillingAmount = Math.Round(rows.Sum(r => r.BillingAmount), 2),
+            Rows = rows,
+        };
+    }
+
+    private async Task<List<TimesheetDetailLogProjection>> LoadTimesheetDetailLogsAsync(
+        Guid companyId,
+        DateTime? fromDateInput,
+        DateTime? toDateInput,
+        Guid? employeeId,
+        Guid? projectId,
+        bool includeDrafts)
+    {
+        if (companyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (fromDateInput.HasValue && toDateInput.HasValue && fromDateInput.Value.Date > toDateInput.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var fromDate = fromDateInput?.Date;
+        var toDateExclusive = toDateInput?.Date.AddDays(1);
+
+        var query = await _repository.WithDetailsAsync(t => t.Details);
+        var timesheets = query
+            .Where(t => t.CompanyId == companyId
+                && t.Status != TimesheetStatus.Cancelled
+                && (includeDrafts || t.Status != TimesheetStatus.Draft)
+                && (!employeeId.HasValue || t.EmployeeId == employeeId.Value))
+            .ToList();
+
+        var filtered = timesheets
+            .SelectMany(t => t.Details
+                .Where(d => (!projectId.HasValue || d.ProjectId == projectId.Value)
+                    && (!fromDate.HasValue || d.FromTime >= fromDate.Value)
+                    && (!toDateExclusive.HasValue || d.FromTime < toDateExclusive.Value))
+                .Select(d => (Timesheet: t, Detail: d)))
+            .ToList();
+
+        if (filtered.Count == 0)
+        {
+            return new List<TimesheetDetailLogProjection>();
+        }
+
+        var projIds = filtered.Where(x => x.Detail.ProjectId.HasValue).Select(x => x.Detail.ProjectId!.Value).Distinct().ToList();
+        var taskIds = filtered.Where(x => x.Detail.TaskId.HasValue).Select(x => x.Detail.TaskId!.Value).Distinct().ToList();
+        var empIds = filtered.Where(x => string.IsNullOrWhiteSpace(x.Timesheet.EmployeeName)).Select(x => x.Timesheet.EmployeeId).Distinct().ToList();
+
+        var projectMap = new Dictionary<Guid, Project>();
+        var projRepo = LazyServiceProvider?.LazyGetService<IRepository<Project, Guid>>();
+        if (projRepo != null && projIds.Count > 0)
+        {
+            projectMap = (await projRepo.GetListAsync(p => projIds.Contains(p.Id))).ToDictionary(p => p.Id);
+        }
+
+        var taskMap = new Dictionary<Guid, ProjectTask>();
+        var taskRepo = LazyServiceProvider?.LazyGetService<IRepository<ProjectTask, Guid>>();
+        if (taskRepo != null && taskIds.Count > 0)
+        {
+            taskMap = (await taskRepo.GetListAsync(t => taskIds.Contains(t.Id))).ToDictionary(t => t.Id);
+        }
+
+        var empNames = new Dictionary<Guid, string>();
+        var empRepo = LazyServiceProvider?.LazyGetService<IRepository<Employee, Guid>>();
+        if (empRepo != null && empIds.Count > 0)
+        {
+            empNames = (await empRepo.GetListAsync(e => empIds.Contains(e.Id)))
+                .ToDictionary(e => e.Id, e => e.FullName);
+        }
+
+        return filtered
+            .OrderBy(x => x.Detail.FromTime)
+            .ThenBy(x => x.Timesheet.Title ?? x.Timesheet.Id.ToString()[..8])
+            .Select(x =>
+            {
+                Project? proj = null;
+                if (x.Detail.ProjectId.HasValue)
+                    projectMap.TryGetValue(x.Detail.ProjectId.Value, out proj);
+
+                ProjectTask? task = null;
+                if (x.Detail.TaskId.HasValue)
+                    taskMap.TryGetValue(x.Detail.TaskId.Value, out task);
+
+                var empName = x.Timesheet.EmployeeName;
+                if (string.IsNullOrWhiteSpace(empName))
+                {
+                    empNames.TryGetValue(x.Timesheet.EmployeeId, out empName);
+                }
+
+                var label = !string.IsNullOrWhiteSpace(x.Timesheet.Title)
+                    ? x.Timesheet.Title!
+                    : x.Timesheet.Id.ToString()[..8];
+
+                return new TimesheetDetailLogProjection(
+                    x.Timesheet,
+                    x.Detail,
+                    label,
+                    empName ?? x.Timesheet.EmployeeId.ToString()[..8],
+                    proj?.ProjectNumber,
+                    proj?.ProjectName,
+                    task?.TaskNumber,
+                    task?.Subject);
+            })
+            .ToList();
+    }
+
+    private sealed record TimesheetDetailLogProjection(
+        Timesheet Timesheet,
+        TimesheetDetail Detail,
+        string TimesheetLabel,
+        string EmployeeName,
+        string? ProjectNumber,
+        string? ProjectName,
+        string? TaskNumber,
+        string? TaskSubject);
 }
 

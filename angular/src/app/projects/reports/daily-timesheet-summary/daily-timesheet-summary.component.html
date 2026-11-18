@@ -1,0 +1,113 @@
+<abp-page [title]="'::DailyTimesheetSummary' | abpLocalization">
+  <p class="text-muted small mb-3">{{ '::DailyTimesheetSummaryDescription' | abpLocalization }}</p>
+
+  @if (report()) {
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card border-start border-secondary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::VoucherCount' | abpLocalization }}</div>
+            <div class="h5 mb-0">{{ report()!.entryCount ?? 0 }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::WorkingHours' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-primary">{{ (report()!.totalHours ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small mb-1">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
+        </div>
+        <div class="col-md-6 d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-primary btn-sm" (click)="loadReport()" [disabled]="loading()">
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+          @if (report()?.rows && report()!.rows!.length > 0) {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [title]="'::ExportCSV' | abpLocalization">
+              <i class="fa fa-download"></i>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (report()?.rows && report()!.rows!.length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::Timesheet' | abpLocalization }}</th>
+                <th>{{ '::EmployeeName' | abpLocalization }}</th>
+                <th>{{ '::FromTime' | abpLocalization }}</th>
+                <th>{{ '::ToTime' | abpLocalization }}</th>
+                <th class="text-end">{{ '::WorkingHours' | abpLocalization }}</th>
+                <th>{{ '::ActivityType' | abpLocalization }}</th>
+                <th>{{ '::Task' | abpLocalization }}</th>
+                <th>{{ '::Project' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report()!.rows!; track (row.timesheetId ?? '') + '-' + (row.fromTime ?? '') + '-' + $index) {
+                <tr class="cursor-pointer" (click)="openTimesheet(row)">
+                  <td class="font-monospace small text-primary">{{ row.timesheetLabel }}</td>
+                  <td class="small">{{ row.employeeName }}</td>
+                  <td class="font-monospace small">{{ formatDateTime(row.fromTime) }}</td>
+                  <td class="font-monospace small">{{ formatDateTime(row.toTime) }}</td>
+                  <td class="text-end font-monospace small fw-semibold">{{ (row.hours ?? 0) | number:'1.2-2' }}</td>
+                  <td class="small">{{ row.activityType }}</td>
+                  <td class="small">{{ row.taskNumber || '-' }}</td>
+                  <td class="small">
+                    @if (row.projectId) {
+                      <a href="javascript:void(0)" (click)="openProject(row, $event)">{{ row.projectName || row.projectNumber }}</a>
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td><span class="badge bg-light text-dark border">{{ statusLabel(row.status) }}</span></td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td colspan="4" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalHours ?? 0) | number:'1.2-2' }}</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (report() && !loading()) {
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+        {{ '::NoDataAvailable' | abpLocalization }}
+      </div>
+    </div>
+  }
+</abp-page>

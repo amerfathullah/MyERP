@@ -422,3 +422,66 @@ export interface DelayedTasksSummaryReportDto {
   onTrackCount?: number;
   rows?: DelayedTaskSummaryRowDto[];
 }
+
+export interface DailyTimesheetSummaryRequestDto {
+  companyId?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  employeeId?: string | null;
+  projectId?: string | null;
+}
+
+export interface DailyTimesheetSummaryRowDto {
+  timesheetId?: string;
+  timesheetLabel?: string;
+  employeeId?: string;
+  employeeName?: string;
+  fromTime?: string;
+  toTime?: string;
+  hours?: number;
+  activityType?: string;
+  taskId?: string | null;
+  taskNumber?: string | null;
+  taskSubject?: string | null;
+  projectId?: string | null;
+  projectNumber?: string | null;
+  projectName?: string | null;
+  status?: TimesheetStatus;
+}
+
+export interface DailyTimesheetSummaryReportDto {
+  totalHours?: number;
+  entryCount?: number;
+  rows?: DailyTimesheetSummaryRowDto[];
+}
+
+export interface TimesheetBillingSummaryRequestDto {
+  companyId?: string;
+  employeeId?: string | null;
+  projectId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  includeDraftTimesheets?: boolean;
+}
+
+export interface TimesheetBillingSummaryRowDto {
+  date?: string;
+  timesheetId?: string;
+  timesheetLabel?: string;
+  employeeId?: string;
+  employeeName?: string;
+  projectId?: string | null;
+  projectNumber?: string | null;
+  projectName?: string | null;
+  workingHours?: number;
+  billingHours?: number;
+  billingAmount?: number;
+}
+
+export interface TimesheetBillingSummaryReportDto {
+  currencyCode?: string;
+  totalWorkingHours?: number;
+  totalBillingHours?: number;
+  totalBillingAmount?: number;
+  rows?: TimesheetBillingSummaryRowDto[];
+}

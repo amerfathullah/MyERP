@@ -2381,6 +2381,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Projects' },
   },
   {
+    path: 'projects/reports/daily-timesheet-summary',
+    loadComponent: () => import('./projects/reports/daily-timesheet-summary/daily-timesheet-summary.component').then(c => c.DailyTimesheetSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
+    path: 'projects/reports/timesheet-billing-summary',
+    loadComponent: () => import('./projects/reports/timesheet-billing-summary/timesheet-billing-summary.component').then(c => c.TimesheetBillingSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Projects' },
+  },
+  {
     path: 'projects/:id',
     loadComponent: () => import('./projects/project-detail/project-detail.component').then(c => c.ProjectDetailComponent),
     canActivate: [authGuard, permissionGuard],
