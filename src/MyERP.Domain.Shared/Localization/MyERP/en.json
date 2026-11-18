@@ -6452,7 +6452,13 @@
     "AssetDepreciationLedgerDescription": "Detailed ledger of posted asset depreciation entries, running accumulated depreciation, and net carrying values",
     "DepreciationDate": "Depreciation Date",
     "DepreciationEntry": "Depreciation Entry",
-    "NoDepreciationEntriesFound": "No booked asset depreciation entries found in the selected period"
+    "NoDepreciationEntriesFound": "No booked asset depreciation entries found in the selected period",
+    "Menu:SalesPartnerCommissionSummary": "Sales Partner Commission Summary",
+    "SalesPartnerCommissionSummary": "Sales Partner Commission Summary",
+    "SalesPartnerCommissionSummaryDescription": "Summary of sales orders, invoices, and POS invoices attributed to sales partners with commission amounts",
+    "Menu:SalesPartnerTransactionSummary": "Sales Partner Transaction Summary",
+    "SalesPartnerTransactionSummary": "Sales Partner Transaction Summary",
+    "SalesPartnerTransactionSummaryDescription": "Item-wise breakdown of sales partner transactions respecting commission eligibility and item groups"
   }
 }
 

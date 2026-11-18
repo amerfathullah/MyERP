@@ -1,0 +1,138 @@
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-1">
+        <i class="fa fa-handshake text-primary me-2"></i>
+        {{ '::SalesPartnerCommissionSummary' | abpLocalization }}
+      </h4>
+      <p class="text-muted small mb-0">{{ '::SalesPartnerCommissionSummaryDescription' | abpLocalization }}</p>
+    </div>
+    @if (report()?.rows && report()!.rows!.length > 0) {
+      <button type="button" class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+        <i class="fa fa-file-csv me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+      </button>
+    }
+  </div>
+
+  @if (report()) {
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="card border-start border-secondary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::VoucherCount' | abpLocalization }}</div>
+            <div class="h5 mb-0">{{ report()!.transactionCount ?? 0 }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-start border-primary border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::Amount' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-primary">{{ report()!.currency || 'MYR' }} {{ (report()!.totalAmount ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-start border-success border-4">
+          <div class="card-body py-2">
+            <div class="small text-muted">{{ '::TotalCommission' | abpLocalization }}</div>
+            <div class="h5 mb-0 text-success">{{ report()!.currency || 'MYR' }} {{ (report()!.totalCommission ?? 0) | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="card mb-3 shadow-sm border-0">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small mb-1">{{ '::DocumentType' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="selectedDocType" (ngModelChange)="loadReport()">
+            <option value="Sales Invoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+            <option value="Sales Order">{{ '::SalesOrder' | abpLocalization }}</option>
+            <option value="POS Invoice">POS Invoice</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">{{ '::SalesPartner' | abpLocalization }}</label>
+          <select class="form-select form-select-sm" [(ngModel)]="selectedSalesPartnerId" (ngModelChange)="loadReport()">
+            <option value="">-- {{ '::AllSalesPartners' | abpLocalization }} --</option>
+            @for (sp of salesPartners(); track sp.id) {
+              <option [value]="sp.id">{{ sp.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button type="button" class="btn btn-sm btn-primary w-100" (click)="loadReport()" [disabled]="loading()">
+            @if (loading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            } @else {
+              <i class="fa fa-sync me-1"></i>
+            }
+            {{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (report()?.rows && report()!.rows!.length > 0) {
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>{{ '::DocumentNumber' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::Customer' | abpLocalization }}</th>
+                <th>{{ '::Territory' | abpLocalization }}</th>
+                <th>{{ '::SalesPartner' | abpLocalization }}</th>
+                <th class="text-end">{{ '::CommissionRate' | abpLocalization }} %</th>
+                <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TotalCommission' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report()!.rows!; track row.transactionId ?? $index) {
+                <tr class="cursor-pointer" (click)="drillDown(row)">
+                  <td class="font-monospace small text-primary">{{ row.transactionNumber }}</td>
+                  <td class="font-monospace small">{{ formatDate(row.postingDate) }}</td>
+                  <td class="small">{{ row.customerName }}</td>
+                  <td class="small">{{ row.territoryName || '-' }}</td>
+                  <td class="small fw-semibold">{{ row.salesPartnerName }}</td>
+                  <td class="text-end font-monospace small">{{ (row.commissionRate ?? 0) | number:'1.2-2' }}%</td>
+                  <td class="text-end font-monospace small">{{ (row.amount ?? 0) | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace small text-success fw-semibold">{{ (row.totalCommission ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td colspan="6" class="text-end">{{ '::Total' | abpLocalization }}</td>
+                <td class="text-end font-monospace">{{ (report()!.totalAmount ?? 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace text-success">{{ (report()!.totalCommission ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  } @else if (report() && !loading()) {
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+        {{ '::NoDataAvailable' | abpLocalization }}
+      </div>
+    </div>
+  }
+</div>

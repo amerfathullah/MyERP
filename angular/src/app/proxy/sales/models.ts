@@ -3173,3 +3173,71 @@ export interface OrderReceiptDto {
   status?: string;
   itemCount?: number;
 }
+
+export interface GetSalesPartnerCommissionSummaryInput {
+  companyId?: string;
+  docType?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  salesPartnerId?: string | null;
+  customerId?: string | null;
+  territoryId?: string | null;
+  itemGroupId?: string | null;
+  brand?: string | null;
+  showReturnEntries?: boolean;
+}
+
+export interface SalesPartnerCommissionSummaryRowDto {
+  transactionId?: string;
+  transactionNumber?: string;
+  docType?: string;
+  postingDate?: string;
+  customerId?: string;
+  customerName?: string;
+  territoryName?: string | null;
+  salesPartnerId?: string;
+  salesPartnerName?: string;
+  commissionRate?: number;
+  amount?: number;
+  totalCommission?: number;
+}
+
+export interface SalesPartnerCommissionSummaryReportDto {
+  currency?: string;
+  docType?: string;
+  rows?: SalesPartnerCommissionSummaryRowDto[];
+  totalAmount?: number;
+  totalCommission?: number;
+  transactionCount?: number;
+}
+
+export interface SalesPartnerTransactionSummaryRowDto {
+  transactionId?: string;
+  transactionNumber?: string;
+  docType?: string;
+  postingDate?: string;
+  customerId?: string;
+  customerName?: string;
+  territoryName?: string | null;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemGroupName?: string | null;
+  brand?: string | null;
+  quantity?: number;
+  rate?: number;
+  amount?: number;
+  salesPartnerId?: string;
+  salesPartnerName?: string;
+  commissionRate?: number;
+  commission?: number;
+}
+
+export interface SalesPartnerTransactionSummaryReportDto {
+  currency?: string;
+  docType?: string;
+  rows?: SalesPartnerTransactionSummaryRowDto[];
+  totalQty?: number;
+  totalAmount?: number;
+  totalCommission?: number;
+}
