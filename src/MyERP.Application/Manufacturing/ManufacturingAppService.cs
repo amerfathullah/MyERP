@@ -4034,7 +4034,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 && wo.Status != WorkOrderStatus.Stopped
                 && wo.Status != WorkOrderStatus.Completed
                 && wo.Status != WorkOrderStatus.Cancelled
-                && wo.ProducedQuantity < wo.Quantity)
+                && (wo.ProducedQuantity + wo.ProcessLossQty) < wo.Quantity)
             .OrderBy(wo => wo.CreationTime)
             .ToList();
 
@@ -4078,11 +4078,58 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 ItemName = item?.ItemName ?? "—",
                 Quantity = wo.Quantity,
                 ProducedQuantity = wo.ProducedQuantity,
+                ProcessLossQty = wo.ProcessLossQty,
                 Status = (int)wo.Status,
                 StatusLabel = GetWoStatusLabel((int)wo.Status),
                 PlannedStartDate = wo.PlannedStartDate,
                 PlannedEndDate = wo.PlannedEndDate,
                 StockEntryCount = seCounts.GetValueOrDefault(wo.Id, 0)
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Completed Work Orders report: returns submitted work orders with Completed status.
+    /// Maps to ERPNext manufacturing/report/completed_work_orders.
+    /// </summary>
+    public async Task<List<CompletedWorkOrderItemDto>> GetCompletedWorkOrdersReportAsync(Guid companyId)
+    {
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var completedOrders = woQuery
+            .Where(wo => wo.CompanyId == companyId && wo.Status == WorkOrderStatus.Completed)
+            .OrderByDescending(wo => wo.ActualEndDate ?? wo.CreationTime)
+            .ToList();
+
+        if (completedOrders.Count == 0) return new List<CompletedWorkOrderItemDto>();
+
+        var itemIds = completedOrders.Select(wo => wo.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var itemQueryable = await itemRepo.GetQueryableAsync();
+        var itemLookup = itemQueryable.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList()
+            .ToDictionary(x => x.Id);
+
+        return completedOrders.Select(wo =>
+        {
+            var item = itemLookup.GetValueOrDefault(wo.ItemId);
+            return new CompletedWorkOrderItemDto
+            {
+                WorkOrderId = wo.Id,
+                WorkOrderNumber = wo.WorkOrderNumber ?? wo.Id.ToString()[..8],
+                CreationTime = wo.CreationTime,
+                ItemId = wo.ItemId,
+                ItemCode = item?.ItemCode ?? "—",
+                ItemName = item?.ItemName ?? "—",
+                Quantity = wo.Quantity,
+                ProducedQuantity = wo.ProducedQuantity,
+                ProcessLossQty = wo.ProcessLossQty,
+                Status = (int)wo.Status,
+                StatusLabel = GetWoStatusLabel((int)wo.Status),
+                PlannedStartDate = wo.PlannedStartDate,
+                PlannedEndDate = wo.PlannedEndDate,
+                ActualStartDate = wo.ActualStartDate,
+                ActualEndDate = wo.ActualEndDate,
             };
         }).ToList();
     }

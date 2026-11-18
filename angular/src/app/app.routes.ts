@@ -2649,6 +2649,24 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/reports/open-work-orders',
+    loadComponent: () => import('./manufacturing/reports/work-order-status-report.component').then(c => c.WorkOrderStatusReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing', reportMode: 'open' },
+  },
+  {
+    path: 'manufacturing/reports/work-orders-in-progress',
+    loadComponent: () => import('./manufacturing/reports/work-order-status-report.component').then(c => c.WorkOrderStatusReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing', reportMode: 'in-progress' },
+  },
+  {
+    path: 'manufacturing/reports/completed-work-orders',
+    loadComponent: () => import('./manufacturing/reports/work-order-status-report.component').then(c => c.WorkOrderStatusReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing', reportMode: 'completed' },
+  },
+  {
     path: 'manufacturing/reports/job-card-summary',
     loadComponent: () => import('./manufacturing/reports/job-card-summary.component').then(c => c.JobCardSummaryComponent),
     canActivate: [authGuard, permissionGuard],

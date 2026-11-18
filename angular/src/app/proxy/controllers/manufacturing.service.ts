@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDiffRequestDto, BomDiffResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateOrdersFromMrpInput, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialRequirementsPlanningFilterDto, MaterialRequirementsPlanningReportDto, MaterialShortageAcrossOrdersDto, MrpOrdersCreatedDto, OpenWorkOrderItemDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderInProgressItemDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
+import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDiffRequestDto, BomDiffResultDto, BomDto, CompletedWorkOrderItemDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateOrdersFromMrpInput, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialRequirementsPlanningFilterDto, MaterialRequirementsPlanningReportDto, MaterialShortageAcrossOrdersDto, MrpOrdersCreatedDto, OpenWorkOrderItemDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderInProgressItemDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -439,6 +439,15 @@ export class ManufacturingService {
       params: { companyId },
     },
       { apiName: this.apiName,...config });
+
+  getCompletedWorkOrdersReport = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CompletedWorkOrderItemDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/manufacturing/completed-work-orders',
+      params: { companyId },
+    },
+      { apiName: this.apiName, ...config });
   
 
   

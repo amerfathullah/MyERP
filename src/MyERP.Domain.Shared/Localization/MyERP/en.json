@@ -6616,7 +6616,13 @@
     "Menu:QuickStockBalance": "Quick Stock Balance",
     "QuickStockBalance": "Quick Stock Balance",
     "StockBalanceReport": "Stock Balance Report",
-    "ItemDetails": "Item Details"
+    "ItemDetails": "Item Details",
+    "Menu:OpenWorkOrders": "Open Work Orders",
+    "Menu:WorkOrdersInProgress": "Work Orders in Progress",
+    "WorkOrdersInProgress": "Work Orders in Progress",
+    "Menu:CompletedWorkOrders": "Completed Work Orders",
+    "CompletedWorkOrders": "Completed Work Orders",
+    "ToProduce": "To Produce"
   }
 }
 

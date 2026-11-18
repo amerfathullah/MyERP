@@ -148,10 +148,12 @@ public class OpenWorkOrdersReportTests
         var itemRepo = Substitute.For<IRepository<Item, Guid>>();
 
         var woInProgress = CreateWo("WO-IN-PROGRESS", WorkOrderStatus.InProcess, 50m, 10m);
+        var woCoveredByLoss = CreateWo("WO-LOSS-COVERED", WorkOrderStatus.InProcess, 20m, 15m);
+        woCoveredByLoss.ProcessLossQty = 5m;
         var woNoStockEntry = CreateWo("WO-NO-SE", WorkOrderStatus.Submitted, 30m, 0m);
         var woStoppedWithSe = CreateWo("WO-STOPPED", WorkOrderStatus.Stopped, 20m, 5m);
 
-        var workOrders = new List<WorkOrder> { woInProgress, woNoStockEntry, woStoppedWithSe };
+        var workOrders = new List<WorkOrder> { woInProgress, woCoveredByLoss, woNoStockEntry, woStoppedWithSe };
         woRepo.GetQueryableAsync().Returns(Task.FromResult(workOrders.AsQueryable()));
 
         var se1 = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
@@ -160,13 +162,19 @@ public class OpenWorkOrdersReportTests
         };
         typeof(StockEntry).GetProperty(nameof(StockEntry.Status))!.SetValue(se1, DocumentStatus.Submitted);
 
+        var seLoss = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
+        {
+            WorkOrderId = woCoveredByLoss.Id
+        };
+        typeof(StockEntry).GetProperty(nameof(StockEntry.Status))!.SetValue(seLoss, DocumentStatus.Submitted);
+
         var se2 = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
         {
             WorkOrderId = woStoppedWithSe.Id
         };
         typeof(StockEntry).GetProperty(nameof(StockEntry.Status))!.SetValue(se2, DocumentStatus.Submitted);
 
-        seRepo.GetQueryableAsync().Returns(Task.FromResult(new List<StockEntry> { se1, se2 }.AsQueryable()));
+        seRepo.GetQueryableAsync().Returns(Task.FromResult(new List<StockEntry> { se1, seLoss, se2 }.AsQueryable()));
 
         var item = new Item(_itemId, _companyId, "FG-001", "Finished Good Item", ItemType.Goods);
         itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
@@ -175,10 +183,38 @@ public class OpenWorkOrdersReportTests
 
         var result = await service.GetWorkOrdersInProgressReportAsync(_companyId);
 
-        // Only woInProgress is in progress: woNoStockEntry has no stock entry, woStoppedWithSe is stopped
+        // Only woInProgress is in progress: woCoveredByLoss has Produced + ProcessLoss == Qty
         result.Count.ShouldBe(1);
         result[0].WorkOrderNumber.ShouldBe("WO-IN-PROGRESS");
         result[0].StockEntryCount.ShouldBe(1);
         result[0].RemainingQuantity.ShouldBe(40m);
+    }
+
+    [Fact]
+    public async Task GetCompletedWorkOrdersReport_Should_Return_Completed_Orders_Only()
+    {
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var mrRepo = Substitute.For<IRepository<MaterialRequest, Guid>>();
+        var numGen = Substitute.For<IDocumentNumberGenerator>();
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+
+        var woCompleted = CreateWo("WO-DONE-1", WorkOrderStatus.Completed, 25m, 25m);
+        var woInProcess = CreateWo("WO-ACTIVE-1", WorkOrderStatus.InProcess, 25m, 10m);
+        var woDraft = CreateWo("WO-DRAFT-1", WorkOrderStatus.Draft, 25m, 0m);
+
+        var workOrders = new List<WorkOrder> { woCompleted, woInProcess, woDraft };
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(workOrders.AsQueryable()));
+
+        var item = new Item(_itemId, _companyId, "FG-001", "Finished Good Item", ItemType.Goods);
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var service = CreateService(bomRepo, woRepo, mrRepo, numGen, seRepo, itemRepo);
+        var result = await service.GetCompletedWorkOrdersReportAsync(_companyId);
+
+        result.Count.ShouldBe(1);
+        result[0].WorkOrderNumber.ShouldBe("WO-DONE-1");
+        result[0].ProducedQuantity.ShouldBe(25m);
     }
 }

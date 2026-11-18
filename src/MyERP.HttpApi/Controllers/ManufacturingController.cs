@@ -223,4 +223,8 @@ public class ManufacturingController : MyERPController
     [HttpGet("work-orders-in-progress")]
     public Task<List<WorkOrderInProgressItemDto>> GetWorkOrdersInProgressReportAsync([FromQuery] Guid companyId)
         => _service.GetWorkOrdersInProgressReportAsync(companyId);
+
+    [HttpGet("completed-work-orders")]
+    public Task<List<CompletedWorkOrderItemDto>> GetCompletedWorkOrdersReportAsync([FromQuery] Guid companyId)
+        => _service.GetCompletedWorkOrdersReportAsync(companyId);
 }

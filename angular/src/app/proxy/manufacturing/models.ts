@@ -1916,12 +1916,31 @@ export interface WorkOrderInProgressItemDto {
   itemName?: string;
   quantity?: number;
   producedQuantity?: number;
+  processLossQty?: number;
   remainingQuantity?: number;
   status?: number;
   statusLabel?: string;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   stockEntryCount?: number;
+}
+
+export interface CompletedWorkOrderItemDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  creationTime?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  producedQuantity?: number;
+  processLossQty?: number;
+  status?: number;
+  statusLabel?: string;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
 }
 
 export interface WorkOrderItemDto {
