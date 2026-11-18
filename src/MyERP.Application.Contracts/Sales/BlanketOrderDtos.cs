@@ -55,3 +55,19 @@ public class CreateBlanketOrderItemDto
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
 }
+
+/// <summary>
+/// Filter input for querying active party-scoped Blanket Orders on transaction rows
+/// (ERPNext queries.get_blanket_orders parity: Selling/Purchasing + party/Lead/Prospect + date + item).
+/// </summary>
+public class GetActiveBlanketOrdersInput
+{
+    public Guid CompanyId { get; set; }
+    public string OrderType { get; set; } = "Selling";
+    public Guid? PartyId { get; set; }
+    public Guid? LeadId { get; set; }
+    public Guid? ProspectId { get; set; }
+    public Guid? ItemId { get; set; }
+    public DateTime? TransactionDate { get; set; }
+    public string? Currency { get; set; }
+}

@@ -184,6 +184,40 @@ export class PurchaseOrderFormComponent implements OnInit {
     return this.blanketOrderInfo()[index] ?? null;
   }
 
+  private clearStaleBlanketOrders(supplierId: string | null | undefined): void {
+    this.blanketOrderInfo.set({});
+    for (let i = 0; i < this.items.controls.length; i++) {
+      const row = this.items.at(i) as FormGroup;
+      row.patchValue({ blanketOrderId: null });
+      const itemId = row.get('itemId')?.value;
+      if (supplierId && itemId) {
+        this.itemDetailsService.getItemDetails({
+          itemId,
+          transactionType: 'Buying',
+          companyId: this.form.get('companyId')?.value || undefined,
+          supplierId,
+          priceListId: this.form.get('priceListId')?.value || undefined,
+          transactionDate: this.form.get('orderDate')?.value || undefined,
+          currencyCode: this.form.get('currencyCode')?.value || undefined,
+          exchangeRate: this.form.get('exchangeRate')?.value || undefined,
+        }).subscribe({
+          next: (details) => {
+            if (!details?.blanketOrderId) return;
+            row.patchValue({ blanketOrderId: details.blanketOrderId });
+            this.blanketOrderInfo.update(m => ({
+              ...m,
+              [i]: {
+                orderNumber: details.blanketOrderNumber ?? '',
+                remainingQty: details.blanketOrderRemainingQty ?? 0,
+              },
+            }));
+          },
+          error: () => {},
+        });
+      }
+    }
+  }
+
   onItemSelected(index: number, item: ItemDto | null): void {
     const itemId = item?.id;
     const row = this.items.at(index) as FormGroup;
@@ -199,6 +233,8 @@ export class PurchaseOrderFormComponent implements OnInit {
         supplierId: this.form.get('supplierId')?.value || undefined,
         priceListId: this.form.get('priceListId')?.value || undefined,
         transactionDate: this.form.get('orderDate')?.value || undefined,
+        currencyCode: this.form.get('currencyCode')?.value || undefined,
+        exchangeRate: this.form.get('exchangeRate')?.value || undefined,
       }).subscribe({
         next: (details) => {
           if (details) {
@@ -251,6 +287,7 @@ export class PurchaseOrderFormComponent implements OnInit {
     this.supplierQuotations.set([]);
     this.supplierScorecardWarning.set('');
     this.supplierBlocked.set(false);
+    this.clearStaleBlanketOrders(supplierId);
     if (!supplierId) return;
 
     // Check supplier scorecard standing (warn/block per ERPNext supplier_scorecard enforcement)

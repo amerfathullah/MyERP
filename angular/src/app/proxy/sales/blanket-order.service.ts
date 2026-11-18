@@ -1,4 +1,4 @@
-import type { BlanketOrderDto, CreateBlanketOrderDto } from './models';
+import type { BlanketOrderDto, CreateBlanketOrderDto, GetActiveBlanketOrdersInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -59,6 +59,15 @@ export class BlanketOrderService {
       method: 'GET',
       headers: { Accept: 'application/json' },
       url: `/api/app/blanket-order/${id}`,
+    },
+      { apiName: this.apiName,...config });
+
+  getActiveForParty = (input: GetActiveBlanketOrdersInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BlanketOrderDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/blanket-order/active-for-party',
+      params: { companyId: input.companyId, orderType: input.orderType, partyId: input.partyId, leadId: input.leadId, prospectId: input.prospectId, itemId: input.itemId, transactionDate: input.transactionDate, currency: input.currency },
     },
       { apiName: this.apiName,...config });
   

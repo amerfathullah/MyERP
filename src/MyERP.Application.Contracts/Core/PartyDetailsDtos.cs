@@ -61,4 +61,7 @@ public class PartyDetailsDto
     // Credit (Customer only)
     public decimal CreditLimit { get; set; }
     public decimal Outstanding { get; set; }
+
+    /// <summary>Customer ID when a Prospect/Lead has already been converted to a Customer.</summary>
+    public Guid? ConvertedCustomerId { get; set; }
 }

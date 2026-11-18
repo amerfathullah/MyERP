@@ -68,6 +68,15 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             ? TransactionType.Buying
             : TransactionType.Selling;
 
+        // Per ERPNext commits ad16ee4b4b, b8c9594a17, 09fd286163: for Selling transactions
+        // targeting a Lead or Prospect, resolve the Customer converted from it (never pick another party's BO).
+        var boRateService = LazyServiceProvider.LazyGetService<Sales.DomainServices.BlanketOrderRateService>();
+        var resolvedCustomerId = txType == TransactionType.Selling
+            ? (boRateService != null
+                ? await boRateService.ResolveCustomerIdAsync(input.CustomerId, input.LeadId, input.ProspectId, input.CompanyId)
+                : input.CustomerId)
+            : null;
+
         // Per ERPNext (PR #58926 / commit fd492100b0): ignore disabled price lists and party defaults
         var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
         var effectivePriceListId = input.PriceListId;
@@ -82,10 +91,10 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
 
         if (!effectivePriceListId.HasValue)
         {
-            if (txType == TransactionType.Selling && input.CustomerId.HasValue)
+            if (txType == TransactionType.Selling && resolvedCustomerId.HasValue)
             {
                 var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
-                var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+                var customer = await customerRepo.FindAsync(resolvedCustomerId.Value);
                 if (customer?.DefaultPriceListId.HasValue == true)
                 {
                     var pl = await priceListRepo.FindAsync(customer.DefaultPriceListId.Value);
@@ -125,7 +134,7 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             CompanyId = input.CompanyId,
             TransactionType = txType,
             WarehouseOverride = input.WarehouseId,
-            PartyId = txType == TransactionType.Buying ? input.SupplierId : input.CustomerId,
+            PartyId = txType == TransactionType.Buying ? input.SupplierId : resolvedCustomerId,
             PriceListId = effectivePriceListId,
             TransactionDate = input.TransactionDate,
         };
@@ -179,18 +188,24 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
         }
 
         // Blanket Order rate resolution per ERPNext update_party_blanket_order
-        if (input.CompanyId.HasValue && (input.CustomerId.HasValue || input.SupplierId.HasValue))
+        var boPartyId = txType == TransactionType.Selling ? resolvedCustomerId : input.SupplierId;
+        if (input.CompanyId.HasValue && boPartyId.HasValue && boPartyId.Value != Guid.Empty)
         {
             try
             {
-                var boRateService = LazyServiceProvider
+                boRateService ??= LazyServiceProvider!
                     .LazyGetRequiredService<Sales.DomainServices.BlanketOrderRateService>();
-                var partyId = input.CustomerId ?? input.SupplierId!.Value;
                 var orderType = txType == TransactionType.Selling ? "Selling" : "Buying";
                 var txDate = input.TransactionDate ?? DateTime.UtcNow;
 
                 var boResult = await boRateService.GetRateAsync(
-                    input.CompanyId.Value, partyId, input.ItemId, orderType, txDate);
+                    input.CompanyId.Value,
+                    boPartyId.Value,
+                    input.ItemId,
+                    orderType,
+                    txDate,
+                    targetCurrency: input.CurrencyCode,
+                    targetExchangeRate: input.ExchangeRate ?? 1m);
 
                 if (boResult != null)
                 {

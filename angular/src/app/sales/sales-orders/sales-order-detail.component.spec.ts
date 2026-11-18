@@ -513,5 +513,14 @@ describe('SalesOrderDetailComponent Logic', () => {
       comp.openDeliverySelection();
       expect(comp.showDeliverySelection()).toBe(false);
     });
+
+    it('rounds pending qty before checking stock sufficiency indicator', () => {
+      const { comp } = createComponent();
+      comp.itemStock.set({ 'item-1': 0.2, 'item-2': 0 });
+
+      // 0.3 - 0.1 = 0.19999999999999998 vs 10.3 - 10.1 = 0.20000000000000107
+      expect(comp.isStockSufficient({ itemId: 'item-1', quantity: 10.3, deliveredQty: 10.1 })).toBe(true);
+      expect(comp.isStockSufficient({ itemId: 'item-2', quantity: 5, deliveredQty: 0 })).toBe(false);
+    });
   });
 });

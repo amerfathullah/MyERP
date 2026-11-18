@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.CRM.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -70,6 +71,73 @@ public class BlanketOrderRateService : DomainService
                     bo.Id, bo.OrderNumber,
                     resolvedRate, matchingItem.RemainingQty,
                     baseRate, bo.Currency, bo.ExchangeRate);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves the Customer ID converted from a Lead or Prospect (per ERPNext
+    /// get_existing_customer_name / commits ad16ee4b4b, b8c9594a17).
+    /// Returns null when the Lead/Prospect has no converted Customer.
+    /// </summary>
+    public async Task<Guid?> ResolveCustomerIdAsync(
+        Guid? customerId,
+        Guid? leadId,
+        Guid? prospectId,
+        Guid? companyId = null)
+    {
+        if (customerId.HasValue && customerId.Value != Guid.Empty)
+            return customerId.Value;
+
+        var customerRepo = LazyServiceProvider?.LazyGetService<IRepository<Customer, Guid>>();
+
+        if (prospectId.HasValue && prospectId.Value != Guid.Empty)
+        {
+            var prospectRepo = LazyServiceProvider?.LazyGetService<IRepository<Prospect, Guid>>();
+            if (prospectRepo != null)
+            {
+                var prospect = await prospectRepo.FindAsync(prospectId.Value);
+                if (prospect?.ConvertedCustomerId is Guid converted && converted != Guid.Empty)
+                    return converted;
+            }
+
+            if (customerRepo != null)
+            {
+                var custQuery = await customerRepo.GetQueryableAsync();
+                if (custQuery != null)
+                {
+                    var match = custQuery.FirstOrDefault(c =>
+                        c.ProspectId == prospectId.Value &&
+                        (!companyId.HasValue || c.CompanyId == companyId.Value));
+                    if (match != null)
+                        return match.Id;
+                }
+            }
+        }
+
+        if (leadId.HasValue && leadId.Value != Guid.Empty)
+        {
+            var leadRepo = LazyServiceProvider?.LazyGetService<IRepository<Lead, Guid>>();
+            if (leadRepo != null)
+            {
+                var lead = await leadRepo.FindAsync(leadId.Value);
+                if (lead?.ConvertedCustomerId is Guid converted && converted != Guid.Empty)
+                    return converted;
+            }
+
+            if (customerRepo != null)
+            {
+                var custQuery = await customerRepo.GetQueryableAsync();
+                if (custQuery != null)
+                {
+                    var match = custQuery.FirstOrDefault(c =>
+                        c.LeadId == leadId.Value &&
+                        (!companyId.HasValue || c.CompanyId == companyId.Value));
+                    if (match != null)
+                        return match.Id;
+                }
             }
         }
 

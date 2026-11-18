@@ -205,5 +205,48 @@ describe('PurchaseOrder form item calculations', () => {
       expect(comp.getBlanketOrderInfo(0)).toEqual({ orderNumber: 'BO-BUY-2026-001', remainingQty: 80 });
       expect(comp.getBlanketOrderInfo(1)).toBeNull();
     });
+
+    it('clears stale blanketOrderId when supplier changes', () => {
+      const getItemDetailsMock = vi.fn().mockImplementation((input: any) => {
+        if (input.supplierId === 'sup-1') {
+          return of({ rate: 40, description: 'Part', blanketOrderId: 'bo-sup-1', blanketOrderNumber: 'BO-1', blanketOrderRemainingQty: 10 });
+        }
+        return of({ rate: 50, description: 'Part', blanketOrderId: null });
+      });
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: fb },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+          { provide: PurchaseOrderService, useValue: {} },
+          { provide: SupplierService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: SupplierQuotationService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyService, useValue: {} },
+          { provide: WarehouseService, useValue: {} },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: PartyDetailsService, useValue: { getSupplierDetails: vi.fn().mockReturnValue(of({})) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: TaxCategoryService, useValue: {} },
+          { provide: TaxRuleService, useValue: {} },
+          { provide: TaxCalculationService, useValue: {} },
+          { provide: PriceListService, useValue: {} },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: ToasterService, useValue: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), success: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseOrderFormComponent());
+      comp.form.patchValue({ companyId: 'comp-1', supplierId: 'sup-1', orderDate: '2026-11-18' });
+      comp.addItemRow({ itemId: 'item-1', description: 'Part', quantity: 2, unitPrice: 40 });
+      comp.onItemSelected(0, { id: 'item-1', itemName: 'Part', itemCode: 'P-1' } as any);
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBe('bo-sup-1');
+
+      comp.form.patchValue({ supplierId: 'sup-2' });
+      comp.onSupplierChanged();
+
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBeNull();
+      expect(comp.getBlanketOrderInfo(0)).toBeNull();
+    });
   });
 });

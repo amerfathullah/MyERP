@@ -402,8 +402,18 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
             PartyName = prospect.CompanyName ?? prospect.ProspectName,
             PartyType = "Prospect",
             TerritoryName = prospect.Territory,
-            CompanyCurrency = company?.CurrencyCode ?? "MYR"
+            CompanyCurrency = company?.CurrencyCode ?? "MYR",
+            ConvertedCustomerId = prospect.ConvertedCustomerId
         };
+
+        if (!result.ConvertedCustomerId.HasValue)
+        {
+            var custQuery = await _customerRepo.GetQueryableAsync();
+            result.ConvertedCustomerId = custQuery
+                .Where(c => c.ProspectId == prospect.Id && (!input.CompanyId.HasValue || c.CompanyId == input.CompanyId.Value))
+                .Select(c => (Guid?)c.Id)
+                .FirstOrDefault();
+        }
 
         if (prospect.Leads.Any())
         {

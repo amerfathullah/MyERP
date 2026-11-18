@@ -1269,6 +1269,17 @@ export interface GeneratedInvoiceDto {
   periodEnd?: string | null;
 }
 
+export interface GetActiveBlanketOrdersInput {
+  companyId?: string;
+  orderType?: string;
+  partyId?: string | null;
+  leadId?: string | null;
+  prospectId?: string | null;
+  itemId?: string | null;
+  transactionDate?: string | null;
+  currency?: string | null;
+}
+
 export interface GetCustomerListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }

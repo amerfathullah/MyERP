@@ -249,4 +249,148 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             result.Items[0].PartyName.ShouldBe("Alpha Aero");
         });
     }
+
+    [Fact]
+    public async Task GetActiveForPartyAsync_ScopesByParty_ResolvesLeadAndProspect_AndNeverLeaksOtherCustomer()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "BO Party Filter Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<MyERP.CRM.Entities.Lead, Guid>>();
+            var prospectRepo = GetRequiredService<IRepository<MyERP.CRM.Entities.Prospect, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var boApp = GetRequiredService<IBlanketOrderAppService>();
+            var itemDetailsApp = GetRequiredService<IItemDetailsAppService>();
+
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-PF-1", "Party Item", ItemType.Goods), autoSave: true);
+
+            var lead = new MyERP.CRM.Entities.Lead(Guid.NewGuid(), company.Id, "LD-BO-1", "Lead Co");
+            var unconvertedProspect = new MyERP.CRM.Entities.Prospect(Guid.NewGuid(), company.Id, "Unconverted Prospect");
+            var convertedProspect = new MyERP.CRM.Entities.Prospect(Guid.NewGuid(), company.Id, "Converted Prospect");
+
+            var custA = new Customer(Guid.NewGuid(), company.Id, "Customer A") { LeadId = lead.Id };
+            var custB = new Customer(Guid.NewGuid(), company.Id, "Customer B") { ProspectId = convertedProspect.Id };
+            lead.ConvertToCustomer(custA.Id);
+            convertedProspect.ConvertedCustomerId = custB.Id;
+
+            await custRepo.InsertAsync(custA, autoSave: true);
+            await custRepo.InsertAsync(custB, autoSave: true);
+            await leadRepo.InsertAsync(lead, autoSave: true);
+            await prospectRepo.InsertAsync(unconvertedProspect, autoSave: true);
+            await prospectRepo.InsertAsync(convertedProspect, autoSave: true);
+
+            var boA = await boApp.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = custA.Id,
+                FromDate = DateTime.Today.AddDays(-1),
+                ToDate = DateTime.Today.AddDays(30),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 10m, Rate = 55m }]
+            });
+            await boApp.SubmitAsync(boA.Id);
+
+            var boB = await boApp.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = custB.Id,
+                FromDate = DateTime.Today.AddDays(-1),
+                ToDate = DateTime.Today.AddDays(30),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 10m, Rate = 77m }]
+            });
+            await boApp.SubmitAsync(boB.Id);
+
+            // Draft BO for Customer A must NOT be offered
+            await boApp.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = custA.Id,
+                FromDate = DateTime.Today.AddDays(-1),
+                ToDate = DateTime.Today.AddDays(30),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 5m, Rate = 44m }]
+            });
+
+            // 1. Direct party filter returns only that party's submitted BO (never custB's)
+            var forCustA = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = custA.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today
+            });
+            forCustA.Count.ShouldBe(1);
+            forCustA[0].Id.ShouldBe(boA.Id);
+
+            // 2. Lead without direct CustomerId resolves converted Customer A
+            var forLead = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                LeadId = lead.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today
+            });
+            forLead.Count.ShouldBe(1);
+            forLead[0].Id.ShouldBe(boA.Id);
+
+            // 3. Prospect with converted Customer B resolves BO B via GetActiveForPartyAsync & GetItemDetailsAsync
+            var forConvertedProspect = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                ProspectId = convertedProspect.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today
+            });
+            forConvertedProspect.Count.ShouldBe(1);
+            forConvertedProspect[0].Id.ShouldBe(boB.Id);
+
+            var detailsForProspect = await itemDetailsApp.GetItemDetailsAsync(new GetItemDetailsInput
+            {
+                ItemId = item.Id,
+                TransactionType = "Selling",
+                CompanyId = company.Id,
+                ProspectId = convertedProspect.Id,
+                TransactionDate = DateTime.Today
+            });
+            detailsForProspect.BlanketOrderId.ShouldBe(boB.Id);
+            detailsForProspect.Rate.ShouldBe(77m);
+
+            // 4. Unconverted Prospect or missing party must return empty and never leak another customer's BO
+            var forUnconverted = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                ProspectId = unconvertedProspect.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today
+            });
+            forUnconverted.ShouldBeEmpty();
+
+            var detailsForUnconverted = await itemDetailsApp.GetItemDetailsAsync(new GetItemDetailsInput
+            {
+                ItemId = item.Id,
+                TransactionType = "Selling",
+                CompanyId = company.Id,
+                ProspectId = unconvertedProspect.Id,
+                TransactionDate = DateTime.Today
+            });
+            detailsForUnconverted.BlanketOrderId.ShouldBeNull();
+
+            var forNoParty = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today
+            });
+            forNoParty.ShouldBeEmpty();
+        });
+    }
 }

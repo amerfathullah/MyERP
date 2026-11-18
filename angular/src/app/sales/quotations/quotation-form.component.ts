@@ -39,6 +39,7 @@ export class QuotationFormComponent implements OnInit {
 
   customers = signal<any[]>([]);
   priceLists = signal<any[]>([]);
+  prospectId = signal<string>('');
   isEditMode = false;
   entityId: string | null = null;
 
@@ -80,6 +81,7 @@ export class QuotationFormComponent implements OnInit {
       }
       this.form.get('customerId')?.disable();
     } else if (prospectId) {
+      this.prospectId.set(prospectId);
       this.resolveProspectDetails(prospectId);
     }
 
@@ -140,13 +142,18 @@ export class QuotationFormComponent implements OnInit {
   }
 
   resolveProspectDetails(prospectId: string): void {
+    this.prospectId.set(prospectId);
     const companyId = this.form.get('companyId')?.value || undefined;
     this.partyDetailsService.getProspectDetails({ partyId: prospectId, companyId }).subscribe({
       next: (details) => {
-        this.form.patchValue({
+        const patch: Record<string, unknown> = {
           customerName: details.partyName ?? '',
           priceListId: details.priceListId ?? '',
-        });
+        };
+        if (details.convertedCustomerId && !this.form.get('customerId')?.value) {
+          patch['customerId'] = details.convertedCustomerId;
+        }
+        this.form.patchValue(patch);
       },
       error: () => {},
     });

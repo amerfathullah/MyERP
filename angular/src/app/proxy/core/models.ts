@@ -774,6 +774,7 @@ export interface PartyDetailsDto {
   priceListCurrency?: string | null;
   creditLimit?: number;
   outstanding?: number;
+  convertedCustomerId?: string | null;
 }
 
 export interface PartyTypeDto extends FullAuditedEntityDto<string> {

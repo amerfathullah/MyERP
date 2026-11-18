@@ -73,6 +73,7 @@
           [customerId]="form.get('customerId')?.value || ''"
           [warehouseId]="form.get('warehouseId')?.value || ''"
           [priceListId]="form.get('priceListId')?.value || ''"
+          [transactionDate]="form.get('orderDate')?.value || null"
         />
 
         @if (items.length > 0) {

@@ -1166,6 +1166,10 @@ export interface GetItemDetailsInput {
   customerId?: string | null;
   priceListId?: string | null;
   transactionDate?: string | null;
+  leadId?: string | null;
+  prospectId?: string | null;
+  currencyCode?: string | null;
+  exchangeRate?: number | null;
 }
 
 export interface GetItemLeadTimeListDto extends PagedAndSortedResultRequestDto {

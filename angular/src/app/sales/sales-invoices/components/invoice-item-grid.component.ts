@@ -5,9 +5,11 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ItemDetailsService } from '../../../proxy/inventory/item-details.service';
 import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
 import { PricingRuleService } from '../../../proxy/sales/pricing-rule.service';
+import { BlanketOrderService } from '../../../proxy/sales/blanket-order.service';
 import { ItemPickerComponent } from '../../../shared/components/item-picker/item-picker.component';
 import { LHDN_CLASSIFICATION_CODES } from '../../../shared/constants/lhdn-classification-codes';
 import type { ItemDto } from '../../../proxy/inventory/models';
+import type { BlanketOrderDto } from '../../../proxy/sales/models';
 
 @Component({
   selector: 'app-invoice-item-grid',
@@ -35,10 +37,67 @@ export class InvoiceItemGridComponent {
       this.refreshStockAvailability();
     }
   }
-  @Input() companyId: string = '';
-  @Input() customerId: string = '';
-  @Input() supplierId: string = '';
+  private _companyId: string = '';
+  @Input()
+  get companyId(): string { return this._companyId; }
+  set companyId(val: string) {
+    if (this._companyId !== val) {
+      this._companyId = val;
+      this.refreshPartyBlanketOrders();
+    }
+  }
+
+  private _customerId: string = '';
+  @Input()
+  get customerId(): string { return this._customerId; }
+  set customerId(val: string) {
+    if (this._customerId !== val) {
+      this._customerId = val;
+      if (this.transactionType !== 'Buying') {
+        this.onPartyChanged();
+      }
+    }
+  }
+
+  private _supplierId: string = '';
+  @Input()
+  get supplierId(): string { return this._supplierId; }
+  set supplierId(val: string) {
+    if (this._supplierId !== val) {
+      this._supplierId = val;
+      if (this.transactionType === 'Buying') {
+        this.onPartyChanged();
+      }
+    }
+  }
+
+  private _leadId: string = '';
+  @Input()
+  get leadId(): string { return this._leadId; }
+  set leadId(val: string) {
+    if (this._leadId !== val) {
+      this._leadId = val;
+      if (this.transactionType !== 'Buying' && !this._customerId) {
+        this.onPartyChanged();
+      }
+    }
+  }
+
+  private _prospectId: string = '';
+  @Input()
+  get prospectId(): string { return this._prospectId; }
+  set prospectId(val: string) {
+    if (this._prospectId !== val) {
+      this._prospectId = val;
+      if (this.transactionType !== 'Buying' && !this._customerId) {
+        this.onPartyChanged();
+      }
+    }
+  }
+
   @Input() priceListId: string = '';
+  @Input() transactionDate: string | Date | null = null;
+  @Input() currencyCode: string = '';
   @Input() showStockAvailability: boolean = true;
   @Input() showClassificationCode: boolean = false;
   @Output() rowChanged = new EventEmitter<void>();
@@ -49,6 +108,7 @@ export class InvoiceItemGridComponent {
   private taxCalc = inject(TaxCalculationService);
   private itemDetailsService = inject(ItemDetailsService);
   private pricingRuleService = inject(PricingRuleService);
+  private blanketOrderService = inject(BlanketOrderService, { optional: true });
 
   /** Per-item stock availability: { [itemId]: { actualQty, projectedQty } } */
   stockInfo = signal<Record<string, { actualQty: number; projectedQty: number }>>({});
@@ -58,6 +118,9 @@ export class InvoiceItemGridComponent {
 
   /** Per-row Blanket Order hint: { [rowIndex]: { orderNumber, remainingQty } } */
   blanketOrderInfo = signal<Record<number, { orderNumber: string; remainingQty: number }>>({});
+
+  /** Active Blanket Orders strictly scoped to the current party (ERPNext queries.get_blanket_orders). */
+  partyBlanketOrders = signal<BlanketOrderDto[]>([]);
 
   displayedColumns = ['itemName', 'qty', 'rate', 'discountPercent', 'amount', 'actions'];
 
@@ -96,7 +159,11 @@ export class InvoiceItemGridComponent {
         companyId: this.companyId || undefined,
         supplierId: this.supplierId || undefined,
         customerId: this.customerId || undefined,
+        leadId: this.leadId || undefined,
+        prospectId: this.prospectId || undefined,
         priceListId: this.priceListId || undefined,
+        transactionDate: this.formatTransactionDate(),
+        currencyCode: this.currencyCode || undefined,
       }).subscribe({
         next: (details) => {
           if (details) {
@@ -167,6 +234,129 @@ export class InvoiceItemGridComponent {
 
   getBlanketOrderInfo(index: number): { orderNumber: string; remainingQty: number } | null {
     return this.blanketOrderInfo()[index] ?? null;
+  }
+
+  /** Returns active party Blanket Orders containing an open line for the given item (ERPNext a5a5cbbb05). */
+  getRowBlanketOrders(itemId: string | null | undefined): BlanketOrderDto[] {
+    if (!itemId) return [];
+    return this.partyBlanketOrders().filter(bo =>
+      (bo.items ?? []).some(i => i.itemId === itemId && !i.isClosed && (i.remainingQty ?? 0) > 0)
+    );
+  }
+
+  onRowBlanketOrderChanged(index: number, blanketOrderId: string): void {
+    const row = this.items.at(index) as FormGroup;
+    const itemId = row.get('itemId')?.value;
+    if (!blanketOrderId) {
+      row.patchValue({ blanketOrderId: null });
+      this.blanketOrderInfo.update(m => {
+        const next = { ...m };
+        delete next[index];
+        return next;
+      });
+      this.rowChanged.emit();
+      return;
+    }
+
+    const bo = this.partyBlanketOrders().find(b => b.id === blanketOrderId);
+    const boItem = bo?.items?.find(i => i.itemId === itemId);
+    const patch: Record<string, unknown> = { blanketOrderId };
+    if (boItem?.rate && boItem.rate > 0) {
+      patch['rate'] = boItem.rate;
+    }
+    row.patchValue(patch);
+    this.blanketOrderInfo.update(m => ({
+      ...m,
+      [index]: {
+        orderNumber: bo?.orderNumber ?? '',
+        remainingQty: boItem?.remainingQty ?? 0,
+      },
+    }));
+    this.recalculateRow(index);
+  }
+
+  /** Clears stale Blanket Order links and re-resolves BO rates when party changes (ERPNext a5a5cbbb05, 09fd286163). */
+  private onPartyChanged(): void {
+    this.refreshPartyBlanketOrders();
+    if (!this.items?.controls?.length) return;
+
+    this.blanketOrderInfo.set({});
+    for (let i = 0; i < this.items.controls.length; i++) {
+      const row = this.items.at(i) as FormGroup;
+      if (row.get('blanketOrderId')) {
+        row.patchValue({ blanketOrderId: null });
+      }
+      const itemId = row.get('itemId')?.value;
+      if (!itemId) continue;
+      const partyId = this.transactionType === 'Buying' ? this._supplierId : this._customerId;
+      if (!partyId && !this._leadId && !this._prospectId) continue;
+
+      this.itemDetailsService.getItemDetails({
+        itemId,
+        transactionType: this.transactionType,
+        warehouseId: this.warehouseId || undefined,
+        companyId: this.companyId || undefined,
+        supplierId: this.supplierId || undefined,
+        customerId: this.customerId || undefined,
+        leadId: this.leadId || undefined,
+        prospectId: this.prospectId || undefined,
+        priceListId: this.priceListId || undefined,
+        transactionDate: this.formatTransactionDate(),
+        currencyCode: this.currencyCode || undefined,
+      }).subscribe({
+        next: (details) => {
+          if (!details) return;
+          if (details.blanketOrderId) {
+            row.patchValue({ blanketOrderId: details.blanketOrderId });
+            if (details.rate > 0 && !row.get('rate')?.value) {
+              row.patchValue({ rate: details.rate });
+              this.recalculateRow(i);
+            }
+            this.blanketOrderInfo.update(m => ({
+              ...m,
+              [i]: {
+                orderNumber: details.blanketOrderNumber ?? '',
+                remainingQty: details.blanketOrderRemainingQty ?? 0,
+              },
+            }));
+          }
+        },
+        error: () => {},
+      });
+    }
+  }
+
+  private refreshPartyBlanketOrders(): void {
+    if (!this.blanketOrderService || !this._companyId) {
+      this.partyBlanketOrders.set([]);
+      return;
+    }
+    const orderType = this.transactionType === 'Buying' ? 'Purchasing' : 'Selling';
+    const partyId = orderType === 'Purchasing' ? this._supplierId : this._customerId;
+    if (!partyId && !(orderType === 'Selling' && (this._leadId || this._prospectId))) {
+      this.partyBlanketOrders.set([]);
+      return;
+    }
+    this.blanketOrderService.getActiveForParty({
+      companyId: this._companyId,
+      orderType,
+      partyId: partyId || undefined,
+      leadId: !partyId && orderType === 'Selling' ? (this._leadId || undefined) : undefined,
+      prospectId: !partyId && orderType === 'Selling' ? (this._prospectId || undefined) : undefined,
+      transactionDate: this.formatTransactionDate(),
+      currency: this.currencyCode || undefined,
+    }).subscribe({
+      next: (orders) => this.partyBlanketOrders.set(orders ?? []),
+      error: () => this.partyBlanketOrders.set([]),
+    });
+  }
+
+  private formatTransactionDate(): string | undefined {
+    if (!this.transactionDate) return undefined;
+    if (this.transactionDate instanceof Date) {
+      return Number.isNaN(this.transactionDate.getTime()) ? undefined : this.transactionDate.toISOString().split('T')[0];
+    }
+    return this.transactionDate || undefined;
   }
 
   recalculateRow(index: number): void {
@@ -261,7 +451,11 @@ export class InvoiceItemGridComponent {
         companyId: this.companyId || undefined,
         supplierId: this.supplierId || undefined,
         customerId: this.customerId || undefined,
+        leadId: this.leadId || undefined,
+        prospectId: this.prospectId || undefined,
         priceListId: this.priceListId || undefined,
+        transactionDate: this.formatTransactionDate(),
+        currencyCode: this.currencyCode || undefined,
       }).subscribe({
         next: (details) => {
           if (details && details.actualQty !== undefined) {

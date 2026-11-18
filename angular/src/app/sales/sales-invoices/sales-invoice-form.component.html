@@ -274,7 +274,7 @@
             </div>
           </div>
         }
-        <app-invoice-item-grid [items]="items" transactionType="Selling" [warehouseId]="form.get('warehouseId')?.value || ''" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" [showClassificationCode]="true" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Selling" [warehouseId]="form.get('warehouseId')?.value || ''" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" [transactionDate]="form.get('issueDate')?.value || null" [currencyCode]="form.get('currencyCode')?.value || ''" [showClassificationCode]="true" (rowChanged)="recalculate()" />
       </div>
     </div>
 

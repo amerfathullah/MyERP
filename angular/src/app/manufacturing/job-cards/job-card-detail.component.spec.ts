@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { of, throwError } from 'rxjs';
-import { JobCardDetailComponent } from './job-card-detail.component';
+import { JobCardDetailComponent, computeJobCardElapsedSeconds } from './job-card-detail.component';
 import { JobCardService } from '../../proxy/manufacturing/job-card.service';
 
 describe('JobCardDetailComponent', () => {
@@ -63,5 +63,50 @@ describe('JobCardDetailComponent', () => {
     expect(comp.rawMaterials()).toEqual([]);
     expect(toasterMock.error).toHaveBeenCalledWith('JC load failed');
     expect(toasterMock.error).toHaveBeenCalledWith('RM load failed');
+  });
+
+  it('computes union of overlapping UTC intervals with fractional seconds and resumes WIP timer on load', () => {
+    // Two overlapping operator logs: 08:00:00.000..08:00:10.500 and 08:00:05.000..08:00:15.250 -> 15.25s
+    const elapsed = computeJobCardElapsedSeconds(
+      [
+        { fromTime: '2026-11-18T08:00:00.000', toTime: '2026-11-18T08:00:10.500' },
+        { fromTime: '2026-11-18T08:00:05.000', toTime: '2026-11-18T08:00:15.250' },
+      ],
+      Date.parse('2026-11-18T08:00:20.000Z'),
+    );
+    expect(elapsed).toBeCloseTo(15.25, 2);
+
+    // Closed log ending after now does not grow past its end when recomputed on tick
+    const capped = computeJobCardElapsedSeconds(
+      [{ fromTime: '2026-11-18T08:00:00Z', toTime: '2026-11-18T08:00:30Z' }],
+      Date.parse('2026-11-18T08:00:10Z'),
+    );
+    expect(capped).toBe(30);
+
+    // Reloading a WorkInProgress Job Card resumes live timer from startedAt
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-11-18T08:01:05Z'));
+      serviceMock.get.mockReturnValue(of({
+        id: 'jc-1',
+        sequenceId: 1,
+        forQuantity: 10,
+        completedQty: 0,
+        status: 1,
+        startedAt: '2026-11-18T08:00:00Z',
+        timeLogs: [],
+      }));
+
+      const comp = createComponent();
+      comp.ngOnInit();
+      expect(comp.timerRunning()).toBe(true);
+      expect(comp.timerDisplay()).toBe('00:01:05');
+
+      vi.advanceTimersByTime(2000);
+      expect(comp.timerDisplay()).toBe('00:01:07');
+      comp.ngOnDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -288,5 +288,54 @@ public abstract class JobCardOverproductionQtyGuardTests<TStartupModule> : MyERP
         var ex = await Should.ThrowAsync<BusinessException>(() => jobCardAppService.CompleteAsync(jc2Id));
         ex.Code.ShouldBe("MyERP:10020");
     }
+
+    [Fact]
+    public async Task CreateAsync_ExtraJobCardAfterOperationComplete_Throws()
+    {
+        Guid companyId = default;
+        Guid woId = default;
+        var opId = Guid.NewGuid();
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var jcRepository = GetRequiredService<IRepository<JobCard, Guid>>();
+            var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "JC Complete Guard Co"), autoSave: true);
+            companyId = company.Id;
+            await settingsRepository.InsertAsync(new ManufacturingSettings(Guid.NewGuid(), company.Id) { OverproductionPercentage = 0m }, autoSave: true);
+            var fgItem = await itemRepository.InsertAsync(
+                new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "FG-JCC1", "Widget", MyERP.Inventory.ItemType.Goods), autoSave: true);
+            var bom = await bomRepository.InsertAsync(
+                new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-JCC1", fgItem.Id), autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-JCC1", fgItem.Id, bom.Id, quantity: 10m);
+            wo.Submit();
+            wo.Start();
+            await woRepository.InsertAsync(wo, autoSave: true);
+            woId = wo.Id;
+
+            var t0 = new DateTime(2026, 7, 3, 8, 0, 0);
+            var jc1 = new JobCard(Guid.NewGuid(), company.Id, wo.Id, opId, forQuantity: 10m, sequenceId: 1);
+            jc1.Start();
+            jc1.AddTimeLog(t0, t0.AddHours(1), 10m);
+            jc1.Complete();
+            await jcRepository.InsertAsync(jc1, autoSave: true);
+        });
+
+        var jobCardAppService = GetRequiredService<IJobCardAppService>();
+        await Should.ThrowAsync<BusinessException>(() =>
+            jobCardAppService.CreateAsync(new CreateJobCardDto
+            {
+                CompanyId = companyId,
+                WorkOrderId = woId,
+                OperationId = opId,
+                ForQuantity = 10m,
+            }));
+    }
 }
 

@@ -6,11 +6,73 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { JobCardService } from '../../proxy/manufacturing/job-card.service';
-import type { JobCardDto, JobCardRawMaterialDto } from '../../proxy/manufacturing/models';
+import type { JobCardDto, JobCardRawMaterialDto, JobCardTimeLogDto } from '../../proxy/manufacturing/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
+
+/** Parses server ISO timestamp as UTC when timezone offset/Z is omitted (ERPNext b60d936545). */
+export function parseJobCardUtcDate(value: string): Date {
+  const trimmed = value.trim();
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)) {
+    return new Date(trimmed);
+  }
+  return new Date(`${trimmed}Z`);
+}
+
+/**
+ * Computes elapsed seconds as the union of time-log intervals in UTC, summing fractional
+ * seconds across merged intervals so parallel operators count once and DST shifts do not skew
+ * elapsed time (ERPNext commits b60d936545, 880e4909d7).
+ */
+export function computeJobCardElapsedSeconds(
+  timeLogs: JobCardTimeLogDto[] | undefined | null,
+  nowMs: number,
+  activeStartMs: number | null = null,
+): number {
+  const intervals: Array<[number, number]> = [];
+
+  for (const log of timeLogs ?? []) {
+    if (!log.fromTime) continue;
+    const start = parseJobCardUtcDate(log.fromTime).getTime();
+    const isClosed = !!log.toTime && !log.toTime.startsWith('0001-');
+    const end = isClosed ? parseJobCardUtcDate(log.toTime!).getTime() : nowMs;
+    if (!Number.isNaN(start) && !Number.isNaN(end) && end >= start) {
+      intervals.push([start, end]);
+    }
+  }
+
+  if (activeStartMs !== null && !Number.isNaN(activeStartMs) && nowMs >= activeStartMs) {
+    intervals.push([activeStartMs, nowMs]);
+  }
+
+  if (intervals.length === 0) return 0;
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  let elapsedSeconds = 0;
+  let currentStart: number | null = null;
+  let currentEnd: number | null = null;
+
+  for (const [start, end] of intervals) {
+    if (currentEnd !== null && start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, end);
+      continue;
+    }
+    if (currentEnd !== null && currentStart !== null) {
+      elapsedSeconds += (currentEnd - currentStart) / 1000;
+    }
+    currentStart = start;
+    currentEnd = end;
+  }
+
+  if (currentEnd !== null && currentStart !== null) {
+    elapsedSeconds += (currentEnd - currentStart) / 1000;
+  }
+
+  return Math.max(0, elapsedSeconds);
+}
 
 @Component({
   selector: 'app-job-card-detail', standalone: true,
@@ -263,7 +325,7 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
     const s = this.elapsedSeconds();
     const hrs = Math.floor(s / 3600);
     const mins = Math.floor((s % 3600) / 60);
-    const secs = s % 60;
+    const secs = Math.floor(s % 60);
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   });
 
@@ -279,7 +341,24 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({
-      next: (r) => this.d = r,
+      next: (r) => {
+        this.d = r;
+        if (r.status === 1) {
+          const openLog = (r.timeLogs ?? []).find(t => t.fromTime && (!t.toTime || t.toTime.startsWith('0001-')));
+          const activeIso = openLog?.fromTime ?? r.startedAt;
+          if (activeIso) {
+            const startDate = this.parseServerUtcDate(activeIso);
+            if (!this.timerRunning()) {
+              this.beginClientTimer(startDate);
+            } else {
+              this.timerStartTime.set(startDate);
+              this.updateElapsedSeconds();
+            }
+          }
+        } else if (this.timerRunning()) {
+          this.clearTimer();
+        }
+      },
       error: (err: any) => this.handleError(err),
     });
     this.service.getRawMaterials(id).subscribe({
@@ -438,17 +517,24 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  private beginClientTimer(): void {
+  private beginClientTimer(startDate?: Date): void {
     this.timerRunning.set(true);
-    this.timerStartTime.set(new Date());
-    this.elapsedSeconds.set(0);
+    this.timerStartTime.set(startDate ?? new Date());
+    this.updateElapsedSeconds();
     this.completionQtyInput = Math.max(1, (this.d?.forQuantity ?? 1) - (this.d?.completedQty ?? 0));
-    this.timerInterval = setInterval(() => {
-      const start = this.timerStartTime();
-      if (start) {
-        this.elapsedSeconds.set(Math.floor((Date.now() - start.getTime()) / 1000));
-      }
-    }, 1000);
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
+    this.timerInterval = setInterval(() => this.updateElapsedSeconds(), 1000);
+  }
+
+  private updateElapsedSeconds(): void {
+    const start = this.timerStartTime();
+    this.elapsedSeconds.set(computeJobCardElapsedSeconds(
+      this.d?.timeLogs,
+      Date.now(),
+      start ? start.getTime() : null,
+    ));
   }
 
   private clearTimer(): void {
@@ -513,10 +599,6 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
 
   /** Parses server ISO timestamp as UTC when timezone offset/Z is omitted (PR #66764 browser/server parity). */
   private parseServerUtcDate(value: string): Date {
-    const trimmed = value.trim();
-    if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)) {
-      return new Date(trimmed);
-    }
-    return new Date(`${trimmed}Z`);
+    return parseJobCardUtcDate(value);
   }
 }

@@ -277,7 +277,9 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             .Where(j => !excludeJobCardId.HasValue || j.Id != excludeJobCardId.Value)
             .Sum(j => (decimal?)(j.ForQuantity - j.PendingQty)) ?? 0m;
 
-        if (existingQty + forQuantity > allowedQty)
+        // Per ERPNext PR #67484 (commit 12c81a9dd5): compare total planned Job Card qty against
+        // allowed WO qty at field precision without subtracting completed_qty.
+        if (Math.Round(existingQty + forQuantity, 4) > Math.Round(allowedQty, 4))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Job Card quantity ({existingQty + forQuantity}) exceeds the allowed quantity ({allowedQty}) for this Work Order operation. Increase the overproduction percentage in Manufacturing Settings or reduce the Job Card quantity.");

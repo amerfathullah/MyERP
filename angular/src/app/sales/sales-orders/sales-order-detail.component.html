@@ -262,8 +262,8 @@
                       </div>
                     </td>
                     <td class="text-center">
-                      @if (row.itemId && itemStock()[row.itemId]) {
-                        @if (itemStock()[row.itemId!] >= ((row.quantity ?? 0) - (row.deliveredQty ?? 0))) {
+                      @if (row.itemId && itemStock()[row.itemId] !== undefined) {
+                        @if (isStockSufficient(row)) {
                           <span class="badge bg-success-subtle text-success"><i class="fa fa-check me-1"></i>{{ itemStock()[row.itemId!] | number:'1.0-0' }}</span>
                         } @else if (itemStock()[row.itemId!] > 0) {
                           <span class="badge bg-warning-subtle text-warning"><i class="fa fa-exclamation-triangle me-1"></i>{{ itemStock()[row.itemId!] | number:'1.0-0' }}</span>

@@ -220,4 +220,36 @@ describe('QuotationFormComponent Prospect Details', () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(createSpy.mock.calls[0][0].items[0].blanketOrderId).toBe('bo-123');
   });
+
+  it('auto-populates customerId from convertedCustomerId when opening Quotation from a converted Prospect', () => {
+    const partyMock = {
+      getCustomerDetails: vi.fn().mockReturnValue(of({})),
+      getProspectDetails: vi.fn().mockReturnValue(of({
+        partyId: 'pros-1',
+        partyName: 'Converted Prospect Corp',
+        priceListId: 'pl-1',
+        convertedCustomerId: 'cust-from-pros',
+      })),
+    };
+    const injector = Injector.create({
+      providers: [
+        { provide: FormBuilder, useValue: new FormBuilder() },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParamMap: { get: (k: string) => (k === 'prospectId' ? 'pros-1' : null) } } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+        { provide: QuotationService, useValue: {} },
+        { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        { provide: PartyDetailsService, useValue: partyMock },
+        { provide: ToasterService, useValue: { error: vi.fn(), success: vi.fn() } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new QuotationFormComponent());
+    comp.ngOnInit();
+
+    expect(comp.prospectId()).toBe('pros-1');
+    expect(comp.form.get('customerId')?.value).toBe('cust-from-pros');
+  });
 });

@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { of } from 'rxjs';
+import { InvoiceItemGridComponent } from './invoice-item-grid.component';
+import { TaxCalculationService } from '../../../shared/services/tax-calculation.service';
+import { ItemDetailsService } from '../../../proxy/inventory/item-details.service';
+import { PricingRuleService } from '../../../proxy/sales/pricing-rule.service';
+import { BlanketOrderService } from '../../../proxy/sales/blanket-order.service';
 
 /**
  * Tests for InvoiceItemGridComponent logic: row management, item amount calculations,
@@ -190,6 +197,68 @@ describe('InvoiceItemGrid logic', () => {
       row.patchValue({ classificationCode: '003' });
       row.patchValue({ classificationCode: row.get('classificationCode')?.value || '017' });
       expect(row.get('classificationCode')?.value).toBe('003');
+    });
+  });
+
+  describe('BlanketOrder party scoping & party-change reset', () => {
+    it('loads party-scoped Blanket Orders, updates row BO selection, and clears stale BO when customer changes', () => {
+      const getItemDetailsMock = vi.fn().mockImplementation((input: any) => {
+        if (input.customerId === 'cust-a') {
+          return of({
+            rate: 55,
+            description: 'Widget',
+            blanketOrderId: 'bo-a',
+            blanketOrderNumber: 'BO-A',
+            blanketOrderRemainingQty: 20,
+          });
+        }
+        return of({ rate: 90, description: 'Widget', blanketOrderId: null });
+      });
+      const getActiveForPartyMock = vi.fn().mockImplementation((input: any) => {
+        if (input.partyId === 'cust-a') {
+          return of([{
+            id: 'bo-a',
+            orderNumber: 'BO-A',
+            items: [{ itemId: 'item-1', isClosed: false, remainingQty: 20, rate: 55 }],
+          }]);
+        }
+        return of([]);
+      });
+
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: fb },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: PricingRuleService, useValue: { apply: vi.fn().mockReturnValue(of([])) } },
+          { provide: BlanketOrderService, useValue: { getActiveForParty: getActiveForPartyMock } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new InvoiceItemGridComponent());
+      comp.items = fb.array([]);
+      comp.transactionType = 'Selling';
+      comp.companyId = 'comp-1';
+      comp.transactionDate = '2026-11-18';
+      comp.customerId = 'cust-a';
+      comp.addRow();
+      comp.items.at(0).patchValue({ itemId: 'item-1' });
+      comp.onItemSelected(0, { id: 'item-1', itemName: 'Widget', itemCode: 'W-1' } as any);
+
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBe('bo-a');
+      expect(comp.getRowBlanketOrders('item-1').map(b => b.id)).toEqual(['bo-a']);
+
+      // Switching customer clears stale BO from Customer A and reloads for Customer B
+      comp.customerId = 'cust-b';
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBeNull();
+      expect(comp.getBlanketOrderInfo(0)).toBeNull();
+      expect(comp.getRowBlanketOrders('item-1')).toEqual([]);
+      expect(getActiveForPartyMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        companyId: 'comp-1',
+        orderType: 'Selling',
+        partyId: 'cust-b',
+        transactionDate: '2026-11-18',
+      }));
     });
   });
 });

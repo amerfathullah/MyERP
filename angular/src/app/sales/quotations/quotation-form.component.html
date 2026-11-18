@@ -45,7 +45,7 @@
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>Items</h5>
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [prospectId]="prospectId()" [priceListId]="form.get('priceListId')?.value || ''" [transactionDate]="form.get('quotationDate')?.value || null" (rowChanged)="recalculate()" />
 
         @if (items.length > 1) {
           <div class="mt-3">

@@ -154,6 +154,19 @@ export class SalesOrderDetailComponent implements OnInit {
     return Math.min(100, ((row.billedQty ?? 0) / row.quantity) * 100);
   }
 
+  /** Pending qty rounded to 4 decimals to prevent float-precision comparison drift (ERPNext 3fc1fd394f). */
+  getRoundedPendingQty(row: any): number {
+    return Math.round(((row?.quantity ?? 0) - (row?.deliveredQty ?? 0)) * 10000) / 10000;
+  }
+
+  /** Stock sufficiency check comparing available stock against rounded pending qty (ERPNext 3fc1fd394f). */
+  isStockSufficient(row: any): boolean {
+    if (!row?.itemId) return false;
+    const stock = this.itemStock()[row.itemId];
+    if (stock === undefined) return false;
+    return stock >= this.getRoundedPendingQty(row);
+  }
+
   /** Per-item delivery date overdue check: past due + not fully delivered */
   isItemOverdue(row: any): boolean {
     if (!row.deliveryDate) return false;
@@ -161,8 +174,7 @@ export class SalesOrderDetailComponent implements OnInit {
     dueDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const pendingQty = Math.round(((row.quantity ?? 0) - (row.deliveredQty ?? 0)) * 10000) / 10000;
-    return dueDate < today && pendingQty > 0;
+    return dueDate < today && this.getRoundedPendingQty(row) > 0;
   }
 
   getTimelineSteps(): { label: string; icon: string; completed: boolean; active: boolean; date?: string }[] {

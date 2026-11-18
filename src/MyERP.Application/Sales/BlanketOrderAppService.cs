@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -42,6 +44,62 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
         var items = query.OrderByDescending(b => b.CreationTime)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
         return new PagedResultDto<BlanketOrderDto>(totalCount, items.Select(x => ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(x)).ToList());
+    }
+
+    /// <summary>
+    /// Returns active submitted Blanket Orders strictly scoped to the requested party
+    /// (or the Customer converted from a Lead/Prospect). Per ERPNext queries.get_blanket_orders
+    /// (commits a5a5cbbb05, 09fd286163): when no party is resolved, returns an empty list
+    /// rather than offering another party's Blanket Orders.
+    /// </summary>
+    public async Task<List<BlanketOrderDto>> GetActiveForPartyAsync(GetActiveBlanketOrdersInput input)
+    {
+        if (input.CompanyId == Guid.Empty)
+            return new List<BlanketOrderDto>();
+
+        var orderType = string.IsNullOrWhiteSpace(input.OrderType) ? "Selling" : input.OrderType;
+        Guid? effectivePartyId = input.PartyId.HasValue && input.PartyId.Value != Guid.Empty
+            ? input.PartyId.Value
+            : null;
+
+        if (!effectivePartyId.HasValue && string.Equals(orderType, "Selling", StringComparison.OrdinalIgnoreCase))
+        {
+            var boRateService = LazyServiceProvider?.LazyGetService<BlanketOrderRateService>();
+            if (boRateService != null)
+            {
+                effectivePartyId = await boRateService.ResolveCustomerIdAsync(
+                    customerId: null, input.LeadId, input.ProspectId, input.CompanyId);
+            }
+        }
+
+        if (!effectivePartyId.HasValue)
+            return new List<BlanketOrderDto>();
+
+        var txDate = (input.TransactionDate ?? DateTime.UtcNow).Date;
+        var query = (await _repository.WithDetailsAsync()).AsQueryable()
+            .Where(bo => bo.CompanyId == input.CompanyId
+                && bo.Status == DocumentStatus.Submitted
+                && bo.OrderType == orderType
+                && bo.PartyId == effectivePartyId.Value
+                && bo.FromDate.Date <= txDate
+                && bo.ToDate.Date >= txDate);
+
+        if (!string.IsNullOrWhiteSpace(input.Currency))
+        {
+            var currency = input.Currency.Trim().ToUpperInvariant();
+            query = query.Where(bo => bo.Currency == currency);
+        }
+
+        var candidates = query.OrderByDescending(b => b.CreationTime).ToList();
+        if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
+        {
+            var itemId = input.ItemId.Value;
+            candidates = candidates
+                .Where(bo => bo.Items.Any(i => i.ItemId == itemId && !i.IsClosed && i.RemainingQty > 0))
+                .ToList();
+        }
+
+        return candidates.Select(x => ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(x)).ToList();
     }
 
     public async Task<BlanketOrderDto> GetAsync(Guid id)

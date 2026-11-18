@@ -19,6 +19,14 @@ public class GetItemDetailsInput
     public Guid? PriceListId { get; set; }
     /// <summary>Optional: transaction date for date-valid price lookup.</summary>
     public DateTime? TransactionDate { get; set; }
+    /// <summary>Optional: Lead ID when quoting to a Lead (resolves converted Customer for Blanket Order).</summary>
+    public Guid? LeadId { get; set; }
+    /// <summary>Optional: Prospect ID when quoting to a Prospect (resolves converted Customer for Blanket Order).</summary>
+    public Guid? ProspectId { get; set; }
+    /// <summary>Optional: transaction currency code for multi-currency Blanket Order rate conversion.</summary>
+    public string? CurrencyCode { get; set; }
+    /// <summary>Optional: exchange rate from transaction currency to company currency.</summary>
+    public decimal? ExchangeRate { get; set; }
 }
 
 public class ItemDetailsDto

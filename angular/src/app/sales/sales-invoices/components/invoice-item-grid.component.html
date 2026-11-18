@@ -33,6 +33,19 @@
                 </div>
               }
             }
+            @let rowBos = getRowBlanketOrders(row.get('itemId')?.value);
+            @if (rowBos.length > 0) {
+              <div class="mt-1">
+                <select class="form-select form-select-sm"
+                  [value]="row.get('blanketOrderId')?.value || ''"
+                  (change)="onRowBlanketOrderChanged($index, $any($event.target).value)">
+                  <option value="">— {{ '::BlanketOrder' | abpLocalization }} —</option>
+                  @for (opt of rowBos; track opt.id) {
+                    <option [value]="opt.id">{{ opt.orderNumber }}</option>
+                  }
+                </select>
+              </div>
+            }
             @let bo = getBlanketOrderInfo($index);
             @if (bo) {
               <div class="mt-1">
