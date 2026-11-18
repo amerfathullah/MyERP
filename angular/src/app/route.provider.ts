@@ -652,6 +652,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/sales-partners-commission',
+        name: '::Menu:SalesPartnersCommission',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-handshake',
+        order: 13.9,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/reports/balance-sheet',
         name: '::Menu:BalanceSheet',
         parentName: '::Menu:Accounting',

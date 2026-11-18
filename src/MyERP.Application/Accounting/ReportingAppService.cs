@@ -3748,6 +3748,137 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         public bool ShowZeroValues { get; }
     }
 
+    /// <summary>
+    /// Sales Partners Commission report (accounts/report/sales_partners_commission.py):
+    /// aggregates invoiced amount (excl. tax), eligible commission base, total commission, and
+    /// average commission rate per sales partner across posted Sales & POS Invoices (including credit notes).
+    /// </summary>
+    public async Task<SalesPartnersCommissionReportDto> GetSalesPartnersCommissionAsync(
+        SalesPartnersCommissionRequestDto input)
+    {
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currency = !string.IsNullOrWhiteSpace(company?.CurrencyCode) ? company!.CurrencyCode : "MYR";
+
+        if (LazyServiceProvider != null)
+        {
+            var auth = LazyServiceProvider.LazyGetService<IAuthorizationService>();
+            if (auth != null && !await auth.IsGrantedAsync(MyERPPermissions.SalesInvoices.Default))
+            {
+                return new SalesPartnersCommissionReportDto
+                {
+                    CompanyId = input.CompanyId,
+                    CurrencyCode = currency,
+                    FromDate = input.FromDate,
+                    ToDate = input.ToDate,
+                };
+            }
+        }
+
+        var siRepo = LazyServiceProvider?.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var spRepo = LazyServiceProvider?.LazyGetRequiredService<IRepository<SalesPartner, Guid>>();
+        if (siRepo == null || spRepo == null)
+        {
+            return new SalesPartnersCommissionReportDto
+            {
+                CompanyId = input.CompanyId,
+                CurrencyCode = currency,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+            };
+        }
+
+        var query = await siRepo.GetQueryableAsync();
+        query = query.Where(si =>
+            si.CompanyId == input.CompanyId
+            && si.Status == DocumentStatus.Posted
+            && si.SalesPartnerId.HasValue
+            && (si.TotalCommission != 0m || si.CommissionRate != 0m));
+
+        if (input.FromDate.HasValue)
+        {
+            var fromDate = input.FromDate.Value.Date;
+            query = query.Where(si => si.IssueDate >= fromDate);
+        }
+        if (input.ToDate.HasValue)
+        {
+            var toExclusive = input.ToDate.Value.Date.AddDays(1);
+            query = query.Where(si => si.IssueDate < toExclusive);
+        }
+
+        var invoices = query.ToList();
+        var partnerIds = invoices.Select(i => i.SalesPartnerId!.Value).Distinct().ToList();
+        var partnerNames = partnerIds.Count > 0
+            ? (await spRepo.GetListAsync(sp => partnerIds.Contains(sp.Id)))
+                .ToDictionary(sp => sp.Id, sp => sp.Name)
+            : new Dictionary<Guid, string>();
+
+        var grouped = new Dictionary<Guid, (decimal Invoiced, decimal Eligible, decimal Commission, int Count)>();
+
+        foreach (var si in invoices)
+        {
+            var spId = si.SalesPartnerId!.Value;
+            var rawBaseNet = si.BaseNetTotal != 0m ? si.BaseNetTotal : si.NetTotal * si.ExchangeRate;
+            var rawComm = si.TotalCommission != 0m
+                ? si.TotalCommission
+                : Math.Round(rawBaseNet * si.CommissionRate / 100m, 2);
+
+            // Credit notes reverse invoiced amount, eligible base, and commission
+            var signedBaseNet = si.IsReturn && rawBaseNet > 0m ? -rawBaseNet : rawBaseNet;
+            var signedComm = si.IsReturn && rawComm > 0m ? -rawComm : rawComm;
+
+            if (signedComm == 0m) continue;
+
+            var eligible = signedBaseNet;
+            var prev = grouped.GetValueOrDefault(spId);
+            grouped[spId] = (
+                prev.Invoiced + signedBaseNet,
+                prev.Eligible + eligible,
+                prev.Commission + signedComm,
+                prev.Count + 1);
+        }
+
+        var rows = grouped
+            .Select(kv =>
+            {
+                var partnerName = partnerNames.GetValueOrDefault(kv.Key, kv.Key.ToString()[..8]);
+                var invoiced = Math.Round(kv.Value.Invoiced, 2);
+                var eligible = Math.Round(kv.Value.Eligible, 2);
+                var commission = Math.Round(kv.Value.Commission, 2);
+                decimal? avgRate = eligible != 0m ? Math.Round(commission * 100m / eligible, 2) : null;
+
+                return new SalesPartnersCommissionRowDto
+                {
+                    SalesPartnerId = kv.Key,
+                    SalesPartnerName = partnerName,
+                    CurrencyCode = currency,
+                    InvoiceCount = kv.Value.Count,
+                    InvoicedAmount = invoiced,
+                    AmountEligibleForCommission = eligible,
+                    TotalCommission = commission,
+                    AverageCommissionRate = avgRate,
+                };
+            })
+            .OrderBy(r => r.SalesPartnerName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new SalesPartnersCommissionReportDto
+        {
+            CompanyId = input.CompanyId,
+            CurrencyCode = currency,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            TotalInvoicedAmount = Math.Round(rows.Sum(r => r.InvoicedAmount), 2),
+            TotalEligibleAmount = Math.Round(rows.Sum(r => r.AmountEligibleForCommission), 2),
+            TotalCommission = Math.Round(rows.Sum(r => r.TotalCommission), 2),
+            Rows = rows,
+        };
+    }
+
     private sealed record ComparisonKey(
         Guid CompanyId,
         Guid AccountId,

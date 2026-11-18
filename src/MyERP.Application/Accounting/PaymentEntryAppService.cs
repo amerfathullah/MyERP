@@ -1359,117 +1359,129 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         if (partyType == "Customer")
         {
-            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
-            var siQuery = await siRepo.GetQueryableAsync();
-            var outstanding = siQuery
-                .Where(si => si.CustomerId == partyId
-                    && si.CompanyId == companyId
-                    && si.Status == Core.DocumentStatus.Posted
-                    && !si.IsReturn
-                    && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
-                .Select(si => new { si.Id, si.InvoiceNumber, si.IssueDate, si.DueDate, si.GrandTotal, si.AmountPaid, si.WriteOffAmount, si.TotalAdvance, si.CurrencyCode })
-                .ToList();
-
-            invoices.AddRange(outstanding.Select(si =>
+            if (await IsVoucherReadGrantedAsync(MyERPPermissions.SalesInvoices.Default))
             {
-                var ost = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
-                var daysOverdue = si.DueDate.HasValue ? Math.Max(0, (int)(today - si.DueDate.Value).TotalDays) : 0;
-                return new OutstandingInvoiceForPaymentDto
+                var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+                var siQuery = await siRepo.GetQueryableAsync();
+                var outstanding = siQuery
+                    .Where(si => si.CustomerId == partyId
+                        && si.CompanyId == companyId
+                        && si.Status == Core.DocumentStatus.Posted
+                        && !si.IsReturn
+                        && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
+                    .Select(si => new { si.Id, si.InvoiceNumber, si.IssueDate, si.DueDate, si.GrandTotal, si.AmountPaid, si.WriteOffAmount, si.TotalAdvance, si.CurrencyCode })
+                    .ToList();
+
+                invoices.AddRange(outstanding.Select(si =>
                 {
-                    InvoiceId = si.Id,
-                    InvoiceNumber = si.InvoiceNumber,
-                    IssueDate = si.IssueDate,
-                    DueDate = si.DueDate,
-                    GrandTotal = si.GrandTotal,
-                    Outstanding = ost,
-                    CurrencyCode = si.CurrencyCode,
-                    InvoiceType = "SalesInvoice",
-                    DaysOverdue = daysOverdue,
-                    IsOverdue = si.DueDate.HasValue && si.DueDate.Value < today && ost > 0.01m
-                };
-            }));
+                    var ost = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
+                    var daysOverdue = si.DueDate.HasValue ? Math.Max(0, (int)(today - si.DueDate.Value).TotalDays) : 0;
+                    return new OutstandingInvoiceForPaymentDto
+                    {
+                        InvoiceId = si.Id,
+                        InvoiceNumber = si.InvoiceNumber,
+                        IssueDate = si.IssueDate,
+                        DueDate = si.DueDate,
+                        GrandTotal = si.GrandTotal,
+                        Outstanding = ost,
+                        CurrencyCode = si.CurrencyCode,
+                        InvoiceType = "SalesInvoice",
+                        DaysOverdue = daysOverdue,
+                        IsOverdue = si.DueDate.HasValue && si.DueDate.Value < today && ost > 0.01m
+                    };
+                }));
+            }
 
-            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
-            var soQuery = await soRepo.GetQueryableAsync();
-            var activeOrders = soQuery
-                .Where(so => so.CustomerId == partyId
-                    && so.CompanyId == companyId
-                    && (so.Status == Core.DocumentStatus.ToDeliverAndBill
-                        || so.Status == Core.DocumentStatus.ToDeliver
-                        || so.Status == Core.DocumentStatus.ToBill)
-                    && so.GrandTotal > so.AdvancePaid)
-                .Select(so => new { so.Id, so.OrderNumber, so.OrderDate, so.GrandTotal, so.AdvancePaid, so.CurrencyCode })
-                .ToList();
-
-            orders.AddRange(activeOrders.Select(so => new OutstandingOrderForPaymentDto
+            if (await IsVoucherReadGrantedAsync(MyERPPermissions.SalesOrders.Default))
             {
-                OrderId = so.Id,
-                OrderNumber = so.OrderNumber,
-                OrderDate = so.OrderDate,
-                GrandTotal = so.GrandTotal,
-                AdvancePaid = so.AdvancePaid,
-                PendingAdvance = so.GrandTotal - so.AdvancePaid,
-                CurrencyCode = so.CurrencyCode,
-                OrderType = "SalesOrder"
-            }));
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                var soQuery = await soRepo.GetQueryableAsync();
+                var activeOrders = soQuery
+                    .Where(so => so.CustomerId == partyId
+                        && so.CompanyId == companyId
+                        && (so.Status == Core.DocumentStatus.ToDeliverAndBill
+                            || so.Status == Core.DocumentStatus.ToDeliver
+                            || so.Status == Core.DocumentStatus.ToBill)
+                        && so.GrandTotal > so.AdvancePaid)
+                    .Select(so => new { so.Id, so.OrderNumber, so.OrderDate, so.GrandTotal, so.AdvancePaid, so.CurrencyCode })
+                    .ToList();
+
+                orders.AddRange(activeOrders.Select(so => new OutstandingOrderForPaymentDto
+                {
+                    OrderId = so.Id,
+                    OrderNumber = so.OrderNumber,
+                    OrderDate = so.OrderDate,
+                    GrandTotal = so.GrandTotal,
+                    AdvancePaid = so.AdvancePaid,
+                    PendingAdvance = so.GrandTotal - so.AdvancePaid,
+                    CurrencyCode = so.CurrencyCode,
+                    OrderType = "SalesOrder"
+                }));
+            }
         }
         else if (partyType == "Supplier")
         {
-            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
-            var piQuery = await piRepo.GetQueryableAsync();
-            var outstanding = piQuery
-                .Where(pi => pi.SupplierId == partyId
-                    && pi.CompanyId == companyId
-                    && pi.Status == Core.DocumentStatus.Posted
-                    && !pi.IsReturn
-                    && (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0.01m)
-                .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.DueDate, pi.GrandTotal, pi.AmountPaid, pi.WriteOffAmount, pi.TotalAdvance, pi.CurrencyCode, pi.OnHold, pi.ReleaseDate })
-                .ToList()
-                .Where(pi => !pi.OnHold || (pi.ReleaseDate.HasValue && pi.ReleaseDate.Value.Date <= today))
-                .ToList();
-
-            invoices.AddRange(outstanding.Select(pi =>
+            if (await IsVoucherReadGrantedAsync(MyERPPermissions.PurchaseInvoices.Default))
             {
-                var ost = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance;
-                var daysOverdue = pi.DueDate.HasValue ? Math.Max(0, (int)(today - pi.DueDate.Value).TotalDays) : 0;
-                return new OutstandingInvoiceForPaymentDto
+                var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+                var piQuery = await piRepo.GetQueryableAsync();
+                var outstanding = piQuery
+                    .Where(pi => pi.SupplierId == partyId
+                        && pi.CompanyId == companyId
+                        && pi.Status == Core.DocumentStatus.Posted
+                        && !pi.IsReturn
+                        && (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0.01m)
+                    .Select(pi => new { pi.Id, pi.InvoiceNumber, pi.IssueDate, pi.DueDate, pi.GrandTotal, pi.AmountPaid, pi.WriteOffAmount, pi.TotalAdvance, pi.CurrencyCode, pi.OnHold, pi.ReleaseDate })
+                    .ToList()
+                    .Where(pi => !pi.OnHold || (pi.ReleaseDate.HasValue && pi.ReleaseDate.Value.Date <= today))
+                    .ToList();
+
+                invoices.AddRange(outstanding.Select(pi =>
                 {
-                    InvoiceId = pi.Id,
-                    InvoiceNumber = pi.InvoiceNumber,
-                    IssueDate = pi.IssueDate,
-                    DueDate = pi.DueDate,
-                    GrandTotal = pi.GrandTotal,
-                    Outstanding = ost,
-                    CurrencyCode = pi.CurrencyCode,
-                    InvoiceType = "PurchaseInvoice",
-                    DaysOverdue = daysOverdue,
-                    IsOverdue = pi.DueDate.HasValue && pi.DueDate.Value < today && ost > 0.01m
-                };
-            }));
+                    var ost = pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance;
+                    var daysOverdue = pi.DueDate.HasValue ? Math.Max(0, (int)(today - pi.DueDate.Value).TotalDays) : 0;
+                    return new OutstandingInvoiceForPaymentDto
+                    {
+                        InvoiceId = pi.Id,
+                        InvoiceNumber = pi.InvoiceNumber,
+                        IssueDate = pi.IssueDate,
+                        DueDate = pi.DueDate,
+                        GrandTotal = pi.GrandTotal,
+                        Outstanding = ost,
+                        CurrencyCode = pi.CurrencyCode,
+                        InvoiceType = "PurchaseInvoice",
+                        DaysOverdue = daysOverdue,
+                        IsOverdue = pi.DueDate.HasValue && pi.DueDate.Value < today && ost > 0.01m
+                    };
+                }));
+            }
 
-            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
-            var poQuery = await poRepo.GetQueryableAsync();
-            var activeOrders = poQuery
-                .Where(po => po.SupplierId == partyId
-                    && po.CompanyId == companyId
-                    && (po.Status == Core.DocumentStatus.ToDeliverAndBill
-                        || po.Status == Core.DocumentStatus.ToDeliver
-                        || po.Status == Core.DocumentStatus.ToBill)
-                    && po.GrandTotal > po.AdvancePaid)
-                .Select(po => new { po.Id, po.OrderNumber, po.OrderDate, po.GrandTotal, po.AdvancePaid, po.CurrencyCode })
-                .ToList();
-
-            orders.AddRange(activeOrders.Select(po => new OutstandingOrderForPaymentDto
+            if (await IsVoucherReadGrantedAsync(MyERPPermissions.PurchaseOrders.Default))
             {
-                OrderId = po.Id,
-                OrderNumber = po.OrderNumber,
-                OrderDate = po.OrderDate,
-                GrandTotal = po.GrandTotal,
-                AdvancePaid = po.AdvancePaid,
-                PendingAdvance = po.GrandTotal - po.AdvancePaid,
-                CurrencyCode = po.CurrencyCode,
-                OrderType = "PurchaseOrder"
-            }));
+                var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+                var poQuery = await poRepo.GetQueryableAsync();
+                var activeOrders = poQuery
+                    .Where(po => po.SupplierId == partyId
+                        && po.CompanyId == companyId
+                        && (po.Status == Core.DocumentStatus.ToDeliverAndBill
+                            || po.Status == Core.DocumentStatus.ToDeliver
+                            || po.Status == Core.DocumentStatus.ToBill)
+                        && po.GrandTotal > po.AdvancePaid)
+                    .Select(po => new { po.Id, po.OrderNumber, po.OrderDate, po.GrandTotal, po.AdvancePaid, po.CurrencyCode })
+                    .ToList();
+
+                orders.AddRange(activeOrders.Select(po => new OutstandingOrderForPaymentDto
+                {
+                    OrderId = po.Id,
+                    OrderNumber = po.OrderNumber,
+                    OrderDate = po.OrderDate,
+                    GrandTotal = po.GrandTotal,
+                    AdvancePaid = po.AdvancePaid,
+                    PendingAdvance = po.GrandTotal - po.AdvancePaid,
+                    CurrencyCode = po.CurrencyCode,
+                    OrderType = "PurchaseOrder"
+                }));
+            }
         }
 
         invoices = invoices.OrderBy(r => r.DueDate ?? r.IssueDate).ToList();
@@ -1482,6 +1494,22 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             TotalInvoiceOutstanding = invoices.Sum(i => i.Outstanding),
             TotalOrderPending = orders.Sum(o => o.PendingAdvance)
         };
+    }
+
+    /// <summary>
+    /// Checks per-voucher read permission per ERPNext PR #67136 (`filter_readable_vouchers`),
+    /// returning true when LazyServiceProvider/AuthorizationService is uninitialized in pure unit tests.
+    /// </summary>
+    private async Task<bool> IsVoucherReadGrantedAsync(string permissionName)
+    {
+        if (LazyServiceProvider == null)
+            return true;
+
+        var authService = LazyServiceProvider.LazyGetService<IAuthorizationService>();
+        if (authService == null)
+            return true;
+
+        return await authService.IsGrantedAsync(permissionName);
     }
 
     /// <summary>

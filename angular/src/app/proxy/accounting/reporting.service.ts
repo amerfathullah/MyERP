@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, ConsolidatedFinancialStatementDto, ConsolidatedFinancialStatementRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, GrossAndNetProfitReportDto, GrossAndNetProfitRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, ConsolidatedFinancialStatementDto, ConsolidatedFinancialStatementRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, GrossAndNetProfitReportDto, GrossAndNetProfitRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, SalesPartnersCommissionReportDto, SalesPartnersCommissionRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -170,6 +170,19 @@ export class ReportingService {
         includeDefaultBookEntries: input.includeDefaultBookEntries,
         accumulatedInGroupCompany: input.accumulatedInGroupCompany,
         showZeroValues: input.showZeroValues,
+      },
+    },
+      { apiName: this.apiName, ...config });
+
+  getSalesPartnersCommission = (input: SalesPartnersCommissionRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesPartnersCommissionReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/sales-partners-commission',
+      params: {
+        companyId: input.companyId,
+        fromDate: input.fromDate,
+        toDate: input.toDate,
       },
     },
       { apiName: this.apiName, ...config });

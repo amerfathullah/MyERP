@@ -559,6 +559,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/sales-partners-commission',
+    loadComponent: () => import('./accounting/reports/sales-partners-commission/sales-partners-commission.component').then(c => c.SalesPartnersCommissionComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/payments',
     loadComponent: () => import('./accounting/payments/payment-entry-list.component').then(c => c.PaymentEntryListComponent),
     canActivate: [authGuard, permissionGuard],

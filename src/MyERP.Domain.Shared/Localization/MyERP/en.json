@@ -6639,7 +6639,12 @@
     "PresentationCurrency": "Presentation Currency",
     "AccumulatedInGroupCompany": "Accumulate Values in Group Company",
     "ProvisionalProfitLoss": "Provisional Profit / Loss",
-    "NetChangeInCash": "Net Change in Cash"
+    "NetChangeInCash": "Net Change in Cash",
+    "Menu:SalesPartnersCommission": "Sales Partners Commission",
+    "SalesPartnersCommission": "Sales Partners Commission",
+    "InvoicedAmountExclTax": "Invoiced Amount (Excl. Tax)",
+    "AmountEligibleForCommission": "Amount Eligible for Commission",
+    "AverageCommissionRate": "Average Commission Rate"
   }
 }
 

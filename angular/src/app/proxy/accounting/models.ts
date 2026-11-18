@@ -3425,3 +3425,31 @@ export interface ConsolidatedFinancialStatementDto {
   rows?: ConsolidatedStatementRowDto[];
   summary?: ConsolidatedStatementSummaryItemDto[];
 }
+
+export interface SalesPartnersCommissionRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface SalesPartnersCommissionRowDto {
+  salesPartnerId?: string;
+  salesPartnerName?: string;
+  currencyCode?: string;
+  invoiceCount?: number;
+  invoicedAmount?: number;
+  amountEligibleForCommission?: number;
+  totalCommission?: number;
+  averageCommissionRate?: number | null;
+}
+
+export interface SalesPartnersCommissionReportDto {
+  companyId?: string;
+  currencyCode?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  totalInvoicedAmount?: number;
+  totalEligibleAmount?: number;
+  totalCommission?: number;
+  rows?: SalesPartnersCommissionRowDto[];
+}

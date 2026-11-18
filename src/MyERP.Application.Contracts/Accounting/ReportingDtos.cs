@@ -594,6 +594,38 @@ public class ConsolidatedFinancialStatementDto
     public List<ConsolidatedStatementSummaryItemDto> Summary { get; set; } = new();
 }
 
+// --- Sales Partners Commission (ERPNext accounts/report/sales_partners_commission) ---
+public class SalesPartnersCommissionRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+}
+
+public class SalesPartnersCommissionRowDto
+{
+    public Guid SalesPartnerId { get; set; }
+    public string SalesPartnerName { get; set; } = null!;
+    public string CurrencyCode { get; set; } = null!;
+    public int InvoiceCount { get; set; }
+    public decimal InvoicedAmount { get; set; }
+    public decimal AmountEligibleForCommission { get; set; }
+    public decimal TotalCommission { get; set; }
+    public decimal? AverageCommissionRate { get; set; }
+}
+
+public class SalesPartnersCommissionReportDto
+{
+    public Guid CompanyId { get; set; }
+    public string CurrencyCode { get; set; } = null!;
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public decimal TotalInvoicedAmount { get; set; }
+    public decimal TotalEligibleAmount { get; set; }
+    public decimal TotalCommission { get; set; }
+    public List<SalesPartnersCommissionRowDto> Rows { get; set; } = new();
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -611,6 +643,7 @@ public interface IReportingAppService : IApplicationService
     Task<DimensionWiseAccountsBalanceReportDto> GetDimensionWiseAccountsBalanceAsync(DimensionWiseAccountsBalanceRequestDto input);
     Task<GrossAndNetProfitReportDto> GetGrossAndNetProfitAsync(GrossAndNetProfitRequestDto input);
     Task<ConsolidatedFinancialStatementDto> GetConsolidatedFinancialStatementAsync(ConsolidatedFinancialStatementRequestDto input);
+    Task<SalesPartnersCommissionReportDto> GetSalesPartnersCommissionAsync(SalesPartnersCommissionRequestDto input);
 }
 
 
