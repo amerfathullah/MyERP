@@ -697,6 +697,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/dimension-wise-accounts-balance',
+        name: '::Menu:DimensionWiseAccountsBalance',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-table-columns',
+        order: 15.95,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

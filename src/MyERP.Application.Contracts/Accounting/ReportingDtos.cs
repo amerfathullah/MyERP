@@ -448,6 +448,50 @@ public class PaymentPeriodBasedOnInvoiceDateReportDto
     public decimal TotalRange90Above { get; set; }
 }
 
+// --- Dimension-wise Accounts Balance Report ---
+public class DimensionWiseAccountsBalanceRequestDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    /// <summary>"Cost Center" or "Project".</summary>
+    public string Dimension { get; set; } = "Cost Center";
+    public string? FinanceBook { get; set; }
+    public bool IncludeDefaultBookEntries { get; set; } = true;
+    public bool ShowZeroValues { get; set; }
+}
+
+public class DimensionColumnDto
+{
+    public Guid DimensionId { get; set; }
+    public string DimensionName { get; set; } = string.Empty;
+}
+
+public class DimensionWiseAccountBalanceRowDto
+{
+    public Guid AccountId { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public Guid? ParentAccountId { get; set; }
+    public bool IsGroup { get; set; }
+    public int Level { get; set; }
+    public decimal[] DimensionBalances { get; set; } = Array.Empty<decimal>();
+    public decimal Total { get; set; }
+}
+
+public class DimensionWiseAccountsBalanceReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string Dimension { get; set; } = "Cost Center";
+    public string CurrencyCode { get; set; } = "MYR";
+    public List<DimensionColumnDto> Dimensions { get; set; } = new();
+    public List<DimensionWiseAccountBalanceRowDto> Rows { get; set; } = new();
+    public decimal[] DimensionTotals { get; set; } = Array.Empty<decimal>();
+    public decimal GrandTotal { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -462,6 +506,7 @@ public interface IReportingAppService : IApplicationService
     Task<DayBookReportDto> GetDayBookAsync(DayBookRequestDto input);
     Task<VoucherWiseBalanceReportDto> GetVoucherWiseBalanceAsync(VoucherWiseBalanceRequestDto input);
     Task<PaymentPeriodBasedOnInvoiceDateReportDto> GetPaymentPeriodBasedOnInvoiceDateAsync(PaymentPeriodBasedOnInvoiceDateRequestDto input);
+    Task<DimensionWiseAccountsBalanceReportDto> GetDimensionWiseAccountsBalanceAsync(DimensionWiseAccountsBalanceRequestDto input);
 }
 
 

@@ -2628,6 +2628,44 @@ export interface DayBookReportDto {
   totalCredit?: number;
 }
 
+export interface DimensionWiseAccountsBalanceRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  dimension?: string;
+  financeBook?: string | null;
+  includeDefaultBookEntries?: boolean;
+  showZeroValues?: boolean;
+}
+
+export interface DimensionColumnDto {
+  dimensionId?: string;
+  dimensionName?: string;
+}
+
+export interface DimensionWiseAccountBalanceRowDto {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+  parentAccountId?: string | null;
+  isGroup?: boolean;
+  level?: number;
+  dimensionBalances?: number[];
+  total?: number;
+}
+
+export interface DimensionWiseAccountsBalanceReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  dimension?: string;
+  currencyCode?: string;
+  dimensions?: DimensionColumnDto[];
+  rows?: DimensionWiseAccountBalanceRowDto[];
+  dimensionTotals?: number[];
+  grandTotal?: number;
+}
+
 export interface ProfitabilityAnalysisRequestDto {
   companyId: string;
   fromDate: string;

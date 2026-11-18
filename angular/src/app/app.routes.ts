@@ -511,6 +511,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/dimension-wise-accounts-balance',
+    loadComponent: () => import('./accounting/reports/dimension-wise-accounts-balance/dimension-wise-accounts-balance.component').then(c => c.DimensionWiseAccountsBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/profit-loss',
     loadComponent: () => import('./accounting/reports/profit-loss/profit-loss.component').then(c => c.ProfitLossComponent),
     canActivate: [authGuard, permissionGuard],

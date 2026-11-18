@@ -2013,6 +2013,247 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         };
     }
 
+    /// <summary>
+    /// Dimension-wise Accounts Balance Report.
+    /// Maps to ERPNext accounts/report/dimension_wise_accounts_balance_report:
+    /// - Cross-tabulates account net balances (Debit - Credit) across Cost Centers or Projects
+    /// - Excludes Period Closing vouchers and respects Finance Book filtering
+    /// - Accumulates leaf balances into parent group accounts and prunes zero-value rows
+    /// </summary>
+    public async Task<DimensionWiseAccountsBalanceReportDto> GetDimensionWiseAccountsBalanceAsync(
+        DimensionWiseAccountsBalanceRequestDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company is required.");
+        }
+
+        if (input.FromDate.Date > input.ToDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var dimension = string.Equals(input.Dimension, "Project", StringComparison.OrdinalIgnoreCase)
+            ? "Project"
+            : "Cost Center";
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currencyCode = company?.CurrencyCode ?? "MYR";
+
+        var dimensions = new List<DimensionColumnDto>();
+        if (dimension == "Project")
+        {
+            var projectRepo = _projectRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Project, Guid>>();
+            if (projectRepo != null)
+            {
+                var projects = await projectRepo.GetListAsync(p => p.CompanyId == input.CompanyId);
+                dimensions.AddRange(projects
+                    .OrderBy(p => p.ProjectName)
+                    .Select(p => new DimensionColumnDto { DimensionId = p.Id, DimensionName = p.ProjectName }));
+            }
+        }
+        else
+        {
+            var ccRepo = _costCenterRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CostCenter, Guid>>();
+            if (ccRepo != null)
+            {
+                var costCenters = await ccRepo.GetListAsync(c => c.CompanyId == input.CompanyId && c.IsActive);
+                dimensions.AddRange(costCenters
+                    .OrderBy(c => c.Name)
+                    .Select(c => new DimensionColumnDto { DimensionId = c.Id, DimensionName = c.Name }));
+            }
+        }
+
+        if (dimensions.Count == 0)
+        {
+            return new DimensionWiseAccountsBalanceReportDto
+            {
+                CompanyId = input.CompanyId,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+                Dimension = dimension,
+                CurrencyCode = currencyCode,
+            };
+        }
+
+        var dimIndexMap = dimensions
+            .Select((d, idx) => (d.DimensionId, idx))
+            .ToDictionary(x => x.DimensionId, x => x.idx);
+
+        var accounts = (await _accountRepository.GetListAsync(a => a.CompanyId == input.CompanyId))
+            .OrderBy(a => a.AccountCode)
+            .ToList();
+        if (accounts.Count == 0)
+        {
+            return new DimensionWiseAccountsBalanceReportDto
+            {
+                CompanyId = input.CompanyId,
+                FromDate = input.FromDate,
+                ToDate = input.ToDate,
+                Dimension = dimension,
+                CurrencyCode = currencyCode,
+                Dimensions = dimensions,
+                DimensionTotals = new decimal[dimensions.Count],
+            };
+        }
+
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(
+            input.CompanyId, input.FinanceBook, input.IncludeDefaultBookEntries);
+
+        var fromDate = DateRangeHelper.StartOfDay(input.FromDate);
+        var toDateExclusive = DateRangeHelper.ExclusiveNextDay(input.ToDate);
+
+        List<JournalEntry> journalEntries;
+        try
+        {
+            var withDetails = await _journalEntryRepository.WithDetailsAsync(je => je.Lines);
+            journalEntries = withDetails
+                .Where(je =>
+                    je.CompanyId == input.CompanyId &&
+                    je.Status == DocumentStatus.Posted &&
+                    je.VoucherType != JournalEntryVoucherType.PeriodClosing &&
+                    je.PostingDate >= fromDate &&
+                    je.PostingDate < toDateExclusive)
+                .ToList();
+        }
+        catch
+        {
+            journalEntries = await _journalEntryRepository.GetListAsync(je =>
+                je.CompanyId == input.CompanyId &&
+                je.Status == DocumentStatus.Posted &&
+                je.VoucherType != JournalEntryVoucherType.PeriodClosing &&
+                je.PostingDate >= fromDate &&
+                je.PostingDate < toDateExclusive);
+        }
+
+        var accountDimBalances = accounts.ToDictionary(a => a.Id, _ => new decimal[dimensions.Count]);
+
+        foreach (var line in journalEntries.SelectMany(je => je.Lines))
+        {
+            var book = line.FinanceBook ?? string.Empty;
+            if (!allowedFinanceBooks.Contains(book))
+                continue;
+
+            var dimId = dimension == "Project" ? line.ProjectId : line.CostCenterId;
+            if (!dimId.HasValue || !dimIndexMap.TryGetValue(dimId.Value, out int colIdx))
+                continue;
+
+            if (accountDimBalances.TryGetValue(line.AccountId, out var balances))
+            {
+                balances[colIdx] += line.Debit - line.Credit;
+            }
+        }
+
+        var childrenMap = accounts
+            .Where(a => a.ParentAccountId.HasValue)
+            .GroupBy(a => a.ParentAccountId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AccountCode).ToList());
+        var accountById = accounts.ToDictionary(a => a.Id);
+        var roots = accounts.Where(a => !a.ParentAccountId.HasValue || !accountById.ContainsKey(a.ParentAccountId.Value))
+            .OrderBy(a => a.AccountCode)
+            .ToList();
+
+        // Accumulate leaf balances into parents (post-order traversal)
+        var aggregatedBalances = new Dictionary<Guid, decimal[]>();
+        decimal[] Accumulate(Account acc)
+        {
+            var sum = (decimal[])accountDimBalances[acc.Id].Clone();
+            if (childrenMap.TryGetValue(acc.Id, out var kids))
+            {
+                foreach (var child in kids)
+                {
+                    var childSum = Accumulate(child);
+                    for (int i = 0; i < dimensions.Count; i++)
+                    {
+                        sum[i] += childSum[i];
+                    }
+                }
+            }
+            aggregatedBalances[acc.Id] = sum;
+            return sum;
+        }
+
+        foreach (var root in roots)
+        {
+            Accumulate(root);
+        }
+
+        var rows = new List<DimensionWiseAccountBalanceRowDto>();
+        void Flatten(Account acc, int level)
+        {
+            var vals = aggregatedBalances[acc.Id].Select(v => Math.Round(v, 2)).ToArray();
+            var rowTotal = Math.Round(vals.Sum(), 2);
+            bool hasNonZero = vals.Any(v => Math.Abs(v) >= 0.01m);
+
+            var childRows = new List<DimensionWiseAccountBalanceRowDto>();
+            if (childrenMap.TryGetValue(acc.Id, out var kids))
+            {
+                int beforeCount = rows.Count;
+                foreach (var child in kids)
+                {
+                    Flatten(child, level + 1);
+                }
+                if (rows.Count > beforeCount)
+                {
+                    // Keep parent group when any descendant row was kept
+                    hasNonZero = true;
+                    // Reorder so parent precedes its descendants
+                    childRows = rows.GetRange(beforeCount, rows.Count - beforeCount);
+                    rows.RemoveRange(beforeCount, rows.Count - beforeCount);
+                }
+            }
+
+            if (input.ShowZeroValues || hasNonZero)
+            {
+                rows.Add(new DimensionWiseAccountBalanceRowDto
+                {
+                    AccountId = acc.Id,
+                    AccountCode = acc.AccountCode,
+                    AccountName = string.IsNullOrWhiteSpace(acc.AccountCode)
+                        ? acc.AccountName
+                        : $"{acc.AccountCode} - {acc.AccountName}",
+                    ParentAccountId = acc.ParentAccountId,
+                    IsGroup = acc.IsGroup,
+                    Level = level,
+                    DimensionBalances = vals,
+                    Total = rowTotal,
+                });
+                rows.AddRange(childRows);
+            }
+        }
+
+        foreach (var root in roots)
+        {
+            Flatten(root, 0);
+        }
+
+        // Totals across leaf accounts only to avoid double-counting parent groups
+        var dimensionTotals = new decimal[dimensions.Count];
+        foreach (var acc in accounts.Where(a => !a.IsGroup))
+        {
+            var leafVals = accountDimBalances[acc.Id];
+            for (int i = 0; i < dimensions.Count; i++)
+            {
+                dimensionTotals[i] += leafVals[i];
+            }
+        }
+        dimensionTotals = dimensionTotals.Select(v => Math.Round(v, 2)).ToArray();
+
+        return new DimensionWiseAccountsBalanceReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            Dimension = dimension,
+            CurrencyCode = currencyCode,
+            Dimensions = dimensions,
+            Rows = rows,
+            DimensionTotals = dimensionTotals,
+            GrandTotal = Math.Round(dimensionTotals.Sum(), 2),
+        };
+    }
+
     private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
         Guid companyId,
         string? financeBook,

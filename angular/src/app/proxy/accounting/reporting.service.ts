@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, DayBookReportDto, DayBookRequestDto, DimensionWiseAccountsBalanceReportDto, DimensionWiseAccountsBalanceRequestDto, FinancialRatiosReportDto, FinancialRatiosRequestDto, GeneralPaymentLedgerComparisonReportDto, GeneralPaymentLedgerComparisonRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, PaymentPeriodBasedOnInvoiceDateReportDto, PaymentPeriodBasedOnInvoiceDateRequestDto, ProfitLossReportDto, ProfitLossRequestDto, ProfitabilityAnalysisReportDto, ProfitabilityAnalysisRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto, VoucherWiseBalanceReportDto, VoucherWiseBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -125,6 +125,16 @@ export class ReportingService {
       headers: { Accept: 'application/json' },
       url: '/api/app/reporting/payment-period-based-on-invoice-date',
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, paymentType: input.paymentType, partyType: input.partyType, partyId: input.partyId },
+    },
+      { apiName: this.apiName,...config });
+
+  
+  getDimensionWiseAccountsBalance = (input: DimensionWiseAccountsBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DimensionWiseAccountsBalanceReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/reporting/dimension-wise-accounts-balance',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, dimension: input.dimension, financeBook: input.financeBook, includeDefaultBookEntries: input.includeDefaultBookEntries, showZeroValues: input.showZeroValues },
     },
       { apiName: this.apiName,...config });
 }

@@ -6549,7 +6549,9 @@
     "TdsComputationSummary": "TDS Computation Summary",
     "WithholdingRate": "Rate (%)",
     "Tin": "TIN",
-    "LowerDeductionApplied": "LDC"
+    "LowerDeductionApplied": "LDC",
+    "Menu:DimensionWiseAccountsBalance": "Dimension-wise Accounts Balance",
+    "DimensionWiseAccountsBalance": "Dimension-wise Accounts Balance"
   }
 }
 

@@ -1,0 +1,97 @@
+<abp-page [title]="'::DimensionWiseAccountsBalance' | abpLocalization">
+  <div class="card mb-4">
+    <div class="card-body">
+      <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Company' | abpLocalization }}</label>
+          <select class="form-select" formControlName="companyId">
+            <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::Dimension' | abpLocalization }}</label>
+          <select class="form-select" formControlName="dimension">
+            <option value="Cost Center">{{ '::CostCenter' | abpLocalization }}</option>
+            <option value="Project">{{ '::Project' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="fromDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
+          <input type="date" class="form-control" formControlName="toDate" />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">{{ '::FinanceBook' | abpLocalization }}</label>
+          <input type="text" class="form-control" formControlName="financeBook" />
+        </div>
+        <div class="col-md-2">
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="showZeroValues" formControlName="showZeroValues" />
+            <label class="form-check-label small" for="showZeroValues">{{ '::ShowZeroValues' | abpLocalization }}</label>
+          </div>
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+            <i class="fa fa-table-columns me-1"></i>{{ '::Generate' | abpLocalization }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  }
+
+  @if (report(); as r) {
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.rows?.length ?? 0 }} {{ '::Entries' | abpLocalization }} ({{ r.currencyCode }})</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
+          <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">{{ '::Account' | abpLocalization }}</th>
+                @for (dim of r.dimensions ?? []; track dim.dimensionId) {
+                  <th class="text-end">{{ dim.dimensionName }}</th>
+                }
+                <th class="text-end pe-3 fw-bold">{{ '::Total' | abpLocalization }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows ?? []; track row.accountId) {
+                <tr [class.fw-bold]="row.isGroup" [class.table-light]="row.isGroup">
+                  <td class="ps-3" [style.padding-left.rem]="1 + ((row.level ?? 0) * 1.25)">
+                    {{ row.accountName }}
+                  </td>
+                  @for (val of row.dimensionBalances ?? []; track $index) {
+                    <td class="text-end font-monospace">{{ val | number:'1.2-2' }}</td>
+                  }
+                  <td class="text-end pe-3 font-monospace fw-bold">{{ (row.total ?? 0) | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold table-light">
+                <td class="ps-3">{{ '::Total' | abpLocalization }}</td>
+                @for (dt of r.dimensionTotals ?? []; track $index) {
+                  <td class="text-end font-monospace">{{ dt | number:'1.2-2' }}</td>
+                }
+                <td class="text-end pe-3 font-monospace">{{ (r.grandTotal ?? 0) | number:'1.2-2' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</abp-page>
