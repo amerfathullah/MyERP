@@ -1058,6 +1058,7 @@
     "AdditionalCost": "Additional Cost",
     "UsefulLife": "Useful Life",
     "ExpectedValueAfterUsefulLife": "Expected Value After Useful Life",
+    "SalvageValuePercentage": "Salvage Value Percentage",
     "Location": "Location",
     "AccountCode": "Account Code",
     "AccountName": "Account Name",

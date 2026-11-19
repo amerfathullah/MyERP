@@ -14,6 +14,7 @@ export interface ItemGroupNode {
   isGroup: boolean;
   parentId?: string | null;
   defaultWarehouseId?: string | null;
+  defaultInventoryAccountId?: string | null;
   defaultSupplierId?: string | null;
   children: ItemGroupNode[];
   level: number;
@@ -45,7 +46,7 @@ export interface ItemGroupNode {
                 <label class="form-label">{{ 'MyERP::ParentGroup' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="newGroup.parentId">
                   <option [ngValue]="null">— Root Level —</option>
-                  @for (g of groupOptions(); track g.id) {
+                  @for (g of availableParentOptions(); track g.id) {
                     <option [value]="g.id">{{ g.name }}</option>
                   }
                 </select>
@@ -147,9 +148,24 @@ export class ItemGroupTreeComponent implements OnInit {
   showCreateForm = false;
   expandedIds = new Set<string>();
 
-  newGroup: { id?: string; name: string; parentId: string | null; isGroup: boolean; defaultSupplierId: string | null } = {
-    name: '', parentId: null, isGroup: false, defaultSupplierId: null,
+  newGroup: {
+    id?: string;
+    name: string;
+    parentId: string | null;
+    isGroup: boolean;
+    defaultWarehouseId: string | null;
+    defaultInventoryAccountId: string | null;
+    defaultSupplierId: string | null;
+  } = {
+    name: '',
+    parentId: null,
+    isGroup: false,
+    defaultWarehouseId: null,
+    defaultInventoryAccountId: null,
+    defaultSupplierId: null,
   };
+
+  private allItems: ItemGroupDto[] = [];
 
   ngOnInit() {
     this.loadData();
@@ -160,6 +176,7 @@ export class ItemGroupTreeComponent implements OnInit {
     this.service.getList({ skipCount: 0, maxResultCount: 1000, sorting: '' }).subscribe({
       next: (result) => {
         const items = result.items ?? [];
+        this.allItems = items;
         this.tree.set(this.buildTree(items));
         this.groupOptions.set(items.filter(i => i.isGroup).map(i => ({ id: i.id!, name: i.name! })));
         this.loading.set(false);
@@ -170,6 +187,29 @@ export class ItemGroupTreeComponent implements OnInit {
     this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any).subscribe({
       next: (res) => this.suppliers.set((res.items ?? []).map(s => ({ id: s.id!, name: s.name! }))),
     });
+  }
+
+  /**
+   * Parent group options excluding the currently edited group and all of its descendants
+   * (prevents self-parenting and cycles per ERPNext commits 3f9ed2864d & f34b9fde0d).
+   */
+  availableParentOptions(): { id: string; name: string }[] {
+    const editingId = this.newGroup.id;
+    if (!editingId) {
+      return this.groupOptions();
+    }
+    const excluded = new Set<string>([editingId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const item of this.allItems) {
+        if (item.id && item.parentId && excluded.has(item.parentId) && !excluded.has(item.id)) {
+          excluded.add(item.id);
+          added = true;
+        }
+      }
+    }
+    return this.groupOptions().filter(g => !excluded.has(g.id));
   }
 
   private buildTree(items: ItemGroupDto[]): ItemGroupNode[] {
@@ -183,6 +223,7 @@ export class ItemGroupTreeComponent implements OnInit {
         isGroup: item.isGroup ?? false,
         parentId: item.parentId,
         defaultWarehouseId: item.defaultWarehouseId,
+        defaultInventoryAccountId: item.defaultInventoryAccountId,
         defaultSupplierId: item.defaultSupplierId,
         children: [],
         level: 0,
@@ -236,7 +277,14 @@ export class ItemGroupTreeComponent implements OnInit {
   }
 
   addChildTo(parent: ItemGroupNode) {
-    this.newGroup = { name: '', parentId: parent.id, isGroup: false, defaultSupplierId: null };
+    this.newGroup = {
+      name: '',
+      parentId: parent.id,
+      isGroup: false,
+      defaultWarehouseId: null,
+      defaultInventoryAccountId: null,
+      defaultSupplierId: null,
+    };
     this.showCreateForm = true;
     // Expand parent to show new child
     this.expandedIds.add(parent.id);
@@ -248,6 +296,8 @@ export class ItemGroupTreeComponent implements OnInit {
       name: node.name,
       parentId: node.parentId ?? null,
       isGroup: node.isGroup,
+      defaultWarehouseId: node.defaultWarehouseId ?? null,
+      defaultInventoryAccountId: node.defaultInventoryAccountId ?? null,
       defaultSupplierId: node.defaultSupplierId ?? null,
     };
     this.showCreateForm = true;
@@ -255,7 +305,14 @@ export class ItemGroupTreeComponent implements OnInit {
 
   cancelForm() {
     this.showCreateForm = false;
-    this.newGroup = { name: '', parentId: null, isGroup: false, defaultSupplierId: null };
+    this.newGroup = {
+      name: '',
+      parentId: null,
+      isGroup: false,
+      defaultWarehouseId: null,
+      defaultInventoryAccountId: null,
+      defaultSupplierId: null,
+    };
   }
 
   saveGroup() {
@@ -265,17 +322,23 @@ export class ItemGroupTreeComponent implements OnInit {
       name: this.newGroup.name,
       parentId: this.newGroup.parentId || undefined,
       isGroup: this.newGroup.isGroup,
+      defaultWarehouseId: this.newGroup.defaultWarehouseId || undefined,
+      defaultInventoryAccountId: this.newGroup.defaultInventoryAccountId || undefined,
       defaultSupplierId: this.newGroup.defaultSupplierId || undefined,
     };
 
-    this.service.create(payload as any).subscribe({
+    const req$ = this.newGroup.id
+      ? this.service.update(this.newGroup.id, payload as any)
+      : this.service.create(payload as any);
+
+    req$.subscribe({
       next: () => {
         this.toaster.success('MyERP::SuccessfullySaved');
         this.cancelForm();
         this.loadData();
       },
       error: (err) => {
-        this.toaster.error(err?.error?.error?.message ?? 'Save failed');
+        this.toaster.error(err?.error?.error?.data?.detail ?? err?.error?.error?.message ?? 'Save failed');
       },
     });
   }

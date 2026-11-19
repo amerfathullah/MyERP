@@ -6,6 +6,8 @@ using MyERP.Inventory.Entities;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Manufacturing.Services;
+using MyERP.Purchasing;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using NSubstitute;
@@ -261,5 +263,28 @@ public class UpstreamBatch9ParityTests
 
         ltNoDefault.ResolvePurchaseLeadTimeDays().ShouldBe(3);
         ltNoDefault.ResolvePurchaseLeadTimeDays(supplierA).ShouldBe(11);
+    }
+
+    [Fact]
+    public void SubcontractingInwardOrder_UpdateReceivedStatus_CapsPerItemUsableQtyAt100Pct_ecb392f40b()
+    {
+        var scio = new SubcontractingInwardOrder(Guid.NewGuid(), Guid.NewGuid(), "SCIO-001", DateTime.UtcNow.Date, Guid.NewGuid());
+        var item1 = new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 10m, 50m);
+        var item2 = new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 10m, 50m);
+        scio.AddItem(item1);
+        scio.AddItem(item2);
+        scio.Submit();
+
+        // Over-receive item1 (15 of 10), item2 at 0 -> PerReceived must remain 0% (PartiallyReceived, not inflated)
+        item1.ReceivedQty = 15m;
+        scio.UpdateReceivedStatus();
+        scio.PerReceived.ShouldBe(0m);
+        scio.Status.ShouldBe(SubcontractingInwardOrderStatus.PartiallyReceived);
+
+        // Over-receive item2 (12 of 10) -> PerReceived capped cleanly at 100%, never 120%
+        item2.ReceivedQty = 12m;
+        scio.UpdateReceivedStatus();
+        scio.PerReceived.ShouldBe(100m);
+        scio.Status.ShouldBe(SubcontractingInwardOrderStatus.Completed);
     }
 }

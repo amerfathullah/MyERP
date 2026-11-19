@@ -36,10 +36,10 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
     public async Task<ItemGroupDto> CreateAsync(CreateItemGroupDto input)
     {
         await ValidateDefaultsAsync(input.DefaultWarehouseId, input.DefaultInventoryAccountId);
+        await ValidateParentAsync(groupId: null, input.ParentId);
 
-        var ig = new ItemGroup(GuidGenerator.Create(), input.Name, input.IsGroup, CurrentTenant.Id)
+        var ig = new ItemGroup(GuidGenerator.Create(), input.Name, input.IsGroup, input.ParentId, CurrentTenant.Id)
         {
-            ParentId = input.ParentId,
             DefaultWarehouseId = input.DefaultWarehouseId,
             DefaultInventoryAccountId = input.DefaultInventoryAccountId,
             DefaultSupplierId = input.DefaultSupplierId,
@@ -60,8 +60,19 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
     public async Task<ItemGroupDto> UpdateAsync(Guid id, CreateItemGroupDto input)
     {
         await ValidateDefaultsAsync(input.DefaultWarehouseId, input.DefaultInventoryAccountId);
+        await ValidateParentAsync(groupId: id, input.ParentId);
 
         var ig = await _repository.GetAsync(id);
+        if (ig.IsGroup && !input.IsGroup)
+        {
+            var query = await _repository.GetQueryableAsync();
+            if (query.Any(g => g.ParentId == id))
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot convert Item Group '{ig.Name}' to a leaf while it has child groups.");
+            }
+        }
+
         ig.Name = input.Name;
         ig.IsGroup = input.IsGroup;
         ig.ParentId = input.ParentId;
@@ -84,7 +95,69 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
     [Authorize(MyERPPermissions.Items.Delete)]
     public async Task DeleteAsync(Guid id)
     {
+        var query = await _repository.GetQueryableAsync();
+        if (query.Any(g => g.ParentId == id))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete Item Group while it has child groups.");
+        }
+
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Enforces Item Group tree invariants per ERPNext commits 3f9ed2864d &amp; f34b9fde0d:
+    /// - Parent must exist and be a group (reject inserting or moving under leaves).
+    /// - An Item Group cannot be moved under itself or any of its descendants (no cycles).
+    /// </summary>
+    private async Task ValidateParentAsync(Guid? groupId, Guid? parentId)
+    {
+        if (!parentId.HasValue || parentId.Value == Guid.Empty)
+            return;
+
+        if (groupId.HasValue && parentId.Value == groupId.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Item Group cannot be its own parent.");
+        }
+
+        var parent = await _repository.FindAsync(parentId.Value);
+        if (parent == null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("detail", $"Parent Item Group '{parentId.Value}' not found.");
+        }
+
+        if (!parent.IsGroup)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot place Item Group under leaf group '{parent.Name}'. Parent must be a group.");
+        }
+
+        if (groupId.HasValue)
+        {
+            var query = await _repository.GetQueryableAsync();
+            var parentMap = query
+                .Select(g => new { g.Id, g.ParentId })
+                .ToDictionary(g => g.Id, g => g.ParentId);
+
+            var visited = new System.Collections.Generic.HashSet<Guid> { groupId.Value };
+            Guid? cursor = parent.ParentId;
+            while (cursor.HasValue && cursor.Value != Guid.Empty)
+            {
+                if (!visited.Add(cursor.Value))
+                {
+                    if (cursor.Value == groupId.Value)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Cannot move Item Group under its own descendant.");
+                    }
+                    break;
+                }
+
+                parentMap.TryGetValue(cursor.Value, out cursor);
+            }
+        }
     }
 
     private async Task ValidateDefaultsAsync(Guid? defaultWarehouseId, Guid? defaultInventoryAccountId)

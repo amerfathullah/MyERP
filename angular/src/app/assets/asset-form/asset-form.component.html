@@ -169,6 +169,13 @@
               <input type="number" class="form-control" formControlName="openingAccumulatedDepreciation" min="0" step="0.01" />
             </div>
             <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::SalvageValuePercentage' | abpLocalization }} (%)</label>
+              <div class="input-group">
+                <input type="number" class="form-control" formControlName="salvageValuePercentage" min="0" max="100" step="0.01" />
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
               <label class="form-label">{{ '::ExpectedValueAfterUsefulLife' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="expectedValueAfterUsefulLife" min="0" step="0.01" />
             </div>

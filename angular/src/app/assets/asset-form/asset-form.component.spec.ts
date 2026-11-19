@@ -117,4 +117,39 @@ describe('AssetFormComponent Purchase Doc Fetch', () => {
     comp.form.patchValue({ expectedValueAfterUsefulLife: 500 });
     expect(comp.form.getRawValue().expectedValueAfterUsefulLife).toBe(500);
   });
+
+  it('recomputes salvage value from percentage when purchaseAmount or additionalCost changes (commit 1211552f18)', () => {
+    const { comp } = createComponent();
+    comp.form.patchValue({ purchaseAmount: 10000, additionalCost: 2000, salvageValuePercentage: 10 });
+    expect(comp.form.get('expectedValueAfterUsefulLife')?.value).toBe(1200);
+
+    // Changing purchaseAmount recomputes salvage value automatically
+    comp.form.patchValue({ purchaseAmount: 20000 });
+    expect(comp.form.get('expectedValueAfterUsefulLife')?.value).toBe(2200);
+  });
+
+  it('keeps salvage value intact when user types depreciation rate and strips salvageValuePercentage on save (commit 8137a8ffdf)', () => {
+    const { comp, assetServiceMock } = createComponent();
+    assetServiceMock.create.mockReturnValue(of({ id: 'asset-new' }));
+
+    comp.form.patchValue({
+      companyId: 'comp-1',
+      assetName: 'CNC Machine',
+      purchaseAmount: 10000,
+      salvageValuePercentage: 15,
+      depreciationMethod: 1, // WDV
+    });
+    expect(comp.form.get('expectedValueAfterUsefulLife')?.value).toBe(1500);
+
+    // Typing a custom depreciation rate must NOT zero out salvage value
+    comp.form.patchValue({ depreciationRate: 25 });
+    expect(comp.isRateOfDepreciationEntered()).toBe(true);
+    expect(comp.form.get('expectedValueAfterUsefulLife')?.value).toBe(1500);
+
+    comp.save();
+    expect(assetServiceMock.create).toHaveBeenCalledTimes(1);
+    const sentPayload = assetServiceMock.create.mock.calls[0][0];
+    expect(sentPayload.expectedValueAfterUsefulLife).toBe(1500);
+    expect(sentPayload.salvageValuePercentage).toBeUndefined();
+  });
 });

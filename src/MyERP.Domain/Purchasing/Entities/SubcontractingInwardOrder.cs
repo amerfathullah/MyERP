@@ -81,7 +81,10 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
     public void UpdateReceivedStatus()
     {
         if (!Items.Any()) return;
-        PerReceived = Items.Min(i => i.Quantity > 0 ? (i.ReceivedQty / i.Quantity) * 100m : 0);
+        // Per ERPNext commit ecb392f40b: count only usable qty up to required qty per line so excess on one item cannot inflate % received
+        PerReceived = Math.Round(
+            Items.Min(i => i.Quantity > 0 ? (Math.Min(i.ReceivedQty, i.Quantity) / i.Quantity) * 100m : 0m),
+            2);
         if (PerReceived >= 100m)
             Status = SubcontractingInwardOrderStatus.Completed;
         else if (Items.Any(i => i.ReceivedQty > 0))

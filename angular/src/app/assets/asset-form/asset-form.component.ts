@@ -61,6 +61,21 @@ export class AssetFormComponent implements OnInit {
   isFetchingPurchaseDoc = signal(false);
   categoryAccount = signal<AssetCategoryAccountDto | null>(null);
   categoryAccountMissing = signal(false);
+  isRateOfDepreciationEntered = signal(false);
+
+  private round2(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private recomputeSalvageFromPercentage(): void {
+    const pct = Number(this.form.get('salvageValuePercentage')?.value ?? 0);
+    if (pct > 0) {
+      const purchaseAmount = Number(this.form.get('purchaseAmount')?.value ?? 0);
+      const additionalCost = Number(this.form.get('additionalCost')?.value ?? 0);
+      const salvage = this.round2((purchaseAmount + additionalCost) * (pct / 100));
+      this.form.patchValue({ expectedValueAfterUsefulLife: salvage }, { emitEvent: false });
+    }
+  }
 
   ngOnInit(): void {
     this.form = this.fb.group({
@@ -86,8 +101,19 @@ export class AssetFormComponent implements OnInit {
       frequencyMonths: [12, [Validators.min(1)]],
       availableForUseDate: [null],
       openingAccumulatedDepreciation: [0, [Validators.min(0)]],
+      salvageValuePercentage: [0, [Validators.min(0), Validators.max(100)]],
       expectedValueAfterUsefulLife: [0, [Validators.min(0)]],
       notes: [''],
+    });
+
+    // Per ERPNext commit 1211552f18: recompute salvage value from percentage when purchase cost or % changes
+    this.form.get('purchaseAmount')?.valueChanges.subscribe(() => this.recomputeSalvageFromPercentage());
+    this.form.get('additionalCost')?.valueChanges.subscribe(() => this.recomputeSalvageFromPercentage());
+    this.form.get('salvageValuePercentage')?.valueChanges.subscribe(() => this.recomputeSalvageFromPercentage());
+
+    // Per ERPNext commit 8137a8ffdf: preserve expectedValueAfterUsefulLife when user enters depreciation rate
+    this.form.get('depreciationRate')?.valueChanges.subscribe((rate) => {
+      this.isRateOfDepreciationEntered.set(Number(rate ?? 0) > 0);
     });
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
@@ -115,13 +141,15 @@ export class AssetFormComponent implements OnInit {
         if (cat.nonDepreciableCategory) {
           this.form.patchValue({ calculateDepreciation: false });
         } else if (cat.isDepreciable) {
+          const method = cat.defaultDepreciationMethod ?? 0;
+          const keepTypedWdvRate = method === 1 && this.isRateOfDepreciationEntered();
           this.form.patchValue({
             calculateDepreciation: true,
-            depreciationMethod: cat.defaultDepreciationMethod ?? 0,
+            depreciationMethod: method,
             usefulLifeMonths: cat.defaultUsefulLifeMonths ?? 60,
-            depreciationRate: cat.defaultDepreciationRate ?? 20,
+            ...(keepTypedWdvRate ? {} : { depreciationRate: cat.defaultDepreciationRate ?? 20 }),
             frequencyMonths: cat.defaultFrequencyMonths ?? 12,
-          });
+          }, { emitEvent: false });
         }
       }
     });
@@ -258,7 +286,8 @@ export class AssetFormComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const rawValue = this.form.getRawValue();
+    const { salvageValuePercentage: _salvagePct, ...rawValue } = this.form.getRawValue();
+    void _salvagePct;
     if (this.isEdit() && this.assetId()) {
       this.assetService.update(this.assetId()!, rawValue as any).subscribe({
         next: () => { this.form.markAsPristine(); this.router.navigate(['/assets', this.assetId()]); },

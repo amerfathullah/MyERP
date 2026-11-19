@@ -328,5 +328,35 @@ describe('PosComponent Logic', () => {
       expect(posMock.getReceiptEmailContent).toHaveBeenCalledWith('pos-inv-1');
       expect(comp.receiptEmailPreview()?.subject).toBe('Receipt POS-0001');
     });
+
+    it('rounds split payment totals to currency precision so changeAmount and outstandingAmount have no float drift (0548448122, 7b255d1b94)', () => {
+      const injector = Injector.create({
+        providers: [
+          { provide: PosService, useValue: { getItems: vi.fn().mockReturnValue(of({ items: [] })), getItemGroups: vi.fn().mockReturnValue(of([])), getModesOfPayment: vi.fn().mockReturnValue(of([])) } },
+          { provide: PosOpeningService, useValue: { getCurrentOpen: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PosProfileService, useValue: { getForCurrentUser: vi.fn().mockReturnValue(of([])) } },
+          { provide: ConfigStateService, useValue: { getOne: vi.fn().mockReturnValue(null) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
+          { provide: ToasterService, useValue: { success: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PosComponent());
+      comp.grandTotal = 10.1;
+      // 3.37 + 3.37 + 3.36 === 10.100000000000001 in IEEE-754
+      comp.payments = [
+        { mode: 'Cash', amount: 3.37 },
+        { mode: 'Card', amount: 3.37 },
+        { mode: 'E-Wallet', amount: 3.36 },
+      ];
+      expect(comp.changeAmount).toBe(0);
+      expect(comp.outstandingAmount).toBe(0);
+
+      comp.payments = [{ mode: 'Cash', amount: 15.25 }];
+      expect(comp.changeAmount).toBe(5.15);
+      expect(comp.outstandingAmount).toBe(0);
+    });
   });
 });

@@ -247,10 +247,11 @@ export class PosComponent implements OnInit {
   }
 
   recalculate(): void {
-    this.netTotal = this.cart.reduce((s, c) => s + c.amount, 0);
-    this.taxTotal = this.cart.reduce((s, c) => s + c.taxAmount, 0);
-    this.discountTotal = this.cart.reduce((s, c) => s + (c.qty * c.rate - c.amount), 0);
-    this.grandTotal = this.netTotal + this.taxTotal;
+    const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+    this.netTotal = round2(this.cart.reduce((s, c) => s + c.amount, 0));
+    this.taxTotal = round2(this.cart.reduce((s, c) => s + c.taxAmount, 0));
+    this.discountTotal = round2(this.cart.reduce((s, c) => s + (c.qty * c.rate - c.amount), 0));
+    this.grandTotal = round2(this.netTotal + this.taxTotal);
 
     // Auto-fill first payment row with grand total if only one payment mode
     if (this.payments.length === 1 && this.payments[0].amount === 0) {
@@ -274,14 +275,21 @@ export class PosComponent implements OnInit {
     if (this.payments.length > 1) this.payments.splice(index, 1);
   }
 
+  private round2(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  /** Per ERPNext commits 0548448122 & 7b255d1b94: compare rounded split payment total against rounded grand total. */
   get changeAmount(): number {
-    const paid = this.payments.reduce((s, p) => s + (p.amount || 0), 0);
-    return Math.max(0, paid - this.grandTotal);
+    const paid = this.round2(this.payments.reduce((s, p) => s + (p.amount || 0), 0));
+    const total = this.round2(this.grandTotal);
+    return paid > total ? this.round2(paid - total) : 0;
   }
 
   get outstandingAmount(): number {
-    const paid = this.payments.reduce((s, p) => s + (p.amount || 0), 0);
-    return Math.max(0, this.grandTotal - paid);
+    const paid = this.round2(this.payments.reduce((s, p) => s + (p.amount || 0), 0));
+    const total = this.round2(this.grandTotal);
+    return total > paid ? this.round2(total - paid) : 0;
   }
 
   // Hold / Resume

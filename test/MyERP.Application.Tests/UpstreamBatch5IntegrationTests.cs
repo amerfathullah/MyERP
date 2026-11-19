@@ -639,4 +639,93 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             computed.Items[0].PlannedQty.ShouldBe(5m);
         });
     }
+
+    [Fact]
+    public async Task ItemGroupAppService_TreeIntegrity_RejectsLeafParentCyclesAndChildDeletion_3f9ed2864d_f34b9fde0d()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var itemGroupAppService = GetRequiredService<IItemGroupAppService>();
+
+            var root = await itemGroupAppService.CreateAsync(new CreateItemGroupDto
+            {
+                Name = "IG Root 3f9e",
+                IsGroup = true
+            });
+            var childGroup = await itemGroupAppService.CreateAsync(new CreateItemGroupDto
+            {
+                Name = "IG Child Group 3f9e",
+                ParentId = root.Id,
+                IsGroup = true
+            });
+            var leaf = await itemGroupAppService.CreateAsync(new CreateItemGroupDto
+            {
+                Name = "IG Leaf 3f9e",
+                ParentId = childGroup.Id,
+                IsGroup = false
+            });
+            leaf.ParentId.ShouldBe(childGroup.Id);
+
+            // Reject inserting under a leaf (3f9ed2864d)
+            var insertUnderLeafEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.CreateAsync(new CreateItemGroupDto
+                {
+                    Name = "IG Under Leaf",
+                    ParentId = leaf.Id,
+                    IsGroup = false
+                }));
+            insertUnderLeafEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (insertUnderLeafEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("leaf group");
+
+            // Reject moving under a leaf (3f9ed2864d)
+            var moveUnderLeafEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.UpdateAsync(childGroup.Id, new CreateItemGroupDto
+                {
+                    Name = childGroup.Name,
+                    ParentId = leaf.Id,
+                    IsGroup = true
+                }));
+            moveUnderLeafEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+            // Reject moving under self
+            var selfParentEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.UpdateAsync(root.Id, new CreateItemGroupDto
+                {
+                    Name = root.Name,
+                    ParentId = root.Id,
+                    IsGroup = true
+                }));
+            selfParentEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+            // Reject moving under own descendant (f34b9fde0d)
+            var descendantEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.UpdateAsync(root.Id, new CreateItemGroupDto
+                {
+                    Name = root.Name,
+                    ParentId = childGroup.Id,
+                    IsGroup = true
+                }));
+            descendantEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (descendantEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("descendant");
+
+            // Reject converting group with children to leaf
+            var convertToLeafEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.UpdateAsync(childGroup.Id, new CreateItemGroupDto
+                {
+                    Name = childGroup.Name,
+                    ParentId = root.Id,
+                    IsGroup = false
+                }));
+            convertToLeafEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+            // Reject deleting group with children
+            var deleteWithChildrenEx = await Should.ThrowAsync<BusinessException>(() =>
+                itemGroupAppService.DeleteAsync(childGroup.Id));
+            deleteWithChildrenEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+            // Deleting leaf first succeeds, then childGroup can be deleted
+            await itemGroupAppService.DeleteAsync(leaf.Id);
+            await itemGroupAppService.DeleteAsync(childGroup.Id);
+        });
+    }
 }
