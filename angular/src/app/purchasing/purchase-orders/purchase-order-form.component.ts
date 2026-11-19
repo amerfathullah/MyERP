@@ -221,6 +221,17 @@ export class PurchaseOrderFormComponent implements OnInit {
   onItemSelected(index: number, item: ItemDto | null): void {
     const itemId = item?.id;
     const row = this.items.at(index) as FormGroup;
+    const hadBlanketOrder = !!row.get('blanketOrderId')?.value;
+
+    // Per ERPNext commits 51df5c2ef0 & f6cca3f59e: clear stale Blanket Order link immediately on item change
+    row.patchValue({ blanketOrderId: null });
+    this.blanketOrderInfo.update(m => {
+      if (!(index in m)) return m;
+      const next = { ...m };
+      delete next[index];
+      return next;
+    });
+
     if (item) {
       row.patchValue({ description: item.itemName || item.itemCode });
     }
@@ -239,7 +250,7 @@ export class PurchaseOrderFormComponent implements OnInit {
         next: (details) => {
           if (details) {
             const patch: any = {};
-            if (details.rate > 0 && !row.get('unitPrice')?.value) patch.unitPrice = details.rate;
+            if (details.rate > 0 && (hadBlanketOrder || !row.get('unitPrice')?.value)) patch.unitPrice = details.rate;
             if (details.description && !row.get('description')?.value) patch.description = details.description;
             patch.blanketOrderId = details.blanketOrderId ?? null;
             if (Object.keys(patch).length > 0) row.patchValue(patch);
@@ -262,13 +273,6 @@ export class PurchaseOrderFormComponent implements OnInit {
           }
         },
         error: () => {} // Graceful fallback
-      });
-    } else {
-      row.patchValue({ blanketOrderId: null });
-      this.blanketOrderInfo.update(m => {
-        const next = { ...m };
-        delete next[index];
-        return next;
       });
     }
   }

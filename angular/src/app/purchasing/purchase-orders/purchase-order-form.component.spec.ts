@@ -248,5 +248,48 @@ describe('PurchaseOrder form item calculations', () => {
       expect(comp.items.at(0).get('blanketOrderId')?.value).toBeNull();
       expect(comp.getBlanketOrderInfo(0)).toBeNull();
     });
+
+    it('clears blanketOrderId and refreshes unitPrice when changing row to a non-Blanket-Order item (51df5c2ef0)', () => {
+      const getItemDetailsMock = vi.fn().mockImplementation((input: any) => {
+        if (input.itemId === 'item-bo') {
+          return of({ rate: 40, description: 'BO Part', blanketOrderId: 'bo-sup-1', blanketOrderNumber: 'BO-1', blanketOrderRemainingQty: 10 });
+        }
+        return of({ rate: 75, description: 'Standard Part', blanketOrderId: null });
+      });
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: fb },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+          { provide: PurchaseOrderService, useValue: {} },
+          { provide: SupplierService, useValue: {} },
+          { provide: SupplierQuotationService, useValue: {} },
+          { provide: CompanyService, useValue: {} },
+          { provide: WarehouseService, useValue: {} },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: PartyDetailsService, useValue: {} },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: TaxCategoryService, useValue: {} },
+          { provide: TaxRuleService, useValue: {} },
+          { provide: TaxCalculationService, useValue: {} },
+          { provide: PriceListService, useValue: {} },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+          { provide: ToasterService, useValue: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), success: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseOrderFormComponent());
+      comp.form.patchValue({ companyId: 'comp-1', supplierId: 'sup-1', orderDate: '2026-11-18' });
+      comp.addItemRow();
+      comp.onItemSelected(0, { id: 'item-bo', itemName: 'BO Part', itemCode: 'BP-1' } as any);
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBe('bo-sup-1');
+      expect(comp.items.at(0).get('unitPrice')?.value).toBe(40);
+
+      comp.onItemSelected(0, { id: 'item-std', itemName: 'Standard Part', itemCode: 'SP-1' } as any);
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBeNull();
+      expect(comp.getBlanketOrderInfo(0)).toBeNull();
+      expect(comp.items.at(0).get('unitPrice')?.value).toBe(75);
+    });
   });
 });

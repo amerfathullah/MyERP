@@ -260,5 +260,46 @@ describe('InvoiceItemGrid logic', () => {
         transactionDate: '2026-11-18',
       }));
     });
+
+    it('clears blanketOrderId and refreshes rate when changing row to an item not in the Blanket Order (51df5c2ef0)', () => {
+      const getItemDetailsMock = vi.fn().mockImplementation((input: any) => {
+        if (input.itemId === 'item-bo') {
+          return of({
+            rate: 80,
+            description: 'Contract Widget',
+            blanketOrderId: 'bo-1',
+            blanketOrderNumber: 'BO-1',
+            blanketOrderRemainingQty: 15,
+          });
+        }
+        return of({ rate: 120, description: 'Regular Widget', blanketOrderId: null });
+      });
+
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: fb },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: PricingRuleService, useValue: { apply: vi.fn().mockReturnValue(of([])) } },
+          { provide: BlanketOrderService, useValue: { getActiveForParty: vi.fn().mockReturnValue(of([])) } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new InvoiceItemGridComponent());
+      comp.items = fb.array([]);
+      comp.transactionType = 'Selling';
+      comp.companyId = 'comp-1';
+      comp.customerId = 'cust-a';
+      comp.addRow();
+      comp.onItemSelected(0, { id: 'item-bo', itemName: 'Contract Widget', itemCode: 'CW-1' } as any);
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBe('bo-1');
+      expect(comp.items.at(0).get('rate')?.value).toBe(80);
+
+      // Change item to one NOT in BO-1 -> BO link cleared and rate updated to new item's rate (120, not stale 80)
+      comp.onItemSelected(0, { id: 'item-other', itemName: 'Regular Widget', itemCode: 'RW-1' } as any);
+      expect(comp.items.at(0).get('blanketOrderId')?.value).toBeNull();
+      expect(comp.getBlanketOrderInfo(0)).toBeNull();
+      expect(comp.items.at(0).get('rate')?.value).toBe(120);
+    });
   });
 });

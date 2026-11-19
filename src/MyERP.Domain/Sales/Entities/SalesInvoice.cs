@@ -69,7 +69,7 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal BaseNetTotal { get; set; }
     public decimal BaseTaxAmount { get; set; }
     public decimal BaseGrandTotal { get; set; }
-    public decimal BaseOutstandingAmount => BaseGrandTotal - (AmountPaid * ExchangeRate);
+    public decimal BaseOutstandingAmount => BaseGrandTotal - ((AmountPaid + WriteOffAmount + TotalAdvance) * ExchangeRate);
 
     /// <summary>If true, this is an opening balance entry (for go-live migration). Bypasses payment terms.</summary>
     public bool IsOpening { get; set; }

@@ -150,13 +150,41 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
     public async Task<AssetCapitalizationDto> UpdateAsync(Guid id, CreateUpdateAssetCapitalizationDto input)
     {
-        var cap = await _repository.GetAsync(id);
+        var cap = (await _repository.WithDetailsAsync(c => c.StockItems, c => c.ServiceItems, c => c.ConsumedAssets))
+            .FirstOrDefault(c => c.Id == id)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
         if (cap.Status != AssetCapitalizationStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         cap.PostingDate = input.PostingDate;
         cap.TargetAssetId = input.TargetAssetId;
         cap.TargetAssetName = input.TargetAssetName;
+
+        if (input.StockItems != null || input.ServiceItems != null || input.ConsumedAssets != null)
+        {
+            cap.ClearItems();
+            if (input.StockItems != null)
+            {
+                foreach (var item in input.StockItems)
+                {
+                    cap.AddStockItem(item.ItemId, item.ItemName, item.Qty, item.Rate, item.WarehouseId);
+                }
+            }
+            if (input.ServiceItems != null)
+            {
+                foreach (var item in input.ServiceItems)
+                {
+                    cap.AddServiceItem(item.ItemId, item.ItemName, item.Amount, item.ExpenseAccountId);
+                }
+            }
+            if (input.ConsumedAssets != null)
+            {
+                foreach (var item in input.ConsumedAssets)
+                {
+                    cap.AddConsumedAsset(item.AssetId, item.AssetName, item.CurrentValue);
+                }
+            }
+        }
 
         await _repository.UpdateAsync(cap);
         return _mapper.Map(cap);

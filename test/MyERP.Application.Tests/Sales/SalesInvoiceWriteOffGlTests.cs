@@ -67,7 +67,12 @@ public abstract class SalesInvoiceWriteOffGlTests<TStartupModule> : MyERPApplica
         await WithUnitOfWorkAsync(async () =>
         {
             var f = await SeedPostedInvoiceAsync("A", withExpenseDefault: true);
-            await GetRequiredService<ISalesInvoiceAppService>().WriteOffAsync(f.InvoiceId);
+            var writtenOff = await GetRequiredService<ISalesInvoiceAppService>().WriteOffAsync(f.InvoiceId);
+
+            // WriteOffAsync records WriteOffAmount instead of falsifying AmountPaid
+            writtenOff.WriteOffAmount.ShouldBe(50m);
+            writtenOff.AmountPaid.ShouldBe(0m);
+            writtenOff.OutstandingAmount.ShouldBe(0m);
 
             var journal = (await GetRequiredService<IRepository<JournalEntry, Guid>>().GetQueryableAsync())
                 .ToList()

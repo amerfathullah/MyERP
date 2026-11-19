@@ -296,7 +296,10 @@ public abstract class PurchaseInvoiceUpdateStockGlTests<TStartupModule> : MyERPA
             await appService.SubmitAsync(created.Id);
             await appService.PostAsync(created.Id);
 
-            await appService.WriteOffAsync(created.Id);
+            var writtenOff = await appService.WriteOffAsync(created.Id);
+            writtenOff.WriteOffAmount.ShouldBe(50m);
+            writtenOff.AmountPaid.ShouldBe(0m);
+            writtenOff.OutstandingAmount.ShouldBe(0m);
 
             var writeOffJournal = (await GetRequiredService<IRepository<JournalEntry, Guid>>().GetQueryableAsync())
                 .ToList()

@@ -2443,7 +2443,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         je.Post();
         await LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>().InsertAsync(je);
 
-        invoice.AmountPaid = invoice.GrandTotal;
+        invoice.SetWriteOff(invoice.WriteOffAmount + writeOffAmount, writeOffAccountId, invoice.WriteOffCostCenterId);
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
         await _repository.UpdateAsync(invoice, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);

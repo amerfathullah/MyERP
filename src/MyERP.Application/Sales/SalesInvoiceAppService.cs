@@ -2386,9 +2386,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             throw new Volo.Abp.BusinessException("MyERP:02010")
                 .WithData("invoiceNumber", invoice.InvoiceNumber);
 
-        // Write off remaining outstanding
+        // Write off remaining outstanding (record in WriteOffAmount rather than inflating AmountPaid)
         var writeOffAmount = invoice.OutstandingAmount;
-        invoice.AmountPaid = invoice.GrandTotal; // Clears outstanding to 0
 
         // Write-off Journal Entry (DR Write-Off Account, CR Receivable). A missing account or
         // fiscal year must fail loudly: skipping the entry would clear the PLE while the
@@ -2417,6 +2416,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
         await jeRepo.InsertAsync(je);
+
+        invoice.SetWriteOff(invoice.WriteOffAmount + writeOffAmount, writeOffAccountId, invoice.WriteOffCostCenterId);
 
         // Reverse PLE outstanding (creates write-off PLE entry)
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);

@@ -930,12 +930,10 @@ public partial class PeriodClosingVoucherMapper : MapperBase<Accounting.Entities
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class AssetCapitalizationMapper : MapperBase<Assets.Entities.AssetCapitalization, Assets.AssetCapitalizationDto>
 {
-    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.StockItems))]
-    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.ServiceItems))]
     public override partial Assets.AssetCapitalizationDto Map(Assets.Entities.AssetCapitalization source);
-    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.StockItems))]
-    [MapperIgnoreTarget(nameof(Assets.AssetCapitalizationDto.ServiceItems))]
     public override partial void Map(Assets.Entities.AssetCapitalization source, Assets.AssetCapitalizationDto destination);
+    private partial Assets.AssetCapitalizationStockItemDto MapCapStockItem(Assets.Entities.AssetCapitalizationItem source);
+    private partial Assets.AssetCapitalizationServiceItemDto MapCapServiceItem(Assets.Entities.AssetCapitalizationItem source);
     private partial Assets.AssetCapitalizationAssetItemDto MapCapAsset(Assets.Entities.AssetCapitalizationAsset source);
 }
 

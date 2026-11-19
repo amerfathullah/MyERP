@@ -2459,6 +2459,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   taxAmount?: number;
   grandTotal?: number;
   amountPaid?: number;
+  writeOffAmount?: number;
+  totalAdvance?: number;
   outstandingAmount?: number;
   baseNetTotal?: number;
   baseTaxAmount?: number;

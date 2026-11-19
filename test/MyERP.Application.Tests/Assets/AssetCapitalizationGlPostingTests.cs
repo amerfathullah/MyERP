@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting;
@@ -122,5 +123,53 @@ public abstract class AssetCapitalizationGlPostingTests<TStartupModule> : MyERPA
         // Target asset's own book value tracks the same true total.
         var reloadedTarget = await assetRepository.GetAsync(targetAsset.Id);
         reloadedTarget.ValueAfterDepreciation.ShouldBe(50m);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ReplacesDraftItemsAndRecalculatesTotalCapitalizedAmount()
+    {
+        var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+        var assetRepo = GetRequiredService<IRepository<Asset, Guid>>();
+        var capService = GetRequiredService<IAssetCapitalizationAppService>();
+
+        var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Cap Update Co"), autoSave: true);
+        var targetAsset = await assetRepo.InsertAsync(
+            new Asset(Guid.NewGuid(), company.Id, "ACAP-UPD-1", "Target Asset", DateTime.UtcNow.Date, 100m),
+            autoSave: true);
+
+        var created = await capService.CreateAsync(new CreateUpdateAssetCapitalizationDto
+        {
+            CompanyId = company.Id,
+            PostingDate = DateTime.UtcNow.Date,
+            TargetAssetId = targetAsset.Id,
+            TargetAssetName = targetAsset.AssetName,
+            StockItems = new List<CreateUpdateAssetCapitalizationStockItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), ItemName = "Old Part", Qty = 1m, Rate = 50m }
+            }
+        });
+        created.TotalCapitalizedAmount.ShouldBe(50m);
+
+        var updated = await capService.UpdateAsync(created.Id, new CreateUpdateAssetCapitalizationDto
+        {
+            CompanyId = company.Id,
+            PostingDate = DateTime.UtcNow.Date,
+            TargetAssetId = targetAsset.Id,
+            TargetAssetName = "Target Asset Updated",
+            StockItems = new List<CreateUpdateAssetCapitalizationStockItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), ItemName = "New Part", Qty = 3m, Rate = 40m }
+            },
+            ServiceItems = new List<CreateUpdateAssetCapitalizationServiceItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), ItemName = "Install", Amount = 80m }
+            }
+        });
+
+        updated.TargetAssetName.ShouldBe("Target Asset Updated");
+        updated.StockItems.Count.ShouldBe(1);
+        updated.StockItems[0].ItemName.ShouldBe("New Part");
+        updated.ServiceItems.Count.ShouldBe(1);
+        updated.TotalCapitalizedAmount.ShouldBe(200m);
     }
 }

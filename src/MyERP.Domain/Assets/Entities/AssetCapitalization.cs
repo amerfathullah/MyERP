@@ -104,6 +104,17 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotal();
     }
 
+    public void ClearItems()
+    {
+        if (Status != AssetCapitalizationStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        _stockItems.Clear();
+        _serviceItems.Clear();
+        _consumedAssets.Clear();
+        TotalCapitalizedAmount = 0;
+    }
+
     public void Submit()
     {
         if (Status != AssetCapitalizationStatus.Draft)

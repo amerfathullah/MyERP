@@ -144,6 +144,20 @@ export class InvoiceItemGridComponent {
   onItemSelected(index: number, item: ItemDto | null): void {
     const row = this.items.at(index) as FormGroup;
     const selectedId = item?.id;
+    const hadBlanketOrder = !!row.get('blanketOrderId')?.value;
+
+    // Per ERPNext commits 51df5c2ef0 & f6cca3f59e: clear stale Blanket Order link immediately
+    // on item change/clear so an unselected or non-BO item never retains the prior row's BO.
+    if (row.get('blanketOrderId')) {
+      row.patchValue({ blanketOrderId: null });
+    }
+    this.blanketOrderInfo.update(m => {
+      if (!(index in m)) return m;
+      const next = { ...m };
+      delete next[index];
+      return next;
+    });
+
     if (selectedId) {
       const itemPatch: Record<string, unknown> = { itemName: item!.itemName ?? item!.itemCode ?? '' };
       if (row.get('classificationCode') && !row.get('classificationCode')?.value && item?.lhdnClassificationCode) {
@@ -168,7 +182,8 @@ export class InvoiceItemGridComponent {
         next: (details) => {
           if (details) {
             const patch: any = {};
-            if (details.rate > 0 && !row.get('rate')?.value) patch.rate = details.rate;
+            // Refresh rate when switching away from a Blanket Order item or when rate is empty
+            if (details.rate > 0 && (hadBlanketOrder || !row.get('rate')?.value)) patch.rate = details.rate;
             if (details.description) patch.itemName = details.description;
             patch.blanketOrderId = details.blanketOrderId ?? null;
             row.patchValue(patch);

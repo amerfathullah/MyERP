@@ -26,6 +26,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
+    public decimal WriteOffAmount { get; set; }
+    public decimal TotalAdvance { get; set; }
     public decimal OutstandingAmount { get; set; }
     public decimal BaseNetTotal { get; set; }
     public decimal BaseTaxAmount { get; set; }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MyERP.Assets.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
@@ -286,5 +287,53 @@ public class UpstreamBatch9ParityTests
         scio.UpdateReceivedStatus();
         scio.PerReceived.ShouldBe(100m);
         scio.Status.ShouldBe(SubcontractingInwardOrderStatus.Completed);
+    }
+
+    [Fact]
+    public void Invoice_BaseOutstandingAmount_DeductsWriteOffAndTotalAdvance()
+    {
+        var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-WO-BASE", DateTime.UtcNow.Date)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.5m,
+            GrandTotal = 100m,
+            BaseGrandTotal = 450m
+        };
+        si.SetTotalAdvance(20m);
+        si.SetWriteOff(30m);
+        si.AmountPaid = 50m;
+        si.OutstandingAmount.ShouldBe(0m);
+        si.BaseOutstandingAmount.ShouldBe(0m);
+
+        var pi = new PurchaseInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-WO-BASE", DateTime.UtcNow.Date)
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 4.5m,
+            GrandTotal = 100m,
+            BaseGrandTotal = 450m
+        };
+        pi.SetTotalAdvance(25m);
+        pi.SetWriteOff(25m);
+        pi.AmountPaid = 50m;
+        pi.OutstandingAmount.ShouldBe(0m);
+        pi.BaseOutstandingAmount.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void AssetCapitalization_ClearItems_ResetsDraftLinesAndTotal()
+    {
+        var cap = new AssetCapitalization(Guid.NewGuid(), Guid.NewGuid(), "ACAP-001", DateTime.UtcNow.Date, Guid.NewGuid());
+        cap.AddStockItem(Guid.NewGuid(), "Steel", 2m, 50m, Guid.NewGuid());
+        cap.AddServiceItem(Guid.NewGuid(), "Install", 200m, Guid.NewGuid());
+        cap.TotalCapitalizedAmount.ShouldBe(300m);
+
+        cap.ClearItems();
+        cap.StockItems.ShouldBeEmpty();
+        cap.ServiceItems.ShouldBeEmpty();
+        cap.ConsumedAssets.ShouldBeEmpty();
+        cap.TotalCapitalizedAmount.ShouldBe(0m);
+
+        cap.AddStockItem(Guid.NewGuid(), "Aluminum", 3m, 40m, Guid.NewGuid());
+        cap.TotalCapitalizedAmount.ShouldBe(120m);
     }
 }
