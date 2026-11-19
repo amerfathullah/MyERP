@@ -65,15 +65,33 @@ public class SubcontractingManager : DomainService
 
         if (itemIds != null)
         {
+            var claimedPoItemIds = new HashSet<Guid>();
+            var rowIndex = 0;
             foreach (var itemId in itemIds)
             {
-                var poItem = po.Items.FirstOrDefault(i => i.ItemId == itemId);
-                if (poItem != null && poItem.IsClosed)
+                rowIndex++;
+                var matchingPoItems = po.Items.Where(i => i.ItemId == itemId).ToList();
+                var poItem = matchingPoItems.FirstOrDefault(i => !claimedPoItemIds.Contains(i.Id))
+                    ?? matchingPoItems.FirstOrDefault();
+
+                if (poItem != null)
                 {
-                    throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
-                        .WithData("orderNumber", po.OrderNumber)
-                        .WithData("itemId", itemId)
-                        .WithData("detail", $"Cannot create a Subcontracting Order for closed Purchase Order item '{poItem.Description}'.");
+                    if (poItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                            .WithData("orderNumber", po.OrderNumber)
+                            .WithData("itemId", itemId)
+                            .WithData("detail", $"Cannot create a Subcontracting Order for closed Purchase Order item '{poItem.Description}'.");
+                    }
+
+                    // Per ERPNext commit 9ec94b2ae2: refuse two rows linked to the same order item row
+                    if (!claimedPoItemIds.Add(poItem.Id))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("orderNumber", po.OrderNumber)
+                            .WithData("itemId", itemId)
+                            .WithData("detail", $"Row {rowIndex}: Item '{poItem.Description}' is linked to the same Purchase Order Item row as an earlier row.");
+                    }
                 }
             }
         }
@@ -672,6 +690,89 @@ public class SubcontractingManager : DomainService
         }
 
         return Math.Round(fallbackReceiptRate, precision);
+    }
+
+    /// <summary>
+    /// Computes the allocated rate for a percentage-based secondary item on a Subcontracting Receipt.
+    /// Per ERPNext commit 7e66f8e926: returns 0m when <paramref name="secondaryQty"/> rounds to 0
+    /// instead of throwing a DivideByZeroException.
+    /// </summary>
+    public static decimal CalculatePercentageSecondaryRate(
+        decimal fgReceivedQty,
+        decimal rmCostPerQty,
+        decimal serviceCostPerQty,
+        decimal additionalCostPerQty,
+        decimal lcvAmount,
+        decimal ownSecondaryCost,
+        decimal costAllocationPercentage,
+        decimal secondaryQty,
+        int precision = 4)
+    {
+        if (secondaryQty == 0m || fgReceivedQty == 0m || costAllocationPercentage <= 0m)
+        {
+            return 0m;
+        }
+
+        var lcvCostPerQty = lcvAmount / fgReceivedQty;
+        var fgItemCost = ((rmCostPerQty + additionalCostPerQty + lcvCostPerQty + serviceCostPerQty) * fgReceivedQty) - ownSecondaryCost;
+        return Math.Round((fgItemCost * (costAllocationPercentage / 100m)) / secondaryQty, precision);
+    }
+
+    /// <summary>
+    /// Resolves the rate of a secondary item row on a Subcontracting Receipt or Subcontracting Return.
+    /// Per ERPNext commits e076a8adac, a1169be24c, and 7e66f8e926:
+    /// - A return row whose quantity rounds to 0 skips pricing (returns 0m without invoking valuation lookup).
+    /// - A receipt row whose quantity rounds to 0 still prices Manual / ValuationRate rows (keeping the rate for when process loss is lowered),
+    ///   while PercentageOfComponentCost rows with 0 qty return 0m.
+    /// </summary>
+    public static decimal ResolveSecondaryItemRate(
+        bool isReturn,
+        decimal secondaryQty,
+        Manufacturing.SecondaryItemValuationType valuationType,
+        decimal bomSecondaryBaseCost,
+        decimal bomSecondaryStockQty,
+        Func<decimal>? resolveWarehouseValuationRate,
+        decimal fgReceivedQty = 0m,
+        decimal rmCostPerQty = 0m,
+        decimal serviceCostPerQty = 0m,
+        decimal additionalCostPerQty = 0m,
+        decimal lcvAmount = 0m,
+        decimal ownSecondaryCost = 0m,
+        decimal costAllocationPercentage = 0m,
+        int precision = 4)
+    {
+        if (isReturn && secondaryQty == 0m)
+        {
+            return 0m;
+        }
+
+        if (valuationType == Manufacturing.SecondaryItemValuationType.Manual)
+        {
+            return bomSecondaryStockQty != 0m
+                ? Math.Round(bomSecondaryBaseCost / bomSecondaryStockQty, precision)
+                : 0m;
+        }
+
+        if (valuationType == Manufacturing.SecondaryItemValuationType.ValuationRate)
+        {
+            var warehouseRate = resolveWarehouseValuationRate != null ? resolveWarehouseValuationRate() : 0m;
+            if (warehouseRate == 0m && bomSecondaryStockQty != 0m)
+            {
+                warehouseRate = Math.Round(bomSecondaryBaseCost / bomSecondaryStockQty, precision);
+            }
+            return warehouseRate;
+        }
+
+        return CalculatePercentageSecondaryRate(
+            fgReceivedQty,
+            rmCostPerQty,
+            serviceCostPerQty,
+            additionalCostPerQty,
+            lcvAmount,
+            ownSecondaryCost,
+            costAllocationPercentage,
+            secondaryQty,
+            precision);
     }
 }
 

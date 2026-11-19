@@ -43,12 +43,100 @@ public class ItemAppService :
     public override async Task<ItemDto> CreateAsync(CreateUpdateItemDto input)
     {
         await ValidateDefaultUomsAsync(Guid.Empty, input);
+        await PopulateItemGroupDefaultsSnapshotOnCreateAsync(input);
         var created = await base.CreateAsync(input);
+        await EnsureItemDefaultSnapshotFromGroupAsync(created.Id, input);
         if (input.StandardSellingPrice > 0)
         {
             await TryCreateStandardSellingItemPriceAsync(created.Id, input.CompanyId);
         }
-        return created;
+        return await GetAsync(created.Id);
+    }
+
+    /// <summary>
+    /// Copies complete defaults from the selected Item Group into the new Item at creation time
+    /// per ERPNext commit e563af5dc1, so subsequent edits to Item Group defaults do not retroactively
+    /// alter existing items' snapshotted defaults while empty fields still inherit via resolution.
+    /// </summary>
+    private async Task PopulateItemGroupDefaultsSnapshotOnCreateAsync(CreateUpdateItemDto input)
+    {
+        var group = await ResolveItemGroupForInputAsync(input);
+        if (group == null)
+            return;
+
+        input.ItemGroupId ??= group.Id;
+        if (string.IsNullOrWhiteSpace(input.ItemGroup))
+        {
+            input.ItemGroup = group.Name;
+        }
+
+        input.DefaultWarehouseId ??= group.DefaultWarehouseId;
+        input.DefaultIncomeAccountId ??= group.DefaultIncomeAccountId;
+        input.DefaultExpenseAccountId ??= group.DefaultExpenseAccountId;
+        input.DefaultInventoryAccountId ??= group.DefaultInventoryAccountId;
+
+        if (group.DefaultSupplierId.HasValue
+            && !input.Suppliers.Any(s => s.SupplierId == group.DefaultSupplierId.Value))
+        {
+            input.Suppliers.Add(new CreateItemSupplierDto
+            {
+                SupplierId = group.DefaultSupplierId.Value
+            });
+        }
+    }
+
+    private async Task EnsureItemDefaultSnapshotFromGroupAsync(Guid itemId, CreateUpdateItemDto input)
+    {
+        if (input.CompanyId == Guid.Empty)
+            return;
+
+        var group = await ResolveItemGroupForInputAsync(input);
+        if (group == null)
+            return;
+
+        var hasAnyGroupDefault = group.DefaultWarehouseId.HasValue
+            || group.DefaultIncomeAccountId.HasValue
+            || group.DefaultExpenseAccountId.HasValue
+            || group.DefaultSupplierId.HasValue;
+        if (!hasAnyGroupDefault)
+            return;
+
+        var itemDefaultRepo = LazyServiceProvider?.LazyGetService<IRepository<ItemDefault, Guid>>();
+        if (itemDefaultRepo == null)
+            return;
+
+        var existingQuery = await itemDefaultRepo.GetQueryableAsync();
+        if (existingQuery != null && existingQuery.Any(d => d.ItemId == itemId && d.CompanyId == input.CompanyId))
+            return;
+
+        var snapshot = new ItemDefault(GuidGenerator.Create(), itemId, input.CompanyId, CurrentTenant.Id)
+        {
+            DefaultWarehouseId = input.DefaultWarehouseId ?? group.DefaultWarehouseId,
+            IncomeAccountId = input.DefaultIncomeAccountId ?? group.DefaultIncomeAccountId,
+            ExpenseAccountId = input.DefaultExpenseAccountId ?? group.DefaultExpenseAccountId,
+            DefaultSupplierId = group.DefaultSupplierId
+        };
+        await itemDefaultRepo.InsertAsync(snapshot);
+    }
+
+    private async Task<ItemGroup?> ResolveItemGroupForInputAsync(CreateUpdateItemDto input)
+    {
+        var groupRepo = LazyServiceProvider?.LazyGetService<IRepository<ItemGroup, Guid>>();
+        if (groupRepo == null)
+            return null;
+
+        if (input.ItemGroupId.HasValue && input.ItemGroupId.Value != Guid.Empty)
+        {
+            return await groupRepo.FindAsync(input.ItemGroupId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.ItemGroup))
+        {
+            var query = await groupRepo.GetQueryableAsync();
+            return query?.FirstOrDefault(g => g.Name == input.ItemGroup);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -675,6 +763,10 @@ public class ItemAppService :
         entity.Description = input.Description;
         entity.ItemType = input.ItemType;
         entity.ItemGroup = input.ItemGroup;
+        if (input.ItemGroupId.HasValue)
+        {
+            entity.ItemGroupId = input.ItemGroupId;
+        }
         entity.Brand = input.Brand;
         entity.Uom = input.Uom;
         entity.SalesUom = input.SalesUom;

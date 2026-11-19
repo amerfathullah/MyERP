@@ -122,6 +122,9 @@ public class BomOperationDto
     public bool QualityInspectionRequired { get; set; }
     public bool BatchSplit { get; set; }
     public decimal? WeightPerPiece { get; set; }
+    public bool SetCostBasedOnBomQty { get; set; }
+    public decimal CostPerUnit { get; set; }
+    public Guid? TargetWarehouseId { get; set; }
 }
 
 public class BomItemDto
@@ -210,6 +213,8 @@ public class CreateBomOperationDto
     [Range(0, double.MaxValue)] public decimal? WeightPerPiece { get; set; }
     [Range(0, double.MaxValue)] public decimal WorkstationHourRate { get; set; }
     public Guid? FinishedGoodItemId { get; set; }
+    public bool SetCostBasedOnBomQty { get; set; }
+    public Guid? TargetWarehouseId { get; set; }
 }
 
 public class CreateBomItemDto

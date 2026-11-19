@@ -84,11 +84,32 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
             var so = await soRepo.FindAsync(input.SalesOrderId.Value);
-            if (so != null && so.CompanyId != input.CompanyId)
+            if (so != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("salesOrderCompany", so.CompanyId)
-                    .WithData("orderCompany", input.CompanyId);
+                if (so.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("orderCompany", input.CompanyId);
+                }
+
+                // Per ERPNext commits 9ec94b2ae2 & a736bb99fc: refuse two rows linked to the same Sales Order Item row
+                var claimedSoItemIds = new HashSet<Guid>();
+                for (var i = 0; i < input.Items.Count; i++)
+                {
+                    var row = input.Items[i];
+                    var matchingSoItems = so.Items.Where(si => si.ItemId == row.ItemId).ToList();
+                    var soItem = matchingSoItems.FirstOrDefault(si => !claimedSoItemIds.Contains(si.Id))
+                        ?? matchingSoItems.FirstOrDefault();
+                    var claimKey = soItem?.Id ?? row.ItemId;
+                    if (!claimedSoItemIds.Add(claimKey))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("salesOrderId", so.Id)
+                            .WithData("itemId", row.ItemId)
+                            .WithData("detail", $"Row {i + 1}: Item '{soItem?.Description ?? row.ItemId.ToString()}' is linked to the same Sales Order Item row as an earlier row.");
+                    }
+                }
             }
         }
 

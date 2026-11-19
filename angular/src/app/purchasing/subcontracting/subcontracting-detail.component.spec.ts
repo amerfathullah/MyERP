@@ -45,4 +45,30 @@ describe('SubcontractingDetailComponent Order Summary', () => {
     expect(comp.orderSummary()?.totalReceivedQty).toBe(10);
     expect(comp.orderSummary()?.totalOrderedQty).toBe(20);
   });
+
+  it('shows only held qty in unreserve dialog and warns when nothing left to unreserve (657ae2b763, 5e661bcf76)', () => {
+    const { comp } = createComponent();
+    const toasterInfo = vi.fn();
+    (comp as any).toaster.info = toasterInfo;
+
+    // Fully transferred/consumed reservation has 0 held qty -> shows info message instead of empty dialog
+    comp.stockReservations.set([
+      { id: 'sre-1', itemId: 'rm-1', reservedQty: 10, transferredQty: 6, consumedQty: 4, deliveredQty: 0, status: 1 },
+    ]);
+    expect(comp.hasHeldStockReservation).toBe(false);
+    comp.openUnreserveModal();
+    expect(toasterInfo).toHaveBeenCalledWith('No reserved stock to unreserve.');
+    expect(comp.showUnreserveModal()).toBe(false);
+
+    // Partial reservation has held qty = 10 - 3 - 2 = 5 -> opens dialog with held row only
+    comp.stockReservations.set([
+      { id: 'sre-1', itemId: 'rm-1', reservedQty: 10, transferredQty: 6, consumedQty: 4, deliveredQty: 0, status: 1 },
+      { id: 'sre-2', itemId: 'rm-2', reservedQty: 10, transferredQty: 3, consumedQty: 2, deliveredQty: 0, status: 1 },
+    ]);
+    expect(comp.hasHeldStockReservation).toBe(true);
+    expect(comp.heldStockReservations.length).toBe(1);
+    expect(comp.getHeldQty(comp.heldStockReservations[0])).toBe(5);
+    comp.openUnreserveModal();
+    expect(comp.showUnreserveModal()).toBe(true);
+  });
 });

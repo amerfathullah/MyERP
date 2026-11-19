@@ -1142,6 +1142,7 @@ export interface UpdateSalesForecastDto {
   frequency?: SalesForecastFrequency;
   demandNumber?: number;
   selectedItemIds?: string[];
+  items?: SalesForecastItemDto[] | null;
 }
 
 export interface VisualizerFinishedGoodDto {
@@ -1459,6 +1460,9 @@ export interface BomOperationDto {
   qualityInspectionRequired?: boolean;
   batchSplit?: boolean;
   weightPerPiece?: number | null;
+  setCostBasedOnBomQty?: boolean;
+  costPerUnit?: number;
+  targetWarehouseId?: string | null;
 }
 
 export interface BomRowChangedDto {
@@ -1541,6 +1545,8 @@ export interface CreateBomOperationDto {
   weightPerPiece?: number | null;
   workstationHourRate?: number;
   finishedGoodItemId?: string | null;
+  setCostBasedOnBomQty?: boolean;
+  targetWarehouseId?: string | null;
 }
 
 export interface CreateBomSecondaryItemDto {

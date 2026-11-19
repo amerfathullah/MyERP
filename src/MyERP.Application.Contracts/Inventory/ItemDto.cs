@@ -41,6 +41,7 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public string? Description { get; set; }
     public ItemType ItemType { get; set; }
     public string? ItemGroup { get; set; }
+    public Guid? ItemGroupId { get; set; }
     public string? Brand { get; set; }
     public string Uom { get; set; } = null!;
     public string? SalesUom { get; set; }

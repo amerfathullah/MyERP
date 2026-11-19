@@ -12,4 +12,5 @@ public interface IItemGroupAppService : IApplicationService
     Task<ItemGroupDto> CreateAsync(CreateItemGroupDto input);
     Task<ItemGroupDto> UpdateAsync(Guid id, CreateItemGroupDto input);
     Task DeleteAsync(Guid id);
+    Task<CompanyResolvedItemDefaultsDto> GetCompanyResolvedDefaultsAsync(Guid companyId);
 }

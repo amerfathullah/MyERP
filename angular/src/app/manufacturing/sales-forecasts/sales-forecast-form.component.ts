@@ -102,7 +102,14 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   <tr>
                     <td>{{ item.itemName }}</td>
                     <td>{{ item.deliveryDate | date:'dd/MM/yyyy' }}</td>
-                    <td class="text-end">{{ item.demandQty }}</td>
+                    <td class="text-end" style="width: 140px;">
+                      @if (!readOnly()) {
+                        <input type="number" class="form-control form-control-sm text-end"
+                               min="0.01" step="0.01" [(ngModel)]="item.demandQty" />
+                      } @else {
+                        {{ item.demandQty }}
+                      }
+                    </td>
                     <td>{{ item.uom }}</td>
                   </tr>
                 }
@@ -213,6 +220,7 @@ export class SalesForecastFormComponent implements OnInit {
       demandNumber: this.form.demandNumber,
       parentWarehouseId: this.form.parentWarehouseId || null,
       selectedItemIds,
+      items: this.forecast?.items ?? undefined,
     };
     this.service.update(this.forecastId, dto as any).subscribe({
       next: (r) => { this.forecast = r; this.status = r.status ?? 0; this.saving.set(false); this.toaster.success('::SuccessfullyUpdated'); },
@@ -221,7 +229,7 @@ export class SalesForecastFormComponent implements OnInit {
   }
 
   generateDemand(): void {
-    if (!this.forecastId) return;
+    if (!this.forecastId || this.readOnly()) return;
     this.saving.set(true);
     this.service.generateDemand(this.forecastId).subscribe({
       next: (r) => { this.forecast = r; this.saving.set(false); this.toaster.success('::SuccessfullySaved'); },

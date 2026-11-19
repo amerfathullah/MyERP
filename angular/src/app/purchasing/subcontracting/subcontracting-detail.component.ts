@@ -12,6 +12,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { SubcontractingService } from '../../proxy/purchasing/subcontracting.service';
 import type { SubcontractingOrderDto, SubcontractingOrderSummaryDto, SubcontractingReceiptSummaryDto } from '../../proxy/purchasing/models';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
+import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-subcontracting-detail',
@@ -240,6 +242,50 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
         <app-activity-log documentType="SubcontractingOrder" [documentId]="order()!.id!" />
       }
+
+      <!-- Unreserve Stock Modal (ERPNext commits 657ae2b763 & 5e661bcf76) -->
+      @if (showUnreserveModal()) {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+          <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fa fa-ban me-2 text-warning"></i>{{ '::UnreserveStock' | abpLocalization }}</h6>
+                <button type="button" class="btn-close" (click)="showUnreserveModal.set(false)"></button>
+              </div>
+              <div class="modal-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Reserved' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::HeldQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Action' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (sre of heldStockReservations; track sre.id) {
+                      <tr>
+                        <td>{{ sre.itemId }}</td>
+                        <td class="text-end">{{ sre.reservedQty | number:'1.2-2' }}</td>
+                        <td class="text-end fw-bold">{{ getHeldQty(sre) | number:'1.2-2' }}</td>
+                        <td class="text-end">
+                          <button class="btn btn-sm btn-outline-danger" (click)="unreserve(sre)" [disabled]="isUnreserving()">
+                            @if (isUnreserving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            {{ '::UnreserveStock' | abpLocalization }}
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-secondary" (click)="showUnreserveModal.set(false)">{{ '::Close' | abpLocalization }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </abp-page>
   `,
 })
@@ -250,8 +296,12 @@ export class SubcontractingDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private warehouseService = inject(WarehouseService);
+  private stockReservationService = inject(StockReservationService, { optional: true });
   order = signal<SubcontractingOrderDto | null>(null);
   orderSummary = signal<SubcontractingOrderSummaryDto | null>(null);
+  stockReservations = signal<StockReservationEntryDto[]>([]);
+  showUnreserveModal = signal(false);
+  isUnreserving = signal(false);
   isTransferring = signal(false);
   warehouses = signal<{ id: string; warehouseName: string }[]>([]);
 
@@ -273,6 +323,7 @@ export class SubcontractingDetailComponent implements OnInit {
       this.service.getOrder(id).subscribe(o => this.order.set(o));
       this.loadOrderSummary(id);
       this.loadReceipts(id);
+      this.loadStockReservations(id);
     }
     this.warehouseService.getList({ maxResultCount: 500, skipCount: 0, sorting: '' } as any).subscribe({
       next: (r: any) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, warehouseName: w.name ?? w.id }))),
@@ -291,6 +342,62 @@ export class SubcontractingDetailComponent implements OnInit {
     this.service.getReceiptsForOrder(subcontractingOrderId).subscribe({
       next: (r: any) => this.receipts.set(r ?? []),
       error: () => {}
+    });
+  }
+
+  loadStockReservations(subcontractingOrderId: string): void {
+    if (!this.stockReservationService) return;
+    this.stockReservationService.getList({
+      voucherId: subcontractingOrderId,
+      skipCount: 0,
+      maxResultCount: 100,
+    } as any).subscribe({
+      next: res => this.stockReservations.set((res.items ?? []).filter(s => s.status === 1)),
+      error: () => this.stockReservations.set([]),
+    });
+  }
+
+  /**
+   * Remaining held reserved quantity on a Stock Reservation Entry
+   * (ERPNext commit 657ae2b763: erpnext.stock_reservation.get_held_qty).
+   */
+  getHeldQty(sre: StockReservationEntryDto): number {
+    return Math.max(0, (sre.reservedQty ?? 0) - (sre.deliveredQty ?? 0) - (sre.transferredQty ?? 0) - (sre.consumedQty ?? 0));
+  }
+
+  get heldStockReservations(): StockReservationEntryDto[] {
+    return this.stockReservations().filter(sre => this.getHeldQty(sre) > 0);
+  }
+
+  get hasHeldStockReservation(): boolean {
+    return this.heldStockReservations.length > 0;
+  }
+
+  openUnreserveModal(): void {
+    // Per ERPNext commit 5e661bcf76: say there is nothing to unreserve instead of opening an empty dialog
+    if (!this.hasHeldStockReservation) {
+      this.toaster.info('No reserved stock to unreserve.');
+      this.showUnreserveModal.set(false);
+      return;
+    }
+    this.showUnreserveModal.set(true);
+  }
+
+  unreserve(sre: StockReservationEntryDto): void {
+    if (!sre.id || !this.stockReservationService) return;
+    this.isUnreserving.set(true);
+    this.stockReservationService.cancel(sre.id).subscribe({
+      next: () => {
+        this.isUnreserving.set(false);
+        this.showUnreserveModal.set(false);
+        this.toaster.success('::SuccessfullyCancelled');
+        const id = this.order()?.id;
+        if (id) this.loadStockReservations(id);
+      },
+      error: (err: any) => {
+        this.isUnreserving.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 
@@ -374,6 +481,7 @@ export class SubcontractingDetailComponent implements OnInit {
     if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
     if (s === 1 || s === 2) actions.push({ name: 'transferMaterials', label: 'Transfer Materials', icon: 'fa-truck-arrow-right', color: 'btn-outline-success' });
     if (s === 1 || s === 2) actions.push({ name: 'receiveFinishedGoods', label: 'Receive Finished Goods', icon: 'fa-box-open', color: 'btn-outline-success' });
+    if (this.hasHeldStockReservation) actions.push({ name: 'unreserveStock', label: 'Unreserve Stock', icon: 'fa-ban', color: 'btn-outline-warning' });
     if (s === 1 || s === 2) actions.push({ name: 'close', label: 'Close', icon: 'fa-lock', color: 'btn-outline-dark' });
     if (s === 4) actions.push({ name: 'reopen', label: 'Reopen', icon: 'fa-lock-open', color: 'btn-outline-warning' });
     if (s !== 0 && s !== 5) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
@@ -387,6 +495,7 @@ export class SubcontractingDetailComponent implements OnInit {
       case 'submit': this.service.submitOrder(id).subscribe(reload); break;
       case 'transferMaterials': this.createRmTransfer(id); break;
       case 'receiveFinishedGoods': this.openReceiptDialog(); break;
+      case 'unreserveStock': this.openUnreserveModal(); break;
       case 'close': this.service.closeOrder(id).subscribe(reload); break;
       case 'reopen': this.service.reopenOrder(id).subscribe(reload); break;
       case 'cancel': this.confirmation.warn('::CancelConfirmationMessage', '::Confirm').subscribe(s => {

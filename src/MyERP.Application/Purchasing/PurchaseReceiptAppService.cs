@@ -304,6 +304,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         {
             var poItemId = item.PurchaseOrderItemId;
             var mrItemId = item.MaterialRequestItemId;
+            var fromWarehouseId = item.FromWarehouseId;
+            var rejectedWarehouseId = item.RejectedWarehouseId;
             if (returnAgainstPr != null)
             {
                 var origItem = returnAgainstPr.Items.FirstOrDefault(oi => oi.ItemId == item.ItemId);
@@ -311,6 +313,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 {
                     poItemId ??= origItem.PurchaseOrderItemId;
                     mrItemId ??= origItem.MaterialRequestItemId;
+                    fromWarehouseId ??= origItem.FromWarehouseId;
+                    rejectedWarehouseId ??= origItem.RejectedWarehouseId;
                 }
             }
 
@@ -324,9 +328,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 poItemId,
                 item.WarehouseId,
                 item.RejectedQty,
-                item.RejectedWarehouseId,
+                rejectedWarehouseId,
                 item.ReceivedQty,
-                item.FromWarehouseId,
+                fromWarehouseId,
                 mrItemId,
                 item.ReturnQtyFromRejectedWarehouse);
 
@@ -507,9 +511,31 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        PurchaseReceipt? updateReturnAgainstPr = null;
+        if ((input.IsReturn || receipt.IsReturn) && returnAgainstId.HasValue)
+        {
+            updateReturnAgainstPr = await _repository.FindAsync(returnAgainstId.Value);
+        }
+
         receipt.ClearItems();
         foreach (var item in input.Items)
         {
+            var poItemId = item.PurchaseOrderItemId;
+            var mrItemId = item.MaterialRequestItemId;
+            var fromWarehouseId = item.FromWarehouseId;
+            var rejectedWarehouseId = item.RejectedWarehouseId;
+            if (updateReturnAgainstPr != null)
+            {
+                var origItem = updateReturnAgainstPr.Items.FirstOrDefault(oi => oi.ItemId == item.ItemId);
+                if (origItem != null)
+                {
+                    poItemId ??= origItem.PurchaseOrderItemId;
+                    mrItemId ??= origItem.MaterialRequestItemId;
+                    fromWarehouseId ??= origItem.FromWarehouseId;
+                    rejectedWarehouseId ??= origItem.RejectedWarehouseId;
+                }
+            }
+
             receipt.AddItem(
                 item.ItemId,
                 item.Description,
@@ -517,14 +543,33 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.UnitPrice,
                 item.TaxAmount,
                 item.Uom,
-                item.PurchaseOrderItemId,
+                poItemId,
                 item.WarehouseId,
                 item.RejectedQty,
-                item.RejectedWarehouseId,
+                rejectedWarehouseId,
                 item.ReceivedQty,
-                fromWarehouseId: null,
-                materialRequestItemId: item.MaterialRequestItemId,
+                fromWarehouseId: fromWarehouseId,
+                materialRequestItemId: mrItemId,
                 returnQtyFromRejectedWarehouse: item.ReturnQtyFromRejectedWarehouse);
+
+            if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
+            {
+                receipt.Items.Last().ConversionFactor = item.ConversionFactor.Value;
+            }
+        }
+
+        var uomServiceUpdate = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var itemRepoUomUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        foreach (var prItem in receipt.Items)
+        {
+            var itemEntity = await itemRepoUomUpdate.FindAsync(prItem.ItemId);
+            if (itemEntity != null)
+            {
+                prItem.StockUom = itemEntity.Uom;
+                if (prItem.ConversionFactor <= 1m && !string.Equals(prItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                    prItem.ConversionFactor = await uomServiceUpdate.GetConversionFactorAsync(
+                        prItem.ItemId, prItem.Uom, itemEntity.Uom);
+            }
         }
 
         var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);

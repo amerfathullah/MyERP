@@ -10,6 +10,8 @@ public class ItemGroupDto : EntityDto<Guid>
     public bool IsGroup { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
+    public Guid? DefaultIncomeAccountId { get; set; }
+    public Guid? DefaultExpenseAccountId { get; set; }
     public Guid? DefaultSupplierId { get; set; }
 }
 
@@ -20,5 +22,17 @@ public class CreateItemGroupDto
     public bool IsGroup { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
+    public Guid? DefaultIncomeAccountId { get; set; }
+    public Guid? DefaultExpenseAccountId { get; set; }
     public Guid? DefaultSupplierId { get; set; }
+}
+
+public class CompanyResolvedItemDefaultsDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid? DefaultWarehouseId { get; set; }
+    public Guid? DefaultInventoryAccountId { get; set; }
+    public Guid? DefaultIncomeAccountId { get; set; }
+    public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? DefaultCostCenterId { get; set; }
 }

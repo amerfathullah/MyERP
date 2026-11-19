@@ -1,4 +1,4 @@
-import type { CreateItemGroupDto, ItemGroupDto } from './models';
+import type { CompanyResolvedItemDefaultsDto, CreateItemGroupDto, ItemGroupDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -37,6 +37,16 @@ export class ItemGroupService {
       method: 'GET',
       headers: { Accept: 'application/json' },
       url: `/api/app/item-group/${id}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getCompanyResolvedDefaults = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CompanyResolvedItemDefaultsDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/item-group/company-resolved-defaults/${companyId}`,
     },
       { apiName: this.apiName,...config });
   

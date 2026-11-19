@@ -115,6 +115,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                   <th style="width:100px">{{ '::Time' | abpLocalization }} (min)</th>
                   <th style="width:100px">{{ '::HourRate' | abpLocalization }}</th>
                   <th style="width:90px">{{ '::BatchSize' | abpLocalization }}</th>
+                  <th style="width:90px" class="text-center">{{ '::BasedOnBomQty' | abpLocalization }}</th>
                   <th style="width:100px" class="text-end">{{ '::Cost' | abpLocalization }}</th>
                   <th style="width:50px"></th>
                 </tr>
@@ -126,7 +127,10 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                     <td><input type="text" class="form-control form-control-sm" formControlName="description" [placeholder]="'::OperationName' | abpLocalization" /></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="timeInMins" min="0" step="0.5" (change)="recalcOpCost(i)" /></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="workstationHourRate" min="0" step="1" (change)="recalcOpCost(i)" /></td>
-                    <td><input type="number" class="form-control form-control-sm" formControlName="batchSize" min="0" /></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="batchSize" min="0" (change)="recalcOpCost(i)" /></td>
+                    <td class="text-center">
+                      <input type="checkbox" class="form-check-input" formControlName="setCostBasedOnBomQty" (change)="recalcOpCost(i)" />
+                    </td>
                     <td class="text-end font-monospace">{{ getOpCost(i) | number:'1.2-2' }}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeOperation(i)"><i class="fa fa-trash"></i></button></td>
                   </tr>
@@ -254,6 +258,7 @@ export class BomFormComponent implements OnInit {
     isPhantomBom: [false],
     fgBasedOperatingCost: [false],
     operatingCostPerBomQuantity: [0, [Validators.min(0)]],
+    targetWarehouseId: [null as string | null],
     materials: this.fb.array([]),
     operations: this.fb.array([]),
     secondaryItems: this.fb.array([]),
@@ -270,7 +275,8 @@ export class BomFormComponent implements OnInit {
 
   get operatingCost(): number {
     if (this.operations.length > 0) {
-      return this.operations.controls.reduce((sum, _, i) => sum + this.getOpCost(i), 0);
+      // Per ERPNext commits f406f6e2b8, e7be233789, 22d504f5b6: sum unrounded operation costs
+      return this.operations.controls.reduce((sum, _, i) => sum + this.getUnroundedOpCost(i), 0);
     }
     if (this.form.get('fgBasedOperatingCost')?.value && !this.form.get('isPhantomBom')?.value) {
       return (Number(this.form.get('quantity')?.value ?? 0)) * (Number(this.form.get('operatingCostPerBomQuantity')?.value ?? 0));
@@ -376,6 +382,7 @@ export class BomFormComponent implements OnInit {
     const nextSeq = this.operations.length > 0
       ? Math.max(...this.operations.controls.map(c => c.get('sequenceId')?.value ?? 0)) + 10
       : 10;
+    const defaultTargetWh = this.form.get('targetWarehouseId')?.value ?? null;
     this.operations.push(this.fb.group({
       operationId: [op?.operationId ?? ''],
       sequenceId: [op?.sequenceId ?? nextSeq, [Validators.required, Validators.min(1)]],
@@ -385,7 +392,21 @@ export class BomFormComponent implements OnInit {
       batchSize: [op?.batchSize ?? 0],
       fixedTime: [op?.fixedTime ?? 0],
       isSubcontracted: [op?.isSubcontracted ?? false],
+      setCostBasedOnBomQty: [op?.setCostBasedOnBomQty ?? false],
+      targetWarehouseId: [op?.targetWarehouseId ?? defaultTargetWh],
     }));
+  }
+
+  /**
+   * Fills or clears operation target warehouses when BOM default target warehouse changes
+   * (per ERPNext commits aba50eb01d and 46c37b5eef).
+   */
+  onDefaultTargetWarehouseChange(warehouseId: string | null): void {
+    const normalized = warehouseId || null;
+    this.form.patchValue({ targetWarehouseId: normalized });
+    this.operations.controls.forEach(op => {
+      op.patchValue({ targetWarehouseId: normalized });
+    });
   }
 
   removeOperation(index: number): void { this.operations.removeAt(index); }
@@ -428,11 +449,31 @@ export class BomFormComponent implements OnInit {
     });
   }
 
-  getOpCost(index: number): number {
+  getOpCostPerUnit(index: number): number {
     const op = this.operations.at(index);
-    const time = op.get('timeInMins')?.value ?? 0;
-    const rate = op.get('workstationHourRate')?.value ?? 0;
-    return (time / 60) * rate;
+    if (!op) return 0;
+    const time = Number(op.get('timeInMins')?.value ?? 0);
+    const rate = Number(op.get('workstationHourRate')?.value ?? 0);
+    const batchSize = Number(op.get('batchSize')?.value ?? 0);
+    const rawRowCost = (time / 60) * rate;
+    return rawRowCost / (batchSize > 0 ? batchSize : 1);
+  }
+
+  getUnroundedOpCost(index: number): number {
+    const op = this.operations.at(index);
+    if (!op) return 0;
+    const time = Number(op.get('timeInMins')?.value ?? 0);
+    const rate = Number(op.get('workstationHourRate')?.value ?? 0);
+    const rawRowCost = (time / 60) * rate;
+    if (op.get('setCostBasedOnBomQty')?.value) {
+      const bomQty = Number(this.form.get('quantity')?.value ?? 1);
+      return this.getOpCostPerUnit(index) * bomQty;
+    }
+    return rawRowCost;
+  }
+
+  getOpCost(index: number): number {
+    return this.getUnroundedOpCost(index);
   }
 
   recalcOpCost(_index: number): void { /* Triggers template re-render via getter */ }

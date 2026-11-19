@@ -728,4 +728,159 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             await itemGroupAppService.DeleteAsync(childGroup.Id);
         });
     }
+
+    [Fact]
+    public async Task ItemGroup_CopyCompleteDefaultsIntoNewItem_AndPreserveSnapshotOnGroupEdit_e563af5dc1_cb0ea4aa7b()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "IG Defaults Snapshot Co"), autoSave: true);
+            var wh1 = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "IG Default WH 1"), autoSave: true);
+            var wh2 = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "IG Default WH 2"), autoSave: true);
+            var incomeAcc1 = await accountRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "4100-IG1", "Sales IG 1", MyERP.Accounting.AccountType.Revenue), autoSave: true);
+            var incomeAcc2 = await accountRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "4100-IG2", "Sales IG 2", MyERP.Accounting.AccountType.Revenue), autoSave: true);
+            var expenseAcc = await accountRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5100-IG", "COGS IG", MyERP.Accounting.AccountType.Expense), autoSave: true);
+
+            var itemGroupAppService = GetRequiredService<IItemGroupAppService>();
+            var itemAppService = GetRequiredService<IItemAppService>();
+            var defaultsService = GetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+
+            var group = await itemGroupAppService.CreateAsync(new CreateItemGroupDto
+            {
+                Name = "Snapshotted Electronics",
+                IsGroup = false,
+                DefaultWarehouseId = wh1.Id,
+                DefaultIncomeAccountId = incomeAcc1.Id,
+                DefaultExpenseAccountId = expenseAcc.Id
+            });
+
+            // Creating an item under the group snapshots all group defaults into the item and ItemDefault
+            var item1 = await itemAppService.CreateAsync(new CreateUpdateItemDto
+            {
+                CompanyId = company.Id,
+                ItemCode = "ITM-SNAP-001",
+                ItemName = "Snapshotted Item 1",
+                ItemType = ItemType.Goods,
+                ItemGroupId = group.Id,
+                Uom = "Unit",
+                MaintainStock = true,
+                IsActive = true
+            });
+            item1.ItemGroupId.ShouldBe(group.Id);
+            item1.DefaultWarehouseId.ShouldBe(wh1.Id);
+            item1.DefaultIncomeAccountId.ShouldBe(incomeAcc1.Id);
+            item1.DefaultExpenseAccountId.ShouldBe(expenseAcc.Id);
+
+            // Editing the Item Group defaults later does NOT alter item1's snapshotted defaults, while a new item2 gets the updated defaults
+            await itemGroupAppService.UpdateAsync(group.Id, new CreateItemGroupDto
+            {
+                Name = group.Name,
+                IsGroup = false,
+                DefaultWarehouseId = wh2.Id,
+                DefaultIncomeAccountId = incomeAcc2.Id,
+                DefaultExpenseAccountId = expenseAcc.Id
+            });
+
+            (await defaultsService.ResolveWarehouseAsync(item1.Id, company.Id)).ShouldBe(wh1.Id);
+            (await defaultsService.ResolveIncomeAccountAsync(item1.Id, company.Id)).ShouldBe(incomeAcc1.Id);
+
+            var item2 = await itemAppService.CreateAsync(new CreateUpdateItemDto
+            {
+                CompanyId = company.Id,
+                ItemCode = "ITM-SNAP-002",
+                ItemName = "Snapshotted Item 2",
+                ItemType = ItemType.Goods,
+                ItemGroupId = group.Id,
+                Uom = "Unit",
+                MaintainStock = true,
+                IsActive = true
+            });
+            item2.DefaultWarehouseId.ShouldBe(wh2.Id);
+            item2.DefaultIncomeAccountId.ShouldBe(incomeAcc2.Id);
+
+            // Company resolved defaults endpoint returns company defaults for authorized user (cb0ea4aa7b)
+            var resolvedCompanyDefaults = await itemGroupAppService.GetCompanyResolvedDefaultsAsync(company.Id);
+            resolvedCompanyDefaults.CompanyId.ShouldBe(company.Id);
+        });
+    }
+
+    [Fact]
+    public async Task MasterProductionSchedule_ClearsSavedDemandWhenAllOrdersClosed_AndRefusesDuplicateScioOrderItem_be9881cba9_a736bb99fc()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MPS Clear & SCIO Dup Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "MPS", "MPS", "MPS-CLR-"), autoSave: true);
+            var parentWh = new Warehouse(Guid.NewGuid(), company.Id, "MPS Parent Group WH") { IsGroup = true };
+            await whRepo.InsertAsync(parentWh, autoSave: true);
+            var leafWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "MPS Leaf WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "MPS-CLR-001", "MPS Clearable FG", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "MPS Customer"), autoSave: true);
+
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-MPS-CLR", new DateTime(2026, 6, 1))
+            {
+                DeliveryDate = new DateTime(2026, 6, 15)
+            };
+            so.AddItem(item.Id, item.ItemName, 8m, 100m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var mpsAppService = GetRequiredService<IMasterProductionScheduleAppService>();
+            var mps = await mpsAppService.CreateAsync(new CreateMasterProductionScheduleDto
+            {
+                CompanyId = company.Id,
+                PostingDate = new DateTime(2026, 6, 1),
+                FromDate = new DateTime(2026, 6, 1),
+                ParentWarehouseId = parentWh.Id
+            });
+
+            await mpsAppService.FetchSalesOrdersAsync(mps.Id, new FetchSalesOrdersDto());
+            var withDemand = await mpsAppService.ComputeActualDemandAsync(mps.Id);
+            withDemand.Items.Count.ShouldBe(1);
+            withDemand.Items[0].PlannedQty.ShouldBe(8m);
+
+            // Close the Sales Order item row and re-run ComputeActualDemandAsync -> saved demand rows are cleared (be9881cba9)
+            so.CloseItem(so.Items[0].Id);
+            await soRepo.UpdateAsync(so, autoSave: true);
+
+            var cleared = await mpsAppService.ComputeActualDemandAsync(mps.Id);
+            cleared.Items.ShouldBeEmpty();
+            var reloaded = await mpsAppService.GetAsync(mps.Id);
+            reloaded.Items.ShouldBeEmpty();
+
+            // SubcontractingInwardOrder refuses two rows linked to the same Sales Order Item row (a736bb99fc)
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var supplier = new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "SCIO Supplier");
+            await suppRepo.InsertAsync(supplier, autoSave: true);
+
+            var scioAppService = GetRequiredService<MyERP.Purchasing.ISubcontractingInwardOrderAppService>();
+            var dupEx = await Should.ThrowAsync<BusinessException>(() =>
+                scioAppService.CreateAsync(new MyERP.Purchasing.CreateSubcontractingInwardOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    SalesOrderId = so.Id,
+                    OrderDate = new DateTime(2026, 6, 2),
+                    Items = new List<MyERP.Purchasing.CreateScioItemDto>
+                    {
+                        new() { ItemId = item.Id, Quantity = 4m, Rate = 50m, WarehouseId = leafWh.Id },
+                        new() { ItemId = item.Id, Quantity = 4m, Rate = 50m, WarehouseId = leafWh.Id }
+                    }
+                }));
+            dupEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (dupEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("same Sales Order Item row");
+        });
+    }
 }

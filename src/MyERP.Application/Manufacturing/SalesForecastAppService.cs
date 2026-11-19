@@ -109,14 +109,48 @@ public class SalesForecastAppService : ApplicationService, ISalesForecastAppServ
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
         }
 
+        var allStockItemIds = input.SelectedItemIds
+            .Concat((input.Items ?? Enumerable.Empty<SalesForecastItemDto>()).Select(i => i.ItemId))
+            .Distinct()
+            .ToList();
         await ValidateParentWarehouseAsync(input.ParentWarehouseId, forecast.CompanyId);
-        await ValidateStockItemsAsync(input.SelectedItemIds);
+        await ValidateStockItemsAsync(allStockItemIds);
 
         forecast.FromDate = input.FromDate;
         forecast.ParentWarehouseId = input.ParentWarehouseId;
         forecast.Frequency = input.Frequency;
         forecast.DemandNumber = input.DemandNumber;
         forecast.SetSelectedItems(input.SelectedItemIds);
+
+        if (input.Items != null)
+        {
+            var updatedItems = new List<SalesForecastItem>(input.Items.Count);
+            foreach (var row in input.Items)
+            {
+                if (row.DeliveryDate.Date < input.FromDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDeliveryDateBeforeFromDate);
+                }
+                if (row.DemandQty <= 0m)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDemandQtyRequired);
+                }
+
+                updatedItems.Add(new SalesForecastItem(
+                    row.Id != Guid.Empty ? row.Id : GuidGenerator.Create(),
+                    forecast.Id,
+                    row.ItemId,
+                    string.IsNullOrWhiteSpace(row.ItemName) ? "Item" : row.ItemName,
+                    string.IsNullOrWhiteSpace(row.Uom) ? "Unit" : row.Uom,
+                    row.DeliveryDate,
+                    row.DemandQty)
+                {
+                    WarehouseId = row.WarehouseId
+                });
+            }
+            forecast.SetItems(updatedItems);
+        }
+
         await _repository.UpdateAsync(forecast);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();

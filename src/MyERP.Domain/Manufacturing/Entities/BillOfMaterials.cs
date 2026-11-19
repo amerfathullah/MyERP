@@ -201,7 +201,8 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
         if (WithOperations || Operations.Any())
         {
-            OperatingCost = Operations.Sum(o => o.OperatingCost);
+            // Per ERPNext commits 22d504f5b6, e7be233789, f406f6e2b8: sum unrounded operation costs
+            OperatingCost = Operations.Sum(o => o.GetEffectiveOperatingCost(Quantity));
         }
         else if (FgBasedOperatingCost && !IsPhantomBom)
         {
@@ -316,9 +317,26 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Operations.Any() && operation.SequenceId < Operations.Max(o => o.SequenceId))
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Operation sequence_id must be monotonically non-decreasing");
+        if (!operation.TargetWarehouseId.HasValue && TargetWarehouseId.HasValue)
+        {
+            operation.TargetWarehouseId = TargetWarehouseId;
+        }
         Operations.Add(operation);
         WithOperations = true;
         ValidateOperations();
+    }
+
+    /// <summary>
+    /// Fills or clears operation target warehouses from BOM default TargetWarehouseId
+    /// (per ERPNext commits aba50eb01d and 46c37b5eef).
+    /// </summary>
+    public void SyncOperationTargetWarehouses(Guid? defaultTargetWarehouseId)
+    {
+        TargetWarehouseId = defaultTargetWarehouseId;
+        foreach (var op in Operations)
+        {
+            op.TargetWarehouseId = defaultTargetWarehouseId;
+        }
     }
 
     /// <summary>

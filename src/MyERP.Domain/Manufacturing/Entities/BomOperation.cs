@@ -69,6 +69,26 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     /// </summary>
     public decimal? WeightPerPiece { get; set; }
 
+    /// <summary>
+    /// When true, operation cost on the BOM is scaled by BOM Quantity / BatchSize
+    /// (ERPNext set_cost_based_on_bom_qty, commits 22d504f5b6, e7be233789, f406f6e2b8).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool SetCostBasedOnBomQty { get; set; }
+
+    /// <summary>
+    /// Target finished-good warehouse for this operation (ERPNext fg_warehouse, commits aba50eb01d, 46c37b5eef).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? TargetWarehouseId { get; set; }
+
+    /// <summary>
+    /// Unrounded operating cost per unit = OperatingCost / (BatchSize &gt; 0 ? BatchSize : 1)
+    /// (ERPNext commit e7be233789).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal CostPerUnit => OperatingCost / (BatchSize > 0 ? BatchSize : 1);
+
     protected BomOperation() { }
 
     public BomOperation(Guid id, Guid bomId, Guid operationId, int sequenceId,
@@ -92,6 +112,21 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     public void CalculateCost(decimal workstationHourRate)
     {
         OperatingCost = (TimeInMins / 60m) * workstationHourRate;
+    }
+
+    /// <summary>
+    /// Effective unrounded operating cost contributed to BOM total operating cost.
+    /// When SetCostBasedOnBomQty is enabled, scales unrounded CostPerUnit by bomQuantity
+    /// (ERPNext commits 22d504f5b6, e7be233789, f406f6e2b8).
+    /// </summary>
+    public decimal GetEffectiveOperatingCost(decimal bomQuantity)
+    {
+        if (SetCostBasedOnBomQty)
+        {
+            return CostPerUnit * (bomQuantity > 0 ? bomQuantity : 1m);
+        }
+
+        return OperatingCost;
     }
 
     /// <summary>Total time for a given production quantity including fixed time.</summary>

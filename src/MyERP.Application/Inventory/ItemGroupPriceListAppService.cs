@@ -42,6 +42,8 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         {
             DefaultWarehouseId = input.DefaultWarehouseId,
             DefaultInventoryAccountId = input.DefaultInventoryAccountId,
+            DefaultIncomeAccountId = input.DefaultIncomeAccountId,
+            DefaultExpenseAccountId = input.DefaultExpenseAccountId,
             DefaultSupplierId = input.DefaultSupplierId,
         };
         await _repository.InsertAsync(ig);
@@ -78,6 +80,8 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         ig.ParentId = input.ParentId;
         ig.DefaultWarehouseId = input.DefaultWarehouseId;
         ig.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
+        ig.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
+        ig.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
         ig.DefaultSupplierId = input.DefaultSupplierId;
 
         await _repository.UpdateAsync(ig);
@@ -103,6 +107,81 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         }
 
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Returns company-resolved defaults for Item / Item Group forms after enforcing Company read permission
+    /// (or Item / Item Group write permission with user access to the company) per ERPNext commit cb0ea4aa7b.
+    /// </summary>
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<CompanyResolvedItemDefaultsDto> GetCompanyResolvedDefaultsAsync(Guid companyId)
+    {
+        if (companyId == Guid.Empty)
+        {
+            return new CompanyResolvedItemDefaultsDto();
+        }
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(companyId);
+        if (company == null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("detail", $"Company '{companyId}' not found.");
+        }
+
+        await CheckCompanyDefaultsPermissionAsync(company);
+
+        return new CompanyResolvedItemDefaultsDto
+        {
+            CompanyId = company.Id,
+            DefaultWarehouseId = company.DefaultWarehouseId,
+            DefaultInventoryAccountId = company.DefaultInventoryAccountId,
+            DefaultIncomeAccountId = company.DefaultIncomeAccountId,
+            DefaultExpenseAccountId = company.DefaultExpenseAccountId,
+            DefaultCostCenterId = company.DefaultCostCenterId,
+        };
+    }
+
+    private async Task CheckCompanyDefaultsPermissionAsync(Core.Entities.Company company)
+    {
+        if (await AuthorizationService.IsGrantedAsync(MyERPPermissions.Companies.Default))
+        {
+            return;
+        }
+
+        var canEditDefaults = await AuthorizationService.IsGrantedAsync(MyERPPermissions.Items.Create)
+            || await AuthorizationService.IsGrantedAsync(MyERPPermissions.Items.Edit);
+        if (canEditDefaults)
+        {
+            var companyClaim = CurrentUser.FindClaim("company_id")?.Value;
+            if (!string.IsNullOrWhiteSpace(companyClaim)
+                && Guid.TryParse(companyClaim, out var claimCompanyId)
+                && claimCompanyId == company.Id)
+            {
+                return;
+            }
+
+            if (CurrentUser.Id.HasValue)
+            {
+                var restrictionRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.CompanyRestrictionEntry, Guid>>();
+                if (restrictionRepo != null)
+                {
+                    var query = await restrictionRepo.GetQueryableAsync();
+                    var userId = CurrentUser.Id.Value;
+                    var hasUserCompanyPerm = query != null && query.Any(r =>
+                        r.ParentType == "User"
+                        && r.ParentId == userId
+                        && r.CompanyId == company.Id);
+                    if (hasUserCompanyPerm)
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+
+        throw new Volo.Abp.Authorization.AbpAuthorizationException(
+            $"Not permitted to read the defaults of Company {company.Name}");
     }
 
     /// <summary>

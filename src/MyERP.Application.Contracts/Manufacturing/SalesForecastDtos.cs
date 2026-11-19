@@ -50,6 +50,7 @@ public class UpdateSalesForecastDto
     public SalesForecastFrequency Frequency { get; set; }
     public int DemandNumber { get; set; }
     public List<Guid> SelectedItemIds { get; set; } = new();
+    public List<SalesForecastItemDto>? Items { get; set; }
 }
 
 public interface ISalesForecastAppService : IApplicationService

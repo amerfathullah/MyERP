@@ -485,12 +485,23 @@ export interface CreateItemCustomerDetailDto {
   refCode: string;
 }
 
+export interface CompanyResolvedItemDefaultsDto {
+  companyId?: string;
+  defaultWarehouseId?: string | null;
+  defaultInventoryAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
+  defaultCostCenterId?: string | null;
+}
+
 export interface CreateItemGroupDto {
   name?: string;
   parentId?: string | null;
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
   defaultInventoryAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
   defaultSupplierId?: string | null;
 }
 
@@ -763,6 +774,7 @@ export interface CreateUpdateItemDto {
   description?: string | null;
   itemType: ItemType;
   itemGroup?: string | null;
+  itemGroupId?: string | null;
   brand?: string | null;
   uom: string;
   salesUom?: string | null;
@@ -1439,6 +1451,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   description?: string | null;
   itemType?: ItemType;
   itemGroup?: string | null;
+  itemGroupId?: string | null;
   brand?: string | null;
   uom?: string;
   salesUom?: string | null;
@@ -1493,6 +1506,8 @@ export interface ItemGroupDto extends EntityDto<string> {
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
   defaultInventoryAccountId?: string | null;
+  defaultIncomeAccountId?: string | null;
+  defaultExpenseAccountId?: string | null;
   defaultSupplierId?: string | null;
 }
 

@@ -78,17 +78,42 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
         Status = SubcontractingInwardOrderStatus.Open;
     }
 
-    public void UpdateReceivedStatus()
+    public void UpdateReceivedStatus(decimal additionalReceivedQty = 0m)
     {
         if (!Items.Any()) return;
-        // Per ERPNext commit ecb392f40b: count only usable qty up to required qty per line so excess on one item cannot inflate % received
-        PerReceived = Math.Round(
-            Items.Min(i => i.Quantity > 0 ? (Math.Min(i.ReceivedQty, i.Quantity) / i.Quantity) * 100m : 0m),
-            2);
-        if (PerReceived >= 100m)
+        // Per ERPNext commit ecb392f40b: count only usable qty up to required qty per line so excess on one item cannot inflate % received.
+        // Per ERPNext commit cf5585b7f5: additional material rows (Quantity == 0) do not dilute required % received,
+        // and receiving only additional material transitions status from Open to PartiallyReceived (Ongoing).
+        var requiredItems = Items.Where(i => i.Quantity > 0).ToList();
+        PerReceived = requiredItems.Count > 0
+            ? Math.Round(
+                requiredItems.Min(i => (Math.Min(i.ReceivedQty, i.Quantity) / i.Quantity) * 100m),
+                2)
+            : 0m;
+        var totalReceived = Items.Sum(i => i.ReceivedQty) + additionalReceivedQty;
+        if (requiredItems.Count > 0 && PerReceived >= 100m)
             Status = SubcontractingInwardOrderStatus.Completed;
-        else if (Items.Any(i => i.ReceivedQty > 0))
+        else if (totalReceived > 0m)
             Status = SubcontractingInwardOrderStatus.PartiallyReceived;
+    }
+
+    /// <summary>
+    /// Proposes pending customer-provided material quantities to receive.
+    /// Per ERPNext commit c31b8c9de6: keeps fully received customer-provided materials at 0 qty
+    /// instead of skipping them, while still excluding rows with no required quantity.
+    /// </summary>
+    public IReadOnlyList<(Guid ItemId, Guid OrderItemId, decimal ProposedQty, Guid? WarehouseId)> GetProposedMaterialFromCustomerItems()
+    {
+        var proposals = new List<(Guid ItemId, Guid OrderItemId, decimal ProposedQty, Guid? WarehouseId)>();
+        foreach (var item in Items)
+        {
+            if (item.Quantity <= 0m)
+                continue;
+
+            var proposedQty = Math.Max(0m, Math.Round(item.Quantity - item.ReceivedQty, 4));
+            proposals.Add((item.ItemId, item.Id, proposedQty, item.WarehouseId));
+        }
+        return proposals;
     }
 
     public void UpdateBilledStatus()

@@ -292,5 +292,39 @@ describe('BomFormComponent', () => {
 
       expect(comp.operatingCost).toBeCloseTo(5, 6);
     });
+
+    it('applies batchSize and unrounded costPerUnit when setCostBasedOnBomQty is enabled (22d504f5b6, e7be233789, 45e7b4c1d1)', () => {
+      const comp = createBomForm();
+      comp.form.patchValue({ quantity: 600 });
+      comp.addOperation({
+        sequenceId: 10,
+        timeInMins: 1,
+        workstationHourRate: 100,
+        batchSize: 10,
+        setCostBasedOnBomQty: true,
+      });
+
+      // Raw op cost = 100/60 = 1.666666...; costPerUnit = 1.666666... / 10 = 0.166666...
+      // Scaled by BOM qty 600 => exact 100, not 1.67 / 10 * 600 = 100.20
+      expect(comp.operatingCost).toBeCloseTo(100, 6);
+
+      // Refreshing batchSize or BOM quantity updates operatingCost dynamically
+      comp.operations.at(0).patchValue({ batchSize: 20 });
+      expect(comp.operatingCost).toBeCloseTo(50, 6);
+    });
+
+    it('fills and clears operation target warehouses from BOM default target warehouse (aba50eb01d, 46c37b5eef)', () => {
+      const comp = createBomForm();
+      comp.addOperation({ sequenceId: 10, timeInMins: 30, workstationHourRate: 60 });
+      comp.addOperation({ sequenceId: 20, timeInMins: 45, workstationHourRate: 60 });
+
+      comp.onDefaultTargetWarehouseChange('wh-fg-1');
+      expect(comp.operations.at(0).get('targetWarehouseId')?.value).toBe('wh-fg-1');
+      expect(comp.operations.at(1).get('targetWarehouseId')?.value).toBe('wh-fg-1');
+
+      comp.onDefaultTargetWarehouseChange(null);
+      expect(comp.operations.at(0).get('targetWarehouseId')?.value).toBeNull();
+      expect(comp.operations.at(1).get('targetWarehouseId')?.value).toBeNull();
+    });
   });
 });

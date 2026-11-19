@@ -159,6 +159,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
                 FinishedGoodItemId = op.FinishedGoodItemId,
+                SetCostBasedOnBomQty = op.SetCostBasedOnBomQty,
+                TargetWarehouseId = op.TargetWarehouseId ?? input.TargetWarehouseId,
             };
             var hourRate = op.WorkstationHourRate;
             if (hourRate <= 0)
@@ -294,6 +296,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
                 FinishedGoodItemId = op.FinishedGoodItemId,
+                SetCostBasedOnBomQty = op.SetCostBasedOnBomQty,
+                TargetWarehouseId = op.TargetWarehouseId ?? input.TargetWarehouseId,
             };
             var hourRate = op.WorkstationHourRate;
             if (hourRate <= 0)

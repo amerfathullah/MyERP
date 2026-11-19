@@ -778,6 +778,64 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Computes the unreserved quantity for each supplied item row of a Subcontracting Order.
+    /// Per ERPNext commits 3bf9fc0a98 and abd21367b0:
+    /// A transfer's reservation (FromVoucherType == "StockEntry" / "Stock Entry") holds stock in the
+    /// supplier warehouse that <see cref="Purchasing.Entities.SubcontractingOrderSuppliedItem.TransferredQty"/>
+    /// already counts, so it must not be subtracted again as unsupplied reserved stock.
+    /// Only rows with positive unreserved quantity are returned.
+    /// </summary>
+    public static Dictionary<Guid, decimal> GetSubcontractingUnreservedQty(
+        Purchasing.Entities.SubcontractingOrder sco,
+        IEnumerable<StockReservationEntry> activeReservations,
+        int precision = 4)
+    {
+        var heldByRow = new Dictionary<Guid, decimal>();
+        var heldByItem = new Dictionary<Guid, decimal>();
+
+        foreach (var sre in activeReservations)
+        {
+            if (sre.Status != DocumentStatus.Submitted)
+                continue;
+
+            if (string.Equals(sre.FromVoucherType, "StockEntry", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(sre.FromVoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var held = GetHeldQty(sre);
+            if (held <= 0m)
+                continue;
+
+            if (sre.VoucherDetailId.HasValue && sre.VoucherDetailId.Value != Guid.Empty)
+            {
+                heldByRow[sre.VoucherDetailId.Value] = heldByRow.GetValueOrDefault(sre.VoucherDetailId.Value) + held;
+            }
+            else
+            {
+                heldByItem[sre.ItemId] = heldByItem.GetValueOrDefault(sre.ItemId) + held;
+            }
+        }
+
+        var unreserved = new Dictionary<Guid, decimal>();
+        foreach (var supplied in sco.SuppliedItems)
+        {
+            var held = heldByRow.TryGetValue(supplied.Id, out var rowHeld)
+                ? rowHeld
+                : heldByItem.GetValueOrDefault(supplied.ItemId);
+
+            var qty = Math.Round(supplied.RequiredQty - supplied.TransferredQty - held, precision);
+            if (qty > 0m)
+            {
+                unreserved[supplied.Id] = qty;
+            }
+        }
+
+        return unreserved;
+    }
+
+    /// <summary>
     /// Updates transferred quantity on active Work Order reservations during Material Transfer.
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the transferred batch.
     /// Per ERPNext PR #60647 / commit 260b828b09: creates WIP warehouse reservations linked to the transfer stock entry.

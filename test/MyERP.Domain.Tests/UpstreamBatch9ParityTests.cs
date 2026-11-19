@@ -336,4 +336,153 @@ public class UpstreamBatch9ParityTests
         cap.AddStockItem(Guid.NewGuid(), "Aluminum", 3m, 40m, Guid.NewGuid());
         cap.TotalCapitalizedAmount.ShouldBe(120m);
     }
+
+    [Fact]
+    public void BillOfMaterials_RecalculateCost_AppliesBatchSizeWhenBasedOnBomQty_AndSyncsOperationTargetWarehouses_22d504f5b6_e7be233789_f406f6e2b8_aba50eb01d_46c37b5eef()
+    {
+        var defaultTargetWh = Guid.NewGuid();
+        var bom = new BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-OP-001", Guid.NewGuid())
+        {
+            Quantity = 600m,
+            TargetWarehouseId = defaultTargetWh
+        };
+
+        var op1 = new BomOperation(Guid.NewGuid(), bom.Id, Guid.NewGuid(), 10, timeInMins: 1m)
+        {
+            BatchSize = 10,
+            SetCostBasedOnBomQty = true
+        };
+        op1.CalculateCost(100m); // Unrounded = 100/60 = 1.666666...; CostPerUnit = 1.666666.../10; * 600 = 100m exact
+
+        bom.AddOperation(op1);
+        op1.TargetWarehouseId.ShouldBe(defaultTargetWh);
+
+        bom.RecalculateCost();
+        Math.Round(bom.OperatingCost, 2).ShouldBe(100m);
+
+        // Clearing default TargetWarehouseId clears operation target warehouses (46c37b5eef)
+        bom.SyncOperationTargetWarehouses(null);
+        op1.TargetWarehouseId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void SubcontractingInwardOrder_UpdateReceivedStatus_AndProposeMaterials_cf5585b7f5_c31b8c9de6()
+    {
+        var scio = new SubcontractingInwardOrder(Guid.NewGuid(), Guid.NewGuid(), "SCIO-002", DateTime.UtcNow.Date, Guid.NewGuid());
+        var requiredItem = new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 10m, 50m);
+        var additionalItem = new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 0m, 0m);
+        scio.AddItem(requiredItem);
+        scio.AddItem(additionalItem);
+        scio.Submit();
+
+        // Receiving only additional material transitions Open -> PartiallyReceived (Ongoing) even with PerReceived = 0 (cf5585b7f5)
+        additionalItem.ReceivedQty = 3m;
+        scio.UpdateReceivedStatus();
+        scio.PerReceived.ShouldBe(0m);
+        scio.Status.ShouldBe(SubcontractingInwardOrderStatus.PartiallyReceived);
+
+        // Receiving full required qty completes the order without being diluted by the 0-required additional item
+        requiredItem.ReceivedQty = 10m;
+        scio.UpdateReceivedStatus();
+        scio.PerReceived.ShouldBe(100m);
+        scio.Status.ShouldBe(SubcontractingInwardOrderStatus.Completed);
+
+        // Proposing customer materials keeps the fully received required item at 0 qty instead of skipping it (c31b8c9de6)
+        var proposals = scio.GetProposedMaterialFromCustomerItems();
+        proposals.Count.ShouldBe(1);
+        proposals[0].OrderItemId.ShouldBe(requiredItem.Id);
+        proposals[0].ProposedQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void SubcontractingManager_ValidateOrderAgainstPurchaseOrder_RefusesTwoRowsForOnePoItem_9ec94b2ae2()
+    {
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var po = new PurchaseOrder(Guid.NewGuid(), companyId, supplierId, "PO-SCO-DUP", DateTime.UtcNow.Date);
+        po.AddItem(itemId, "Subcontracted FG", 10m, 100m, 0m);
+        po.Submit();
+
+        var manager = new MyERP.Purchasing.DomainServices.SubcontractingManager(null!, null!);
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateOrderAgainstPurchaseOrder(po, new[] { itemId, itemId }));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("same Purchase Order Item row");
+    }
+
+    [Fact]
+    public void SubcontractingManager_ResolveSecondaryItemRate_HandlesZeroQtyReceiptAndReturnRows_7e66f8e926_a1169be24c_e076a8adac()
+    {
+        // 1. Percentage secondary row rounding to 0 qty returns 0m instead of DivideByZeroException (7e66f8e926)
+        var pctZeroRate = MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveSecondaryItemRate(
+            isReturn: false,
+            secondaryQty: 0m,
+            valuationType: SecondaryItemValuationType.PercentageOfComponentCost,
+            bomSecondaryBaseCost: 0m,
+            bomSecondaryStockQty: 1m,
+            resolveWarehouseValuationRate: null,
+            fgReceivedQty: 10m,
+            rmCostPerQty: 50m,
+            serviceCostPerQty: 10m,
+            costAllocationPercentage: 20m);
+        pctZeroRate.ShouldBe(0m);
+
+        // 2. Receipt's Manual secondary row rounding to 0 qty still keeps its Manual rate (a1169be24c)
+        var receiptManualZeroRate = MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveSecondaryItemRate(
+            isReturn: false,
+            secondaryQty: 0m,
+            valuationType: SecondaryItemValuationType.Manual,
+            bomSecondaryBaseCost: 150m,
+            bomSecondaryStockQty: 3m,
+            resolveWarehouseValuationRate: null);
+        receiptManualZeroRate.ShouldBe(50m);
+
+        // 3. Return's secondary row rounding to 0 qty skips valuation lookup and returns 0m (e076a8adac)
+        var lookupCalled = false;
+        var returnValZeroRate = MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveSecondaryItemRate(
+            isReturn: true,
+            secondaryQty: 0m,
+            valuationType: SecondaryItemValuationType.ValuationRate,
+            bomSecondaryBaseCost: 150m,
+            bomSecondaryStockQty: 3m,
+            resolveWarehouseValuationRate: () => { lookupCalled = true; throw new InvalidOperationException("Should not be called"); });
+        returnValZeroRate.ShouldBe(0m);
+        lookupCalled.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void StockReservationManager_GetSubcontractingUnreservedQty_ExcludesTransferReservations_3bf9fc0a98()
+    {
+        var companyId = Guid.NewGuid();
+        var sco = new SubcontractingOrder(Guid.NewGuid(), companyId, "SCO-UNRES-01", DateTime.UtcNow.Date, Guid.NewGuid());
+        var rmItemId = Guid.NewGuid();
+        var supplied = new SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmItemId, "Steel Sheet", requiredQty: 10m)
+        {
+            TransferredQty = 4m
+        };
+        sco.AddSuppliedItem(supplied);
+
+        // Direct SCO reservation holding 2 units (4 already transferred)
+        var orderSre = new StockReservationEntry(Guid.NewGuid(), companyId, rmItemId, Guid.NewGuid(), "SubcontractingOrder", sco.Id, 6m, 10m)
+        {
+            VoucherDetailId = supplied.Id,
+            TransferredQty = 4m
+        };
+        orderSre.Submit();
+
+        // Transfer SRE created in supplier warehouse for the 4 transferred units (FromVoucherType = "StockEntry")
+        var transferSre = new StockReservationEntry(Guid.NewGuid(), companyId, rmItemId, Guid.NewGuid(), "SubcontractingOrder", sco.Id, 4m, 4m)
+        {
+            VoucherDetailId = supplied.Id,
+            FromVoucherType = "StockEntry",
+            FromVoucherId = Guid.NewGuid()
+        };
+        transferSre.Submit();
+
+        // Unreserved = Required(10) - Transferred(4) - OrderHeld(6 - 4 = 2) = 4 (transferSre's 4 is NOT subtracted again!)
+        var unreserved = StockReservationManager.GetSubcontractingUnreservedQty(sco, new[] { orderSre, transferSre });
+        unreserved.ShouldContainKey(supplied.Id);
+        unreserved[supplied.Id].ShouldBe(4m);
+    }
 }

@@ -75,6 +75,8 @@ public class CreateUpdateItemDto
     [StringLength(ItemConsts.MaxGroupLength)]
     public string? ItemGroup { get; set; }
 
+    public Guid? ItemGroupId { get; set; }
+
     [StringLength(ItemConsts.MaxBrandLength)]
     public string? Brand { get; set; }
 

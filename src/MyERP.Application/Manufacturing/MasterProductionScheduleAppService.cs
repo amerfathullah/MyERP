@@ -318,7 +318,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             soQuery = soQuery.Where(so => so.OrderDate < toDateExclusive);
         }
 
-        var orders = soQuery.OrderBy(so => so.DeliveryDate).ToList();
+        var orders = soQuery.OrderBy(so => so.DeliveryDate).ToList().DistinctBy(so => so.Id).ToList();
         schedule.SetSalesOrders(orders.Select(so => new MpsSalesOrderRef(
             GuidGenerator.Create(), schedule.Id, so.Id, so.OrderDate, so.CustomerId, so.GrandTotal, so.Status.ToString())));
 
