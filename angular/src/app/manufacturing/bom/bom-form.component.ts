@@ -180,6 +180,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                   <th style="width: 100px" class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                   <th style="width: 110px" class="text-end">{{ '::CostAllocation' | abpLocalization }} %</th>
                   <th style="width: 100px" class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                  <th style="width: 100px" class="text-end">{{ '::Cost' | abpLocalization }}</th>
                   <th style="width: 50px" class="pe-3"></th>
                 </tr>
               </thead>
@@ -210,6 +211,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                         [readonly]="si.get('valuationType')?.value !== 1" />
                     </td>
                     <td><input type="number" class="form-control form-control-sm text-end" formControlName="rate" min="0" step="0.01" [readonly]="si.get('valuationType')?.value !== 2" /></td>
+                    <td class="text-end font-monospace">{{ getSecondaryItemCost(i) | number:'1.2-2' }}</td>
                     <td class="pe-3"><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSecondaryItem(i)"><i class="fa fa-trash"></i></button></td>
                   </tr>
                 }
@@ -221,7 +223,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
 
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div class="fw-bold">{{ '::TotalCost' | abpLocalization }}: {{ totalCost | number:'1.2-2' }}
-            <span class="text-muted ms-2">({{ '::Material' | abpLocalization }}: {{ materialCost | number:'1.2-2' }} + {{ '::Operations' | abpLocalization }}: {{ operatingCost | number:'1.2-2' }})</span>
+            <span class="text-muted ms-2">({{ '::Material' | abpLocalization }}: {{ materialCost | number:'1.2-2' }} + {{ '::Operations' | abpLocalization }}: {{ operatingCost | number:'1.2-2' }}@if (secondaryItems.length > 0) { - {{ '::SecondaryItems' | abpLocalization }}: {{ secondaryItemsCost | number:'1.2-2' }} })</span>
           </div>
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary" routerLink="/manufacturing/bom"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
@@ -276,7 +278,46 @@ export class BomFormComponent implements OnInit {
     return 0;
   }
 
-  get totalCost(): number { return this.materialCost + this.operatingCost; }
+  private round2(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  get secondaryItemsOwnCost(): number {
+    return this.secondaryItems.controls.reduce((sum, c) => {
+      const valType = Number(c.get('valuationType')?.value ?? 0);
+      if (valType === 0 || valType === 2) {
+        const qty = Number(c.get('quantity')?.value ?? 0);
+        const rate = Number(c.get('rate')?.value ?? 0);
+        return sum + this.round2(qty * rate);
+      }
+      return sum;
+    }, 0);
+  }
+
+  /**
+   * Live secondary item cost per ERPNext calculate_secondary_items_cost (commits eedfa8fda4 & a636da6cdd):
+   * ValuationRate (0) and Manual (2) rows use rounded qty * rate; PercentageOfComponentCost (1) rows
+   * split (raw material cost - own cost) by their allocation percentage.
+   */
+  getSecondaryItemCost(index: number): number {
+    const row = this.secondaryItems.at(index);
+    if (!row) return 0;
+    const valType = Number(row.get('valuationType')?.value ?? 0);
+    if (valType === 0 || valType === 2) {
+      const qty = Number(row.get('quantity')?.value ?? 0);
+      const rate = Number(row.get('rate')?.value ?? 0);
+      return this.round2(qty * rate);
+    }
+    const allocationBasis = Math.max(0, this.materialCost - this.secondaryItemsOwnCost);
+    const pct = Number(row.get('costAllocationPercentage')?.value ?? 0);
+    return this.round2((allocationBasis * pct) / 100);
+  }
+
+  get secondaryItemsCost(): number {
+    return this.secondaryItems.controls.reduce((sum, _, i) => sum + this.getSecondaryItemCost(i), 0);
+  }
+
+  get totalCost(): number { return this.materialCost + this.operatingCost - this.secondaryItemsCost; }
 
   ngOnInit(): void {
     // Auto-fill company from context

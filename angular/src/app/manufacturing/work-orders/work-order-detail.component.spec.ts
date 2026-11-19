@@ -73,6 +73,32 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
     expect(comp.hasReturnableMaterials).toBe(false);
   });
 
+  it('aggregates Return Components pending qty per item across split warehouse rows (PR #67351)', () => {
+    const { comp } = createComponent();
+
+    // Two rows for same item: transfer went to row 1, consumption split across row 1 & row 2 -> net 0 in WIP
+    comp.wo.set({
+      id: 'wo-2',
+      status: 4, // Completed
+      requiredItems: [
+        { itemId: 'rm-1', transferredQuantity: 10, consumedQuantity: 5 },
+        { itemId: 'rm-1', transferredQuantity: 0, consumedQuantity: 5 },
+      ],
+    } as any);
+    expect(comp.hasReturnableMaterials).toBe(false);
+
+    // Partial return/consumption leaves net positive qty for rm-1 -> button stays visible
+    comp.wo.set({
+      id: 'wo-2',
+      status: 7, // Closed
+      requiredItems: [
+        { itemId: 'rm-1', transferredQuantity: 10, consumedQuantity: 4 },
+        { itemId: 'rm-1', transferredQuantity: 0, consumedQuantity: 4 },
+      ],
+    } as any);
+    expect(comp.hasReturnableMaterials).toBe(true);
+  });
+
   it('creates BOM from work order and navigates to BOM detail', () => {
     const { comp, mfgMock, routerMock, toasterMock } = createComponent();
     comp.wo.set({ id: 'wo-1', status: 4 } as any);

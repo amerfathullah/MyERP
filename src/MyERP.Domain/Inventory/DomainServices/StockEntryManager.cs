@@ -309,8 +309,9 @@ public class StockEntryManager : DomainService
 
     /// <summary>
     /// Validates Work Order status for stock entries.
-    /// Refuses new MaterialTransferForManufacture and Manufacture stock entries against a Closed Work Order.
-    /// Per ERPNext PR #60647 / commit f9d019aa90.
+    /// Refuses new MaterialTransferForManufacture, Manufacture, and MaterialConsumptionForManufacture
+    /// stock entries against a Closed Work Order.
+    /// Per ERPNext PR #60647 (commit f9d019aa90) and PR #65859 (commit 55074816c9).
     /// Also refuses transactions against Stopped Work Orders.
     /// </summary>
     public void ValidateWorkOrderStatus(StockEntry entry, WorkOrder? wo)
@@ -326,7 +327,9 @@ public class StockEntryManager : DomainService
 
         if (wo.Status == WorkOrderStatus.Closed &&
             !entry.IsReturn &&
-            (entry.EntryType == StockEntryType.MaterialTransferForManufacture || entry.EntryType == StockEntryType.Manufacture))
+            entry.EntryType is StockEntryType.MaterialTransferForManufacture
+                or StockEntryType.Manufacture
+                or StockEntryType.MaterialConsumptionForManufacture)
         {
             throw new BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
                 .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())

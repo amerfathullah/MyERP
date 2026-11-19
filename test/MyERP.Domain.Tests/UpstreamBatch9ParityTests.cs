@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Manufacturing.Services;
 using MyERP.Sales.DomainServices;
@@ -186,5 +188,78 @@ public class UpstreamBatch9ParityTests
         synced[0].SalesOrderId.ShouldBe(soId);
         synced[0].SalesOrderItemId.ShouldBe(item1Id);
         synced[0].ScheduledQty.ShouldBe(5m);
+    }
+
+    [Fact]
+    public void StockEntryManager_ValidateWorkOrderStatus_RefusesMaterialConsumptionAgainstClosedWorkOrder_55074816c9()
+    {
+        var companyId = Guid.NewGuid();
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-CLOSED-MC", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+        wo.Close();
+
+        var se = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.MaterialConsumptionForManufacture, DateTime.UtcNow.Date)
+        {
+            WorkOrderId = wo.Id
+        };
+
+        var manager = new StockEntryManager(null!, null!, null!);
+        var ex = Should.Throw<BusinessException>(() => manager.ValidateWorkOrderStatus(se, wo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder);
+    }
+
+    [Fact]
+    public void WorkOrder_RecordMaterialConsumption_SetsSkipTransferInProcess_AndUnstopReversesCleanly_bdb3a4e16c()
+    {
+        var companyId = Guid.NewGuid();
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-SKIP-MC", Guid.NewGuid(), Guid.NewGuid(), 10m)
+        {
+            SkipTransfer = true
+        };
+        var rm = new WorkOrderItem(Guid.NewGuid(), wo.Id, Guid.NewGuid(), "RM-1", 10m);
+        wo.RequiredItems.Add(rm);
+        wo.Submit();
+
+        // Consuming material on skip-transfer WO moves it to InProcess
+        rm.ConsumedQuantity = 4m;
+        wo.RecordMaterialConsumption();
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+
+        // Stop & Unstop preserves InProcess because material has been consumed
+        wo.Stop();
+        wo.Status.ShouldBe(WorkOrderStatus.Stopped);
+        wo.Unstop();
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+
+        // Reversing consumption reverts back to NotStarted when nothing else consumed/transferred/produced
+        rm.ConsumedQuantity = 0m;
+        wo.ReverseMaterialConsumptionStatus();
+        wo.Status.ShouldBe(WorkOrderStatus.NotStarted);
+    }
+
+    [Fact]
+    public void ItemLeadTime_ResolvePurchaseLeadTimeDays_UsesOrderingSupplierOrDefaultOrItemDays_e03a0ac44b_1cae8b6982()
+    {
+        var supplierA = Guid.NewGuid();
+        var supplierB = Guid.NewGuid();
+        var supplierOther = Guid.NewGuid();
+
+        var ltWithDefault = new ItemLeadTime(Guid.NewGuid(), Guid.NewGuid(), purchaseTimeDays: 3, bufferTimeDays: 1);
+        ltWithDefault.AddSupplier(supplierA, purchaseTimeDays: 20, bufferTimeDays: 1, isDefault: true);
+        ltWithDefault.AddSupplier(supplierB, purchaseTimeDays: 10, bufferTimeDays: 2, isDefault: false);
+
+        // No chosen supplier -> uses default supplier row (20 + 1 = 21)
+        ltWithDefault.ResolvePurchaseLeadTimeDays().ShouldBe(21);
+        // Explicit supplier B -> uses supplier B row (10 + 2 = 12)
+        ltWithDefault.ResolvePurchaseLeadTimeDays(supplierB).ShouldBe(12);
+        // Explicit supplier not in table -> falls back to item-level (3 + 1 = 4)
+        ltWithDefault.ResolvePurchaseLeadTimeDays(supplierOther).ShouldBe(4);
+
+        // Non-default supplier row only: no chosen supplier uses item-level (3), chosen supplier uses supplier row (11)
+        var ltNoDefault = new ItemLeadTime(Guid.NewGuid(), Guid.NewGuid(), purchaseTimeDays: 3, bufferTimeDays: 0);
+        ltNoDefault.AddSupplier(supplierA, purchaseTimeDays: 10, bufferTimeDays: 1, isDefault: false);
+
+        ltNoDefault.ResolvePurchaseLeadTimeDays().ShouldBe(3);
+        ltNoDefault.ResolvePurchaseLeadTimeDays(supplierA).ShouldBe(11);
     }
 }

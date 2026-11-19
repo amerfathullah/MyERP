@@ -377,6 +377,38 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = WorkOrderStatus.NotStarted;
     }
 
+    /// <summary>
+    /// Marks a submitted/not-started/reserved Work Order as InProcess once material is consumed
+    /// (e.g. a skip-transfer Work Order after a posted Material Consumption for Manufacture entry).
+    /// Per ERPNext PR #65858 (commit bdb3a4e16c).
+    /// </summary>
+    public void RecordMaterialConsumption()
+    {
+        if (Status is WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted
+            or WorkOrderStatus.StockReserved or WorkOrderStatus.StockPartiallyReserved
+            && RequiredItems.Any(r => r.ConsumedQuantity > 0))
+        {
+            Status = WorkOrderStatus.InProcess;
+            ActualStartDate ??= DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Reverts an InProcess Work Order back to NotStarted (or reservation status) when all
+    /// consumed, transferred, and produced quantities have been reversed.
+    /// </summary>
+    public void ReverseMaterialConsumptionStatus()
+    {
+        if (Status == WorkOrderStatus.InProcess
+            && MaterialTransferred <= 0
+            && ProducedQuantity <= 0
+            && ProcessLossQty <= 0
+            && !RequiredItems.Any(r => r.ConsumedQuantity > 0 || r.TransferredQuantity > 0))
+        {
+            Status = GetReservationStatus(WorkOrderStatus.NotStarted);
+        }
+    }
+
     /// <summary>Records disassembly qty against produced goods. Per ERPNext: disassembled_qty tracked on WO.</summary>
     public void RecordDisassembly(decimal quantity)
     {
@@ -426,8 +458,8 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("status", Status)
                 .WithData("detail", "Work Order is not stopped");
 
-        // Per ERPNext PR #60647 / services/status.py: resume to InProcess if started, material transferred or items produced, else NotStarted
-        Status = (ActualStartDate.HasValue || MaterialTransferred > 0 || ProducedQuantity > 0)
+        // Per ERPNext PR #60647 & PR #65858 / services/status.py: resume to InProcess if started, material transferred/consumed, or items produced, else NotStarted
+        Status = (ActualStartDate.HasValue || MaterialTransferred > 0 || ProducedQuantity > 0 || RequiredItems.Any(r => r.ConsumedQuantity > 0))
             ? WorkOrderStatus.InProcess
             : WorkOrderStatus.NotStarted;
     }

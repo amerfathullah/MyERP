@@ -1,4 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { FormBuilder } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { describe, it, expect, vi } from 'vitest';
+import { BomFormComponent } from './bom-form.component';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 // BOM Form DTO mapping + validation logic tests
 
@@ -237,6 +245,52 @@ describe('BomFormComponent', () => {
 
       expect(result.valuationType).toBe(2);
       expect(result.costAllocationPercentage).toBe(0);
+    });
+  });
+
+  describe('BomFormComponent live cost calculation parity (PR #65856 / #67349)', () => {
+    function createBomForm() {
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+          { provide: ManufacturingService, useValue: { getBom: vi.fn().mockReturnValue(of({})) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'co-1' } },
+        ],
+      });
+      return runInInjectionContext(injector, () => new BomFormComponent());
+    }
+
+    it('recomputes secondary item percentage cost against (materialCost - ownCost) and deducts from totalCost', () => {
+      const comp = createBomForm();
+      comp.addMaterial({ itemId: 'rm-1', itemName: 'Steel', quantity: 10, rate: 100 }); // 1000
+      comp.addOperation({ sequenceId: 10, timeInMins: 60, workstationHourRate: 50 }); // 50
+      comp.addSecondaryItem({ itemId: 'sec-1', valuationType: 2, quantity: 2, rate: 50 }); // Manual = 100
+      comp.addSecondaryItem({ itemId: 'sec-2', valuationType: 1, quantity: 1, costAllocationPercentage: 20 }); // 20% of (1000 - 100) = 180
+
+      expect(comp.materialCost).toBe(1000);
+      expect(comp.getSecondaryItemCost(0)).toBe(100);
+      expect(comp.getSecondaryItemCost(1)).toBe(180);
+      expect(comp.secondaryItemsCost).toBe(280);
+      expect(comp.totalCost).toBe(770); // 1000 + 50 - 280
+
+      // Updating material rate dynamically updates % secondary cost and totalCost
+      comp.materials.at(0).patchValue({ rate: 200 }); // 2000 -> basis 1900 -> 20% = 380
+      expect(comp.getSecondaryItemCost(1)).toBe(380);
+      expect(comp.secondaryItemsCost).toBe(480);
+      expect(comp.totalCost).toBe(1570); // 2000 + 50 - 480
+    });
+
+    it('sums unrounded operation costs to avoid per-row rounding drift', () => {
+      const comp = createBomForm();
+      // Three 1-minute operations at 100/hr -> exact sum is 5.00, not 3 * 1.67 = 5.01
+      comp.addOperation({ sequenceId: 10, timeInMins: 1, workstationHourRate: 100 });
+      comp.addOperation({ sequenceId: 20, timeInMins: 1, workstationHourRate: 100 });
+      comp.addOperation({ sequenceId: 30, timeInMins: 1, workstationHourRate: 100 });
+
+      expect(comp.operatingCost).toBeCloseTo(5, 6);
     });
   });
 });

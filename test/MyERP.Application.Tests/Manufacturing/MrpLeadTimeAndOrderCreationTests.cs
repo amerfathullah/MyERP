@@ -297,4 +297,144 @@ public abstract class MrpLeadTimeAndOrderCreationTests<TStartupModule> : MyERPAp
             po.Items[0].Quantity.ShouldBe(15);
         });
     }
+
+    [Fact]
+    public async Task GetReportAsync_PurchaseLeadTime_UsesSupplierLeadTimeAndItemFallback_e03a0ac44b_1cae8b6982()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemDefaultRepo = GetRequiredService<IRepository<ItemDefault, Guid>>();
+            var itemLeadTimeRepo = GetRequiredService<IRepository<ItemLeadTime, Guid>>();
+            var mpsRepo = GetRequiredService<IRepository<MasterProductionSchedule, Guid>>();
+            var mrpAppService = GetRequiredService<IMaterialRequirementsPlanningAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MRP Lead Co"), autoSave: true);
+            var supA = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Sup A") { SupplierCode = "SUP-A" }, autoSave: true);
+            var supB = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Sup B") { SupplierCode = "SUP-B" }, autoSave: true);
+
+            // RM-A: ItemLeadTime has default supplier supA (20+1 = 21d), item LeadTimeDays = 4
+            var rmA = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MRP-LT-RM-A", "RM A", ItemType.Goods) { LeadTimeDays = 4, MaintainStock = true }, autoSave: true);
+            var ltA = new ItemLeadTime(Guid.NewGuid(), rmA.Id, purchaseTimeDays: 2, bufferTimeDays: 0);
+            ltA.AddSupplier(supA.Id, purchaseTimeDays: 20, bufferTimeDays: 1, isDefault: true);
+            await itemLeadTimeRepo.InsertAsync(ltA, autoSave: true);
+
+            // RM-B: No ItemLeadTime -> falls back to Item.LeadTimeDays (9d)
+            var rmB = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MRP-LT-RM-B", "RM B", ItemType.Goods) { LeadTimeDays = 9, MaintainStock = true }, autoSave: true);
+
+            // RM-C: ItemDefault selects supB; ItemLeadTime has item purchase_time=3 and non-default supA (20d) + supB (10+1=11d)
+            var rmC = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MRP-LT-RM-C", "RM C", ItemType.Goods) { LeadTimeDays = 2, MaintainStock = true }, autoSave: true);
+            await itemDefaultRepo.InsertAsync(new ItemDefault(Guid.NewGuid(), rmC.Id, company.Id) { DefaultSupplierId = supB.Id }, autoSave: true);
+            var ltC = new ItemLeadTime(Guid.NewGuid(), rmC.Id, purchaseTimeDays: 3, bufferTimeDays: 0);
+            ltC.AddSupplier(supA.Id, purchaseTimeDays: 20, bufferTimeDays: 0, isDefault: false);
+            ltC.AddSupplier(supB.Id, purchaseTimeDays: 10, bufferTimeDays: 1, isDefault: false);
+            await itemLeadTimeRepo.InsertAsync(ltC, autoSave: true);
+
+            var deliveryDate = new DateTime(2026, 12, 15);
+            var mps = new MasterProductionSchedule(Guid.NewGuid(), company.Id, "MPS-LT-01", new DateTime(2026, 12, 1), new DateTime(2026, 12, 1));
+            mps.SetItems(new[]
+            {
+                new MasterProductionScheduleItem(Guid.NewGuid(), mps.Id, rmA.Id, rmA.ItemName, deliveryDate, 10m, 0),
+                new MasterProductionScheduleItem(Guid.NewGuid(), mps.Id, rmB.Id, rmB.ItemName, deliveryDate, 10m, 0),
+                new MasterProductionScheduleItem(Guid.NewGuid(), mps.Id, rmC.Id, rmC.ItemName, deliveryDate, 10m, 0),
+            });
+            mps.Submit();
+            await mpsRepo.InsertAsync(mps, autoSave: true);
+
+            var report = await mrpAppService.GetReportAsync(new MaterialRequirementsPlanningFilterDto
+            {
+                CompanyId = company.Id,
+                FromDate = new DateTime(2026, 12, 1),
+                ToDate = new DateTime(2026, 12, 31),
+                BucketSize = MrpBucketSize.Monthly
+            });
+
+            var reqA = report.Requirements.Single(r => r.ItemId == rmA.Id);
+            var reqB = report.Requirements.Single(r => r.ItemId == rmB.Id);
+            var reqC = report.Requirements.Single(r => r.ItemId == rmC.Id);
+
+            reqA.LeadTimeDays.ShouldBe(21);
+            reqB.LeadTimeDays.ShouldBe(9);
+            reqC.DefaultSupplierId.ShouldBe(supB.Id);
+            reqC.LeadTimeDays.ShouldBe(11);
+        });
+    }
+
+    [Fact]
+    public async Task CreateBomFromWorkOrderAsync_IncludesMaterialConsumptionEntries_82153f0458()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var seRepo = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "BOM From WO MC Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "BOM Series", "BOM", "BOM-"), autoSave: true);
+
+            var wipWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WIP-MC"), autoSave: true);
+            var fgWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG-MC"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-BOM-MC", "FG BOM MC", ItemType.Goods), autoSave: true);
+            var rm1 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-BOM-MC-1", "RM Consumed Early", ItemType.Goods), autoSave: true);
+            var rm2 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-BOM-MC-2", "RM Consumed At Mfg", ItemType.Goods), autoSave: true);
+
+            var srcBom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-SRC-MC", fgItem.Id)
+            {
+                Quantity = 1,
+                IsActive = true,
+                IsDefault = true
+            };
+            srcBom.Items.Add(new BomItem(Guid.NewGuid(), srcBom.Id, rm1.Id, rm1.ItemName, 2, 10m));
+            srcBom.Items.Add(new BomItem(Guid.NewGuid(), srcBom.Id, rm2.Id, rm2.ItemName, 3, 20m));
+            await bomRepo.InsertAsync(srcBom, autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-BOM-MC", fgItem.Id, srcBom.Id, 2m)
+            {
+                WipWarehouseId = wipWh.Id,
+                FgWarehouseId = fgWh.Id
+            };
+            wo.Submit();
+            wo.Start();
+            wo.RecordProduction(2m);
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            // Posted MaterialConsumptionForManufacture entry consuming RM-1 (qty 4)
+            var mcSe = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.MaterialConsumptionForManufacture, DateTime.UtcNow.Date)
+            {
+                EntryNumber = "SE-MC-01",
+                WorkOrderId = wo.Id
+            };
+            mcSe.AddItem(rm1.Id, 4m, sourceWarehouseId: wipWh.Id, targetWarehouseId: null, valuationRate: 12m);
+            mcSe.Submit();
+            mcSe.Post();
+            await seRepo.InsertAsync(mcSe, autoSave: true);
+
+            // Posted Manufacture entry consuming RM-2 (qty 6) and producing FG (qty 2)
+            var mfgSe = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.UtcNow.Date)
+            {
+                EntryNumber = "SE-MFG-01",
+                WorkOrderId = wo.Id
+            };
+            mfgSe.AddItem(rm2.Id, 6m, sourceWarehouseId: wipWh.Id, targetWarehouseId: null, valuationRate: 25m);
+            mfgSe.AddItem(fgItem.Id, 2m, sourceWarehouseId: null, targetWarehouseId: fgWh.Id, valuationRate: 100m, isFinishedItem: true);
+            mfgSe.Submit();
+            mfgSe.Post();
+            await seRepo.InsertAsync(mfgSe, autoSave: true);
+
+            var newBom = await mfgAppService.CreateBomFromWorkOrderAsync(wo.Id);
+            newBom.Items.Count.ShouldBe(2);
+            newBom.Items.Single(i => i.ItemId == rm1.Id).Quantity.ShouldBe(4m);
+            newBom.Items.Single(i => i.ItemId == rm2.Id).Quantity.ShouldBe(6m);
+        });
+    }
 }

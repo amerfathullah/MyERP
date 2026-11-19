@@ -815,6 +815,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 MyERP.Manufacturing.DomainServices.WorkOrderManager.DistributeConsumedQuantity(
                     wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity);
             }
+            // Per ERPNext PR #65858 (commit bdb3a4e16c): set skip-transfer / not-started WO InProcess once material is consumed
+            wo.RecordMaterialConsumption();
             await woRepo.UpdateAsync(wo, autoSave: true);
         }
 
@@ -1020,6 +1022,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         reqItem.ConsumedQuantity = Math.Max(0, reqItem.ConsumedQuantity - seItem.Quantity);
                     }
                 }
+                wo.ReverseMaterialConsumptionStatus();
                 await woRepo.UpdateAsync(wo);
             }
         }

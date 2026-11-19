@@ -467,12 +467,15 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var bomQty = wo.ProducedQuantity > 0 ? wo.ProducedQuantity : wo.Quantity;
         if (bomQty <= 0) bomQty = 1m;
 
-        // Query consumed materials from submitted Manufacture Stock Entries
+        // Query consumed materials from submitted Manufacture and Material Consumption Stock Entries
+        // Per ERPNext PR #65856 (commit 82153f0458): include MaterialConsumptionForManufacture entries
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
-        var seQuery = await seRepo.GetQueryableAsync();
+        var seQuery = await seRepo.WithDetailsAsync(se => se.Items)
+            ?? await seRepo.GetQueryableAsync();
         var submittedManufactureEntries = seQuery
             .Where(se => se.WorkOrderId == wo.Id
-                && se.EntryType == StockEntryType.Manufacture
+                && (se.EntryType == StockEntryType.Manufacture
+                    || se.EntryType == StockEntryType.MaterialConsumptionForManufacture)
                 && se.Status == Core.DocumentStatus.Posted
                 && !se.IsReturn)
             .ToList();
@@ -486,7 +489,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             var consumedLines = submittedManufactureEntries
                 .SelectMany(se => se.Items)
-                .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
+                .Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue && !i.IsFinishedItem)
                 .GroupBy(i => new { i.ItemId, i.SourceWarehouseId })
                 .Select(g => new
                 {

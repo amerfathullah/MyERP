@@ -38,17 +38,26 @@ public class MasterProductionScheduleService : DomainService
     /// </summary>
     public async Task<int> GetCumulativeLeadTimeDaysAsync(Guid itemId, Guid? bomId = null, decimal qty = 1)
     {
-        var visited = new HashSet<Guid>();
-        return await GetCumulativeLeadTimeRecursiveAsync(itemId, bomId, qty, visited);
+        return await GetCumulativeLeadTimeDaysAsync(itemId, bomId, qty, supplierId: null);
     }
 
-    private async Task<int> GetCumulativeLeadTimeRecursiveAsync(Guid itemId, Guid? bomId, decimal qty, HashSet<Guid> visitedBoms)
+    /// <summary>
+    /// Resolves cumulative lead time in days, taking the ordering supplier into account for purchased items
+    /// per ERPNext commits e03a0ac44b and 1cae8b6982.
+    /// </summary>
+    public async Task<int> GetCumulativeLeadTimeDaysAsync(Guid itemId, Guid? bomId, decimal qty, Guid? supplierId)
+    {
+        var visited = new HashSet<Guid>();
+        return await GetCumulativeLeadTimeRecursiveAsync(itemId, bomId, qty, visited, supplierId);
+    }
+
+    private async Task<int> GetCumulativeLeadTimeRecursiveAsync(Guid itemId, Guid? bomId, decimal qty, HashSet<Guid> visitedBoms, Guid? supplierId = null)
     {
         var item = await _itemRepository.FindAsync(itemId);
         var resolvedBomId = bomId ?? item?.DefaultBomId;
         var isManufacture = resolvedBomId.HasValue;
 
-        var leadTime = await ResolveItemLeadTimeAsync(itemId, isManufacture, qty, item?.LeadTimeDays ?? 0);
+        var leadTime = await ResolveItemLeadTimeAsync(itemId, isManufacture, qty, item?.LeadTimeDays ?? 0, isManufacture ? null : supplierId);
 
         if (resolvedBomId is not { } id || !visitedBoms.Add(id))
             return leadTime;
@@ -72,16 +81,19 @@ public class MasterProductionScheduleService : DomainService
         return leadTime + maxComponentTime;
     }
 
-    private async Task<int> ResolveItemLeadTimeAsync(Guid itemId, bool isManufacture, decimal qty, int fallbackDays)
+    private async Task<int> ResolveItemLeadTimeAsync(Guid itemId, bool isManufacture, decimal qty, int fallbackDays, Guid? supplierId = null)
     {
-        var leadTimeRepo = _itemLeadTimeRepository ?? LazyServiceProvider.LazyGetService<IRepository<ItemLeadTime, Guid>>();
+        var leadTimeRepo = _itemLeadTimeRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemLeadTime, Guid>>();
         if (leadTimeRepo != null)
         {
-            var leadTimeQ = await leadTimeRepo.GetQueryableAsync();
-            var itemLeadTime = leadTimeQ.FirstOrDefault(lt => lt.ItemId == itemId);
+            var leadTimeQ = await leadTimeRepo.WithDetailsAsync(lt => lt.Suppliers)
+                ?? await leadTimeRepo.GetQueryableAsync();
+            var itemLeadTime = leadTimeQ?.FirstOrDefault(lt => lt.ItemId == itemId);
             if (itemLeadTime != null)
             {
-                return itemLeadTime.CalculateLeadTimeDays(qty, isManufacture);
+                return isManufacture
+                    ? itemLeadTime.CalculateLeadTimeDays(qty, isManufacture: true)
+                    : itemLeadTime.ResolvePurchaseLeadTimeDays(supplierId);
             }
         }
 

@@ -127,6 +127,35 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var days = Math.Round((decimal)GetLeadTimeInDays(qty, isManufacture), 4);
         return (int)Math.Ceiling(days);
     }
+
+    /// <summary>
+    /// Resolves purchase lead time in calendar days matching ERPNext plan_adapter.resolve_purchase_lead_time
+    /// (commits e03a0ac44b and 1cae8b6982):
+    /// 1. When a supplier is specified and present in Suppliers, use that supplier's PurchaseTimeDays + BufferTimeDays.
+    /// 2. When a supplier is specified without a matching row, fall back to item-level PurchaseTimeDays + BufferTimeDays.
+    /// 3. When no supplier is specified, use the default supplier row (IsDefault) if present, else item-level PurchaseTimeDays + BufferTimeDays.
+    /// </summary>
+    public int ResolvePurchaseLeadTimeDays(Guid? supplierId = null)
+    {
+        if (supplierId.HasValue && supplierId.Value != Guid.Empty)
+        {
+            var matched = _suppliers.FirstOrDefault(s => s.SupplierId == supplierId.Value);
+            if (matched != null)
+            {
+                return matched.PurchaseTimeDays + matched.BufferTimeDays;
+            }
+
+            return PurchaseTimeDays + BufferTimeDays;
+        }
+
+        var defaultRow = _suppliers.FirstOrDefault(s => s.IsDefault);
+        if (defaultRow != null)
+        {
+            return defaultRow.PurchaseTimeDays + defaultRow.BufferTimeDays;
+        }
+
+        return PurchaseTimeDays + BufferTimeDays;
+    }
 }
 
 public class ItemLeadTimeSupplier : FullAuditedEntity<Guid>

@@ -694,7 +694,18 @@ export class WorkOrderDetailComponent implements OnInit {
   get hasReturnableMaterials(): boolean {
     const w = this.wo();
     if (!w || (w.status !== 4 && w.status !== 7)) return false;
-    return (w.requiredItems ?? []).some(i => ((i.transferredQuantity ?? 0) - (i.consumedQuantity ?? 0)) > 0);
+    // Per ERPNext PR #67351 (commit db34b763e9): aggregate pending qty per item because rows of one item
+    // split transfers by source warehouse while consumption and returns are distributed by required qty.
+    const pendingQtyByItem = new Map<string, number>();
+    for (const item of w.requiredItems ?? []) {
+      const key = item.itemId || item.itemName || '';
+      const pending = (item.transferredQuantity ?? 0) - (item.consumedQuantity ?? 0);
+      pendingQtyByItem.set(key, (pendingQtyByItem.get(key) ?? 0) + pending);
+    }
+    for (const qty of pendingQtyByItem.values()) {
+      if (Math.round(qty * 10000) / 10000 > 0) return true;
+    }
+    return false;
   }
 
   createBomFromWorkOrder(): void {

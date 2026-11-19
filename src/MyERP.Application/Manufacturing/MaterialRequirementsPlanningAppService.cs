@@ -455,13 +455,15 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
 
             Guid? defaultSupplierId = null;
             string? defaultSupplierName = null;
-            if (itemLeadTimeMap.TryGetValue(item.Id, out var itemLeadTime))
+            itemLeadTimeMap.TryGetValue(item.Id, out var itemLeadTime);
+
+            // Prefer explicit default supplier in ItemLeadTime, then company ItemDefault, then ItemGroup, then first supplier lead time row
+            if (itemLeadTime != null)
             {
-                var defaultSup = itemLeadTime.Suppliers.FirstOrDefault(s => s.IsDefault)
-                    ?? itemLeadTime.Suppliers.FirstOrDefault();
-                if (defaultSup != null)
+                var explicitDefaultSup = itemLeadTime.Suppliers.FirstOrDefault(s => s.IsDefault);
+                if (explicitDefaultSup != null)
                 {
-                    defaultSupplierId = defaultSup.SupplierId;
+                    defaultSupplierId = explicitDefaultSup.SupplierId;
                 }
             }
 
@@ -489,6 +491,15 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 }
             }
 
+            if (!defaultSupplierId.HasValue && itemLeadTime != null)
+            {
+                var firstSup = itemLeadTime.Suppliers.FirstOrDefault();
+                if (firstSup != null)
+                {
+                    defaultSupplierId = firstSup.SupplierId;
+                }
+            }
+
             if (defaultSupplierId.HasValue)
             {
                 defaultSupplierName = supplierMap.GetValueOrDefault(defaultSupplierId.Value)?.Name;
@@ -498,7 +509,9 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             {
                 if (b.PlannedOrders > 0)
                 {
-                    var leadTimeDays = await _leadTimeService.GetCumulativeLeadTimeDaysAsync(item.Id, bom?.Id, b.PlannedOrders);
+                    // Per ERPNext commits e03a0ac44b & 1cae8b6982: resolve purchase lead time for the row's ordering supplier
+                    var leadTimeDays = await _leadTimeService.GetCumulativeLeadTimeDaysAsync(
+                        item.Id, bom?.Id, b.PlannedOrders, hasBom ? null : defaultSupplierId);
                     var deliveryDate = b.BucketFromDate;
                     var releaseDate = deliveryDate.AddDays(-leadTimeDays);
 
