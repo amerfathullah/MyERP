@@ -86,9 +86,7 @@ public class MasterProductionScheduleService : DomainService
         var leadTimeRepo = _itemLeadTimeRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemLeadTime, Guid>>();
         if (leadTimeRepo != null)
         {
-            var leadTimeQ = await leadTimeRepo.WithDetailsAsync(lt => lt.Suppliers)
-                ?? await leadTimeRepo.GetQueryableAsync();
-            var itemLeadTime = leadTimeQ?.FirstOrDefault(lt => lt.ItemId == itemId);
+            var itemLeadTime = await FindItemLeadTimeAsync(leadTimeRepo, itemId, includeSuppliers: !isManufacture);
             if (itemLeadTime != null)
             {
                 return isManufacture
@@ -98,5 +96,36 @@ public class MasterProductionScheduleService : DomainService
         }
 
         return fallbackDays;
+    }
+
+    private static async Task<ItemLeadTime?> FindItemLeadTimeAsync(
+        IRepository<ItemLeadTime, Guid> leadTimeRepo,
+        Guid itemId,
+        bool includeSuppliers)
+    {
+        if (includeSuppliers)
+        {
+            var withDetails = await leadTimeRepo.WithDetailsAsync(lt => lt.Suppliers);
+            var matched = withDetails?.FirstOrDefault(lt => lt.ItemId == itemId);
+            if (matched != null)
+            {
+                return matched;
+            }
+        }
+
+        var queryable = await leadTimeRepo.GetQueryableAsync();
+        var itemLeadTime = queryable?.FirstOrDefault(lt => lt.ItemId == itemId);
+        if (itemLeadTime != null)
+        {
+            return itemLeadTime;
+        }
+
+        if (!includeSuppliers)
+        {
+            var withDetails = await leadTimeRepo.WithDetailsAsync(lt => lt.Suppliers);
+            return withDetails?.FirstOrDefault(lt => lt.ItemId == itemId);
+        }
+
+        return null;
     }
 }

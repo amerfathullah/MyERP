@@ -72,6 +72,37 @@ public class UpstreamBatch59007To58412Tests
         days.ShouldBe(5);
     }
 
+    [Fact]
+    public async Task MasterProductionScheduleService_GetCumulativeLeadTimeDaysAsync_PurchaseResolvesSupplierWhenOnlyGetQueryableStubbed()
+    {
+        var itemId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var leadTimeRepo = Substitute.For<IRepository<ItemLeadTime, Guid>>();
+
+        var item = new Item(itemId, Guid.NewGuid(), "RM-001", "Raw Material", ItemType.Goods)
+        {
+            LeadTimeDays = 3
+        };
+        itemRepo.FindAsync(itemId).Returns(item);
+
+        var leadTime = new ItemLeadTime(
+            Guid.NewGuid(),
+            itemId,
+            purchaseTimeDays: 4,
+            bufferTimeDays: 1);
+        leadTime.AddSupplier(supplierId, purchaseTimeDays: 10, bufferTimeDays: 2, isDefault: false);
+
+        leadTimeRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ItemLeadTime> { leadTime }.AsQueryable()));
+
+        var mpsService = new MasterProductionScheduleService(itemRepo, bomRepo, leadTimeRepo);
+
+        var days = await mpsService.GetCumulativeLeadTimeDaysAsync(itemId, bomId: null, qty: 1, supplierId: supplierId);
+        days.ShouldBe(12);
+    }
+
     // --- PR #58412 / commit 35b3358a5d: Accounting Dimension validation on single doctypes and child tables ---
 
     [Theory]
