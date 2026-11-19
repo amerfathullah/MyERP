@@ -481,5 +481,42 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.items.at(0).get('salesOrderItemId')?.value).toBeNull();
       expect(comp.items.at(0).get('deliveryNoteItemId')?.value).toBeNull();
     });
+
+    it('uses rounded total when computing automatic write-off amount (commit f2219cf5b9)', () => {
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: {} } } },
+          { provide: TaxCalculationService, useValue: new TaxCalculationService() },
+          { provide: SalesInvoiceService, useValue: { get: vi.fn(), getNextNumber: vi.fn().mockReturnValue(of('SINV-0013')) } },
+          { provide: SalesOrderService, useValue: { getBillableSalesOrders: vi.fn().mockReturnValue(of([])) } },
+          { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: PaymentTermsTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CurrencyExchangeService, useValue: {} },
+          { provide: PartyDetailsService, useValue: { getCustomerDetails: vi.fn().mockReturnValue(of({})) } },
+          { provide: TaxCategoryService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxRuleService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: TaxChargesTemplateService, useValue: { getActiveTemplates: vi.fn().mockReturnValue(of([])), getDefault: vi.fn().mockReturnValue(of(null)) } },
+          { provide: PriceListService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new SalesInvoiceFormComponent());
+      comp.addItemRow({ itemId: 'item-1', description: 'Widget', quantity: 1, unitPrice: 99.6 });
+      comp.recalculate();
+
+      // With roundedTotal = 100 and paidAmount = 98 -> writeOff = 2.00 (not 1.60)
+      expect(comp.computeAutomaticWriteOffAmount(true, 98, 0, 100, false)).toBe(2);
+      // When disableRoundedTotal is true -> uses grandTotal (99.6) - 98 = 1.60
+      expect(comp.computeAutomaticWriteOffAmount(true, 98, 0, 100, true)).toBe(1.6);
+      // When writeOffAutomatically is false -> 0
+      expect(comp.computeAutomaticWriteOffAmount(false, 98, 0, 100, false)).toBe(0);
+    });
   });
 });

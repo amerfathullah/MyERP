@@ -1522,6 +1522,9 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.OrderedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ReceivedQuantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.PriceListRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.Amount).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.JobCardItemId);
         });

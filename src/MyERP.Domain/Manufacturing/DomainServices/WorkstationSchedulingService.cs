@@ -224,6 +224,194 @@ public class WorkstationSchedulingService : DomainService
         return JobCardManager.GetAllotedCapacity(merged).Count;
     }
 
+    /// <summary>
+    /// Filters out Production Plan schedule rows whose operation quantity is covered by job cards carrying booked load.
+    /// Per ERPNext commits 1c53d45356, 3771672e23, 68c6d2fe71, 808549515d, and bfd5ed73b5:
+    /// A schedule block steps aside only when job cards carrying booked load (logged time or scheduled time)
+    /// cover the required quantity (net of upstream process loss) of EACH work order on its plan row and operation.
+    /// </summary>
+    public static List<ProductionPlanScheduleRow> FilterCoveredScheduleRows(
+        IReadOnlyList<ProductionPlanScheduleRow> rows,
+        IReadOnlyList<WorkOrder> workOrders,
+        IReadOnlyList<WorkOrderOperationCoverageSnapshot> operations,
+        IReadOnlyList<JobCard> jobCards,
+        IReadOnlySet<Guid>? jobCardsWithScheduledTime = null)
+    {
+        if (rows.Count == 0)
+            return new List<ProductionPlanScheduleRow>();
+
+        var plans = rows.Select(r => r.ProductionPlanId).ToHashSet();
+        var covered = GetCoveredOperations(plans, workOrders, operations, jobCards, jobCardsWithScheduledTime);
+
+        return rows
+            .Where(r => !covered.Contains((r.ProductionPlanId, r.PlanRowId, r.OperationId)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Returns plan row operations <c>(ProductionPlanId, PlanRowId, OperationId)</c> whose every work order
+    /// has job cards carrying booked load covering its required operation quantity net of upstream loss.
+    /// Per ERPNext commits 3771672e23, 68c6d2fe71, 808549515d, and bfd5ed73b5:
+    /// - Coverage is checked per work order so one work order's upstream loss or job cards cannot offset
+    ///   another work order's uncovered required quantity on the same plan row.
+    /// - Quantities are rounded to 4 decimals only at the comparison.
+    /// - An operation whose quantity is fully lost upstream (required &lt;= 0) is treated as covered and frees its block.
+    /// </summary>
+    public static HashSet<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId)> GetCoveredOperations(
+        IReadOnlySet<Guid> productionPlanIds,
+        IReadOnlyList<WorkOrder> workOrders,
+        IReadOnlyList<WorkOrderOperationCoverageSnapshot> operations,
+        IReadOnlyList<JobCard> jobCards,
+        IReadOnlySet<Guid>? jobCardsWithScheduledTime = null,
+        int precision = 4)
+    {
+        var (required, carried) = GetJobCardCoverage(
+            productionPlanIds, workOrders, operations, jobCards, jobCardsWithScheduledTime);
+
+        var shortOperations = new HashSet<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId)>();
+        var allOperations = new HashSet<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId)>();
+
+        foreach (var (key, qty) in required)
+        {
+            var opKey = (key.ProductionPlanId, key.PlanRowId, key.OperationId);
+            allOperations.Add(opKey);
+
+            var carriedQty = carried.GetValueOrDefault(key, 0m);
+            if (Math.Round(carriedQty, precision) < Math.Round(qty, precision))
+            {
+                shortOperations.Add(opKey);
+            }
+        }
+
+        allOperations.ExceptWith(shortOperations);
+        return allOperations;
+    }
+
+    /// <summary>
+    /// Computes required and carried operation quantities keyed by
+    /// <c>(ProductionPlanId, PlanRowId, OperationId, WorkOrderId)</c>.
+    /// </summary>
+    public static (
+        Dictionary<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId, Guid WorkOrderId), decimal> Required,
+        Dictionary<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId, Guid WorkOrderId), decimal> Carried)
+        GetJobCardCoverage(
+            IReadOnlySet<Guid> productionPlanIds,
+            IReadOnlyList<WorkOrder> workOrders,
+            IReadOnlyList<WorkOrderOperationCoverageSnapshot> operations,
+            IReadOnlyList<JobCard> jobCards,
+            IReadOnlySet<Guid>? jobCardsWithScheduledTime = null)
+    {
+        var activeWorkOrders = workOrders
+            .Where(wo => wo.Status != WorkOrderStatus.Cancelled
+                      && wo.ProductionPlanId.HasValue
+                      && productionPlanIds.Contains(wo.ProductionPlanId.Value))
+            .ToDictionary(wo => wo.Id);
+
+        if (activeWorkOrders.Count == 0)
+        {
+            return (
+                new Dictionary<(Guid, Guid, Guid, Guid), decimal>(),
+                new Dictionary<(Guid, Guid, Guid, Guid), decimal>());
+        }
+
+        var opsByWorkOrder = operations
+            .Where(op => activeWorkOrders.ContainsKey(op.WorkOrderId))
+            .GroupBy(op => op.WorkOrderId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<WorkOrderOperationCoverageSnapshot>)g.ToList());
+
+        var required = new Dictionary<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId, Guid WorkOrderId), decimal>();
+        foreach (var op in operations.Where(o => activeWorkOrders.ContainsKey(o.WorkOrderId)))
+        {
+            var wo = activeWorkOrders[op.WorkOrderId];
+            var woOps = opsByWorkOrder.GetValueOrDefault(wo.Id) ?? Array.Empty<WorkOrderOperationCoverageSnapshot>();
+            var upstreamLoss = GetUpstreamProcessLoss(wo, woOps, op);
+            var qty = GetOperationQty(wo, op) - upstreamLoss;
+            AddOperationQty(required, wo, op.OperationId, qty);
+        }
+
+        var carried = new Dictionary<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId, Guid WorkOrderId), decimal>();
+        foreach (var jc in jobCards)
+        {
+            if (jc.Status == JobCardStatus.Cancelled || !activeWorkOrders.TryGetValue(jc.WorkOrderId, out var wo))
+                continue;
+
+            var hasBookedLoad = jc.TotalTimeInMins != 0m
+                || jc.TimeLogs.Count > 0
+                || (jobCardsWithScheduledTime != null && jobCardsWithScheduledTime.Contains(jc.Id));
+
+            if (hasBookedLoad)
+            {
+                AddOperationQty(carried, wo, jc.OperationId, jc.ForQuantity);
+            }
+        }
+
+        return (required, carried);
+    }
+
+    public static decimal GetOperationQty(WorkOrder workOrder, WorkOrderOperationCoverageSnapshot operation)
+    {
+        if (workOrder.TrackSemiFinishedGoods && operation.OutputQty.HasValue && operation.OutputQty.Value != 0m)
+        {
+            return operation.OutputQty.Value;
+        }
+
+        return workOrder.Quantity;
+    }
+
+    public static decimal GetUpstreamProcessLoss(
+        WorkOrder workOrder,
+        IReadOnlyList<WorkOrderOperationCoverageSnapshot> workOrderOperations,
+        WorkOrderOperationCoverageSnapshot? targetOperation = null)
+    {
+        if (workOrder.TrackSemiFinishedGoods || workOrderOperations.Count == 0)
+            return 0m;
+
+        decimal processLossQty = 0m;
+        decimal? availableQty = null;
+
+        var sequenceGroups = workOrderOperations
+            .OrderBy(r => r.SequenceId)
+            .GroupBy(r => r.SequenceId);
+
+        foreach (var group in sequenceGroups)
+        {
+            if (targetOperation != null && group.Key >= targetOperation.SequenceId)
+                break;
+
+            var rows = group.ToList();
+            var stepLoss = rows.Max(row =>
+                !availableQty.HasValue
+                    ? row.ProcessLossQty
+                    : Math.Min(row.ProcessLossQty, Math.Max(availableQty.Value - row.CompletedQty, 0m)));
+
+            processLossQty += stepLoss;
+            availableQty = rows.Min(row => row.CompletedQty);
+        }
+
+        return processLossQty;
+    }
+
+    private static void AddOperationQty(
+        Dictionary<(Guid ProductionPlanId, Guid PlanRowId, Guid OperationId, Guid WorkOrderId), decimal> bucket,
+        WorkOrder workOrder,
+        Guid operationId,
+        decimal qty)
+    {
+        if (!workOrder.ProductionPlanId.HasValue)
+            return;
+
+        var planId = workOrder.ProductionPlanId.Value;
+        var planRows = new[] { workOrder.ProductionPlanItemId, workOrder.ProductionPlanSubAssemblyItemId };
+        foreach (var planRow in planRows)
+        {
+            if (planRow.HasValue && planRow.Value != Guid.Empty)
+            {
+                var key = (planId, planRow.Value, operationId, workOrder.Id);
+                bucket[key] = bucket.GetValueOrDefault(key, 0m) + qty;
+            }
+        }
+    }
+
     private static List<WorkstationWorkingHour> GetDefaultWorkingHours(Guid workstationId)
     {
         var defaults = new List<WorkstationWorkingHour>();
@@ -257,3 +445,26 @@ public enum ScheduleStatus
     /// <summary>No capacity available within planning window — fallback used.</summary>
     NoCapacity = 1
 }
+
+/// <summary>
+/// Represents a Production Plan Schedule block reserving workstation capacity
+/// until covered by job cards carrying booked load (ERPNext manufacturing/scheduling/loaders.py).
+/// </summary>
+public record ProductionPlanScheduleRow(
+    Guid WorkstationId,
+    DateTime FromTime,
+    DateTime ToTime,
+    Guid ProductionPlanId,
+    Guid PlanRowId,
+    Guid OperationId);
+
+/// <summary>
+/// Represents a Work Order Operation row for schedule coverage and upstream process loss evaluation.
+/// </summary>
+public record WorkOrderOperationCoverageSnapshot(
+    Guid WorkOrderId,
+    Guid OperationId,
+    int SequenceId,
+    decimal? OutputQty = null,
+    decimal CompletedQty = 0m,
+    decimal ProcessLossQty = 0m);

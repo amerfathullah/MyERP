@@ -37,6 +37,26 @@ public class MaterialRequestItem : Entity<Guid>
     /// <summary>Job Card raw material item ID when MR was created from Job Card transfer.</summary>
     public Guid? JobCardItemId { get; set; }
 
+    /// <summary>Price list rate fetched from Buying Price List (ERPNext commit e65c791473).</summary>
+    public decimal PriceListRate { get; set; }
+
+    /// <summary>Unit rate on Material Request line (ERPNext commit e65c791473).</summary>
+    public decimal Rate { get; set; }
+
+    /// <summary>Estimated amount = Rate * Quantity rounded to 2 decimal places (ERPNext commit e65c791473).</summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Updates price_list_rate, rate, and amount from a Buying Price List rate.
+    /// Per ERPNext stock/doctype/material_request/material_request.py update_item_rates (commit e65c791473).
+    /// </summary>
+    public void SetPriceListRate(decimal rate, int amountPrecision = 2)
+    {
+        PriceListRate = rate;
+        Rate = rate;
+        Amount = Math.Round(rate * Quantity, amountPrecision, MidpointRounding.AwayFromZero);
+    }
+
     protected MaterialRequestItem() { }
 
     public MaterialRequestItem(Guid id, Guid materialRequestId, Guid itemId,

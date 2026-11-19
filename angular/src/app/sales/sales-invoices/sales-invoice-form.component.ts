@@ -366,6 +366,27 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.onPaymentTermsChanged();
   }
 
+  /**
+   * Computes automatic write-off amount using rounded total when available.
+   * Per ERPNext commit f2219cf5b9 (write_off_outstanding_amount_automatically):
+   * uses rounded_total || grand_total rather than unrounded grand_total.
+   */
+  computeAutomaticWriteOffAmount(
+    writeOffAutomatically: boolean,
+    paidAmount = 0,
+    totalAdvance = 0,
+    roundedTotal?: number | null,
+    disableRoundedTotal = false,
+  ): number {
+    if (!writeOffAutomatically) {
+      return 0;
+    }
+    const effectiveGrandTotal = !disableRoundedTotal && roundedTotal
+      ? roundedTotal
+      : (this.calcResult?.grandTotal ?? 0);
+    return Math.round((effectiveGrandTotal - paidAmount - totalAdvance + Number.EPSILON) * 100) / 100;
+  }
+
   /** Discount percentage changed → compute amount */
   onDiscountPercentChanged(): void {
     const base = this.discountOn === 'NetTotal' ? this.calcResult.netTotal : this.calcResult.grandTotal;

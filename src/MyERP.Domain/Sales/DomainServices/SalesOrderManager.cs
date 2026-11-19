@@ -121,15 +121,17 @@ public class SalesOrderManager : DomainService
 
     /// <summary>
     /// Checks whether a Sales Order has any line items with billing amount headroom.
-    /// Per ERPNext PR #58751 / commit 683f033c34:
+    /// Per ERPNext PR #58751 / commit 683f033c34 &amp; commit b099a6aa25:
     /// Closed rows are excluded. A row has headroom if Amount == 0 (e.g. zero-amount service) or
     /// |BilledAmount| &lt; |Amount| * (1 + allowance / 100).
     /// Item-level OverBillingAllowance takes precedence over global allowance when non-zero.
+    /// When <paramref name="filterItemId"/> is supplied, only matching Sales Order Item rows are evaluated.
     /// </summary>
     public static bool HasPotentiallyBillableItems(
         SalesOrder so,
         IReadOnlyDictionary<Guid, decimal>? itemOverBillingAllowances = null,
-        decimal globalOverBillingAllowance = 0m)
+        decimal globalOverBillingAllowance = 0m,
+        Guid? filterItemId = null)
     {
         if (so.Status is DocumentStatus.Closed or DocumentStatus.Draft or DocumentStatus.Cancelled)
             return false;
@@ -137,6 +139,9 @@ public class SalesOrderManager : DomainService
         foreach (var line in so.Items)
         {
             if (line.IsClosed)
+                continue;
+
+            if (filterItemId.HasValue && line.ItemId != filterItemId.Value)
                 continue;
 
             decimal allowance = globalOverBillingAllowance;

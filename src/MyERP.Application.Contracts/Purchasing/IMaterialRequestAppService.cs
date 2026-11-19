@@ -19,4 +19,5 @@ public interface IMaterialRequestAppService : IApplicationService
     Task<MaterialRequestDto> ReopenAsync(Guid id);
     Task<MrFulfillmentStatusDto> GetFulfillmentStatusAsync(Guid id);
     Task<MyERP.Manufacturing.BatchCreateWorkOrdersResultDto> RaiseWorkOrdersAsync(Guid id);
+    Task<MaterialRequestDto> UpdateItemRatesAsync(Guid id, Guid buyingPriceListId);
 }

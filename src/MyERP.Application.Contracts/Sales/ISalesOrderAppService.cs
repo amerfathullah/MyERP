@@ -34,7 +34,7 @@ public interface ISalesOrderAppService : IApplicationService
     /// Returns submitted sales orders that have potentially billable items,
     /// factoring in item-level and global OverBillingAllowance.
     /// </summary>
-    Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null);
+    Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null, Guid? itemId = null);
     Task<SalesOrderDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input);
     Task<PurchaseOrderDto> CreateInterCompanyPurchaseOrderAsync(Guid id);
 }

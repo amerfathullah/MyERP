@@ -5,8 +5,10 @@ using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing;
+using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Manufacturing.Services;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
@@ -484,5 +486,268 @@ public class UpstreamBatch9ParityTests
         var unreserved = StockReservationManager.GetSubcontractingUnreservedQty(sco, new[] { orderSre, transferSre });
         unreserved.ShouldContainKey(supplied.Id);
         unreserved[supplied.Id].ShouldBe(4m);
+    }
+
+    [Fact]
+    public void WorkstationSchedulingService_FilterCoveredScheduleRows_EvaluatesCoveragePerWorkOrderNetOfUpstreamLoss_1c53d45356_3771672e23_68c6d2fe71_808549515d_bfd5ed73b5()
+    {
+        var companyId = Guid.NewGuid();
+        var planId = Guid.NewGuid();
+        var planRowId = Guid.NewGuid();
+        var workstationId = Guid.NewGuid();
+        var op1Id = Guid.NewGuid();
+        var op2Id = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var wo1 = new WorkOrder(Guid.NewGuid(), companyId, "WO-COV-1", itemId, bomId, 10m)
+        {
+            ProductionPlanId = planId,
+            ProductionPlanItemId = planRowId
+        };
+        var wo2 = new WorkOrder(Guid.NewGuid(), companyId, "WO-COV-2", itemId, bomId, 10m)
+        {
+            ProductionPlanId = planId,
+            ProductionPlanItemId = planRowId
+        };
+
+        // WO1 has upstream loss of 10 on op1 -> op2 required qty is 0 (fully lost upstream, 68c6d2fe71)
+        // Even if WO1 has a draft job card of 10 on op2 with scheduled time, it MUST NOT cover WO2's uncovered 10 on op2 (bfd5ed73b5)
+        var ops = new List<WorkOrderOperationCoverageSnapshot>
+        {
+            new(wo1.Id, op1Id, SequenceId: 1, CompletedQty: 0m, ProcessLossQty: 10m),
+            new(wo1.Id, op2Id, SequenceId: 2, CompletedQty: 0m, ProcessLossQty: 0m),
+            new(wo2.Id, op1Id, SequenceId: 1, CompletedQty: 8m, ProcessLossQty: 2m),
+            new(wo2.Id, op2Id, SequenceId: 2, CompletedQty: 0m, ProcessLossQty: 0m),
+        };
+
+        var jcWo1Op2 = new JobCard(Guid.NewGuid(), companyId, wo1.Id, op2Id, forQuantity: 10m, sequenceId: 2);
+        var scheduledSet = new HashSet<Guid> { jcWo1Op2.Id };
+
+        var scheduleBlockOp2 = new ProductionPlanScheduleRow(
+            workstationId,
+            new DateTime(2026, 6, 1, 8, 0, 0),
+            new DateTime(2026, 6, 1, 12, 0, 0),
+            planId,
+            planRowId,
+            op2Id);
+
+        // WO2 needs 8 on op2 (10 - 2 upstream loss) and has no job card yet -> block must NOT be freed!
+        var remainingBeforeWo2Card = WorkstationSchedulingService.FilterCoveredScheduleRows(
+            new[] { scheduleBlockOp2 },
+            new[] { wo1, wo2 },
+            ops,
+            new[] { jcWo1Op2 },
+            scheduledSet);
+        remainingBeforeWo2Card.Count.ShouldBe(1);
+
+        // Now add a job card with booked time for WO2 covering its 8 net of upstream loss (1c53d45356)
+        var jcWo2Op2 = new JobCard(Guid.NewGuid(), companyId, wo2.Id, op2Id, forQuantity: 8m, sequenceId: 2);
+        jcWo2Op2.AddTimeLog(new DateTime(2026, 6, 1, 8, 0, 0), new DateTime(2026, 6, 1, 10, 0, 0), 8m);
+
+        var remainingAfterWo2Card = WorkstationSchedulingService.FilterCoveredScheduleRows(
+            new[] { scheduleBlockOp2 },
+            new[] { wo1, wo2 },
+            ops,
+            new[] { jcWo1Op2, jcWo2Op2 },
+            scheduledSet);
+        remainingAfterWo2Card.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ProjectUpdate_GetUncollectedMemberReplies_ValidatesSentCopyRecipientAndProjectMembership_5d66d483c3()
+    {
+        var member1Id = Guid.NewGuid();
+        var member2Id = Guid.NewGuid();
+        var outsiderId = Guid.NewGuid();
+
+        var userByEmail = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["alice@example.com"] = member1Id,
+            ["bob@example.com"] = member2Id,
+            ["mallory@example.com"] = outsiderId
+        };
+        var projectMembers = new HashSet<Guid> { member1Id, member2Id };
+
+        var sentCopies = new Dictionary<string, string>
+        {
+            ["COMM-COPY-ALICE"] = "alice@example.com",
+            ["COMM-COPY-BOB"] = "bob@example.com",
+            ["COMM-COPY-MALLORY"] = "mallory@example.com" // former member who was removed after email sent
+        };
+
+        var replies = new List<ProjectUpdateReplyMessage>
+        {
+            // 1. Valid direct reply from Alice to her own copy
+            new("Alice@example.com", "COMM-COPY-ALICE", "Completed sprint tasks"),
+            // 2. Spoofed/forwarded reply where Bob replies to Alice's copy -> rejected
+            new("bob@example.com", "COMM-COPY-ALICE", "Forwarded reply"),
+            // 3. Reply to a timeline message not in sentCopies -> rejected
+            new("bob@example.com", "COMM-TIMELINE-OTHER", "Timeline reply"),
+            // 4. Reply from Mallory to her own copy, but she is no longer in projectMembers -> rejected
+            new("mallory@example.com", "COMM-COPY-MALLORY", "Outsider status"),
+            // 5. Valid direct reply from Bob to his own copy
+            new("bob@example.com", "COMM-COPY-BOB", "Working on deployment")
+        };
+
+        var alreadyCollected = new List<ProjectUpdateCollectedReply>
+        {
+            new(member1Id, "alice@example.com", "Completed sprint tasks")
+        };
+
+        var uncollected = MyERP.Projects.Entities.ProjectUpdate.GetUncollectedMemberReplies(
+            replies, sentCopies, userByEmail, projectMembers, alreadyCollected);
+
+        uncollected.Count.ShouldBe(1);
+        uncollected[0].UserId.ShouldBe(member2Id);
+        uncollected[0].ProjectStatus.ShouldBe("Working on deployment");
+    }
+
+    [Fact]
+    public void MaterialRequest_UpdateItemRatesFromPriceList_UpdatesPriceListRateRateAndAmount_e65c791473()
+    {
+        var companyId = Guid.NewGuid();
+        var item1Id = Guid.NewGuid();
+        var item2Id = Guid.NewGuid();
+        var mr = new MaterialRequest(Guid.NewGuid(), companyId, "MR-RATE-01", MaterialRequestType.Purchase, DateTime.UtcNow.Date);
+        mr.AddItem(item1Id, "Item 1", 4m, "Unit");
+        mr.AddItem(item2Id, "Item 2", 3m, "Box");
+
+        mr.UpdateItemRatesFromPriceList(item => item.ItemId == item1Id ? 25.5m : null);
+
+        mr.Items[0].PriceListRate.ShouldBe(25.5m);
+        mr.Items[0].Rate.ShouldBe(25.5m);
+        mr.Items[0].Amount.ShouldBe(102.0m);
+
+        mr.Items[1].PriceListRate.ShouldBe(0m);
+        mr.Items[1].Rate.ShouldBe(0m);
+        mr.Items[1].Amount.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void SerialBatchBundleValidationService_ResizeOrRemoveDraftInternalReceiptPackage_HandlesStockUomAndZeroQty_436188ea40_27ea54fc6e_78a6ceb4a3_f449a8fb26()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var receiptId = Guid.NewGuid();
+        var rowId = Guid.NewGuid();
+
+        var package = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, itemId, whId,
+            BundleTransactionType.Inward, "PurchaseReceipt", receiptId, DateTime.UtcNow.Date)
+        {
+            VoucherDetailId = rowId,
+            HasBatchNo = true
+        };
+        package.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), package.Id, qty: 10m, incomingRate: 5m, batchId: Guid.NewGuid()));
+
+        // 1. Only UOM conversion factor changes (qty stays 10, conversion factor changes 1 -> 12) -> resizes entry to 120 in stock UOM (436188ea40, 27ea54fc6e)
+        var resized = SerialBatchBundleValidationService.ResizeOrRemoveDraftInternalReceiptPackage(
+            rowId,
+            newQty: 10m,
+            newConversionFactor: 12m,
+            oldQty: 10m,
+            oldConversionFactor: 1m,
+            package: package,
+            isInternalReceipt: true,
+            isReturn: false,
+            isNewReceipt: false);
+        resized.Resized.ShouldBeTrue();
+        resized.Removed.ShouldBeFalse();
+        package.TotalQty.ShouldBe(120m);
+
+        // 2. Accepted or rejected qty drops to 0 -> removes draft package owned by row and clears bundle reference (78a6ceb4a3, f449a8fb26)
+        var removed = SerialBatchBundleValidationService.ResizeOrRemoveDraftInternalReceiptPackage(
+            rowId,
+            newQty: 0m,
+            newConversionFactor: 12m,
+            oldQty: 10m,
+            oldConversionFactor: 12m,
+            package: package,
+            isInternalReceipt: true,
+            isReturn: false,
+            isNewReceipt: false);
+        removed.Removed.ShouldBeTrue();
+        removed.BundleId.ShouldBeNull();
+        package.IsCancelled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SerialBatchBundleValidationService_OverflowBatchSplitAndRateLockedAutoPickAndPickListPackedQty_36fb8a7028_eba5799d6a_51a94d8372()
+    {
+        var itemId = Guid.NewGuid();
+        var b1 = Guid.NewGuid();
+        var b2 = Guid.NewGuid();
+
+        // 1. Overflow batch rows keep UseSerialBatchFields = true (36fb8a7028)
+        var splitRows = SerialBatchBundleValidationService.SplitStockEntryRowAcrossReservedBatches(
+            itemId,
+            requestedQty: 15m,
+            reservedBatches: new[]
+            {
+                (b1, "BATCH-01", 9m),
+                (b2, "BATCH-02", 10m)
+            });
+        splitRows.Count.ShouldBe(2);
+        splitRows[0].Quantity.ShouldBe(9m);
+        splitRows[0].UseSerialBatchFields.ShouldBeTrue();
+        splitRows[0].IsOverflowRow.ShouldBeFalse();
+        splitRows[1].Quantity.ShouldBe(6m);
+        splitRows[1].UseSerialBatchFields.ShouldBeTrue();
+        splitRows[1].IsOverflowRow.ShouldBeTrue();
+
+        // 2. Rate-locked row keeps source rate when batch is auto-picked (eba5799d6a)
+        var lockedRates = SerialBatchBundleValidationService.ResolveBatchAutoPickRate(
+            currentRate: 120m, currentPriceListRate: 125m, batchBasedItemPrice: 95m, hasLockedRate: true);
+        lockedRates.Rate.ShouldBe(120m);
+        lockedRates.PriceListRate.ShouldBe(125m);
+
+        var unlockedRates = SerialBatchBundleValidationService.ResolveBatchAutoPickRate(
+            currentRate: 120m, currentPriceListRate: 125m, batchBasedItemPrice: 95m, hasLockedRate: false);
+        unlockedRates.Rate.ShouldBe(95m);
+        unlockedRates.PriceListRate.ShouldBe(95m);
+
+        // 3. Pick List packed rows of a bundle component get per-location pack_qty rather than full component qty (51a94d8372)
+        var packedRow1 = Guid.NewGuid();
+        var packedRow2 = Guid.NewGuid();
+        var keptRows = SerialBatchBundleValidationService.GetKeptComponentPackedRowQuantities(
+            stalePackedRowIds: new[] { packedRow1, packedRow2 },
+            componentStockQtyPerUnit: 2m,
+            bundleRowStockQty: 5m,
+            pickListLocationPackQuantities: new[] { 4m, 6m });
+        keptRows.Count.ShouldBe(2);
+        keptRows[0].ShouldBe((packedRow1, 4m));
+        keptRows[1].ShouldBe((packedRow2, 6m));
+    }
+
+    [Fact]
+    public void SalesOrderAndSalesInvoice_FilterBillableByItemAndWriteOffUsingRoundedTotal_b099a6aa25_f2219cf5b9()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var billedItemId = Guid.NewGuid();
+        var unbilledItemId = Guid.NewGuid();
+
+        var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-BILL-ITEM", DateTime.UtcNow.Date);
+        so.AddItem(billedItemId, "Fully Billed Item", 5m, 100m, 0m);
+        so.AddItem(unbilledItemId, "Unbilled Item", 3m, 50m, 0m);
+        so.Submit();
+        so.Items[0].BilledQty = 5m;
+
+        // Filtering by the fully billed item returns false; filtering by the unbilled item returns true (b099a6aa25)
+        MyERP.Sales.DomainServices.SalesOrderManager.HasPotentiallyBillableItems(so, filterItemId: billedItemId).ShouldBeFalse();
+        MyERP.Sales.DomainServices.SalesOrderManager.HasPotentiallyBillableItems(so, filterItemId: unbilledItemId).ShouldBeTrue();
+
+        // SalesInvoice automatic write-off uses RoundedTotal when rounding is enabled (f2219cf5b9)
+        var si = new MyERP.Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), companyId, customerId, "SI-ROUNDOFF-01", DateTime.UtcNow.Date);
+        si.AddItem(unbilledItemId, "Item", 1m, 99.60m, 0m);
+        si.DisableRoundedTotal = false;
+        si.ApplyRounding(); // GrandTotal = 99.60, RoundedTotal = 100.00
+        si.AmountPaid = 98.00m;
+
+        var writeOff = si.ApplyAutomaticWriteOff(writeOffAutomatically: true);
+        writeOff.ShouldBe(2.00m); // 100.00 (RoundedTotal) - 98.00 (AmountPaid) = 2.00, not 1.60
     }
 }

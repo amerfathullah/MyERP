@@ -2155,7 +2155,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         return result;
     }
 
-    public async Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null)
+    public async Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null, Guid? itemId = null)
     {
         var query = await _repository.GetQueryableAsync();
         query = query.Where(o => o.Status != Core.DocumentStatus.Draft
@@ -2170,6 +2170,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (companyId.HasValue)
         {
             query = query.Where(o => o.CompanyId == companyId.Value);
+        }
+
+        if (itemId.HasValue)
+        {
+            query = query.Where(o => o.Items.Any(i => i.ItemId == itemId.Value));
         }
 
         // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable sales orders oldest first
@@ -2191,7 +2196,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var globalAllowance = accountsSettings?.OverBillingAllowance ?? 0m;
 
         var billableOrders = orders
-            .Where(o => SalesOrderManager.HasPotentiallyBillableItems(o, itemAllowances, globalAllowance))
+            .Where(o => SalesOrderManager.HasPotentiallyBillableItems(o, itemAllowances, globalAllowance, itemId))
             .Select(ObjectMapper.Map<SalesOrder, SalesOrderDto>)
             .ToList();
 

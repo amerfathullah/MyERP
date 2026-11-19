@@ -48,6 +48,9 @@ public class MaterialRequestItemDto
     public Guid? ProductionPlanId { get; set; }
     public Guid? ProductionPlanMrItemId { get; set; }
     public Guid? JobCardItemId { get; set; }
+    public decimal PriceListRate { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class CreateMaterialRequestDto
@@ -99,6 +102,9 @@ public class CreateMaterialRequestItemDto
     public Guid? ProductionPlanId { get; set; }
     public Guid? ProductionPlanMrItemId { get; set; }
     public Guid? JobCardItemId { get; set; }
+    public decimal PriceListRate { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto

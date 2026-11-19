@@ -11,7 +11,10 @@ using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
+using MyERP.Purchasing;
+using MyERP.Purchasing.DTOs;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -881,6 +884,77 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
                 }));
             dupEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
             (dupEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("same Sales Order Item row");
+        });
+    }
+
+    [Fact]
+    public async Task MaterialRequest_UpdateItemRatesFromBuyingPriceList_AndBillableSalesOrdersItemFilter_e65c791473_b099a6aa25()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var priceListRepo = GetRequiredService<IRepository<PriceList, Guid>>();
+            var itemPriceRepo = GetRequiredService<IRepository<ItemPrice, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MR Rate & Billable SO Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "MR", "MR", "MR-RATE-"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Main WH"), autoSave: true);
+
+            var itemA = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "MR-ITM-A", "MR Item A", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var itemB = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "MR-ITM-B", "MR Item B", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            var buyingPl = await priceListRepo.InsertAsync(
+                new PriceList(Guid.NewGuid(), "Standard Buying B5", "MYR", isBuying: true, isSelling: false), autoSave: true);
+            await itemPriceRepo.InsertAsync(
+                new ItemPrice(Guid.NewGuid(), itemA.Id, buyingPl.Id, 42.50m, "Unit", "MYR"), autoSave: true);
+
+            var mrAppService = GetRequiredService<IMaterialRequestAppService>();
+            var mr = await mrAppService.CreateAsync(new CreateMaterialRequestDto
+            {
+                CompanyId = company.Id,
+                RequestType = MaterialRequestType.Purchase,
+                RequestDate = new DateTime(2026, 6, 10),
+                TargetWarehouseId = wh.Id,
+                Items = new List<CreateMaterialRequestItemDto>
+                {
+                    new() { ItemId = itemA.Id, ItemName = itemA.ItemName, Quantity = 4m, Uom = "Unit", WarehouseId = wh.Id },
+                    new() { ItemId = itemB.Id, ItemName = itemB.ItemName, Quantity = 2m, Uom = "Unit", WarehouseId = wh.Id }
+                }
+            });
+
+            var updatedMr = await mrAppService.UpdateItemRatesAsync(mr.Id, buyingPl.Id);
+            var rowA = updatedMr.Items.Single(i => i.ItemId == itemA.Id);
+            rowA.PriceListRate.ShouldBe(42.50m);
+            rowA.Rate.ShouldBe(42.50m);
+            rowA.Amount.ShouldBe(170.00m);
+
+            var rowB = updatedMr.Items.Single(i => i.ItemId == itemB.Id);
+            rowB.PriceListRate.ShouldBe(0m);
+            rowB.Rate.ShouldBe(0m);
+            rowB.Amount.ShouldBe(0m);
+
+            // Billable Sales Orders filtered by SalesOrderItem.ItemId (b099a6aa25)
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Billable Filter Cust"), autoSave: true);
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-BILL-FLT-01", new DateTime(2026, 6, 10));
+            so.AddItem(itemA.Id, itemA.ItemName, 5m, 100m, 0m);
+            so.AddItem(itemB.Id, itemB.ItemName, 3m, 80m, 0m);
+            so.Submit();
+            // Item A is fully billed; Item B is unbilled
+            so.Items.Single(i => i.ItemId == itemA.Id).BilledQty = 5m;
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var soAppService = GetRequiredService<ISalesOrderAppService>();
+            var byItemA = await soAppService.GetBillableSalesOrdersAsync(customer.Id, company.Id, itemA.Id);
+            byItemA.ShouldBeEmpty();
+
+            var byItemB = await soAppService.GetBillableSalesOrdersAsync(customer.Id, company.Id, itemB.Id);
+            byItemB.Count.ShouldBe(1);
+            byItemB[0].Id.ShouldBe(so.Id);
         });
     }
 }

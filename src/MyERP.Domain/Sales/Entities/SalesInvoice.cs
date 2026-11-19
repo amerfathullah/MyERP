@@ -549,6 +549,38 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     }
 
     /// <summary>
+    /// Computes and applies the automatic write-off amount for the invoice's remaining outstanding balance.
+    /// Per ERPNext commit f2219cf5b9 (write_off_outstanding_amount_automatically / calculate_write_off_amount):
+    /// Resets WriteOffAmount to 0, computes outstanding using RoundedTotal when rounding is enabled
+    /// (falling back to GrandTotal when DisableRoundedTotal is true or RoundedTotal is 0),
+    /// and sets WriteOffAmount to that outstanding amount.
+    /// </summary>
+    public decimal ApplyAutomaticWriteOff(
+        bool writeOffAutomatically,
+        Guid? writeOffAccountId = null,
+        Guid? writeOffCostCenterId = null,
+        int precision = 2)
+    {
+        if (!writeOffAutomatically)
+        {
+            return WriteOffAmount;
+        }
+
+        WriteOffAmount = 0m;
+        var effectiveTotal = (!DisableRoundedTotal && RoundedTotal != 0m)
+            ? RoundedTotal
+            : GrandTotal;
+        var autoWriteOff = Math.Round(effectiveTotal - AmountPaid - TotalAdvance, precision, MidpointRounding.AwayFromZero);
+        WriteOffAmount = autoWriteOff;
+        if (writeOffAccountId.HasValue)
+            WriteOffAccountId = writeOffAccountId;
+        if (writeOffCostCenterId.HasValue)
+            WriteOffCostCenterId = writeOffCostCenterId;
+
+        return WriteOffAmount;
+    }
+
+    /// <summary>
     /// Record advance payment allocation against this invoice.
     /// Per ERPNext: set_advances() links unreconciled advances.
     /// </summary>

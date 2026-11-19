@@ -96,10 +96,13 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void AddItem(Guid itemId, string itemName, decimal quantity, string uom,
         Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null, Guid? projectId = null,
         decimal conversionFactor = 1m, Guid? productionPlanId = null, Guid? productionPlanMrItemId = null,
-        Guid? jobCardItemId = null)
+        Guid? jobCardItemId = null, decimal priceListRate = 0m, decimal rate = 0m)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        var effectiveRate = rate != 0m ? rate : priceListRate;
+        var effectivePriceListRate = priceListRate != 0m ? priceListRate : effectiveRate;
 
         _items.Add(new MaterialRequestItem(
             Guid.NewGuid(), Id, itemId, itemName, quantity, uom, warehouseId)
@@ -111,7 +114,28 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             ProductionPlanId = productionPlanId,
             ProductionPlanMrItemId = productionPlanMrItemId,
             JobCardItemId = jobCardItemId,
+            PriceListRate = effectivePriceListRate,
+            Rate = effectiveRate,
+            Amount = Math.Round(effectiveRate * quantity, 2, MidpointRounding.AwayFromZero),
         });
+    }
+
+    /// <summary>
+    /// Updates item rates from a Buying Price List resolver.
+    /// Per ERPNext stock/doctype/material_request/material_request.py update_item_rates (commit e65c791473):
+    /// updates PriceListRate, Rate, and Amount on each matching item.
+    /// </summary>
+    public void UpdateItemRatesFromPriceList(Func<MaterialRequestItem, decimal?> resolvePriceListRate)
+    {
+        Check.NotNull(resolvePriceListRate, nameof(resolvePriceListRate));
+        foreach (var item in _items)
+        {
+            var rate = resolvePriceListRate(item);
+            if (rate.HasValue)
+            {
+                item.SetPriceListRate(rate.Value);
+            }
+        }
     }
 
     public void ClearItems()

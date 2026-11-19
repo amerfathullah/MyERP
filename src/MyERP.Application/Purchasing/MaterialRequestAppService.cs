@@ -130,7 +130,9 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
                 item.ProductionPlanId,
                 item.ProductionPlanMrItemId,
-                item.JobCardItemId);
+                item.JobCardItemId,
+                item.PriceListRate,
+                item.Rate);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
@@ -198,7 +200,9 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
                 item.ProductionPlanId,
                 item.ProductionPlanMrItemId,
-                item.JobCardItemId);
+                item.JobCardItemId,
+                item.PriceListRate,
+                item.Rate);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
@@ -257,8 +261,9 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                     var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(mrItem.ItemId, entity.CompanyId);
                     if (!expenseAccountId.HasValue) continue;
 
-                    // MR items don't have price — use item's standard buying price or qty as estimate
-                    var estimatedAmount = mrItem.Quantity * (item.StandardBuyingPrice ?? 1m);
+                    // Use MR item rate if set (e.g. from Buying Price List), else item's standard buying price or 1m as estimate
+                    var unitRate = mrItem.Rate > 0m ? mrItem.Rate : (item.StandardBuyingPrice ?? 1m);
+                    var estimatedAmount = mrItem.Quantity * unitRate;
                     budgetItems.Add(new BudgetCheckItem(expenseAccountId.Value, estimatedAmount));
                 }
 
@@ -627,5 +632,45 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     {
         var mfgAppService = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
         return await mfgAppService.CreateWorkOrdersFromMaterialRequestAsync(id);
+    }
+
+    /// <summary>
+    /// Updates Material Request item rates from the selected Buying Price List.
+    /// Per ERPNext stock/doctype/material_request/material_request.py update_item_rates (commit e65c791473):
+    /// updates PriceListRate, Rate, and Amount on each matching item.
+    /// </summary>
+    [Authorize(MyERPPermissions.MaterialRequests.Edit)]
+    public async Task<MaterialRequestDto> UpdateItemRatesAsync(Guid id, Guid buyingPriceListId)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        var itemPriceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemPrice, Guid>>();
+        var itemIds = entity.Items.Select(i => i.ItemId).Distinct().ToList();
+        var priceQuery = await itemPriceRepo.GetQueryableAsync();
+        var prices = priceQuery
+            .Where(p => p.PriceListId == buyingPriceListId && itemIds.Contains(p.ItemId))
+            .ToList()
+            .Where(p => p.IsValidOnDate(entity.RequestDate))
+            .ToList();
+
+        entity.UpdateItemRatesFromPriceList(mrItem =>
+        {
+            var uomMatch = prices
+                .Where(p => p.ItemId == mrItem.ItemId
+                         && string.Equals(p.Uom, mrItem.Uom, StringComparison.OrdinalIgnoreCase)
+                         && p.MinQty <= mrItem.Quantity)
+                .OrderByDescending(p => p.MinQty)
+                .FirstOrDefault();
+            if (uomMatch != null)
+                return uomMatch.PriceListRate;
+
+            var anyMatch = prices
+                .Where(p => p.ItemId == mrItem.ItemId && p.MinQty <= mrItem.Quantity)
+                .OrderByDescending(p => p.MinQty)
+                .FirstOrDefault();
+            return anyMatch?.PriceListRate;
+        });
+
+        await _repository.UpdateAsync(entity, autoSave: true);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 }

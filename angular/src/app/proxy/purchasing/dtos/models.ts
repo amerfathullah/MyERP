@@ -29,6 +29,8 @@ export interface CreateMaterialRequestItemDto {
   productionPlanId?: string | null;
   productionPlanMrItemId?: string | null;
   jobCardItemId?: string | null;
+  priceListRate?: number;
+  rate?: number;
 }
 
 export interface GetMaterialRequestListDto extends PagedAndSortedResultRequestDto {
@@ -75,6 +77,9 @@ export interface MaterialRequestItemDto {
   productionPlanId?: string | null;
   productionPlanMrItemId?: string | null;
   jobCardItemId?: string | null;
+  priceListRate?: number;
+  rate?: number;
+  amount?: number;
 }
 
 export interface MrFulfillmentStatusDto {

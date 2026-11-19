@@ -570,7 +570,206 @@ public class SerialBatchBundleValidationService : DomainService
                 .WithData("detail", $"Batch {batchNo} has expired on {expiryDate.Value:yyyy-MM-dd}.");
         }
     }
+
+    /// <summary>
+    /// Resizes or removes the draft Serial and Batch Bundle of an internal transfer receipt row
+    /// when its accepted or rejected stock quantity changes on a saved draft receipt.
+    /// Per ERPNext commits 4c5fec17e2, 436188ea40, 27ea54fc6e, efd4a58548, 3d4ae9bb2e, 78a6ceb4a3, and f449a8fb26:
+    /// - Return receipts (<paramref name="isReturn"/> = true) and non-internal receipts do not resize or remove transfer packages.
+    /// - Compares stock qty (<c>qty * conversionFactor</c>) so UOM/conversion-factor changes resize the package even when transaction qty is unchanged.
+    /// - When stock qty drops to 0 (accepted qty goes to 0 or rejected qty goes to 0), removes the draft package owned by the row (<c>VoucherDetailId == rowId</c>) and clears the row's bundle reference.
+    /// - When stock qty changes to a positive value, resizes the single batch entry of the draft package owned by the row and recalculates bundle totals.
+    /// </summary>
+    public static DraftPackageSyncResult ResizeOrRemoveDraftInternalReceiptPackage(
+        Guid rowId,
+        decimal newQty,
+        decimal newConversionFactor,
+        decimal? oldQty,
+        decimal? oldConversionFactor,
+        SerialAndBatchBundle? package,
+        bool isInternalReceipt = true,
+        bool isReturn = false,
+        bool isNewReceipt = false,
+        int precision = 4)
+    {
+        if (!isInternalReceipt || isReturn || package == null)
+        {
+            return new DraftPackageSyncResult(package?.Id, Removed: false, Resized: false);
+        }
+
+        var factor = newConversionFactor > 0m ? newConversionFactor : 1m;
+        var newStockQty = Math.Round(newQty * factor, precision);
+
+        // If qty drops to 0 (accepted or rejected stock cleared), remove draft package owned by this row
+        if (newStockQty == 0m)
+        {
+            if (package.Status == Core.DocumentStatus.Draft && package.VoucherDetailId == rowId)
+            {
+                package.Cancel();
+                return new DraftPackageSyncResult(null, Removed: true, Resized: false);
+            }
+
+            return new DraftPackageSyncResult(package.Id, Removed: false, Resized: false);
+        }
+
+        if (isNewReceipt || !oldQty.HasValue)
+        {
+            return new DraftPackageSyncResult(package.Id, Removed: false, Resized: false);
+        }
+
+        var prevFactor = oldConversionFactor.HasValue && oldConversionFactor.Value > 0m
+            ? oldConversionFactor.Value
+            : 1m;
+        var oldStockQty = Math.Round(oldQty.Value * prevFactor, precision);
+
+        if (oldStockQty == newStockQty)
+        {
+            return new DraftPackageSyncResult(package.Id, Removed: false, Resized: false);
+        }
+
+        var nonSerialEntries = package.Entries
+            .Where(e => string.IsNullOrWhiteSpace(e.SerialNo))
+            .ToList();
+
+        if (package.Status != Core.DocumentStatus.Draft
+            || package.VoucherDetailId != rowId
+            || nonSerialEntries.Count != 1)
+        {
+            return new DraftPackageSyncResult(package.Id, Removed: false, Resized: false);
+        }
+
+        var singleBatchEntry = nonSerialEntries[0];
+        var sign = singleBatchEntry.Qty < 0m ? -1m : 1m;
+        singleBatchEntry.Qty = sign * Math.Abs(newStockQty);
+        package.Recalculate();
+
+        return new DraftPackageSyncResult(package.Id, Removed: false, Resized: true);
+    }
+
+    /// <summary>
+    /// Splits a Stock Entry row across multiple reserved batches while preserving
+    /// <c>UseSerialBatchFields = true</c> on every overflow batch row.
+    /// Per ERPNext commit 36fb8a7028:
+    /// Overflow batch rows copied from the source row must have <c>UseSerialBatchFields = true</c>
+    /// so subsequent validation does not re-auto-pick a batch without the reservation.
+    /// </summary>
+    public static List<ReservedBatchSplitRow> SplitStockEntryRowAcrossReservedBatches(
+        Guid itemId,
+        decimal requestedQty,
+        IReadOnlyList<(Guid BatchId, string BatchNo, decimal AvailableReservedQty)> reservedBatches,
+        int precision = 4)
+    {
+        var rows = new List<ReservedBatchSplitRow>();
+        var remaining = Math.Round(requestedQty, precision);
+        if (remaining <= 0m || reservedBatches == null || reservedBatches.Count == 0)
+        {
+            return rows;
+        }
+
+        var isFirst = true;
+        foreach (var (batchId, batchNo, availableReservedQty) in reservedBatches)
+        {
+            if (remaining <= 0m)
+                break;
+
+            if (availableReservedQty <= 0m)
+                continue;
+
+            var allocQty = Math.Round(Math.Min(remaining, availableReservedQty), precision);
+            if (allocQty <= 0m)
+                continue;
+
+            rows.Add(new ReservedBatchSplitRow(
+                ItemId: itemId,
+                BatchId: batchId,
+                BatchNo: batchNo,
+                Quantity: allocQty,
+                UseSerialBatchFields: true,
+                IsOverflowRow: !isFirst));
+
+            remaining = Math.Round(remaining - allocQty, precision);
+            isFirst = false;
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Resolves item rate and price list rate when a batch is auto-picked on an outward transaction row.
+    /// Per ERPNext commit eba5799d6a:
+    /// When a batch is auto-picked on a rate-locked row (e.g. linked to a source Sales Order row),
+    /// keeps the source rate instead of overwriting with the batch-based item price.
+    /// </summary>
+    public static (decimal Rate, decimal PriceListRate) ResolveBatchAutoPickRate(
+        decimal currentRate,
+        decimal currentPriceListRate,
+        decimal? batchBasedItemPrice,
+        bool hasLockedRate)
+    {
+        if (!hasLockedRate && batchBasedItemPrice.HasValue && batchBasedItemPrice.Value != 0m)
+        {
+            return (batchBasedItemPrice.Value, batchBasedItemPrice.Value);
+        }
+
+        return (currentRate, currentPriceListRate);
+    }
+
+    /// <summary>
+    /// Computes the stock quantity of each kept packed row for a Product Bundle component during re-pack / auto-pick.
+    /// Per ERPNext commit 51a94d8372 (get_kept_component_rows / get_current_packed_items):
+    /// Each kept stale packed row of a component packed from multiple Pick List locations takes its
+    /// location's <c>packQty</c>, rather than every kept row taking the full component stock quantity.
+    /// </summary>
+    public static List<(Guid PackedRowId, decimal Qty)> GetKeptComponentPackedRowQuantities(
+        IReadOnlyList<Guid> stalePackedRowIds,
+        decimal componentStockQtyPerUnit,
+        decimal bundleRowStockQty,
+        IReadOnlyList<decimal>? pickListLocationPackQuantities = null,
+        int precision = 4)
+    {
+        var result = new List<(Guid PackedRowId, decimal Qty)>();
+        if (stalePackedRowIds == null || stalePackedRowIds.Count == 0)
+        {
+            return result;
+        }
+
+        var fullComponentQty = Math.Round(componentStockQtyPerUnit * bundleRowStockQty, precision);
+        var remainingStale = new Queue<Guid>(stalePackedRowIds);
+
+        if (pickListLocationPackQuantities != null && pickListLocationPackQuantities.Count > 0)
+        {
+            foreach (var locQty in pickListLocationPackQuantities)
+            {
+                if (remainingStale.Count == 0)
+                    break;
+
+                var packedRowId = remainingStale.Dequeue();
+                result.Add((packedRowId, Math.Round(locQty, precision)));
+            }
+        }
+        else if (remainingStale.Count > 0)
+        {
+            result.Add((remainingStale.Dequeue(), fullComponentQty));
+        }
+
+        return result;
+    }
 }
+
+/// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>
+public record DraftPackageSyncResult(
+    Guid? BundleId,
+    bool Removed,
+    bool Resized);
+
+/// <summary>Represents a Stock Entry row split across reserved batches (ERPNext commit 36fb8a7028).</summary>
+public record ReservedBatchSplitRow(
+    Guid ItemId,
+    Guid BatchId,
+    string BatchNo,
+    decimal Quantity,
+    bool UseSerialBatchFields,
+    bool IsOverflowRow);
 
 /// <summary>
 /// Pool of available serial numbers and batches available on an original transaction line for return allocation.
