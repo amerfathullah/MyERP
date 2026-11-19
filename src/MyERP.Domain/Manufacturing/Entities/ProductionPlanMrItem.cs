@@ -25,6 +25,9 @@ public class ProductionPlanMrItem : Entity<Guid>
     /// <summary>Final calculated quantity: MAX(0, RequiredQty - OrderedQty - AvailableQty + SafetyStock).</summary>
     public decimal PlannedQty { get; set; }
 
+    /// <summary>Quantity already requested via Material Requests (ERPNext requested_qty).</summary>
+    public decimal RequestedQty { get; set; }
+
     public decimal MinOrderQty { get; set; }
     public decimal SafetyStock { get; set; }
 

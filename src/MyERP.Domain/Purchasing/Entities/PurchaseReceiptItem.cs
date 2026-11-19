@@ -49,6 +49,22 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
     public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
 
+    /// <summary>
+    /// Resets <see cref="ConversionFactor"/> to 1.0 when <see cref="Uom"/> matches <see cref="StockUom"/>
+    /// before computing <see cref="StockUomRate"/> (per ERPNext commit 82c0595f3a).
+    /// </summary>
+    public decimal ResetConversionFactorAndGetStockUomRate()
+    {
+        if (!string.IsNullOrWhiteSpace(Uom) &&
+            !string.IsNullOrWhiteSpace(StockUom) &&
+            string.Equals(Uom, StockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            ConversionFactor = 1.0m;
+        }
+
+        return StockUomRate;
+    }
+
     /// <summary>Link back to the Purchase Order item being received.</summary>
     public Guid? PurchaseOrderItemId { get; set; }
 

@@ -1694,6 +1694,28 @@ public class StockReservationManager : DomainService
             await uow.SaveChangesAsync();
         }
     }
+
+    /// <summary>
+    /// Computes the default unreserved quantity offered in the Stock Reservation dialog for a document row
+    /// per ERPNext commits 3bf7091474 and 6e83c51495 (stock_reservation.js):
+    /// Every quantity field the reserve dialog reads (<paramref name="stockQty"/>, <paramref name="stockReservedQty"/>)
+    /// and sends back is in stock UOM, so the unreserved balance is returned directly in stock UOM
+    /// without dividing by <paramref name="conversionFactor"/>.
+    /// </summary>
+    public static decimal CalculateDialogUnreservedStockQty(
+        decimal stockQty,
+        decimal stockReservedQty,
+        decimal dispatchedQtyInOrderUom = 0m,
+        decimal conversionFactor = 1m,
+        int precision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var alreadyCoveredStockQty = stockReservedQty > 0m
+            ? stockReservedQty
+            : dispatchedQtyInOrderUom * factor;
+        var unreserved = Math.Round(stockQty - alreadyCoveredStockQty, precision, MidpointRounding.AwayFromZero);
+        return Math.Max(0m, unreserved);
+    }
 }
 
 public class ReservationConsumption

@@ -190,4 +190,30 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         MaterialRequirements.Add(item);
     }
+
+    /// <summary>
+    /// Updates the plan status to <see cref="ProductionPlanStatus.MaterialRequested"/> only when
+    /// at least one material requirement row has a positive quantity to request (<c>PlannedQty &gt; 0</c>)
+    /// and every such row has been requested in full (<c>RequestedQty &gt;= PlannedQty</c> or <c>MaterialRequestId.HasValue</c>).
+    /// Per ERPNext commit e00b16f781 (update_requested_status):
+    /// A plan where all raw materials are already in stock (so no row has a positive quantity to request)
+    /// must not transition to Material Requested.
+    /// </summary>
+    public void UpdateRequestedStatus()
+    {
+        if (Status is ProductionPlanStatus.Cancelled or ProductionPlanStatus.Closed or ProductionPlanStatus.Completed or ProductionPlanStatus.Draft)
+        {
+            return;
+        }
+
+        var rowsToRequest = MaterialRequirements
+            .Where(d => d.PlannedQty > 0m)
+            .ToList();
+
+        if (rowsToRequest.Count > 0 &&
+            rowsToRequest.All(d => d.RequestedQty >= d.PlannedQty || (d.MaterialRequestId.HasValue && d.RequestedQty <= 0m)))
+        {
+            Status = ProductionPlanStatus.MaterialRequested;
+        }
+    }
 }

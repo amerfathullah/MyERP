@@ -544,6 +544,48 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
         PickedQty = Math.Max(0m, Math.Round(PickedQty + delta, 4));
     }
 
+    /// <summary>
+    /// Resolves the Purchase Order line Required-By Date (<c>schedule_date</c>) when creating a Purchase Order
+    /// from this Sales Order item (or Product Bundle parent row) per ERPNext commit 3a7d1a09b6 (mapper.py):
+    /// Falls back to <paramref name="today"/> when the item's <see cref="DeliveryDate"/> (or <paramref name="bundleDeliveryDate"/>)
+    /// is null or in the past (overdue Sales Order).
+    /// </summary>
+    public DateTime ResolvePurchaseOrderScheduleDate(DateTime today, DateTime? bundleDeliveryDate = null)
+    {
+        var sourceDate = (bundleDeliveryDate ?? DeliveryDate ?? today).Date;
+        var todayDate = today.Date;
+        return sourceDate >= todayDate ? sourceDate : todayDate;
+    }
+
+    /// <summary>
+    /// Resolves the stock availability indicator color for a Sales Order Item row
+    /// per ERPNext commits f1e1cd00b5 and 3fc1fd394f (sales_order.js):
+    /// - "gray" when delivered by supplier (drop-ship).
+    /// - "yellow" when Quantity is 0 and the order has unit-price items.
+    /// - "green" when pending stock qty (<c>Round(StockQty - DeliveredQty * ConversionFactor, precision)</c>)
+    ///   is &lt;= <paramref name="actualBinStockQty"/>.
+    /// - "orange" otherwise.
+    /// </summary>
+    public string GetStockAvailabilityIndicatorColor(
+        decimal actualBinStockQty,
+        bool hasUnitPriceItems = false,
+        int stockQtyPrecision = 4)
+    {
+        if (DeliveredBySupplier)
+        {
+            return "gray";
+        }
+
+        if (Quantity == 0m && hasUnitPriceItems)
+        {
+            return "yellow";
+        }
+
+        var factor = ConversionFactor > 0m ? ConversionFactor : 1m;
+        var pendingStockQty = Math.Round(StockQty - (DeliveredQty * factor), stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return pendingStockQty <= actualBinStockQty ? "green" : "orange";
+    }
+
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)
         : base(id)

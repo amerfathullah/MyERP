@@ -998,4 +998,240 @@ public class UpstreamBatch9ParityTests
         posReturn.AddItem(Guid.NewGuid(), "Return Item", -1m, 68.59m, 0m);
         posReturn.IsPosReturnSplitPaymentBalanced(new[] { -18.59m, -50.00m }, precision: 2).ShouldBeTrue();
     }
+
+    [Fact]
+    public void BlanketOrderPlcRate_JobCardCancelCheck_ProductionPlanRequestedStatus_And_StockReservationDialogStockQty_6b75a73931_6f328657c8_e00b16f781_3bf7091474_6e83c51495()
+    {
+        var companyId = Guid.NewGuid();
+        var today = DateTime.UtcNow.Date;
+
+        // 1. Blanket Order price list in order currency uses Blanket Order ExchangeRate (6b75a73931)
+        var bo = new BlanketOrder(
+            Guid.NewGuid(), companyId, "BO-PLC-01", "Selling", Guid.NewGuid(),
+            today, today.AddDays(30))
+        {
+            Currency = "USD",
+            ExchangeRate = 4.45m
+        };
+        bo.ResolvePriceListConversionRate(companyCurrency: "MYR", priceListCurrency: "MYR").ShouldBe(1.0m);
+        bo.ResolvePriceListConversionRate(companyCurrency: "MYR", priceListCurrency: "USD").ShouldBe(4.45m);
+        bo.ResolvePriceListConversionRate(companyCurrency: "MYR", priceListCurrency: "EUR", priceListCurrencyChanged: true, fetchedExchangeRateToCompany: 4.90m).ShouldBe(4.90m);
+
+        // 2. Job Card cancel check does not count handed-over pending qty as completed by remaining cards (6f328657c8)
+        // Work Order of 10 has produced 10. Card 1 completed 6 and handed over 4 pending to Card 2 (completed 4).
+        // Cancelling Card 2 leaves remaining completed = 6 (even though Card 1 had pending_qty = 4) -> must throw!
+        var cancelEx = Should.Throw<BusinessException>(() =>
+            JobCardManager.ValidateProducedQuantityOnCancel(
+                remainingOperationCompletedQty: 6m,
+                remainingOperationProcessLossQty: 0m,
+                workOrderQty: 10m,
+                operationRequiredQty: 10m,
+                workOrderProducedQty: 10m));
+        cancelEx.Data["detail"]!.ToString()!.ShouldContain("Cannot cancel Job Card because the Work Order has already produced 10");
+
+        // When remaining cards completed 10 (covering produced 10), cancel check passes
+        Should.NotThrow(() =>
+            JobCardManager.ValidateProducedQuantityOnCancel(
+                remainingOperationCompletedQty: 8m,
+                remainingOperationProcessLossQty: 2m,
+                workOrderQty: 10m,
+                operationRequiredQty: 10m,
+                workOrderProducedQty: 10m));
+
+        // 3. Production Plan sets MaterialRequested only when at least one row has PlannedQty > 0 (e00b16f781)
+        var planInStock = new ProductionPlan(Guid.NewGuid(), companyId, "PP-INSTOCK-01", today);
+        planInStock.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), planInStock.Id, Guid.NewGuid(), "FG-1", Guid.NewGuid(), 10m));
+        planInStock.Submit();
+        var zeroMrRow = new ProductionPlanMrItem(Guid.NewGuid(), planInStock.Id, Guid.NewGuid(), "RM-1", 10m)
+        {
+            AvailableQty = 10m,
+            PlannedQty = 0m,
+            RequestedQty = 0m
+        };
+        planInStock.AddMaterialRequirement(zeroMrRow);
+        planInStock.UpdateRequestedStatus();
+        planInStock.Status.ShouldBe(ProductionPlanStatus.Submitted);
+
+        var positiveMrRow = new ProductionPlanMrItem(Guid.NewGuid(), planInStock.Id, Guid.NewGuid(), "RM-2", 10m)
+        {
+            AvailableQty = 2m,
+            PlannedQty = 8m,
+            RequestedQty = 8m
+        };
+        planInStock.AddMaterialRequirement(positiveMrRow);
+        planInStock.UpdateRequestedStatus();
+        planInStock.Status.ShouldBe(ProductionPlanStatus.MaterialRequested);
+
+        // 4. Stock Reservation dialog unreserved qty stays in stock UOM without dividing by conversionFactor (3bf7091474, 6e83c51495)
+        StockReservationManager.CalculateDialogUnreservedStockQty(
+            stockQty: 120m, stockReservedQty: 24m, dispatchedQtyInOrderUom: 0m, conversionFactor: 12m)
+            .ShouldBe(96m);
+        StockReservationManager.CalculateDialogUnreservedStockQty(
+            stockQty: 120m, stockReservedQty: 0m, dispatchedQtyInOrderUom: 3m, conversionFactor: 12m)
+            .ShouldBe(84m);
+    }
+
+    [Fact]
+    public void SalesOrderPoScheduleDateAndIndicator_StockReconciliationPreview_PurchaseReceiptUomReset_And_AssetCapQtyRateRefresh_3a7d1a09b6_f1e1cd00b5_3fc1fd394f_9b3dd19043_f1eb56f686_4b8fadae2f_c17e33a06b_82c0595f3a_5f0ca9b071()
+    {
+        var today = new DateTime(2026, 11, 19);
+
+        // 1. Sales Order overdue delivery date falls back to today when creating Purchase Order (3a7d1a09b6)
+        var soItem = new SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Widget", 10m, 50m, 0m, "Box")
+        {
+            DeliveryDate = today.AddDays(-5),
+            ConversionFactor = 3m,
+            DeliveredQty = 6.6667m
+        };
+        soItem.ResolvePurchaseOrderScheduleDate(today).ShouldBe(today);
+        soItem.ResolvePurchaseOrderScheduleDate(today, bundleDeliveryDate: today.AddDays(7)).ShouldBe(today.AddDays(7));
+
+        // 2. Sales Order item indicator rounds pending stock qty before comparing with actualBinStockQty (f1e1cd00b5, 3fc1fd394f)
+        // StockQty = 30, DeliveredQty * ConversionFactor = 20.0001 -> pendingStockQty = 9.9999 <= 10 -> "green"
+        soItem.GetStockAvailabilityIndicatorColor(actualBinStockQty: 9.9999m, stockQtyPrecision: 4).ShouldBe("green");
+        soItem.GetStockAvailabilityIndicatorColor(actualBinStockQty: 9.9998m, stockQtyPrecision: 4).ShouldBe("orange");
+
+        // 3. Stock Reconciliation preview derives CurrentAmount, respects blank vs 0, and rounds diffs (9b3dd19043, f1eb56f686, 4b8fadae2f, c17e33a06b)
+        var srItem = new StockReconciliationItem(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            newQuantity: 10m, newValuationRate: 12.345m, currentQuantity: 10m, currentValuationRate: 12.345m);
+
+        var blankPreview = srItem.CalculatePreviewDifference(inputQty: null, inputValuationRate: null);
+        blankPreview.CurrentAmount.ShouldBe(123.45m);
+        blankPreview.Amount.ShouldBe(123.45m);
+        blankPreview.QuantityDifference.ShouldBe(0m);
+        blankPreview.AmountDifference.ShouldBe(0m);
+
+        var zeroQtyPreview = srItem.CalculatePreviewDifference(inputQty: 0m, inputValuationRate: null);
+        zeroQtyPreview.EffectiveQty.ShouldBe(0m);
+        zeroQtyPreview.Amount.ShouldBe(0m);
+        zeroQtyPreview.QuantityDifference.ShouldBe(-10m);
+        zeroQtyPreview.AmountDifference.ShouldBe(-123.45m);
+
+        // 4. PurchaseReceiptItem resets ConversionFactor to 1 before computing StockUomRate when Uom == StockUom (82c0595f3a)
+        var prItem = new PurchaseReceiptItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Bolt", 10m, 24m, 0m, "Unit")
+        {
+            StockUom = "Unit",
+            ConversionFactor = 12m
+        };
+        prItem.ResetConversionFactorAndGetStockUomRate().ShouldBe(24m);
+        prItem.ConversionFactor.ShouldBe(1m);
+
+        // 5. AssetCapitalization refreshes stock item valuation rate on qty change (5f0ca9b071)
+        var whId = Guid.NewGuid();
+        var stockItemId = Guid.NewGuid();
+        var cap = new AssetCapitalization(Guid.NewGuid(), Guid.NewGuid(), "ACAP-QTY-01", today, Guid.NewGuid());
+        cap.AddStockItem(stockItemId, "Steel Plate", 2m, 50m, whId);
+        cap.TotalCapitalizedAmount.ShouldBe(100m);
+
+        cap.UpdateStockItemQuantity(stockItemId, newQty: 5m, resolveOutgoingValuationRate: (_, _, qty) => qty >= 5m ? 44m : 50m);
+        cap.StockItems[0].Qty.ShouldBe(5m);
+        cap.StockItems[0].Rate.ShouldBe(44m);
+        cap.StockItems[0].Amount.ShouldBe(220m);
+        cap.TotalCapitalizedAmount.ShouldBe(220m);
+    }
+
+    [Fact]
+    public void PurchaseReceiptExchangeDiffGlSides_InternalTransitQtyCap_And_PackedItemSplitBundleReturnParity_7eab0353ba_99e9697f80_5b81b52467_926b3cd52d_1d46e4a453_3eea52f18c_428918d86a_ae4fab557c()
+    {
+        // 1. Purchase Receipt exchange difference GL row sets CreditInAccountCurrency on credit rows, never negative DebitInAccountCurrency (7eab0353ba)
+        var creditSides = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.BuildExchangeRateDifferenceGlSides(15.25m);
+        creditSides.Debit.ShouldBe(0m);
+        creditSides.Credit.ShouldBe(15.25m);
+        creditSides.DebitInAccountCurrency.ShouldBe(0m);
+        creditSides.CreditInAccountCurrency.ShouldBe(15.25m);
+
+        var debitSides = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.BuildExchangeRateDifferenceGlSides(-15.25m);
+        debitSides.Debit.ShouldBe(15.25m);
+        debitSides.Credit.ShouldBe(0m);
+        debitSides.DebitInAccountCurrency.ShouldBe(15.25m);
+        debitSides.CreditInAccountCurrency.ShouldBe(0m);
+
+        // 2. Internal transfer Purchase Receipt caps rounding against remaining transit qty (counting returns), but leaves over-receipts uncapped (99e9697f80, 5b81b52467)
+        var dnItemId = Guid.NewGuid();
+        var cappedSecondHalf = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalReceiptSourceWarehouseStockQty(
+            receivedStockQty: 5.0001m,
+            isInternalReceipt: true,
+            isReturn: false,
+            deliveryNoteItemId: dnItemId,
+            hasSerialOrBatchPackage: false,
+            deliveredStockQtyInTransit: 10.0000m,
+            currentRowUnroundedReceivedStockQty: 5.0000m,
+            otherReceiptsAndReturnsUnroundedReceivedStockQty: 5.0000m,
+            otherReceiptsAndReturnsSleActualQtyInTransit: -5.0001m);
+        cappedSecondHalf.ShouldBe(4.9999m); // Caps 5.0001 to the 4.9999 left in transit so 5.0001 + 4.9999 = 10.0000
+
+        var uncappedOverReceipt = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalReceiptSourceWarehouseStockQty(
+            receivedStockQty: 6.0000m,
+            isInternalReceipt: true,
+            isReturn: false,
+            deliveryNoteItemId: dnItemId,
+            hasSerialOrBatchPackage: false,
+            deliveredStockQtyInTransit: 10.0000m,
+            currentRowUnroundedReceivedStockQty: 6.0000m,
+            otherReceiptsAndReturnsUnroundedReceivedStockQty: 6.0000m,
+            otherReceiptsAndReturnsSleActualQtyInTransit: -6.0000m);
+        uncappedOverReceipt.ShouldBe(6.0000m); // Over-receipt (12 > 10) is not capped
+
+        // 3. Repeated bundle component delivered from two warehouses pairs each occurrence with its own delivered rows on return (926b3cd52d)
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var soPackedOcc1 = Guid.NewGuid();
+        var soPackedOcc2 = Guid.NewGuid();
+        var delRow1WhA = Guid.NewGuid();
+        var delRow1WhB = Guid.NewGuid();
+        var delRow2WhA = Guid.NewGuid();
+
+        var pairs = SerialBatchBundleValidationService.PairReturnComponentOrderRows(
+            parentBundleItemId: bundleItemId,
+            bundleComponents: new[] { (0, compItemId), (1, compItemId) },
+            deliveredPackedRows: new[]
+            {
+                (delRow1WhA, bundleItemId, compItemId, (Guid?)soPackedOcc1),
+                (delRow1WhB, bundleItemId, compItemId, (Guid?)soPackedOcc1),
+                (delRow2WhA, bundleItemId, compItemId, (Guid?)soPackedOcc2)
+            },
+            isReturn: true);
+        pairs.Count.ShouldBe(3);
+        pairs[0].ShouldBe((0, compItemId, (Guid?)delRow1WhA));
+        pairs[1].ShouldBe((0, compItemId, (Guid?)delRow1WhB));
+        pairs[2].ShouldBe((1, compItemId, (Guid?)delRow2WhA));
+
+        // 4. Returned packed row batch valuation accepts any bundle on the parent row and prioritizes the delivered row's own bundle rate (3eea52f18c, 1d46e4a453)
+        var batchId = Guid.NewGuid();
+        var bundleWhA = Guid.NewGuid();
+        var bundleWhB = Guid.NewGuid();
+        var entries = new[]
+        {
+            (BundleId: bundleWhA, BatchId: batchId, IncomingRate: 10m),
+            (BundleId: bundleWhB, BatchId: batchId, IncomingRate: 15m)
+        };
+        SerialBatchBundleValidationService.ResolveReturnPackedItemBatchRate(batchId, bundleWhA, entries).ShouldBe(10m);
+        SerialBatchBundleValidationService.ResolveReturnPackedItemBatchRate(batchId, bundleWhB, entries).ShouldBe(15m);
+
+        // 5. Rate repost matches packed item by warehouse and bundle (428918d86a) & allocate picked qty rounds remaining to packed qty precision (ae4fab557c)
+        var parentDetailId = Guid.NewGuid();
+        var whA = Guid.NewGuid();
+        var whB = Guid.NewGuid();
+        SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
+            parentDetailId, compItemId, whA, bundleWhA,
+            parentDetailId, compItemId, whA, bundleWhA).ShouldBeTrue();
+        SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
+            parentDetailId, compItemId, whA, bundleWhA,
+            parentDetailId, compItemId, whB, bundleWhA).ShouldBeFalse();
+        SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
+            parentDetailId, compItemId, whA, bundleWhA,
+            parentDetailId, compItemId, whA, bundleWhB).ShouldBeFalse();
+
+        var pl1 = Guid.NewGuid();
+        var pl2 = Guid.NewGuid();
+        var allocated = SerialBatchBundleValidationService.AllocatePickedQtyForPacking(
+            new[] { (pl1, 3.3333m, 0m), (pl2, 5m, 0m) },
+            requiredPackQty: 5m,
+            deliveredQtyPrecision: 4,
+            packedQtyPrecision: 4);
+        allocated.Count.ShouldBe(2);
+        allocated[0].ShouldBe((pl1, 3.3333m));
+        allocated[1].ShouldBe((pl2, 1.6667m));
+    }
 }

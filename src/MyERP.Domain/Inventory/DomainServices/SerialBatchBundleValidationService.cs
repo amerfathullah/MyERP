@@ -754,6 +754,180 @@ public class SerialBatchBundleValidationService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Pairs each component occurrence of a Product Bundle on a Return document with its delivered packed rows
+    /// per ERPNext commit 926b3cd52d (get_component_order_rows):
+    /// Delivered packed rows split across multiple warehouses share the same <c>SalesOrderPackedItemId</c>
+    /// (or their own row ID when not from a Sales Order). Grouping by <c>SalesOrderPackedItemId ?? DeliveredPackedRowId</c>
+    /// ensures that when a component appears twice in the same bundle and its first occurrence was delivered from two
+    /// warehouses, the first occurrence pairs with both of its delivered rows and the second occurrence pairs with its own.
+    /// </summary>
+    public static List<(int ComponentIndex, Guid ComponentItemId, Guid? DeliveredPackedRowId)> PairReturnComponentOrderRows(
+        Guid parentBundleItemId,
+        IReadOnlyList<(int ComponentIndex, Guid ComponentItemId)> bundleComponents,
+        IReadOnlyList<(Guid DeliveredPackedRowId, Guid ParentItemId, Guid ComponentItemId, Guid? SalesOrderPackedItemId)> deliveredPackedRows,
+        bool isReturn)
+    {
+        var result = new List<(int ComponentIndex, Guid ComponentItemId, Guid? DeliveredPackedRowId)>();
+        if (bundleComponents == null || bundleComponents.Count == 0)
+        {
+            return result;
+        }
+
+        var availableRows = (deliveredPackedRows ?? Array.Empty<(Guid, Guid, Guid, Guid?)>())
+            .Where(r => r.ParentItemId == parentBundleItemId)
+            .ToList();
+
+        if (!isReturn)
+        {
+            var mutable = new List<(Guid DeliveredPackedRowId, Guid ParentItemId, Guid ComponentItemId, Guid? SalesOrderPackedItemId)>(availableRows);
+            foreach (var comp in bundleComponents)
+            {
+                var matchIdx = mutable.FindIndex(r => r.ComponentItemId == comp.ComponentItemId);
+                if (matchIdx >= 0)
+                {
+                    var match = mutable[matchIdx];
+                    mutable.RemoveAt(matchIdx);
+                    result.Add((comp.ComponentIndex, comp.ComponentItemId, match.DeliveredPackedRowId));
+                }
+                else
+                {
+                    result.Add((comp.ComponentIndex, comp.ComponentItemId, null));
+                }
+            }
+            return result;
+        }
+
+        var groupedByOccurrence = new Dictionary<Guid, List<(Guid DeliveredPackedRowId, Guid ParentItemId, Guid ComponentItemId, Guid? SalesOrderPackedItemId)>>();
+        var firstRows = new List<(Guid GroupKey, Guid ComponentItemId)>();
+
+        foreach (var row in availableRows)
+        {
+            var key = row.SalesOrderPackedItemId ?? row.DeliveredPackedRowId;
+            if (!groupedByOccurrence.TryGetValue(key, out var list))
+            {
+                list = new List<(Guid, Guid, Guid, Guid?)>();
+                groupedByOccurrence[key] = list;
+                firstRows.Add((key, row.ComponentItemId));
+            }
+            list.Add(row);
+        }
+
+        foreach (var comp in bundleComponents)
+        {
+            var firstIdx = firstRows.FindIndex(f => f.ComponentItemId == comp.ComponentItemId);
+            if (firstIdx >= 0)
+            {
+                var groupKey = firstRows[firstIdx].GroupKey;
+                firstRows.RemoveAt(firstIdx);
+                foreach (var deliveredRow in groupedByOccurrence[groupKey])
+                {
+                    result.Add((comp.ComponentIndex, comp.ComponentItemId, deliveredRow.DeliveredPackedRowId));
+                }
+            }
+            else
+            {
+                result.Add((comp.ComponentIndex, comp.ComponentItemId, null));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Allocates Pick List row quantities for packing a Product Bundle component per ERPNext commit ae4fab557c:
+    /// Caps each Pick List row's <c>packQty</c> at <c>Min(Round(PickedQty - DeliveredQty, deliveredQtyPrecision), remainingQty)</c>
+    /// while rounding the remaining <c>qty</c> left to pack to <paramref name="packedQtyPrecision"/>.
+    /// </summary>
+    public static List<(Guid PickListRowId, decimal PackQty)> AllocatePickedQtyForPacking(
+        IReadOnlyList<(Guid PickListRowId, decimal PickedQty, decimal DeliveredQty)> pickListRows,
+        decimal requiredPackQty,
+        int deliveredQtyPrecision = 4,
+        int packedQtyPrecision = 4)
+    {
+        var locations = new List<(Guid PickListRowId, decimal PackQty)>();
+        if (pickListRows == null || pickListRows.Count == 0)
+        {
+            return locations;
+        }
+
+        var remaining = requiredPackQty;
+        foreach (var row in pickListRows)
+        {
+            var available = Math.Round(row.PickedQty - row.DeliveredQty, deliveredQtyPrecision, MidpointRounding.AwayFromZero);
+            var packQty = Math.Min(available, remaining);
+            if (packQty > 0m)
+            {
+                locations.Add((row.PickListRowId, packQty));
+                remaining = Math.Round(remaining - packQty, packedQtyPrecision, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        return locations;
+    }
+
+    /// <summary>
+    /// Resolves the incoming rate for a returned packed item's batch across all Serial and Batch Bundles
+    /// of the parent bundle row per ERPNext commits 3eea52f18c and 1d46e4a453:
+    /// Checks all bundles of the parent bundle row so a batch delivered from any split packed row is accepted,
+    /// while sorting the delivered packed row's own bundle last so its rate wins when multiple packed rows
+    /// delivered the same batch at different warehouse rates.
+    /// </summary>
+    public static decimal? ResolveReturnPackedItemBatchRate(
+        Guid batchId,
+        Guid? deliveredPackedItemBundleId,
+        IEnumerable<(Guid BundleId, Guid BatchId, decimal IncomingRate)> bundleRowEntries)
+    {
+        if (bundleRowEntries == null)
+        {
+            return null;
+        }
+
+        var matches = bundleRowEntries
+            .Where(e => e.BatchId == batchId)
+            .OrderBy(e => deliveredPackedItemBundleId.HasValue && e.BundleId == deliveredPackedItemBundleId.Value ? 1 : 0)
+            .ToList();
+
+        if (matches.Count == 0)
+        {
+            return null;
+        }
+
+        return matches[^1].IncomingRate;
+    }
+
+    /// <summary>
+    /// Determines whether a Packed Item row matches a Stock Ledger Entry during valuation rate reposting
+    /// per ERPNext commit 428918d86a (stock_ledger.py update_rate_on_delivery_and_sales_return):
+    /// Matches on <c>(ParentDetailId, ItemId, WarehouseId)</c> and, when the SLE has a <c>SerialAndBatchBundleId</c>,
+    /// also requires the Packed Item's <c>SerialAndBatchBundleId</c> to match so reposting one warehouse or bundle
+    /// does not overwrite another split row of the same component.
+    /// </summary>
+    public static bool MatchesPackedItemForRateRepost(
+        Guid packedParentDetailId,
+        Guid packedItemId,
+        Guid packedWarehouseId,
+        Guid? packedSerialAndBatchBundleId,
+        Guid sleVoucherDetailId,
+        Guid sleItemId,
+        Guid sleWarehouseId,
+        Guid? sleSerialAndBatchBundleId)
+    {
+        if (packedParentDetailId != sleVoucherDetailId ||
+            packedItemId != sleItemId ||
+            packedWarehouseId != sleWarehouseId)
+        {
+            return false;
+        }
+
+        if (sleSerialAndBatchBundleId.HasValue && sleSerialAndBatchBundleId.Value != Guid.Empty)
+        {
+            return packedSerialAndBatchBundleId == sleSerialAndBatchBundleId;
+        }
+
+        return true;
+    }
 }
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>

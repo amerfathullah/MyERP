@@ -58,4 +58,30 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         CurrentSerialAndBatchBundleId = currentSerialAndBatchBundleId;
         AllowZeroValuationRate = allowZeroValuationRate;
     }
+
+    /// <summary>
+    /// Computes the preview amounts and differences for a Stock Reconciliation line
+    /// per ERPNext commits 4b8fadae2f, f1eb56f686, 9b3dd19043, and c17e33a06b:
+    /// - Blank (<c>null</c>) <paramref name="inputQty"/> or <paramref name="inputValuationRate"/> keeps
+    ///   <see cref="CurrentQuantity"/> or <see cref="CurrentValuationRate"/>, whereas an explicit <c>0m</c> is respected.
+    /// - Derives <c>CurrentAmount = Round(CurrentQuantity * CurrentValuationRate, amountPrecision)</c>
+    ///   and <c>Amount = Round(EffectiveQty * EffectiveRate, amountPrecision)</c>.
+    /// - Rounds <c>QuantityDifference</c> and <c>AmountDifference</c> to field precision.
+    /// </summary>
+    public (decimal EffectiveQty, decimal EffectiveRate, decimal Amount, decimal CurrentAmount, decimal QuantityDifference, decimal AmountDifference)
+        CalculatePreviewDifference(
+            decimal? inputQty,
+            decimal? inputValuationRate,
+            int qtyPrecision = 4,
+            int amountPrecision = 2)
+    {
+        var effectiveQty = inputQty ?? CurrentQuantity;
+        var effectiveRate = inputValuationRate ?? CurrentValuationRate;
+        var amount = Math.Round(effectiveQty * effectiveRate, amountPrecision, MidpointRounding.AwayFromZero);
+        var currentAmount = Math.Round(CurrentQuantity * CurrentValuationRate, amountPrecision, MidpointRounding.AwayFromZero);
+        var qtyDiff = Math.Round(effectiveQty - CurrentQuantity, qtyPrecision, MidpointRounding.AwayFromZero);
+        var amountDiff = Math.Round(amount - currentAmount, amountPrecision, MidpointRounding.AwayFromZero);
+
+        return (effectiveQty, effectiveRate, amount, currentAmount, qtyDiff, amountDiff);
+    }
 }

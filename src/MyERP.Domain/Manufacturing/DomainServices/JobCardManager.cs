@@ -995,6 +995,38 @@ public class JobCardManager : DomainService
             ? Math.Min(jobCard.ForQuantity, Math.Round(minFraction * jobCard.ForQuantity, 4))
             : 0m;
     }
+
+    /// <summary>
+    /// Validates on Job Card cancellation that the remaining completed and process-loss quantity
+    /// on the operation still covers the Work Order's produced quantity.
+    /// Per ERPNext commit 6f328657c8 (validate_produced_quantity):
+    /// Handed-over pending quantity (<c>pending_qty</c>) is handed to another Job Card, so it is NOT
+    /// counted as completed by the remaining cards when checking whether cancellation would leave
+    /// the operation's completed total below the Work Order's produced quantity.
+    /// </summary>
+    public static void ValidateProducedQuantityOnCancel(
+        decimal remainingOperationCompletedQty,
+        decimal remainingOperationProcessLossQty,
+        decimal workOrderQty,
+        decimal operationRequiredQty,
+        decimal workOrderProducedQty,
+        int precision = 4)
+    {
+        if (workOrderProducedQty <= 0m || operationRequiredQty <= 0m)
+        {
+            return;
+        }
+
+        var operationTotal = ((remainingOperationCompletedQty + remainingOperationProcessLossQty) * workOrderQty) / operationRequiredQty;
+        var roundedOperationTotal = Math.Round(operationTotal, precision, MidpointRounding.AwayFromZero);
+        var roundedProducedQty = Math.Round(workOrderProducedQty, precision, MidpointRounding.AwayFromZero);
+
+        if (roundedOperationTotal < roundedProducedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Job Card because the Work Order has already produced {roundedProducedQty} which exceeds the remaining completed operation quantity ({roundedOperationTotal}).");
+        }
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

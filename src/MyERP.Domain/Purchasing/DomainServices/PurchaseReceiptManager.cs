@@ -524,4 +524,80 @@ public class PurchaseReceiptManager : DomainService
         var rawDiff = qty * netRate * (purchaseInvoiceExchangeRate - purchaseReceiptExchangeRate);
         return Math.Round(rawDiff, baseNetAmountPrecision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Builds the Debit/Credit and Account-Currency Debit/Credit amounts for a Purchase Receipt
+    /// exchange rate difference GL row per ERPNext commit 7eab0353ba (gl_composer.py):
+    /// Ensures Credit rows populate <c>CreditInAccountCurrency</c> (not negative <c>DebitInAccountCurrency</c>)
+    /// and Debit rows populate positive <c>DebitInAccountCurrency</c>.
+    /// </summary>
+    public static (decimal Debit, decimal Credit, decimal DebitInAccountCurrency, decimal CreditInAccountCurrency)
+        BuildExchangeRateDifferenceGlSides(decimal exchangeRateDifference, int precision = 2)
+    {
+        var rounded = Math.Round(exchangeRateDifference, precision, MidpointRounding.AwayFromZero);
+        if (rounded > 0m)
+        {
+            return (0m, rounded, 0m, rounded);
+        }
+
+        if (rounded < 0m)
+        {
+            var abs = Math.Abs(rounded);
+            return (abs, 0m, abs, 0m);
+        }
+
+        return (0m, 0m, 0m, 0m);
+    }
+
+    /// <summary>
+    /// Resolves the stock quantity that an internal Purchase Receipt row takes out of the in-transit
+    /// source warehouse per ERPNext commits 99e9697f80, 5b81b52467, 82aa27155f, and d510a998d1:
+    /// - Non-internal receipts, return receipts, rows without a linked Delivery Note item, or rows with
+    ///   an accepted or rejected Serial and Batch Bundle take their full <paramref name="receivedStockQty"/>.
+    /// - When the cumulative unrounded stock qty received across all receipts (and their returns) for the
+    ///   same Delivery Note item exceeds <paramref name="deliveredStockQtyInTransit"/> (an over-receipt),
+    ///   no transit cap is applied (only UOM rounding is capped).
+    /// - Otherwise caps the row's source warehouse qty to <c>Min(receivedStockQty, deliveredStockQtyInTransit + otherReceiptsNetTakenFromTransit)</c>.
+    /// </summary>
+    public static decimal ResolveInternalReceiptSourceWarehouseStockQty(
+        decimal receivedStockQty,
+        bool isInternalReceipt,
+        bool isReturn,
+        Guid? deliveryNoteItemId,
+        bool hasSerialOrBatchPackage,
+        decimal deliveredStockQtyInTransit,
+        decimal currentRowUnroundedReceivedStockQty,
+        decimal otherReceiptsAndReturnsUnroundedReceivedStockQty,
+        decimal otherReceiptsAndReturnsSleActualQtyInTransit,
+        int stockQtyPrecision = 4)
+    {
+        if (!isInternalReceipt ||
+            isReturn ||
+            !deliveryNoteItemId.HasValue ||
+            deliveryNoteItemId.Value == Guid.Empty ||
+            hasSerialOrBatchPackage ||
+            deliveredStockQtyInTransit <= 0m)
+        {
+            return receivedStockQty;
+        }
+
+        var cumulativeReceived = Math.Round(
+            otherReceiptsAndReturnsUnroundedReceivedStockQty + currentRowUnroundedReceivedStockQty,
+            stockQtyPrecision,
+            MidpointRounding.AwayFromZero);
+
+        if (cumulativeReceived > deliveredStockQtyInTransit)
+        {
+            return receivedStockQty;
+        }
+
+        // otherReceiptsAndReturnsSleActualQtyInTransit is negative when prior receipts took stock out of transit
+        // and positive for what receipt returns put back into transit.
+        var qtyLeftInTransit = Math.Round(
+            deliveredStockQtyInTransit + otherReceiptsAndReturnsSleActualQtyInTransit,
+            stockQtyPrecision,
+            MidpointRounding.AwayFromZero);
+
+        return Math.Min(receivedStockQty, qtyLeftInTransit);
+    }
 }

@@ -37,6 +37,12 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Exchange rate: agreement currency -> base company currency.</summary>
     public decimal ExchangeRate { get; set; } = 1m;
 
+    /// <summary>Price List currency for Blanket Order pricing (ERPNext commit 6b75a73931).</summary>
+    public string? PriceListCurrency { get; set; }
+
+    /// <summary>Price List conversion rate to company currency (ERPNext commit 6b75a73931).</summary>
+    public decimal PlcConversionRate { get; set; } = 1m;
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     private readonly List<BlanketOrderItem> _items = new();
@@ -255,6 +261,42 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
                     .WithData("detail", $"Row #{row.RowNumber}: Item {itemDisplay} is not in Blanket Order {OrderNumber}.");
             }
         }
+    }
+
+    /// <summary>
+    /// Resolves and updates the price list conversion rate (<see cref="PlcConversionRate"/>)
+    /// per ERPNext commit 6b75a73931 (blanket_order_pricing.py set_price_list):
+    /// - If <paramref name="priceListCurrency"/> equals <paramref name="companyCurrency"/>, sets <see cref="PlcConversionRate"/> to 1.0.
+    /// - Else if <paramref name="priceListCurrency"/> equals the Blanket Order's own <see cref="Currency"/>,
+    ///   uses the Blanket Order's <see cref="ExchangeRate"/> directly.
+    /// - Else if the price list currency changed, <see cref="PlcConversionRate"/> is unset/zero, or <paramref name="forceExchangeRate"/> is true,
+    ///   uses <paramref name="fetchedExchangeRateToCompany"/>.
+    /// </summary>
+    public decimal ResolvePriceListConversionRate(
+        string companyCurrency,
+        string? priceListCurrency,
+        bool priceListCurrencyChanged = false,
+        bool forceExchangeRate = false,
+        decimal? fetchedExchangeRateToCompany = null)
+    {
+        PriceListCurrency = priceListCurrency;
+
+        if (!string.IsNullOrWhiteSpace(priceListCurrency) &&
+            string.Equals(priceListCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            PlcConversionRate = 1.0m;
+        }
+        else if (!string.IsNullOrWhiteSpace(priceListCurrency) &&
+                 string.Equals(priceListCurrency, Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            PlcConversionRate = ExchangeRate;
+        }
+        else if (priceListCurrencyChanged || PlcConversionRate == 0m || forceExchangeRate)
+        {
+            PlcConversionRate = fetchedExchangeRateToCompany ?? ExchangeRate;
+        }
+
+        return PlcConversionRate;
     }
 }
 

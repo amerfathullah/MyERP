@@ -77,6 +77,35 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotal();
     }
 
+    /// <summary>
+    /// Updates the quantity of a consumed stock item row and refetches its outgoing valuation rate
+    /// when a warehouse rate resolver is supplied (per ERPNext commit 5f0ca9b071: stock_qty change
+    /// triggers get_all_item_warehouse_details so FIFO valuation rates update with quantity).
+    /// </summary>
+    public void UpdateStockItemQuantity(
+        Guid itemId,
+        decimal newQty,
+        Func<Guid, Guid?, decimal, decimal>? resolveOutgoingValuationRate = null)
+    {
+        if (Status != AssetCapitalizationStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        foreach (var item in _stockItems)
+        {
+            if (item.Id == itemId || item.ItemId == itemId)
+            {
+                item.Qty = newQty;
+                if (resolveOutgoingValuationRate != null && item.WarehouseId.HasValue && newQty > 0m)
+                {
+                    item.Rate = resolveOutgoingValuationRate(item.ItemId, item.WarehouseId, newQty);
+                }
+                item.Amount = item.Qty * item.Rate;
+            }
+        }
+
+        RecalculateTotal();
+    }
+
     public void AddServiceItem(Guid itemId, string itemName, decimal amount, Guid? expenseAccountId = null)
     {
         if (Status != AssetCapitalizationStatus.Draft)
