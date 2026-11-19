@@ -1209,16 +1209,16 @@ public class UpstreamBatch9ParityTests
         SerialBatchBundleValidationService.ResolveReturnPackedItemBatchRate(batchId, bundleWhA, entries).ShouldBe(10m);
         SerialBatchBundleValidationService.ResolveReturnPackedItemBatchRate(batchId, bundleWhB, entries).ShouldBe(15m);
 
-        // 5. Rate repost matches packed item by warehouse and bundle (428918d86a) & allocate picked qty rounds remaining to packed qty precision (ae4fab557c)
+        // 5. Rate repost matches packed item by bundle before warehouse (c0fe71cee9, 428918d86a) & allocate picked qty rounds remaining to packed qty precision (ae4fab557c)
         var parentDetailId = Guid.NewGuid();
         var whA = Guid.NewGuid();
         var whB = Guid.NewGuid();
         SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
             parentDetailId, compItemId, whA, bundleWhA,
-            parentDetailId, compItemId, whA, bundleWhA).ShouldBeTrue();
+            parentDetailId, compItemId, whB, bundleWhA).ShouldBeTrue();
         SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
-            parentDetailId, compItemId, whA, bundleWhA,
-            parentDetailId, compItemId, whB, bundleWhA).ShouldBeFalse();
+            parentDetailId, compItemId, whA, null,
+            parentDetailId, compItemId, whB, null).ShouldBeFalse();
         SerialBatchBundleValidationService.MatchesPackedItemForRateRepost(
             parentDetailId, compItemId, whA, bundleWhA,
             parentDetailId, compItemId, whA, bundleWhB).ShouldBeFalse();
@@ -1233,5 +1233,241 @@ public class UpstreamBatch9ParityTests
         allocated.Count.ShouldBe(2);
         allocated[0].ShouldBe((pl1, 3.3333m));
         allocated[1].ShouldBe((pl2, 1.6667m));
+    }
+
+    [Fact]
+    public void InterCompanyPendingOrderUom_DuplicateReferenceClear_ChildItemDraftPoGuard_And_PaymentReconciliationLimits_fe71cadf90_3941f742be_0fda60d8c7_14a3847119_85048a06c4_7b630d1df1()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var today = DateTime.UtcNow.Date;
+
+        // 1. Inter-company pending order qty compared in order UOM (fe71cadf90)
+        var so = new SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-IC-UOM", today);
+        so.AddItem(Guid.NewGuid(), "Box Item", 1m, 100m, 0m, "Box");
+        so.Items[0].ConversionFactor = 1000m;
+        // Ordered 999.99 stock units -> remaining stock = 0.01, which in Box UOM (0.01 / 1000 = 0.00001) rounds to 0.0000 at 4dp
+        var subUnitRemainder = new Dictionary<Guid, decimal> { [so.Items[0].Id] = 999.99m };
+        MyERP.Core.DomainServices.InterCompanyTransactionService.HasPendingInterCompanyOrderQty(so, subUnitRemainder, qtyPrecision: 4)
+            .ShouldBeFalse();
+
+        var realRemainder = new Dictionary<Guid, decimal> { [so.Items[0].Id] = 500m };
+        MyERP.Core.DomainServices.InterCompanyTransactionService.HasPendingInterCompanyOrderQty(so, realRemainder, qtyPrecision: 4)
+            .ShouldBeTrue();
+
+        // 2. Duplicating SI/PI/PO clears inter-company references (3941f742be)
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-DUP-01", today)
+        {
+            InterCompanyPurchaseInvoiceId = Guid.NewGuid()
+        };
+        var pi = new PurchaseInvoice(Guid.NewGuid(), companyId, supplierId, "PI-DUP-01", today)
+        {
+            InterCompanyInvoiceId = Guid.NewGuid()
+        };
+        var po = new PurchaseOrder(Guid.NewGuid(), companyId, supplierId, "PO-DUP-01", today)
+        {
+            InterCompanySalesOrderId = Guid.NewGuid()
+        };
+        MyERP.Core.DomainServices.InterCompanyTransactionService.ClearInterCompanyReferencesOnDuplicate(si, pi, po);
+        si.InterCompanyPurchaseInvoiceId.ShouldBeNull();
+        pi.InterCompanyInvoiceId.ShouldBeNull();
+        po.InterCompanySalesOrderId.ShouldBeNull();
+
+        // 3. Draft or submitted Purchase Order linking a Sales Order row or its packed row blocks deletion (0fda60d8c7, 14a3847119)
+        var soItemId = so.Items[0].Id;
+        var packedRowId = Guid.NewGuid();
+        var poRows = new[]
+        {
+            (PurchaseOrderId: Guid.NewGuid(), PurchaseOrderNumber: "PO-DRAFT-01", Status: MyERP.Core.DocumentStatus.Draft,
+             SalesOrderId: (Guid?)so.Id, SalesOrderItemId: (Guid?)null, SalesOrderPackedItemId: (Guid?)packedRowId)
+        };
+        var linkedPoNo = MyERP.Core.DomainServices.ChildItemUpdateService.ResolveLinkedPurchaseOrderNumberForSalesOrderRow(
+            so.Id, soItemId, new[] { packedRowId }, poRows);
+        linkedPoNo.ShouldBe("PO-DRAFT-01");
+
+        var childService = new MyERP.Core.DomainServices.ChildItemUpdateService();
+        var delEx = Should.Throw<BusinessException>(() =>
+            childService.ValidateSalesOrderItemDeletion(so.Items[0], linkedPurchaseOrderNumber: linkedPoNo));
+        delEx.Data["detail"]!.ToString()!.ShouldContain("already ordered on Purchase Order PO-DRAFT-01");
+
+        // 4. Payment Reconciliation validates both payment_limit and invoice_limit >= 0 (85048a06c4)
+        Should.NotThrow(() => MyERP.Accounting.DomainServices.PaymentReconciliationEngine.ValidateReconciliationLimits(null, 0));
+        var payLimEx = Should.Throw<BusinessException>(() =>
+            MyERP.Accounting.DomainServices.PaymentReconciliationEngine.ValidateReconciliationLimits(-1, 50));
+        payLimEx.Data["detail"]!.ToString()!.ShouldContain("Payment Limit must be a non-negative integer");
+        var invLimEx = Should.Throw<BusinessException>(() =>
+            MyERP.Accounting.DomainServices.PaymentReconciliationEngine.ValidateReconciliationLimits(50, -5));
+        invLimEx.Data["detail"]!.ToString()!.ShouldContain("Invoice Limit must be a non-negative integer");
+
+        // 5. Return against a tax-free document does not auto-apply default taxes (7b630d1df1)
+        SalesInvoiceManager.ShouldApplyDefaultTaxes(isReturn: true, returnAgainstId: Guid.NewGuid(), sourceDocumentHasTaxes: false).ShouldBeFalse();
+        SalesInvoiceManager.ShouldApplyDefaultTaxes(isReturn: true, returnAgainstId: Guid.NewGuid(), sourceDocumentHasTaxes: true).ShouldBeTrue();
+        SalesInvoiceManager.ShouldApplyDefaultTaxes(isReturn: false, returnAgainstId: null, sourceDocumentHasTaxes: false).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SerialBatchBundle_DraftOwnership_UnroundedBatchPick_SplitBundleReturnAllocation_And_ZeroDeliveredRate_2fda0bb04c_dcaf1a81c0_ff83c45efe_bb77453ba8_bc6c911436_8bcb291efd_bd09247690()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var draftDn1Id = Guid.NewGuid();
+        var draftDn2Id = Guid.NewGuid();
+
+        // 1. Draft voucher cannot take over another draft voucher's Serial and Batch Bundle (2fda0bb04c)
+        var bundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, itemId, whId,
+            BundleTransactionType.Outward, "DeliveryNote", draftDn1Id, DateTime.UtcNow.Date);
+
+        var draftEx = Should.Throw<BusinessException>(() =>
+            SerialBatchBundleValidationService.ValidateBundleNotLinkedToAnotherDraft(
+                bundle, "DeliveryNote", draftDn2Id, rowNumber: 1, isVoucherDraft: (_, _) => true));
+        draftEx.Data["detail"]!.ToString()!.ShouldContain("belongs to DeliveryNote");
+
+        // Same draft voucher or already-submitted/cancelled voucher passes
+        Should.NotThrow(() =>
+            SerialBatchBundleValidationService.ValidateBundleNotLinkedToAnotherDraft(
+                bundle, "DeliveryNote", draftDn1Id, rowNumber: 1, isVoucherDraft: (_, _) => true));
+
+        // 2. Picking fractional batches keeps unrounded remaining qty after each batch (dcaf1a81c0)
+        var b1 = Guid.NewGuid();
+        var b2 = Guid.NewGuid();
+        var pickedBatches = SerialBatchBundleValidationService.PickQtyBasedAvailableBatches(
+            new[]
+            {
+                (b1, "B-1", 0.16666m),
+                (b2, "B-2", 0.50000m)
+            },
+            requiredQty: 0.3333m,
+            precision: 4);
+        pickedBatches.Count.ShouldBe(2);
+        pickedBatches.Sum(x => x.Qty).ShouldBe(0.3333m);
+
+        // 3. Split bundle return fills delivered rows row-by-row up to what is left on each and updates tracker across multiple return rows (ff83c45efe, bb77453ba8, bc6c911436)
+        var delRowA = Guid.NewGuid();
+        var delRowB = Guid.NewGuid();
+        var componentDelivered = new[]
+        {
+            (ComponentIndex: 0, DeliveredPackedRowId: delRowA, DeliveredQty: 2m, QtyPerBundleUnit: 0.5m),
+            (ComponentIndex: 0, DeliveredPackedRowId: delRowB, DeliveredQty: 2m, QtyPerBundleUnit: 0.5m)
+        };
+        var returnedSoFar = new Dictionary<Guid, decimal>();
+
+        // First return row of -1 bundle (needs 1 unit total -> fills -1 from delRowA and 0 from delRowB, not -0.5 and -0.5!)
+        var firstAlloc = SerialBatchBundleValidationService.AllocateSplitBundleReturnPackedQuantities(
+            returnBundleRowStockQty: -1m,
+            componentDeliveredRows: componentDelivered,
+            returnedPackedQtyByDeliveredRowId: returnedSoFar);
+        firstAlloc[delRowA].ShouldBe(-1m);
+        firstAlloc[delRowB].ShouldBe(0m);
+
+        // Second return row of -2 bundles in the same return doc (needs 2 units -> takes remaining -1 from delRowA and -1 from delRowB!)
+        var secondAlloc = SerialBatchBundleValidationService.AllocateSplitBundleReturnPackedQuantities(
+            returnBundleRowStockQty: -2m,
+            componentDeliveredRows: componentDelivered,
+            returnedPackedQtyByDeliveredRowId: returnedSoFar);
+        secondAlloc[delRowA].ShouldBe(-1m);
+        secondAlloc[delRowB].ShouldBe(-1m);
+
+        // 4. Returned packed item valuation rate takes qty-weighted delivered rate and preserves explicit 0 delivered rate (8bcb291efd, bd09247690)
+        var zeroRateMap = new Dictionary<Guid, decimal> { [delRowA] = 0m };
+        var zeroRate = SerialBatchBundleValidationService.ResolveReturnedPackedItemRate(
+            new[] { (delRowA, -1m) }, zeroRateMap);
+        zeroRate.ShouldNotBeNull();
+        zeroRate.Value.ShouldBe(0m);
+
+        var weightedRateMap = new Dictionary<Guid, decimal> { [delRowA] = 100m, [delRowB] = 200m };
+        var weightedRate = SerialBatchBundleValidationService.ResolveReturnedPackedItemRate(
+            new[] { (delRowA, -1m), (delRowB, -3m) }, weightedRateMap);
+        weightedRate.ShouldBe(175m);
+    }
+
+    [Fact]
+    public void SubcontractingReturnOverConsumedGuard_LegacySecondaryQtyRank_TransferCancelRebuild_And_InternalReceiptReturnTransitCap_b354d3f1c3_2da4575f47_4f03188e04_2b23d4dff8_3914480936_bebce66db8_42c7a9d78b_33410f737d()
+    {
+        var fgReceiptRowId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+
+        // 1. ValidateReturnedRawMaterialsDoNotExceedConsumed throws when cumulative returned RM exceeds what the receipt consumed (b354d3f1c3)
+        var returnableMap = new Dictionary<(Guid, Guid), (decimal, decimal, string?)>
+        {
+            [(fgReceiptRowId, rmItemId)] = (10m, 7m, "RM-STEEL")
+        };
+        var overReturnEx = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateReturnedRawMaterialsDoNotExceedConsumed(
+                "SCR-0001",
+                returnableMap,
+                new[] { ((Guid?)fgReceiptRowId, rmItemId, -4m) }));
+        overReturnEx.Data["detail"]!.ToString()!.ShouldContain("Returns of SCR-0001 would take back more of raw material RM-STEEL than it consumed");
+
+        // 2. ShouldSkipBomRequiredQtyValidation always returns true on Subcontracting Return (2da4575f47)
+        MyERP.Purchasing.DomainServices.SubcontractingManager.ShouldSkipBomRequiredQtyValidation(
+            isReturn: true, backflushBasedOn: "BOM", validateConsumedQty: true).ShouldBeTrue();
+
+        // 3. PairReturnSecondaryRowsWithOriginalReceiptRows pairs legacy pre-v16 rows by ascending qty rank (4f03188e04, 0263dc3b72, 2f92fcf85f)
+        var secItemId = Guid.NewGuid();
+        var origSecSmall = Guid.NewGuid();
+        var origSecLarge = Guid.NewGuid();
+        var bomSecSmall = Guid.NewGuid();
+        var bomSecLarge = Guid.NewGuid();
+
+        var pairedSecondary = MyERP.Purchasing.DomainServices.SubcontractingManager.PairReturnSecondaryRowsWithOriginalReceiptRows(
+            originalSecondaryRows: new[]
+            {
+                (OriginalSecondaryRowId: origSecLarge, FgReceiptItemId: fgReceiptRowId, ItemId: secItemId, BomSecondaryItemId: (Guid?)null, Qty: 6m),
+                (OriginalSecondaryRowId: origSecSmall, FgReceiptItemId: fgReceiptRowId, ItemId: secItemId, BomSecondaryItemId: (Guid?)null, Qty: 2m)
+            },
+            bomSecondaryRowsByFgReceiptItemId: new Dictionary<Guid, IReadOnlyList<(Guid, Guid, decimal)>>
+            {
+                [fgReceiptRowId] = new[]
+                {
+                    (bomSecLarge, secItemId, 3m),
+                    (bomSecSmall, secItemId, 1m)
+                }
+            });
+        pairedSecondary[(fgReceiptRowId, bomSecSmall)].ShouldBe(origSecSmall);
+        pairedSecondary[(fgReceiptRowId, bomSecLarge)].ShouldBe(origSecLarge);
+
+        // 4. RebuildSubcontractingTransferReservationsOnCancel cancels supplier-warehouse SREs and replays only remaining active transfers (2b23d4dff8, 3914480936)
+        var cancelledSeId = Guid.NewGuid();
+        var suppliedRowId = Guid.NewGuid();
+        var batch1 = Guid.NewGuid();
+        var batch2 = Guid.NewGuid();
+        var orderSreBatch1 = Guid.NewGuid();
+        var orderSreBatch2 = Guid.NewGuid();
+        var supplierWhTransferSre = Guid.NewGuid();
+
+        var rebuildResult = MyERP.Purchasing.DomainServices.SubcontractingManager.RebuildSubcontractingTransferReservationsOnCancel(
+            cancelledStockEntryId: cancelledSeId,
+            allOrderSres: new[]
+            {
+                (orderSreBatch1, suppliedRowId, 5m, true, (string?)null, (Guid?)batch1, (string?)null, (Guid?)null),
+                (orderSreBatch2, suppliedRowId, 5m, true, (string?)null, (Guid?)batch2, (string?)null, (Guid?)null),
+                (supplierWhTransferSre, suppliedRowId, 5m, true, (string?)null, (Guid?)batch2, (string?)"StockEntry", (Guid?)cancelledSeId)
+            },
+            remainingActiveTransfers: new[]
+            {
+                (suppliedRowId, 5m, (IReadOnlyCollection<string>?)null, (IReadOnlyDictionary<Guid, decimal>?)new Dictionary<Guid, decimal> { [batch1] = 5m })
+            });
+        rebuildResult.TransferReservationsToCancel.ShouldBe(new[] { supplierWhTransferSre });
+        rebuildResult.RebuiltTransferredQtyBySreId[orderSreBatch1].ShouldBe(5m);
+        rebuildResult.RebuiltTransferredQtyBySreId[orderSreBatch2].ShouldBe(0m); // Only batch2's reservation reopens!
+
+        // 5. Internal receipt return caps transit qty to outward SLE minus other returns' inward SLEs, and skips rejected package when rejected stock qty rounds to 0 (bebce66db8, 42c7a9d78b, 33410f737d)
+        var cappedReturnTransit = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalReceiptReturnSourceWarehouseStockQty(
+            returnStockQty: -5.0001m,
+            isInternalReceipt: true,
+            isReturn: true,
+            originalPurchaseReceiptItemId: Guid.NewGuid(),
+            hasSerialOrBatchPackage: false,
+            originalReceiptOutwardSleActualQtyInTransit: -10.0000m,
+            otherReturnsInwardSleActualQtyInTransit: 5.0001m);
+        cappedReturnTransit.ShouldBe(-4.9999m);
+
+        var zeroRejectedPkg = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.EvaluateInternalReceiptPackageStockQty(
+            qtyInTransactionUom: 0.00001m, conversionFactor: 1m, stockQtyPrecision: 4);
+        zeroRejectedPkg.ShouldCreatePackage.ShouldBeFalse();
+        zeroRejectedPkg.RoundedStockQty.ShouldBe(0m);
     }
 }

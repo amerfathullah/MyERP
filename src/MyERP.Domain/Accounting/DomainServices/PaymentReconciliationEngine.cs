@@ -531,6 +531,26 @@ public class PaymentReconciliationEngine : DomainService
 
         return allocatedAmount;
     }
+
+    /// <summary>
+    /// Validates Payment Limit and Invoice Limit parameters before fetching unreconciled entries
+    /// per ERPNext commit 85048a06c4 (payment_reconciliation.py validate_limits):
+    /// Rejects negative limits with a validation error while allowing null or 0 (unlimited).
+    /// </summary>
+    public static void ValidateReconciliationLimits(int? paymentLimit, int? invoiceLimit)
+    {
+        if (paymentLimit.HasValue && paymentLimit.Value < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Payment Limit must be a non-negative integer");
+        }
+
+        if (invoiceLimit.HasValue && invoiceLimit.Value < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Invoice Limit must be a non-negative integer");
+        }
+    }
 }
 
 /// <summary>An unreconciled payment available for allocation.</summary>

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
@@ -313,5 +315,53 @@ public class ChildItemUpdateService : DomainService
                 .WithData("fulfilledQty", fulfilledQty)
                 .WithData("detail", $"Cannot change the UOM or conversion factor of Item '{itemDescription}' after part of it was received or delivered.");
         }
+    }
+
+    /// <summary>
+    /// Resolves the Purchase Order number of any non-cancelled (Draft or Submitted) Purchase Order row
+    /// that links to a Sales Order row directly (<c>SalesOrderItemId</c>) or through one of its Product Bundle
+    /// packed rows (<c>SalesOrderPackedItemId</c>) per ERPNext commits 0fda60d8c7 and 14a3847119.
+    /// </summary>
+    public static string? ResolveLinkedPurchaseOrderNumberForSalesOrderRow(
+        Guid salesOrderId,
+        Guid salesOrderItemId,
+        IReadOnlyCollection<Guid>? packedItemIds,
+        IEnumerable<(Guid PurchaseOrderId, string PurchaseOrderNumber, DocumentStatus Status, Guid? SalesOrderId, Guid? SalesOrderItemId, Guid? SalesOrderPackedItemId)> purchaseOrderRows)
+    {
+        if (purchaseOrderRows == null)
+        {
+            return null;
+        }
+
+        var packedSet = packedItemIds != null && packedItemIds.Count > 0
+            ? packedItemIds.ToHashSet()
+            : null;
+
+        foreach (var row in purchaseOrderRows)
+        {
+            if (row.Status == DocumentStatus.Cancelled)
+            {
+                continue;
+            }
+
+            if (row.SalesOrderId.HasValue && row.SalesOrderId.Value != salesOrderId)
+            {
+                continue;
+            }
+
+            if (row.SalesOrderItemId == salesOrderItemId)
+            {
+                return row.PurchaseOrderNumber;
+            }
+
+            if (packedSet != null &&
+                row.SalesOrderPackedItemId.HasValue &&
+                packedSet.Contains(row.SalesOrderPackedItemId.Value))
+            {
+                return row.PurchaseOrderNumber;
+            }
+        }
+
+        return null;
     }
 }

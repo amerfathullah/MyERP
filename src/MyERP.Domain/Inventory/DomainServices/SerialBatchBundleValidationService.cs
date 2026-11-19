@@ -899,10 +899,10 @@ public class SerialBatchBundleValidationService : DomainService
 
     /// <summary>
     /// Determines whether a Packed Item row matches a Stock Ledger Entry during valuation rate reposting
-    /// per ERPNext commit 428918d86a (stock_ledger.py update_rate_on_delivery_and_sales_return):
-    /// Matches on <c>(ParentDetailId, ItemId, WarehouseId)</c> and, when the SLE has a <c>SerialAndBatchBundleId</c>,
-    /// also requires the Packed Item's <c>SerialAndBatchBundleId</c> to match so reposting one warehouse or bundle
-    /// does not overwrite another split row of the same component.
+    /// per ERPNext commits 428918d86a and c0fe71cee9 (stock_ledger.py update_rate_on_delivery_and_sales_return):
+    /// Matches on <c>(ParentDetailId, ItemId)</c>; when the SLE has a <c>SerialAndBatchBundleId</c>, matches by
+    /// <c>SerialAndBatchBundleId</c> first (since an internal transfer return takes the packed row's bundle out
+    /// of the target warehouse), and otherwise matches by <c>WarehouseId</c>.
     /// </summary>
     public static bool MatchesPackedItemForRateRepost(
         Guid packedParentDetailId,
@@ -915,8 +915,7 @@ public class SerialBatchBundleValidationService : DomainService
         Guid? sleSerialAndBatchBundleId)
     {
         if (packedParentDetailId != sleVoucherDetailId ||
-            packedItemId != sleItemId ||
-            packedWarehouseId != sleWarehouseId)
+            packedItemId != sleItemId)
         {
             return false;
         }
@@ -926,7 +925,211 @@ public class SerialBatchBundleValidationService : DomainService
             return packedSerialAndBatchBundleId == sleSerialAndBatchBundleId;
         }
 
-        return true;
+        return packedWarehouseId == sleWarehouseId;
+    }
+
+    /// <summary>
+    /// Validates that a draft voucher does not take over a Serial and Batch Bundle that belongs to another draft voucher
+    /// per ERPNext commit 2fda0bb04c (validate_not_linked_to_another_draft).
+    /// </summary>
+    public static void ValidateBundleNotLinkedToAnotherDraft(
+        SerialAndBatchBundle bundle,
+        string currentVoucherType,
+        Guid currentVoucherId,
+        int rowNumber,
+        Func<string, Guid, bool> isVoucherDraft)
+    {
+        if (bundle == null ||
+            string.IsNullOrWhiteSpace(bundle.VoucherType) ||
+            bundle.VoucherId == Guid.Empty)
+        {
+            return;
+        }
+
+        if (string.Equals(bundle.VoucherType, currentVoucherType, StringComparison.OrdinalIgnoreCase) &&
+            bundle.VoucherId == currentVoucherId)
+        {
+            return;
+        }
+
+        if (isVoucherDraft != null && !isVoucherDraft(bundle.VoucherType, bundle.VoucherId))
+        {
+            return;
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("detail", $"Row #{rowNumber}: Serial and Batch Bundle {bundle.Id} belongs to {bundle.VoucherType} {bundle.VoucherId}. Select or create another bundle.");
+    }
+
+    /// <summary>
+    /// Picks available batches up to <paramref name="requiredQty"/> while keeping the unrounded remaining quantity
+    /// after each batch per ERPNext commit dcaf1a81c0 (get_qty_based_available_batches) so fractional batch quantities
+    /// sum to the full requested stock quantity without rounding drift.
+    /// </summary>
+    public static List<(Guid BatchId, string BatchNo, decimal Qty)> PickQtyBasedAvailableBatches(
+        IReadOnlyList<(Guid BatchId, string BatchNo, decimal AvailableQty)> availableBatches,
+        decimal requiredQty,
+        int precision = 4)
+    {
+        var picked = new List<(Guid BatchId, string BatchNo, decimal Qty)>();
+        if (availableBatches == null || availableBatches.Count == 0)
+        {
+            return picked;
+        }
+
+        var remaining = requiredQty;
+        foreach (var batch in availableBatches)
+        {
+            if (Math.Round(remaining, precision, MidpointRounding.AwayFromZero) <= 0m)
+            {
+                break;
+            }
+
+            if (batch.AvailableQty <= 0m)
+            {
+                continue;
+            }
+
+            if (remaining > batch.AvailableQty)
+            {
+                picked.Add((batch.BatchId, batch.BatchNo, batch.AvailableQty));
+                remaining -= batch.AvailableQty;
+            }
+            else
+            {
+                picked.Add((batch.BatchId, batch.BatchNo, remaining));
+                break;
+            }
+        }
+
+        return picked;
+    }
+
+    /// <summary>
+    /// Allocates returned quantities across split delivered packed rows of a Product Bundle component row-by-row
+    /// up to what is left to return on each delivered row per ERPNext commits ff83c45efe, bb77453ba8, and bc6c911436:
+    /// - Groups delivered rows by component occurrence (<c>ComponentIndex</c>), so a component repeated in a bundle
+    ///   fills only its own split rows.
+    /// - Updates <paramref name="returnedPackedQtyByDeliveredRowId"/> in place as each return row is allocated, so
+    ///   subsequent return rows in the same document take back what is left after earlier rows.
+    /// </summary>
+    public static Dictionary<Guid, decimal> AllocateSplitBundleReturnPackedQuantities(
+        decimal returnBundleRowStockQty,
+        IReadOnlyList<(int ComponentIndex, Guid DeliveredPackedRowId, decimal DeliveredQty, decimal QtyPerBundleUnit)> componentDeliveredRows,
+        IDictionary<Guid, decimal> returnedPackedQtyByDeliveredRowId,
+        int precision = 4)
+    {
+        var returnQtyByDeliveredRow = new Dictionary<Guid, decimal>();
+        if (componentDeliveredRows == null || componentDeliveredRows.Count == 0)
+        {
+            return returnQtyByDeliveredRow;
+        }
+
+        var byOccurrence = componentDeliveredRows
+            .GroupBy(r => r.ComponentIndex)
+            .ToList();
+
+        foreach (var group in byOccurrence)
+        {
+            var rows = group.ToList();
+            if (rows.Count < 2)
+            {
+                continue;
+            }
+
+            var totalToReturn = Math.Round(
+                Math.Abs(returnBundleRowStockQty) * rows.Sum(r => r.QtyPerBundleUnit),
+                precision,
+                MidpointRounding.AwayFromZero);
+
+            foreach (var row in rows)
+            {
+                returnQtyByDeliveredRow[row.DeliveredPackedRowId] = 0m;
+            }
+
+            var remaining = totalToReturn;
+            Guid? lastAllocatedRowId = null;
+            foreach (var row in rows)
+            {
+                var alreadyReturned = returnedPackedQtyByDeliveredRowId != null &&
+                                      returnedPackedQtyByDeliveredRowId.TryGetValue(row.DeliveredPackedRowId, out var prev)
+                    ? prev
+                    : 0m;
+                var availableToReturn = Math.Max(0m, Math.Round(row.DeliveredQty - alreadyReturned, precision, MidpointRounding.AwayFromZero));
+                var packQty = Math.Min(availableToReturn, remaining);
+                if (packQty > 0m)
+                {
+                    returnQtyByDeliveredRow[row.DeliveredPackedRowId] = -Math.Round(packQty, precision, MidpointRounding.AwayFromZero);
+                    if (returnedPackedQtyByDeliveredRowId != null)
+                    {
+                        returnedPackedQtyByDeliveredRowId[row.DeliveredPackedRowId] = alreadyReturned + packQty;
+                    }
+                    remaining = Math.Round(remaining - packQty, precision, MidpointRounding.AwayFromZero);
+                    lastAllocatedRowId = row.DeliveredPackedRowId;
+                }
+            }
+
+            if (remaining > 0m)
+            {
+                var targetRowId = lastAllocatedRowId ?? rows[0].DeliveredPackedRowId;
+                var currentNeg = returnQtyByDeliveredRow.GetValueOrDefault(targetRowId, 0m);
+                var updatedAbs = Math.Round(Math.Abs(currentNeg) + remaining, precision, MidpointRounding.AwayFromZero);
+                returnQtyByDeliveredRow[targetRowId] = -updatedAbs;
+                if (returnedPackedQtyByDeliveredRowId != null)
+                {
+                    var prev = returnedPackedQtyByDeliveredRowId.TryGetValue(targetRowId, out var p) ? p : 0m;
+                    returnedPackedQtyByDeliveredRowId[targetRowId] = prev + remaining;
+                }
+            }
+        }
+
+        return returnQtyByDeliveredRow;
+    }
+
+    /// <summary>
+    /// Computes the quantity-weighted delivered valuation rate for a returned packed item (or its Stock Ledger Entry)
+    /// across the delivered packed rows it reverses per ERPNext commits 8bcb291efd and bd09247690:
+    /// Returns <c>0m</c> (not <c>null</c>) when the delivered packed row was explicitly valued at <c>0m</c>,
+    /// so callers do not fall back to another row's non-zero ledger entry.
+    /// </summary>
+    public static decimal? ResolveReturnedPackedItemRate(
+        IReadOnlyList<(Guid ReturnAgainstPackedItemId, decimal ReturnedQty)> returnedRows,
+        IReadOnlyDictionary<Guid, decimal> deliveredRateByPackedItemId,
+        int precision = 4)
+    {
+        if (returnedRows == null || returnedRows.Count == 0 || deliveredRateByPackedItemId == null || deliveredRateByPackedItemId.Count == 0)
+        {
+            return null;
+        }
+
+        decimal weightedSum = 0m;
+        decimal totalQty = 0m;
+        var anyMatched = false;
+
+        foreach (var row in returnedRows)
+        {
+            if (row.ReturnAgainstPackedItemId == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (!deliveredRateByPackedItemId.TryGetValue(row.ReturnAgainstPackedItemId, out var deliveredRate))
+            {
+                continue;
+            }
+
+            anyMatched = true;
+            var weight = Math.Abs(row.ReturnedQty) > 0m ? Math.Abs(row.ReturnedQty) : 1m;
+            weightedSum += deliveredRate * weight;
+            totalQty += weight;
+        }
+
+        if (!anyMatched || totalQty <= 0m)
+        {
+            return null;
+        }
+
+        return Math.Round(weightedSum / totalQty, precision, MidpointRounding.AwayFromZero);
     }
 }
 

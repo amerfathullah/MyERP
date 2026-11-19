@@ -836,6 +836,21 @@ public class SalesInvoiceManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Determines whether default taxes from a tax template/rule should be auto-applied to a document
+    /// per ERPNext commit 7b630d1df1:
+    /// Never adds default taxes to a return document created against a source document that had no taxes.
+    /// </summary>
+    public static bool ShouldApplyDefaultTaxes(bool isReturn, Guid? returnAgainstId, bool sourceDocumentHasTaxes)
+    {
+        if (isReturn && returnAgainstId.HasValue && returnAgainstId.Value != Guid.Empty && !sourceDocumentHasTaxes)
+        {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 /// <summary>Result of selling price validation. Contains warnings when action is "Warn".</summary>

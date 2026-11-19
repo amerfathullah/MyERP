@@ -830,6 +830,244 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Validates on submit of a Subcontracting Receipt Return that cumulative returned raw materials
+    /// (earlier submitted returns plus the current return) do not exceed what the original receipt consumed
+    /// per ERPNext commit b354d3f1c3 (validate_returned_raw_materials).
+    /// </summary>
+    public static void ValidateReturnedRawMaterialsDoNotExceedConsumed(
+        string returnAgainstReceiptNumber,
+        IReadOnlyDictionary<(Guid ReceiptItemRowId, Guid RmItemId), (decimal OriginalConsumedQty, decimal PriorReturnedQty, string? RmItemCode)> returnableMaterials,
+        IEnumerable<(Guid? ReceiptItemRowId, Guid RmItemId, decimal CurrentReturnConsumedQty)> currentReturnSuppliedRows,
+        int precision = 4)
+    {
+        if (returnableMaterials == null || currentReturnSuppliedRows == null)
+        {
+            return;
+        }
+
+        var currentByKey = new Dictionary<(Guid ReceiptItemRowId, Guid RmItemId), decimal>();
+        foreach (var row in currentReturnSuppliedRows)
+        {
+            if (!row.ReceiptItemRowId.HasValue || row.ReceiptItemRowId.Value == Guid.Empty)
+            {
+                continue;
+            }
+
+            var key = (row.ReceiptItemRowId.Value, row.RmItemId);
+            currentByKey[key] = currentByKey.GetValueOrDefault(key, 0m) + Math.Abs(row.CurrentReturnConsumedQty);
+        }
+
+        foreach (var (key, currentQty) in currentByKey)
+        {
+            if (returnableMaterials.TryGetValue(key, out var mat))
+            {
+                var excess = Math.Round(mat.PriorReturnedQty + currentQty - mat.OriginalConsumedQty, precision, MidpointRounding.AwayFromZero);
+                if (excess > 0m)
+                {
+                    var rmLabel = !string.IsNullOrWhiteSpace(mat.RmItemCode) ? mat.RmItemCode : key.RmItemId.ToString();
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Returns of {returnAgainstReceiptNumber} would take back more of raw material {rmLabel} than it consumed. Use Reset Raw Materials Table to pick the raw materials again.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether BOM required quantity validation should be skipped on a Subcontracting Receipt
+    /// per ERPNext commit 2da4575f47 (validate_bom_required_qty):
+    /// Always skips on a Subcontracting Return (which takes back what the receipt consumed, even if it exceeded
+    /// or differed from the BOM), or when backflushing is based on Material Transferred and ValidateConsumedQty is disabled.
+    /// </summary>
+    public static bool ShouldSkipBomRequiredQtyValidation(
+        bool isReturn,
+        string? backflushBasedOn,
+        bool validateConsumedQty)
+    {
+        if (isReturn)
+        {
+            return true;
+        }
+
+        return string.Equals(backflushBasedOn, "Material Transferred for Subcontract", StringComparison.OrdinalIgnoreCase)
+            && !validateConsumedQty;
+    }
+
+    /// <summary>
+    /// Pairs a Subcontracting Return's secondary rows with the original receipt's secondary rows
+    /// per ERPNext commits 2f92fcf85f, 0263dc3b72, and 4f03188e04 (set_return_secondary_references / pair_legacy_secondary_rows):
+    /// - Where the original receipt secondary row has a <c>BomSecondaryItemId</c>, pairs by <c>(FgReceiptItemId, BomSecondaryItemId)</c>.
+    /// - For legacy pre-v16 receipt secondary rows without <c>BomSecondaryItemId</c>, pairs receipt rows of each <c>ItemId</c>
+    ///   with the BOM's secondary rows of that <c>ItemId</c> by ascending quantity rank (<c>Qty</c> vs <c>BomStockQty</c>).
+    /// </summary>
+    public static Dictionary<(Guid FgReceiptItemId, Guid BomSecondaryItemId), Guid> PairReturnSecondaryRowsWithOriginalReceiptRows(
+        IEnumerable<(Guid OriginalSecondaryRowId, Guid FgReceiptItemId, Guid ItemId, Guid? BomSecondaryItemId, decimal Qty)> originalSecondaryRows,
+        IReadOnlyDictionary<Guid, IReadOnlyList<(Guid BomSecondaryItemId, Guid ItemId, decimal StockQty)>>? bomSecondaryRowsByFgReceiptItemId = null)
+    {
+        var map = new Dictionary<(Guid FgReceiptItemId, Guid BomSecondaryItemId), Guid>();
+        if (originalSecondaryRows == null)
+        {
+            return map;
+        }
+
+        var legacyByFgRow = new Dictionary<Guid, List<(Guid OriginalSecondaryRowId, Guid ItemId, decimal Qty)>>();
+        foreach (var row in originalSecondaryRows)
+        {
+            if (row.BomSecondaryItemId.HasValue && row.BomSecondaryItemId.Value != Guid.Empty)
+            {
+                map[(row.FgReceiptItemId, row.BomSecondaryItemId.Value)] = row.OriginalSecondaryRowId;
+            }
+            else
+            {
+                if (!legacyByFgRow.TryGetValue(row.FgReceiptItemId, out var list))
+                {
+                    list = new List<(Guid, Guid, decimal)>();
+                    legacyByFgRow[row.FgReceiptItemId] = list;
+                }
+                list.Add((row.OriginalSecondaryRowId, row.ItemId, row.Qty));
+            }
+        }
+
+        if (bomSecondaryRowsByFgReceiptItemId != null)
+        {
+            foreach (var (fgReceiptItemId, legacyRows) in legacyByFgRow)
+            {
+                if (!bomSecondaryRowsByFgReceiptItemId.TryGetValue(fgReceiptItemId, out var bomRows) || bomRows == null)
+                {
+                    continue;
+                }
+
+                foreach (var itemId in legacyRows.Select(r => r.ItemId).Distinct())
+                {
+                    var receiptByQty = legacyRows
+                        .Where(r => r.ItemId == itemId)
+                        .OrderBy(r => r.Qty)
+                        .ToList();
+                    var bomByQty = bomRows
+                        .Where(b => b.ItemId == itemId)
+                        .OrderBy(b => b.StockQty)
+                        .ToList();
+
+                    var pairCount = Math.Min(receiptByQty.Count, bomByQty.Count);
+                    for (var i = 0; i < pairCount; i++)
+                    {
+                        map[(fgReceiptItemId, bomByQty[i].BomSecondaryItemId)] = receiptByQty[i].OriginalSecondaryRowId;
+                    }
+                }
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// Rebuilds the <c>TransferredQty</c> on a Subcontracting Order's Stock Reservation Entries from the
+    /// remaining active "Send to Subcontractor" transfers when one transfer is cancelled
+    /// per ERPNext commits 2b23d4dff8 and 3914480936 (rebuild_subcontracting_transfers):
+    /// - Identifies supplier-warehouse reservations created by the cancelled transfer (<c>FromVoucherType == "StockEntry" &amp;&amp; FromVoucherId == cancelledStockEntryId</c>)
+    ///   so they are cancelled alongside it.
+    /// - Replays the remaining active transfers against the Subcontracting Order's own reservations (matching serial/batch entries
+    ///   when <c>ReservationBasedOn == "Serial and Batch"</c>, or taking <c>Min(ReservedQty, remainingTransferQty)</c> for qty-based reservations)
+    ///   so cancelling a transfer only reopens the reservation that transfer actually used.
+    /// </summary>
+    public static (List<Guid> TransferReservationsToCancel, Dictionary<Guid, decimal> RebuiltTransferredQtyBySreId)
+        RebuildSubcontractingTransferReservationsOnCancel(
+            Guid cancelledStockEntryId,
+            IReadOnlyList<(Guid SreId, Guid ScoSuppliedItemId, decimal ReservedQty, bool IsSerialAndBatch, string? SerialNo, Guid? BatchId, string? FromVoucherType, Guid? FromVoucherId)> allOrderSres,
+            IReadOnlyList<(Guid ScoSuppliedItemId, decimal TransferQty, IReadOnlyCollection<string>? SerialNos, IReadOnlyDictionary<Guid, decimal>? BatchQuantities)> remainingActiveTransfers,
+            int precision = 4)
+    {
+        var toCancel = new List<Guid>();
+        var rebuilt = new Dictionary<Guid, decimal>();
+        if (allOrderSres == null || allOrderSres.Count == 0)
+        {
+            return (toCancel, rebuilt);
+        }
+
+        foreach (var sre in allOrderSres)
+        {
+            if (sre.FromVoucherId == cancelledStockEntryId &&
+                (string.Equals(sre.FromVoucherType, "StockEntry", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(sre.FromVoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase)))
+            {
+                toCancel.Add(sre.SreId);
+            }
+        }
+
+        var transfersBySuppliedRow = new Dictionary<Guid, (decimal RemainingQty, HashSet<string> SerialNos, Dictionary<Guid, decimal> BatchQty)>();
+        if (remainingActiveTransfers != null)
+        {
+            foreach (var tr in remainingActiveTransfers)
+            {
+                if (!transfersBySuppliedRow.TryGetValue(tr.ScoSuppliedItemId, out var agg))
+                {
+                    agg = (0m, new HashSet<string>(StringComparer.OrdinalIgnoreCase), new Dictionary<Guid, decimal>());
+                }
+
+                var newQty = agg.RemainingQty + tr.TransferQty;
+                if (tr.SerialNos != null)
+                {
+                    foreach (var sn in tr.SerialNos)
+                    {
+                        if (!string.IsNullOrWhiteSpace(sn))
+                            agg.SerialNos.Add(sn.Trim());
+                    }
+                }
+                if (tr.BatchQuantities != null)
+                {
+                    foreach (var (bId, bQty) in tr.BatchQuantities)
+                    {
+                        agg.BatchQty[bId] = agg.BatchQty.GetValueOrDefault(bId, 0m) + Math.Abs(bQty);
+                    }
+                }
+
+                transfersBySuppliedRow[tr.ScoSuppliedItemId] = (newQty, agg.SerialNos, agg.BatchQty);
+            }
+        }
+
+        foreach (var sre in allOrderSres)
+        {
+            if (!string.IsNullOrWhiteSpace(sre.FromVoucherType))
+            {
+                continue;
+            }
+
+            if (!transfersBySuppliedRow.TryGetValue(sre.ScoSuppliedItemId, out var transferState))
+            {
+                rebuilt[sre.SreId] = 0m;
+                continue;
+            }
+
+            decimal matchedQty;
+            if (sre.IsSerialAndBatch)
+            {
+                if (!string.IsNullOrWhiteSpace(sre.SerialNo))
+                {
+                    matchedQty = transferState.SerialNos.Remove(sre.SerialNo.Trim()) ? 1m : 0m;
+                }
+                else if (sre.BatchId.HasValue && transferState.BatchQty.TryGetValue(sre.BatchId.Value, out var availBatchQty))
+                {
+                    matchedQty = Math.Min(sre.ReservedQty, availBatchQty);
+                    transferState.BatchQty[sre.BatchId.Value] = availBatchQty - matchedQty;
+                }
+                else
+                {
+                    matchedQty = 0m;
+                }
+            }
+            else
+            {
+                matchedQty = Math.Min(sre.ReservedQty, transferState.RemainingQty);
+            }
+
+            var nextRemaining = Math.Max(0m, transferState.RemainingQty - matchedQty);
+            transfersBySuppliedRow[sre.ScoSuppliedItemId] = (nextRemaining, transferState.SerialNos, transferState.BatchQty);
+            rebuilt[sre.SreId] = Math.Round(matchedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return (toCancel, rebuilt);
+    }
 }
 
 public class SubcontractingRmConsumption

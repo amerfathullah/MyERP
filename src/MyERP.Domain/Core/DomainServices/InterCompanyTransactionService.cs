@@ -335,14 +335,17 @@ public class InterCompanyTransactionService : DomainService
             return (false, orderedByItem, null);
         }
 
+        var sourceRowIds = salesOrder.Items.Select(i => i.Id).ToHashSet();
         var itemRefs = linkedPos
             .SelectMany(po => po.Items)
-            .Where(i => i.SalesOrderItemId.HasValue)
+            .Where(i => i.SalesOrderItemId.HasValue && sourceRowIds.Contains(i.SalesOrderItemId.Value))
             .ToList();
 
         if (itemRefs.Count == 0)
         {
-            // Counterpart SO created from PO links without item references — hide IC PO button to avoid loop.
+            // Per ERPNext commits 5bb7882a34 & 53bc29eab6:
+            // Counterpart SO created from PO links without item references back to this SO's own rows
+            // (even if the PO's rows still hold a foreign customer SalesOrderItemId) — hide IC PO button to avoid loop.
             return (true, orderedByItem, linkedPos[0]);
         }
 
@@ -961,5 +964,67 @@ public class InterCompanyTransactionService : DomainService
         if (addressRepo == null) return false;
         var address = await addressRepo.FindAsync(addressId.Value);
         return address != null && string.Equals(address.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && address.PartyId == partyId;
+    }
+
+    /// <summary>
+    /// Determines whether an inter-company Sales Order has any non-closed line items with pending
+    /// quantity in the order row's own UOM (per ERPNext commit fe71cadf90: compare <c>Round((StockQty - orderedStockQty) / ConversionFactor, qtyPrecision) &gt; 0</c>
+    /// so a sub-unit stock UOM remainder that rounds to 0 in the order's UOM does not offer a no-op button).
+    /// </summary>
+    public static bool HasPendingInterCompanyOrderQty(
+        SalesOrder salesOrder,
+        IReadOnlyDictionary<Guid, decimal>? orderedStockQtyByItem,
+        int qtyPrecision = 4)
+    {
+        if (salesOrder == null)
+        {
+            return false;
+        }
+
+        foreach (var item in salesOrder.Items)
+        {
+            if (item.IsClosed)
+            {
+                continue;
+            }
+
+            var factor = item.ConversionFactor > 0m ? item.ConversionFactor : 1m;
+            var orderedStock = orderedStockQtyByItem != null
+                ? orderedStockQtyByItem.GetValueOrDefault(item.Id, 0m)
+                : 0m;
+            var pendingInOrderUom = Math.Round((item.StockQty - orderedStock) / factor, qtyPrecision, MidpointRounding.AwayFromZero);
+            if (pendingInOrderUom > 0m)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Clears inter-company counterpart references when duplicating a Sales Invoice, Purchase Invoice, or Purchase Order
+    /// per ERPNext commit 3941f742be (no_copy on inter_company_invoice_reference / inter_company_order_reference)
+    /// so submitting the duplicate does not repoint the original counterpart document to the duplicate.
+    /// </summary>
+    public static void ClearInterCompanyReferencesOnDuplicate(
+        SalesInvoice? salesInvoice = null,
+        PurchaseInvoice? purchaseInvoice = null,
+        PurchaseOrder? purchaseOrder = null)
+    {
+        if (salesInvoice != null)
+        {
+            salesInvoice.InterCompanyPurchaseInvoiceId = null;
+        }
+
+        if (purchaseInvoice != null)
+        {
+            purchaseInvoice.InterCompanyInvoiceId = null;
+        }
+
+        if (purchaseOrder != null)
+        {
+            purchaseOrder.InterCompanySalesOrderId = null;
+        }
     }
 }

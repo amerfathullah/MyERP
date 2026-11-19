@@ -600,4 +600,64 @@ public class PurchaseReceiptManager : DomainService
 
         return Math.Min(receivedStockQty, qtyLeftInTransit);
     }
+
+    /// <summary>
+    /// Resolves the stock quantity that an internal Purchase Receipt Return row puts back into the
+    /// in-transit source warehouse per ERPNext commits bebce66db8, 42c7a9d78b, and efa1c14797:
+    /// - Only counts what the original receipt row actually took out of transit (<paramref name="originalReceiptOutwardSleActualQtyInTransit"/> &lt; 0,
+    ///   ignoring rejected stock that stayed in transit) and what other submitted returns already put back into transit
+    ///   (<paramref name="otherReturnsInwardSleActualQtyInTransit"/> &gt; 0).
+    /// - Caps the return's negative stock quantity to <c>Max(returnStockQty, -qtyLeftToReturnToTransit)</c>
+    ///   so returns never put more back into transit than the original receipt took out.
+    /// </summary>
+    public static decimal ResolveInternalReceiptReturnSourceWarehouseStockQty(
+        decimal returnStockQty,
+        bool isInternalReceipt,
+        bool isReturn,
+        Guid? originalPurchaseReceiptItemId,
+        bool hasSerialOrBatchPackage,
+        decimal originalReceiptOutwardSleActualQtyInTransit,
+        decimal otherReturnsInwardSleActualQtyInTransit,
+        int stockQtyPrecision = 4)
+    {
+        if (!isInternalReceipt ||
+            !isReturn ||
+            !originalPurchaseReceiptItemId.HasValue ||
+            originalPurchaseReceiptItemId.Value == Guid.Empty ||
+            hasSerialOrBatchPackage)
+        {
+            return returnStockQty;
+        }
+
+        var outwardOnly = originalReceiptOutwardSleActualQtyInTransit < 0m
+            ? originalReceiptOutwardSleActualQtyInTransit
+            : -Math.Abs(originalReceiptOutwardSleActualQtyInTransit);
+        var inwardOnly = otherReturnsInwardSleActualQtyInTransit > 0m
+            ? otherReturnsInwardSleActualQtyInTransit
+            : Math.Abs(otherReturnsInwardSleActualQtyInTransit);
+
+        var qtyLeftToReturn = Math.Round(-(outwardOnly + inwardOnly), stockQtyPrecision, MidpointRounding.AwayFromZero);
+        if (qtyLeftToReturn <= 0m)
+        {
+            return returnStockQty;
+        }
+
+        var negativeReturnQty = returnStockQty <= 0m ? returnStockQty : -returnStockQty;
+        return Math.Max(negativeReturnQty, -qtyLeftToReturn);
+    }
+
+    /// <summary>
+    /// Determines whether an internal receipt or return row has a non-zero rejected stock quantity in stock UOM
+    /// requiring a rejected Serial and Batch Bundle, and computes the rounded package stock quantity
+    /// per ERPNext commits 33410f737d, ae011f50fc, and ca0c0ce86a.
+    /// </summary>
+    public static (bool ShouldCreatePackage, decimal RoundedStockQty) EvaluateInternalReceiptPackageStockQty(
+        decimal qtyInTransactionUom,
+        decimal conversionFactor,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var roundedStockQty = Math.Round(qtyInTransactionUom * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (Math.Abs(roundedStockQty) > 0m, roundedStockQty);
+    }
 }
