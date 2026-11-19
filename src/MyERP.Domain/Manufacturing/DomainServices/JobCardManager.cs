@@ -814,6 +814,32 @@ public class JobCardManager : DomainService
     }
 
     /// <summary>
+    /// Validates that the total Job Card quantity for an operation does not exceed the allowed Work Order quantity
+    /// (including overproduction allowance and net of upstream process loss).
+    /// Per ERPNext commit 12c81a9dd5 (validate_job_card):
+    /// Does NOT subtract the operation's completed_qty from total_job_card_qty, so extra Job Cards over a
+    /// lowered allowance or after operation completion are refused.
+    /// </summary>
+    public static void ValidateTotalJobCardQty(
+        decimal totalJobCardQty,
+        decimal allowedWorkOrderQty,
+        bool isCorrective = false,
+        int precision = 4)
+    {
+        if (isCorrective)
+            return;
+
+        if (Math.Round(totalJobCardQty, precision) > Math.Round(allowedWorkOrderQty, precision))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("totalJobCardQty", Math.Round(totalJobCardQty, precision))
+                .WithData("allowedWorkOrderQty", Math.Round(allowedWorkOrderQty, precision))
+                .WithData("detail",
+                    $"Total Job Card quantity ({Math.Round(totalJobCardQty, precision)}) exceeds allowed Work Order quantity ({Math.Round(allowedWorkOrderQty, precision)}).");
+        }
+    }
+
+    /// <summary>
     /// Validates material transfer before Job Card start or completion.
     /// Per ERPNext PR #58009: when material transfer is required,
     /// start and completion require transferred materials to be ready (transferred_qty >= required_qty).

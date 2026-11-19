@@ -326,5 +326,16 @@ describe('BomFormComponent', () => {
       expect(comp.operations.at(0).get('targetWarehouseId')?.value).toBeNull();
       expect(comp.operations.at(1).get('targetWarehouseId')?.value).toBeNull();
     });
+
+    it('computes baseSecondaryItemsCost across ValuationRate, Manual, and PercentageOfComponentCost rows (a636da6cdd)', () => {
+      const comp = createBomForm();
+      comp.addMaterial({ itemId: 'rm-1', itemName: 'Steel', quantity: 10, rate: 100 }); // 1000
+      comp.addSecondaryItem({ itemId: 'sec-1', valuationType: 2, quantity: 2, rate: 50 }); // Manual = 100
+      comp.addSecondaryItem({ itemId: 'sec-2', valuationType: 1, quantity: 4, costAllocationPercentage: 20 }); // 20% of 900 = 180
+
+      expect(comp.getSecondaryItemBaseCost(0, 4.5)).toBe(450);
+      expect(comp.getSecondaryItemBaseCost(1, 4.5)).toBe(810);
+      expect(comp.getBaseSecondaryItemsCost(4.5)).toBe(1260);
+    });
   });
 });

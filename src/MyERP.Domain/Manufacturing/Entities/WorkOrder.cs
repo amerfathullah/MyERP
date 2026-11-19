@@ -486,4 +486,28 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = WorkOrderStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Determines whether this Completed or Closed Work Order has unconsumed transferred components
+    /// remaining in WIP that can be returned.
+    /// Per ERPNext PR #67351 (commit db34b763e9):
+    /// Aggregates <c>TransferredQuantity - ConsumedQuantity</c> per item across <see cref="RequiredItems"/>
+    /// because rows of one item split transfers by source warehouse while consumption and returns are distributed
+    /// by required qty.
+    /// </summary>
+    public bool HasReturnableComponents(int precision = 4)
+    {
+        if (Status is not (WorkOrderStatus.Completed or WorkOrderStatus.Closed))
+            return false;
+
+        var pendingByItem = new Dictionary<Guid, decimal>();
+        foreach (var row in RequiredItems)
+        {
+            pendingByItem[row.ItemId] = pendingByItem.GetValueOrDefault(row.ItemId, 0m)
+                + row.TransferredQuantity
+                - row.ConsumedQuantity;
+        }
+
+        return pendingByItem.Values.Any(qty => Math.Round(qty, precision) > 0m);
+    }
 }

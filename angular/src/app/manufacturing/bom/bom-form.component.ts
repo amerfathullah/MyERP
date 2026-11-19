@@ -323,6 +323,22 @@ export class BomFormComponent implements OnInit {
     return this.secondaryItems.controls.reduce((sum, _, i) => sum + this.getSecondaryItemCost(i), 0);
   }
 
+  /**
+   * Computes base-currency cost of a secondary item row (ValuationRate, Manual, or PercentageOfComponentCost).
+   * Per ERPNext commit a636da6cdd: sets base_cost = flt(row.cost * conversion_rate, cost_precision) on every row.
+   */
+  getSecondaryItemBaseCost(index: number, conversionRate = 1): number {
+    const rate = conversionRate > 0 ? conversionRate : 1;
+    return this.round2(this.getSecondaryItemCost(index) * rate);
+  }
+
+  getBaseSecondaryItemsCost(conversionRate = 1): number {
+    return this.secondaryItems.controls.reduce(
+      (sum, _, i) => sum + this.getSecondaryItemBaseCost(i, conversionRate),
+      0,
+    );
+  }
+
   get totalCost(): number { return this.materialCost + this.operatingCost - this.secondaryItemsCost; }
 
   ngOnInit(): void {

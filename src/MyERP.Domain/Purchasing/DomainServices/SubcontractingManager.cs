@@ -774,6 +774,62 @@ public class SubcontractingManager : DomainService
             secondaryQty,
             precision);
     }
+
+    /// <summary>
+    /// Computes secondary item quantities for a Subcontracting Return per ERPNext commit 4b9002b2a4:
+    /// - Keeps a secondary row even when its proportional return share initially rounds to 0,
+    ///   so that when the return takes the last remaining finished-goods quantity (isLastFgReturn == true),
+    ///   set_remaining_secondary_qty assigns the remaining unreturned secondary balance
+    ///   (PriorReturnedQty - OriginalSecondaryQty).
+    /// - Filters out only rows whose final effective Qty (ReceivedQty - ProcessLossQty) is still 0 after
+    ///   that remaining-balance adjustment.
+    /// </summary>
+    public static List<(Guid SourceSecondaryRowId, Guid ItemId, decimal ReceivedQty, decimal ProcessLossQty, decimal Qty)> ResolveReturnSecondaryItemQuantities(
+        decimal returnFgRatio,
+        bool isLastFgReturn,
+        IEnumerable<(Guid SourceSecondaryRowId, Guid ItemId, decimal OriginalReceivedQty, decimal OriginalProcessLossQty, decimal OriginalQty, decimal PriorReturnedReceivedQty, decimal PriorReturnedProcessLossQty, decimal PriorReturnedQty)> sourceSecondaryRows,
+        int precision = 2)
+    {
+        var result = new List<(Guid SourceSecondaryRowId, Guid ItemId, decimal ReceivedQty, decimal ProcessLossQty, decimal Qty)>();
+        if (sourceSecondaryRows == null)
+        {
+            return result;
+        }
+
+        var absRatio = -Math.Abs(returnFgRatio);
+        foreach (var row in sourceSecondaryRows)
+        {
+            decimal receivedQty;
+            decimal processLossQty;
+            decimal qty;
+
+            if (isLastFgReturn)
+            {
+                // In ERPNext, prior returned quantities are negative, so (priorReturnedQty - originalQty)
+                // is negative when callers pass positive priorReturnedQty, or we normalize magnitudes here:
+                var priorReturnedReceivedMag = Math.Abs(row.PriorReturnedReceivedQty);
+                var priorReturnedLossMag = Math.Abs(row.PriorReturnedProcessLossQty);
+                var priorReturnedQtyMag = Math.Abs(row.PriorReturnedQty);
+
+                receivedQty = Math.Round(priorReturnedReceivedMag - row.OriginalReceivedQty, precision, MidpointRounding.AwayFromZero);
+                processLossQty = Math.Round(priorReturnedLossMag - row.OriginalProcessLossQty, precision, MidpointRounding.AwayFromZero);
+                qty = Math.Round(priorReturnedQtyMag - row.OriginalQty, precision, MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                receivedQty = Math.Round(row.OriginalReceivedQty * absRatio, precision, MidpointRounding.AwayFromZero);
+                processLossQty = Math.Round(row.OriginalProcessLossQty * absRatio, precision, MidpointRounding.AwayFromZero);
+                qty = Math.Round(receivedQty - processLossQty, precision, MidpointRounding.AwayFromZero);
+            }
+
+            if (qty != 0m)
+            {
+                result.Add((row.SourceSecondaryRowId, row.ItemId, receivedQty, processLossQty, qty));
+            }
+        }
+
+        return result;
+    }
 }
 
 public class SubcontractingRmConsumption

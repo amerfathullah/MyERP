@@ -506,4 +506,22 @@ public class PurchaseReceiptManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the currency exchange rate difference for a Purchase Receipt item billed across different exchange rates
+    /// per ERPNext commit ce1484591d (add_lcv_gl_entries):
+    /// Rounds qty * netRate * (purchaseInvoiceExchangeRate - purchaseReceiptExchangeRate) to baseNetAmountPrecision
+    /// before checking non-zero or posting to Exchange Gain/Loss, preventing sub-cent residuals from outliving
+    /// GL Debit/Credit rounding.
+    /// </summary>
+    public static decimal CalculateExchangeRateDifference(
+        decimal qty,
+        decimal netRate,
+        decimal purchaseInvoiceExchangeRate,
+        decimal purchaseReceiptExchangeRate,
+        int baseNetAmountPrecision = 2)
+    {
+        var rawDiff = qty * netRate * (purchaseInvoiceExchangeRate - purchaseReceiptExchangeRate);
+        return Math.Round(rawDiff, baseNetAmountPrecision, MidpointRounding.AwayFromZero);
+    }
 }

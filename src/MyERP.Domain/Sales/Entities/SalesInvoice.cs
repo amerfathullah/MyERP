@@ -53,6 +53,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
+    public decimal ChangeAmount { get; set; }
+    public decimal BaseChangeAmount { get; set; }
     /// <summary>
     /// Outstanding amount = GrandTotal - AmountPaid - WriteOffAmount - TotalAdvance.
     /// Per ERPNext: outstanding_amount considers advances and write-offs.
@@ -578,6 +580,47 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             WriteOffCostCenterId = writeOffCostCenterId;
 
         return WriteOffAmount;
+    }
+
+    /// <summary>
+    /// Computes the POS/cash change amount on the invoice per ERPNext commit 0548448122 (calculate_change_amount):
+    /// Uses RoundedTotal when rounding is enabled (falling back to GrandTotal when DisableRoundedTotal is true
+    /// or RoundedTotal is 0). When AmountPaid exceeds that effective invoice total and hasCashPayment is true,
+    /// sets ChangeAmount = Math.Round(AmountPaid - effectiveTotal, precision) and BaseChangeAmount = Math.Round(ChangeAmount * ExchangeRate, precision).
+    /// </summary>
+    public decimal CalculateChangeAmount(bool hasCashPayment = true, int precision = 2)
+    {
+        ChangeAmount = 0m;
+        BaseChangeAmount = 0m;
+
+        var effectiveTotal = (!DisableRoundedTotal && RoundedTotal != 0m)
+            ? RoundedTotal
+            : GrandTotal;
+
+        if (IsPos && AmountPaid > effectiveTotal && hasCashPayment)
+        {
+            ChangeAmount = Math.Round(AmountPaid - effectiveTotal, precision, MidpointRounding.AwayFromZero);
+            BaseChangeAmount = Math.Round(ChangeAmount * ExchangeRate, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return ChangeAmount;
+    }
+
+    /// <summary>
+    /// Validates whether split POS payment amounts match the invoice's effective total to pay
+    /// per ERPNext commit 7b255d1b94 (pos_payment.js):
+    /// Rounds the sum of payment amounts to currency precision before comparing with the invoice total
+    /// so IEEE-754 floating-point drift on negative/split return tenders (e.g. -18.59 + -50.00) does not
+    /// trigger a false difference.
+    /// </summary>
+    public bool IsPosReturnSplitPaymentBalanced(IEnumerable<decimal> paymentAmounts, int precision = 2)
+    {
+        var effectiveTotal = (!DisableRoundedTotal && RoundedTotal != 0m)
+            ? RoundedTotal
+            : GrandTotal;
+        var paidSum = Math.Round((paymentAmounts ?? Enumerable.Empty<decimal>()).Sum(), precision, MidpointRounding.AwayFromZero);
+        var expectedTotal = Math.Round(effectiveTotal, precision, MidpointRounding.AwayFromZero);
+        return Math.Abs(paidSum - expectedTotal) == 0m;
     }
 
     /// <summary>

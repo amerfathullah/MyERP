@@ -30,7 +30,8 @@ public class BlanketOrderRateService : DomainService
     public async Task<BlanketOrderRateResult?> GetRateAsync(
         Guid companyId, Guid partyId, Guid itemId,
         string orderType, DateTime transactionDate,
-        string? targetCurrency = null, decimal targetExchangeRate = 1m)
+        string? targetCurrency = null, decimal targetExchangeRate = 1m,
+        Guid? blanketOrderId = null)
     {
         if (partyId == Guid.Empty || itemId == Guid.Empty)
             return null;
@@ -38,6 +39,7 @@ public class BlanketOrderRateService : DomainService
         var queryable = await _boRepository.GetQueryableAsync();
         var orders = queryable
             .Where(bo => bo.CompanyId == companyId
+                && (!blanketOrderId.HasValue || bo.Id == blanketOrderId.Value)
                 && bo.PartyId == partyId
                 && bo.OrderType == orderType
                 && bo.Status == Core.DocumentStatus.Submitted
@@ -142,6 +144,49 @@ public class BlanketOrderRateService : DomainService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves or clears a row's Blanket Order link and rate when the row's item is changed
+    /// (per ERPNext commits 51df5c2ef0, f6cca3f59e, and 09fd286163):
+    /// - If againstBlanketOrder is false, or partyId is null/empty (e.g. Quotation to a Lead without a converted Customer),
+    ///   clears (BlanketOrderId: null, BlanketOrderRate: 0m).
+    /// - If againstBlanketOrder is true, queries for an eligible Blanket Order matching company, party, item, orderType,
+    ///   transactionDate, currency, and (when set) existingBlanketOrderId. If no match exists, clears the stale
+    ///   BlanketOrderId and resets BlanketOrderRate to 0m.
+    /// </summary>
+    public async Task<(Guid? BlanketOrderId, decimal BlanketOrderRate)> ResolveRowBlanketOrderOnItemChangeAsync(
+        Guid companyId,
+        Guid? partyId,
+        Guid itemId,
+        string orderType,
+        DateTime transactionDate,
+        bool againstBlanketOrder,
+        Guid? existingBlanketOrderId = null,
+        string? targetCurrency = null,
+        decimal targetExchangeRate = 1m)
+    {
+        if (!againstBlanketOrder || !partyId.HasValue || partyId.Value == Guid.Empty)
+        {
+            return (null, 0m);
+        }
+
+        var match = await GetRateAsync(
+            companyId,
+            partyId.Value,
+            itemId,
+            orderType,
+            transactionDate,
+            targetCurrency,
+            targetExchangeRate,
+            existingBlanketOrderId);
+
+        if (match == null)
+        {
+            return (null, 0m);
+        }
+
+        return (match.BlanketOrderId, match.Rate);
     }
 }
 

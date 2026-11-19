@@ -313,4 +313,90 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Resolves the lead time in days for an MRP row per ERPNext commit 1cae8b6982 (get_item_lead_time):
+    /// - For Manufacture rows: returns 0 when requiredQty &lt;= 0; otherwise scales the per-unit manufacturing
+    ///   lead time by requiredQty, rounds to 4 decimal places, and takes the ceiling.
+    /// - For Purchase / Subcontract rows: looks up the purchase lead time for (itemId, defaultSupplierId)
+    ///   first when defaultSupplierId is specified, falling back to the item's general purchase lead time
+    ///   (without scaling by requiredQty).
+    /// </summary>
+    public static int ResolveMrpItemLeadTimeDays(
+        Guid itemId,
+        string typeOfMaterial,
+        decimal requiredQty,
+        Guid? defaultSupplierId = null,
+        IReadOnlyDictionary<(Guid ItemId, Guid SupplierId), decimal>? supplierPurchaseLeadTimes = null,
+        decimal itemPurchaseLeadTimeDays = 0m,
+        decimal itemManufacturingLeadTimeDaysPerUnit = 0m)
+    {
+        decimal timeInDays;
+        if (string.Equals(typeOfMaterial, "Manufacture", StringComparison.OrdinalIgnoreCase))
+        {
+            if (requiredQty <= 0m)
+            {
+                return 0;
+            }
+
+            timeInDays = Math.Round(itemManufacturingLeadTimeDaysPerUnit * requiredQty, 4, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            if (defaultSupplierId.HasValue &&
+                defaultSupplierId.Value != Guid.Empty &&
+                supplierPurchaseLeadTimes != null &&
+                supplierPurchaseLeadTimes.TryGetValue((itemId, defaultSupplierId.Value), out var supplierLeadTime))
+            {
+                timeInDays = supplierLeadTime;
+            }
+            else
+            {
+                timeInDays = itemPurchaseLeadTimeDays;
+            }
+        }
+
+        return (int)Math.Ceiling(timeInDays);
+    }
+
+    /// <summary>
+    /// Aggregates bin availability for a Production Plan raw material shortage check per ERPNext commit 3b8085319d:
+    /// - When itemWarehouseId is specified (e.g., item default warehouse), queries that receiving warehouse's bin
+    ///   even if that warehouse was also listed in transferFromWarehouseIds, so existing stock and incoming quantities
+    ///   in the receiving warehouse are not dropped and ordered twice.
+    /// - When itemWarehouseId is null (availability spans all company warehouses), excludes transferFromWarehouseIds
+    ///   so transfer-source bins are handled only in the subsequent transfer split pass.
+    /// </summary>
+    public static (decimal ActualQty, decimal ProjectedQty, decimal ReservedQtyForProduction, decimal OrderedQty, decimal PlannedQty) ResolveShortageBinDetails(
+        Guid? itemWarehouseId,
+        IReadOnlyCollection<Guid>? transferFromWarehouseIds,
+        IEnumerable<(Guid WarehouseId, decimal ActualQty, decimal ProjectedQty, decimal ReservedQtyForProduction, decimal OrderedQty, decimal PlannedQty)> companyBins)
+    {
+        if (companyBins == null)
+        {
+            return (0m, 0m, 0m, 0m, 0m);
+        }
+
+        var filteredBins = companyBins;
+        if (itemWarehouseId.HasValue && itemWarehouseId.Value != Guid.Empty)
+        {
+            filteredBins = filteredBins.Where(b => b.WarehouseId == itemWarehouseId.Value);
+        }
+        else if (transferFromWarehouseIds != null && transferFromWarehouseIds.Count > 0)
+        {
+            filteredBins = filteredBins.Where(b => !transferFromWarehouseIds.Contains(b.WarehouseId));
+        }
+
+        decimal actual = 0m, projected = 0m, reserved = 0m, ordered = 0m, planned = 0m;
+        foreach (var bin in filteredBins)
+        {
+            actual += bin.ActualQty;
+            projected += bin.ProjectedQty;
+            reserved += bin.ReservedQtyForProduction;
+            ordered += bin.OrderedQty;
+            planned += bin.PlannedQty;
+        }
+
+        return (actual, projected, reserved, ordered, planned);
+    }
 }

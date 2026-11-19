@@ -243,6 +243,51 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Computes the cost and base-currency cost of every non-legacy secondary item row,
+    /// along with the BOM's total secondary items cost in transaction and base currency.
+    /// Per ERPNext commit a636da6cdd (calculate_secondary_items_cost):
+    /// - Valuation Rate and Manual rows round their own cost to <paramref name="costPrecision"/>
+    ///   and also compute their base cost (<c>cost * conversionRate</c>).
+    /// - Percentage of Component Cost rows split <c>TotalMaterialCost - ownCost</c> by their allocation percentage.
+    /// </summary>
+    public (
+        decimal SecondaryItemsCost,
+        decimal BaseSecondaryItemsCost,
+        IReadOnlyList<(Guid Id, decimal Cost, decimal BaseCost)> RowCosts)
+        CalculateSecondaryItemsCostSummary(decimal conversionRate = 1m, int costPrecision = 2)
+    {
+        var rate = conversionRate > 0m ? conversionRate : 1m;
+        var activeRows = SecondaryItems.Where(s => !s.IsLegacy).ToList();
+
+        static bool HasOwnCost(BomSecondaryItem row) =>
+            row.ValuationType is SecondaryItemValuationType.ValuationRate or SecondaryItemValuationType.Manual;
+
+        var ownCost = activeRows
+            .Where(HasOwnCost)
+            .Sum(r => Math.Round(r.Amount, costPrecision, MidpointRounding.AwayFromZero));
+
+        var allocationBasis = TotalMaterialCost - ownCost;
+
+        decimal total = 0m;
+        decimal baseTotal = 0m;
+        var rowCosts = new List<(Guid Id, decimal Cost, decimal BaseCost)>(activeRows.Count);
+
+        foreach (var row in activeRows)
+        {
+            var cost = HasOwnCost(row)
+                ? Math.Round(row.Amount, costPrecision, MidpointRounding.AwayFromZero)
+                : Math.Round((allocationBasis * row.CostAllocationPercentage) / 100m, costPrecision, MidpointRounding.AwayFromZero);
+            var baseCost = Math.Round(cost * rate, costPrecision, MidpointRounding.AwayFromZero);
+
+            total += cost;
+            baseTotal += baseCost;
+            rowCosts.Add((row.Id, cost, baseCost));
+        }
+
+        return (total, baseTotal, rowCosts);
+    }
+
+    /// <summary>
     /// Add an operation to this BOM. Validates monotonically non-decreasing sequence.
     /// Per ERPNext: same sequence_id = parallel operations (allowed).
     /// Per DO-NOT: "Allow routing sequence_id to decrease between rows"

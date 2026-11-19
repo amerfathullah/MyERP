@@ -460,6 +460,29 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TotalDebit = Math.Round(_lines.Where(l => l.IsDebit).Sum(l => l.Amount), 4);
         TotalCredit = Math.Round(_lines.Where(l => !l.IsDebit).Sum(l => l.Amount), 4);
     }
+
+    /// <summary>
+    /// Resolves the exchange rate for a Journal Entry line when its account is changed
+    /// per ERPNext commit ef07a6b62b (get_account_details):
+    /// Preserves a user-entered custom exchange rate (non-zero, non-1) only when the new account has the same
+    /// currency as the previous account; when the account currency changes, uses the newly fetched exchange rate.
+    /// </summary>
+    public static decimal ResolveRowExchangeRateOnAccountChange(
+        string? previousAccountCurrency,
+        decimal previousExchangeRate,
+        string newAccountCurrency,
+        decimal fetchedExchangeRate)
+    {
+        if (!string.IsNullOrWhiteSpace(previousAccountCurrency) &&
+            string.Equals(previousAccountCurrency, newAccountCurrency, StringComparison.OrdinalIgnoreCase) &&
+            previousExchangeRate != 0m &&
+            previousExchangeRate != 1m)
+        {
+            return previousExchangeRate;
+        }
+
+        return fetchedExchangeRate;
+    }
 }
 
 // Domain Events

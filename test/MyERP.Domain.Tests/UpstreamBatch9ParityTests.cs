@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Assets.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
@@ -749,5 +751,251 @@ public class UpstreamBatch9ParityTests
 
         var writeOff = si.ApplyAutomaticWriteOff(writeOffAutomatically: true);
         writeOff.ShouldBe(2.00m); // 100.00 (RoundedTotal) - 98.00 (AmountPaid) = 2.00, not 1.60
+    }
+
+    [Fact]
+    public void WorkOrder_HasReturnableComponents_And_JobCard_ValidateTotalJobCardQty_And_BomSecondaryBaseCost_db34b763e9_12c81a9dd5_a636da6cdd()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+
+        // 1. WorkOrder.HasReturnableComponents aggregates by ItemId across duplicate rows (db34b763e9)
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-RET-01", itemId, Guid.NewGuid(), 10m);
+        var req1 = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItemId, "Steel Bar", 5m)
+        {
+            TransferredQuantity = 10m,
+            ConsumedQuantity = 5m
+        };
+        var req2 = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItemId, "Steel Bar", 5m)
+        {
+            TransferredQuantity = 0m,
+            ConsumedQuantity = 5m
+        };
+        wo.RequiredItems.Add(req1);
+        wo.RequiredItems.Add(req2);
+        wo.Submit();
+        wo.Close();
+        // Total transferred = 10, total consumed = 10 -> net returnable = 0
+        wo.HasReturnableComponents().ShouldBeFalse();
+
+        req2.ConsumedQuantity = 3m;
+        // Total transferred = 10, total consumed = 8 -> net returnable = 2 > 0
+        wo.HasReturnableComponents().ShouldBeTrue();
+
+        // 2. JobCardManager.ValidateTotalJobCardQty compares totalJobCardQty directly against allowedWorkOrderQty (12c81a9dd5)
+        Should.NotThrow(() => JobCardManager.ValidateTotalJobCardQty(totalJobCardQty: 10m, allowedWorkOrderQty: 10m));
+        var jcEx = Should.Throw<BusinessException>(() => JobCardManager.ValidateTotalJobCardQty(totalJobCardQty: 12m, allowedWorkOrderQty: 10m));
+        jcEx.Data["detail"]!.ToString()!.ShouldContain("Total Job Card quantity (12) exceeds allowed Work Order quantity (10)");
+
+        // 3. BillOfMaterials.CalculateSecondaryItemsCostSummary computes BaseCost on PercentageOfComponentCost rows too (a636da6cdd)
+        var bom = new BillOfMaterials(Guid.NewGuid(), companyId, "BOM-SEC-01", itemId)
+        {
+            Quantity = 1m
+        };
+        bom.AddItem(new BomItem(Guid.NewGuid(), bom.Id, rmItemId, "Raw Material", 10m, 100m, "Kg")); // Material cost = 1000
+        var manualSec = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.Scrap, 2m)
+        {
+            ItemName = "Scrap",
+            ValuationType = SecondaryItemValuationType.Manual,
+            StockUom = "Kg",
+            Rate = 50m
+        };
+        var pctSec = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.CoProduct, 4m)
+        {
+            ItemName = "Co-Product",
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
+            StockUom = "Kg",
+            CostAllocationPercentage = 20m
+        };
+        bom.AddSecondaryItem(manualSec);
+        bom.AddSecondaryItem(pctSec);
+        bom.RecalculateCost();
+
+        var (totalCost, totalBaseCost, rowCosts) = bom.CalculateSecondaryItemsCostSummary(conversionRate: 4.5m, costPrecision: 2);
+        // Manual: Cost = 100, BaseCost = 450
+        // Pct: 20% of (1000 - 100) = 180, BaseCost = 180 * 4.5 = 810, Rate = 180 / 4 = 45
+        rowCosts.Count.ShouldBe(2);
+        rowCosts[0].Cost.ShouldBe(100m);
+        rowCosts[0].BaseCost.ShouldBe(450m);
+        rowCosts[1].Cost.ShouldBe(180m);
+        rowCosts[1].BaseCost.ShouldBe(810m);
+        pctSec.Rate.ShouldBe(45m);
+        totalCost.ShouldBe(280m);
+        totalBaseCost.ShouldBe(1260m);
+    }
+
+    [Fact]
+    public void ProductionPlanMaterialPlanning_LeadTimeAndShortageBin_1cae8b6982_3b8085319d()
+    {
+        var itemId = Guid.NewGuid();
+        var supplierA = Guid.NewGuid();
+        var supplierB = Guid.NewGuid();
+        var leadTimes = new Dictionary<(Guid ItemId, Guid SupplierId), decimal>
+        {
+            [(itemId, supplierA)] = 14m,
+            [(itemId, supplierB)] = 21m
+        };
+
+        // 1. Purchase row uses supplier-specific lead time first, falls back to item lead time, and does not scale by requiredQty (1cae8b6982)
+        ProductionPlanMaterialPlanningService.ResolveMrpItemLeadTimeDays(
+            itemId, "Purchase", requiredQty: 50m, defaultSupplierId: supplierA,
+            supplierPurchaseLeadTimes: leadTimes, itemPurchaseLeadTimeDays: 7m)
+            .ShouldBe(14);
+
+        ProductionPlanMaterialPlanningService.ResolveMrpItemLeadTimeDays(
+            itemId, "Purchase", requiredQty: 50m, defaultSupplierId: Guid.NewGuid(),
+            supplierPurchaseLeadTimes: leadTimes, itemPurchaseLeadTimeDays: 7m)
+            .ShouldBe(7);
+
+        // Manufacture row returns 0 when requiredQty <= 0, otherwise scales per-unit manufacturing time by requiredQty
+        ProductionPlanMaterialPlanningService.ResolveMrpItemLeadTimeDays(
+            itemId, "Manufacture", requiredQty: 0m, itemManufacturingLeadTimeDaysPerUnit: 0.5m)
+            .ShouldBe(0);
+
+        ProductionPlanMaterialPlanningService.ResolveMrpItemLeadTimeDays(
+            itemId, "Manufacture", requiredQty: 5m, itemManufacturingLeadTimeDaysPerUnit: 0.5m)
+            .ShouldBe(3);
+
+        // 2. Receiving warehouse stock is preserved even when receiving warehouse is also in transferFromWarehouses (3b8085319d)
+        var receivingWh = Guid.NewGuid();
+        var transferWh2 = Guid.NewGuid();
+        var bins = new[]
+        {
+            (WarehouseId: receivingWh, ActualQty: 30m, ProjectedQty: 40m, ReservedQtyForProduction: 5m, OrderedQty: 15m, PlannedQty: 0m),
+            (WarehouseId: transferWh2, ActualQty: 50m, ProjectedQty: 50m, ReservedQtyForProduction: 0m, OrderedQty: 0m, PlannedQty: 0m)
+        };
+
+        var withReceivingWh = ProductionPlanMaterialPlanningService.ResolveShortageBinDetails(
+            itemWarehouseId: receivingWh,
+            transferFromWarehouseIds: new[] { receivingWh, transferWh2 },
+            companyBins: bins);
+        withReceivingWh.ActualQty.ShouldBe(30m);
+        withReceivingWh.OrderedQty.ShouldBe(15m);
+
+        var withoutReceivingWh = ProductionPlanMaterialPlanningService.ResolveShortageBinDetails(
+            itemWarehouseId: null,
+            transferFromWarehouseIds: new[] { transferWh2 },
+            companyBins: bins);
+        withoutReceivingWh.ActualQty.ShouldBe(30m);
+    }
+
+    [Fact]
+    public async Task BlanketOrder_ValidateRowItemsAndPartyAndClearOnItemChange_f6cca3f59e_51df5c2ef0_09fd286163_ad16ee4b4b()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var allowedItemId = Guid.NewGuid();
+        var otherItemId = Guid.NewGuid();
+        var today = DateTime.UtcNow.Date;
+
+        var bo = new BlanketOrder(
+            Guid.NewGuid(), companyId, "BO-VAL-01", "Selling", customerId,
+            today.AddDays(-5), today.AddDays(30))
+        {
+            Currency = "MYR",
+            ExchangeRate = 1m
+        };
+        bo.AddItem(allowedItemId, 100m, 42m, "Allowed Item");
+        bo.Submit();
+
+        // 1. ValidateOrderParty throws even when orderPartyId is null (e.g., Quotation to Lead without Customer) (09fd286163, ad16ee4b4b)
+        var partyEx = Should.Throw<BusinessException>(() => bo.ValidateOrderParty(null, "LEAD-0001"));
+        partyEx.Data["detail"]!.ToString()!.ShouldContain("Selected Blanket Order BO-VAL-01 does not belong to LEAD-0001");
+        Should.NotThrow(() => bo.ValidateOrderParty(customerId, "CUST-0001"));
+
+        // 2. ValidateOrderRowItems throws when a row referencing this Blanket Order has an item not in the Blanket Order (f6cca3f59e)
+        var rowEx = Should.Throw<BusinessException>(() => bo.ValidateOrderRowItems(new[]
+        {
+            (RowNumber: 1, ItemId: allowedItemId, ItemCode: (string?)"ITEM-OK", BlanketOrderId: (Guid?)bo.Id),
+            (RowNumber: 2, ItemId: otherItemId, ItemCode: (string?)"ITEM-BAD", BlanketOrderId: (Guid?)bo.Id)
+        }));
+        rowEx.Data["detail"]!.ToString()!.ShouldContain("Row #2: Item ITEM-BAD is not in Blanket Order BO-VAL-01");
+
+        // 3. ResolveRowBlanketOrderOnItemChangeAsync clears BlanketOrderId and BlanketOrderRate when item is not in BO or party is null (51df5c2ef0)
+        var boRepo = Substitute.For<IRepository<BlanketOrder, Guid>>();
+        boRepo.GetQueryableAsync().Returns(new List<BlanketOrder> { bo }.AsQueryable());
+        var rateService = new BlanketOrderRateService(boRepo);
+
+        var matched = await rateService.ResolveRowBlanketOrderOnItemChangeAsync(
+            companyId, customerId, allowedItemId, "Selling", today, againstBlanketOrder: true, existingBlanketOrderId: bo.Id);
+        matched.BlanketOrderId.ShouldBe(bo.Id);
+        matched.BlanketOrderRate.ShouldBe(42m);
+
+        var clearedOnItemChange = await rateService.ResolveRowBlanketOrderOnItemChangeAsync(
+            companyId, customerId, otherItemId, "Selling", today, againstBlanketOrder: true, existingBlanketOrderId: bo.Id);
+        clearedOnItemChange.BlanketOrderId.ShouldBeNull();
+        clearedOnItemChange.BlanketOrderRate.ShouldBe(0m);
+
+        var clearedOnNullParty = await rateService.ResolveRowBlanketOrderOnItemChangeAsync(
+            companyId, null, allowedItemId, "Selling", today, againstBlanketOrder: true, existingBlanketOrderId: bo.Id);
+        clearedOnNullParty.BlanketOrderId.ShouldBeNull();
+        clearedOnNullParty.BlanketOrderRate.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void SubcontractingReturnSecondaryRounding_PurchaseReceiptExchangeDiff_JournalEntryAccountRate_And_SalesInvoicePosRounding_4b9002b2a4_ce1484591d_ef07a6b62b_0548448122_7b255d1b94()
+    {
+        // 1. Subcontracting return secondary item whose share rounds to 0 on early returns gets remaining balance on last FG return (4b9002b2a4)
+        var secRowId = Guid.NewGuid();
+        var secItemId = Guid.NewGuid();
+        var sourceRows = new[]
+        {
+            (SourceSecondaryRowId: secRowId, ItemId: secItemId,
+             OriginalReceivedQty: 0.01m, OriginalProcessLossQty: 0m, OriginalQty: 0.01m,
+             PriorReturnedReceivedQty: 0m, PriorReturnedProcessLossQty: 0m, PriorReturnedQty: 0m)
+        };
+
+        // Partial return (20% of 0.01 = 0.002 -> rounds to 0.00 at 2dp -> dropped on non-last return)
+        var partialReturn = MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveReturnSecondaryItemQuantities(
+            returnFgRatio: 0.2m, isLastFgReturn: false, sourceSecondaryRows: sourceRows, precision: 2);
+        partialReturn.ShouldBeEmpty();
+
+        // Last FG return recovers the full remaining -0.01 secondary qty instead of dropping the row early
+        var lastReturn = MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveReturnSecondaryItemQuantities(
+            returnFgRatio: 0.2m, isLastFgReturn: true, sourceSecondaryRows: sourceRows, precision: 2);
+        lastReturn.Count.ShouldBe(1);
+        lastReturn[0].Qty.ShouldBe(-0.01m);
+
+        // 2. Purchase Receipt exchange rate difference rounds to baseNetAmountPrecision (ce1484591d)
+        var subCentDiff = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateExchangeRateDifference(
+            qty: 1m, netRate: 0.1m, purchaseInvoiceExchangeRate: 4.5001m, purchaseReceiptExchangeRate: 4.5000m, baseNetAmountPrecision: 2);
+        subCentDiff.ShouldBe(0m);
+
+        var realDiff = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateExchangeRateDifference(
+            qty: 100m, netRate: 10m, purchaseInvoiceExchangeRate: 4.55m, purchaseReceiptExchangeRate: 4.50m, baseNetAmountPrecision: 2);
+        realDiff.ShouldBe(50.00m);
+
+        // 3. Journal Entry line exchange rate preserved only while account currency is unchanged (ef07a6b62b)
+        MyERP.Accounting.Entities.JournalEntry.ResolveRowExchangeRateOnAccountChange(
+            previousAccountCurrency: "USD", previousExchangeRate: 4.48m, newAccountCurrency: "USD", fetchedExchangeRate: 4.50m)
+            .ShouldBe(4.48m);
+        MyERP.Accounting.Entities.JournalEntry.ResolveRowExchangeRateOnAccountChange(
+            previousAccountCurrency: "USD", previousExchangeRate: 4.48m, newAccountCurrency: "EUR", fetchedExchangeRate: 4.92m)
+            .ShouldBe(4.92m);
+
+        // 4. Sales Invoice POS change amount uses RoundedTotal (0548448122) & split return payments round sum (7b255d1b94)
+        var posInvoice = new MyERP.Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-POS-01", DateTime.UtcNow.Date)
+        {
+            IsPos = true,
+            DisableRoundedTotal = false
+        };
+        posInvoice.AddItem(Guid.NewGuid(), "Item", 1m, 99.60m, 0m);
+        posInvoice.ApplyRounding(); // GrandTotal = 99.60, RoundedTotal = 100.00
+        posInvoice.AmountPaid = 105.00m;
+
+        var change = posInvoice.CalculateChangeAmount(hasCashPayment: true, precision: 2);
+        change.ShouldBe(5.00m); // 105.00 - 100.00 (RoundedTotal), not 5.40
+
+        var posReturn = new MyERP.Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-POS-RET-01", DateTime.UtcNow.Date)
+        {
+            IsPos = true,
+            IsReturn = true,
+            DisableRoundedTotal = true
+        };
+        posReturn.AddItem(Guid.NewGuid(), "Return Item", -1m, 68.59m, 0m);
+        posReturn.IsPosReturnSplitPaymentBalanced(new[] { -18.59m, -50.00m }, precision: 2).ShouldBeTrue();
     }
 }

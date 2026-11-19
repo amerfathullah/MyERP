@@ -212,6 +212,50 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             }
         }
     }
+
+    /// <summary>
+    /// Validates that the order's party matches this Blanket Order's PartyId, even when the order has no resolved party
+    /// (e.g., a Quotation to a Lead or Prospect with no converted Customer, per ERPNext commits ad16ee4b4b and 09fd286163).
+    /// </summary>
+    public void ValidateOrderParty(Guid? orderPartyId, string? orderPartyDisplayName = null)
+    {
+        if (!orderPartyId.HasValue || orderPartyId.Value != PartyId)
+        {
+            var display = !string.IsNullOrWhiteSpace(orderPartyDisplayName)
+                ? orderPartyDisplayName
+                : (orderPartyId?.ToString() ?? "None");
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Selected Blanket Order {OrderNumber} does not belong to {display}.");
+        }
+    }
+
+    /// <summary>
+    /// Validates that each row on a Quotation, Sales Order, or Purchase Order linked to this Blanket Order
+    /// contains an item that exists in this Blanket Order's item list (ERPNext commit f6cca3f59e).
+    /// </summary>
+    public void ValidateOrderRowItems(IReadOnlyList<(int RowNumber, Guid ItemId, string? ItemCode, Guid? BlanketOrderId)> orderRows)
+    {
+        if (orderRows == null || orderRows.Count == 0)
+        {
+            return;
+        }
+
+        var blanketItemIds = _items.Select(x => x.ItemId).ToHashSet();
+        foreach (var row in orderRows)
+        {
+            if (row.BlanketOrderId != Id)
+            {
+                continue;
+            }
+
+            if (!blanketItemIds.Contains(row.ItemId))
+            {
+                var itemDisplay = !string.IsNullOrWhiteSpace(row.ItemCode) ? row.ItemCode : row.ItemId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowNumber}: Item {itemDisplay} is not in Blanket Order {OrderNumber}.");
+            }
+        }
+    }
 }
 
 public class BlanketOrderItem : FullAuditedEntity<Guid>
