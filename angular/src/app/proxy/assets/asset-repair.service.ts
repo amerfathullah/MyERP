@@ -1,4 +1,4 @@
-import type { AssetRepairDto, AssetRepairExpenseAccountDto, CreateUpdateAssetRepairDto } from './models';
+import type { AssetRepairDto, AssetRepairExpenseAccountDto, CreateUpdateAssetRepairDto, GetAssetRepairConsumedItemRateInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -78,6 +78,22 @@ export class AssetRepairService {
       headers: { Accept: 'application/json' },
       url: '/api/app/asset-repair/expense-accounts-for-purchase-invoice',
       params: { purchaseInvoiceId },
+    },
+      { apiName: this.apiName,...config });
+
+
+  getConsumedItemValuationRate = (input: GetAssetRepairConsumedItemRateInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, number>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/asset-repair/consumed-item-valuation-rate',
+      params: {
+        itemId: input.itemId,
+        warehouseId: input.warehouseId,
+        qty: input.qty,
+        postingDate: input.postingDate,
+        serialAndBatchBundleId: input.serialAndBatchBundleId,
+      },
     },
       { apiName: this.apiName,...config });
   

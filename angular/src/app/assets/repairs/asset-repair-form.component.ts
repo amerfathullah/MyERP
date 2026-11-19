@@ -9,15 +9,19 @@ import { AssetRepairService } from '../../proxy/assets/asset-repair.service';
 import { AssetService } from '../../proxy/assets/asset.service';
 import { AssetStatus } from '../../proxy/assets/asset-status.enum';
 import { CostCenterService } from '../../proxy/accounting/cost-center.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ProjectService } from '../../proxy/projects/project.service';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type {
   AssetDto,
   AssetRepairExpenseAccountDto,
+  CreateUpdateAssetRepairConsumedItemDto,
   CreateUpdateAssetRepairPurchaseInvoiceDto,
 } from '../../proxy/assets/models';
 import type { CostCenterDto } from '../../proxy/accounting/models';
+import type { ItemDto, WarehouseDto } from '../../proxy/inventory/models';
 import type { ProjectDto } from '../../proxy/projects/models';
 import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
@@ -102,6 +106,83 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
 
             <div class="mt-4">
               <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ '::ConsumedStockItems' | abpLocalization }}</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="addStockItemRow()">
+                  <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
+                </button>
+              </div>
+              @if (stockItems().length > 0) {
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::Item' | abpLocalization }}</th>
+                        <th>{{ '::Warehouse' | abpLocalization }}</th>
+                        <th style="width: 110px;">{{ '::Qty' | abpLocalization }}</th>
+                        <th style="width: 140px;">{{ '::ValuationRate' | abpLocalization }}</th>
+                        <th style="width: 140px;" class="text-end">{{ '::TotalValue' | abpLocalization }}</th>
+                        <th style="width: 48px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of stockItems(); track $index) {
+                        <tr>
+                          <td>
+                            <select class="form-select form-select-sm"
+                              [ngModel]="row.itemId ?? ''"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="onStockItemChange($index, $event)">
+                              <option value="">{{ '::SelectItem' | abpLocalization }}</option>
+                              @for (it of items(); track it.id) {
+                                <option [value]="it.id">{{ it.itemCode }} — {{ it.itemName }}</option>
+                              }
+                            </select>
+                          </td>
+                          <td>
+                            <select class="form-select form-select-sm"
+                              [ngModel]="row.warehouseId ?? ''"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="onStockWarehouseChange($index, $event)">
+                              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+                              @for (wh of warehouses(); track wh.id) {
+                                <option [value]="wh.id">{{ wh.name }}</option>
+                              }
+                            </select>
+                          </td>
+                          <td>
+                            <input type="number" min="0.0001" step="0.01" class="form-control form-control-sm text-end"
+                              [ngModel]="row.qty ?? 1"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="onStockQtyChange($index, +$event || 0)" />
+                          </td>
+                          <td>
+                            <input type="number" min="0" step="0.01" class="form-control form-control-sm text-end"
+                              [ngModel]="row.valuationRate ?? 0"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="updateStockItemRow($index, { valuationRate: +$event || 0 })" />
+                          </td>
+                          <td class="text-end fw-semibold">
+                            {{ ((row.qty ?? 0) * (row.valuationRate ?? 0)) | number:'1.2-2' }}
+                          </td>
+                          <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeStockItemRow($index)">
+                              <i class="fa fa-trash"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="d-flex justify-content-end gap-4 mt-2 small text-muted">
+                  <span>{{ '::ConsumedItemsCost' | abpLocalization }}: <strong>{{ consumedItemsCost() | number:'1.2-2' }}</strong></span>
+                  <span>{{ '::TotalRepairCost' | abpLocalization }}: <strong class="text-body">{{ totalRepairCost() | number:'1.2-2' }}</strong></span>
+                </div>
+              }
+            </div>
+
+            <div class="mt-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">{{ '::PurchaseInvoices' | abpLocalization }}</h6>
                 <button type="button" class="btn btn-sm btn-outline-primary" (click)="addInvoiceRow()">
                   <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
@@ -181,6 +262,8 @@ export class AssetRepairFormComponent implements OnInit {
   private service = inject(AssetRepairService);
   private assetService = inject(AssetService);
   private costCenterService = inject(CostCenterService);
+  private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
   private projectService = inject(ProjectService);
   private purchaseInvoiceService = inject(PurchaseInvoiceService);
   private companyContext = inject(CompanyContextService);
@@ -191,14 +274,25 @@ export class AssetRepairFormComponent implements OnInit {
 
   assets = signal<AssetDto[]>([]);
   costCenters = signal<CostCenterDto[]>([]);
+  items = signal<ItemDto[]>([]);
+  warehouses = signal<WarehouseDto[]>([]);
   projects = signal<ProjectDto[]>([]);
   purchaseInvoices = signal<PurchaseInvoiceDto[]>([]);
+  stockItems = signal<CreateUpdateAssetRepairConsumedItemDto[]>([]);
   invoices = signal<CreateUpdateAssetRepairPurchaseInvoiceDto[]>([]);
   expenseAccountsByInvoice = signal<Record<string, AssetRepairExpenseAccountDto[]>>({});
   isSaving = signal(false);
   repairId = signal<string | null>(null);
   isEdit = computed(() => !!this.repairId());
   cancelLink = computed(() => this.repairId() ? `/assets/repairs/${this.repairId()}` : '/assets/repairs');
+  consumedItemsCost = computed(() =>
+    this.stockItems().reduce((sum, row) => sum + ((row.qty ?? 0) * (row.valuationRate ?? 0)), 0),
+  );
+  totalRepairCost = computed(() => {
+    const invoiceTotal = this.invoices().reduce((sum, inv) => sum + (inv.repairCost ?? 0), 0);
+    const baseRepairCost = this.invoices().length > 0 ? invoiceTotal : (Number(this.form.get('repairCost')?.value) || 0);
+    return baseRepairCost + this.consumedItemsCost();
+  });
 
   form = this.fb.group({
     assetId: ['', Validators.required],
@@ -231,10 +325,24 @@ export class AssetRepairFormComponent implements OnInit {
       this.projects.set(r.items ?? []);
     });
     const cid = this.companyContext.currentCompanyId();
+    this.itemService.getList({ companyId: cid ?? undefined, skipCount: 0, maxResultCount: 500 } as any).subscribe(r => {
+      this.items.set((r.items ?? []).filter(i => i.maintainStock !== false));
+    });
+    this.warehouseService.getList({ companyId: cid ?? undefined, skipCount: 0, maxResultCount: 200 } as any).subscribe(r => {
+      this.warehouses.set((r.items ?? []).filter(w => !w.isGroup));
+    });
     this.purchaseInvoiceService.getList({ companyId: cid ?? undefined, skipCount: 0, maxResultCount: 200 } as any).subscribe(r => {
       this.purchaseInvoices.set((r.items ?? []).filter(
         pi => pi.status === 'Submitted' || pi.status === 'Posted'
       ));
+    });
+
+    this.form.get('completionDate')?.valueChanges.subscribe(() => {
+      this.stockItems().forEach((row, idx) => {
+        if (row.itemId && row.warehouseId && !row.serialAndBatchBundleId) {
+          this.fetchConsumedItemRate(idx);
+        }
+      });
     });
 
     const id = this.route.snapshot.paramMap.get('id');
@@ -253,7 +361,17 @@ export class AssetRepairFormComponent implements OnInit {
           projectId: repair.projectId ?? null,
           capitalizeRepairCost: repair.capitalizeRepairCost,
           increaseInAssetLife: repair.increaseInAssetLife,
-        } as any);
+        } as any, { emitEvent: false });
+        const existingStockItems = (repair.stockItems ?? []).map(si => ({
+          id: si.id,
+          itemId: si.itemId,
+          itemName: si.itemName ?? null,
+          warehouseId: si.warehouseId ?? null,
+          qty: si.qty ?? 1,
+          valuationRate: si.valuationRate ?? 0,
+          serialAndBatchBundleId: si.serialAndBatchBundleId ?? null,
+        }));
+        this.stockItems.set(existingStockItems);
         const existingInvoices = (repair.invoices ?? []).map(inv => ({
           id: inv.id,
           purchaseInvoiceId: inv.purchaseInvoiceId,
@@ -269,6 +387,65 @@ export class AssetRepairFormComponent implements OnInit {
         }
       });
     }
+  }
+
+  addStockItemRow(): void {
+    this.stockItems.update(rows => [
+      ...rows,
+      { itemId: '', itemName: null, warehouseId: null, qty: 1, valuationRate: 0, serialAndBatchBundleId: null },
+    ]);
+  }
+
+  removeStockItemRow(index: number): void {
+    this.stockItems.update(rows => rows.filter((_, i) => i !== index));
+  }
+
+  updateStockItemRow(index: number, patch: Partial<CreateUpdateAssetRepairConsumedItemDto>): void {
+    this.stockItems.update(rows => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  onStockItemChange(index: number, itemId: string): void {
+    const selected = this.items().find(i => i.id === itemId);
+    this.updateStockItemRow(index, {
+      itemId,
+      itemName: selected?.itemName ?? null,
+    });
+    const row = this.stockItems()[index];
+    if (itemId && row?.warehouseId && !row.serialAndBatchBundleId) {
+      this.fetchConsumedItemRate(index);
+    }
+  }
+
+  onStockWarehouseChange(index: number, warehouseId: string): void {
+    this.updateStockItemRow(index, { warehouseId: warehouseId || null });
+    const row = this.stockItems()[index];
+    if (row?.itemId && warehouseId && !row.serialAndBatchBundleId) {
+      this.fetchConsumedItemRate(index);
+    }
+  }
+
+  onStockQtyChange(index: number, qty: number): void {
+    this.updateStockItemRow(index, { qty });
+    const row = this.stockItems()[index];
+    // Per ERPNext commit 8adb2c3507: FIFO outgoing rate depends on consumed qty, so re-fetch when warehouse is set.
+    if (row?.itemId && row.warehouseId && qty > 0 && !row.serialAndBatchBundleId) {
+      this.fetchConsumedItemRate(index);
+    }
+  }
+
+  fetchConsumedItemRate(index: number): void {
+    const row = this.stockItems()[index];
+    if (!row?.itemId || !row.warehouseId) return;
+    const postingDate = this.form.get('completionDate')?.value || null;
+    this.service.getConsumedItemValuationRate({
+      itemId: row.itemId,
+      warehouseId: row.warehouseId,
+      qty: row.qty && row.qty > 0 ? row.qty : 1,
+      postingDate,
+      serialAndBatchBundleId: row.serialAndBatchBundleId ?? null,
+    }).subscribe(rate => {
+      this.updateStockItemRow(index, { valuationRate: Number(rate) || 0 });
+    });
   }
 
   addInvoiceRow(): void {
@@ -317,8 +494,9 @@ export class AssetRepairFormComponent implements OnInit {
     this.isSaving.set(true);
     const val = this.form.getRawValue();
     const cid = this.companyContext.currentCompanyId();
+    const validStockItems = this.stockItems().filter(si => !!si.itemId && !!si.warehouseId && (si.qty ?? 0) > 0);
     const validInvoices = this.invoices().filter(inv => !!inv.purchaseInvoiceId);
-    const payload = { ...val, companyId: cid ?? undefined, invoices: validInvoices };
+    const payload = { ...val, companyId: cid ?? undefined, stockItems: validStockItems, invoices: validInvoices };
 
     const id = this.repairId();
     const request$ = id ? this.service.update(id, payload as any) : this.service.create(payload as any);

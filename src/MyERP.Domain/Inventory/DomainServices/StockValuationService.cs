@@ -438,6 +438,85 @@ public class StockValuationService : DomainService
         return item?.StandardBuyingPrice ?? 0m;
     }
 
+    /// <summary>
+    /// Previews the outgoing valuation rate for a stock-out of <paramref name="qty"/> units
+    /// at <paramref name="postingDate"/> without mutating the ledger.
+    /// Per ERPNext stock/utils.py get_incoming_rate (negative qty) and commit 8adb2c3507:
+    /// FIFO/LIFO consumes from the cost queue at the posting moment, so outgoing rate reflects
+    /// the actual FIFO/LIFO layers that will be consumed rather than the latest incoming rate.
+    /// </summary>
+    public async Task<decimal> GetOutgoingValuationRateAsync(
+        Guid itemId,
+        Guid warehouseId,
+        decimal qty,
+        DateTime? postingDate = null,
+        Guid? batchId = null,
+        Guid? serialAndBatchBundleId = null,
+        Guid? excludeVoucherId = null)
+    {
+        var item = await _itemRepository.FindAsync(itemId);
+        if (item == null)
+        {
+            return 0m;
+        }
+
+        if (item.ValuationMethod == ValuationMethod.StandardCost)
+        {
+            return Math.Round(item.StandardBuyingPrice ?? 0m, 4);
+        }
+
+        var asOf = postingDate ?? DateTime.UtcNow;
+
+        if (serialAndBatchBundleId.HasValue || batchId.HasValue)
+        {
+            var specificRate = await GetValuationRateAsync(
+                itemId,
+                warehouseId,
+                batchId: batchId,
+                serialAndBatchBundleId: serialAndBatchBundleId,
+                asOfDate: asOf,
+                excludeVoucherId: excludeVoucherId,
+                postingDateTime: postingDate);
+            return Math.Round(specificRate, 4);
+        }
+
+        var previousSle = await GetPreviousSleAsync(itemId, warehouseId, asOf, excludeVoucherId: excludeVoucherId);
+        var effectiveQty = Math.Abs(qty);
+
+        if (item.ValuationMethod == ValuationMethod.FIFO || item.ValuationMethod == ValuationMethod.LIFO)
+        {
+            if (previousSle != null && !string.IsNullOrWhiteSpace(previousSle.StockQueue))
+            {
+                var queue = FifoValuation.Deserialize(previousSle.StockQueue, item.ValuationMethod == ValuationMethod.LIFO);
+                if (queue.TotalQty > 0m)
+                {
+                    if (effectiveQty <= 0m)
+                    {
+                        return Math.Round(queue.ValuationRate, 4);
+                    }
+
+                    var consumed = queue.RemoveStock(effectiveQty);
+                    return Math.Round(FifoValuation.GetOutgoingRate(consumed), 4);
+                }
+            }
+        }
+
+        if (previousSle != null)
+        {
+            if (previousSle.BalanceQuantity > 0m && previousSle.BalanceValue > 0m)
+            {
+                return Math.Round(previousSle.BalanceValue / previousSle.BalanceQuantity, 4);
+            }
+
+            if (previousSle.ValuationRate > 0m)
+            {
+                return Math.Round(previousSle.ValuationRate, 4);
+            }
+        }
+
+        return Math.Round(item.StandardBuyingPrice ?? 0m, 4);
+    }
+
     public const int SerialNoQueryBatchSize = 500;
 
     /// <summary>

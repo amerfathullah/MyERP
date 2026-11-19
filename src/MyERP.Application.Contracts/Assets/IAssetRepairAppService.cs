@@ -16,4 +16,5 @@ public interface IAssetRepairAppService : IApplicationService
     Task<AssetRepairDto> CompleteAsync(Guid id);
     Task<AssetRepairDto> CancelAsync(Guid id);
     Task<List<AssetRepairExpenseAccountDto>> GetExpenseAccountsForPurchaseInvoiceAsync(Guid purchaseInvoiceId);
+    Task<decimal> GetConsumedItemValuationRateAsync(GetAssetRepairConsumedItemRateInput input);
 }

@@ -333,6 +333,15 @@ public class AssetRepairExpenseAccountDto
     public decimal UnallocatedAmount { get; set; }
 }
 
+public class GetAssetRepairConsumedItemRateInput
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal Qty { get; set; } = 1m;
+    public DateTime? PostingDate { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
+}
+
 public class AssetRepairDto : FullAuditedEntityDto<Guid>
 {
     public string RepairNumber { get; set; } = null!;

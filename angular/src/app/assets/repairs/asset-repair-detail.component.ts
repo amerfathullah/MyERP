@@ -39,16 +39,45 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 <div class="row g-3">
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::FailureDate' | abpLocalization }}</small><strong>{{ repair()!.failureDate | date:'dd/MM/yyyy' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::CompletionDate' | abpLocalization }}</small><strong>{{ repair()!.completionDate ? (repair()!.completionDate | date:'dd/MM/yyyy') : '—' }}</strong></div>
-                  <div class="col-md-6"><small class="text-muted d-block">{{ '::RepairCost' | abpLocalization }}</small><strong class="fs-5">{{ repair()!.repairCost | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-4"><small class="text-muted d-block">{{ '::RepairCost' | abpLocalization }}</small><strong class="fs-5">{{ repair()!.repairCost | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-4"><small class="text-muted d-block">{{ '::ConsumedItemsCost' | abpLocalization }}</small><strong class="fs-5">{{ (repair()!.consumedItemsCost ?? 0) | number:'1.2-2' }}</strong></div>
+                  <div class="col-md-4"><small class="text-muted d-block">{{ '::TotalRepairCost' | abpLocalization }}</small><strong class="fs-5 text-primary">{{ (repair()!.totalRepairCost ?? repair()!.repairCost ?? 0) | number:'1.2-2' }}</strong></div>
                   <div class="col-md-6"><small class="text-muted d-block">{{ '::Capitalize' | abpLocalization }}</small>
                     @if (repair()!.capitalizeRepairCost) {
                       <strong class="text-success">Yes (+{{ repair()!.increaseInAssetLife }} months)</strong>
                     } @else { <strong>No</strong> }
                   </div>
+                  @if (repair()!.downtime) {
+                    <div class="col-md-6"><small class="text-muted d-block">{{ '::Downtime' | abpLocalization }}</small><strong>{{ repair()!.downtime }}</strong></div>
+                  }
                   @if (repair()!.repairDescription) {
                     <div class="col-12"><small class="text-muted d-block">{{ '::Description' | abpLocalization }}</small><p>{{ repair()!.repairDescription }}</p></div>
                   }
                 </div>
+                @if ((repair()!.stockItems?.length ?? 0) > 0) {
+                  <hr />
+                  <h6 class="mb-2">{{ '::ConsumedStockItems' | abpLocalization }}</h6>
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>{{ '::Item' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::TotalValue' | abpLocalization }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of repair()!.stockItems; track item.id ?? $index) {
+                        <tr>
+                          <td>{{ item.itemName || item.itemId }}</td>
+                          <td class="text-end">{{ (item.qty ?? 0) | number:'1.0-4' }}</td>
+                          <td class="text-end">{{ (item.valuationRate ?? 0) | number:'1.2-4' }}</td>
+                          <td class="text-end">{{ (item.totalValue ?? ((item.qty ?? 0) * (item.valuationRate ?? 0))) | number:'1.2-2' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
                 @if ((repair()!.invoices?.length ?? 0) > 0) {
                   <hr />
                   <h6 class="mb-2">{{ '::PurchaseInvoices' | abpLocalization }}</h6>

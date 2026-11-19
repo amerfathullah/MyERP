@@ -6651,7 +6651,10 @@
     "StockQtyVsBatchQty": "Stock Qty vs Batch Qty",
     "StockQtyVsBatchQtyDescription": "Compare warehouse Bin stock quantity against active batch ledger quantities for batch-tracked items",
     "UpdateBatchStockQty": "Reconcile Bin Qty from Batch Ledger",
-    "BatchCount": "Batches"
+    "BatchCount": "Batches",
+    "ConsumedStockItems": "Consumed Stock Items",
+    "ConsumedItemsCost": "Consumed Items Cost",
+    "TotalRepairCost": "Total Repair Cost"
   }
 }
 

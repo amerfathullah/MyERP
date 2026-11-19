@@ -679,6 +679,14 @@ export interface AssetRepairExpenseAccountDto {
   unallocatedAmount?: number;
 }
 
+export interface GetAssetRepairConsumedItemRateInput {
+  itemId?: string;
+  warehouseId?: string;
+  qty?: number;
+  postingDate?: string | null;
+  serialAndBatchBundleId?: string | null;
+}
+
 export interface CreateUpdateAssetShiftFactorDto {
   shiftName: string;
   factor?: number;

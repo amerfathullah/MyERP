@@ -3,9 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
+using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
+using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -193,10 +197,11 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
         }
 
-        // Validate stock items are active
+        // Validate stock items are active and well-formed
         if (input.StockItems != null && input.StockItems.Any())
         {
-            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            ValidateStockItems(input.StockItems);
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
@@ -347,7 +352,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         if (input.StockItems != null && input.StockItems.Any())
         {
-            var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            ValidateStockItems(input.StockItems);
+            var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
@@ -464,6 +470,33 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         await _repository.DeleteAsync(id);
     }
 
+    private static void ValidateStockItems(IEnumerable<CreateUpdateAssetRepairConsumedItemDto> stockItems)
+    {
+        foreach (var item in stockItems)
+        {
+            if (item.ItemId == Guid.Empty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Item is required for consumed stock items.");
+            }
+            if (!item.WarehouseId.HasValue || item.WarehouseId.Value == Guid.Empty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Warehouse is required for consumed stock item '{item.ItemName ?? item.ItemId.ToString()}'.");
+            }
+            if (item.Qty <= 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "Qty");
+            }
+            if (item.ValuationRate < 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "ValuationRate");
+            }
+        }
+    }
+
     [Authorize(MyERPPermissions.AssetRepairs.Edit)]
     public async Task<AssetRepairDto> CompleteAsync(Guid id)
     {
@@ -488,6 +521,79 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                     .Select(i => (i.PurchaseInvoiceId, i.ExpenseAccountId!.Value, i.RepairCost)));
         }
 
+        var consumedStockLines = new List<(Guid ItemId, Guid WarehouseId, string ItemName, decimal ConsumedValue)>();
+        if (repair.StockItems.Any())
+        {
+            var valuationService = LazyServiceProvider?.LazyGetService<StockValuationService>();
+            var binService = LazyServiceProvider?.LazyGetService<BinService>();
+            var postingDate = repair.CompletionDate ?? DateTime.UtcNow;
+
+            foreach (var stockItem in repair.StockItems)
+            {
+                if (!stockItem.WarehouseId.HasValue || stockItem.WarehouseId.Value == Guid.Empty)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Warehouse is required for consumed stock item '{stockItem.ItemName ?? stockItem.ItemId.ToString()}'.");
+                }
+                if (stockItem.Qty <= 0m)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                        .WithData("field", "Qty");
+                }
+
+                if (valuationService != null)
+                {
+                    Guid? bundleId = Guid.TryParse(stockItem.SerialAndBatchBundleId, out var parsedBundle)
+                        ? parsedBundle
+                        : null;
+
+                    // Per ERPNext asset_repair.py decrease_stock_quantity + set_consumed_items_cost_from_stock_entry:
+                    // issue stock at CompletionDate and overwrite row ValuationRate with actual ledger outgoing cost.
+                    var sle = await valuationService.CreateLedgerEntryAsync(
+                        repair.CompanyId,
+                        stockItem.ItemId,
+                        stockItem.WarehouseId.Value,
+                        postingDate,
+                        -stockItem.Qty,
+                        incomingRate: 0m,
+                        voucherType: "AssetRepair",
+                        voucherId: repair.Id,
+                        tenantId: repair.TenantId,
+                        serialAndBatchBundleId: bundleId,
+                        projectId: repair.ProjectId,
+                        voucherDetailNo: stockItem.Id);
+
+                    if (binService != null)
+                    {
+                        await binService.ApplyStockMovementAsync(
+                            stockItem.ItemId,
+                            stockItem.WarehouseId.Value,
+                            -stockItem.Qty,
+                            sle.StockValueDifference,
+                            repair.TenantId);
+                    }
+
+                    var consumedValue = Math.Round(Math.Abs(sle.StockValueDifference), 2);
+                    if (consumedValue <= 0m && sle.ValuationRate > 0m)
+                    {
+                        consumedValue = Math.Round(stockItem.Qty * sle.ValuationRate, 2);
+                    }
+
+                    stockItem.ValuationRate = stockItem.Qty > 0m
+                        ? Math.Round(consumedValue / stockItem.Qty, 4)
+                        : sle.ValuationRate;
+
+                    consumedStockLines.Add((
+                        stockItem.ItemId,
+                        stockItem.WarehouseId.Value,
+                        stockItem.ItemName ?? stockItem.ItemId.ToString(),
+                        consumedValue));
+                }
+            }
+
+            repair.CalculateTotals();
+        }
+
         // Consumed stock cost is always added to asset value; repair cost is added if capitalized (ERPNext PR #47233 / commit ed8a8532e1)
         var capitalizedCost = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
         if (capitalizedCost > 0)
@@ -495,6 +601,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             var asset = await _assetRepository.GetAsync(repair.AssetId);
             asset.ApplyRepairCapitalization(capitalizedCost, repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0);
             await _assetRepository.UpdateAsync(asset);
+
+            await TryPostCapitalizationGlAsync(repair, asset, consumedStockLines);
         }
 
         // Per ERPNext PR #60020 (commit 862a5e921c): always log AssetActivity when repair is completed
@@ -525,14 +633,76 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         if (repair == null)
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
 
+        var wasCompleted = repair.Status == AssetRepairStatus.Completed;
         repair.Cancel();
 
-        var capitalizedCost = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
-        if (capitalizedCost > 0)
+        var capitalizedCost = wasCompleted
+            ? repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m)
+            : 0m;
+
+        if (wasCompleted)
         {
-            var asset = await _assetRepository.GetAsync(repair.AssetId);
-            asset.ApplyRepairCapitalization(-1 * capitalizedCost, repair.CapitalizeRepairCost ? -1 * repair.IncreaseInAssetLife : 0);
-            await _assetRepository.UpdateAsync(asset);
+            // Reverse consumed stock items with compensating inward SLE + Bin updates
+            if (repair.StockItems.Any())
+            {
+                var valuationService = LazyServiceProvider?.LazyGetService<StockValuationService>();
+                var binService = LazyServiceProvider?.LazyGetService<BinService>();
+                if (valuationService != null)
+                {
+                    foreach (var stockItem in repair.StockItems)
+                    {
+                        if (!stockItem.WarehouseId.HasValue || stockItem.WarehouseId.Value == Guid.Empty || stockItem.Qty <= 0m)
+                            continue;
+
+                        var sle = await valuationService.CreateLedgerEntryAsync(
+                            repair.CompanyId,
+                            stockItem.ItemId,
+                            stockItem.WarehouseId.Value,
+                            DateTime.UtcNow,
+                            stockItem.Qty,
+                            incomingRate: stockItem.ValuationRate,
+                            voucherType: "AssetRepair",
+                            voucherId: repair.Id,
+                            tenantId: repair.TenantId,
+                            projectId: repair.ProjectId,
+                            voucherDetailNo: stockItem.Id);
+
+                        if (binService != null)
+                        {
+                            await binService.ApplyStockMovementAsync(
+                                stockItem.ItemId,
+                                stockItem.WarehouseId.Value,
+                                stockItem.Qty,
+                                sle.StockValueDifference,
+                                repair.TenantId);
+                        }
+                    }
+                }
+            }
+
+            // Reverse posted capitalization GL if any was created for this repair
+            var postingOrchestrator = LazyServiceProvider?.LazyGetService<DocumentPostingOrchestrator>();
+            if (postingOrchestrator != null)
+            {
+                var postedJeIds = (await _journalEntryRepository.GetQueryableAsync())
+                    .Where(je => je.ReferenceType == "AssetRepair"
+                        && je.ReferenceId == repair.Id
+                        && je.Status == Core.DocumentStatus.Posted)
+                    .Select(je => je.Id)
+                    .ToList();
+
+                foreach (var jeId in postedJeIds)
+                {
+                    await postingOrchestrator.ReverseGlForJournalEntryAsync(jeId);
+                }
+            }
+
+            if (capitalizedCost > 0)
+            {
+                var asset = await _assetRepository.GetAsync(repair.AssetId);
+                asset.ApplyRepairCapitalization(-1 * capitalizedCost, repair.CapitalizeRepairCost ? -1 * repair.IncreaseInAssetLife : 0);
+                await _assetRepository.UpdateAsync(asset);
+            }
         }
 
         // Per ERPNext PR #60020 (commit 862a5e921c): always log AssetActivity when repair is cancelled
@@ -550,6 +720,136 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         await _repository.UpdateAsync(repair);
         return _mapper.Map(repair);
+    }
+
+    /// <summary>
+    /// Posts balanced GL for a completed Asset Repair when the asset's category accounts and an open
+    /// fiscal year are configured: DR Fixed Asset account, CR stock accounts for consumed items,
+    /// CR expense accounts for capitalized repair cost (per ERPNext AssetRepairGLComposer).
+    /// </summary>
+    private async Task TryPostCapitalizationGlAsync(
+        AssetRepair repair,
+        Asset asset,
+        List<(Guid ItemId, Guid WarehouseId, string ItemName, decimal ConsumedValue)> consumedStockLines)
+    {
+        if (!asset.AssetCategoryId.HasValue) return;
+
+        var categoryRepo = LazyServiceProvider?.LazyGetService<IRepository<AssetCategory, Guid>>();
+        var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+        var fiscalYearRepo = LazyServiceProvider?.LazyGetService<IRepository<FiscalYear, Guid>>();
+        var warehouseAccountService = LazyServiceProvider?.LazyGetService<WarehouseAccountService>();
+        var numberGenerator = LazyServiceProvider?.LazyGetService<IDocumentNumberGenerator>();
+        if (categoryRepo == null || companyRepo == null || fiscalYearRepo == null || numberGenerator == null)
+            return;
+
+        var category = (await categoryRepo.WithDetailsAsync(c => c.Accounts))
+            .FirstOrDefault(c => c.Id == asset.AssetCategoryId.Value);
+        var categoryAccounts = category?.GetAccountForCompany(repair.CompanyId);
+        if (categoryAccounts == null) return;
+
+        var postingDate = repair.CompletionDate ?? DateTime.UtcNow;
+        var fiscalYear = (await fiscalYearRepo.GetQueryableAsync())
+            .FirstOrDefault(fy => fy.CompanyId == repair.CompanyId
+                && fy.StartDate <= postingDate && fy.EndDate >= postingDate);
+        if (fiscalYear == null) return;
+
+        var company = await companyRepo.FindAsync(repair.CompanyId);
+        var creditLines = new List<(Guid AccountId, decimal Amount, string Description)>();
+
+        foreach (var line in consumedStockLines)
+        {
+            var amount = Math.Round(line.ConsumedValue, 2);
+            if (amount <= 0m) continue;
+            if (warehouseAccountService == null) return;
+
+            var stockAccountId = await warehouseAccountService.ResolveStockAccountAsync(
+                line.WarehouseId, repair.CompanyId, line.ItemId);
+            creditLines.Add((stockAccountId, amount, $"Asset repair ({repair.RepairNumber}) — stock consumed: {line.ItemName}"));
+        }
+
+        if (repair.CapitalizeRepairCost && repair.RepairCost > 0m)
+        {
+            if (repair.Invoices.Any())
+            {
+                foreach (var inv in repair.Invoices)
+                {
+                    var amount = Math.Round(inv.RepairCost, 2);
+                    if (amount <= 0m) continue;
+                    var expAcctId = inv.ExpenseAccountId ?? company?.DefaultExpenseAccountId;
+                    if (!expAcctId.HasValue) return;
+                    creditLines.Add((expAcctId.Value, amount, $"Asset repair ({repair.RepairNumber}) — invoice {inv.PurchaseInvoiceNumber ?? inv.PurchaseInvoiceId.ToString()}"));
+                }
+            }
+            else if (company?.DefaultExpenseAccountId.HasValue == true)
+            {
+                creditLines.Add((company.DefaultExpenseAccountId.Value, Math.Round(repair.RepairCost, 2), $"Asset repair ({repair.RepairNumber}) — capitalized repair cost"));
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        var totalCredit = Math.Round(creditLines.Sum(l => l.Amount), 2);
+        if (totalCredit <= 0m) return;
+
+        var jeNumber = await numberGenerator.GenerateAsync("JE", repair.CompanyId);
+        var je = new JournalEntry(GuidGenerator.Create(), repair.CompanyId, fiscalYear.Id, postingDate, repair.TenantId)
+        {
+            EntryNumber = jeNumber,
+            ReferenceType = "AssetRepair",
+            ReferenceId = repair.Id,
+            Narration = $"Asset repair ({repair.RepairNumber}) for {asset.AssetName}",
+        };
+
+        je.AddLine(
+            categoryAccounts.FixedAssetAccountId,
+            totalCredit,
+            isDebit: true,
+            description: $"Asset repair ({repair.RepairNumber}) — capitalize onto {asset.AssetName}",
+            costCenterId: repair.CostCenterId,
+            projectId: repair.ProjectId);
+
+        foreach (var (accountId, amount, description) in creditLines)
+        {
+            je.AddLine(
+                accountId,
+                amount,
+                isDebit: false,
+                description: description,
+                costCenterId: repair.CostCenterId,
+                projectId: repair.ProjectId);
+        }
+
+        je.Validate();
+        je.Post();
+        await _journalEntryRepository.InsertAsync(je);
+    }
+
+    /// <summary>
+    /// Previews the outgoing stock valuation rate (FIFO/LIFO/Moving Average/Standard Cost)
+    /// for a consumed stock item at the repair's completion date without mutating the ledger.
+    /// Per ERPNext commit 8adb2c3507 (set_consumed_item_rate).
+    /// </summary>
+    public async Task<decimal> GetConsumedItemValuationRateAsync(GetAssetRepairConsumedItemRateInput input)
+    {
+        if (input.ItemId == Guid.Empty || input.WarehouseId == Guid.Empty)
+        {
+            return 0m;
+        }
+
+        var valuationService = LazyServiceProvider?.LazyGetService<StockValuationService>();
+        if (valuationService == null)
+        {
+            return 0m;
+        }
+
+        return await valuationService.GetOutgoingValuationRateAsync(
+            input.ItemId,
+            input.WarehouseId,
+            input.Qty > 0m ? input.Qty : 1m,
+            input.PostingDate ?? DateTime.UtcNow,
+            serialAndBatchBundleId: input.SerialAndBatchBundleId);
     }
 
     /// <summary>
