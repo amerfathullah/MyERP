@@ -660,4 +660,225 @@ public class PurchaseReceiptManager : DomainService
         var roundedStockQty = Math.Round(qtyInTransactionUom * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
         return (Math.Abs(roundedStockQty) > 0m, roundedStockQty);
     }
+
+    /// <summary>
+    /// Computes the transit valuation amount of an internal transfer receipt or return row at its incoming transit rate
+    /// per ERPNext commits 86229973c0 and cceafa6af4 (get_transit_amount):
+    /// Values the row at the rounded stock quantity that the Stock Ledger Entry moves (<c>Round(qty * conversionFactor, stockQtyPrecision) * salesIncomingRate / conversionFactor</c>).
+    /// </summary>
+    public static decimal CalculateInternalTransferTransitAmount(
+        decimal qtyInTransactionUom,
+        decimal conversionFactor,
+        decimal salesIncomingRate,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var roundedStockQty = Math.Round(qtyInTransactionUom * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (roundedStockQty * salesIncomingRate) / factor;
+    }
+
+    /// <summary>
+    /// Resolves the transit stock value and warehouse debit amount for an internal transfer Purchase Invoice (or Return)
+    /// per ERPNext commits 5c38112008, 1d5eb2a43d, 0c17bbd80c, 42fb302bca, e661476a74, and d0942983e5:
+    /// - Returns <c>TransitStockValue = null</c> when not an internal transfer, no <paramref name="fromWarehouseId"/>,
+    ///   when <paramref name="rejectedWarehouseId"/> equals <paramref name="fromWarehouseId"/> (rejected material stays in transit, e661476a74),
+    ///   or when no SLE exists in the transit warehouse (<paramref name="transitWarehouseSleStockValue"/> is null).
+    /// - Preserves an explicit <c>0m</c> transit SLE value (<c>42fb302bca</c>).
+    /// - Computes <c>WarehouseDebitAmount = Round(Round(TransitStockValue, precision) - Round(RejectedSleStockValue, precision) + LandedCostVoucherAmount, precision)</c>.
+    /// </summary>
+    public static (decimal? TransitStockValue, decimal WarehouseDebitAmount) ResolveInternalTransferInvoiceTransitAndWarehouseGlAmounts(
+        bool isInternalTransfer,
+        Guid? fromWarehouseId,
+        Guid? rejectedWarehouseId,
+        decimal? transitWarehouseSleStockValue,
+        decimal? rejectedWarehouseSleStockValue,
+        decimal landedCostVoucherAmount,
+        decimal fallbackWarehouseDebitAmount,
+        int netAmountPrecision = 2)
+    {
+        if (!isInternalTransfer ||
+            !fromWarehouseId.HasValue ||
+            fromWarehouseId.Value == Guid.Empty ||
+            (rejectedWarehouseId.HasValue && rejectedWarehouseId.Value == fromWarehouseId.Value) ||
+            !transitWarehouseSleStockValue.HasValue)
+        {
+            return (null, Math.Round(fallbackWarehouseDebitAmount, netAmountPrecision, MidpointRounding.AwayFromZero));
+        }
+
+        var transitStockValue = -transitWarehouseSleStockValue.Value;
+        var roundedTransit = Math.Round(transitStockValue, netAmountPrecision, MidpointRounding.AwayFromZero);
+        var roundedRejected = Math.Round(rejectedWarehouseSleStockValue ?? 0m, netAmountPrecision, MidpointRounding.AwayFromZero);
+        var warehouseDebit = Math.Round(
+            roundedTransit - roundedRejected + landedCostVoucherAmount,
+            netAmountPrecision,
+            MidpointRounding.AwayFromZero);
+
+        return (transitStockValue, warehouseDebit);
+    }
+
+    /// <summary>
+    /// Computes the negative returned share of each Actual valuation charge on a Purchase Receipt Return
+    /// or stock-updating Purchase Invoice Return (Debit Note) per ERPNext commits d8a07e8d66, ff4f660d34,
+    /// 235499af25, ae1ba15068, 5fe1e4f6cc, 703f40f23b, and 28a9b6ff5b (ReturnChargesService):
+    /// - If any return item row is not linked to an original row (<c>!OriginalRowId.HasValue</c>), leaves the return's charges unchanged.
+    /// - Matches each return Actual valuation charge to the original document's Actual valuation charges by <c>(AccountId, Description)</c> in order.
+    /// - Spreads the original charge's <c>BaseTaxAmount</c> (company currency) across original items, scales by the returned stock qty
+    ///   over the original row's carried stock qty, and converts back to transaction currency via <paramref name="returnConversionRate"/>.
+    /// </summary>
+    public static List<(Guid ReturnChargeId, decimal TaxAmount)> CalculateReturnedActualValuationCharges(
+        IReadOnlyList<(Guid ReturnChargeId, Guid AccountId, string? Description, decimal CurrentTaxAmount)> returnCharges,
+        IReadOnlyList<(Guid AccountId, string? Description, decimal BaseTaxAmount, bool AllocateFullAmountToStockItems)> originalCharges,
+        IReadOnlyList<(Guid OriginalRowId, bool IsStockOrAssetItem, decimal AcceptedStockQty, decimal RejectedStockQty, decimal ItemShareRatio)> originalItems,
+        IReadOnlyList<(Guid? OriginalRowId, decimal AcceptedStockQty, decimal RejectedStockQty, bool ReturnQtyFromRejectedWarehouse)> returnItems,
+        bool billsRejectedQuantity = false,
+        decimal returnConversionRate = 1m,
+        int taxAmountPrecision = 2)
+    {
+        var result = new List<(Guid ReturnChargeId, decimal TaxAmount)>();
+        if (returnCharges == null || returnCharges.Count == 0)
+        {
+            return result;
+        }
+
+        if (returnItems == null ||
+            returnItems.Count == 0 ||
+            returnItems.Any(r => !r.OriginalRowId.HasValue || r.OriginalRowId.Value == Guid.Empty) ||
+            originalCharges == null ||
+            originalItems == null)
+        {
+            foreach (var rc in returnCharges)
+            {
+                result.Add((rc.ReturnChargeId, rc.CurrentTaxAmount));
+            }
+            return result;
+        }
+
+        var returnedByOrigRow = new Dictionary<Guid, (decimal Accepted, decimal Rejected)>();
+        foreach (var row in returnItems)
+        {
+            var origId = row.OriginalRowId!.Value;
+            var cur = returnedByOrigRow.GetValueOrDefault(origId, (Accepted: 0m, Rejected: 0m));
+            decimal addAccepted, addRejected;
+            if (row.ReturnQtyFromRejectedWarehouse)
+            {
+                addAccepted = 0m;
+                addRejected = Math.Abs(row.AcceptedStockQty);
+            }
+            else
+            {
+                addAccepted = Math.Abs(row.AcceptedStockQty);
+                addRejected = Math.Abs(row.RejectedStockQty);
+            }
+            returnedByOrigRow[origId] = (Accepted: cur.Accepted + addAccepted, Rejected: cur.Rejected + addRejected);
+        }
+
+        var origChargeQueues = new Dictionary<(Guid AccountId, string Description), Queue<(decimal BaseTaxAmount, bool AllocateFullAmountToStockItems)>>();
+        foreach (var oc in originalCharges)
+        {
+            var key = (oc.AccountId, (oc.Description ?? string.Empty).Trim());
+            if (!origChargeQueues.TryGetValue(key, out var q))
+            {
+                q = new Queue<(decimal, bool)>();
+                origChargeQueues[key] = q;
+            }
+            q.Enqueue((oc.BaseTaxAmount, oc.AllocateFullAmountToStockItems));
+        }
+
+        var fx = returnConversionRate > 0m ? returnConversionRate : 1m;
+        foreach (var rc in returnCharges)
+        {
+            var key = (rc.AccountId, (rc.Description ?? string.Empty).Trim());
+            if (!origChargeQueues.TryGetValue(key, out var q) || q.Count == 0)
+            {
+                result.Add((rc.ReturnChargeId, rc.CurrentTaxAmount));
+                continue;
+            }
+
+            var (baseTaxAmount, stockOnly) = q.Dequeue();
+            var eligibleItems = stockOnly
+                ? originalItems.Where(i => i.IsStockOrAssetItem).ToList()
+                : originalItems.ToList();
+
+            var totalRatio = eligibleItems.Sum(i => i.ItemShareRatio);
+            decimal baseShare = 0m;
+
+            foreach (var origRow in eligibleItems)
+            {
+                var rowCharge = totalRatio > 0m
+                    ? baseTaxAmount * (origRow.ItemShareRatio / totalRatio)
+                    : (eligibleItems.Count > 0 ? baseTaxAmount / eligibleItems.Count : 0m);
+
+                var retQty = returnedByOrigRow.GetValueOrDefault(origRow.OriginalRowId, (Accepted: 0m, Rejected: 0m));
+                decimal carriedQty;
+                decimal returnedStock;
+
+                if (origRow.AcceptedStockQty != 0m)
+                {
+                    carriedQty = origRow.AcceptedStockQty + (billsRejectedQuantity ? origRow.RejectedStockQty : 0m);
+                    returnedStock = retQty.Accepted + (billsRejectedQuantity ? retQty.Rejected : 0m);
+                }
+                else
+                {
+                    carriedQty = origRow.RejectedStockQty;
+                    returnedStock = retQty.Rejected;
+                }
+
+                if (carriedQty != 0m)
+                {
+                    baseShare += rowCharge * (returnedStock / carriedQty);
+                }
+            }
+
+            var taxAmount = -Math.Round(baseShare / fx, taxAmountPrecision, MidpointRounding.AwayFromZero);
+            result.Add((rc.ReturnChargeId, taxAmount));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Computes the remaining quantity to order on a Purchase Order in the source row's own UOM
+    /// from the unrounded stock quantities of submitted Purchase Orders per ERPNext commits 393217f004 and c4c278ceb9.
+    /// </summary>
+    public static decimal CalculateRemainingQtyToOrderInRowUom(
+        decimal sourceRowQty,
+        decimal sourceRowConversionFactor,
+        IEnumerable<(decimal OrderedQty, decimal OrderedConversionFactor)>? submittedPurchaseOrderRows,
+        int qtyPrecision = 4)
+    {
+        var factor = sourceRowConversionFactor > 0m ? sourceRowConversionFactor : 1m;
+        var orderedUnroundedStockQty = submittedPurchaseOrderRows != null
+            ? submittedPurchaseOrderRows.Sum(r => r.OrderedQty * (r.OrderedConversionFactor > 0m ? r.OrderedConversionFactor : 1m))
+            : 0m;
+        var remaining = Math.Round(sourceRowQty - (orderedUnroundedStockQty / factor), qtyPrecision, MidpointRounding.AwayFromZero);
+        return Math.Max(0m, remaining);
+    }
+
+    /// <summary>
+    /// Aggregates ordered or received stock quantity across partial Purchase Order / Purchase Receipt / Purchase Invoice rows
+    /// per ERPNext commits 0e77c8d15e, 21d02fa8bf, 127f4070e0, and 04b2ca0ed1:
+    /// When <paramref name="sumUnroundedProduct"/> is true, sums <c>Qty * ConversionFactor</c> across rows instead of
+    /// pre-rounded <c>RoundedStockQty</c>, and rounds the total once at the end only when <paramref name="roundTotalToTargetPrecision"/> is true.
+    /// </summary>
+    public static decimal AggregateSourceOrderedOrReceivedStockQty(
+        IEnumerable<(decimal Qty, decimal ConversionFactor, decimal RoundedStockQty)>? rows,
+        bool sumUnroundedProduct,
+        bool roundTotalToTargetPrecision,
+        int targetPrecision = 4)
+    {
+        if (rows == null)
+        {
+            return 0m;
+        }
+
+        if (!sumUnroundedProduct)
+        {
+            return rows.Sum(r => r.RoundedStockQty);
+        }
+
+        var unroundedSum = rows.Sum(r => r.Qty * (r.ConversionFactor > 0m ? r.ConversionFactor : 1m));
+        return roundTotalToTargetPrecision
+            ? Math.Round(unroundedSum, targetPrecision, MidpointRounding.AwayFromZero)
+            : unroundedSum;
+    }
 }

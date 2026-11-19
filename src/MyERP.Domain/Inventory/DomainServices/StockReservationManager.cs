@@ -1716,6 +1716,53 @@ public class StockReservationManager : DomainService
         var unreserved = Math.Round(stockQty - alreadyCoveredStockQty, precision, MidpointRounding.AwayFromZero);
         return Math.Max(0m, unreserved);
     }
+
+    /// <summary>
+    /// Rounds the total quantity of a Serial and Batch Bundle created from Stock Reservation Entries
+    /// on the last entry only per ERPNext commit 6d0dad665d (round_to_ledger_qty):
+    /// Keeps every earlier entry's exact reserved quantity so each reservation matches what it delivers,
+    /// and places only the rounding of the combined total onto the last entry.
+    /// </summary>
+    public static List<(Guid EntryId, decimal Qty)> RoundReservationBundleEntriesToLedgerTotal(
+        IReadOnlyList<(Guid EntryId, decimal ReservedQty)> entries,
+        int precision = 4)
+    {
+        var result = new List<(Guid EntryId, decimal Qty)>();
+        if (entries == null || entries.Count == 0)
+        {
+            return result;
+        }
+
+        var qtyBeforeLast = 0m;
+        for (var i = 0; i < entries.Count - 1; i++)
+        {
+            result.Add((entries[i].EntryId, entries[i].ReservedQty));
+            qtyBeforeLast += entries[i].ReservedQty;
+        }
+
+        var last = entries[^1];
+        var total = Math.Round(qtyBeforeLast + last.ReservedQty, precision, MidpointRounding.AwayFromZero);
+        result.Add((last.EntryId, total - qtyBeforeLast));
+        return result;
+    }
+
+    /// <summary>
+    /// Computes the quantity to undeliver from a Stock Reservation Entry (or its Serial and Batch Entry)
+    /// when a delivery is cancelled per ERPNext commit f681eaca6a (get_qty_to_undeliver):
+    /// Leaves the remaining <c>DeliveredQty</c> at the rounded quantity the stock ledger posts,
+    /// clearing any rounding residue that closed the reservation on the final delivery.
+    /// </summary>
+    public static decimal CalculateQtyToUndeliverOnCancel(
+        decimal currentDeliveredQty,
+        decimal cancelledQty,
+        int precision = 4)
+    {
+        var remainingAfterCancel = Math.Round(
+            currentDeliveredQty - Math.Min(currentDeliveredQty, cancelledQty),
+            precision,
+            MidpointRounding.AwayFromZero);
+        return currentDeliveredQty - remainingAfterCancel;
+    }
 }
 
 public class ReservationConsumption

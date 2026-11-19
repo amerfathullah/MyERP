@@ -1131,6 +1131,117 @@ public class SerialBatchBundleValidationService : DomainService
 
         return Math.Round(weightedSum / totalQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Filters available batch quantities by subtracting batch quantities already taken by other rows on the document
+    /// (both direct <c>BatchId</c> rows and rows taking batches via a <c>SerialAndBatchBundle</c>)
+    /// per ERPNext commits 61879f601b, d1afcd5a73, b54c2ca3eb, fa1a5657e9, and c3526aa253:
+    /// - Includes rows in the target <paramref name="warehouseId"/> as well as rows with no warehouse assigned yet.
+    /// - Counts each row at its stock quantity rounded to <paramref name="precision"/> (<c>b54c2ca3eb</c>).
+    /// - Removes batches whose remaining available quantity is &lt;= 0.
+    /// </summary>
+    public static Dictionary<Guid, decimal> FilterAvailableBatchesTakenByDocumentRows(
+        IReadOnlyDictionary<Guid, decimal> availableBatches,
+        Guid warehouseId,
+        IEnumerable<(Guid? WarehouseId, Guid? BatchId, decimal StockQty, IReadOnlyList<(Guid BatchId, decimal Qty)>? BundleBatchEntries)> documentRows,
+        int precision = 4)
+    {
+        var filtered = new Dictionary<Guid, decimal>();
+        if (availableBatches == null)
+        {
+            return filtered;
+        }
+
+        foreach (var (bId, qty) in availableBatches)
+        {
+            if (qty > 0m)
+            {
+                filtered[bId] = qty;
+            }
+        }
+
+        if (documentRows == null)
+        {
+            return filtered;
+        }
+
+        foreach (var row in documentRows)
+        {
+            if (row.WarehouseId.HasValue && row.WarehouseId.Value != Guid.Empty && row.WarehouseId.Value != warehouseId)
+            {
+                continue;
+            }
+
+            if (row.BatchId.HasValue && row.BatchId.Value != Guid.Empty)
+            {
+                if (filtered.TryGetValue(row.BatchId.Value, out var avail))
+                {
+                    var taken = Math.Round(row.StockQty, precision, MidpointRounding.AwayFromZero);
+                    var next = Math.Round(avail - taken, precision, MidpointRounding.AwayFromZero);
+                    if (next <= 0m)
+                        filtered.Remove(row.BatchId.Value);
+                    else
+                        filtered[row.BatchId.Value] = next;
+                }
+            }
+            else if (row.BundleBatchEntries != null)
+            {
+                foreach (var entry in row.BundleBatchEntries)
+                {
+                    if (filtered.TryGetValue(entry.BatchId, out var avail))
+                    {
+                        var taken = Math.Round(Math.Abs(entry.Qty), precision, MidpointRounding.AwayFromZero);
+                        var next = Math.Round(avail - taken, precision, MidpointRounding.AwayFromZero);
+                        if (next <= 0m)
+                            filtered.Remove(entry.BatchId);
+                        else
+                            filtered[entry.BatchId] = next;
+                    }
+                }
+            }
+        }
+
+        return filtered;
+    }
+
+    /// <summary>
+    /// Sizes the entries of a non-serialized material-transfer Serial and Batch Bundle (e.g. the in-transit package
+    /// of an internal receipt or return that includes a rejected bundle) so the last entry absorbs any difference
+    /// and the entries sum to the exact stock quantity posted by the voucher
+    /// per ERPNext commits a9b6c77284 and 764214128a (set_entries_total_qty).
+    /// </summary>
+    public static List<(Guid EntryId, decimal Qty)> ResizeTransferBundleEntriesToTotalStockQty(
+        IReadOnlyList<(Guid EntryId, decimal Qty)> entries,
+        decimal totalPostedStockQty,
+        bool hasSerialNo)
+    {
+        var result = new List<(Guid EntryId, decimal Qty)>();
+        if (entries == null || entries.Count == 0)
+        {
+            return result;
+        }
+
+        if (hasSerialNo || totalPostedStockQty == 0m)
+        {
+            foreach (var e in entries)
+            {
+                result.Add((e.EntryId, Math.Abs(e.Qty)));
+            }
+            return result;
+        }
+
+        var priorSum = 0m;
+        for (var i = 0; i < entries.Count - 1; i++)
+        {
+            var absQty = Math.Abs(entries[i].Qty);
+            result.Add((entries[i].EntryId, absQty));
+            priorSum += absQty;
+        }
+
+        var lastQty = Math.Abs(totalPostedStockQty) - priorSum;
+        result.Add((entries[^1].EntryId, lastQty));
+        return result;
+    }
 }
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>

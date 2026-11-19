@@ -1470,4 +1470,195 @@ public class UpstreamBatch9ParityTests
         zeroRejectedPkg.ShouldCreatePackage.ShouldBeFalse();
         zeroRejectedPkg.RoundedStockQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public void InternalTransferTransitValuationAndGl_ReturnedActualValuationCharges_And_PurchaseStatusAggregation_86229973c0_cceafa6af4_5c38112008_1d5eb2a43d_d0942983e5_e661476a74_42fb302bca_d8a07e8d66_ae1ba15068_235499af25_ff4f660d34_0e77c8d15e_393217f004_127f4070e0()
+    {
+        // 1. CalculateInternalTransferTransitAmount values internal transfer at rounded stock qty (86229973c0, cceafa6af4)
+        var transitAmt = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateInternalTransferTransitAmount(
+            qtyInTransactionUom: 0.3333m, conversionFactor: 3m, salesIncomingRate: 300m, stockQtyPrecision: 4);
+        // roundedStockQty = Round(0.9999, 4) = 0.9999 -> 0.9999 * 300 / 3 = 99.99
+        transitAmt.ShouldBe(99.99m);
+
+        // 2. ResolveInternalTransferInvoiceTransitAndWarehouseGlAmounts includes LCV, preserves 0 transit SLE, and falls back when rejected stays in transit (5c38112008, 1d5eb2a43d, 0c17bbd80c, 42fb302bca, e661476a74, d0942983e5)
+        var transitWh = Guid.NewGuid();
+        var rejectedWh = Guid.NewGuid();
+        var glWithLcv = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalTransferInvoiceTransitAndWarehouseGlAmounts(
+            isInternalTransfer: true,
+            fromWarehouseId: transitWh,
+            rejectedWarehouseId: rejectedWh,
+            transitWarehouseSleStockValue: -100.00m,
+            rejectedWarehouseSleStockValue: 20.00m,
+            landedCostVoucherAmount: 15.00m,
+            fallbackWarehouseDebitAmount: 95.00m);
+        glWithLcv.TransitStockValue.ShouldBe(100.00m);
+        glWithLcv.WarehouseDebitAmount.ShouldBe(95.00m); // 100 - 20 + 15 = 95
+
+        // Explicit 0 transit SLE is preserved (42fb302bca)
+        var glZeroTransit = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalTransferInvoiceTransitAndWarehouseGlAmounts(
+            isInternalTransfer: true,
+            fromWarehouseId: transitWh,
+            rejectedWarehouseId: rejectedWh,
+            transitWarehouseSleStockValue: 0m,
+            rejectedWarehouseSleStockValue: 0m,
+            landedCostVoucherAmount: 0m,
+            fallbackWarehouseDebitAmount: 50.00m);
+        glZeroTransit.TransitStockValue.ShouldBe(0m);
+        glZeroTransit.WarehouseDebitAmount.ShouldBe(0m);
+
+        // Rejected material stays in transit (rejectedWarehouse == fromWarehouse) -> returns null TransitStockValue and uses fallback (e661476a74)
+        var glRejectedInTransit = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalTransferInvoiceTransitAndWarehouseGlAmounts(
+            isInternalTransfer: true,
+            fromWarehouseId: transitWh,
+            rejectedWarehouseId: transitWh,
+            transitWarehouseSleStockValue: -80.00m,
+            rejectedWarehouseSleStockValue: 20.00m,
+            landedCostVoucherAmount: 0m,
+            fallbackWarehouseDebitAmount: 80.00m);
+        glRejectedInTransit.TransitStockValue.ShouldBeNull();
+        glRejectedInTransit.WarehouseDebitAmount.ShouldBe(80.00m);
+
+        // 3. Returned Actual valuation charges match by (AccountId, Description), spread BaseTaxAmount, and convert back by return fx rate (d8a07e8d66, ae1ba15068, 235499af25, ff4f660d34)
+        var chargeAccId = Guid.NewGuid();
+        var origRowId = Guid.NewGuid();
+        var retCharge1Id = Guid.NewGuid();
+        var retCharge2Id = Guid.NewGuid();
+
+        var returnedCharges = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateReturnedActualValuationCharges(
+            returnCharges: new[]
+            {
+                (retCharge1Id, chargeAccId, (string?)"Handling", -100m),
+                (retCharge2Id, chargeAccId, (string?)"Freight", -200m)
+            },
+            originalCharges: new[]
+            {
+                (chargeAccId, (string?)"Freight", 900m, true),
+                (chargeAccId, (string?)"Handling", 450m, true)
+            },
+            originalItems: new[]
+            {
+                (origRowId, true, 10m, 0m, 1m)
+            },
+            returnItems: new[]
+            {
+                ((Guid?)origRowId, -4m, 0m, false)
+            },
+            billsRejectedQuantity: false,
+            returnConversionRate: 4.5m,
+            taxAmountPrecision: 2);
+        // 4 of 10 returned (40%):
+        // Handling: 40% of 450 base = 180 base / 4.5 fx = -40.00
+        // Freight: 40% of 900 base = 360 base / 4.5 fx = -80.00
+        returnedCharges.Count.ShouldBe(2);
+        returnedCharges[0].ShouldBe((retCharge1Id, -40.00m));
+        returnedCharges[1].ShouldBe((retCharge2Id, -80.00m));
+
+        // Unlinked return row keeps charges untouched (ff4f660d34)
+        var unlinkedCharges = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateReturnedActualValuationCharges(
+            returnCharges: new[] { (retCharge1Id, chargeAccId, (string?)"Handling", -25m) },
+            originalCharges: new[] { (chargeAccId, (string?)"Handling", 450m, true) },
+            originalItems: new[] { (origRowId, true, 10m, 0m, 1m) },
+            returnItems: new[] { ((Guid?)null, -4m, 0m, false) });
+        unlinkedCharges[0].ShouldBe((retCharge1Id, -25m));
+
+        // 4. Remaining qty to order in row UOM and unrounded status updater aggregation (393217f004, c4c278ceb9, 0e77c8d15e, 127f4070e0, 04b2ca0ed1)
+        var remainingInBoxUom = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculateRemainingQtyToOrderInRowUom(
+            sourceRowQty: 1m,
+            sourceRowConversionFactor: 3m,
+            submittedPurchaseOrderRows: new[] { (OrderedQty: 1m, OrderedConversionFactor: 1m), (OrderedQty: 1m, OrderedConversionFactor: 1m) },
+            qtyPrecision: 4);
+        remainingInBoxUom.ShouldBe(0.3333m);
+
+        var aggStockQty = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.AggregateSourceOrderedOrReceivedStockQty(
+            new[]
+            {
+                (Qty: 0.3333m, ConversionFactor: 3m, RoundedStockQty: 1.0000m),
+                (Qty: 0.3333m, ConversionFactor: 3m, RoundedStockQty: 1.0000m),
+                (Qty: 0.3334m, ConversionFactor: 3m, RoundedStockQty: 1.0000m)
+            },
+            sumUnroundedProduct: true,
+            roundTotalToTargetPrecision: true,
+            targetPrecision: 4);
+        aggStockQty.ShouldBe(3.0000m);
+    }
+
+    [Fact]
+    public void SubcontractingReturnSecondaryReceiptRate_TransferSreSharedBatchAndWarehouseFilter_ReservationBundleLastEntryRounding_And_AutoPickBatchFilter_49411efce2_2e0c35f11b_ef3b45ff13_cd897009f7_189b35ae0a_b99774a83d_6d0dad665d_f681eaca6a_61879f601b_b54c2ca3eb_a9b6c77284()
+    {
+        // 1. Subcontracting Return secondary items (ValuationRate, Manual, and PercentageOfComponentCost) use original receipt rate (49411efce2, 2e0c35f11b, ef3b45ff13)
+        MyERP.Purchasing.DomainServices.SubcontractingManager.ResolveSecondaryItemRate(
+            isReturn: true,
+            secondaryQty: -2m,
+            valuationType: SecondaryItemValuationType.PercentageOfComponentCost,
+            bomSecondaryBaseCost: 100m,
+            bomSecondaryStockQty: 2m,
+            resolveWarehouseValuationRate: () => 999m,
+            originalReceiptSecondaryRate: 37.5m).ShouldBe(37.5m);
+
+        // 2. Subcontracting transfer excludes supplier warehouse SREs and shares batch qty across row SREs (cd897009f7, 189b35ae0a, b99774a83d)
+        var supplierWhId = Guid.NewGuid();
+        var sourceWh1 = Guid.NewGuid();
+        var sourceWh2 = Guid.NewGuid();
+        var sharedBatchId = Guid.NewGuid();
+        var sreSupplier = Guid.NewGuid();
+        var sreOrder1 = Guid.NewGuid();
+        var sreOrder2 = Guid.NewGuid();
+
+        var updatedSres = MyERP.Purchasing.DomainServices.SubcontractingManager.ApplySubcontractingTransferToOrderReservations(
+            targetSupplierWarehouseId: supplierWhId,
+            transferStockQty: 8m,
+            transferredSerialNos: null,
+            transferredBatchQuantities: new Dictionary<Guid, decimal> { [sharedBatchId] = 8m },
+            candidateSres: new[]
+            {
+                (sreSupplier, supplierWhId, 5m, 0m, true, (string?)null, (Guid?)sharedBatchId),
+                (sreOrder1, sourceWh1, 5m, 0m, true, (string?)null, (Guid?)sharedBatchId),
+                (sreOrder2, sourceWh2, 5m, 0m, true, (string?)null, (Guid?)sharedBatchId)
+            });
+        updatedSres.ShouldNotContainKey(sreSupplier); // Supplier warehouse SRE excluded!
+        updatedSres[sreOrder1].ShouldBe(5m);
+        updatedSres[sreOrder2].ShouldBe(3m); // Shared batch has 8 - 5 = 3 left for second SRE!
+
+        // 3. RoundReservationBundleEntriesToLedgerTotal rounds only on the last entry (6d0dad665d) & CalculateQtyToUndeliverOnCancel clears rounding residue (f681eaca6a)
+        var e1 = Guid.NewGuid();
+        var e2 = Guid.NewGuid();
+        var roundedEntries = StockReservationManager.RoundReservationBundleEntriesToLedgerTotal(
+            new[] { (e1, 0.16666m), (e2, 0.16666m) }, precision: 4);
+        roundedEntries[0].Qty.ShouldBe(0.16666m);
+        roundedEntries[1].Qty.ShouldBe(0.3333m - 0.16666m);
+        (roundedEntries[0].Qty + roundedEntries[1].Qty).ShouldBe(0.3333m);
+
+        var undelivered = StockReservationManager.CalculateQtyToUndeliverOnCancel(
+            currentDeliveredQty: 0.333333m, cancelledQty: 0.3333m, precision: 4);
+        undelivered.ShouldBe(0.333333m); // Leaves 0 delivered residue after cancel!
+
+        // 4. FilterAvailableBatchesTakenByDocumentRows subtracts direct rows and SerialAndBatchBundle rows at rounded stock qty (61879f601b, b54c2ca3eb)
+        var targetWh = Guid.NewGuid();
+        var batchA = Guid.NewGuid();
+        var batchB = Guid.NewGuid();
+        var availableBatches = new Dictionary<Guid, decimal>
+        {
+            [batchA] = 10m,
+            [batchB] = 6m
+        };
+        var remainingBatches = SerialBatchBundleValidationService.FilterAvailableBatchesTakenByDocumentRows(
+            availableBatches,
+            targetWh,
+            new[]
+            {
+                (WarehouseId: (Guid?)targetWh, BatchId: (Guid?)batchA, StockQty: 4.12344m, BundleBatchEntries: (IReadOnlyList<(Guid, decimal)>?)null),
+                (WarehouseId: (Guid?)null, BatchId: (Guid?)null, StockQty: 6m, BundleBatchEntries: (IReadOnlyList<(Guid, decimal)>?)new[] { (batchB, -6m) })
+            },
+            precision: 4);
+        remainingBatches[batchA].ShouldBe(5.8766m);
+        remainingBatches.ShouldNotContainKey(batchB); // Used up through SerialAndBatchBundle!
+
+        // 5. ResizeTransferBundleEntriesToTotalStockQty puts difference on last entry of non-serialized transfer package (a9b6c77284, 764214128a)
+        var resizedEntries = SerialBatchBundleValidationService.ResizeTransferBundleEntriesToTotalStockQty(
+            new[] { (e1, -6m), (e2, -4m) },
+            totalPostedStockQty: -9.5m,
+            hasSerialNo: false);
+        resizedEntries[0].Qty.ShouldBe(6m);
+        resizedEntries[1].Qty.ShouldBe(3.5m);
+    }
 }

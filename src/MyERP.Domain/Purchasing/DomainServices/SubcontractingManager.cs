@@ -720,8 +720,10 @@ public class SubcontractingManager : DomainService
 
     /// <summary>
     /// Resolves the rate of a secondary item row on a Subcontracting Receipt or Subcontracting Return.
-    /// Per ERPNext commits e076a8adac, a1169be24c, and 7e66f8e926:
+    /// Per ERPNext commits e076a8adac, a1169be24c, 7e66f8e926, 49411efce2, 2e0c35f11b, and ef3b45ff13:
     /// - A return row whose quantity rounds to 0 skips pricing (returns 0m without invoking valuation lookup).
+    /// - A non-zero return row (<c>ValuationRate</c>, <c>Manual</c>, or <c>PercentageOfComponentCost</c>) returns at its
+    ///   original receipt rate (<paramref name="originalReceiptSecondaryRate"/>) when available so it matches the stock ledger.
     /// - A receipt row whose quantity rounds to 0 still prices Manual / ValuationRate rows (keeping the rate for when process loss is lowered),
     ///   while PercentageOfComponentCost rows with 0 qty return 0m.
     /// </summary>
@@ -739,11 +741,17 @@ public class SubcontractingManager : DomainService
         decimal lcvAmount = 0m,
         decimal ownSecondaryCost = 0m,
         decimal costAllocationPercentage = 0m,
-        int precision = 4)
+        int precision = 4,
+        decimal? originalReceiptSecondaryRate = null)
     {
         if (isReturn && secondaryQty == 0m)
         {
             return 0m;
+        }
+
+        if (isReturn && originalReceiptSecondaryRate.HasValue)
+        {
+            return Math.Round(originalReceiptSecondaryRate.Value, precision, MidpointRounding.AwayFromZero);
         }
 
         if (valuationType == Manufacturing.SecondaryItemValuationType.Manual)
@@ -1067,6 +1075,87 @@ public class SubcontractingManager : DomainService
         }
 
         return (toCancel, rebuilt);
+    }
+
+    /// <summary>
+    /// Applies a "Send to Subcontractor" transfer row against a Subcontracting Order row's Stock Reservation Entries
+    /// per ERPNext commits cd897009f7, a56e775582, 189b35ae0a, and b99774a83d:
+    /// - Excludes reservations in the target supplier warehouse (<paramref name="targetSupplierWarehouseId"/>) so transfers
+    ///   from any source warehouse consume the order's own reservations rather than supplier-warehouse reservations.
+    /// - Shares the transferred serial numbers and batch quantities across all matching reservations of the row so no
+    ///   serial or batch quantity is counted twice across multiple SREs.
+    /// - Rounds each updated <c>TransferredQty</c> to <paramref name="precision"/>.
+    /// </summary>
+    public static Dictionary<Guid, decimal> ApplySubcontractingTransferToOrderReservations(
+        Guid targetSupplierWarehouseId,
+        decimal transferStockQty,
+        IReadOnlyCollection<string>? transferredSerialNos,
+        IReadOnlyDictionary<Guid, decimal>? transferredBatchQuantities,
+        IReadOnlyList<(Guid SreId, Guid WarehouseId, decimal ReservedQty, decimal CurrentTransferredQty, bool IsSerialAndBatch, string? SerialNo, Guid? BatchId)> candidateSres,
+        int precision = 4)
+    {
+        var updatedTransferredBySre = new Dictionary<Guid, decimal>();
+        if (candidateSres == null || candidateSres.Count == 0 || transferStockQty <= 0m)
+        {
+            return updatedTransferredBySre;
+        }
+
+        var remainingSerials = transferredSerialNos != null
+            ? new HashSet<string>(transferredSerialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var remainingBatches = transferredBatchQuantities != null
+            ? transferredBatchQuantities.ToDictionary(kv => kv.Key, kv => Math.Abs(kv.Value))
+            : new Dictionary<Guid, decimal>();
+
+        var remainingQty = transferStockQty;
+        foreach (var sre in candidateSres)
+        {
+            if (sre.WarehouseId == targetSupplierWarehouseId)
+            {
+                continue;
+            }
+
+            if (Math.Round(remainingQty, precision, MidpointRounding.AwayFromZero) <= 0m)
+            {
+                break;
+            }
+
+            var openOnSre = Math.Max(0m, sre.ReservedQty - sre.CurrentTransferredQty);
+            if (openOnSre <= 0m)
+            {
+                continue;
+            }
+
+            decimal workingQty = 0m;
+            if (sre.IsSerialAndBatch)
+            {
+                if (!string.IsNullOrWhiteSpace(sre.SerialNo))
+                {
+                    if (remainingSerials.Remove(sre.SerialNo.Trim()))
+                    {
+                        workingQty = Math.Min(1m, openOnSre);
+                    }
+                }
+                else if (sre.BatchId.HasValue && remainingBatches.TryGetValue(sre.BatchId.Value, out var batchAvail) && batchAvail > 0m)
+                {
+                    workingQty = Math.Min(openOnSre, batchAvail);
+                    remainingBatches[sre.BatchId.Value] = batchAvail - workingQty;
+                }
+            }
+            else
+            {
+                workingQty = Math.Min(openOnSre, remainingQty);
+            }
+
+            if (workingQty > 0m)
+            {
+                updatedTransferredBySre[sre.SreId] = Math.Round(sre.CurrentTransferredQty + workingQty, precision, MidpointRounding.AwayFromZero);
+                remainingQty -= workingQty;
+            }
+        }
+
+        return updatedTransferredBySre;
     }
 }
 
