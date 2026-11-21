@@ -740,6 +740,116 @@ public class PickListManager : DomainService
             .Select(r => r.SalesOrderItemId)
             .ToList();
     }
+
+    /// <summary>
+    /// Projects the packed component rows that a Pick List re-pack produces for a bundle row's current quantity
+    /// when auto-setting batch quantities or serial numbers per ERPNext commits 101c9ed031, a214b67c86, and 263c81276d
+    /// (<c>get_kept_component_rows</c> / <c>get_current_packed_items</c> in <c>packed_item.py</c> &amp; <c>get_item_details.py</c>):
+    /// 1. Allocates the required component quantity across Pick List locations in order.
+    /// 2. Picks the kept stale row or creates a new packed row in a single <c>if / else</c> branch when a re-pack adds
+    ///    back a previously dropped location.
+    /// 3. Trims or tops up the packed row's serial numbers to the location's <c>packQty</c> so lowered bundle quantities
+    ///    immediately release trimmed serial numbers and raised bundle quantities include newly added location batches.
+    /// </summary>
+    public static IReadOnlyList<(Guid ComponentItemId, Guid WarehouseId, Guid? BatchId, decimal Qty, IReadOnlyList<string> SerialNos)>
+        ProjectPackedRowsForRepackAutoBatchAndSerialSelection(
+            Guid componentItemId,
+            decimal componentQtyPerBundleUnit,
+            decimal bundleRowStockQty,
+            IEnumerable<(Guid WarehouseId, Guid? BatchId, decimal Qty, IReadOnlyList<string>? SerialNos)>? stalePackedRows,
+            IEnumerable<(Guid WarehouseId, Guid? BatchId, decimal LocationQty, IReadOnlyList<string>? LocationSerialNos)>? pickListLocations,
+            int precision = 4)
+    {
+        var staleList = (stalePackedRows ?? Enumerable.Empty<(Guid WarehouseId, Guid? BatchId, decimal Qty, IReadOnlyList<string>? SerialNos)>())
+            .ToList();
+        if (staleList.Count == 0 || bundleRowStockQty <= 0m || componentQtyPerBundleUnit <= 0m)
+        {
+            return Array.Empty<(Guid, Guid, Guid?, decimal, IReadOnlyList<string>)>();
+        }
+
+        var requiredQty = Math.Round(componentQtyPerBundleUnit * bundleRowStockQty, precision, MidpointRounding.AwayFromZero);
+        var locations = (pickListLocations ?? Enumerable.Empty<(Guid WarehouseId, Guid? BatchId, decimal LocationQty, IReadOnlyList<string>? LocationSerialNos)>())
+            .ToList();
+
+        var projected = new List<(Guid ComponentItemId, Guid WarehouseId, Guid? BatchId, decimal Qty, IReadOnlyList<string> SerialNos)>();
+
+        if (locations.Count == 0)
+        {
+            var firstStale = staleList[0];
+            var targetSerialCount = Math.Max(0, (int)Math.Round(requiredQty, 0, MidpointRounding.AwayFromZero));
+            var serials = (firstStale.SerialNos ?? Array.Empty<string>()).Take(targetSerialCount).ToList();
+            projected.Add((componentItemId, firstStale.WarehouseId, firstStale.BatchId, requiredQty, serials));
+            return projected;
+        }
+
+        var remaining = requiredQty;
+        foreach (var loc in locations)
+        {
+            if (remaining <= 0m)
+            {
+                break;
+            }
+
+            var packQty = Math.Round(Math.Min(remaining, loc.LocationQty), precision, MidpointRounding.AwayFromZero);
+            if (packQty <= 0m)
+            {
+                continue;
+            }
+            remaining = Math.Round(remaining - packQty, precision, MidpointRounding.AwayFromZero);
+
+            (Guid WarehouseId, Guid? BatchId, decimal Qty, IReadOnlyList<string>? SerialNos) baseRow;
+            if (staleList.Count > 0)
+            {
+                var matchIdx = staleList.FindIndex(s => s.WarehouseId == loc.WarehouseId && s.BatchId == loc.BatchId);
+                if (matchIdx < 0)
+                {
+                    matchIdx = staleList.FindIndex(s => s.WarehouseId == loc.WarehouseId);
+                }
+                if (matchIdx < 0)
+                {
+                    matchIdx = 0;
+                }
+                baseRow = staleList[matchIdx];
+                staleList.RemoveAt(matchIdx);
+            }
+            else
+            {
+                baseRow = (loc.WarehouseId, loc.BatchId, 0m, Array.Empty<string>());
+            }
+
+            var targetSerialCount = Math.Max(0, (int)Math.Round(packQty, 0, MidpointRounding.AwayFromZero));
+            var mergedSerials = new List<string>();
+            if (baseRow.SerialNos != null)
+            {
+                foreach (var sn in baseRow.SerialNos)
+                {
+                    if (!string.IsNullOrWhiteSpace(sn) && !mergedSerials.Contains(sn, StringComparer.OrdinalIgnoreCase))
+                    {
+                        mergedSerials.Add(sn);
+                    }
+                }
+            }
+            if (loc.LocationSerialNos != null && mergedSerials.Count < targetSerialCount)
+            {
+                foreach (var sn in loc.LocationSerialNos)
+                {
+                    if (mergedSerials.Count >= targetSerialCount)
+                    {
+                        break;
+                    }
+                    if (!string.IsNullOrWhiteSpace(sn) && !mergedSerials.Contains(sn, StringComparer.OrdinalIgnoreCase))
+                    {
+                        mergedSerials.Add(sn);
+                    }
+                }
+            }
+
+            var finalSerials = mergedSerials.Take(targetSerialCount).ToList();
+            projected.Add((componentItemId, loc.WarehouseId, loc.BatchId ?? baseRow.BatchId, packQty, finalSerials));
+        }
+
+        return projected;
+    }
 }
 
 public class AllocatedLocationItem

@@ -185,4 +185,93 @@ public class MasterProductionScheduleService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Bulk-resolves MRP report item details (including Item Group fallback for <c>DefaultSupplierId</c>),
+    /// manufacture/purchase lead times, release dates, and bucket capacities from preloaded dictionaries
+    /// per ERPNext commits e17b4540ee and d305faeddb (<c>material_requirements_planning_report.py</c>).
+    /// </summary>
+    public static IReadOnlyList<(string ItemCode, Guid? DefaultWarehouseId, Guid? DefaultSupplierId, int LeadTimeDays, DateTime ReleaseDate, int Capacity)>
+        ResolveBulkMrpRowsWithPreloadedLeadTimes(
+            IEnumerable<(string ItemCode, string? ItemGroup, string TypeOfMaterial, decimal RequiredQty, DateTime DeliveryDate, bool HasRawMaterials)>? rows,
+            IReadOnlyDictionary<(string ParentType, string ParentName), (Guid? DefaultWarehouseId, Guid? DefaultSupplierId)>? itemAndGroupDefaults,
+            IReadOnlyDictionary<string, (int CapacityPerDay, int ManufacturingTimeInMins, int PurchaseTimeDays, int BufferTimeDays)>? preloadedLeadTimes,
+            IReadOnlyDictionary<(string ItemCode, Guid SupplierId), int>? supplierPurchaseLeadDays = null,
+            string bucketSize = "Daily")
+    {
+        if (rows == null)
+        {
+            return Array.Empty<(string, Guid?, Guid?, int, DateTime, int)>();
+        }
+
+        var bucketDays = string.Equals(bucketSize, "Daily", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : string.Equals(bucketSize, "Weekly", StringComparison.OrdinalIgnoreCase)
+                ? 7
+                : 30;
+
+        var results = new List<(string ItemCode, Guid? DefaultWarehouseId, Guid? DefaultSupplierId, int LeadTimeDays, DateTime ReleaseDate, int Capacity)>();
+
+        foreach (var row in rows)
+        {
+            Guid? defaultWarehouseId = null;
+            Guid? defaultSupplierId = null;
+
+            if (itemAndGroupDefaults != null)
+            {
+                if (itemAndGroupDefaults.TryGetValue(("Item", row.ItemCode), out var itemDef))
+                {
+                    defaultWarehouseId = itemDef.DefaultWarehouseId;
+                    defaultSupplierId = itemDef.DefaultSupplierId;
+                }
+
+                if (!defaultSupplierId.HasValue
+                    && !string.IsNullOrWhiteSpace(row.ItemGroup)
+                    && itemAndGroupDefaults.TryGetValue(("Item Group", row.ItemGroup), out var groupDef))
+                {
+                    defaultSupplierId = groupDef.DefaultSupplierId;
+                }
+            }
+
+            (int CapacityPerDay, int ManufacturingTimeInMins, int PurchaseTimeDays, int BufferTimeDays) lt = default;
+            var hasLeadTime = preloadedLeadTimes != null && preloadedLeadTimes.TryGetValue(row.ItemCode, out lt);
+            var capacity = 0;
+            if (row.HasRawMaterials && hasLeadTime && lt.CapacityPerDay > 0)
+            {
+                capacity = lt.CapacityPerDay * bucketDays;
+            }
+
+            int leadTimeDays;
+            if (string.Equals(row.TypeOfMaterial, "Manufacture", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!hasLeadTime || row.RequiredQty <= 0m)
+                {
+                    leadTimeDays = 0;
+                }
+                else
+                {
+                    var mfgDays = (Math.Max(lt.ManufacturingTimeInMins, 0) * (double)row.RequiredQty / 1440.0) + lt.BufferTimeDays;
+                    leadTimeDays = (int)Math.Ceiling(Math.Round((decimal)mfgDays, 4));
+                }
+            }
+            else
+            {
+                if (defaultSupplierId.HasValue
+                    && supplierPurchaseLeadDays != null
+                    && supplierPurchaseLeadDays.TryGetValue((row.ItemCode, defaultSupplierId.Value), out var suppDays))
+                {
+                    leadTimeDays = suppDays + (hasLeadTime ? lt.BufferTimeDays : 0);
+                }
+                else
+                {
+                    leadTimeDays = hasLeadTime ? (lt.PurchaseTimeDays + lt.BufferTimeDays) : 0;
+                }
+            }
+
+            var releaseDate = row.DeliveryDate.AddDays(-leadTimeDays);
+            results.Add((row.ItemCode, defaultWarehouseId, defaultSupplierId, leadTimeDays, releaseDate, capacity));
+        }
+
+        return results;
+    }
 }

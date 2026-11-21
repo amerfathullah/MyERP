@@ -2760,5 +2760,79 @@ public class UpstreamBatch9ParityTests
 
         MyERP.EInvoice.Services.TaxpayerValidationService.FormatTaxpayerSearchFailureMessage(400, null)
             .ShouldBe("API request failed: Status code: 400 As per LHDN,either type or value or taxpayer data is wrong");
+
+        // 6. Pick List re-pack packed row projection for auto batch/serial selection and bulk MRP item details / lead times (101c9ed031, a214b67c86, 263c81276d, e17b4540ee, d305faeddb)
+        var compId = Guid.NewGuid();
+        var locWh1 = Guid.NewGuid();
+        var locWh2 = Guid.NewGuid();
+        var batch1 = Guid.NewGuid();
+        var batch2 = Guid.NewGuid();
+
+        // Bundle qty raised back from 2 to 4 before save -> re-pack adds back locWh2 (batch2, qty 2) even though stalePackedRows only had locWh1 (101c9ed031, 263c81276d)
+        var projectedReAdded = PickListManager.ProjectPackedRowsForRepackAutoBatchAndSerialSelection(
+            componentItemId: compId,
+            componentQtyPerBundleUnit: 1m,
+            bundleRowStockQty: 4m,
+            stalePackedRows: new (Guid, Guid?, decimal, IReadOnlyList<string>?)[]
+            {
+                (locWh1, batch1, 2m, null)
+            },
+            pickListLocations: new (Guid, Guid?, decimal, IReadOnlyList<string>?)[]
+            {
+                (locWh1, batch1, 2m, null),
+                (locWh2, batch2, 2m, null)
+            });
+        projectedReAdded.Count.ShouldBe(2);
+        projectedReAdded[1].WarehouseId.ShouldBe(locWh2);
+        projectedReAdded[1].BatchId.ShouldBe(batch2);
+        projectedReAdded[1].Qty.ShouldBe(2m);
+
+        // Bundle qty lowered from 4 to 3 -> second packed row's serial numbers are trimmed from 2 to 1 (101c9ed031, a214b67c86)
+        var projectedTrimmed = PickListManager.ProjectPackedRowsForRepackAutoBatchAndSerialSelection(
+            componentItemId: compId,
+            componentQtyPerBundleUnit: 1m,
+            bundleRowStockQty: 3m,
+            stalePackedRows: new (Guid, Guid?, decimal, IReadOnlyList<string>?)[]
+            {
+                (locWh1, null, 2m, new[] { "SN-1", "SN-2" }),
+                (locWh2, null, 2m, new[] { "SN-3", "SN-4" })
+            },
+            pickListLocations: new (Guid, Guid?, decimal, IReadOnlyList<string>?)[]
+            {
+                (locWh1, null, 2m, new[] { "SN-1", "SN-2" }),
+                (locWh2, null, 2m, new[] { "SN-3", "SN-4" })
+            });
+        projectedTrimmed.Count.ShouldBe(2);
+        projectedTrimmed.SelectMany(r => r.SerialNos).ShouldBe(new[] { "SN-1", "SN-2", "SN-3" });
+
+        // Bulk MRP item details & lead times with Item Group default supplier fallback (e17b4540ee, d305faeddb)
+        var groupSupplierId = Guid.NewGuid();
+        var mrpDeliveryDate = new DateTime(2026, 9, 20);
+        var mrpBulkRows = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService.ResolveBulkMrpRowsWithPreloadedLeadTimes(
+            rows: new (string, string?, string, decimal, DateTime, bool)[]
+            {
+                ("FG-MRP-1", "Finished Goods", "Manufacture", 1m, mrpDeliveryDate, true),
+                ("RM-MRP-1", "Raw Materials", "Purchase", 10m, mrpDeliveryDate, false)
+            },
+            itemAndGroupDefaults: new Dictionary<(string, string), (Guid?, Guid?)>
+            {
+                [("Item Group", "Raw Materials")] = (null, groupSupplierId)
+            },
+            preloadedLeadTimes: new Dictionary<string, (int, int, int, int)>
+            {
+                ["FG-MRP-1"] = (40, 7, 0, 6),
+                ["RM-MRP-1"] = (0, 0, 5, 2)
+            },
+            supplierPurchaseLeadDays: new Dictionary<(string, Guid), int>
+            {
+                [("RM-MRP-1", groupSupplierId)] = 9
+            },
+            bucketSize: "Weekly");
+
+        mrpBulkRows.Count.ShouldBe(2);
+        mrpBulkRows[0].LeadTimeDays.ShouldBe(7); // ceil(7/1440 + 6) = 7 (d305faeddb)
+        mrpBulkRows[0].Capacity.ShouldBe(280); // 40 * 7 days
+        mrpBulkRows[1].DefaultSupplierId.ShouldBe(groupSupplierId);
+        mrpBulkRows[1].LeadTimeDays.ShouldBe(11); // 9 supplier purchase days + 2 buffer days (e17b4540ee)
     }
 }
