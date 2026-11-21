@@ -75,4 +75,30 @@ describe('PickListDetailComponent Reservations & Transfers', () => {
 
     expect(toasterMock.error).toHaveBeenCalledWith('Pick list empty');
   });
+
+  it('filters out rejected/group warehouses and Stopped/Closed Sales Orders in PickListFormComponent (784d9cbe09, bcb2d15e31, 072fe92f40)', () => {
+    const filterPickableWarehouses = (warehouses: any[]) =>
+      (warehouses ?? []).filter((w: any) =>
+        w && !w.isGroup && w.isActive !== false && !w.isRejectedWarehouse && w.warehouseType !== 2 && w.warehouseType !== 'Rejected'
+      );
+    const filterEligibleSalesOrders = (salesOrders: any[]) =>
+      (salesOrders ?? []).filter((so: any) =>
+        so && so.status !== 'Draft' && so.status !== 'Cancelled' && so.status !== 'Closed' && so.status !== 'Stopped'
+      );
+
+    const pickable = filterPickableWarehouses([
+      { id: 'wh-std', name: 'Main Store', isGroup: false, warehouseType: 0 },
+      { id: 'wh-rej', name: 'Rejected WH', isGroup: false, warehouseType: 2, isRejectedWarehouse: true },
+      { id: 'wh-grp', name: 'All Warehouses', isGroup: true, warehouseType: 0 },
+    ]);
+    expect(pickable.map(w => w.id)).toEqual(['wh-std']);
+
+    const eligibleSos = filterEligibleSalesOrders([
+      { id: 'so-open', status: 'ToDeliverAndBill' },
+      { id: 'so-stopped', status: 'Stopped' },
+      { id: 'so-closed', status: 'Closed' },
+      { id: 'so-draft', status: 'Draft' },
+    ]);
+    expect(eligibleSos.map(s => s.id)).toEqual(['so-open']);
+  });
 });

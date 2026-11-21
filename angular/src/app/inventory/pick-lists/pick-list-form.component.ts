@@ -174,11 +174,11 @@ export class PickListFormComponent implements OnInit {
       error: () => {},
     });
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe({
-      next: (res: any) => this.warehouses.set(res.items || []),
+      next: (res: any) => this.warehouses.set(this.filterPickableWarehouses(res.items || [])),
       error: () => {},
     });
     this.salesOrderProxyService.getList({ skipCount: 0, maxResultCount: 100 } as any).subscribe({
-      next: (res: any) => this.salesOrders.set((res.items || []).filter((so: any) => so.status !== 'Draft' && so.status !== 'Cancelled' && so.status !== 'Closed')),
+      next: (res: any) => this.salesOrders.set(this.filterEligibleSalesOrders(res.items || [])),
       error: () => {},
     });
 
@@ -239,6 +239,26 @@ export class PickListFormComponent implements OnInit {
   }
 
   removeItem(i: number) { this.itemsArray.removeAt(i); }
+
+  /**
+   * Excludes rejected warehouses, group warehouses, and inactive warehouses from Pick List warehouse selection
+   * (ERPNext commits 784d9cbe09, 9f33bb012e, 6bfba876ac, f303513d06).
+   */
+  filterPickableWarehouses(warehouses: any[]): any[] {
+    return (warehouses ?? []).filter((w: any) =>
+      w && !w.isGroup && w.isActive !== false && !w.isRejectedWarehouse && w.warehouseType !== 2 && w.warehouseType !== 'Rejected'
+    );
+  }
+
+  /**
+   * Excludes Draft, Cancelled, Closed, and Stopped Sales Orders from Pick List selection
+   * (ERPNext commits bcb2d15e31, 072fe92f40).
+   */
+  filterEligibleSalesOrders(salesOrders: any[]): any[] {
+    return (salesOrders ?? []).filter((so: any) =>
+      so && so.status !== 'Draft' && so.status !== 'Cancelled' && so.status !== 'Closed' && so.status !== 'Stopped'
+    );
+  }
 
   save() {
     if (this.form.invalid || this.saving()) return;

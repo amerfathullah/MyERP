@@ -53,6 +53,12 @@ public class Warehouse : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool IsTransitWarehouse => WarehouseType == WarehouseType.Transit;
 
+    /// <summary>
+    /// Whether this warehouse is a rejected goods warehouse (excluded from Pick List stock picking
+    /// per ERPNext commits 784d9cbe09, 9f33bb012e, 6bfba876ac, f303513d06).
+    /// </summary>
+    public bool IsRejectedWarehouse => WarehouseType == WarehouseType.Rejected;
+
     protected Warehouse() { }
 
     public Warehouse(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

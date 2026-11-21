@@ -711,6 +711,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
         if (targetSo != null)
         {
+            dn.CurrencyCode = targetSo.CurrencyCode;
+            dn.ExchangeRate = targetSo.ExchangeRate > 0 ? targetSo.ExchangeRate : 1m;
+
             var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
             var bundleQueryable = await bundleRepo.GetQueryableAsync();
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
@@ -723,6 +726,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
             foreach (var soItem in targetSo.Items)
             {
+                if (soItem.IsClosed)
+                    continue;
+
                 if (!pickedBySoItem.TryGetValue(soItem.Id, out var pickRows))
                     continue;
 
@@ -807,6 +813,17 @@ public class PickListAppService : ApplicationService, IPickListAppService
         }
         else
         {
+            // Per ERPNext commits 8fbc02f81b & e4e0d9c707:
+            // When creating a Delivery Note from a Pick List without a Sales Order, resolve currency
+            // from the Customer's default currency falling back to Company default currency.
+            var custRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var compRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var customer = custRepo != null ? await custRepo.FindAsync(customerId.Value) : null;
+            var company = compRepo != null ? await compRepo.FindAsync(pl.CompanyId) : null;
+            dn.CurrencyCode = PickListManager.ResolveCurrencyForDocumentFromPickListWithoutSalesOrder(
+                customer?.DefaultCurrency,
+                company?.CurrencyCode ?? "MYR");
+
             foreach (var pickRow in pl.Items)
             {
                 var pendingQty = Math.Max(0m, pickRow.Qty - Math.Max(pickRow.TransferredQty, pickRow.DeliveredQty));

@@ -154,8 +154,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
         };
     }
 
-    public static string NormalizeStateCode(string? state)
+    public static string NormalizeStateCode(string? state, string? countryCode = null)
     {
+        if (!string.IsNullOrWhiteSpace(countryCode) && NormalizeCountryCode(countryCode) != "MYS")
+        {
+            return "17";
+        }
         if (string.IsNullOrWhiteSpace(state)) return "17";
         var trimmed = state.Trim();
         var colonIdx = trimmed.IndexOf(':');
@@ -164,6 +168,53 @@ public class InvoiceDocumentBuilder : ITransientDependency
             var code = trimmed.Substring(0, colonIdx).Trim();
             return string.IsNullOrEmpty(code) ? "17" : code;
         }
+        return trimmed;
+    }
+
+    /// <summary>
+    /// Resolves Buyer TIN and LHDN state code for Malaysian vs non-Malaysian customers
+    /// per MyInvois commit d9adf36: foreign buyers default to generic TIN <c>EI00000000030</c>
+    /// and state code <c>17</c> (Not Applicable), while Malaysian B2C buyers default to <c>EI00000000020</c>.
+    /// </summary>
+    public static (string BuyerTin, string StateCode, string CountryCode) ResolveBuyerTinAndStateForCountry(
+        string? buyerTin,
+        string? state,
+        string? countryCode)
+    {
+        var normalizedCountry = NormalizeCountryCode(countryCode);
+        var isMalaysian = normalizedCountry == "MYS";
+        var resolvedTin = !string.IsNullOrWhiteSpace(buyerTin)
+            ? buyerTin.Trim()
+            : (isMalaysian ? "EI00000000020" : "EI00000000030");
+        var resolvedState = isMalaysian ? NormalizeStateCode(state) : "17";
+        return (resolvedTin, resolvedState, normalizedCountry);
+    }
+
+    /// <summary>
+    /// Normalizes an item classification code from composite or blank MyInvois select options
+    /// (e.g., <c>"003:Computer, smartphone or tablet"</c> or blank <c>""</c> per MyInvois commit e8ae07b),
+    /// defaulting blank codes to <c>"022"</c> (Others) or <c>"004"</c> when consolidated.
+    /// </summary>
+    public static string NormalizeClassificationCode(string? classificationCode, bool isConsolidated = false)
+    {
+        if (isConsolidated)
+        {
+            return "004";
+        }
+
+        if (string.IsNullOrWhiteSpace(classificationCode))
+        {
+            return "022";
+        }
+
+        var trimmed = classificationCode.Trim();
+        var colonIdx = trimmed.IndexOf(':');
+        if (colonIdx > 0)
+        {
+            var code = trimmed[..colonIdx].Trim();
+            return string.IsNullOrEmpty(code) ? "022" : code;
+        }
+
         return trimmed;
     }
 

@@ -2736,5 +2736,29 @@ public class UpstreamBatch9ParityTests
         rescaledLowered.Count.ShouldBe(1);
         rescaledLowered[0].RowId.ShouldBe(existingRowId);
         rescaledLowered[0].RequiredQty.ShouldBe(4m);
+
+        // 5. MyInvois LHDN parity: non-Malaysian buyer TIN/state resolution, blank item classification code fallback, and supplier TIN search failure message (MyInvois d9adf36, e8ae07b, 7552df2)
+        var foreignBuyer = MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveBuyerTinAndStateForCountry(
+            buyerTin: null,
+            state: "California",
+            countryCode: "United States");
+        foreignBuyer.BuyerTin.ShouldBe("EI00000000030");
+        foreignBuyer.StateCode.ShouldBe("17");
+        foreignBuyer.CountryCode.ShouldBe("USA");
+
+        var localBuyer = MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveBuyerTinAndStateForCountry(
+            buyerTin: null,
+            state: "14:Kuala Lumpur",
+            countryCode: "Malaysia");
+        localBuyer.BuyerTin.ShouldBe("EI00000000020");
+        localBuyer.StateCode.ShouldBe("14");
+        localBuyer.CountryCode.ShouldBe("MYS");
+
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeClassificationCode("", isConsolidated: false).ShouldBe("022");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeClassificationCode("003:Computer, smartphone or tablet", isConsolidated: false).ShouldBe("003");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeClassificationCode("", isConsolidated: true).ShouldBe("004");
+
+        MyERP.EInvoice.Services.TaxpayerValidationService.FormatTaxpayerSearchFailureMessage(400, null)
+            .ShouldBe("API request failed: Status code: 400 As per LHDN,either type or value or taxpayer data is wrong");
     }
 }

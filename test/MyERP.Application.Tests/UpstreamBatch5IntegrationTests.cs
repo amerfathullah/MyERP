@@ -1419,4 +1419,73 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             rawMaterialsAfterLower[0].RequiredQty.ShouldBe(4m); // max(scaled=2, transferred=4) = 4!
         });
     }
+
+    [Fact]
+    public async Task PickList_ExcludesRejectedWarehouseStock_AndResolvesCustomerCurrencyWithoutSalesOrder_784d9cbe09_8fbc02f81b()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PickList Parity Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "DeliveryNote", "DeliveryNote", "DN-PLP-"), autoSave: true);
+
+            var stdWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PL Standard WH") { WarehouseType = WarehouseType.Standard }, autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PL Rejected WH") { WarehouseType = WarehouseType.Rejected }, autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PL-ITM-1", "Pick Item", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            // Rejected warehouse has 50 units in bin, standard warehouse has 10 units
+            var rejBin = new Bin(Guid.NewGuid(), item.Id, rejWh.Id);
+            rejBin.UpdateActualQty(50m, 500m);
+            await binRepo.InsertAsync(rejBin, autoSave: true);
+
+            var stdBin = new Bin(Guid.NewGuid(), item.Id, stdWh.Id);
+            stdBin.UpdateActualQty(10m, 100m);
+            await binRepo.InsertAsync(stdBin, autoSave: true);
+
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "USD Pick Customer") { DefaultCurrency = "USD" }, autoSave: true);
+
+            var plAppService = GetRequiredService<IPickListAppService>();
+
+            // 1. Pick List targeting the Rejected Warehouse allocates 0 units (784d9cbe09, 9f33bb012e, 6bfba876ac, f303513d06)
+            var rejPl = await plAppService.CreateAsync(new CreatePickListDto
+            {
+                CompanyId = company.Id,
+                Purpose = "Delivery",
+                CustomerId = customer.Id,
+                Items = new CreatePickListItemDto[]
+                {
+                    new() { ItemId = item.Id, WarehouseId = rejWh.Id, Qty = 5m, Uom = "Unit", ConversionFactor = 1m }
+                }
+            });
+            var rejAllocation = await plAppService.AllocateStockAsync(rejPl.Id);
+            rejAllocation.HasShortage.ShouldBeTrue();
+            rejAllocation.Allocations[0].AllocatedQty.ShouldBe(0m);
+
+            // 2. Pick List without Sales Order creates Delivery Note using Customer's DefaultCurrency ("USD") (8fbc02f81b, e4e0d9c707)
+            var stdPl = await plAppService.CreateAsync(new CreatePickListDto
+            {
+                CompanyId = company.Id,
+                Purpose = "Delivery",
+                CustomerId = customer.Id,
+                Items = new CreatePickListItemDto[]
+                {
+                    new() { ItemId = item.Id, WarehouseId = stdWh.Id, Qty = 4m, Uom = "Unit", ConversionFactor = 1m }
+                }
+            });
+            await plAppService.SubmitAsync(stdPl.Id);
+
+            var dnId = await plAppService.CreateDeliveryNoteFromPickListAsync(stdPl.Id);
+            var dn = await dnRepo.GetAsync(dnId);
+            dn.CurrencyCode.ShouldBe("USD");
+            dn.Items.Count.ShouldBe(1);
+            dn.Items[0].Quantity.ShouldBe(4m);
+        });
+    }
 }

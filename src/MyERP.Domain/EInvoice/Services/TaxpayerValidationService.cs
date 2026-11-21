@@ -48,4 +48,16 @@ public class TaxpayerValidationService : ITransientDependency
         Enum.TryParse<LhdnEnvironment>(envString, ignoreCase: true, out var parsed)
             ? parsed
             : LhdnEnvironment.Sandbox;
+
+    /// <summary>
+    /// Formats LHDN taxpayer search failure message for customer/supplier TIN validation
+    /// per MyInvois commit 7552df2 (<c>search_taxpayer.py: search_purchase_tin</c>).
+    /// </summary>
+    public static string FormatTaxpayerSearchFailureMessage(int statusCode, string? responseText)
+    {
+        var msg = !string.IsNullOrWhiteSpace(responseText)
+            ? $"Status code: {statusCode} {responseText.Trim()}"
+            : $"Status code: {statusCode} As per LHDN,either type or value or taxpayer data is wrong";
+        return $"API request failed: {msg}";
+    }
 }

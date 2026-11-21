@@ -83,6 +83,18 @@ public class PickListManager : DomainService
     public async Task<decimal> GetAvailableQtyForPickAsync(
         Guid itemId, Guid warehouseId, Guid excludePickListId, Guid? ownVoucherId = null)
     {
+        // Per ERPNext commits 784d9cbe09, 9f33bb012e, 6bfba876ac, f303513d06:
+        // Rejected warehouses must never be picked from in Pick Lists.
+        var whRepo = _warehouseRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Warehouse, Guid>>();
+        if (whRepo != null)
+        {
+            var wh = await whRepo.FindAsync(warehouseId);
+            if (wh != null && (wh.IsRejectedWarehouse || wh.IsGroup || !wh.IsActive))
+            {
+                return 0m;
+            }
+        }
+
         // Get bin balance
         var binQueryable = await _binRepository.GetQueryableAsync();
         var bin = binQueryable.FirstOrDefault(b =>
