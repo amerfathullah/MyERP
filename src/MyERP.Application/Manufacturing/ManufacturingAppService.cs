@@ -215,6 +215,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         if (!bom.ValidateCostAllocation())
             throw new BusinessException(MyERPDomainErrorCodes.SecondaryItemCostAllocationInvalid);
 
+        bom.ValidateOperationsConfiguration();
         bom.RecalculateCost();
         bom.ValidateSecondaryItemsCost();
 
@@ -1616,6 +1617,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         foreach (var item in so.Items)
         {
+            if (item.IsClosed) { skipped++; continue; }
+
             var stockQty = item.StockQty > 0 ? item.StockQty : item.Quantity;
             var totalWorkOrderQty = existingWos
                 .Where(w => (w.SalesOrderItemId.HasValue && w.SalesOrderItemId.Value == item.Id)
@@ -4324,6 +4327,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Sales Order Item {salesOrderItemId.Value} does not exist on Sales Order {salesOrderId}.");
+            }
+
+            if (soItem.IsClosed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Sales Order Item {soItem.Description} on Sales Order {so.OrderNumber} is closed and cannot be manufactured.");
             }
 
             var itemMatches = soItem.ItemId == itemId;

@@ -494,6 +494,26 @@ export class BomFormComponent implements OnInit {
 
   recalcOpCost(_index: number): void { /* Triggers template re-render via getter */ }
 
+  /**
+   * Resolves a sub-assembly item's rate from its sub-BOM cost scaled by the row's UOM conversionFactor
+   * (per ERPNext commit 42a3a8342d).
+   */
+  resolveSubAssemblyRateFromBom(subBomTotalCost: number, subBomQty: number, rowConversionFactor = 1): number {
+    if (subBomQty <= 0) return 0;
+    const factor = rowConversionFactor > 0 ? rowConversionFactor : 1;
+    return this.round2((subBomTotalCost / subBomQty) * factor);
+  }
+
+  /**
+   * Ensures fgBasedOperatingCost and operations are mutually exclusive on the form
+   * (per ERPNext commit 98fc122a1f).
+   */
+  syncOperationConfigurationFlags(): void {
+    if (this.operations.length > 0 || this.form.get('isPhantomBom')?.value) {
+      this.form.patchValue({ fgBasedOperatingCost: false, operatingCostPerBomQuantity: 0 });
+    }
+  }
+
   save(): void {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();

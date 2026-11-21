@@ -93,14 +93,22 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
                         .WithData("orderCompany", input.CompanyId);
                 }
 
-                // Per ERPNext commits 9ec94b2ae2 & a736bb99fc: refuse two rows linked to the same Sales Order Item row
+                // Per ERPNext commits 9ec94b2ae2, a736bb99fc & c3b83d3d20: refuse closed SO rows and duplicate SO item links
                 var claimedSoItemIds = new HashSet<Guid>();
                 for (var i = 0; i < input.Items.Count; i++)
                 {
                     var row = input.Items[i];
                     var matchingSoItems = so.Items.Where(si => si.ItemId == row.ItemId).ToList();
-                    var soItem = matchingSoItems.FirstOrDefault(si => !claimedSoItemIds.Contains(si.Id))
+                    var soItem = matchingSoItems.FirstOrDefault(si => !si.IsClosed && !claimedSoItemIds.Contains(si.Id))
+                        ?? matchingSoItems.FirstOrDefault(si => !claimedSoItemIds.Contains(si.Id))
                         ?? matchingSoItems.FirstOrDefault();
+                    if (soItem != null && soItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("salesOrderId", so.Id)
+                            .WithData("itemId", row.ItemId)
+                            .WithData("detail", $"Row {i + 1}: Cannot create Subcontracting Inward Order against closed Sales Order Item '{soItem.Description}'.");
+                    }
                     var claimKey = soItem?.Id ?? row.ItemId;
                     if (!claimedSoItemIds.Add(claimKey))
                     {
@@ -361,7 +369,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
         }
 
-        if (so.Status != DocumentStatus.Submitted)
+        if (so.Status is not (DocumentStatus.Submitted or DocumentStatus.ToDeliverAndBill or DocumentStatus.ToDeliver or DocumentStatus.ToBill))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Sales Order '{so.OrderNumber}' must be submitted to create Subcontracting Inward Order.");
@@ -377,7 +385,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             Items = new System.Collections.Generic.List<CreateScioItemDto>()
         };
 
-        foreach (var soItem in so.Items)
+        foreach (var soItem in so.Items.Where(i => !i.IsClosed))
         {
             result.Items.Add(new CreateScioItemDto
             {
@@ -386,6 +394,12 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
                 Rate = soItem.UnitPrice,
                 ServiceCostPerQty = 0m
             });
+        }
+
+        if (result.Items.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"No open items remain in Sales Order '{so.OrderNumber}' to map.");
         }
 
         return result;

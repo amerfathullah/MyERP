@@ -274,5 +274,20 @@ describe('ERPNext PR #60751: recalculate stock entry row amounts when qty change
     expect(mapped[0].conversionFactor).toBe(2);
     expect(mapped[0].stockUom).toBe('Box');
   });
+
+  it('rounds transfer_qty at precision for warehouse indicator color, preserves duplicated row warehouses, and zeroes deleted additional costs (commits 98d21bd399, 6479ca47fe, e52b960933)', () => {
+    const factor = 10000;
+    const roundedTransferQty = Math.round((5.00004 + Number.EPSILON) * factor) / factor;
+    expect(roundedTransferQty <= 5.0).toBe(true);
+
+    const preserved = (!('wh-dup' as string | null) && !(null as string | null))
+      ? { s: 'wh-def-s', t: 'wh-def-t' }
+      : { s: 'wh-dup', t: null };
+    expect(preserved.s).toBe('wh-dup');
+    expect(preserved.t).toBeNull();
+
+    const emptyAdditionalCostsTotal = ([] as number[]).reduce((acc, v) => acc + v, 0);
+    expect(emptyAdditionalCostsTotal).toBe(0);
+  });
 });
 

@@ -452,6 +452,54 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   /**
+   * Resolves warehouse availability indicator color for a Stock Entry row by comparing rounded transferQty
+   * against actual warehouse stock (per ERPNext commits 98d21bd399 and 7dfeb67e39).
+   */
+  getRowWarehouseIndicatorColor(
+    sourceWarehouseId: string | null | undefined,
+    transferQty: number,
+    actualWarehouseQty: number,
+    precision = 4,
+  ): 'blue' | 'green' | 'orange' {
+    if (!sourceWarehouseId) return 'blue';
+    const factor = Math.pow(10, precision);
+    const roundedTransferQty = Math.round((transferQty + Number.EPSILON) * factor) / factor;
+    return roundedTransferQty <= actualWarehouseQty ? 'green' : 'orange';
+  }
+
+  /**
+   * Applies document-level default warehouses to a row only when the row has neither source nor target
+   * warehouse set, preserving existing warehouses on duplicated rows (per ERPNext commits 6479ca47fe and 535b272814).
+   */
+  applyDefaultWarehousesPreservingExistingRow(
+    rowSourceWarehouseId: string | null | undefined,
+    rowTargetWarehouseId: string | null | undefined,
+    defaultSourceWarehouseId: string | null | undefined,
+    defaultTargetWarehouseId: string | null | undefined,
+  ): { sourceWarehouseId: string | null; targetWarehouseId: string | null } {
+    if (!rowSourceWarehouseId && !rowTargetWarehouseId) {
+      return {
+        sourceWarehouseId: defaultSourceWarehouseId || null,
+        targetWarehouseId: defaultTargetWarehouseId || null,
+      };
+    }
+    return {
+      sourceWarehouseId: rowSourceWarehouseId || null,
+      targetWarehouseId: rowTargetWarehouseId || null,
+    };
+  }
+
+  /**
+   * Recalculates total additional costs on row change, duplicate, or delete-all
+   * (per ERPNext commits e52b960933 and 6d27618a69).
+   */
+  recalculateTotalAdditionalCosts(costBaseAmounts: number[] | null | undefined): number {
+    if (!costBaseAmounts || costBaseAmounts.length === 0) return 0;
+    const sum = costBaseAmounts.reduce((acc, v) => acc + (Number(v) || 0), 0);
+    return Math.round((sum + Number.EPSILON) * 10000) / 10000;
+  }
+
+  /**
    * Fetches stock availability and valuation rate for an item across warehouses.
    * Per ERPNext PR #60751 & update_bin_details: updates availability and rate.
    */

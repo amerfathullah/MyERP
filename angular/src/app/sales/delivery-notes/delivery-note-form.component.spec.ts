@@ -228,4 +228,11 @@ describe('DeliveryNoteFormComponent autoPickBatches', () => {
     expect(toasterMock.warn).toHaveBeenCalledWith('::SelectWarehouse');
     expect(batchMock.autoPickBatchesForDocument).not.toHaveBeenCalled();
   });
+
+  it('compares stockQty (quantity * conversionFactor) against actualQty for draft row indicator color (commit 094131955a)', () => {
+    const { comp } = createComponent({ autoPickBatchesForDocument: vi.fn() });
+    // 1 box of 10 units = 10 stockQty > 5 actualQty -> orange
+    expect(comp.getRowAvailabilityIndicatorColor(1, 10, 5, false, 0)).toBe('orange');
+    expect(comp.getRowAvailabilityIndicatorColor(1, 10, 10, false, 0)).toBe('green');
+  });
 });

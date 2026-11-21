@@ -170,6 +170,20 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         NetTotal = _items.Sum(i => i.Amount);
         GrandTotal = NetTotal;
     }
+
+    /// <summary>
+    /// Computes the remaining reserve quantity in the company's reserve warehouse for a supplied raw material row
+    /// when closing or reopening a Subcontracting Order, deducting <c>Max(TransferredQty, ConsumedQty)</c> from
+    /// <c>RequiredQty</c> so already-supplied raw materials are not double-deducted or double-reserved
+    /// per ERPNext commit 42258d5660.
+    /// </summary>
+    public static decimal CalculatePendingRawMaterialReserveQty(
+        decimal requiredQty,
+        decimal transferredQty,
+        decimal consumedQty)
+    {
+        return Math.Max(0m, requiredQty - Math.Max(transferredQty, consumedQty));
+    }
 }
 
 /// <summary>Finished good item to be manufactured by subcontractor.</summary>

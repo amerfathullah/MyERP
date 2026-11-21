@@ -480,6 +480,19 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Validates that <c>WithOperations</c> and <c>FgBasedOperatingCost</c> are not both enabled on a BOM
+    /// (per ERPNext commit 98fc122a1f).
+    /// </summary>
+    public void ValidateOperationsConfiguration()
+    {
+        if (WithOperations && FgBasedOperatingCost)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot set both 'With Operations' and 'FG Based Operating Cost' on a BOM.");
+        }
+    }
+
+    /// <summary>
     /// Validates that total cost of secondary items does not exceed total raw material cost.
     /// Per ERPNext PR #58979 (commit 4d95a240bb / b9502c74cc):
     /// "The cost of the secondary items cannot exceed the raw material cost of {0}."

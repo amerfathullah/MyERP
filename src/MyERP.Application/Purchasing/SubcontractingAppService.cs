@@ -356,10 +356,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Close();
 
-        // Release RM reservation for unreceived supplied items
+        // Release RM reservation for unreceived supplied items (commit 42258d5660: deduct max(TransferredQty, ConsumedQty))
         foreach (var item in sco.SuppliedItems)
         {
-            var pendingQty = Math.Max(0, item.RequiredQty - item.ConsumedQty);
+            var pendingQty = SubcontractingOrder.CalculatePendingRawMaterialReserveQty(
+                item.RequiredQty, item.TransferredQty, item.ConsumedQty);
             if (pendingQty > 0 && item.ReserveWarehouseId.HasValue)
             {
                 await _binService.UpdateReservedQtyForSubContractAsync(
@@ -386,10 +387,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
         sco.Reopen();
 
-        // Re-apply RM reservation for unconsumed supplied items
+        // Re-apply RM reservation for unreturned/unsupplied items (commit 42258d5660: deduct max(TransferredQty, ConsumedQty))
         foreach (var item in sco.SuppliedItems)
         {
-            var pendingQty = Math.Max(0, item.RequiredQty - item.ConsumedQty);
+            var pendingQty = SubcontractingOrder.CalculatePendingRawMaterialReserveQty(
+                item.RequiredQty, item.TransferredQty, item.ConsumedQty);
             if (pendingQty > 0 && item.ReserveWarehouseId.HasValue)
             {
                 await _binService.UpdateReservedQtyForSubContractAsync(

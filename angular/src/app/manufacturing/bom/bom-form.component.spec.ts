@@ -248,6 +248,39 @@ describe('BomFormComponent', () => {
     });
   });
 
+  describe('sub-assembly rate UOM conversion & operation config exclusivity (commits 42a3a8342d, 98fc122a1f)', () => {
+    function createBomComponent() {
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } },
+          { provide: ManufacturingService, useValue: { getBom: vi.fn(), createBom: vi.fn().mockReturnValue(of({})), updateBom: vi.fn().mockReturnValue(of({})) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        ],
+      });
+      return runInInjectionContext(injector, () => new BomFormComponent());
+    }
+
+    it('multiplies sub-assembly BOM unit cost by row conversionFactor (commit 42a3a8342d)', () => {
+      const comp = createBomComponent();
+      // Sub-BOM costs 100 for 2 stock units (50/unit), row UOM is Box of 12 -> 600
+      expect(comp.resolveSubAssemblyRateFromBom(100, 2, 12)).toBe(600);
+    });
+
+    it('clears fgBasedOperatingCost and operatingCostPerBomQuantity when operations exist (commit 98fc122a1f)', () => {
+      const comp = createBomComponent();
+      comp.form.patchValue({ fgBasedOperatingCost: true, operatingCostPerBomQuantity: 25 });
+      comp.addOperation({ sequenceId: 10, description: 'Assembly', timeInMins: 30, workstationHourRate: 60 });
+      comp.syncOperationConfigurationFlags();
+
+      expect(comp.form.get('fgBasedOperatingCost')?.value).toBe(false);
+      expect(comp.form.get('operatingCostPerBomQuantity')?.value).toBe(0);
+    });
+  });
+
+
   describe('BomFormComponent live cost calculation parity (PR #65856 / #67349)', () => {
     function createBomForm() {
       const injector = Injector.create({

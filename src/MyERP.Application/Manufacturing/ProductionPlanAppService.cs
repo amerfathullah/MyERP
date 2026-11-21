@@ -57,7 +57,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         {
             var committed = existingWos
                 .Where(w => w.ProductionPlanItemId == item.Id || (!w.ProductionPlanItemId.HasValue && item.WorkOrderId == w.Id))
-                .Sum(w => w.Quantity - w.ProcessLossQty);
+                .Sum(w => Manufacturing.DomainServices.WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true));
             item.OrderedQty = committed;
         }
 
@@ -1688,21 +1688,33 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemQuery = await itemRepo.GetQueryableAsync();
         var itemMap = itemQuery.Where(i => itemIds.Contains(i.Id)).ToDictionary(i => i.Id);
 
-        // Fetch existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be)
+        // Fetch existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be & commit bcb2d15e31)
         var woQuery = await _workOrderRepository.GetQueryableAsync();
-        var existingWos = woQuery
+        var existingWoEntities = woQuery
             .Where(w => w.SalesOrderId.HasValue && soIds.Contains(w.SalesOrderId.Value)
                         && w.SalesOrderItemId.HasValue
                         && w.Status != WorkOrderStatus.Cancelled)
-            .GroupBy(w => w.SalesOrderItemId!.Value)
-            .Select(g => new { SalesOrderItemId = g.Key, TotalWoQty = g.Sum(w => w.Quantity) })
             .ToList();
-        var existingWoMap = existingWos.ToDictionary(w => w.SalesOrderItemId, w => w.TotalWoQty);
+        var existingWoMap = existingWoEntities
+            .GroupBy(w => w.SalesOrderItemId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(w => Manufacturing.DomainServices.WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true)));
 
         foreach (var (key, plannedQty) in plannedMap)
         {
             if (!soItemMap.TryGetValue(key.SalesOrderItemId, out var soItem))
                 continue;
+
+            var parentSo = sos.FirstOrDefault(s => s.Id == key.SalesOrderId);
+            if (plannedQty > 0m && (soItem.IsClosed || parentSo?.Status == Core.DocumentStatus.Closed))
+            {
+                itemMap.TryGetValue(soItem.ItemId, out var closedInvItem);
+                var closedItemCode = closedInvItem?.ItemCode ?? soItem.Description ?? soItem.ItemId.ToString();
+                var rowIdx = parentSo != null ? parentSo.Items.ToList().FindIndex(i => i.Id == soItem.Id) + 1 : 1;
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{rowIdx} ({closedItemCode}) of Sales Order {parentSo?.OrderNumber ?? key.SalesOrderId.ToString()} is closed, so it cannot be planned.");
+            }
 
             var alreadyPlannedQty = alreadyPlanned.TryGetValue(key, out var ap) ? ap : 0m;
             var existingWoQty = existingWoMap.TryGetValue(key.SalesOrderItemId, out var woq) ? woq : 0m;
@@ -1770,16 +1782,18 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             .GroupBy(pi => (pi.SalesOrderId!.Value, pi.SalesOrderItemId!.Value))
             .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
 
-        // Get existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be)
+        // Get existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be & commit bcb2d15e31)
         var woQuery = await _workOrderRepository.GetQueryableAsync();
-        var existingWos = woQuery
+        var existingWoEntities = woQuery
             .Where(w => w.SalesOrderId.HasValue && allSoIds.Contains(w.SalesOrderId.Value)
                         && w.SalesOrderItemId.HasValue
                         && w.Status != WorkOrderStatus.Cancelled)
-            .GroupBy(w => w.SalesOrderItemId!.Value)
-            .Select(g => new { SalesOrderItemId = g.Key, TotalWoQty = g.Sum(w => w.Quantity) })
             .ToList();
-        var existingWoMap = existingWos.ToDictionary(w => w.SalesOrderItemId, w => w.TotalWoQty);
+        var existingWoMap = existingWoEntities
+            .GroupBy(w => w.SalesOrderItemId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(w => Manufacturing.DomainServices.WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true)));
 
         // Get default active BOMs for company
         var bomQuery = await _bomRepository.GetQueryableAsync();

@@ -186,9 +186,10 @@ export class DeliveryNoteFormComponent implements OnInit {
         // Auto-fill warehouse from first pending item's warehouse (per ERPNext SO→DN mapper)
         let warehouseSet = false;
 
-        // Add only items with pending delivery qty
+        // Add only open items with pending delivery qty (commit 33988eeeee: skip closed SO rows)
         let loadedCount = 0;
         (so.items ?? []).forEach((item: any) => {
+          if (item.isClosed) return;
           const pendingQty = (item.quantity ?? 0) - (item.deliveredQty ?? 0);
           if (pendingQty > 0) {
             // Auto-set DN-level warehouse from first item's warehouse
@@ -364,5 +365,25 @@ export class DeliveryNoteFormComponent implements OnInit {
     return this.items.controls
       .map(c => c.get('itemId')?.value as string)
       .filter(id => !!id);
+  }
+
+  /**
+   * Resolves the Delivery Note item indicator color by comparing stock_qty (quantity * conversionFactor)
+   * against actualQty in stock UOM for draft documents (per ERPNext commit 094131955a).
+   */
+  getRowAvailabilityIndicatorColor(
+    quantity: number,
+    conversionFactor: number,
+    actualQtyInStockUom: number,
+    isRowClosed = false,
+    docStatus = 0,
+  ): 'green' | 'orange' {
+    if (isRowClosed) return 'green';
+    if (docStatus === 0) {
+      const factor = conversionFactor > 0 ? conversionFactor : 1;
+      const stockQty = quantity * factor;
+      return stockQty <= actualQtyInStockUom ? 'green' : 'orange';
+    }
+    return 'green';
   }
 }

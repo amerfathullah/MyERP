@@ -957,4 +957,214 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             byItemB[0].Id.ShouldBe(so.Id);
         });
     }
+
+    [Fact]
+    public async Task SubcontractingOrder_CloseAndReopen_UsesPendingReserveNetOfSuppliedQty_AndScioSkipsClosedSalesOrderRows_42258d5660_c3b83d3d20()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SCO Reserve & SCIO Closed Row Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCO", "SCO", "SCO-RES-"), autoSave: true);
+
+            var reserveWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "SCO Reserve WH"), autoSave: true);
+            var suppWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "SCO Supplier WH"), autoSave: true);
+
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SCO-FG-01", "SCO Finished Good", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SCO-RM-01", "SCO Raw Material", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "SCO Supplier"), autoSave: true);
+
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-RES-0001", new DateTime(2026, 6, 15), supplier.Id)
+            {
+                SupplierWarehouseId = suppWh.Id
+            };
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, fgItem.Id, fgItem.ItemName, 10m, 50m));
+            // RequiredQty = 10, TransferredQty = 6, ConsumedQty = 2 -> only 4 remains reserved in ReserveWarehouse (6 already transferred out!)
+            var suppliedRow = new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmItem.Id, rmItem.ItemName, 10m)
+            {
+                ReserveWarehouseId = reserveWh.Id,
+                TransferredQty = 6m,
+                ConsumedQty = 2m
+            };
+            sco.AddSuppliedItem(suppliedRow);
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var binService = GetRequiredService<MyERP.Inventory.DomainServices.BinService>();
+            await binService.UpdateReservedQtyForSubContractAsync(rmItem.Id, reserveWh.Id, 4m);
+
+            var subcontractingAppService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+            await subcontractingAppService.CloseOrderAsync(sco.Id);
+
+            var binAfterClose = (await binRepo.GetQueryableAsync()).Single(b => b.ItemId == rmItem.Id && b.WarehouseId == reserveWh.Id);
+            binAfterClose.ReservedQtyForSubContract.ShouldBe(0m);
+
+            await subcontractingAppService.ReopenOrderAsync(sco.Id);
+            var binAfterReopen = (await binRepo.GetQueryableAsync()).Single(b => b.ItemId == rmItem.Id && b.WarehouseId == reserveWh.Id);
+            binAfterReopen.ReservedQtyForSubContract.ShouldBe(4m);
+
+            // SCIO MapFromSalesOrderAsync skips closed SO rows and CreateAsync rejects closed SO rows (c3b83d3d20)
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SCIO Cust"), autoSave: true);
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-SCIO-CLOSED-01", new DateTime(2026, 6, 15));
+            so.AddItem(fgItem.Id, fgItem.ItemName, 5m, 100m, 0m);
+            so.AddItem(rmItem.Id, rmItem.ItemName, 3m, 40m, 0m);
+            so.Submit();
+            so.CloseItem(so.Items[0].Id);
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var scioAppService = GetRequiredService<MyERP.Purchasing.ISubcontractingInwardOrderAppService>();
+            var mappedScio = await scioAppService.MapFromSalesOrderAsync(new MyERP.Purchasing.MapSubcontractingInwardOrderFromSalesOrderDto
+            {
+                SalesOrderId = so.Id,
+                SupplierId = supplier.Id
+            });
+            mappedScio.Items.Count.ShouldBe(1);
+            mappedScio.Items[0].ItemId.ShouldBe(rmItem.Id);
+
+            var closedRowEx = await Should.ThrowAsync<BusinessException>(() =>
+                scioAppService.CreateAsync(new MyERP.Purchasing.CreateSubcontractingInwardOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    SalesOrderId = so.Id,
+                    OrderDate = new DateTime(2026, 6, 16),
+                    Items = new List<MyERP.Purchasing.CreateScioItemDto>
+                    {
+                        new() { ItemId = fgItem.Id, Quantity = 5m, Rate = 100m, WarehouseId = reserveWh.Id }
+                    }
+                }));
+            (closedRowEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("closed Sales Order Item");
+        });
+    }
+
+    [Fact]
+    public async Task ProductionPlan_AndWorkOrder_RefuseClosedSalesOrderRows_AndClosedWoCommitsOnlyProducedQty_bf675b5480_bcb2d15e31_98fc122a1f()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PP Closed SO & WO Commit Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "BOM", "BOM", "BOM-PP-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PP", "PP", "PP-CLS-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "WO", "WO", "WO-CLS-"), autoSave: true);
+
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PP Main WH"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-FG-01", "PP Finished Good", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-RM-01", "PP Raw Material", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+
+            // BOM rejects FgBasedOperatingCost combined with WithOperations (98fc122a1f)
+            await Should.ThrowAsync<BusinessException>(() =>
+                mfgAppService.CreateBomAsync(new CreateBomDto
+                {
+                    CompanyId = company.Id,
+                    ItemId = fgItem.Id,
+                    Quantity = 1m,
+                    Uom = "Unit",
+                    WithOperations = true,
+                    FgBasedOperatingCost = true,
+                    OperatingCostPerBomQuantity = 15m,
+                    Items = new List<CreateBomItemDto>
+                    {
+                        new() { ItemId = rmItem.Id, ItemName = rmItem.ItemName, Quantity = 1m, Rate = 10m, Uom = "Unit" }
+                    }
+                }));
+
+            var bom = await mfgAppService.CreateBomAsync(new CreateBomDto
+            {
+                CompanyId = company.Id,
+                ItemId = fgItem.Id,
+                Quantity = 1m,
+                Uom = "Unit",
+                IsDefault = true,
+                SourceWarehouseId = wh.Id,
+                TargetWarehouseId = wh.Id,
+                Items = new List<CreateBomItemDto>
+                {
+                    new() { ItemId = rmItem.Id, ItemName = rmItem.ItemName, Quantity = 1m, Rate = 10m, Uom = "Unit" }
+                }
+            });
+
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "PP Customer"), autoSave: true);
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PP-CLS-01", new DateTime(2026, 6, 15));
+            so.AddItem(fgItem.Id, fgItem.ItemName, 10m, 100m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+            var soItemId = so.Items[0].Id;
+
+            // Create a Production Plan with PlannedQty = 10 against soItemId, then close the SO row before submitting PP -> SubmitAsync throws! (bf675b5480)
+            var ppAppService = GetRequiredService<IProductionPlanAppService>();
+            var draftPlan = await ppAppService.CreateAsync(new CreateProductionPlanDto
+            {
+                CompanyId = company.Id,
+                PostingDate = new DateTime(2026, 6, 15),
+                Items = new List<CreateProductionPlanItemDto>
+                {
+                    new()
+                    {
+                        ItemId = fgItem.Id,
+                        ItemName = fgItem.ItemName,
+                        BomId = bom.Id,
+                        PlannedQty = 10m,
+                        WarehouseId = wh.Id,
+                        SalesOrderId = so.Id,
+                        SalesOrderItemId = soItemId
+                    }
+                }
+            });
+
+            so.CloseItem(soItemId);
+            await soRepo.UpdateAsync(so, autoSave: true);
+
+            var ppSubmitEx = await Should.ThrowAsync<BusinessException>(() => ppAppService.SubmitAsync(draftPlan.Id));
+            (ppSubmitEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is closed, so it cannot be planned");
+
+            // CreateWorkOrdersFromSalesOrderAsync skips the closed SO row (33988eeeee)
+            var batchWoFromClosedSo = await mfgAppService.CreateWorkOrdersFromSalesOrderAsync(so.Id);
+            batchWoFromClosedSo.CreatedCount.ShouldBe(0);
+            batchWoFromClosedSo.SkippedCount.ShouldBe(1);
+
+            // Reopen the SO row, submit the Production Plan, and verify a Closed Work Order with ProducedQuantity=0 commits 0 to OrderedQty (bcb2d15e31)
+            so.ReopenItem(soItemId);
+            await soRepo.UpdateAsync(so, autoSave: true);
+
+            var submittedPlan = await ppAppService.SubmitAsync(draftPlan.Id);
+            var planItemId = submittedPlan.PlannedItems[0].Id;
+
+            var closedWo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-CLOSED-001", fgItem.Id, bom.Id, 10m)
+            {
+                ProductionPlanId = submittedPlan.Id,
+                ProductionPlanItemId = planItemId,
+                SalesOrderId = so.Id,
+                SalesOrderItemId = soItemId,
+                SourceWarehouseId = wh.Id,
+                WipWarehouseId = wh.Id,
+                FgWarehouseId = wh.Id
+            };
+            closedWo.Submit();
+            closedWo.Close();
+            await woRepo.InsertAsync(closedWo, autoSave: true);
+
+            var reloadedPlan = await ppAppService.GetAsync(submittedPlan.Id);
+            reloadedPlan.PlannedItems[0].OrderedQty.ShouldBe(0m);
+        });
+    }
 }
