@@ -17,6 +17,13 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid ItemId { get; set; }
 
+    /// <summary>
+    /// Item code identifier kept synchronized with the linked Item's <c>ItemCode</c> when the Item is renamed
+    /// per ERPNext commits f5b0a6992c and 5abab30259 (<c>rename_lead_time</c> in <c>item.py</c>).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? ItemCode { get; set; }
+
     // Workstation & Shift configuration
     public int ShiftTimeInHours { get; set; } = ItemLeadTimeConsts.DefaultShiftTimeInHours;
     public int NoOfWorkstations { get; set; } = ItemLeadTimeConsts.DefaultNoOfWorkstations;
@@ -155,6 +162,46 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
 
         return PurchaseTimeDays + BufferTimeDays;
+    }
+
+    /// <summary>
+    /// Keeps <see cref="ItemLeadTime"/> named after its item when the item is renamed,
+    /// finding the lead time record by the item's updated <c>ItemCode</c> (or <c>ItemId</c>) and renaming
+    /// the lead time identifier to <paramref name="newItemCode"/> if it differs
+    /// per ERPNext commits f5b0a6992c and 5abab30259 (<c>rename_lead_time</c> in <c>item.py</c>).
+    /// </summary>
+    public string SyncOnItemRename(string newItemCode)
+    {
+        Check.NotNullOrWhiteSpace(newItemCode, nameof(newItemCode));
+        ItemCode = newItemCode;
+        return ItemCode;
+    }
+
+    /// <summary>
+    /// Resolves the renamed <c>Item Lead Time</c> document identifier by matching the lead time row whose
+    /// <c>ItemCode</c> equals <paramref name="newItemCode"/> (after the item link was updated) and renaming
+    /// it to <paramref name="newItemCode"/> when its current document name differs
+    /// per ERPNext commits f5b0a6992c and 5abab30259.
+    /// </summary>
+    public static (bool ShouldRename, string? OldLeadTimeName, string? NewLeadTimeName) ResolveLeadTimeRenameByItemCode(
+        IEnumerable<(string LeadTimeName, string ItemCode)>? leadTimeRecords,
+        string newItemCode)
+    {
+        if (leadTimeRecords == null || string.IsNullOrWhiteSpace(newItemCode))
+        {
+            return (false, null, null);
+        }
+
+        var match = leadTimeRecords.FirstOrDefault(r =>
+            string.Equals(r.ItemCode, newItemCode, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(match.LeadTimeName)
+            && !string.Equals(match.LeadTimeName, newItemCode, StringComparison.Ordinal))
+        {
+            return (true, match.LeadTimeName, newItemCode);
+        }
+
+        return (false, null, null);
     }
 }
 

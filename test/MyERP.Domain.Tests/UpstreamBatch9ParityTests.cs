@@ -2684,5 +2684,57 @@ public class UpstreamBatch9ParityTests
         taxRuleArgs.ContainsKey("customer").ShouldBeTrue();
         taxRuleArgs.ContainsKey("item").ShouldBeFalse();
         taxRuleArgs.ContainsKey("item_group").ShouldBeFalse();
+
+        // 4. Item Lead Time rename synchronization by item code and Job Card Required Items in-place rescaling / transferred floor / unneeded untransferred row drop (f5b0a6992c, 5b3199341f, 5abab30259, 25e2944174, 7a63b772b2, 28bfdc29fc, c530d6f106, c5e001f4dd, 50cd3eff26, 3b6942f4dd, 57f750364b)
+        var ltRename = MyERP.Inventory.Entities.ItemLeadTime.ResolveLeadTimeRenameByItemCode(
+            new[] { ("OLD-ITEM-CODE", "NEW-ITEM-CODE") },
+            "NEW-ITEM-CODE");
+        ltRename.ShouldRename.ShouldBeTrue();
+        ltRename.OldLeadTimeName.ShouldBe("OLD-ITEM-CODE");
+        ltRename.NewLeadTimeName.ShouldBe("NEW-ITEM-CODE");
+
+        var opId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var extraUntransferredItemId = Guid.NewGuid();
+        var existingRowId = Guid.NewGuid();
+        var extraRowId = Guid.NewGuid();
+
+        // Raise ForQuantity from 2 to 4 on WO qty=4 (WO requires 8 of rmItemId, 4 already transferred; plus an unneeded untransferred row)
+        var rescaledRaised = JobCardManager.RescaleJobCardRequiredItemsInPlace(
+            existingRows: new[]
+            {
+                (existingRowId, rmItemId, 4m, 4m, 0m),
+                (extraRowId, extraUntransferredItemId, 5m, 0m, 0m)
+            },
+            workOrderRequiredItems: new (Guid, Guid?, Guid?, decimal)[]
+            {
+                (rmItemId, opId, null, 8m)
+            },
+            jobCardForQuantity: 4m,
+            operationOrWorkOrderQty: 4m,
+            jobCardOperationId: opId);
+
+        // Keeps existingRowId and its TransferredQty=4, updates RequiredQty to 8, and drops extraRowId (25e2944174, 3b6942f4dd)
+        rescaledRaised.Count.ShouldBe(1);
+        rescaledRaised[0].RowId.ShouldBe(existingRowId);
+        rescaledRaised[0].RequiredQty.ShouldBe(8m);
+        rescaledRaised[0].TransferredQty.ShouldBe(4m);
+
+        // Lower ForQuantity from 2 to 1 after 4 transferred -> RequiredQty stays floored at TransferredQty=4 (c530d6f106)
+        var rescaledLowered = JobCardManager.RescaleJobCardRequiredItemsInPlace(
+            existingRows: new[]
+            {
+                (existingRowId, rmItemId, 4m, 4m, 0m)
+            },
+            workOrderRequiredItems: new (Guid, Guid?, Guid?, decimal)[]
+            {
+                (rmItemId, opId, null, 8m)
+            },
+            jobCardForQuantity: 1m,
+            operationOrWorkOrderQty: 4m,
+            jobCardOperationId: opId);
+        rescaledLowered.Count.ShouldBe(1);
+        rescaledLowered[0].RowId.ShouldBe(existingRowId);
+        rescaledLowered[0].RequiredQty.ShouldBe(4m);
     }
 }

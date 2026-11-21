@@ -1134,6 +1134,99 @@ public class JobCardManager : DomainService
 
         return (roundedMins, operatingCost);
     }
+
+    /// <summary>
+    /// Rescales Job Card required items in place when <c>ForQuantity</c> (or operation) changes
+    /// per ERPNext commits 25e2944174, 28bfdc29fc, c530d6f106, and 3b6942f4dd (<c>job_card.py</c> / <c>job_card.js</c>):
+    /// 1. Matches existing Job Card item rows by <c>ItemId</c> and updates their <c>RequiredQty</c> in place
+    ///    (preserving <c>RowId</c>, <c>TransferredQty</c>, and <c>ConsumedQty</c>) instead of clearing and rebuilding.
+    /// 2. Floors each matched row's <c>RequiredQty</c> at <c>Max(scaledRequiredQty, row.TransferredQty)</c>
+    ///    so lowering <c>ForQuantity</c> after a transfer keeps <c>RequiredQty &gt;= TransferredQty</c> and keeps the transfer cancellable.
+    /// 3. Drops unmatched rows that have neither <c>TransferredQty</c> nor <c>ConsumedQty</c> (e.g., rows from a prior operation
+    ///    or manually added untransferred rows the operation does not need), while keeping any row that already has material movement.
+    /// </summary>
+    public static IReadOnlyList<(Guid RowId, Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty)> RescaleJobCardRequiredItemsInPlace(
+        IEnumerable<(Guid RowId, Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty)>? existingRows,
+        IEnumerable<(Guid ItemId, Guid? OperationId, Guid? BomOperationId, decimal WorkOrderRequiredQty)>? workOrderRequiredItems,
+        decimal jobCardForQuantity,
+        decimal operationOrWorkOrderQty,
+        Guid? jobCardOperationId = null,
+        Guid? jobCardBomOperationId = null,
+        bool trackSemiFinishedGoods = false,
+        int precision = 4)
+    {
+        var currentRows = (existingRows ?? Enumerable.Empty<(Guid RowId, Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty)>())
+            .ToList();
+        var unmatchedRows = currentRows.ToList();
+
+        var woItems = (workOrderRequiredItems ?? Enumerable.Empty<(Guid ItemId, Guid? OperationId, Guid? BomOperationId, decimal WorkOrderRequiredQty)>())
+            .ToList();
+
+        var rowIndex = 0;
+        foreach (var d in woItems)
+        {
+            rowIndex++;
+            if (!trackSemiFinishedGoods
+                && (jobCardOperationId.HasValue || jobCardBomOperationId.HasValue)
+                && !d.OperationId.HasValue
+                && !d.BomOperationId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row {rowIndex} : Operation is required against the raw material item {d.ItemId}");
+            }
+
+            if (jobCardBomOperationId.HasValue && d.BomOperationId.HasValue)
+            {
+                if (jobCardBomOperationId.Value != d.BomOperationId.Value)
+                {
+                    continue;
+                }
+            }
+            else if (jobCardOperationId.HasValue && d.OperationId.HasValue)
+            {
+                if (jobCardOperationId.Value != d.OperationId.Value)
+                {
+                    continue;
+                }
+            }
+
+            var scaledRequiredQty = CalculateJobCardItemRequiredQty(
+                d.WorkOrderRequiredQty,
+                jobCardForQuantity,
+                operationOrWorkOrderQty,
+                precision);
+
+            var matchIdx = unmatchedRows.FindIndex(r => r.ItemId == d.ItemId);
+            if (matchIdx >= 0)
+            {
+                var matched = unmatchedRows[matchIdx];
+                unmatchedRows.RemoveAt(matchIdx);
+                var currentIdx = currentRows.FindIndex(r => r.RowId == matched.RowId);
+                if (currentIdx >= 0)
+                {
+                    currentRows[currentIdx] = (
+                        matched.RowId,
+                        matched.ItemId,
+                        Math.Max(scaledRequiredQty, matched.TransferredQty),
+                        matched.TransferredQty,
+                        matched.ConsumedQty);
+                }
+                continue;
+            }
+
+            currentRows.Add((Guid.NewGuid(), d.ItemId, scaledRequiredQty, 0m, 0m));
+        }
+
+        foreach (var unmatched in unmatchedRows)
+        {
+            if (unmatched.TransferredQty == 0m && unmatched.ConsumedQty == 0m)
+            {
+                currentRows.RemoveAll(r => r.RowId == unmatched.RowId);
+            }
+        }
+
+        return currentRows;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

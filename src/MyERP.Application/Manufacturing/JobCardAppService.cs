@@ -186,7 +186,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> UpdateAsync(Guid id, CreateJobCardDto input)
     {
         var jc = await _repository.GetAsync(id);
-        if (jc.Status != JobCardStatus.Open)
+        if (jc.Status is not (JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "JobCard")
                 .WithData("status", jc.Status.ToString());
@@ -678,6 +678,11 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 stockQty = bin.ActualQty;
             }
 
+            var scaledReqQty = wo.Quantity > 0
+                ? JobCardManager.CalculateJobCardItemRequiredQty(reqItem.RequiredQuantity, jc.ForQuantity, wo.Quantity, 4)
+                : reqItem.RequiredQuantity;
+            var effectiveReqQty = Math.Max(scaledReqQty, reqItem.TransferredQuantity);
+
             result.Add(new JobCardRawMaterialDto
             {
                 ItemId = reqItem.ItemId,
@@ -688,10 +693,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 SourceWarehouseId = srcWhId,
                 SourceWarehouseName = whObj?.Name,
                 WipWarehouseId = jc.WipWarehouseId ?? wo.WipWarehouseId,
-                RequiredQty = reqItem.RequiredQuantity,
+                RequiredQty = effectiveReqQty,
                 TransferredQty = reqItem.TransferredQuantity,
                 StockQty = stockQty,
-                IsAvailable = stockQty >= reqItem.RequiredQuantity
+                IsAvailable = stockQty >= effectiveReqQty
             });
         }
 
@@ -760,10 +765,14 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         foreach (var reqItem in matchingItems)
         {
-            var pendingQty = reqItem.RequiredQuantity - reqItem.TransferredQuantity;
+            var scaledReqQty = wo.Quantity > 0
+                ? JobCardManager.CalculateJobCardItemRequiredQty(reqItem.RequiredQuantity, jc.ForQuantity, wo.Quantity, 4)
+                : reqItem.RequiredQuantity;
+            var effectiveReqQty = Math.Max(scaledReqQty, reqItem.TransferredQuantity);
+            var pendingQty = effectiveReqQty - reqItem.TransferredQuantity;
             if (pendingQty <= 0 && !allowExcessTransfer) continue;
 
-            var transferQty = pendingQty > 0 ? pendingQty : reqItem.RequiredQuantity;
+            var transferQty = pendingQty > 0 ? pendingQty : effectiveReqQty;
 
             var sourceWhId = reqItem.SourceWarehouseId ?? wo.SourceWarehouseId ?? bom?.SourceWarehouseId;
             if (!sourceWhId.HasValue)

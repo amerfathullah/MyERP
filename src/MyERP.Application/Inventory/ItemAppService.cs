@@ -200,7 +200,18 @@ public class ItemAppService :
             existing.SetValuationMethod(input.ValuationMethod, hasStockLedgerEntries);
         }
 
+        var previousItemCode = existing.ItemCode;
         var updated = await base.UpdateAsync(id, input);
+        if (!string.Equals(previousItemCode, input.ItemCode, StringComparison.Ordinal))
+        {
+            var leadTimeRepo = LazyServiceProvider?.LazyGetService<IRepository<ItemLeadTime, Guid>>();
+            if (leadTimeRepo != null)
+            {
+                var ltQuery = await leadTimeRepo.GetQueryableAsync();
+                var leadTime = ltQuery?.FirstOrDefault(lt => lt.ItemId == id);
+                leadTime?.SyncOnItemRename(input.ItemCode);
+            }
+        }
         if (input.StandardSellingPrice > 0)
         {
             await TryCreateStandardSellingItemPriceAsync(id, input.CompanyId);

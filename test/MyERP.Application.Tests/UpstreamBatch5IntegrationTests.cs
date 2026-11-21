@@ -1327,4 +1327,96 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             report.Rows[0].CostOfPurchasedItems.ShouldBe(300m); // 4 * 75 = 300 included even with UpdateStock = false!
         });
     }
+
+    [Fact]
+    public async Task JobCard_ForQuantityRescaleAfterTransfer_KeepsTransferredItemsAndRequiredQtyFloor_25e2944174_c530d6f106()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var jcRepo = GetRequiredService<IRepository<JobCard, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "JC Rescale Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE", "SE", "SE-JCR-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "StockEntry", "StockEntry", "SE-JCR-"), autoSave: true);
+
+            var srcWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "JC Source WH"), autoSave: true);
+            var wipWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "JC WIP WH"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "JC-FG-1", "JC Finished Good", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "JC-RM-1", "JC Raw Material", ItemType.Goods) { Uom = "Kg", MaintainStock = true }, autoSave: true);
+
+            var opId = Guid.NewGuid();
+            var bom = await bomRepo.InsertAsync(
+                new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-JCR-001", fgItem.Id) { Quantity = 1m, IsActive = true },
+                autoSave: true);
+
+            // Work Order for qty = 4 requiring 8 Kg of RM
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-JCR-001", fgItem.Id, bom.Id, 4m)
+            {
+                SourceWarehouseId = srcWh.Id,
+                WipWarehouseId = wipWh.Id,
+                FgWarehouseId = wipWh.Id
+            };
+            var woReqItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, rmItem.ItemName, 8m)
+            {
+                SourceWarehouseId = srcWh.Id,
+                StockUom = "Kg",
+                TransferredQuantity = 4m // 4 Kg already transferred for ForQuantity = 2
+            };
+            wo.RequiredItems.Add(woReqItem);
+            wo.Submit();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            var jc = new JobCard(Guid.NewGuid(), company.Id, wo.Id, opId, forQuantity: 2m, sequenceId: 1)
+            {
+                WipWarehouseId = wipWh.Id,
+                TransferredQty = 2m
+            };
+            jc.UpdateTransferStatus(true, true);
+            await jcRepo.InsertAsync(jc, autoSave: true);
+
+            var jcAppService = GetRequiredService<IJobCardAppService>();
+
+            // 1. Raise ForQuantity from 2 to 4 after transfer (25e2944174, 7a63b772b2)
+            var raisedDto = await jcAppService.UpdateAsync(jc.Id, new CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = opId,
+                ForQuantity = 4m,
+                SequenceId = 1,
+                PlannedTimeInMins = 60m
+            });
+            raisedDto.ForQuantity.ShouldBe(4m);
+
+            var rawMaterialsAfterRaise = await jcAppService.GetRawMaterialsAsync(jc.Id);
+            rawMaterialsAfterRaise.Count.ShouldBe(1);
+            rawMaterialsAfterRaise[0].RequiredQty.ShouldBe(8m);
+            rawMaterialsAfterRaise[0].TransferredQty.ShouldBe(4m);
+
+            // Next Material Transfer transfers the remaining 4 Kg (8 - 4 = 4)
+            var secondTransfer = await jcAppService.CreateMaterialTransferAsync(jc.Id);
+            secondTransfer.Items.Count.ShouldBe(1);
+            secondTransfer.Items[0].Quantity.ShouldBe(4m);
+
+            // 2. Lower ForQuantity to 1 after 4 Kg transferred -> RequiredQty stays floored at TransferredQty = 4 Kg (c530d6f106, c5e001f4dd)
+            await jcAppService.UpdateAsync(jc.Id, new CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = opId,
+                ForQuantity = 1m,
+                SequenceId = 1,
+                PlannedTimeInMins = 60m
+            });
+            var rawMaterialsAfterLower = await jcAppService.GetRawMaterialsAsync(jc.Id);
+            rawMaterialsAfterLower.Count.ShouldBe(1);
+            rawMaterialsAfterLower[0].RequiredQty.ShouldBe(4m); // max(scaled=2, transferred=4) = 4!
+        });
+    }
 }

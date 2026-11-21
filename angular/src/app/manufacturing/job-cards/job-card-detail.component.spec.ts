@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { of, throwError } from 'rxjs';
-import { JobCardDetailComponent, computeJobCardElapsedSeconds } from './job-card-detail.component';
+import { JobCardDetailComponent, computeJobCardElapsedSeconds, rescaleJobCardRawMaterialsInPlace } from './job-card-detail.component';
 import { JobCardService } from '../../proxy/manufacturing/job-card.service';
 
 describe('JobCardDetailComponent', () => {
@@ -108,5 +108,39 @@ describe('JobCardDetailComponent', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('rescales raw materials in place on For Quantity change, keeps transferred qty floor, and drops untransferred unneeded rows (25e2944174, 28bfdc29fc, c530d6f106, 3b6942f4dd)', () => {
+    const comp = createComponent();
+    comp.ngOnInit();
+
+    // Start with transferred RM-01 (4 transferred for forQuantity=2 of WO qty=4 where WO requires 8)
+    // plus an extra untransferred row RM-UNUSED that the operation does not need
+    comp.rawMaterials.set([
+      { itemId: 'rm-1', itemCode: 'RM-01', itemName: 'Steel Sheet', requiredQty: 4, transferredQty: 4, pendingQty: 0, stockQty: 10, isAvailable: true },
+      { itemId: 'rm-unused', itemCode: 'RM-UNUSED', itemName: 'Unused Bolt', requiredQty: 5, transferredQty: 0, pendingQty: 5, stockQty: 10, isAvailable: true },
+    ]);
+
+    // Raise For Quantity from 2 to 4 -> RM-01 rescales in place to 8 (keeping transferredQty=4 -> pendingQty=4), RM-UNUSED is dropped (25e2944174, 28bfdc29fc, 3b6942f4dd)
+    comp.onForQuantityChange(4, 4, [
+      { itemId: 'rm-1', itemCode: 'RM-01', itemName: 'Steel Sheet', requiredQty: 8, stockQty: 10 },
+    ]);
+    expect(comp.rawMaterials()).toHaveLength(1);
+    expect(comp.rawMaterials()[0].itemId).toBe('rm-1');
+    expect(comp.rawMaterials()[0].requiredQty).toBe(8);
+    expect(comp.rawMaterials()[0].transferredQty).toBe(4);
+    expect(comp.rawMaterials()[0].pendingQty).toBe(4);
+
+    // Lower For Quantity to 1 -> scaled qty is 2, but Required Qty stays floored at transferredQty=4 (c530d6f106)
+    const lowered = rescaleJobCardRawMaterialsInPlace(
+      comp.rawMaterials(),
+      [{ itemId: 'rm-1', itemCode: 'RM-01', itemName: 'Steel Sheet', requiredQty: 8, stockQty: 10 }],
+      1,
+      4,
+    );
+    expect(lowered).toHaveLength(1);
+    expect(lowered[0].requiredQty).toBe(4);
+    expect(lowered[0].transferredQty).toBe(4);
+    expect(lowered[0].pendingQty).toBe(0);
   });
 });

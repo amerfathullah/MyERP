@@ -74,6 +74,74 @@ export function computeJobCardElapsedSeconds(
   return Math.max(0, elapsedSeconds);
 }
 
+/**
+ * Rescales Job Card raw material items in place when For Quantity changes without clearing existing rows,
+ * keeping each matched row's transferredQty and flooring requiredQty at Math.max(scaledQty, transferredQty),
+ * while dropping unmatched rows that have no transferred quantity (ERPNext commits 25e2944174, 28bfdc29fc, c530d6f106, 3b6942f4dd).
+ */
+export function rescaleJobCardRawMaterialsInPlace(
+  existingRows: JobCardRawMaterialDto[] | undefined | null,
+  operationRequiredItems: Array<{
+    itemId?: string;
+    itemCode?: string;
+    itemName?: string;
+    uom?: string;
+    requiredQty: number;
+    sourceWarehouseId?: string;
+    sourceWarehouseName?: string;
+    stockQty?: number;
+  }>,
+  newForQuantity: number,
+  workOrderOrOperationQty: number,
+): JobCardRawMaterialDto[] {
+  const currentRows = [...(existingRows ?? [])].map(r => ({ ...r }));
+  const unmatched = [...currentRows];
+  const divisor = workOrderOrOperationQty > 0 ? workOrderOrOperationQty : 1;
+
+  for (const opItem of operationRequiredItems ?? []) {
+    const scaledReqQty = Math.round(((opItem.requiredQty * newForQuantity) / divisor) * 10000) / 10000;
+    const matchIdx = unmatched.findIndex(r =>
+      (opItem.itemId && r.itemId === opItem.itemId) ||
+      (opItem.itemCode && r.itemCode === opItem.itemCode),
+    );
+
+    if (matchIdx >= 0) {
+      const matched = unmatched.splice(matchIdx, 1)[0];
+      const transferred = matched.transferredQty ?? 0;
+      const effectiveReqQty = Math.max(scaledReqQty, transferred);
+      matched.requiredQty = effectiveReqQty;
+      matched.pendingQty = Math.max(0, Math.round((effectiveReqQty - transferred) * 10000) / 10000);
+      matched.isAvailable = (matched.stockQty ?? 0) >= effectiveReqQty;
+      continue;
+    }
+
+    currentRows.push({
+      itemId: opItem.itemId,
+      itemCode: opItem.itemCode,
+      itemName: opItem.itemName,
+      uom: opItem.uom,
+      sourceWarehouseId: opItem.sourceWarehouseId,
+      sourceWarehouseName: opItem.sourceWarehouseName,
+      requiredQty: scaledReqQty,
+      transferredQty: 0,
+      pendingQty: scaledReqQty,
+      stockQty: opItem.stockQty ?? 0,
+      isAvailable: (opItem.stockQty ?? 0) >= scaledReqQty,
+    });
+  }
+
+  for (const leftover of unmatched) {
+    if (!(leftover.transferredQty && leftover.transferredQty > 0)) {
+      const idx = currentRows.indexOf(leftover);
+      if (idx >= 0) {
+        currentRows.splice(idx, 1);
+      }
+    }
+  }
+
+  return currentRows;
+}
+
 @Component({
   selector: 'app-job-card-detail', standalone: true,
   imports: [BreadcrumbComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, ActivityLogComponent, DocumentConnectionsComponent],
@@ -600,5 +668,36 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   /** Parses server ISO timestamp as UTC when timezone offset/Z is omitted (PR #66764 browser/server parity). */
   private parseServerUtcDate(value: string): Date {
     return parseJobCardUtcDate(value);
+  }
+
+  /**
+   * Updates rawMaterials in place when For Quantity changes without clearing existing rows
+   * (ERPNext commits 28bfdc29fc, 25e2944174, c530d6f106, 3b6942f4dd).
+   */
+  onForQuantityChange(
+    newForQuantity: number,
+    workOrderOrOperationQty: number,
+    operationRequiredItems: Array<{
+      itemId?: string;
+      itemCode?: string;
+      itemName?: string;
+      uom?: string;
+      requiredQty: number;
+      sourceWarehouseId?: string;
+      sourceWarehouseName?: string;
+      stockQty?: number;
+    }>,
+  ): void {
+    if (this.d) {
+      this.d = { ...this.d, forQuantity: newForQuantity };
+    }
+    this.rawMaterials.set(
+      rescaleJobCardRawMaterialsInPlace(
+        this.rawMaterials(),
+        operationRequiredItems,
+        newForQuantity,
+        workOrderOrOperationQty,
+      ),
+    );
   }
 }
