@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
 
@@ -51,5 +52,32 @@ public class TaxRule : FullAuditedEntity<Guid>, IMultiTenant
     public bool IsApplicableOn(DateTime date)
     {
         return date >= EffectiveFrom && (EffectiveTo == null || date <= EffectiveTo);
+    }
+
+    /// <summary>
+    /// Builds the document-header Tax Rule matching filter dictionary by excluding item-level filter keys
+    /// (<c>item</c> and <c>item_group</c>) so document-level Tax Rules match properly
+    /// per ERPNext commit 657b6398c9 (<c>tax_rule.py</c>).
+    /// </summary>
+    public static Dictionary<string, string?> BuildDocumentLevelTaxRuleArgs(IDictionary<string, string?>? rawArgs)
+    {
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (rawArgs == null)
+        {
+            return result;
+        }
+
+        foreach (var (key, value) in rawArgs)
+        {
+            if (string.Equals(key, "item", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(key, "item_group", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            result[key] = value;
+        }
+
+        return result;
     }
 }

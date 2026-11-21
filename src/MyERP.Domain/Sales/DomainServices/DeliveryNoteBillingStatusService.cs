@@ -277,4 +277,76 @@ public class DeliveryNoteBillingStatusService : DomainService
 
         return overbilledInOrigUom;
     }
+
+    /// <summary>
+    /// Computes settled return quantities across Return Delivery Note rows in FIFO order when a Sales Invoice
+    /// made either directly from the Delivery Note OR from its linked Sales Order deducts returned quantities,
+    /// batching direct-invoice quantity lookups across all delivery rows
+    /// per ERPNext commits d8f23e2c4f and 90702b5888 (<c>billing_status.py</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateSettledReturnQtyFromDirectAndSalesOrderInvoices(
+        IEnumerable<(Guid OrigDnItemId, decimal OrigQty, decimal DirectInvoicedQtyInOrigUom, decimal ConversionFactor, decimal SoOverbilledShareInOrigUom)> originalDeliveryRows,
+        IEnumerable<(Guid ReturnDnItemId, Guid OrigDnItemId, decimal ReturnQty, decimal ConversionFactor)> chronologicalReturnRows)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (originalDeliveryRows == null || chronologicalReturnRows == null)
+        {
+            return result;
+        }
+
+        var origById = originalDeliveryRows.ToDictionary(r => r.OrigDnItemId);
+        var returnList = chronologicalReturnRows.ToList();
+        var totalReturnedInOrigUom = new Dictionary<Guid, decimal>();
+
+        foreach (var ret in returnList)
+        {
+            if (!origById.TryGetValue(ret.OrigDnItemId, out var orig))
+            {
+                continue;
+            }
+
+            var retFactor = ret.ConversionFactor > 0m ? ret.ConversionFactor : 1m;
+            var origFactor = orig.ConversionFactor > 0m ? orig.ConversionFactor : 1m;
+            var toOrigFactor = retFactor / origFactor;
+            var qtyInOrig = Math.Abs(ret.ReturnQty) * toOrigFactor;
+            totalReturnedInOrigUom[ret.OrigDnItemId] = totalReturnedInOrigUom.GetValueOrDefault(ret.OrigDnItemId, 0m) + qtyInOrig;
+        }
+
+        var remainingSettleableByOrig = new Dictionary<Guid, decimal>();
+        foreach (var (origId, rawReturned) in totalReturnedInOrigUom)
+        {
+            var orig = origById[origId];
+            var returned = Math.Round(rawReturned, 4, MidpointRounding.AwayFromZero);
+            var netInvoiced = Math.Round(Math.Abs(orig.DirectInvoicedQtyInOrigUom), 4, MidpointRounding.AwayFromZero);
+            var uninvoiced = Math.Round(Math.Abs(orig.OrigQty) - netInvoiced, 4, MidpointRounding.AwayFromZero);
+
+            // Both direct DN invoicing and SO invoicing (after deducting returned qty) leave uninvoiced <= returned
+            var fullyInvoiced = returned >= uninvoiced;
+            var settleable = fullyInvoiced ? Math.Max(Math.Min(returned, uninvoiced), 0m) : 0m;
+            var afterOverbilled = Math.Max(Math.Round(settleable - Math.Max(orig.SoOverbilledShareInOrigUom, 0m), 4, MidpointRounding.AwayFromZero), 0m);
+            remainingSettleableByOrig[origId] = afterOverbilled;
+        }
+
+        foreach (var ret in returnList)
+        {
+            if (!origById.TryGetValue(ret.OrigDnItemId, out var orig))
+            {
+                continue;
+            }
+
+            var retFactor = ret.ConversionFactor > 0m ? ret.ConversionFactor : 1m;
+            var origFactor = orig.ConversionFactor > 0m ? orig.ConversionFactor : 1m;
+            var toOrigFactor = retFactor / origFactor;
+            var qtyInOrig = Math.Abs(ret.ReturnQty) * toOrigFactor;
+
+            var avail = remainingSettleableByOrig.GetValueOrDefault(ret.OrigDnItemId, 0m);
+            var settledOrig = Math.Min(qtyInOrig, avail);
+            remainingSettleableByOrig[ret.OrigDnItemId] = Math.Max(0m, avail - settledOrig);
+            result[ret.ReturnDnItemId] = toOrigFactor > 0m
+                ? Math.Round(settledOrig / toOrigFactor, 4, MidpointRounding.AwayFromZero)
+                : 0m;
+        }
+
+        return result;
+    }
 }

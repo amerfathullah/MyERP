@@ -1375,6 +1375,113 @@ public class SubcontractingManager : DomainService
 
         return summed;
     }
+
+    /// <summary>
+    /// Validates Subcontracting Order finished good rows against the linked Purchase Order's pending subcontracted
+    /// quantities using a pre-fetched map of pending qty per <c>PurchaseOrderItemId</c> (deducting across multiple
+    /// SCO rows that reference the same PO row) per ERPNext commits 953cb1a40f, 04b814303a, and 0a134f3d98.
+    /// </summary>
+    public static void ValidateSubcontractingOrderItemsWithCachedPendingQty(
+        IReadOnlyDictionary<Guid, decimal> pendingSubcontractableQtyByPoItemId,
+        IEnumerable<(int RowNumber, Guid? PurchaseOrderItemId, decimal ScoStockQty)> scoItems,
+        int precision = 4)
+    {
+        if (pendingSubcontractableQtyByPoItemId == null || scoItems == null)
+        {
+            return;
+        }
+
+        var remainingByPoItem = new Dictionary<Guid, decimal>(pendingSubcontractableQtyByPoItemId);
+        foreach (var row in scoItems)
+        {
+            if (row.ScoStockQty <= 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowNumber}: Quantity must be greater than 0.");
+            }
+
+            if (!row.PurchaseOrderItemId.HasValue || row.PurchaseOrderItemId.Value == Guid.Empty)
+            {
+                continue;
+            }
+
+            var poItemId = row.PurchaseOrderItemId.Value;
+            var available = Math.Round(remainingByPoItem.GetValueOrDefault(poItemId, 0m), precision, MidpointRounding.AwayFromZero);
+            var requested = Math.Round(row.ScoStockQty, precision, MidpointRounding.AwayFromZero);
+            if (requested > available)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowNumber}: Subcontracted quantity {requested} cannot exceed pending Purchase Order item quantity {available}.");
+            }
+
+            remainingByPoItem[poItemId] = available - requested;
+        }
+    }
+
+    /// <summary>
+    /// Removes only the service item row paired with the deleted finished good row's <paramref name="deletedPurchaseOrderItemId"/>
+    /// (falling back to <paramref name="deletedFgItemId"/> only when <c>PurchaseOrderItemId</c> is unset), so sibling
+    /// rows for the same finished good item on other PO rows keep their service items
+    /// per ERPNext commit 4211b7d593 (<c>subcontracting_order.js</c>).
+    /// </summary>
+    public static List<(Guid ServiceRowId, Guid? PurchaseOrderItemId, Guid FgItemId)> RemovePairedServiceItemByPurchaseOrderItem(
+        Guid? deletedPurchaseOrderItemId,
+        Guid deletedFgItemId,
+        IEnumerable<(Guid ServiceRowId, Guid? PurchaseOrderItemId, Guid FgItemId)> serviceItems)
+    {
+        if (serviceItems == null)
+        {
+            return new List<(Guid ServiceRowId, Guid? PurchaseOrderItemId, Guid FgItemId)>();
+        }
+
+        if (deletedPurchaseOrderItemId.HasValue && deletedPurchaseOrderItemId.Value != Guid.Empty)
+        {
+            return serviceItems
+                .Where(s => s.PurchaseOrderItemId != deletedPurchaseOrderItemId)
+                .ToList();
+        }
+
+        return serviceItems
+            .Where(s => s.FgItemId != deletedFgItemId)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Prepares Subcontract Order Summary report rows so finished good items whose raw materials are all sourced
+    /// by the job worker (having no <c>supplied_items</c> rows) are still included in the report output
+    /// per ERPNext commit dd22b835f9 (<c>subcontract_order_summary.py</c>).
+    /// </summary>
+    public static List<(Guid ScoItemId, Guid FgItemId, decimal OrderedQty, decimal ReceivedQty, Guid? SuppliedRmItemId, decimal? RequiredRmQty, decimal? SuppliedRmQty)> PrepareSubcontractOrderSummaryRows(
+        IEnumerable<(Guid ScoItemId, Guid FgItemId, decimal OrderedQty, decimal ReceivedQty)> scoItems,
+        IEnumerable<(Guid MainItemRowId, Guid RmItemId, decimal RequiredQty, decimal SuppliedQty)>? suppliedItems)
+    {
+        var result = new List<(Guid ScoItemId, Guid FgItemId, decimal OrderedQty, decimal ReceivedQty, Guid? SuppliedRmItemId, decimal? RequiredRmQty, decimal? SuppliedRmQty)>();
+        if (scoItems == null)
+        {
+            return result;
+        }
+
+        var suppliedByRow = (suppliedItems ?? Enumerable.Empty<(Guid MainItemRowId, Guid RmItemId, decimal RequiredQty, decimal SuppliedQty)>())
+            .GroupBy(s => s.MainItemRowId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var item in scoItems)
+        {
+            if (suppliedByRow.TryGetValue(item.ScoItemId, out var rmRows) && rmRows.Count > 0)
+            {
+                foreach (var rm in rmRows)
+                {
+                    result.Add((item.ScoItemId, item.FgItemId, item.OrderedQty, item.ReceivedQty, rm.RmItemId, rm.RequiredQty, rm.SuppliedQty));
+                }
+            }
+            else
+            {
+                result.Add((item.ScoItemId, item.FgItemId, item.OrderedQty, item.ReceivedQty, null, null, null));
+            }
+        }
+
+        return result;
+    }
 }
 
 public class SubcontractingRmConsumption

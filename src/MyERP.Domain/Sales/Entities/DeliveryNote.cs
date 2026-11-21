@@ -353,4 +353,90 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         TaxAmount = _items.Sum(i => i.TaxAmount);
         GrandTotal = NetTotal + TaxAmount;
     }
+
+    /// <summary>
+    /// Resolves the Delivery Note item row indicator color by comparing <paramref name="stockQty"/>
+    /// (in stock UOM) against <paramref name="actualQty"/> (also in stock UOM) when the document is a draft
+    /// per ERPNext commit 094131955a (<c>delivery_note.js</c>).
+    /// </summary>
+    public static string GetDeliveryNoteItemIndicatorColor(
+        bool isRowClosed,
+        DocumentStatus docStatus,
+        decimal stockQty,
+        decimal actualQty,
+        decimal billedAmt = 0m,
+        decimal amount = 0m)
+    {
+        if (isRowClosed)
+        {
+            return "green";
+        }
+
+        if (docStatus == DocumentStatus.Draft)
+        {
+            return stockQty <= actualQty ? "green" : "orange";
+        }
+
+        if (amount != 0m && Math.Abs(billedAmt) >= Math.Abs(amount))
+        {
+            return "green";
+        }
+
+        return "orange";
+    }
+
+    /// <summary>
+    /// Resolves the incoming rate for a packed component row on an internal transfer Delivery Note / Sales Invoice:
+    /// packed component quantities are already in stock UOM, so the component's <paramref name="componentStockUomRate"/>
+    /// is used directly without multiplying by the parent row's <c>conversion_factor</c>
+    /// per ERPNext commit 540104bf4f (<c>selling_controller.py</c>).
+    /// </summary>
+    public static decimal ResolveInternalTransferPackedItemIncomingRate(
+        decimal componentStockUomRate,
+        decimal parentConversionFactor)
+    {
+        _ = parentConversionFactor;
+        return componentStockUomRate;
+    }
+
+    /// <summary>
+    /// Determines whether a Product Bundle parent row's rate should be calculated from its packed component prices:
+    /// skips bundle rows whose quantity is zero so dividing component total by <c>bundleRowQty</c> never throws
+    /// <see cref="DivideByZeroException"/> per ERPNext commit e83c4870ff (<c>selling_controller.py</c>).
+    /// </summary>
+    public static bool ShouldPriceBundleRowFromComponents(bool setPriceFromChildren, decimal bundleRowQty)
+    {
+        return setPriceFromChildren && bundleRowQty != 0m;
+    }
+
+    /// <summary>
+    /// Resolves the reservable items and quantities for a Sales Order row when creating/updating Stock Reservation Entries:
+    /// inspects the order's own <paramref name="orderPackedItemsForRow"/> first even if the Product Bundle was disabled
+    /// after the Sales Order was submitted per ERPNext commit 4b918aa560 (<c>sales_order.py</c>).
+    /// </summary>
+    public static List<(Guid ItemId, Guid WarehouseId, decimal QtyToReserve, Guid? PackedItemId)> ResolveReservableItemsForSalesOrderRow(
+        Guid salesOrderRowId,
+        Guid rowItemId,
+        Guid rowWarehouseId,
+        decimal rowStockQtyToReserve,
+        decimal rowTotalStockQty,
+        IEnumerable<(Guid PackedItemId, Guid ParentDetailDocName, Guid ItemId, Guid WarehouseId, decimal PackedQty)>? orderPackedItemsForRow)
+    {
+        var matchingPacked = (orderPackedItemsForRow ?? Enumerable.Empty<(Guid PackedItemId, Guid ParentDetailDocName, Guid ItemId, Guid WarehouseId, decimal PackedQty)>())
+            .Where(p => p.ParentDetailDocName == salesOrderRowId)
+            .ToList();
+
+        if (matchingPacked.Count > 0 && rowTotalStockQty > 0m)
+        {
+            var ratio = rowStockQtyToReserve / rowTotalStockQty;
+            return matchingPacked
+                .Select(p => (p.ItemId, p.WarehouseId != Guid.Empty ? p.WarehouseId : rowWarehouseId, Math.Round(p.PackedQty * ratio, 4, MidpointRounding.AwayFromZero), (Guid?)p.PackedItemId))
+                .ToList();
+        }
+
+        return new List<(Guid ItemId, Guid WarehouseId, decimal QtyToReserve, Guid? PackedItemId)>
+        {
+            (rowItemId, rowWarehouseId, rowStockQtyToReserve, null)
+        };
+    }
 }

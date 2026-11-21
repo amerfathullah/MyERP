@@ -2435,4 +2435,254 @@ public class UpstreamBatch9ParityTests
             itemGroupDefaultWarehouseId: recvWh);
         shortageBin.ActualQty.ShouldBe(6m); // Receiving warehouse (from item group default) counted!
     }
+
+    [Fact]
+    public void BatchE_StockBinLocking_DeliveryNote_PickList_MaterialRequest_And_StockEntry_Parity()
+    {
+        // 1. Bin locking across all item tables + SCO reserve_warehouse + post-lock posting_time refresh + repost cancelled-voucher skip & non-perpetual project cost update (bb6f61ec28, efdca1e043, 9baa6d2769, 88053efd2b, 9f24f1ba49, 11637d5274, bbf47d40c7, 41d5d3c132, 51203d3b70)
+        var item1 = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var item2 = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var origItem1 = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var whA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var whB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var reserveWh = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+        var lockedPairs = BinService.CollectAndSortItemWarehousesToLock(
+            childTableRows: new (Guid?, Guid?, Guid?, IEnumerable<Guid?>)[]
+            {
+                (item1, null, origItem1, new Guid?[] { whB }),
+                (null, item2, null, new Guid?[] { whA })
+            },
+            parentWarehouses: new Guid?[] { whA },
+            subcontractingOrderSuppliedItems: new[] { (origItem1, reserveWh) });
+
+        // Sorted deterministically by (ItemId, WarehouseId) and includes SCO reserve_warehouse via original_item!
+        lockedPairs.Count.ShouldBe(4);
+        lockedPairs[0].ShouldBe((item2, whA));
+        lockedPairs[1].ShouldBe((item1, whA));
+        lockedPairs[2].ShouldBe((item1, whB));
+        lockedPairs[3].ShouldBe((item1, reserveWh));
+
+        var beforeLock = new TimeSpan(10, 0, 0);
+        var afterLock = new TimeSpan(10, 0, 15);
+        BinService.RefreshPostingTimeAfterBinLock(setPostingTime: false, beforeLock, afterLock).ShouldBe(afterLock);
+        BinService.RefreshPostingTimeAfterBinLock(setPostingTime: true, beforeLock, afterLock).ShouldBe(beforeLock);
+
+        BinService.EvaluateRepostGlAndProjectActions(MyERP.Core.DocumentStatus.Cancelled, perpetualInventoryEnabled: true, hasLinkedProject: true)
+            .ShouldBe((false, false));
+        BinService.EvaluateRepostGlAndProjectActions(MyERP.Core.DocumentStatus.Submitted, perpetualInventoryEnabled: false, hasLinkedProject: true)
+            .ShouldBe((false, true));
+
+        // 2. Delivery Note return settlement from direct or SO invoice, draft indicator stock_qty comparison, internal transfer packed item incoming_rate, zero-qty bundle guard, and disabled bundle SO reservation (d8f23e2c4f, 90702b5888, 094131955a, 540104bf4f, e83c4870ff, 4b918aa560)
+        var origDnRowId = Guid.NewGuid();
+        var retRow1Id = Guid.NewGuid();
+        var retRow2Id = Guid.NewGuid();
+        var settledMap = MyERP.Sales.DomainServices.DeliveryNoteBillingStatusService.CalculateSettledReturnQtyFromDirectAndSalesOrderInvoices(
+            originalDeliveryRows: new[] { (origDnRowId, 10m, 6m, 1m, 0m) },
+            chronologicalReturnRows: new[]
+            {
+                (retRow1Id, origDnRowId, -2m, 1m),
+                (retRow2Id, origDnRowId, -2m, 1m)
+            });
+        settledMap[retRow1Id].ShouldBe(2m);
+        settledMap[retRow2Id].ShouldBe(2m);
+
+        // Draft DN row with qty=1 box (conversion_factor=10 -> stock_qty=10) and actual_qty=5 in stock UOM -> orange! (094131955a)
+        MyERP.Sales.Entities.DeliveryNote.GetDeliveryNoteItemIndicatorColor(
+            isRowClosed: false,
+            docStatus: MyERP.Core.DocumentStatus.Draft,
+            stockQty: 10m,
+            actualQty: 5m).ShouldBe("orange");
+
+        // Internal transfer packed item incoming_rate is already in stock UOM (not multiplied by parent conversion_factor) (540104bf4f)
+        MyERP.Sales.Entities.DeliveryNote.ResolveInternalTransferPackedItemIncomingRate(
+            componentStockUomRate: 25m,
+            parentConversionFactor: 12m).ShouldBe(25m);
+
+        // Zero-qty bundle row skips divide-by-qty component pricing (e83c4870ff)
+        MyERP.Sales.Entities.DeliveryNote.ShouldPriceBundleRowFromComponents(setPriceFromChildren: true, bundleRowQty: 0m)
+            .ShouldBeFalse();
+
+        // Sales Order row uses its own packed_items for reservation even if Product Bundle was later disabled (4b918aa560)
+        var soRowId = Guid.NewGuid();
+        var packedId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var reservable = MyERP.Sales.Entities.DeliveryNote.ResolveReservableItemsForSalesOrderRow(
+            salesOrderRowId: soRowId,
+            rowItemId: item1,
+            rowWarehouseId: whA,
+            rowStockQtyToReserve: 5m,
+            rowTotalStockQty: 10m,
+            orderPackedItemsForRow: new[] { (packedId, soRowId, compItemId, whB, 20m) });
+        reservable.Count.ShouldBe(1);
+        reservable[0].ItemId.ShouldBe(compItemId);
+        reservable[0].WarehouseId.ShouldBe(whB);
+        reservable[0].QtyToReserve.ShouldBe(10m);
+        reservable[0].PackedItemId.ShouldBe(packedId);
+
+        // 3. Pick List currency without SO, eligible SO filter, Material Request first-save rate preservation, and Stock Entry additional costs / SCO PO clearing / FG row duplicate qty (8fbc02f81b, e4e0d9c707, 072fe92f40, 784d9cbe09, 9f33bb012e, 6bfba876ac, f303513d06, 6ce460dc78, e52b960933, 6d27618a69, a4f4ba61f0, db63792514, 997fae727d)
+        PickListManager.ResolveCurrencyForDocumentFromPickListWithoutSalesOrder(null, "EUR").ShouldBe("EUR");
+        PickListManager.ResolveCurrencyForDocumentFromPickListWithoutSalesOrder("USD", "EUR").ShouldBe("USD");
+
+        var openPickSoItem = Guid.NewGuid();
+        var closedPickSoItem = Guid.NewGuid();
+        var eligibleSoItems = PickListManager.FilterEligibleSalesOrderItemsForPickList(
+            new[]
+            {
+                (openPickSoItem, false, "To Deliver and Bill", 10m, 2m, 3m),
+                (closedPickSoItem, true, "To Deliver and Bill", 10m, 0m, 0m)
+            });
+        eligibleSoItems.ShouldBe(new[] { openPickSoItem });
+
+        // First save (hasDocBeforeSave == false) preserves typed Material Request rates (6ce460dc78)
+        MyERP.Purchasing.Entities.MaterialRequest.ShouldRefreshItemRatesOnPriceListChange(
+            hasDocBeforeSave: false,
+            buyingPriceListId: Guid.NewGuid(),
+            hasBuyingPriceListChanged: true).ShouldBeFalse();
+        MyERP.Purchasing.Entities.MaterialRequest.ShouldRefreshItemRatesOnPriceListChange(
+            hasDocBeforeSave: true,
+            buyingPriceListId: Guid.NewGuid(),
+            hasBuyingPriceListChanged: true).ShouldBeTrue();
+
+        StockEntryManager.RecalculateTotalAdditionalCosts(Array.Empty<decimal>()).ShouldBe(0m);
+        StockEntryManager.RecalculateTotalAdditionalCosts(new[] { 12.5m, 7.25m }).ShouldBe(19.75m);
+
+        var scoId = Guid.NewGuid();
+        var stalePoId = Guid.NewGuid();
+        var clearedRefs = StockEntryManager.ClearPurchaseOrderWhenMappingSubcontractingOrder(scoId, stalePoId);
+        clearedRefs.SubcontractingOrderId.ShouldBe(scoId);
+        clearedRefs.PurchaseOrderId.ShouldBeNull();
+
+        StockEntryManager.ResolveFinishedGoodRowQtyOnAddOrDuplicate(isFinishedItem: true, existingRowQty: 3m, fgCompletedQty: 10m)
+            .ShouldBe(3m);
+    }
+
+    [Fact]
+    public void BatchF_MpsMrpScheduling_SubcontractingOrderValidation_TaxRule_And_Permissions_Parity()
+    {
+        // 1. MPS demand source company filter + closed SO row exclusion + empty fetch clear, MRP supplier lead time join via ItemLeadTime.ItemCode after rename, TimeSpan scheduling consumption, and Production Plan reserve payload parsing (f702edfa24, fa79a5ef6d, 49aa85356a, 33988eeeee, f2ca231b01, 2de0d38152, 920bdf0885)
+        var companyA = Guid.NewGuid();
+        var companyB = Guid.NewGuid();
+        var validSoId = Guid.NewGuid();
+        var otherCompanySoId = Guid.NewGuid();
+        var closedSoId = Guid.NewGuid();
+
+        var mpsSources = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService.FilterMpsDemandSourcesByCompanyAndClearOnEmptyFetch(
+            mpsCompanyId: companyA,
+            candidateDemandSources: new[]
+            {
+                (validSoId, companyA, "To Deliver and Bill", true),
+                (otherCompanySoId, companyB, "To Deliver and Bill", true),
+                (closedSoId, companyA, "Closed", true)
+            });
+        mpsSources.ShouldBe(new[] { validSoId });
+
+        // Empty fetch returns empty list so target table is cleared (fa79a5ef6d, 49aa85356a)
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService.FilterMpsDemandSourcesByCompanyAndClearOnEmptyFetch(
+            mpsCompanyId: companyA,
+            candidateDemandSources: Array.Empty<(Guid, Guid, string, bool)>()).ShouldBeEmpty();
+
+        var ltDocId = Guid.NewGuid();
+        var suppId = Guid.NewGuid();
+        var leadTimesByRenamedCode = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService.ResolveSupplierLeadTimesByItemCode(
+            itemLeadTimes: new[] { (ltDocId, "RENAMED-ITEM-001") },
+            supplierRows: new[] { (ltDocId, suppId, 14) });
+        leadTimesByRenamedCode[("RENAMED-ITEM-001", suppId)].ShouldBe(14);
+
+        var winStart = new DateTime(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc);
+        var winEnd = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+        var consumedSlot = MyERP.Manufacturing.DomainServices.WorkstationSchedulingService.ConsumeSchedulingWindowAsTimeSpan(
+            winStart, winEnd, TimeSpan.FromMinutes(90));
+        consumedSlot.SegmentEnd.ShouldBe(new DateTime(2026, 6, 1, 9, 30, 0, DateTimeKind.Utc));
+        consumedSlot.RemainingDuration.ShouldBe(TimeSpan.Zero);
+
+        MyERP.Manufacturing.DomainServices.WorkstationSchedulingService.ExtractProductionPlanNameFromPayload("{\"name\":\"MFG-PP-2026-00001\"}")
+            .ShouldBe("MFG-PP-2026-00001");
+        MyERP.Manufacturing.DomainServices.WorkstationSchedulingService.ExtractProductionPlanNameFromPayload("MFG-PP-2026-00002")
+            .ShouldBe("MFG-PP-2026-00002");
+
+        // 2. Subcontracting Order cached pending PO qty validation, service item removal by PurchaseOrderItemId, and Subcontract Order Summary report rows without supplied_items (953cb1a40f, 04b814303a, 4211b7d593, dd22b835f9, 0a134f3d98)
+        var poItem1 = Guid.NewGuid();
+        var poItem2 = Guid.NewGuid();
+        var pendingByPoItem = new Dictionary<Guid, decimal>
+        {
+            [poItem1] = 10m,
+            [poItem2] = 5m
+        };
+        Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingOrderItemsWithCachedPendingQty(
+                pendingByPoItem,
+                new (int, Guid?, decimal)[]
+                {
+                    (1, poItem1, 6m),
+                    (2, poItem1, 5m) // 6 + 5 = 11 > 10 pending!
+                }));
+
+        var sharedFgId = Guid.NewGuid();
+        var svcRow1 = Guid.NewGuid();
+        var svcRow2 = Guid.NewGuid();
+        var remainingServices = MyERP.Purchasing.DomainServices.SubcontractingManager.RemovePairedServiceItemByPurchaseOrderItem(
+            deletedPurchaseOrderItemId: poItem1,
+            deletedFgItemId: sharedFgId,
+            serviceItems: new (Guid, Guid?, Guid)[]
+            {
+                (svcRow1, poItem1, sharedFgId),
+                (svcRow2, poItem2, sharedFgId)
+            });
+        remainingServices.Count.ShouldBe(1);
+        remainingServices[0].ServiceRowId.ShouldBe(svcRow2);
+
+        var scoRowWithoutRm = Guid.NewGuid();
+        var summaryRows = MyERP.Purchasing.DomainServices.SubcontractingManager.PrepareSubcontractOrderSummaryRows(
+            scoItems: new[] { (scoRowWithoutRm, sharedFgId, 10m, 4m) },
+            suppliedItems: null);
+        summaryRows.Count.ShouldBe(1);
+        summaryRows[0].ScoItemId.ShouldBe(scoRowWithoutRm);
+        summaryRows[0].SuppliedRmItemId.ShouldBeNull();
+
+        // 3. Customer Group advance-only account company validation, select/read permission check, report total row marker, Blanket Order link search filter, and Tax Rule header args (c992ec3a95, 17cf4d610c, 9dab531596, 14079b35b8, fed666cb8a, eb1ae2cb11, 657b6398c9, 1c1d8ece45, 1f8513d996, af0411ed97, d73bb985ec)
+        Should.Throw<BusinessException>(() =>
+            MyERP.Core.DomainServices.PartyValidationService.ValidatePartyGroupCompanyAccountRow(
+                RowCompanyId: companyA,
+                ReceivableOrPayableAccountId: null,
+                ReceivableOrPayableAccountCompanyId: null,
+                AdvanceAccountId: Guid.NewGuid(),
+                AdvanceAccountCompanyId: companyB));
+
+        Should.Throw<BusinessException>(() =>
+            MyERP.Core.DomainServices.AuthorizationControlService.EnsureReadOrSelectPermission("Company", hasReadPermission: false, hasSelectPermission: false));
+        Should.NotThrow(() =>
+            MyERP.Core.DomainServices.AuthorizationControlService.EnsureReadOrSelectPermission("Company", hasReadPermission: false, hasSelectPermission: true, allowSelectPermission: true));
+
+        var totalRow = MyERP.Core.DomainServices.AuthorizationControlService.MarkReportTotalRow(new Dictionary<string, object?> { ["account"] = "Total" });
+        totalRow["is_total_row"].ShouldBe(true);
+
+        var bo1Id = Guid.NewGuid();
+        var bo2Id = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var matchedBos = MyERP.Sales.DomainServices.BlanketOrderRateService.SearchBlanketOrdersForLinkField(
+            orders: new[]
+            {
+                (bo1Id, "MFG-BO-2026-00001", companyA, partyId, "Selling", MyERP.Core.DocumentStatus.Submitted, new DateTime(2026, 12, 31)),
+                (bo2Id, "MFG-BO-2026-00002", companyA, partyId, "Selling", MyERP.Core.DocumentStatus.Submitted, new DateTime(2026, 12, 31))
+            },
+            companyId: companyA,
+            partyId: partyId,
+            orderType: "Selling",
+            transactionDate: new DateTime(2026, 6, 1),
+            searchText: "00002");
+        matchedBos.Count.ShouldBe(1);
+        matchedBos[0].Id.ShouldBe(bo2Id);
+
+        var taxRuleArgs = MyERP.Tax.Entities.TaxRule.BuildDocumentLevelTaxRuleArgs(
+            new Dictionary<string, string?>
+            {
+                ["customer"] = "CUST-001",
+                ["item"] = "ITEM-001",
+                ["item_group"] = "Products"
+            });
+        taxRuleArgs.ContainsKey("customer").ShouldBeTrue();
+        taxRuleArgs.ContainsKey("item").ShouldBeFalse();
+        taxRuleArgs.ContainsKey("item_group").ShouldBeFalse();
+    }
 }

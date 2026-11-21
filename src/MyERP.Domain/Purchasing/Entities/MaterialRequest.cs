@@ -204,4 +204,21 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = DocumentStatus.Submitted;
         }
     }
+
+    /// <summary>
+    /// Determines whether item rates on a Material Request should be refreshed from the Buying Price List on save:
+    /// preserves user-entered item rates on first save (<paramref name="hasDocBeforeSave"/> == <c>false</c>) and
+    /// refreshes rates only when an already-saved document changes its <c>buying_price_list</c> to a non-null value
+    /// per ERPNext commit 6ce460dc78 (<c>material_request.py</c>).
+    /// </summary>
+    public static bool ShouldRefreshItemRatesOnPriceListChange(
+        bool hasDocBeforeSave,
+        Guid? buyingPriceListId,
+        bool hasBuyingPriceListChanged)
+    {
+        return hasDocBeforeSave
+            && buyingPriceListId.HasValue
+            && buyingPriceListId.Value != Guid.Empty
+            && hasBuyingPriceListChanged;
+    }
 }

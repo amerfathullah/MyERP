@@ -1951,4 +1951,53 @@ public class StockEntryManager : DomainService
             ? "green"
             : "orange";
     }
+
+    /// <summary>
+    /// Recalculates total additional costs on a Stock Entry whenever additional cost rows are added, edited,
+    /// duplicated, or deleted (including deleting all rows to 0) per ERPNext commits e52b960933 and 6d27618a69.
+    /// </summary>
+    public static decimal RecalculateTotalAdditionalCosts(IEnumerable<decimal>? additionalCostBaseAmounts)
+    {
+        if (additionalCostBaseAmounts == null)
+        {
+            return 0m;
+        }
+
+        return Math.Round(additionalCostBaseAmounts.Sum(), 4, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Clears any stale <c>PurchaseOrderId</c> reference when mapping or linking a Stock Entry to a
+    /// <c>SubcontractingOrder</c> so the Stock Entry does not point to an unrelated Purchase Order
+    /// per ERPNext commits 997fae727d and db63792514 (<c>stock_entry.py</c> / <c>stock_entry.js</c>).
+    /// </summary>
+    public static (Guid? SubcontractingOrderId, Guid? PurchaseOrderId) ClearPurchaseOrderWhenMappingSubcontractingOrder(
+        Guid? subcontractingOrderId,
+        Guid? existingPurchaseOrderId)
+    {
+        if (subcontractingOrderId.HasValue && subcontractingOrderId.Value != Guid.Empty)
+        {
+            return (subcontractingOrderId, null);
+        }
+
+        return (subcontractingOrderId, existingPurchaseOrderId);
+    }
+
+    /// <summary>
+    /// Preserves a finished good row's own quantity when a row is duplicated or added rather than overwriting
+    /// every finished good row's quantity with <c>FgCompletedQty</c> when finished good rows already carry
+    /// explicit quantities per ERPNext commit a4f4ba61f0 (<c>stock_entry.js</c>).
+    /// </summary>
+    public static decimal ResolveFinishedGoodRowQtyOnAddOrDuplicate(
+        bool isFinishedItem,
+        decimal existingRowQty,
+        decimal fgCompletedQty)
+    {
+        if (!isFinishedItem)
+        {
+            return existingRowQty;
+        }
+
+        return existingRowQty > 0m ? existingRowQty : fgCompletedQty;
+    }
 }

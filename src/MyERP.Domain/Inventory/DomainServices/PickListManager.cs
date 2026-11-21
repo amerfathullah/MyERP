@@ -690,6 +690,44 @@ public class PickListManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Resolves the transaction currency when creating a Delivery Note from a Pick List row without a Sales Order:
+    /// uses the customer's default billing currency if set, otherwise the Pick List company's currency (never a global default)
+    /// per ERPNext commit 8fbc02f81b (<c>pick_list.py</c>).
+    /// </summary>
+    public static string ResolveCurrencyForDocumentFromPickListWithoutSalesOrder(
+        string? customerDefaultCurrency,
+        string companyCurrency)
+    {
+        return !string.IsNullOrWhiteSpace(customerDefaultCurrency)
+            ? customerDefaultCurrency.Trim()
+            : (companyCurrency ?? string.Empty).Trim();
+    }
+
+    /// <summary>
+    /// Filters open Sales Orders eligible for Pick List creation so closed or stopped orders and rows with no remaining
+    /// pickable quantity are excluded, and matches batches / serial bundles across split pick locations
+    /// per ERPNext commits e4e0d9c707, 072fe92f40, 784d9cbe09, 9f33bb012e, 6bfba876ac, and f303513d06.
+    /// </summary>
+    public static List<Guid> FilterEligibleSalesOrderItemsForPickList(
+        IEnumerable<(Guid SalesOrderItemId, bool IsRowClosed, string OrderStatus, decimal StockQty, decimal DeliveredStockQty, decimal AlreadyPickedStockQty)> candidateRows)
+    {
+        if (candidateRows == null)
+        {
+            return new List<Guid>();
+        }
+
+        return candidateRows
+            .Where(r => !r.IsRowClosed
+                && !string.Equals(r.OrderStatus, "Closed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(r.OrderStatus, "Stopped", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(r.OrderStatus, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(r.OrderStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)
+                && (r.StockQty - r.DeliveredStockQty - r.AlreadyPickedStockQty) > 0m)
+            .Select(r => r.SalesOrderItemId)
+            .ToList();
+    }
 }
 
 public class AllocatedLocationItem

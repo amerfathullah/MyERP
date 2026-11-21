@@ -155,6 +155,39 @@ public class AuthorizationControlService : DomainService
 
         return rules;
     }
+
+    /// <summary>
+    /// Enforces document/company/link select-or-read permission checks on whitelisted lookup endpoints
+    /// (company default lookup, mode of payment account lookup, Sales Order calendar events, employee project link query,
+    /// and portal transaction Web Form list columns) per ERPNext commits 17cf4d610c, 9dab531596, 14079b35b8, fed666cb8a,
+    /// eb1ae2cb11, 1c1d8ece45, af0411ed97, and d73bb985ec.
+    /// </summary>
+    public static void EnsureReadOrSelectPermission(
+        string documentType,
+        bool hasReadPermission,
+        bool hasSelectPermission = false,
+        bool allowSelectPermission = true)
+    {
+        var permitted = hasReadPermission || (allowSelectPermission && hasSelectPermission);
+        if (!permitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Insufficient permission to access {documentType}.");
+        }
+    }
+
+    /// <summary>
+    /// Marks a report summary/total row with <c>IsTotalRow = true</c> so export and chart builders can reliably
+    /// distinguish total rows from data rows per ERPNext commit 1c1d8ece45.
+    /// </summary>
+    public static Dictionary<string, object?> MarkReportTotalRow(IDictionary<string, object?> row)
+    {
+        var result = row != null
+            ? new Dictionary<string, object?>(row)
+            : new Dictionary<string, object?>();
+        result["is_total_row"] = true;
+        return result;
+    }
 }
 
 /// <summary>

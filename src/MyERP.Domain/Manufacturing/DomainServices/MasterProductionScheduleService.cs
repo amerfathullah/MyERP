@@ -128,4 +128,61 @@ public class MasterProductionScheduleService : DomainService
 
         return null;
     }
+
+    /// <summary>
+    /// Filters Master Production Schedule demand sources (<c>Sales Orders</c> and <c>Material Requests</c>) by the
+    /// schedule's <paramref name="mpsCompanyId"/>, excludes closed or stopped Sales Orders and closed Sales Order rows,
+    /// and returns an explicit empty list (so the caller clears the target table even when the fetch returns nothing)
+    /// per ERPNext commits f702edfa24, fa79a5ef6d, 49aa85356a, and 33988eeeee (<c>master_production_schedule.py</c>).
+    /// </summary>
+    public static List<Guid> FilterMpsDemandSourcesByCompanyAndClearOnEmptyFetch(
+        Guid mpsCompanyId,
+        IEnumerable<(Guid SourceDocumentId, Guid CompanyId, string DocumentStatus, bool HasAnyOpenPendingRow)>? candidateDemandSources)
+    {
+        if (candidateDemandSources == null)
+        {
+            return new List<Guid>();
+        }
+
+        return candidateDemandSources
+            .Where(s => s.CompanyId == mpsCompanyId
+                && s.HasAnyOpenPendingRow
+                && !string.Equals(s.DocumentStatus, "Closed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(s.DocumentStatus, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(s.DocumentStatus, "Stopped", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(s.DocumentStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            .Select(s => s.SourceDocumentId)
+            .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Resolves supplier-specific purchase lead times for MRP by joining <c>ItemLeadTimeSupplier</c> rows through
+    /// the parent <c>ItemLeadTime.ItemCode</c> (or <c>ItemId</c>) rather than the parent document name so supplier
+    /// lead times continue to resolve after an item rename per ERPNext commit f2ca231b01 (<c>mrp_controller.py</c>).
+    /// </summary>
+    public static Dictionary<(string ItemCode, Guid SupplierId), int> ResolveSupplierLeadTimesByItemCode(
+        IEnumerable<(Guid ItemLeadTimeId, string CurrentItemCode)>? itemLeadTimes,
+        IEnumerable<(Guid ParentItemLeadTimeId, Guid SupplierId, int PurchaseTimeDays)>? supplierRows)
+    {
+        var result = new Dictionary<(string ItemCode, Guid SupplierId), int>();
+        if (itemLeadTimes == null || supplierRows == null)
+        {
+            return result;
+        }
+
+        var itemCodeByLeadTimeId = itemLeadTimes
+            .Where(lt => lt.ItemLeadTimeId != Guid.Empty && !string.IsNullOrWhiteSpace(lt.CurrentItemCode))
+            .ToDictionary(lt => lt.ItemLeadTimeId, lt => lt.CurrentItemCode);
+
+        foreach (var row in supplierRows)
+        {
+            if (itemCodeByLeadTimeId.TryGetValue(row.ParentItemLeadTimeId, out var currentItemCode))
+            {
+                result[(currentItemCode, row.SupplierId)] = row.PurchaseTimeDays;
+            }
+        }
+
+        return result;
+    }
 }

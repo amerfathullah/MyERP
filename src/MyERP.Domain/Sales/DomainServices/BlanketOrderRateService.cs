@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.CRM.Entities;
@@ -187,6 +188,46 @@ public class BlanketOrderRateService : DomainService
         }
 
         return (match.BlanketOrderId, match.Rate);
+    }
+
+    /// <summary>
+    /// Filters active Blanket Orders for link-field search using search text (<paramref name="searchText"/>) and
+    /// pagination (<paramref name="start"/>, <paramref name="pageLength"/>)
+    /// per ERPNext commit 1f8513d996 (<c>queries.py</c>).
+    /// </summary>
+    public static List<(Guid Id, string OrderNumber)> SearchBlanketOrdersForLinkField(
+        IEnumerable<(Guid Id, string OrderNumber, Guid CompanyId, Guid PartyId, string OrderType, Core.DocumentStatus Status, DateTime ToDate)> orders,
+        Guid companyId,
+        Guid partyId,
+        string orderType,
+        DateTime transactionDate,
+        string? searchText = null,
+        int start = 0,
+        int pageLength = 20)
+    {
+        if (orders == null)
+        {
+            return new List<(Guid Id, string OrderNumber)>();
+        }
+
+        var query = orders.Where(bo =>
+            bo.CompanyId == companyId
+            && bo.PartyId == partyId
+            && string.Equals(bo.OrderType, orderType, StringComparison.OrdinalIgnoreCase)
+            && bo.Status == Core.DocumentStatus.Submitted
+            && bo.ToDate >= transactionDate);
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var term = searchText.Trim();
+            query = query.Where(bo => bo.OrderNumber != null && bo.OrderNumber.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return query
+            .Skip(Math.Max(0, start))
+            .Take(pageLength > 0 ? pageLength : 20)
+            .Select(bo => (bo.Id, bo.OrderNumber))
+            .ToList();
     }
 }
 

@@ -424,6 +424,63 @@ public class WorkstationSchedulingService : DomainService
         }
         return defaults;
     }
+
+    /// <summary>
+    /// Consumes a workstation scheduling calendar window using exact <see cref="TimeSpan"/> (<c>timedelta</c>) arithmetic
+    /// rather than floating-point minutes so split segments never drift by fractional milliseconds
+    /// per ERPNext commit 2de0d38152 (<c>workstation_calendar.py</c>).
+    /// </summary>
+    public static (DateTime SegmentStart, DateTime SegmentEnd, TimeSpan RemainingDuration) ConsumeSchedulingWindowAsTimeSpan(
+        DateTime windowStart,
+        DateTime windowEnd,
+        TimeSpan remainingDuration)
+    {
+        if (remainingDuration <= TimeSpan.Zero || windowEnd <= windowStart)
+        {
+            return (windowStart, windowStart, remainingDuration);
+        }
+
+        var available = windowEnd - windowStart;
+        var consumed = remainingDuration <= available ? remainingDuration : available;
+        return (windowStart, windowStart + consumed, remainingDuration - consumed);
+    }
+
+    /// <summary>
+    /// Extracts the Production Plan identifier from either a direct name/ID string or a JSON/dict payload
+    /// passed by the reserve/unreserve stock action per ERPNext commit 920bdf0885 (<c>production_plan.py</c>).
+    /// </summary>
+    public static string ExtractProductionPlanNameFromPayload(string? docOrNamePayload)
+    {
+        if (string.IsNullOrWhiteSpace(docOrNamePayload))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = docOrNamePayload.Trim();
+        if (trimmed.StartsWith("{", StringComparison.Ordinal) && trimmed.EndsWith("}", StringComparison.Ordinal))
+        {
+            const string key = "\"name\"";
+            var keyIdx = trimmed.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+            if (keyIdx >= 0)
+            {
+                var colonIdx = trimmed.IndexOf(':', keyIdx + key.Length);
+                if (colonIdx >= 0)
+                {
+                    var firstQuote = trimmed.IndexOf('"', colonIdx + 1);
+                    if (firstQuote >= 0)
+                    {
+                        var secondQuote = trimmed.IndexOf('"', firstQuote + 1);
+                        if (secondQuote > firstQuote)
+                        {
+                            return trimmed.Substring(firstQuote + 1, secondQuote - firstQuote - 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        return trimmed;
+    }
 }
 
 /// <summary>Result of job card scheduling.</summary>

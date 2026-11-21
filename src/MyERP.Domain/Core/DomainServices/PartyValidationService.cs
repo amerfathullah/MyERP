@@ -330,4 +330,35 @@ public class PartyValidationService : DomainService
                 .WithData("detail", $"{partyType} {partyId} does not exist");
         }
     }
+
+    /// <summary>
+    /// Validates party accounts configured on a Customer Group (or Supplier Group) even when a company row specifies
+    /// only <c>AdvanceAccount</c> without <c>Account</c> (or vice versa)
+    /// per ERPNext commit c992ec3a95 (<c>customer_group.py</c>).
+    /// </summary>
+    public static void ValidatePartyGroupCompanyAccountRow(
+        Guid RowCompanyId,
+        Guid? ReceivableOrPayableAccountId,
+        Guid? ReceivableOrPayableAccountCompanyId,
+        Guid? AdvanceAccountId,
+        Guid? AdvanceAccountCompanyId)
+    {
+        if (ReceivableOrPayableAccountId.HasValue
+            && ReceivableOrPayableAccountId.Value != Guid.Empty
+            && ReceivableOrPayableAccountCompanyId.HasValue
+            && ReceivableOrPayableAccountCompanyId.Value != RowCompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Account does not belong to the specified Company.");
+        }
+
+        if (AdvanceAccountId.HasValue
+            && AdvanceAccountId.Value != Guid.Empty
+            && AdvanceAccountCompanyId.HasValue
+            && AdvanceAccountCompanyId.Value != RowCompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Advance Account does not belong to the specified Company.");
+        }
+    }
 }

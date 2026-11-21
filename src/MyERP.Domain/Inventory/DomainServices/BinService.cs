@@ -281,4 +281,125 @@ public class BinService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Collects and deterministically sorts all <c>(ItemId, WarehouseId)</c> pairs touched by a stock transaction
+    /// across <c>items</c>, <c>packed_items</c>, <c>supplied_items</c>, <c>stock_items</c>, parent warehouses, and
+    /// any linked Subcontracting Order <c>supplied_items.reserve_warehouse</c> rows before acquiring bin locks
+    /// per ERPNext commits bb6f61ec28, 9baa6d2769, 88053efd2b, 9f24f1ba49, 11637d5274, and bbf47d40c7
+    /// (<c>lock_bins</c> and <c>_get_item_warehouses_to_lock</c> in <c>stock_controller.py</c>).
+    /// </summary>
+    public static List<(Guid ItemId, Guid WarehouseId)> CollectAndSortItemWarehousesToLock(
+        IEnumerable<(Guid? ItemId, Guid? RmItemId, Guid? OriginalItemId, IEnumerable<Guid?> RowWarehouses)>? childTableRows,
+        IEnumerable<Guid?>? parentWarehouses = null,
+        IEnumerable<(Guid RmItemId, Guid ReserveWarehouseId)>? subcontractingOrderSuppliedItems = null)
+    {
+        var pairs = new HashSet<(Guid ItemId, Guid WarehouseId)>();
+        var parentWhList = (parentWarehouses ?? Enumerable.Empty<Guid?>())
+            .Where(w => w.HasValue && w.Value != Guid.Empty)
+            .Select(w => w!.Value)
+            .Distinct()
+            .ToList();
+
+        var scoReserveByItem = new Dictionary<Guid, HashSet<Guid>>();
+        if (subcontractingOrderSuppliedItems != null)
+        {
+            foreach (var (rmItemId, reserveWarehouseId) in subcontractingOrderSuppliedItems)
+            {
+                if (rmItemId == Guid.Empty || reserveWarehouseId == Guid.Empty)
+                {
+                    continue;
+                }
+
+                if (!scoReserveByItem.TryGetValue(rmItemId, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    scoReserveByItem[rmItemId] = set;
+                }
+                set.Add(reserveWarehouseId);
+            }
+        }
+
+        if (childTableRows != null)
+        {
+            foreach (var row in childTableRows)
+            {
+                var itemId = (row.ItemId.HasValue && row.ItemId.Value != Guid.Empty)
+                    ? row.ItemId.Value
+                    : (row.RmItemId.HasValue && row.RmItemId.Value != Guid.Empty ? row.RmItemId.Value : Guid.Empty);
+                if (itemId == Guid.Empty)
+                {
+                    continue;
+                }
+
+                if (row.RowWarehouses != null)
+                {
+                    foreach (var wh in row.RowWarehouses)
+                    {
+                        if (wh.HasValue && wh.Value != Guid.Empty)
+                        {
+                            pairs.Add((itemId, wh.Value));
+                        }
+                    }
+                }
+
+                foreach (var parentWh in parentWhList)
+                {
+                    pairs.Add((itemId, parentWh));
+                }
+
+                var scoLookupItem = (row.OriginalItemId.HasValue && row.OriginalItemId.Value != Guid.Empty)
+                    ? row.OriginalItemId.Value
+                    : itemId;
+                if (scoReserveByItem.TryGetValue(scoLookupItem, out var reserveWhs))
+                {
+                    foreach (var reserveWh in reserveWhs)
+                    {
+                        pairs.Add((itemId, reserveWh));
+                    }
+                }
+            }
+        }
+
+        return pairs
+            .OrderBy(p => p.ItemId)
+            .ThenBy(p => p.WarehouseId)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Refreshes a stock transaction's <c>PostingTime</c> to the current clock time after acquiring bin locks
+    /// when <paramref name="setPostingTime"/> is <c>false</c>, preventing a transaction that waited on bin locks
+    /// from submitting with an earlier timestamp than the transaction that held the lock
+    /// per ERPNext commit efdca1e043 (<c>stock_controller.py</c>).
+    /// </summary>
+    public static TimeSpan RefreshPostingTimeAfterBinLock(
+        bool setPostingTime,
+        TimeSpan existingPostingTime,
+        TimeSpan currentClockTime)
+    {
+        return setPostingTime ? existingPostingTime : currentClockTime;
+    }
+
+    /// <summary>
+    /// Determines whether GL entries should be reposted for an affected stock voucher during item valuation reposting
+    /// and whether consumed-material project cost must be updated per ERPNext commits 41d5d3c132 and 51203d3b70
+    /// (<c>update_gl_entries_after</c> in <c>stock_controller.py</c>):
+    /// - Vouchers cancelled while a repost is running (<c>docStatus != Submitted</c>) are skipped completely.
+    /// - Project consumed-material cost is updated for submitted vouchers with a project even when perpetual inventory is disabled.
+    /// </summary>
+    public static (bool ShouldRepostGlEntries, bool ShouldUpdateProjectCost) EvaluateRepostGlAndProjectActions(
+        Core.DocumentStatus voucherStatus,
+        bool perpetualInventoryEnabled,
+        bool hasLinkedProject)
+    {
+        if (voucherStatus is not (Core.DocumentStatus.Submitted or Core.DocumentStatus.Posted))
+        {
+            return (false, false);
+        }
+
+        return (
+            ShouldRepostGlEntries: perpetualInventoryEnabled,
+            ShouldUpdateProjectCost: hasLinkedProject);
+    }
 }
