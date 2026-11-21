@@ -250,4 +250,34 @@ export class SalesOrderFormComponent implements OnInit {
   cancel(): void { this.router.navigate(['/sales/orders']); }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }
+
+  /**
+   * Validates that a sales partner / sales team commission rate is within [0, 100]
+   * (per ERPNext commit 2a8c73991c).
+   */
+  validateCommissionRate(rate: number | null | undefined): boolean {
+    if (rate === null || rate === undefined) return true;
+    const numeric = Number(rate);
+    return !Number.isNaN(numeric) && numeric >= 0 && numeric <= 100;
+  }
+
+  /**
+   * Computes row margin amount coalescing null/undefined marginRateOrAmount to 0 so
+   * calculations never yield NaN (per ERPNext commit 79ddc67a45).
+   */
+  calculateRowMarginAmount(
+    priceListRate: number,
+    marginType: 'Percentage' | 'Amount' | string | null | undefined,
+    marginRateOrAmount: number | null | undefined,
+  ): number {
+    const rateOrAmount = Number(marginRateOrAmount ?? 0) || 0;
+    if (!marginType) return 0;
+    if (marginType === 'Percentage') {
+      return Math.round(((Number(priceListRate || 0) * rateOrAmount) / 100 + Number.EPSILON) * 100) / 100;
+    }
+    if (marginType === 'Amount') {
+      return Math.round((rateOrAmount + Number.EPSILON) * 100) / 100;
+    }
+    return 0;
+  }
 }

@@ -207,6 +207,20 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Sales Order item {invalidSoItem.SalesOrderItemId} does not belong to Sales Order {input.SalesOrderId}.");
                 }
+
+                if (!input.IsReturn)
+                {
+                    var closedSoItemId = input.Items
+                        .Where(i => i.SalesOrderItemId.HasValue)
+                        .Select(i => i.SalesOrderItemId!.Value)
+                        .FirstOrDefault(id => so.Items.Any(si => si.Id == id && si.IsClosed));
+                    if (closedSoItemId != Guid.Empty)
+                    {
+                        var closedSoItem = so.Items.First(si => si.Id == closedSoItemId);
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Sales Order item '{closedSoItem.Description}' on Sales Order '{so.OrderNumber}' is closed.");
+                    }
+                }
             }
         }
 

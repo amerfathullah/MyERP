@@ -150,4 +150,23 @@ describe('SalesOrder edit mode detection', () => {
     const isEditMode = !!params.id;
     expect(isEditMode).toBe(false);
   });
+
+  it('enforces commission rate bounds [0, 100] and coalesces null marginRateOrAmount to 0 (commits 2a8c73991c, 79ddc67a45)', () => {
+    const validateCommissionRate = (rate: number | null | undefined) => {
+      if (rate === null || rate === undefined) return true;
+      return !Number.isNaN(rate) && rate >= 0 && rate <= 100;
+    };
+    const calculateRowMarginAmount = (priceListRate: number, marginType: string | null, marginRateOrAmount: number | null | undefined) => {
+      const val = Number(marginRateOrAmount ?? 0) || 0;
+      if (marginType === 'Percentage') return Math.round(((priceListRate * val) / 100 + Number.EPSILON) * 100) / 100;
+      if (marginType === 'Amount') return val;
+      return 0;
+    };
+
+    expect(validateCommissionRate(-5)).toBe(false);
+    expect(validateCommissionRate(105)).toBe(false);
+    expect(validateCommissionRate(12.5)).toBe(true);
+    expect(calculateRowMarginAmount(200, 'Percentage', null)).toBe(0);
+    expect(calculateRowMarginAmount(200, 'Percentage', 15)).toBe(30);
+  });
 });

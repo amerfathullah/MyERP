@@ -71,4 +71,27 @@ describe('SubcontractingDetailComponent Order Summary', () => {
     comp.openUnreserveModal();
     expect(comp.showUnreserveModal()).toBe(true);
   });
+
+  it('checks material transfer status per distinct RM itemId and removes only service item matching deleted purchaseOrderItemId (commits e9d264a6a4, 4211b7d593)', () => {
+    const { comp } = createComponent();
+
+    // RM-1 over-transferred (15/10), RM-2 short (0/5) -> Partial Material Transferred! (e9d264a6a4)
+    expect(comp.getMaterialTransferStatus([
+      { itemId: 'rm-1', requiredQty: 10, transferredQty: 15 },
+      { itemId: 'rm-2', requiredQty: 5, transferredQty: 0 },
+    ])).toBe('Partial Material Transferred');
+
+    expect(comp.getMaterialTransferStatus([
+      { itemId: 'rm-1', requiredQty: 10, transferredQty: 10 },
+      { itemId: 'rm-2', requiredQty: 5, transferredQty: 5 },
+    ])).toBe('Material Transferred');
+
+    // Deleting row linked to po-item-1 keeps sibling row for same fg-1 on po-item-2 (4211b7d593)
+    const remaining = comp.removePairedServiceItemByPurchaseOrderItem('po-item-1', 'fg-1', [
+      { id: 'svc-1', purchaseOrderItemId: 'po-item-1', fgItemId: 'fg-1' },
+      { id: 'svc-2', purchaseOrderItemId: 'po-item-2', fgItemId: 'fg-1' },
+    ]);
+    expect(remaining.length).toBe(1);
+    expect(remaining[0].id).toBe('svc-2');
+  });
 });

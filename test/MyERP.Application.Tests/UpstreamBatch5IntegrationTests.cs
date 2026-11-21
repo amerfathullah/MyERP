@@ -1167,4 +1167,100 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             reloadedPlan.PlannedItems[0].OrderedQty.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task PurchaseInvoice_UnbilledReceiptsDeductReturnReceipts_AndSalesOrderCommissionRateAndClosedDnRowGuards_d82d54cf42_e460e60a30_2a8c73991c_33988eeeee()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var custRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var prRepo = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var spRepo = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PI Return Receipt & SO/DN Guard Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "DeliveryNote", "DeliveryNote", "DN-CLS-"), autoSave: true);
+
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Main Receipt WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PR-RET-ITM", "Receipt Item", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "PR Return Supplier"), autoSave: true);
+
+            // Original Purchase Receipt for 10 units
+            var origPr = new PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, wh.Id, "PR-ORIG-001", new DateTime(2026, 6, 10));
+            origPr.AddItem(item.Id, item.ItemName, 10m, 50m, 0m, "Unit");
+            origPr.Submit();
+            await prRepo.InsertAsync(origPr, autoSave: true);
+
+            // Submitted Return Purchase Receipt for -3 units against origPr
+            var retPr = new PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, wh.Id, "PR-RET-001", new DateTime(2026, 6, 11))
+            {
+                IsReturn = true,
+                ReturnAgainstId = origPr.Id
+            };
+            retPr.AddItem(item.Id, item.ItemName, -3m, 50m, 0m, "Unit");
+            retPr.Submit();
+            await prRepo.InsertAsync(retPr, autoSave: true);
+
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var unbilledItems = await piAppService.GetUnbilledReceiptItemsAsync(supplier.Id, company.Id);
+            unbilledItems.Count.ShouldBe(1);
+            unbilledItems[0].Quantity.ShouldBe(7m); // 10 received - 3 returned = 7 unbilled! (d82d54cf42, e460e60a30)
+
+            var unbilledPrItems = await piAppService.GetUnbilledPurchaseReceiptItemsAsync(supplier.Id, company.Id);
+            unbilledPrItems.Count.ShouldBe(1);
+            unbilledPrItems[0].Quantity.ShouldBe(7m);
+
+            // Sales Order rejects out-of-range CommissionRate (< 0 or > 100) on UpdateSalesTeamAsync (2a8c73991c)
+            var item2 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PR-RET-ITM-2", "Open Sibling Item", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var customer = await custRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Guard Customer"), autoSave: true);
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-GUARD-001", new DateTime(2026, 6, 10));
+            so.AddItem(item.Id, item.ItemName, 5m, 100m, 0m);
+            so.AddItem(item2.Id, item2.ItemName, 3m, 80m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var salesPerson = await spRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Guard Sales Person"), autoSave: true);
+            var soAppService = GetRequiredService<ISalesOrderAppService>();
+            Should.Throw<BusinessException>(() => SalesOrder.ValidateCommissionRateBounds(120m));
+            await Should.ThrowAsync<Volo.Abp.AbpException>(() =>
+                soAppService.UpdateSalesTeamAsync(so.Id, new List<SalesTeamAllocationInputDto>
+                {
+                    new() { SalesPersonId = salesPerson.Id, AllocatedPercentage = 100m, CommissionRate = 120m }
+                }));
+
+            // DeliveryNoteAppService.CreateAsync rejects delivery against a closed Sales Order item row (33988eeeee)
+            var soItemId = so.Items[0].Id;
+            so.CloseItem(soItemId);
+            await soRepo.UpdateAsync(so, autoSave: true);
+
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+            var closedDnEx = await Should.ThrowAsync<BusinessException>(() =>
+                dnAppService.CreateAsync(new CreateDeliveryNoteDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    WarehouseId = wh.Id,
+                    PostingDate = new DateTime(2026, 6, 12),
+                    SalesOrderId = so.Id,
+                    Items = new List<CreateDeliveryNoteItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = item.Id,
+                            Description = item.ItemName,
+                            Quantity = 2m,
+                            UnitPrice = 100m,
+                            Uom = "Unit",
+                            SalesOrderItemId = soItemId
+                        }
+                    }
+                }));
+            (closedDnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is closed");
+        });
+    }
 }

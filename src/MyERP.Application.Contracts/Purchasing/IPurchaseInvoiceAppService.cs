@@ -33,4 +33,6 @@ public interface IPurchaseInvoiceAppService : IApplicationService
     /// </summary>
     Task<PurchaseInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
     Task<SalesInvoiceDto> CreateInterCompanySalesInvoiceAsync(Guid id);
+    Task<List<UnbilledReceiptItemDto>> GetUnbilledReceiptItemsAsync(Guid supplierId, Guid? companyId = null);
+    Task<List<UnbilledPurchaseReceiptItemDto>> GetUnbilledPurchaseReceiptItemsAsync(Guid supplierId, Guid? companyId = null);
 }

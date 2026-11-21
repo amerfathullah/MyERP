@@ -116,6 +116,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         if (salesTeam == null || salesTeam.Count == 0) return;
 
+        foreach (var s in salesTeam)
+        {
+            SalesOrder.ValidateCommissionRateBounds(s.CommissionRate);
+        }
+
         var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
             order.Items.Select(i => (i.ItemId, i.LineTotal)), order.ExchangeRate);
         var inputs = salesTeam.Select(s => new SalesTeamAllocationInput
@@ -137,9 +142,15 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 .WithData("detail", "Cannot update sales team on a cancelled Sales Order.");
         }
 
+        var safeInput = input ?? new List<SalesTeamAllocationInputDto>();
+        foreach (var s in safeInput)
+        {
+            SalesOrder.ValidateCommissionRateBounds(s.CommissionRate);
+        }
+
         var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
             order.Items.Select(i => (i.ItemId, i.LineTotal)), order.ExchangeRate);
-        var inputs = input.Select(s => new SalesTeamAllocationInput
+        var inputs = safeInput.Select(s => new SalesTeamAllocationInput
         {
             SalesPersonId = s.SalesPersonId,
             AllocatedPercentage = s.AllocatedPercentage,

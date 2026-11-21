@@ -589,4 +589,52 @@ export class SubcontractingDetailComponent implements OnInit {
   getReceiptStatusLabel(status?: number): string {
     return ['Draft', 'Submitted', 'Cancelled'][status ?? 0] ?? 'Draft';
   }
+
+  /**
+   * Computes raw material transfer status per distinct raw material itemId across all supplied item rows
+   * (per ERPNext commit e9d264a6a4: get_transfer_status).
+   */
+  getMaterialTransferStatus(
+    suppliedItems: { itemId: string; requiredQty?: number; transferredQty?: number }[] | null | undefined,
+    precision = 4,
+  ): 'Open' | 'Partial Material Transferred' | 'Material Transferred' {
+    if (!suppliedItems || suppliedItems.length === 0) return 'Open';
+    const requiredByRm = new Map<string, number>();
+    const suppliedByRm = new Map<string, number>();
+    for (const row of suppliedItems) {
+      if (!row?.itemId) continue;
+      requiredByRm.set(row.itemId, (requiredByRm.get(row.itemId) ?? 0) + Number(row.requiredQty ?? 0));
+      suppliedByRm.set(row.itemId, (suppliedByRm.get(row.itemId) ?? 0) + Number(row.transferredQty ?? 0));
+    }
+    const anySupplied = Array.from(suppliedByRm.values()).some(q => q > 0);
+    if (!anySupplied) return 'Open';
+
+    const factor = Math.pow(10, precision);
+    for (const [rmId, reqQty] of requiredByRm.entries()) {
+      const supQty = suppliedByRm.get(rmId) ?? 0;
+      const roundedSup = Math.round((supQty + Number.EPSILON) * factor) / factor;
+      const roundedReq = Math.round((reqQty + Number.EPSILON) * factor) / factor;
+      if (roundedSup < roundedReq) {
+        return 'Partial Material Transferred';
+      }
+    }
+    return 'Material Transferred';
+  }
+
+  /**
+   * Removes only the service item row paired with the deleted finished good row's purchaseOrderItemId
+   * (falling back to fgItemId only when purchaseOrderItemId is unset) so sibling rows for the same FG item
+   * on other PO rows keep their service items (per ERPNext commit 4211b7d593).
+   */
+  removePairedServiceItemByPurchaseOrderItem<T extends { purchaseOrderItemId?: string | null; fgItemId: string }>(
+    deletedPurchaseOrderItemId: string | null | undefined,
+    deletedFgItemId: string,
+    serviceItems: T[] | null | undefined,
+  ): T[] {
+    if (!serviceItems) return [];
+    if (deletedPurchaseOrderItemId) {
+      return serviceItems.filter(s => s.purchaseOrderItemId !== deletedPurchaseOrderItemId);
+    }
+    return serviceItems.filter(s => s.fgItemId !== deletedFgItemId);
+  }
 }

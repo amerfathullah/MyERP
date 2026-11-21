@@ -2589,13 +2589,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         var query = prQuery.Where(pr =>
             pr.SupplierId == supplierId &&
-            pr.Status == Core.DocumentStatus.Posted &&
+            (pr.Status == Core.DocumentStatus.Posted || pr.Status == Core.DocumentStatus.Submitted) &&
             !pr.IsReturn);
 
         if (companyId.HasValue)
             query = query.Where(pr => pr.CompanyId == companyId.Value);
 
         var receipts = query.ToList();
+        var receiptIds = receipts.Select(r => r.Id).ToHashSet();
+
+        // Per ERPNext commits d82d54cf42 & e460e60a30: load submitted return receipts against these PRs
+        var returnReceipts = receiptIds.Count > 0
+            ? prQuery.Where(r => r.IsReturn
+                && r.ReturnAgainstId.HasValue
+                && receiptIds.Contains(r.ReturnAgainstId.Value)
+                && (r.Status == Core.DocumentStatus.Posted || r.Status == Core.DocumentStatus.Submitted))
+                .ToList()
+            : new List<PurchaseReceipt>();
 
         // Per Buying Settings "Bill for Rejected Quantity in Purchase Invoice": when enabled,
         // rejected qty is billable too (e.g. supplier charges for rejected goods returned to them).
@@ -2604,11 +2614,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var result = new List<UnbilledReceiptItemDto>();
         foreach (var pr in receipts)
         {
+            var prReturns = returnReceipts.Where(r => r.ReturnAgainstId == pr.Id).ToList();
             foreach (var item in pr.Items)
             {
                 if (item.IsClosed) continue;
+                var origFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                var returnedInOrigUom = prReturns
+                    .SelectMany(r => r.Items)
+                    .Where(ri => ri.ItemId == item.ItemId
+                        && (!ri.PurchaseOrderItemId.HasValue || !item.PurchaseOrderItemId.HasValue || ri.PurchaseOrderItemId == item.PurchaseOrderItemId)
+                        && (billForRejectedQty || !ri.ReturnQtyFromRejectedWarehouse))
+                    .Sum(ri => Math.Abs(ri.Quantity) * ((ri.ConversionFactor > 0 ? ri.ConversionFactor : 1m) / origFactor));
+
                 var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
-                var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
+                var unbilledQty = Math.Max(0, Math.Round(billableQty - returnedInOrigUom - item.BilledQty, 4));
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledReceiptItemDto
@@ -2701,6 +2720,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         var query = prQuery.Where(pr =>
             pr.SupplierId == supplierId &&
+            !pr.IsReturn &&
             pr.Status != Core.DocumentStatus.Draft &&
             pr.Status != Core.DocumentStatus.Cancelled);
 
@@ -2709,6 +2729,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable purchase receipts oldest first
         var receipts = query.OrderBy(pr => pr.PostingDate).ThenBy(pr => pr.CreationTime).ToList();
+        var receiptIds = receipts.Select(r => r.Id).ToHashSet();
+
+        // Per ERPNext commits d82d54cf42 & e460e60a30: load submitted return receipts against these PRs
+        var returnReceipts = receiptIds.Count > 0
+            ? prQuery.Where(r => r.IsReturn
+                && r.ReturnAgainstId.HasValue
+                && receiptIds.Contains(r.ReturnAgainstId.Value)
+                && r.Status != Core.DocumentStatus.Draft
+                && r.Status != Core.DocumentStatus.Cancelled)
+                .ToList()
+            : new List<PurchaseReceipt>();
 
         var billForRejectedQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.BillForRejectedQty);
 
@@ -2717,11 +2748,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed receipts
             if (pr.PerBilled >= 100m) continue;
+            var prReturns = returnReceipts.Where(r => r.ReturnAgainstId == pr.Id).ToList();
             foreach (var item in pr.Items)
             {
                 if (item.IsClosed) continue;
+                var origFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                var returnedInOrigUom = prReturns
+                    .SelectMany(r => r.Items)
+                    .Where(ri => ri.ItemId == item.ItemId
+                        && (!ri.PurchaseOrderItemId.HasValue || !item.PurchaseOrderItemId.HasValue || ri.PurchaseOrderItemId == item.PurchaseOrderItemId)
+                        && (billForRejectedQty || !ri.ReturnQtyFromRejectedWarehouse))
+                    .Sum(ri => Math.Abs(ri.Quantity) * ((ri.ConversionFactor > 0 ? ri.ConversionFactor : 1m) / origFactor));
+
                 var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
-                var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
+                var unbilledQty = Math.Max(0, Math.Round(billableQty - returnedInOrigUom - item.BilledQty, 4));
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledPurchaseReceiptItemDto

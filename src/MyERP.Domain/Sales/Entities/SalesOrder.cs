@@ -468,6 +468,18 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
 
         return total;
     }
+
+    /// <summary>
+    /// Validates that a commission rate is within <c>[0, 100]</c> per ERPNext commit 2a8c73991c.
+    /// </summary>
+    public static void ValidateCommissionRateBounds(decimal? commissionRate)
+    {
+        if (commissionRate.HasValue && (commissionRate.Value < 0m || commissionRate.Value > 100m))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Commission Rate must be between 0 and 100.");
+        }
+    }
 }
 
 public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
