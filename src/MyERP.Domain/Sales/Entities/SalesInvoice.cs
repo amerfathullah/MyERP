@@ -633,6 +633,36 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         TotalAdvance = amount;
     }
 
+    /// <summary>
+    /// Ensures <see cref="IsConsolidated"/> is trusted only when set by the POS merge/consolidation flow
+    /// per ERPNext commits b81f5e5630 and 2a8c73991c (<c>sales_invoice.py</c>, <c>selling_controller.py</c>, <c>taxes_and_totals.py</c>).
+    /// Untrusted payload <c>is_consolidated</c> flags are cleared so they cannot bypass blocked-customer checks,
+    /// item amount calculations, tax template validation, or payment mode validation.
+    /// </summary>
+    public void EnforceTrustedPosConsolidationFlag(bool isTrustedPosMergeConsolidation)
+    {
+        if (!isTrustedPosMergeConsolidation)
+        {
+            IsConsolidated = false;
+        }
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="commissionRate"/> is between 0 and 100 (inclusive), clamping
+    /// out-of-range values to 0 or 100 and throwing a validation exception per ERPNext commit bd5cac782d (<c>sales_common.js</c>).
+    /// </summary>
+    public void SetAndValidateCommissionRate(decimal commissionRate)
+    {
+        if (commissionRate < 0m || commissionRate > 100m)
+        {
+            CommissionRate = commissionRate < 0m ? 0m : 100m;
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Commission Rate must be between 0 and 100");
+        }
+
+        CommissionRate = commissionRate;
+    }
+
     private void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.LineTotal);

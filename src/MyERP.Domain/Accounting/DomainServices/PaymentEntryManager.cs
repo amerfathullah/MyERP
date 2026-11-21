@@ -201,6 +201,85 @@ public class PaymentEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Adjusts the party-currency paid amount for reference reallocation by including non-exchange-gain-loss deductions
+    /// converted from company currency to party account currency per ERPNext commit b4d2d8651d
+    /// (<c>allocate_party_amount_against_ref_docs</c> in <c>payment_entry.py</c>).
+    /// </summary>
+    public static decimal CalculateReallocationPaidAmountWithDeductions(
+        decimal paidAmountInPartyCurrency,
+        PaymentType paymentType,
+        decimal partyExchangeRate,
+        IEnumerable<(decimal Amount, bool IsExchangeGainLoss)>? deductions,
+        int precision = 2)
+    {
+        var deductionSum = deductions?
+            .Where(d => !d.IsExchangeGainLoss)
+            .Sum(d => d.Amount) ?? 0m;
+
+        var adjusted = paidAmountInPartyCurrency;
+        if (deductionSum != 0m)
+        {
+            var effectiveRate = partyExchangeRate > 0m ? partyExchangeRate : 1m;
+            var sign = paymentType == PaymentType.Receive ? 1m : -1m;
+            adjusted += (deductionSum / effectiveRate) * sign;
+        }
+
+        return Math.Round(adjusted, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Applies early payment discount to <paramref name="paidAmount"/> and <paramref name="receivedAmount"/>,
+    /// converting the bank-side discount only when the bank account currency differs from the party account currency
+    /// per ERPNext commit bb60f4696b (<c>apply_early_payment_discount</c> in <c>payment_entry.py</c>).
+    /// </summary>
+    public static (decimal PaidAmount, decimal ReceivedAmount, decimal TotalDiscountAmount) ApplyEarlyPaymentDiscount(
+        decimal paidAmount,
+        decimal receivedAmount,
+        PaymentType paymentType,
+        string partyAccountCurrency,
+        string? bankAccountCurrency,
+        bool isMultiCurrency,
+        decimal documentConversionRate,
+        IEnumerable<(string DiscountType, decimal Discount, decimal PaymentAmount)> eligibleTermDiscounts)
+    {
+        decimal totalDiscount = 0m;
+        if (eligibleTermDiscounts == null)
+        {
+            return (paidAmount, receivedAmount, 0m);
+        }
+
+        foreach (var term in eligibleTermDiscounts)
+        {
+            var discountAmount = string.Equals(term.DiscountType, "Percentage", StringComparison.OrdinalIgnoreCase)
+                ? term.PaymentAmount * (term.Discount / 100m)
+                : term.Discount;
+
+            var conversionRate = isMultiCurrency ? (documentConversionRate > 0m ? documentConversionRate : 1m) : 1m;
+            if (!string.IsNullOrWhiteSpace(bankAccountCurrency) &&
+                string.Equals(bankAccountCurrency, partyAccountCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                conversionRate = 1m;
+            }
+
+            var bankSideDiscount = discountAmount * conversionRate;
+            if (paymentType == PaymentType.Receive)
+            {
+                paidAmount -= discountAmount;
+                receivedAmount -= bankSideDiscount;
+            }
+            else
+            {
+                receivedAmount -= discountAmount;
+                paidAmount -= bankSideDiscount;
+            }
+
+            totalDiscount += discountAmount;
+        }
+
+        return (paidAmount, receivedAmount, totalDiscount);
+    }
 }
 
 public sealed record ReferenceAllocationSnapshot(

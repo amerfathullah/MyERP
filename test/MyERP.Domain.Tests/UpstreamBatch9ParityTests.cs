@@ -1661,4 +1661,155 @@ public class UpstreamBatch9ParityTests
         resizedEntries[0].Qty.ShouldBe(6m);
         resizedEntries[1].Qty.ShouldBe(3.5m);
     }
+
+    [Fact]
+    public void PaymentReallocationDeductions_EarlyDiscountBankCurrency_BankRuleBoundedRegex_InvoiceReceiptMappingNetOfDebitNotes_ProjectCostingAndSalesSplit_And_TrustedPosConsolidation_b4d2d8651d_bb60f4696b_5c839ca732_d82d54cf42_e460e60a30_3e5f527cfd_4dd309aec7_ac3371a279_e1ed14c303_fdf421605d_31689c27ba_b81f5e5630_22fdf879af_79ddc67a45_bd5cac782d()
+    {
+        // 1. Payment Entry reallocation deductions in company currency converted to party currency (b4d2d8651d)
+        var reallocReceive = MyERP.Accounting.DomainServices.PaymentEntryManager.CalculateReallocationPaidAmountWithDeductions(
+            paidAmountInPartyCurrency: 90m,
+            paymentType: PaymentType.Receive,
+            partyExchangeRate: 4.5m,
+            deductions: new[] { (Amount: 45m, IsExchangeGainLoss: false), (Amount: 10m, IsExchangeGainLoss: true) },
+            precision: 2);
+        // 90 + (45 / 4.5) * 1 = 100.00 (exchange gain/loss ignored)
+        reallocReceive.ShouldBe(100.00m);
+
+        var reallocPay = MyERP.Accounting.DomainServices.PaymentEntryManager.CalculateReallocationPaidAmountWithDeductions(
+            paidAmountInPartyCurrency: 110m,
+            paymentType: PaymentType.Pay,
+            partyExchangeRate: 2m,
+            deductions: new[] { (Amount: 20m, IsExchangeGainLoss: false) },
+            precision: 2);
+        // 110 + (20 / 2) * (-1) = 100.00
+        reallocPay.ShouldBe(100.00m);
+
+        // 2. Early payment discount in bank currency (bb60f4696b)
+        // USD bank + USD party (same currency despite multi-currency doc) -> conversion_rate = 1 on bank side
+        var sameBankCurrDiscount = MyERP.Accounting.DomainServices.PaymentEntryManager.ApplyEarlyPaymentDiscount(
+            paidAmount: 1000m,
+            receivedAmount: 1000m,
+            paymentType: PaymentType.Receive,
+            partyAccountCurrency: "USD",
+            bankAccountCurrency: "USD",
+            isMultiCurrency: true,
+            documentConversionRate: 4.45m,
+            eligibleTermDiscounts: new[] { ("Percentage", 10m, 1000m) });
+        sameBankCurrDiscount.PaidAmount.ShouldBe(900m);
+        sameBankCurrDiscount.ReceivedAmount.ShouldBe(900m);
+        sameBankCurrDiscount.TotalDiscountAmount.ShouldBe(100m);
+
+        // MYR bank + USD party -> bank side discount multiplied by conversion_rate (4.45)
+        var crossBankCurrDiscount = MyERP.Accounting.DomainServices.PaymentEntryManager.ApplyEarlyPaymentDiscount(
+            paidAmount: 1000m,
+            receivedAmount: 4450m,
+            paymentType: PaymentType.Receive,
+            partyAccountCurrency: "USD",
+            bankAccountCurrency: "MYR",
+            isMultiCurrency: true,
+            documentConversionRate: 4.45m,
+            eligibleTermDiscounts: new[] { ("Percentage", 10m, 1000m) });
+        crossBankCurrDiscount.PaidAmount.ShouldBe(900m);
+        crossBankCurrDiscount.ReceivedAmount.ShouldBe(4005m);
+
+        // 3. BankTransactionRule bounded regex matching with timeout and case-insensitivity (5c839ca732)
+        var bankRule = new MyERP.Accounting.Entities.BankTransactionRule(Guid.NewGuid(), Guid.NewGuid(), "Regex Rule", 1);
+        bankRule.AddCondition(MyERP.Accounting.BankRuleMatchType.Regex, @"inv-\d+");
+        bankRule.Conditions.First().Matches("Payment for INV-2026").ShouldBeTrue();
+        bankRule.Conditions.First().Matches("No match here").ShouldBeFalse();
+
+        // 4. Purchase Invoice -> Purchase Receipt mapping net of debit notes in another UOM & Billed Items To Be Received report (d82d54cf42, e460e60a30, 3e5f527cfd, 4dd309aec7, ac3371a279, f1504e8c71)
+        // Invoice row: 2 Boxes (conversion_factor = 3 -> 6 stock units), rate = 30, fx = 4.0
+        // Already received: 0.5 Box. Two debit notes of -1 Unit each (conversion_factor = 1) -> 2 stock units = 2/3 Box returned.
+        // Remaining = Round(2 - 0.5 - 2/3, 4) = Round(0.833333..., 4) = 0.8333 Box
+        var mappedPrRow = MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateMappedPurchaseReceiptItemFromInvoice(
+            invoiceRowQty: 2m,
+            invoiceRowConversionFactor: 3m,
+            invoiceRowRate: 30m,
+            invoiceConversionRate: 4m,
+            receivedAndMappedQtyInInvoiceUom: 0.5m,
+            submittedDebitNoteRows: new[] { (-1m, 1m), (-1m, 1m) },
+            qtyPrecision: 4);
+        mappedPrRow.Qty.ShouldBe(0.8333m);
+        mappedPrRow.ReceivedQty.ShouldBe(0.8333m);
+        mappedPrRow.StockQty.ShouldBe(0.8333m * 3m);
+        mappedPrRow.Amount.ShouldBe(0.8333m * 30m);
+        mappedPrRow.BaseAmount.ShouldBe(0.8333m * 30m * 4m);
+
+        var reportReturned = MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateBilledItemsToBeReceivedDebitNoteQuantities(
+            originalInvoiceRowConversionFactor: 12m,
+            submittedDebitNoteRows: new[]
+            {
+                (UpdateStock: true, Qty: -6m, ReceivedQty: -6m, ConversionFactor: 1m),
+                (UpdateStock: false, Qty: -3m, ReceivedQty: 0m, ConversionFactor: 1m)
+            });
+        reportReturned.ReturnedQtyInInvoiceUom.ShouldBe(0.75m); // 9 / 12
+        reportReturned.StockReturnedQtyInInvoiceUom.ShouldBe(0.5m); // 6 / 12
+        reportReturned.BillingOnlyQtyInInvoiceUom.ShouldBe(0.25m); // 3 / 12
+
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ShouldEnableApplyTdsFromSupplierDefault(
+            forValidate: false,
+            supplierTaxWithholdingCategoryId: Guid.NewGuid(),
+            supplierTaxWithholdingGroupId: null).ShouldBeTrue();
+
+        // 5. Project Costing & Sales Order row project split (e1ed14c303, 4b368ed5d4, fdf421605d, e9483ccbc0, 31689c27ba, b2bf715e2d)
+        var headerProj = Guid.NewGuid();
+        var rowProj = Guid.NewGuid();
+        var prevProj = Guid.NewGuid();
+        MyERP.Projects.Entities.Project.ResolveEffectiveRowProjectId(null, headerProj).ShouldBe(headerProj);
+        MyERP.Projects.Entities.Project.ResolveEffectiveRowProjectId(Guid.Empty, headerProj).ShouldBe(headerProj);
+        MyERP.Projects.Entities.Project.ResolveEffectiveRowProjectId(rowProj, headerProj).ShouldBe(rowProj);
+
+        var so = new SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-PROJ-01", DateTime.UtcNow)
+        {
+            ProjectId = headerProj,
+            ExchangeRate = 2m
+        };
+        so.AddItem(Guid.NewGuid(), "Header Project Item", 2m, 100m, 0m);
+        so.AddItem(Guid.NewGuid(), "Row Project Item", 3m, 50m, 0m);
+        so.Items[1].ProjectId = rowProj;
+
+        so.GetReferencedProjectIds(new[] { prevProj }).ShouldBe(new HashSet<Guid> { headerProj, rowProj, prevProj });
+        so.CalculateProjectSalesAmount(headerProj).ShouldBe(400m); // 2 * 100 * 2
+        so.CalculateProjectSalesAmount(rowProj).ShouldBe(300m); // 3 * 50 * 2
+
+        // Landed cost claim comes out of valuation rows first (31689c27ba, b2bf715e2d)
+        // Invoice base_net_total = 1000: 400 in valuation account, 600 in non-stock expense row.
+        // LCV claimed 550 -> 400 absorbed by valuation row, remaining 150 reduces 600 expense row to 450 (75% of 600).
+        var expensedAfterClaim = MyERP.Projects.Entities.Project.CalculateNonStockPurchaseRowExpensedAmount(
+            rowBaseNetAmount: 600m,
+            expenseAccountType: "Expense Account",
+            isStockItem: false,
+            deliveredBySupplier: false,
+            isSubcontracted: false,
+            invoiceBaseNetTotal: 1000m,
+            claimedLandedCostAmount: 550m,
+            valuationRowsBaseNetTotal: 400m);
+        expensedAfterClaim.ShouldBe(450m);
+
+        // 6. Trusted POS consolidation flag, commission rate bounds, tax row description, and newly added row margin (b81f5e5630, 2a8c73991c, bd5cac782d, 22fdf879af, 79ddc67a45)
+        var si = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-POS-01", DateTime.UtcNow)
+        {
+            IsConsolidated = true
+        };
+        si.EnforceTrustedPosConsolidationFlag(isTrustedPosMergeConsolidation: false);
+        si.IsConsolidated.ShouldBeFalse();
+
+        var negCommEx = Should.Throw<BusinessException>(() => si.SetAndValidateCommissionRate(-5m));
+        negCommEx.Data["detail"]!.ToString()!.ShouldContain("Commission Rate must be between 0 and 100");
+        si.CommissionRate.ShouldBe(0m);
+
+        var taxAccId = Guid.NewGuid();
+        var missingTaxRow = MyERP.Tax.DomainServices.TaxesAndTotalsService.CreateMissingTaxRowFromItemTaxTemplate(
+            taxAccId, "SST 6%", 1);
+        missingTaxRow.Description.ShouldBe("SST 6%");
+
+        var newlyAddedRate = MyERP.Tax.DomainServices.TaxesAndTotalsService.CalculateItemRateWithMargin(
+            priceListRate: 125m,
+            marginType: "Percentage",
+            marginRateOrAmount: null,
+            discountPercentage: 10m);
+        newlyAddedRate.RateWithMargin.ShouldBe(125m);
+        newlyAddedRate.EffectiveRate.ShouldBe(112.5m);
+    }
 }

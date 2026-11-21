@@ -178,4 +178,73 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
         return totalWeight > 0 ? Math.Round(weightedProgress / totalWeight, 1) : 0;
     }
+
+    /// <summary>
+    /// Resolves the effective project ID for a child row (Sales Invoice Item, Purchase Invoice Item, or Sales Order Item),
+    /// falling back to the document header's <paramref name="headerProjectId"/> when the row's <paramref name="rowProjectId"/>
+    /// is null or empty per ERPNext commits e1ed14c303, 4b368ed5d4, and fdf421605d.
+    /// </summary>
+    public static Guid? ResolveEffectiveRowProjectId(Guid? rowProjectId, Guid? headerProjectId)
+    {
+        if (rowProjectId.HasValue && rowProjectId.Value != Guid.Empty)
+        {
+            return rowProjectId.Value;
+        }
+
+        if (headerProjectId.HasValue && headerProjectId.Value != Guid.Empty)
+        {
+            return headerProjectId.Value;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Computes the directly expensed non-stock purchase amount of a Purchase Invoice row for Project costing
+    /// after applying the invoice's Landed Cost Voucher claim (<paramref name="claimedLandedCostAmount"/>)
+    /// against valuation rows (<c>Expenses Included In Valuation</c>) first
+    /// per ERPNext commits 31689c27ba and b2bf715e2d (<c>project/costing/queries.py</c>).
+    /// </summary>
+    public static decimal CalculateNonStockPurchaseRowExpensedAmount(
+        decimal rowBaseNetAmount,
+        string? expenseAccountType,
+        bool isStockItem,
+        bool deliveredBySupplier,
+        bool isSubcontracted,
+        decimal invoiceBaseNetTotal,
+        decimal claimedLandedCostAmount,
+        decimal valuationRowsBaseNetTotal)
+    {
+        if (isSubcontracted)
+        {
+            return 0m;
+        }
+
+        var neverStocked = !isStockItem || deliveredBySupplier;
+        if (!neverStocked)
+        {
+            return 0m;
+        }
+
+        if (string.Equals(expenseAccountType, "Expenses Included In Valuation", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0m;
+        }
+
+        if (claimedLandedCostAmount > 0m && claimedLandedCostAmount >= invoiceBaseNetTotal)
+        {
+            return 0m;
+        }
+
+        decimal expensedShare = 1m;
+        if (claimedLandedCostAmount > 0m && claimedLandedCostAmount > valuationRowsBaseNetTotal)
+        {
+            var nonValuationTotal = invoiceBaseNetTotal - valuationRowsBaseNetTotal;
+            expensedShare = nonValuationTotal != 0m
+                ? (invoiceBaseNetTotal - claimedLandedCostAmount) / nonValuationTotal
+                : 1m;
+        }
+
+        return rowBaseNetAmount * expensedShare;
+    }
 }

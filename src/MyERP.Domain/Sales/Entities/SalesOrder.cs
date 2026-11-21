@@ -404,6 +404,70 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             return item.DeliveredQty >= item.Quantity && item.DeliveredQty < maxAllowed;
         });
     }
+
+    /// <summary>
+    /// Returns the distinct set of projects named on the Sales Order header, on any of its item rows,
+    /// and in <paramref name="previousProjectIds"/> (before a post-submit row project edit or deletion)
+    /// per ERPNext commits e9483ccbc0 and fdf421605d (<c>sales_order.py</c> / <c>child_item_update.py</c>).
+    /// </summary>
+    public HashSet<Guid> GetReferencedProjectIds(IEnumerable<Guid>? previousProjectIds = null)
+    {
+        var projects = new HashSet<Guid>();
+        if (ProjectId.HasValue && ProjectId.Value != Guid.Empty)
+        {
+            projects.Add(ProjectId.Value);
+        }
+
+        foreach (var item in _items)
+        {
+            if (item.ProjectId.HasValue && item.ProjectId.Value != Guid.Empty)
+            {
+                projects.Add(item.ProjectId.Value);
+            }
+        }
+
+        if (previousProjectIds != null)
+        {
+            foreach (var prev in previousProjectIds)
+            {
+                if (prev != Guid.Empty)
+                {
+                    projects.Add(prev);
+                }
+            }
+        }
+
+        return projects;
+    }
+
+    /// <summary>
+    /// Computes the base net sales amount of this Sales Order attributable to <paramref name="projectId"/>,
+    /// splitting by row project and falling back to the order's header <see cref="ProjectId"/> when a row's
+    /// <see cref="SalesOrderItem.ProjectId"/> is empty per ERPNext commits fdf421605d and 435f6d2b5a.
+    /// </summary>
+    public decimal CalculateProjectSalesAmount(Guid projectId)
+    {
+        if (projectId == Guid.Empty)
+        {
+            return 0m;
+        }
+
+        var rate = ExchangeRate > 0m ? ExchangeRate : 1m;
+        decimal total = 0m;
+        foreach (var item in _items)
+        {
+            var effectiveProject = (item.ProjectId.HasValue && item.ProjectId.Value != Guid.Empty)
+                ? item.ProjectId.Value
+                : (ProjectId.HasValue && ProjectId.Value != Guid.Empty ? ProjectId.Value : (Guid?)null);
+
+            if (effectiveProject == projectId)
+            {
+                total += item.LineTotal * rate;
+            }
+        }
+
+        return total;
+    }
 }
 
 public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
@@ -535,6 +599,9 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Product bundle version associated with this order line (PR #62149).</summary>
     public Guid? ProductBundleId { get; set; }
+
+    /// <summary>Row-level project (overrides header SalesOrder.ProjectId when set, per ERPNext commits fdf421605d &amp; e9483ccbc0).</summary>
+    public Guid? ProjectId { get; set; }
 
     /// <summary>Quantity picked via Pick Lists (ERPNext Sales Order Item picked_qty).</summary>
     public decimal PickedQty { get; set; }

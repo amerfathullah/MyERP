@@ -724,6 +724,74 @@ public class TaxesAndTotalsService : DomainService
             charge.BaseTaxAmount = -Math.Round(baseShare, precision);
         }
     }
+
+    /// <summary>
+    /// Creates a missing tax row added from an Item Tax Template, setting its description to the tax account's
+    /// <paramref name="accountName"/> per ERPNext commit 22fdf879af (<c>transaction_base.py</c>).
+    /// </summary>
+    public static TransactionTaxRow CreateMissingTaxRowFromItemTaxTemplate(
+        Guid taxAccountId,
+        string accountName,
+        int rowIndex,
+        string parentType = "SalesInvoice",
+        Guid? parentId = null)
+    {
+        return new TransactionTaxRow(
+            Guid.NewGuid(),
+            parentType,
+            parentId ?? Guid.Empty,
+            rowIndex,
+            accountName ?? string.Empty,
+            "On Net Total",
+            0m)
+        {
+            AccountId = taxAccountId,
+            TaxCategory = "Total"
+        };
+    }
+
+    /// <summary>
+    /// Calculates an item row's <c>rate_with_margin</c> and effective rate when applying a pricing rule or price list rate,
+    /// coalescing a null/uninitialized <paramref name="marginRateOrAmount"/> on a newly added row to 0
+    /// per ERPNext commit 79ddc67a45 (<c>taxes_and_totals.js</c>).
+    /// </summary>
+    public static (decimal RateWithMargin, decimal EffectiveRate) CalculateItemRateWithMargin(
+        decimal priceListRate,
+        string? marginType,
+        decimal? marginRateOrAmount,
+        decimal discountPercentage = 0m,
+        decimal? discountAmount = null,
+        decimal? blanketOrderRate = null,
+        decimal conversionFactor = 1m,
+        bool isSalesOrderOrQuotation = false,
+        int precision = 2)
+    {
+        var effectiveItemRate = priceListRate;
+        if (isSalesOrderOrQuotation && blanketOrderRate.HasValue && blanketOrderRate.Value != 0m)
+        {
+            var factor = conversionFactor > 0m ? conversionFactor : 1m;
+            effectiveItemRate = blanketOrderRate.Value * factor;
+        }
+
+        var margin = marginRateOrAmount ?? 0m;
+        var rateWithMargin = string.Equals(marginType, "Percentage", StringComparison.OrdinalIgnoreCase)
+            ? effectiveItemRate * (1m + (margin / 100m))
+            : effectiveItemRate + margin;
+
+        rateWithMargin = Math.Round(rateWithMargin, precision, MidpointRounding.AwayFromZero);
+
+        decimal rate = rateWithMargin;
+        if (discountPercentage != 0m)
+        {
+            rate = rateWithMargin * (1m - (discountPercentage / 100m));
+        }
+        else if (discountAmount.HasValue && discountAmount.Value != 0m)
+        {
+            rate = rateWithMargin - discountAmount.Value;
+        }
+
+        return (rateWithMargin, Math.Round(rate, precision, MidpointRounding.AwayFromZero));
+    }
 }
 
 /// <summary>Return row input for Actual valuation charge scaling (ERPNext PR #66553).</summary>

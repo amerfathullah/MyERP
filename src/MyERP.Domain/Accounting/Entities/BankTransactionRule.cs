@@ -74,6 +74,9 @@ public class BankTransactionRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    /// <summary>Bounded regex timeout (100ms) for description matching per ERPNext commit 5c839ca732.</summary>
+    public static readonly TimeSpan DescriptionRegexTimeout = TimeSpan.FromMilliseconds(100);
+
     /// <summary>
     /// Add a description-matching condition to this rule.
     /// Conditions use OR logic — any matching condition makes the rule eligible.
@@ -85,7 +88,7 @@ public class BankTransactionRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
         // Validate regex patterns at configuration time
         if (matchType == BankRuleMatchType.Regex)
         {
-            try { _ = new Regex(value); }
+            try { _ = new Regex(value, RegexOptions.IgnoreCase, DescriptionRegexTimeout); }
             catch (ArgumentException ex)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.InvalidBankRuleRegexPattern)
@@ -202,17 +205,35 @@ public class BankTransactionRuleCondition : Entity<Guid>
     /// <summary>
     /// Evaluate whether this condition matches a transaction description.
     /// All comparisons are case-insensitive.
+    /// Regex matching is bounded by <see cref="BankTransactionRule.DescriptionRegexTimeout"/> (100ms)
+    /// and returns false on timeout per ERPNext commit 5c839ca732.
     /// </summary>
     public bool Matches(string description)
     {
+        var text = description ?? string.Empty;
         return MatchType switch
         {
-            BankRuleMatchType.Contains => description.Contains(Value, StringComparison.OrdinalIgnoreCase),
-            BankRuleMatchType.StartsWith => description.StartsWith(Value, StringComparison.OrdinalIgnoreCase),
-            BankRuleMatchType.EndsWith => description.EndsWith(Value, StringComparison.OrdinalIgnoreCase),
-            BankRuleMatchType.Regex => Regex.IsMatch(description, Value, RegexOptions.IgnoreCase),
+            BankRuleMatchType.Contains => text.Contains(Value, StringComparison.OrdinalIgnoreCase),
+            BankRuleMatchType.StartsWith => text.StartsWith(Value, StringComparison.OrdinalIgnoreCase),
+            BankRuleMatchType.EndsWith => text.EndsWith(Value, StringComparison.OrdinalIgnoreCase),
+            BankRuleMatchType.Regex => MatchesRegexBounded(text, Value),
             _ => false
         };
+    }
+
+    private static bool MatchesRegexBounded(string description, string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern))
+            return true;
+
+        try
+        {
+            return Regex.IsMatch(description, pattern, RegexOptions.IgnoreCase, BankTransactionRule.DescriptionRegexTimeout);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 }
 

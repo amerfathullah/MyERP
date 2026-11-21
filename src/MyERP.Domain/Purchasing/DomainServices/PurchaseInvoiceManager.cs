@@ -688,4 +688,92 @@ public class PurchaseInvoiceManager : DomainService
                 .WithData("detail", "Same item cannot be entered multiple times.");
         }
     }
+
+    /// <summary>
+    /// Maps the remaining quantity to receive from a Purchase Invoice row onto a Purchase Receipt row,
+    /// subtracting debit notes summed in stock UOM and converted to the invoice row's UOM
+    /// per ERPNext commits d82d54cf42, e460e60a30, 3e5f527cfd, and 4dd309aec7 (<c>purchase_invoice/mapper.py</c>).
+    /// </summary>
+    public static (decimal Qty, decimal ReceivedQty, decimal StockQty, decimal Amount, decimal BaseAmount) CalculateMappedPurchaseReceiptItemFromInvoice(
+        decimal invoiceRowQty,
+        decimal invoiceRowConversionFactor,
+        decimal invoiceRowRate,
+        decimal invoiceConversionRate,
+        decimal receivedAndMappedQtyInInvoiceUom,
+        IEnumerable<(decimal DebitNoteQty, decimal DebitNoteConversionFactor)>? submittedDebitNoteRows,
+        int qtyPrecision = 4)
+    {
+        var rowFactor = invoiceRowConversionFactor > 0m ? invoiceRowConversionFactor : 1m;
+        var returnedStockQty = submittedDebitNoteRows?
+            .Sum(d => -d.DebitNoteQty * (d.DebitNoteConversionFactor > 0m ? d.DebitNoteConversionFactor : 1m)) ?? 0m;
+        var returnedQtyInRowUom = returnedStockQty / rowFactor;
+
+        var rawPendingQty = invoiceRowQty - receivedAndMappedQtyInInvoiceUom - returnedQtyInRowUom;
+        var pendingQty = Math.Max(Math.Round(rawPendingQty, qtyPrecision, MidpointRounding.AwayFromZero), 0m);
+
+        var stockQty = pendingQty * rowFactor;
+        var amount = pendingQty * invoiceRowRate;
+        var baseAmount = amount * (invoiceConversionRate > 0m ? invoiceConversionRate : 1m);
+
+        return (pendingQty, pendingQty, stockQty, amount, baseAmount);
+    }
+
+    /// <summary>
+    /// Computes the returned quantity, stock-returned quantity, and billing-only returned quantity
+    /// in the original Purchase Invoice row's UOM for the Billed Items To Be Received report
+    /// per ERPNext commit ac3371a279 (<c>billed_items_to_be_received.py</c>).
+    /// </summary>
+    public static (decimal ReturnedQtyInInvoiceUom, decimal StockReturnedQtyInInvoiceUom, decimal BillingOnlyQtyInInvoiceUom) CalculateBilledItemsToBeReceivedDebitNoteQuantities(
+        decimal originalInvoiceRowConversionFactor,
+        IEnumerable<(bool UpdateStock, decimal Qty, decimal ReceivedQty, decimal ConversionFactor)>? submittedDebitNoteRows)
+    {
+        var originalFactor = originalInvoiceRowConversionFactor > 0m ? originalInvoiceRowConversionFactor : 1m;
+        if (submittedDebitNoteRows == null)
+        {
+            return (0m, 0m, 0m);
+        }
+
+        decimal totalStockQty = 0m;
+        decimal stockMovedQty = 0m;
+        decimal billingOnlyStockQty = 0m;
+
+        foreach (var row in submittedDebitNoteRows)
+        {
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            var qtyInStockUom = -row.Qty * factor;
+            totalStockQty += qtyInStockUom;
+
+            if (row.UpdateStock)
+            {
+                stockMovedQty += -row.ReceivedQty * factor;
+            }
+            else
+            {
+                billingOnlyStockQty += qtyInStockUom;
+            }
+        }
+
+        return (
+            totalStockQty / originalFactor,
+            stockMovedQty / originalFactor,
+            billingOnlyStockQty / originalFactor);
+    }
+
+    /// <summary>
+    /// Determines whether Tax Withholding (<c>apply_tds</c>) should be enabled and flagged in onload
+    /// when creating a Purchase Invoice from another document per ERPNext commit f1504e8c71.
+    /// </summary>
+    public static bool ShouldEnableApplyTdsFromSupplierDefault(
+        bool forValidate,
+        Guid? supplierTaxWithholdingCategoryId,
+        Guid? supplierTaxWithholdingGroupId)
+    {
+        if (forValidate)
+        {
+            return false;
+        }
+
+        return (supplierTaxWithholdingCategoryId.HasValue && supplierTaxWithholdingCategoryId.Value != Guid.Empty)
+            || (supplierTaxWithholdingGroupId.HasValue && supplierTaxWithholdingGroupId.Value != Guid.Empty);
+    }
 }
