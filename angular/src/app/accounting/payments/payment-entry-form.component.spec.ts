@@ -248,4 +248,56 @@ describe('PaymentEntry form validation', () => {
       expect(exchangeRate).toBe(1);
     });
   });
+
+  describe('Multi-currency deduction and early payment discount conversion (ERPNext b4d2d8651d, bb60f4696b)', () => {
+    const proto = {
+      calculateDeductionInPaidCurrency(
+        deductionAmountInCompanyCurrency: number,
+        paymentType: string,
+        sourceExchangeRate = 1,
+        targetExchangeRate = 1
+      ): number {
+        if (!deductionAmountInCompanyCurrency) return 0;
+        const rate = paymentType === 'Pay'
+          ? (targetExchangeRate > 0 ? targetExchangeRate : 1)
+          : (sourceExchangeRate > 0 ? sourceExchangeRate : 1);
+        return Math.round((deductionAmountInCompanyCurrency / rate) * 10000) / 10000;
+      },
+      calculateEarlyPaymentDiscountInPaidCurrency(
+        paidAmountBeforeDiscount: number,
+        discountInPartyCurrency: number,
+        paymentType: string,
+        sourceExchangeRate = 1,
+        targetExchangeRate = 1
+      ) {
+        const srcRate = sourceExchangeRate > 0 ? sourceExchangeRate : 1;
+        const tgtRate = targetExchangeRate > 0 ? targetExchangeRate : 1;
+        const discountInCompanyCurrency = paymentType === 'Receive'
+          ? Math.round(discountInPartyCurrency * srcRate * 10000) / 10000
+          : Math.round(discountInPartyCurrency * tgtRate * 10000) / 10000;
+        const discountInPaidCurrency = paymentType === 'Receive'
+          ? discountInPartyCurrency
+          : Math.round((discountInCompanyCurrency / srcRate) * 10000) / 10000;
+        return {
+          paidAmountAfterDiscount: Math.max(0, Math.round((paidAmountBeforeDiscount - discountInPaidCurrency) * 10000) / 10000),
+          discountInPaidCurrency,
+          discountInCompanyCurrency,
+        };
+      }
+    };
+
+    it('converts company-currency deduction to paid currency for Receive and Pay (b4d2d8651d)', () => {
+      expect(proto.calculateDeductionInPaidCurrency(450, 'Receive', 4.5, 1)).toBe(100);
+      expect(proto.calculateDeductionInPaidCurrency(450, 'Pay', 1, 4.5)).toBe(100);
+    });
+
+    it('converts early payment discount from party currency to paid bank currency on Pay (bb60f4696b)', () => {
+      // Supplier invoice in USD (targetExchangeRate = 4.5 MYR/USD), paid from EUR bank (sourceExchangeRate = 5.0 MYR/EUR)
+      // Discount = 100 USD -> 450 MYR -> 90 EUR
+      const res = proto.calculateEarlyPaymentDiscountInPaidCurrency(1000, 100, 'Pay', 5.0, 4.5);
+      expect(res.discountInCompanyCurrency).toBe(450);
+      expect(res.discountInPaidCurrency).toBe(90);
+      expect(res.paidAmountAfterDiscount).toBe(910);
+    });
+  });
 });

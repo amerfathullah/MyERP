@@ -1263,4 +1263,68 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             (closedDnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is closed");
         });
     }
+
+    [Fact]
+    public async Task StockEntry_SubmitEnforcesMultiFgRepackManualRate_AndProjectPurchaseCostIncludesDirectNonStockInvoices_4cbe5b28e3_4b368ed5d4()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var seRepo = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var projRepo = GetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Repack & Project Cost Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Repack WH"), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RPK-RM-1", "Repack Raw Material", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var fgItem1 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RPK-FG-1", "Repack FG 1", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var fgItem2 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RPK-FG-2", "Repack FG 2", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+
+            // Draft Repack StockEntry with two distinct finished good items where one has SetBasicRateManually = false (4cbe5b28e3, e2ba9cb546)
+            var repackSe = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Repack, new DateTime(2026, 6, 15))
+            {
+                EntryNumber = "SE-RPK-MULTI-001"
+            };
+            repackSe.AddItem(rmItem.Id, 10m, sourceWarehouseId: wh.Id, targetWarehouseId: null, valuationRate: 20m, isFinishedItem: false);
+            repackSe.AddItem(fgItem1.Id, 5m, sourceWarehouseId: null, targetWarehouseId: wh.Id, valuationRate: 20m, isFinishedItem: false, setBasicRateManually: true);
+            repackSe.AddItem(fgItem2.Id, 5m, sourceWarehouseId: null, targetWarehouseId: wh.Id, valuationRate: 20m, isFinishedItem: false, setBasicRateManually: false);
+            await seRepo.InsertAsync(repackSe, autoSave: true);
+
+            var seAppService = GetRequiredService<IStockEntryAppService>();
+            var repackEx = await Should.ThrowAsync<BusinessException>(() => seAppService.SubmitAsync(repackSe.Id));
+            repackEx.Code.ShouldBe(MyERPDomainErrorCodes.RepackMultiFgManualRate);
+
+            // Project stock tracking includes direct non-UpdateStock Purchase Invoice not linked to a Purchase Receipt (4b368ed5d4)
+            var project = await projRepo.InsertAsync(
+                new MyERP.Projects.Entities.Project(Guid.NewGuid(), company.Id, "PROJ-DIRECT-PI", "Direct Non-Stock PI Project")
+                {
+                    EstimatedCost = 1000m
+                },
+                autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "Direct PI Supplier"), autoSave: true);
+
+            var directPi = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-DIRECT-001", new DateTime(2026, 6, 15))
+            {
+                ProjectId = project.Id,
+                UpdateStock = false
+            };
+            directPi.AddItem(rmItem.Id, rmItem.ItemName, 4m, 75m, 0m);
+            directPi.Submit();
+            await piRepo.InsertAsync(directPi, autoSave: true);
+
+            var projectAppService = GetRequiredService<MyERP.Projects.IProjectAppService>();
+            var report = await projectAppService.GetProjectWiseStockTrackingAsync(
+                new MyERP.Projects.ProjectWiseStockTrackingRequestDto
+                {
+                    CompanyId = company.Id,
+                    ProjectId = project.Id
+                });
+
+            report.Rows.Count.ShouldBe(1);
+            report.Rows[0].CostOfPurchasedItems.ShouldBe(300m); // 4 * 75 = 300 included even with UpdateStock = false!
+        });
+    }
 }

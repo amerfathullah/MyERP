@@ -1094,11 +1094,10 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             var piQuery = await piRepo.GetQueryableAsync();
             var pis = piQuery
                 .Where(pi => pi.CompanyId == companyId
-                    && pi.UpdateStock
                     && pi.Status != DocumentStatus.Draft
                     && pi.Status != DocumentStatus.Cancelled
                     && pi.Status != DocumentStatus.Rejected)
-                .Select(pi => new { pi.Id, pi.ProjectId, pi.ExchangeRate })
+                .Select(pi => new { pi.Id, pi.ProjectId, pi.ExchangeRate, pi.UpdateStock })
                 .ToDictionary(pi => pi.Id);
 
             if (pis.Count > 0)
@@ -1107,12 +1106,18 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                 var piItemQuery = await piItemRepo.GetQueryableAsync();
                 var piItems = piItemQuery
                     .Where(i => piIds.Contains(i.PurchaseInvoiceId))
-                    .Select(i => new { i.PurchaseInvoiceId, i.PurchaseOrderItemId, i.BilledQuantity, i.UnitPrice })
+                    .Select(i => new { i.PurchaseInvoiceId, i.PurchaseOrderItemId, i.PurchaseReceiptItemId, i.BilledQuantity, i.UnitPrice })
                     .ToList();
 
                 foreach (var item in piItems)
                 {
                     var pi = pis[item.PurchaseInvoiceId];
+                    // Include direct non-UpdateStock Purchase Invoices not linked to a Purchase Receipt (ERPNext 4b368ed5d4)
+                    if (!pi.UpdateStock && item.PurchaseReceiptItemId.HasValue)
+                    {
+                        continue;
+                    }
+
                     Guid? projId = null;
                     if (item.PurchaseOrderItemId.HasValue
                         && poItemProjects.TryGetValue(item.PurchaseOrderItemId.Value, out var poItemProj))

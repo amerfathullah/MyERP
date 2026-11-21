@@ -157,6 +157,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.EntryNumber = entryNumber;
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
+        if (string.Equals(input.ReferenceType, "SubcontractingOrder", StringComparison.OrdinalIgnoreCase) && input.ReferenceId.HasValue)
+        {
+            var (scoId, _) = StockEntryManager.ClearPurchaseOrderWhenMappingSubcontractingOrder(input.ReferenceId, null);
+            entry.SubcontractingOrderId = scoId;
+        }
         entry.WorkOrderId = input.WorkOrderId;
         entry.JobCardId = input.JobCardId;
         entry.FgCompletedQty = input.FgCompletedQty;
@@ -287,6 +292,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
         await seManager.ValidateDifferenceAccountAsync(entry);
+        seManager.ValidateRepackItems(entry);
+        seManager.ValidateManufactureItems(entry);
         seManager.ValidateBatchSplit(entry);
 
         if (entry.WeightPerPiece > 0)
@@ -1490,6 +1497,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.Notes = input.Notes;
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
+        if (string.Equals(input.ReferenceType, "SubcontractingOrder", StringComparison.OrdinalIgnoreCase) && input.ReferenceId.HasValue)
+        {
+            var (scoId, _) = StockEntryManager.ClearPurchaseOrderWhenMappingSubcontractingOrder(input.ReferenceId, null);
+            entry.SubcontractingOrderId = scoId;
+        }
         entry.WorkOrderId = input.WorkOrderId;
         entry.JobCardId = input.JobCardId;
         entry.FgCompletedQty = input.FgCompletedQty;

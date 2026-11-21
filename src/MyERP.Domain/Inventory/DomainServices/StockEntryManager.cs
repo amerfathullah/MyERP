@@ -574,17 +574,17 @@ public class StockEntryManager : DomainService
                 .WithData("reason", "Repack requires at least one incoming (target/finished) item");
         }
 
-        // Multiple FG items require manual rate setting
-        if (incomingItems.Count > 1)
+        foreach (var fg in incomingItems)
         {
-            foreach (var fg in incomingItems)
-            {
-                if (!fg.SetBasicRateManually)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.RepackMultiFgManualRate)
-                        .WithData("reason", "Multiple finished goods in Repack require SetBasicRateManually=true on each item");
-                }
-            }
+            fg.IsFinishedItem = true;
+        }
+
+        // Multiple distinct FG items require manual rate setting on every FG row (ERPNext e2ba9cb546, 4cbe5b28e3)
+        var distinctFgCount = incomingItems.Select(i => i.ItemId).Distinct().Count();
+        if (distinctFgCount > 1)
+        {
+            var rows = incomingItems.Select(fg => (fg.ItemId, fg.ItemId.ToString(), fg.IsFinishedItem, fg.SetBasicRateManually));
+            ValidateRepackFinishedGoodManualRates(rows);
         }
     }
 

@@ -681,6 +681,57 @@ export class PaymentEntryFormComponent implements OnInit {
     this.taxRows.set(rows);
   }
 
+  /**
+   * Converts a company-currency deduction amount into the payment's paid currency
+   * using sourceExchangeRate (Receive) or targetExchangeRate (Pay) so reallocation
+   * after deductions includes company-currency deduction rows without currency mismatch
+   * (ERPNext commit b4d2d8651d).
+   */
+  calculateDeductionInPaidCurrency(
+    deductionAmountInCompanyCurrency: number,
+    paymentType: 'Receive' | 'Pay' | string,
+    sourceExchangeRate = 1,
+    targetExchangeRate = 1
+  ): number {
+    if (!deductionAmountInCompanyCurrency) {
+      return 0;
+    }
+    const rate = paymentType === 'Pay'
+      ? (targetExchangeRate > 0 ? targetExchangeRate : 1)
+      : (sourceExchangeRate > 0 ? sourceExchangeRate : 1);
+    return Math.round((deductionAmountInCompanyCurrency / rate) * 10000) / 10000;
+  }
+
+  /**
+   * Converts an early payment discount from party currency into the paid/bank currency
+   * and company currency when bank currency differs from party currency
+   * (ERPNext commit bb60f4696b).
+   */
+  calculateEarlyPaymentDiscountInPaidCurrency(
+    paidAmountBeforeDiscount: number,
+    discountInPartyCurrency: number,
+    paymentType: 'Receive' | 'Pay' | string,
+    sourceExchangeRate = 1,
+    targetExchangeRate = 1
+  ): { paidAmountAfterDiscount: number; discountInPaidCurrency: number; discountInCompanyCurrency: number } {
+    const srcRate = sourceExchangeRate > 0 ? sourceExchangeRate : 1;
+    const tgtRate = targetExchangeRate > 0 ? targetExchangeRate : 1;
+
+    const discountInCompanyCurrency = paymentType === 'Receive'
+      ? Math.round(discountInPartyCurrency * srcRate * 10000) / 10000
+      : Math.round(discountInPartyCurrency * tgtRate * 10000) / 10000;
+
+    const discountInPaidCurrency = paymentType === 'Receive'
+      ? discountInPartyCurrency
+      : Math.round((discountInCompanyCurrency / srcRate) * 10000) / 10000;
+
+    return {
+      paidAmountAfterDiscount: Math.max(0, Math.round((paidAmountBeforeDiscount - discountInPaidCurrency) * 10000) / 10000),
+      discountInPaidCurrency,
+      discountInCompanyCurrency,
+    };
+  }
+
   cancel(): void {
     this.router.navigate(['/accounting/payments']);
   }
