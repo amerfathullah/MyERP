@@ -91,6 +91,47 @@ public class RequestForQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Validates RFQ items against their linked source Material Request and Material Request Item
+    /// (<c>CompanyId</c>, <c>ItemId</c>, and <c>Uom</c>) per ERPNext commit 0bf6a5cdca (<c>request_for_quotation.py</c>).
+    /// </summary>
+    public void ValidateWithSourceMaterialRequests(
+        IReadOnlyDictionary<Guid, (Guid CompanyId, Guid ItemId, string Uom)> sourceMaterialRequestItemsById)
+    {
+        if (sourceMaterialRequestItemsById == null)
+        {
+            return;
+        }
+
+        for (var idx = 0; idx < _items.Count; idx++)
+        {
+            var row = _items[idx];
+            if (!row.MaterialRequestItemId.HasValue ||
+                !sourceMaterialRequestItemsById.TryGetValue(row.MaterialRequestItemId.Value, out var mrItem))
+            {
+                continue;
+            }
+
+            if (mrItem.CompanyId != CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: Company does not match source Material Request.");
+            }
+
+            if (mrItem.ItemId != row.ItemId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: Item does not match source Material Request Item.");
+            }
+
+            if (!string.Equals(mrItem.Uom, row.Uom, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: UOM '{row.Uom}' does not match source Material Request Item UOM '{mrItem.Uom}'.");
+            }
+        }
+    }
 }
 
 public class RfqItem : CreationAuditedEntity<Guid>

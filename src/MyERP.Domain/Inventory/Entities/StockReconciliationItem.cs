@@ -84,4 +84,25 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
 
         return (effectiveQty, effectiveRate, amount, currentAmount, qtyDiff, amountDiff);
     }
+
+    /// <summary>
+    /// Resolves the valuation rate for a Stock Reconciliation row with a selected Serial and Batch Bundle
+    /// per ERPNext commits 806c01be1c and 6c0d8e9a97 (<c>stock_reconciliation.py</c>):
+    /// The form fills a zero rate for batch items, so a <c>0</c> rate is kept only when
+    /// <paramref name="allowZeroValuationRate"/> is true; otherwise a <c>0</c> or <c>null</c> rate
+    /// falls back to the bundle's <paramref name="currentValuationRate"/>.
+    /// </summary>
+    public static decimal ResolveBundleRowValuationRate(
+        decimal? valuationRate,
+        decimal currentValuationRate,
+        bool allowZeroValuationRate)
+    {
+        var keepZeroRate = valuationRate == 0m && allowZeroValuationRate;
+        if ((!valuationRate.HasValue || valuationRate.Value == 0m) && !keepZeroRate)
+        {
+            return currentValuationRate;
+        }
+
+        return valuationRate!.Value;
+    }
 }

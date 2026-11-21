@@ -93,10 +93,24 @@ public class FifoValuation
             }
 
             // FIFO: consume from front (index 0), LIFO: consume from back (last index)
+            // Per ERPNext commit 433707f5f4: both FIFO and LIFO match purchase return / outgoing rates
+            // at database precision (9 decimals, commercial rounding) without mutating bin rates.
             int targetIndex;
+            var matchingRate = RoundRateToDatabasePrecision(outgoingRate);
             if (_isLifo)
             {
                 targetIndex = _queue.Count - 1;
+                if (outgoingRate > 0)
+                {
+                    for (var idx = _queue.Count - 1; idx >= 0; idx--)
+                    {
+                        if (_queue[idx].Qty > 0 && RoundRateToDatabasePrecision(_queue[idx].Rate) == matchingRate)
+                        {
+                            targetIndex = idx;
+                            break;
+                        }
+                    }
+                }
             }
             else
             {
@@ -104,7 +118,7 @@ public class FifoValuation
                 targetIndex = 0;
                 if (outgoingRate > 0)
                 {
-                    var matchIndex = _queue.FindIndex(b => Math.Abs(b.Rate - outgoingRate) < NearZeroThreshold && b.Qty > 0);
+                    var matchIndex = _queue.FindIndex(b => b.Qty > 0 && RoundRateToDatabasePrecision(b.Rate) == matchingRate);
                     if (matchIndex >= 0)
                         targetIndex = matchIndex;
                 }
@@ -189,6 +203,13 @@ public class FifoValuation
             _queue.Add(new StockBin(totalQty, newRate));
         }
     }
+
+    /// <summary>
+    /// Rounds a rate to database precision (9 decimals, commercial rounding) to match bin rates without changing them
+    /// per ERPNext commit 433707f5f4 (<c>round_rate</c> in <c>stock/valuation.py</c>).
+    /// </summary>
+    public static decimal RoundRateToDatabasePrecision(decimal rate)
+        => Math.Round(rate, 9, MidpointRounding.AwayFromZero);
 
     private static decimal RoundNearZero(decimal value)
         => Math.Abs(value) < NearZeroThreshold ? 0 : value;

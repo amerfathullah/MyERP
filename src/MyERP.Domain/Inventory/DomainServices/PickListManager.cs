@@ -609,6 +609,87 @@ public class PickListManager : DomainService
 
         return locations;
     }
+
+    private static readonly HashSet<string> WorkOrderAlternativeItemPurposes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Material Transfer for Manufacture",
+        "Manufacture",
+        "Material Consumption for Manufacture",
+        "MaterialTransferForManufacture",
+        "MaterialConsumptionForManufacture"
+    };
+
+    /// <summary>
+    /// Validates Delivery Note, Sales Invoice, or Stock Entry rows against their referenced Pick List rows
+    /// per ERPNext commits ca335b6613, f303513d06, 6bfba876ac, 628480dcb1, 9f33bb012e, and e5ff908919:
+    /// - Refuses any row whose <c>ItemId</c> differs from the picked row's <c>ItemId</c>, except on a Stock Entry
+    ///   with a <paramref name="workOrderId"/> whose purpose validates alternative items and where
+    ///   <c>OriginalItemId == PickedItemId</c>.
+    /// - On a Stock Entry (<paramref name="isStockEntry"/> == true), validates <c>SourceWarehouseId == PickedWarehouseId</c>
+    ///   and rounds cumulative <c>PickedTransferredQty + RowTransferQty</c> to <paramref name="transferredQtyPrecision"/>
+    ///   before comparing against <c>PickedQty</c>.
+    /// </summary>
+    public static void ValidateRowsAgainstPickListItems(
+        string pickListNumber,
+        bool isStockEntry,
+        Guid? workOrderId,
+        string? stockEntryPurpose,
+        IReadOnlyDictionary<Guid, (Guid ItemId, string ItemCode, Guid WarehouseId, string WarehouseName, decimal PickedQty, decimal TransferredQty)> pickedRowsById,
+        IEnumerable<(int RowNumber, Guid? PickListItemId, Guid ItemId, string ItemCode, Guid? OriginalItemId, Guid? SourceWarehouseId, string? SourceWarehouseName, decimal TransferQty)> documentRows,
+        int transferredQtyPrecision = 4)
+    {
+        if (pickedRowsById == null || documentRows == null)
+        {
+            return;
+        }
+
+        var cumulativeTransferByPickRow = new Dictionary<Guid, decimal>();
+        foreach (var row in documentRows)
+        {
+            if (!row.PickListItemId.HasValue || !pickedRowsById.TryGetValue(row.PickListItemId.Value, out var pickedRow))
+            {
+                continue;
+            }
+
+            var isWorkOrderAlternative = isStockEntry
+                && workOrderId.HasValue
+                && workOrderId.Value != Guid.Empty
+                && !string.IsNullOrWhiteSpace(stockEntryPurpose)
+                && WorkOrderAlternativeItemPurposes.Contains(stockEntryPurpose)
+                && row.OriginalItemId.HasValue
+                && row.OriginalItemId.Value == pickedRow.ItemId;
+
+            if (row.ItemId != pickedRow.ItemId && !isWorkOrderAlternative)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowNumber}: Item {row.ItemCode} is not the item {pickedRow.ItemCode} picked in {pickListNumber}.");
+            }
+
+            if (isStockEntry)
+            {
+                if (row.SourceWarehouseId.HasValue &&
+                    row.SourceWarehouseId.Value != Guid.Empty &&
+                    row.SourceWarehouseId.Value != pickedRow.WarehouseId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{row.RowNumber}: Item {row.ItemCode} was picked from {pickedRow.WarehouseName}, not {row.SourceWarehouseName}.");
+                }
+
+                var pickRowId = row.PickListItemId.Value;
+                cumulativeTransferByPickRow[pickRowId] = cumulativeTransferByPickRow.GetValueOrDefault(pickRowId, 0m) + row.TransferQty;
+                var totalTransferred = Math.Round(
+                    pickedRow.TransferredQty + cumulativeTransferByPickRow[pickRowId],
+                    transferredQtyPrecision,
+                    MidpointRounding.AwayFromZero);
+
+                if (totalTransferred > pickedRow.PickedQty)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{row.RowNumber}: Item {row.ItemCode} is transferred more than the {pickedRow.PickedQty} picked in {pickListNumber}.");
+                }
+            }
+        }
+    }
 }
 
 public class AllocatedLocationItem

@@ -531,6 +531,7 @@ public static class ExpectedValuationReplayEngine
         {
             foreach (var row in entry.AdjustmentRows)
             {
+                var valueBefore = stock.Value;
                 if (row.SerialNos != null && row.SerialNos.Count > 0)
                 {
                     foreach (var sn in row.SerialNos)
@@ -551,10 +552,23 @@ public static class ExpectedValuationReplayEngine
                 {
                     stock.ReceiveIntoPool(row.Qty, row.ValuationRate);
                 }
+
+                // Per ERPNext commits 85a5c97646 and 55d0f687a8: the ledger counts in every row as an entry of its own,
+                // and values a Standard Cost item's whole balance at the standard rate after each row.
+                if (context.ValuationMethod == ValuationMethod.StandardCost)
+                {
+                    stock.CarriedValue = Math.Round(stock.Value, context.CurrencyPrecision, MidpointRounding.AwayFromZero);
+                }
+                else
+                {
+                    stock.CarriedValue = Math.Round(
+                        stock.CarriedValue + stock.Value - valueBefore,
+                        context.CurrencyPrecision,
+                        MidpointRounding.AwayFromZero);
+                }
             }
         }
 
-        stock.CarriedValue = Math.Round(stock.Value, context.CurrencyPrecision, MidpointRounding.AwayFromZero);
         CarryMovingAverageRateFromRoundedValue(stock);
 
         return MakeExpectedValues(stock, carriedValueBefore, BasisAdjusted);
@@ -673,12 +687,60 @@ public static class ExpectedValuationReplayEngine
                 rate = entry.ReconciledBalance.CurrentValuationRate;
             }
 
-            return (
-                entry.ReconciledBalance.Qty,
-                Math.Round(rate, currencyPrecision, MidpointRounding.AwayFromZero));
+            // Per ERPNext commit 3bf0644cda: keep a reconciliation or pool rate unrounded in expected valuation
+            return (entry.ReconciledBalance.Qty, rate);
         }
 
         return (entry.BalanceQuantity, entry.ValuationRate);
+    }
+
+    /// <summary>
+    /// Computes the Moving Average valuation rate after an outflow at a set outgoing rate (such as a purchase return),
+    /// clamping <c>newStockValue</c> at 0 so the outflow never drives stock value or valuation rate negative
+    /// per ERPNext commit 492e2e0e4a (<c>stock_ledger.py</c>).
+    /// </summary>
+    public static decimal CalculateMovingAverageRateAfterSetRateOutflow(
+        decimal previousStockValue,
+        decimal previousQty,
+        decimal actualQtyChange,
+        decimal outgoingRate)
+    {
+        var newStockQty = previousQty + actualQtyChange;
+        if (newStockQty <= 0m)
+        {
+            return outgoingRate;
+        }
+
+        var newStockValue = previousStockValue + (actualQtyChange * outgoingRate);
+        return Math.Max(newStockValue, 0m) / newStockQty;
+    }
+
+    /// <summary>
+    /// Determines whether an Adjustment Entry ledger row sits after <paramref name="slePostingDateTime"/>
+    /// (including an Adjustment Entry at the exact same posting datetime created after the original entry being cancelled)
+    /// per ERPNext commit 33a523c99d (<c>get_later_than</c> in <c>valuation_adjustment.py</c>).
+    /// </summary>
+    public static bool IsAdjustmentEntryLaterThanSle(
+        DateTime adjustmentPostingDateTime,
+        DateTime adjustmentCreationTime,
+        DateTime slePostingDateTime,
+        bool isCancellingSle,
+        DateTime? originalCancelledSleCreationTime)
+    {
+        if (adjustmentPostingDateTime > slePostingDateTime)
+        {
+            return true;
+        }
+
+        if (isCancellingSle &&
+            originalCancelledSleCreationTime.HasValue &&
+            adjustmentPostingDateTime == slePostingDateTime &&
+            adjustmentCreationTime > originalCancelledSleCreationTime.Value)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static IReadOnlyList<LotMovement> GetLotMovements(LedgerEntryInput entry, ItemReplayContext context)

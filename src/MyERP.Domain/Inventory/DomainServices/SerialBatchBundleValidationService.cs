@@ -1242,6 +1242,61 @@ public class SerialBatchBundleValidationService : DomainService
         result.Add((entries[^1].EntryId, lastQty));
         return result;
     }
+
+    /// <summary>
+    /// Determines whether an inward Serial and Batch Entry was posted before <paramref name="currentSlePostingDateTime"/>
+    /// (breaking ties on the same posting datetime by checking whether the inward bundle's own active SLE was created
+    /// before <paramref name="currentSleCreationTime"/>) per ERPNext commit 995b851ba1
+    /// (<c>get_posted_before_sle_condition</c> in <c>serial_batch_bundle.py</c>).
+    /// </summary>
+    public static bool IsBundleEntryPostedBeforeSle(
+        DateTime bundleEntryPostingDateTime,
+        bool hasActiveBundleSle,
+        DateTime? bundleSleCreationTime,
+        DateTime currentSlePostingDateTime,
+        DateTime? currentSleCreationTime)
+    {
+        if (bundleEntryPostingDateTime < currentSlePostingDateTime)
+        {
+            return true;
+        }
+
+        if (bundleEntryPostingDateTime > currentSlePostingDateTime || !hasActiveBundleSle)
+        {
+            return false;
+        }
+
+        if (currentSleCreationTime.HasValue)
+        {
+            return bundleSleCreationTime.HasValue && bundleSleCreationTime.Value < currentSleCreationTime.Value;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the incoming valuation rate of a returned serial number or batch row during Repost Item Valuation
+    /// per ERPNext commit 89ad66af48 (<c>serial_and_batch_bundle.py</c>):
+    /// Only falls back to the average rate across returned serials/batches when <paramref name="matchedValuationRate"/>
+    /// is <c>null</c> (<c>valuation_rate is None</c>), preserving an explicit <c>0m</c> valuation rate on a returned serial or batch.
+    /// </summary>
+    public static decimal ResolveRepostReturnedSerialOrBatchValuationRate(
+        decimal? matchedValuationRate,
+        bool throughRepostItemValuation,
+        IReadOnlyCollection<decimal>? fallbackPoolRates)
+    {
+        if (matchedValuationRate.HasValue)
+        {
+            return matchedValuationRate.Value;
+        }
+
+        if (throughRepostItemValuation && fallbackPoolRates != null && fallbackPoolRates.Count > 0)
+        {
+            return fallbackPoolRates.Sum() / fallbackPoolRates.Count;
+        }
+
+        return 0m;
+    }
 }
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>

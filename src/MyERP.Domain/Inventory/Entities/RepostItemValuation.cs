@@ -50,6 +50,12 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool RecalculateValuationRate { get; set; }
 
+    /// <summary>
+    /// Stop reposting an item and warehouse at a later Stock Reconciliation, or when its balance is the same
+    /// as the saved ledger. Reposts made by stock transactions set this (ERPNext PR #68488 / commit cd04caf3d6).
+    /// </summary>
+    public bool SkipUnchangedEntries { get; set; }
+
     /// <summary>Total SLE entries affected by this repost.</summary>
     public int TotalAffectedEntries { get; set; }
 
@@ -232,6 +238,83 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return other.PostingDate <= PostingDate;
 
         return false;
+    }
+
+    /// <summary>
+    /// Evaluates whether a repost stream for an (item, warehouse) has settled at the current Stock Ledger Entry
+    /// and can pause early per ERPNext PR #68488 / commit cd04caf3d6 (<c>is_settled</c> in <c>stock_ledger.py</c>):
+    /// - Requires <paramref name="canSkipUnchangedEntries"/> and <paramref name="entryPostingDateTime"/> &gt; <paramref name="walkStartDateTime"/>.
+    /// - Settles immediately at a non-adjustment, non-batch, non-dimension Stock Reconciliation balance reset
+    ///   (provided serial valuation is off or item is non-serial).
+    /// - Otherwise settles when the running balance (<c>QtyAfterTransaction</c>, <c>StockValue</c>, <c>ValuationRate</c>, <c>StockQueue</c>)
+    ///   equals the saved balance at ledger precision and no un-reset ledger change occurred on or before <paramref name="entryPostingDateTime"/>.
+    /// </summary>
+    public static bool IsRepostSettledAtEntry(
+        bool canSkipUnchangedEntries,
+        DateTime entryPostingDateTime,
+        DateTime walkStartDateTime,
+        string? voucherType,
+        bool isAdjustmentEntry,
+        bool hasBatchNo,
+        bool hasSerialNo,
+        bool skipSerialBatchValuation,
+        bool hasInventoryDimensions,
+        (decimal QtyAfterTransaction, decimal StockValue, decimal ValuationRate, string? StockQueue) runningBalance,
+        (decimal QtyAfterTransaction, decimal StockValue, decimal ValuationRate, string? StockQueue) savedBalance,
+        bool isLedgerShifted,
+        int qtyPrecision = 4,
+        int currencyPrecision = 2)
+    {
+        var isBalanceReset = string.Equals(voucherType?.Replace(" ", string.Empty), "StockReconciliation", StringComparison.OrdinalIgnoreCase)
+            && !isAdjustmentEntry
+            && !hasBatchNo
+            && !hasInventoryDimensions
+            && (!hasSerialNo || skipSerialBatchValuation);
+
+        if (!canSkipUnchangedEntries || entryPostingDateTime <= walkStartDateTime)
+        {
+            return false;
+        }
+
+        if (isBalanceReset)
+        {
+            return true;
+        }
+
+        if ((hasSerialNo || hasBatchNo) && !skipSerialBatchValuation)
+        {
+            return false;
+        }
+
+        var matchesSavedBalance =
+            Math.Round(runningBalance.QtyAfterTransaction, qtyPrecision, MidpointRounding.AwayFromZero)
+                == Math.Round(savedBalance.QtyAfterTransaction, qtyPrecision, MidpointRounding.AwayFromZero)
+            && Math.Round(runningBalance.StockValue, currencyPrecision, MidpointRounding.AwayFromZero)
+                == Math.Round(savedBalance.StockValue, currencyPrecision, MidpointRounding.AwayFromZero)
+            && Math.Round(runningBalance.ValuationRate, 9, MidpointRounding.AwayFromZero)
+                == Math.Round(savedBalance.ValuationRate, 9, MidpointRounding.AwayFromZero)
+            && string.Equals(runningBalance.StockQueue ?? "[]", savedBalance.StockQueue ?? "[]", StringComparison.Ordinal);
+
+        return matchesSavedBalance && !isLedgerShifted;
+    }
+
+    /// <summary>
+    /// Determines whether a queued repost at <paramref name="queuedRepostDateTime"/> is covered by a completed repost
+    /// that paused early at <paramref name="repostedTill"/> per ERPNext commit cd04caf3d6 (<c>is_covered_till</c>):
+    /// When <paramref name="repostedTill"/> is set, only a queued repost with <paramref name="queuedSkipUnchangedEntries"/> == true
+    /// and <paramref name="queuedRepostDateTime"/> &lt; <paramref name="repostedTill"/> is covered.
+    /// </summary>
+    public static bool IsQueuedRepostCoveredTill(
+        bool queuedSkipUnchangedEntries,
+        DateTime queuedRepostDateTime,
+        DateTime? repostedTill)
+    {
+        if (!repostedTill.HasValue)
+        {
+            return true;
+        }
+
+        return queuedSkipUnchangedEntries && queuedRepostDateTime < repostedTill.Value;
     }
 }
 

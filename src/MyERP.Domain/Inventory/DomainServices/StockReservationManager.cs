@@ -1763,6 +1763,115 @@ public class StockReservationManager : DomainService
             MidpointRounding.AwayFromZero);
         return currentDeliveredQty - remainingAfterCancel;
     }
+
+    /// <summary>
+    /// Computes the undelivered picked quantity per Sales Order Item from submitted Pick List rows
+    /// per ERPNext commits e7ee6255f0, e4e0d9c707, and b053136fb2 (<c>get_undelivered_picked_qty_details</c>):
+    /// Sums <c>PickedQty - DeliveredQty</c> only across submitted Pick List rows where <c>PickedQty &gt; DeliveredQty</c>,
+    /// so an over-delivered Pick List row does not offset another row's undelivered pick, and an order row whose
+    /// picked stock has already been delivered is allowed to reserve remaining stock.
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateUndeliveredPickedQtyBySalesOrderItem(
+        IEnumerable<(Guid SalesOrderItemId, bool IsSubmitted, decimal PickedQty, decimal DeliveredQty)>? pickListRows)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (pickListRows == null)
+        {
+            return result;
+        }
+
+        foreach (var row in pickListRows)
+        {
+            if (!row.IsSubmitted || row.SalesOrderItemId == Guid.Empty || row.PickedQty <= row.DeliveredQty)
+            {
+                continue;
+            }
+
+            result[row.SalesOrderItemId] = result.GetValueOrDefault(row.SalesOrderItemId, 0m) + (row.PickedQty - row.DeliveredQty);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Computes the unreserved quantity of a Sales Order Item (or its Packed Item row), returning <c>0</c>
+    /// when only floating-point residue below field precision remains, and determines whether a reservation of
+    /// <paramref name="qtyToBeReserved"/> is partial per ERPNext commits fff90c71e6, 072fe92f40, and 784d9cbe09.
+    /// </summary>
+    public static (decimal UnreservedQty, bool IsPartialReservation) EvaluateSalesOrderRowUnreservedAndPartialReservation(
+        decimal rowStockQty,
+        decimal rowDeliveredQty,
+        decimal rowConversionFactor,
+        decimal existingReservedQty,
+        decimal qtyToBeReserved,
+        int precision = 4)
+    {
+        var factor = rowConversionFactor > 0m ? rowConversionFactor : 1m;
+        var rawUnreserved = rowStockQty - (rowDeliveredQty * factor) - existingReservedQty;
+        var unreservedQty = Math.Round(rawUnreserved, precision, MidpointRounding.AwayFromZero) > 0m
+            ? rawUnreserved
+            : 0m;
+        var isPartial = Math.Round(unreservedQty - qtyToBeReserved, precision, MidpointRounding.AwayFromZero) > 0m;
+        return (unreservedQty, isPartial);
+    }
+
+    /// <summary>
+    /// Resolves the status of a Stock Reservation Entry and whether it still holds stock
+    /// per ERPNext commits 9533f3f19d and 0a134f3d98 (<c>stock_reservation_entry.py</c>):
+    /// - A reservation holds stock while <c>DeliveredQty + TransferredQty + ConsumedQty &lt; ReservedQty</c>.
+    /// - Float residue on <paramref name="deliveredQty"/> that rounds to 0 at <paramref name="reservedQtyPrecision"/>
+    ///   does not mark the reservation <c>"Partially Delivered"</c>.
+    /// </summary>
+    public static (string Status, bool StillHoldsStock) EvaluateStockReservationEntryStatus(
+        DocumentStatus docStatus,
+        decimal voucherQty,
+        decimal reservedQty,
+        decimal deliveredQty,
+        decimal transferredQty,
+        decimal consumedQty,
+        int reservedQtyPrecision = 4)
+    {
+        var stillHolds = docStatus == DocumentStatus.Submitted &&
+            (deliveredQty + transferredQty + consumedQty) < reservedQty;
+
+        if (docStatus == DocumentStatus.Draft)
+        {
+            return ("Draft", false);
+        }
+
+        if (docStatus == DocumentStatus.Cancelled)
+        {
+            return ("Cancelled", false);
+        }
+
+        if (transferredQty > 0m)
+        {
+            return (transferredQty < reservedQty ? "Partially Used" : "Closed", stillHolds);
+        }
+
+        if (deliveredQty + consumedQty >= reservedQty)
+        {
+            return ("Delivered", stillHolds);
+        }
+
+        if (Math.Round(deliveredQty, reservedQtyPrecision, MidpointRounding.AwayFromZero) != 0m)
+        {
+            return ("Partially Delivered", stillHolds);
+        }
+
+        if (consumedQty > 0m)
+        {
+            return ("Partially Used", stillHolds);
+        }
+
+        if (Math.Round(reservedQty, reservedQtyPrecision, MidpointRounding.AwayFromZero) >=
+            Math.Round(voucherQty, reservedQtyPrecision, MidpointRounding.AwayFromZero))
+        {
+            return ("Reserved", stillHolds);
+        }
+
+        return ("Partially Reserved", stillHolds);
+    }
 }
 
 public class ReservationConsumption

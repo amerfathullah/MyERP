@@ -1812,4 +1812,212 @@ public class UpstreamBatch9ParityTests
         newlyAddedRate.RateWithMargin.ShouldBe(125m);
         newlyAddedRate.EffectiveRate.ShouldBe(112.5m);
     }
+
+    [Fact]
+    public void PurchaseReceiptRejectedReturnGlAndInvoiceFxReversal_LifoReturnRateMatching_MovingAverageOutflowFloor_RepostEarlyStop_And_ReservationPickListGuards_39a75b170e_097411fb47_3837f7b46a_1d8fad1d6b_81f685b0f8_93f8c80982_433707f5f4_492e2e0e4a_33a523c99d_806c01be1c_cd04caf3d6_e7ee6255f0_9533f3f19d_ca335b6613_0bf6a5cdca_bbc5b1285f()
+    {
+        // 1. Rejected warehouse return debits Stock Received But Not Billed at the receipt's net rate when the receipt had accepted qty (39a75b170e, 097411fb47, 3837f7b46a)
+        var origPrItemId = Guid.NewGuid();
+        var rejReturnWithAccepted = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveRejectedWarehouseReturnCreditAmount(
+            isReturn: true,
+            returnQtyFromRejectedWarehouse: true,
+            isInternalTransfer: false,
+            originalPurchaseReceiptItemId: origPrItemId,
+            originalReceiptAcceptedQty: 10m,
+            returnStockQty: -2m,
+            returnBaseNetRate: 50m,
+            returnConversionFactor: 1m,
+            sleStockValueDifference: -130m); // Current warehouse value or valuation charges excluded!
+        rejReturnWithAccepted.ShouldBe(-100m);
+
+        // When original receipt row had 0 accepted qty (rejected-only receipt), valuation charges sat on rejected stock -> use SLE value
+        var rejReturnRejectedOnly = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveRejectedWarehouseReturnCreditAmount(
+            isReturn: true,
+            returnQtyFromRejectedWarehouse: true,
+            isInternalTransfer: false,
+            originalPurchaseReceiptItemId: origPrItemId,
+            originalReceiptAcceptedQty: 0m,
+            returnStockQty: -2m,
+            returnBaseNetRate: 50m,
+            returnConversionFactor: 1m,
+            sleStockValueDifference: -130m);
+        rejReturnRejectedOnly.ShouldBe(-130m);
+
+        // 2. Return of a receipt made from an invoice reverses exchange difference even when return is in another UOM (1d8fad1d6b, 81f685b0f8)
+        var fxReturnDiff = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculatePurchaseReceiptInvoiceExchangeDiscrepancy(
+            isReturn: true,
+            receiptRowQty: -1m, // 1 Box of 12
+            receiptRowNetRate: 120m, // 120 per Box
+            receiptConversionRate: 4.5m,
+            originalReceiptRowNetRate: 10m, // Original receipt was 10 per Unit (matched invoice)
+            invoiceRowNetRate: 10m,
+            invoiceConversionRate: 4.2m);
+        fxReturnDiff.IsAtInvoiceRate.ShouldBeTrue();
+        fxReturnDiff.ExchangeRateDiscrepancy.ShouldBe(-36.00m); // (-1 * 120) * (4.5 - 4.2) = -36.00
+
+        // 3. Internal transfer return incoming rate & Last purchase details across PO/PR/PI (93f8c80982, c08a053ae3, 9d7f0c4807, 63717f769f)
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveInternalTransferIncomingRate(
+            outwardDeliverySleStockValueDifference: -450m,
+            outwardDeliverySleActualQty: -10m,
+            landedCostVoucherAmount: 25m,
+            currentSleActualQty: -5m).ShouldBe(50m); // 45 + 25/5 = 50
+
+        var lastPurchase = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveLastPurchaseDetails(
+            new[]
+            {
+                (VoucherType: "Purchase Order", PurchaseDate: new DateTime(2026, 11, 10), BaseNetRate: 100m, ConversionFactor: 1m, IsFreeItem: false, IsInternalSupplier: false),
+                (VoucherType: "Purchase Invoice", PurchaseDate: new DateTime(2026, 11, 15), BaseNetRate: 240m, ConversionFactor: 2m, IsFreeItem: false, IsInternalSupplier: false),
+                (VoucherType: "Purchase Receipt", PurchaseDate: new DateTime(2026, 11, 20), BaseNetRate: 0m, ConversionFactor: 1m, IsFreeItem: true, IsInternalSupplier: false),
+                (VoucherType: "Purchase Order", PurchaseDate: new DateTime(2026, 11, 20), BaseNetRate: 80m, ConversionFactor: 1m, IsFreeItem: false, IsInternalSupplier: true)
+            });
+        lastPurchase.ShouldNotBeNull();
+        lastPurchase!.Value.VoucherType.ShouldBe("Purchase Invoice");
+        lastPurchase.Value.BaseNetRatePerStockUom.ShouldBe(120m);
+
+        var s1 = Guid.NewGuid();
+        var s2 = Guid.NewGuid();
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveFirstDefaultSupplierFromItems(
+            new[] { ((Guid?)null, (Guid?)s1), ((Guid?)s2, (Guid?)null) }).ShouldBe(s1);
+
+        // 4. LIFO purchase return matches bin rate at 9-decimal database precision & Moving Average outflow floor (433707f5f4, 492e2e0e4a)
+        var lifo = new FifoValuation(isLifo: true);
+        lifo.AddStock(5m, 33.3333333334m);
+        lifo.AddStock(5m, 50m);
+        var lifoConsumed = lifo.RemoveStock(2m, 33.3333333331m); // Rounds to 33.333333333 at 9 decimals -> matches first bin!
+        FifoValuation.GetOutgoingRate(lifoConsumed).ShouldBe(33.3333333334m);
+
+        ExpectedValuationReplayEngine.CalculateMovingAverageRateAfterSetRateOutflow(
+            previousStockValue: 100m,
+            previousQty: 10m,
+            actualQtyChange: -4m,
+            outgoingRate: 30m).ShouldBe(0m); // 100 - 120 clamped to 0 / 6 = 0 (never negative)
+
+        // 5. Cancel before same-timestamp Adjustment Entry, StockReconciliation bundle zero-rate guard, and Serial/Batch repost zero rate (33a523c99d, 806c01be1c, 6c0d8e9a97, 89ad66af48, 995b851ba1)
+        var ts = new DateTime(2026, 11, 20, 10, 0, 0, DateTimeKind.Utc);
+        ExpectedValuationReplayEngine.IsAdjustmentEntryLaterThanSle(
+            adjustmentPostingDateTime: ts,
+            adjustmentCreationTime: ts.AddSeconds(10),
+            slePostingDateTime: ts,
+            isCancellingSle: true,
+            originalCancelledSleCreationTime: ts.AddSeconds(2)).ShouldBeTrue();
+
+        StockReconciliationItem.ResolveBundleRowValuationRate(
+            valuationRate: 0m,
+            currentValuationRate: 45m,
+            allowZeroValuationRate: false).ShouldBe(45m);
+        StockReconciliationItem.ResolveBundleRowValuationRate(
+            valuationRate: 0m,
+            currentValuationRate: 45m,
+            allowZeroValuationRate: true).ShouldBe(0m);
+
+        SerialBatchBundleValidationService.ResolveRepostReturnedSerialOrBatchValuationRate(
+            matchedValuationRate: 0m,
+            throughRepostItemValuation: true,
+            fallbackPoolRates: new[] { 50m, 70m }).ShouldBe(0m); // Explicit 0 preserved!
+
+        SerialBatchBundleValidationService.IsBundleEntryPostedBeforeSle(
+            bundleEntryPostingDateTime: ts,
+            hasActiveBundleSle: true,
+            bundleSleCreationTime: ts.AddSeconds(5),
+            currentSlePostingDateTime: ts,
+            currentSleCreationTime: ts.AddSeconds(2)).ShouldBeFalse(); // Created after current SLE at same timestamp!
+
+        // 6. Repost early stop (skip_unchanged_entries) & coverage check (cd04caf3d6)
+        RepostItemValuation.IsRepostSettledAtEntry(
+            canSkipUnchangedEntries: true,
+            entryPostingDateTime: ts.AddHours(2),
+            walkStartDateTime: ts,
+            voucherType: "Delivery Note",
+            isAdjustmentEntry: false,
+            hasBatchNo: false,
+            hasSerialNo: false,
+            skipSerialBatchValuation: false,
+            hasInventoryDimensions: false,
+            runningBalance: (10m, 500m, 50m, "[[10,50]]"),
+            savedBalance: (10m, 500m, 50m, "[[10,50]]"),
+            isLedgerShifted: false).ShouldBeTrue();
+
+        RepostItemValuation.IsQueuedRepostCoveredTill(
+            queuedSkipUnchangedEntries: false,
+            queuedRepostDateTime: ts.AddHours(1),
+            repostedTill: ts.AddHours(2)).ShouldBeFalse(); // Full repost not covered by early-stopped repost!
+
+        // 7. Stock Reservation undelivered Pick List check, float residue guard, Pick List item validation, RFQ source MR validation, and Item UOM removal guard (e7ee6255f0, b053136fb2, fff90c71e6, 9533f3f19d, ca335b6613, 628480dcb1, e5ff908919, 0bf6a5cdca, bbc5b1285f)
+        var soItem1 = Guid.NewGuid();
+        var undeliveredPick = StockReservationManager.CalculateUndeliveredPickedQtyBySalesOrderItem(
+            new[]
+            {
+                (SalesOrderItemId: soItem1, IsSubmitted: true, PickedQty: 5m, DeliveredQty: 6m), // Over-delivered row ignored!
+                (SalesOrderItemId: soItem1, IsSubmitted: true, PickedQty: 4m, DeliveredQty: 4m)
+            });
+        undeliveredPick.GetValueOrDefault(soItem1, 0m).ShouldBe(0m);
+
+        var unresEval = StockReservationManager.EvaluateSalesOrderRowUnreservedAndPartialReservation(
+            rowStockQty: 10m,
+            rowDeliveredQty: 3.333333m,
+            rowConversionFactor: 3m,
+            existingReservedQty: 0m,
+            qtyToBeReserved: 0m,
+            precision: 4);
+        unresEval.UnreservedQty.ShouldBe(0m); // Float residue 0.000001 rounds to 0 at precision 4
+
+        var sreStatus = StockReservationManager.EvaluateStockReservationEntryStatus(
+            docStatus: MyERP.Core.DocumentStatus.Submitted,
+            voucherQty: 10m,
+            reservedQty: 10m,
+            deliveredQty: 0.000001m, // Float residue!
+            transferredQty: 0m,
+            consumedQty: 0m,
+            reservedQtyPrecision: 4);
+        sreStatus.Status.ShouldBe("Reserved");
+        sreStatus.StillHoldsStock.ShouldBeTrue();
+
+        var pickRowId = Guid.NewGuid();
+        var pickedItemId = Guid.NewGuid();
+        var wrongItemId = Guid.NewGuid();
+        var pickWhId = Guid.NewGuid();
+        var pickMap = new Dictionary<Guid, (Guid, string, Guid, string, decimal, decimal)>
+        {
+            [pickRowId] = (pickedItemId, "ITEM-A", pickWhId, "Stores", 10m, 0m)
+        };
+        var pickItemEx = Should.Throw<BusinessException>(() =>
+            PickListManager.ValidateRowsAgainstPickListItems(
+                pickListNumber: "PL-0001",
+                isStockEntry: false,
+                workOrderId: null,
+                stockEntryPurpose: null,
+                pickedRowsById: pickMap,
+                documentRows: new[] { (1, (Guid?)pickRowId, wrongItemId, "ITEM-B", (Guid?)pickedItemId, (Guid?)pickWhId, (string?)"Stores", 5m) }));
+        pickItemEx.Data["detail"]!.ToString()!.ShouldContain("Item ITEM-B is not the item ITEM-A picked in PL-0001");
+
+        // Work Order Manufacture Stock Entry honours original_item == picked_item (628480dcb1, 9f33bb012e)
+        Should.NotThrow(() =>
+            PickListManager.ValidateRowsAgainstPickListItems(
+                pickListNumber: "PL-0001",
+                isStockEntry: true,
+                workOrderId: Guid.NewGuid(),
+                stockEntryPurpose: "Manufacture",
+                pickedRowsById: pickMap,
+                documentRows: new[] { (1, (Guid?)pickRowId, wrongItemId, "ITEM-B", (Guid?)pickedItemId, (Guid?)pickWhId, (string?)"Stores", 10.00004m) }));
+
+        // RFQ validates items against source Material Request (0bf6a5cdca)
+        var rfqCompanyId = Guid.NewGuid();
+        var mrItemId = Guid.NewGuid();
+        var rfq = new MyERP.Purchasing.Entities.RequestForQuotation(Guid.NewGuid(), rfqCompanyId, "RFQ-001", DateTime.UtcNow);
+        rfq.AddItem(wrongItemId, "Wrong Item", 5m, "Unit", materialRequestItemId: mrItemId);
+        Should.Throw<BusinessException>(() =>
+            rfq.ValidateWithSourceMaterialRequests(
+                new Dictionary<Guid, (Guid, Guid, string)>
+                {
+                    [mrItemId] = (rfqCompanyId, pickedItemId, "Unit")
+                }));
+
+        // Block removing an Item UOM that an Item Price uses (bbc5b1285f)
+        var uomEx = Should.Throw<BusinessException>(() =>
+            MyERP.Inventory.Entities.Item.ValidateRemovedUomsNotInItemPrice(
+                previousUoms: new[] { "Unit", "Box" },
+                currentUoms: new[] { "Unit" },
+                existingItemPrices: new[] { ("IP-0001", "Box") }));
+        uomEx.Data["detail"]!.ToString()!.ShouldContain("UOM Box cannot be removed from the Item as Item Price IP-0001 uses it");
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MyERP.Inventory;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -383,6 +384,43 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             throw new BusinessException(MyERPDomainErrorCodes.OpeningStockRequiresCreateNewBatch)
                 .WithData("item", ItemCode);
+        }
+    }
+
+    /// <summary>
+    /// Blocks removing a UOM from the Item's UOM conversion table while an Item Price still uses that UOM
+    /// per ERPNext commit bbc5b1285f (<c>validate_removed_uoms_not_in_item_price</c> in <c>item.py</c>).
+    /// </summary>
+    public static void ValidateRemovedUomsNotInItemPrice(
+        IEnumerable<string>? previousUoms,
+        IEnumerable<string>? currentUoms,
+        IEnumerable<(string ItemPriceName, string Uom)>? existingItemPrices)
+    {
+        if (previousUoms == null || existingItemPrices == null)
+        {
+            return;
+        }
+
+        var currentSet = new HashSet<string>(
+            (currentUoms ?? Enumerable.Empty<string>()).Where(u => !string.IsNullOrWhiteSpace(u)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var removedUoms = new HashSet<string>(
+            previousUoms.Where(u => !string.IsNullOrWhiteSpace(u) && !currentSet.Contains(u)),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (removedUoms.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var price in existingItemPrices)
+        {
+            if (!string.IsNullOrWhiteSpace(price.Uom) && removedUoms.Contains(price.Uom))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"UOM {price.Uom} cannot be removed from the Item as Item Price {price.ItemPriceName} uses it.");
+            }
         }
     }
 }

@@ -881,4 +881,162 @@ public class PurchaseReceiptManager : DomainService
             ? Math.Round(unroundedSum, targetPrecision, MidpointRounding.AwayFromZero)
             : unroundedSum;
     }
+
+    /// <summary>
+    /// Resolves the credit/outgoing amount taken back from <c>Stock Received But Not Billed</c> when returning
+    /// stock from a rejected warehouse on a non-internal Purchase Receipt return
+    /// per ERPNext commits 39a75b170e, 097411fb47, and 3837f7b46a (<c>purchase_receipt/services/gl_composer.py</c>):
+    /// When the original receipt row had accepted quantity (<paramref name="originalReceiptAcceptedQty"/> != 0),
+    /// its valuation charges were absorbed by the accepted stock and the rejected stock was credited at net rate,
+    /// so the return debits <c>Stock Received But Not Billed</c> at the receipt's net rate
+    /// (<c>stockQty * baseNetRate / conversionFactor</c>) instead of the warehouse's current SLE value.
+    /// </summary>
+    public static decimal ResolveRejectedWarehouseReturnCreditAmount(
+        bool isReturn,
+        bool returnQtyFromRejectedWarehouse,
+        bool isInternalTransfer,
+        Guid? originalPurchaseReceiptItemId,
+        decimal originalReceiptAcceptedQty,
+        decimal returnStockQty,
+        decimal returnBaseNetRate,
+        decimal returnConversionFactor,
+        decimal sleStockValueDifference)
+    {
+        if (isReturn &&
+            returnQtyFromRejectedWarehouse &&
+            !isInternalTransfer &&
+            originalPurchaseReceiptItemId.HasValue &&
+            originalPurchaseReceiptItemId.Value != Guid.Empty &&
+            originalReceiptAcceptedQty != 0m)
+        {
+            var factor = returnConversionFactor > 0m ? returnConversionFactor : 1m;
+            return returnStockQty * returnBaseNetRate / factor;
+        }
+
+        return sleStockValueDifference;
+    }
+
+    /// <summary>
+    /// Determines whether a Purchase Receipt row (or Purchase Receipt Return row) was received at its linked
+    /// Purchase Invoice row's net rate and computes the exchange rate difference discrepancy to book/reverse
+    /// per ERPNext commits 1d8fad1d6b and 81f685b0f8 (<c>purchase_receipt/services/gl_composer.py</c>):
+    /// A return row in another UOM checks whether its original receipt row's net rate matched the invoice row's net rate.
+    /// </summary>
+    public static (bool IsAtInvoiceRate, decimal ExchangeRateDiscrepancy) CalculatePurchaseReceiptInvoiceExchangeDiscrepancy(
+        bool isReturn,
+        decimal receiptRowQty,
+        decimal receiptRowNetRate,
+        decimal receiptConversionRate,
+        decimal? originalReceiptRowNetRate,
+        decimal invoiceRowNetRate,
+        decimal invoiceConversionRate,
+        int precision = 2)
+    {
+        var isAtInvoiceRate = isReturn
+            ? (originalReceiptRowNetRate.HasValue && originalReceiptRowNetRate.Value == invoiceRowNetRate)
+            : (receiptRowNetRate == invoiceRowNetRate);
+
+        if (!isAtInvoiceRate || invoiceConversionRate <= 0m || receiptConversionRate == invoiceConversionRate)
+        {
+            return (isAtInvoiceRate, 0m);
+        }
+
+        var discrepancy = Math.Round(
+            (receiptRowQty * receiptRowNetRate) * (receiptConversionRate - invoiceConversionRate),
+            precision,
+            MidpointRounding.AwayFromZero);
+
+        return (true, discrepancy);
+    }
+
+    /// <summary>
+    /// Resolves the incoming rate for an internal-transfer Purchase Receipt or Purchase Invoice row (including returns),
+    /// reaching the outward delivery/invoice row through the original receipt/invoice row on a return
+    /// and adding any Landed Cost Voucher rate per ERPNext commit 93f8c80982 (<c>stock_ledger.py</c>).
+    /// </summary>
+    public static decimal ResolveInternalTransferIncomingRate(
+        decimal outwardDeliverySleStockValueDifference,
+        decimal outwardDeliverySleActualQty,
+        decimal landedCostVoucherAmount = 0m,
+        decimal currentSleActualQty = 0m)
+    {
+        var baseRate = outwardDeliverySleActualQty != 0m
+            ? Math.Abs(outwardDeliverySleStockValueDifference / outwardDeliverySleActualQty)
+            : 0m;
+
+        if (landedCostVoucherAmount != 0m && currentSleActualQty != 0m)
+        {
+            baseRate += landedCostVoucherAmount / Math.Abs(currentSleActualQty);
+        }
+
+        return baseRate;
+    }
+
+    /// <summary>
+    /// Selects the latest purchase voucher for <c>get_last_purchase_details</c> across Purchase Order,
+    /// Purchase Receipt, and Purchase Invoice, skipping free rows and internal supplier purchases,
+    /// and tie-breaking on the same date in priority order (Purchase Order &gt; Purchase Receipt &gt; Purchase Invoice)
+    /// per ERPNext commits c08a053ae3 and 9d7f0c4807 (<c>item.py</c>).
+    /// </summary>
+    public static (string VoucherType, DateTime PurchaseDate, decimal BaseNetRatePerStockUom)? ResolveLastPurchaseDetails(
+        IEnumerable<(string VoucherType, DateTime PurchaseDate, decimal BaseNetRate, decimal ConversionFactor, bool IsFreeItem, bool IsInternalSupplier)>? candidates)
+    {
+        if (candidates == null)
+        {
+            return null;
+        }
+
+        static int GetVoucherPriority(string voucherType) =>
+            voucherType.Replace(" ", string.Empty).ToUpperInvariant() switch
+            {
+                "PURCHASEORDER" => 3,
+                "PURCHASERECEIPT" => 2,
+                "PURCHASEINVOICE" => 1,
+                _ => 0
+            };
+
+        var eligible = candidates
+            .Where(c => !c.IsFreeItem && !c.IsInternalSupplier)
+            .OrderByDescending(c => c.PurchaseDate.Date)
+            .ThenByDescending(c => GetVoucherPriority(c.VoucherType))
+            .ToList();
+
+        if (eligible.Count == 0)
+        {
+            return null;
+        }
+
+        var winner = eligible[0];
+        var factor = winner.ConversionFactor > 0m ? winner.ConversionFactor : 1m;
+        return (winner.VoucherType, winner.PurchaseDate.Date, winner.BaseNetRate / factor);
+    }
+
+    /// <summary>
+    /// Resolves the default supplier for a buying document from its item rows' item defaults or item group defaults,
+    /// stopping at the first row that yields a default supplier per ERPNext commit 63717f769f (<c>buying_controller.py</c>).
+    /// </summary>
+    public static Guid? ResolveFirstDefaultSupplierFromItems(
+        IEnumerable<(Guid? ItemDefaultSupplierId, Guid? ItemGroupDefaultSupplierId)>? itemRows)
+    {
+        if (itemRows == null)
+        {
+            return null;
+        }
+
+        foreach (var row in itemRows)
+        {
+            var supplierId = (row.ItemDefaultSupplierId.HasValue && row.ItemDefaultSupplierId.Value != Guid.Empty)
+                ? row.ItemDefaultSupplierId
+                : ((row.ItemGroupDefaultSupplierId.HasValue && row.ItemGroupDefaultSupplierId.Value != Guid.Empty)
+                    ? row.ItemGroupDefaultSupplierId
+                    : null);
+
+            if (supplierId.HasValue)
+            {
+                return supplierId.Value;
+            }
+        }
+
+        return null;
+    }
 }
