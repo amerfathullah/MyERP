@@ -101,6 +101,31 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
                 .WithData("detail", $"Supplier Warehouse must be {originalSupplierWarehouseId.Value}, the same as in {originalReceiptNumber}.");
         }
     }
+
+    /// <summary>
+    /// Validates that every Secondary Item row on this Subcontracting Receipt references a Finished Good row
+    /// that is present on this receipt per ERPNext commits 31d2158574 and 3c355788bb (<c>validate_secondary_items</c>).
+    /// </summary>
+    public void ValidateSecondaryItemsHaveFinishedGoodRow()
+    {
+        var fgRowIds = _items
+            .Where(i => string.IsNullOrWhiteSpace(i.SecondaryItemType) && !i.ValuationType.HasValue)
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        for (var idx = 0; idx < _items.Count; idx++)
+        {
+            var item = _items[idx];
+            if (!string.IsNullOrWhiteSpace(item.SecondaryItemType) || item.ValuationType.HasValue)
+            {
+                if (!item.ReferenceFinishedGoodRowId.HasValue || !fgRowIds.Contains(item.ReferenceFinishedGoodRowId.Value))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{idx + 1}: The Finished Good row of Secondary Item {item.ItemName} is not on this receipt. Remove the Secondary Item row.");
+                }
+            }
+        }
+    }
 }
 
 public class SubcontractingReceiptItem : Entity<Guid>
@@ -110,6 +135,8 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public string ItemName { get; set; } = null!;
     public decimal Qty { get; set; }
     public decimal RejectedQty { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal ReturnedQty { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount => Qty * Rate;
     public Guid? WarehouseId { get; set; }
@@ -119,6 +146,23 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
+
+    /// <summary>Finished Good row on this receipt that a Secondary Item row belongs to (ERPNext reference_name, commit 31d2158574).</summary>
+    public Guid? ReferenceFinishedGoodRowId { get; set; }
+
+    /// <summary>Returnable quantity excluding process loss (<c>ReceivedQty - ProcessLossQty</c>) per ERPNext commit 17c2629110.</summary>
+    public decimal ReturnableQty => Math.Max(0m, (Qty + RejectedQty) - ProcessLossQty);
+
+    /// <summary>
+    /// Determines whether a return row with <paramref name="currentReturnReceivedQty"/> (negative) completes the return
+    /// of this receipt row's returnable quantity (<c>ReceivedQty - ProcessLossQty</c>) per ERPNext commit 22222b39a8.
+    /// </summary>
+    public bool IsFinalFinishedGoodReturn(decimal currentReturnReceivedQty, int precision = 4)
+    {
+        var totalReturned = Math.Round(ReturnedQty - currentReturnReceivedQty, precision, MidpointRounding.AwayFromZero);
+        var returnable = Math.Round((Qty + RejectedQty) - ProcessLossQty, precision, MidpointRounding.AwayFromZero);
+        return totalReturned >= returnable;
+    }
 
     /// <summary>For secondary items: Co-Product, By-Product, Scrap, Additional Finished Good (PR #59021).</summary>
     public string? SecondaryItemType { get; set; }

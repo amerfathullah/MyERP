@@ -207,4 +207,66 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Filters Subcontracting Receipt rows for a Landed Cost Voucher so landed cost is spread over
+    /// Finished Goods only, excluding secondary items (<c>SecondaryItemType</c> or <c>ValuationType</c> set)
+    /// per ERPNext commit 42258d5660 (<c>get_pr_items</c> in <c>landed_cost_voucher.py</c>).
+    /// </summary>
+    public static List<Purchasing.Entities.SubcontractingReceiptItem> FilterEligibleSubcontractingReceiptItems(
+        IEnumerable<Purchasing.Entities.SubcontractingReceiptItem>? receiptItems)
+    {
+        if (receiptItems == null)
+        {
+            return new List<Purchasing.Entities.SubcontractingReceiptItem>();
+        }
+
+        return receiptItems
+            .Where(i => string.IsNullOrWhiteSpace(i.SecondaryItemType) && !i.ValuationType.HasValue)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Resolves the distinct Project IDs whose purchase cost must be refreshed when a Landed Cost Voucher
+    /// updates claimed landed cost on its vendor Purchase Invoices (including projects on return invoices
+    /// against those vendor invoices, and falling back from row project to invoice header project)
+    /// per ERPNext commit b2bf715e2d (<c>update_project_purchase_cost</c> in <c>landed_cost_voucher.py</c>).
+    /// </summary>
+    public static HashSet<Guid> ResolveAffectedProjectIdsForVendorInvoices(
+        IReadOnlyCollection<Guid> vendorInvoiceIds,
+        IEnumerable<(Guid InvoiceId, Guid? ReturnAgainstInvoiceId, Guid? HeaderProjectId, IEnumerable<Guid?> RowProjectIds)>? allInvoices)
+    {
+        var projects = new HashSet<Guid>();
+        if (vendorInvoiceIds == null || vendorInvoiceIds.Count == 0 || allInvoices == null)
+        {
+            return projects;
+        }
+
+        var vendorSet = vendorInvoiceIds.ToHashSet();
+        foreach (var inv in allInvoices)
+        {
+            var isMatched = vendorSet.Contains(inv.InvoiceId)
+                || (inv.ReturnAgainstInvoiceId.HasValue && vendorSet.Contains(inv.ReturnAgainstInvoiceId.Value));
+            if (!isMatched)
+            {
+                continue;
+            }
+
+            if (inv.RowProjectIds != null)
+            {
+                foreach (var rowProj in inv.RowProjectIds)
+                {
+                    var effective = (rowProj.HasValue && rowProj.Value != Guid.Empty)
+                        ? rowProj
+                        : ((inv.HeaderProjectId.HasValue && inv.HeaderProjectId.Value != Guid.Empty) ? inv.HeaderProjectId : null);
+                    if (effective.HasValue)
+                    {
+                        projects.Add(effective.Value);
+                    }
+                }
+            }
+        }
+
+        return projects;
+    }
 }

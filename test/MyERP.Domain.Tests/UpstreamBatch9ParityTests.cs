@@ -2020,4 +2020,157 @@ public class UpstreamBatch9ParityTests
                 existingItemPrices: new[] { ("IP-0001", "Box") }));
         uomEx.Data["detail"]!.ToString()!.ShouldContain("UOM Box cannot be removed from the Item as Item Price IP-0001 uses it");
     }
+
+    [Fact]
+    public void SubcontractingAdditionalCostsRunningRounding_ServiceItemPairingAndCompanyCurrencyRmCost_PerRmTransferStatus_ProcessLossReturnAndOrphanSecondaryGuard_LcvFgFilter_And_InwardConversionBatchReturnSecondaryAggregation_4884d5e433_9d9cfcae0c_c3b83d3d20_cd45f385e5_adbe37cbad_922ad20647_e9d264a6a4_17c2629110_22222b39a8_31d2158574_42258d5660_76c448206a_a36fc2fd7a_9b5a83412c_3770398f2f_19b846a497_a7755dcb8d()
+    {
+        // 1. Subcontracting additional costs running-total rounding & zero-weight guard (4884d5e433, 9d9cfcae0c, c3b83d3d20)
+        var fg1 = Guid.NewGuid();
+        var fg2 = Guid.NewGuid();
+        var fg3 = Guid.NewGuid();
+        var sec = Guid.NewGuid();
+        // 100.00 split across 3 equal FG rows: 33.33, 33.34, 33.33 -> sum = 100.00!
+        var shares = MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateAdditionalCostPerQtyForFinishedGoods(
+            totalAdditionalCosts: 100m,
+            distributeBasedOn: "Qty",
+            rows: new[]
+            {
+                (fg1, false, 100m, 1m),
+                (fg2, false, 100m, 1m),
+                (fg3, false, 100m, 1m),
+                (sec, true, 50m, 5m) // Secondary item ignored!
+            },
+            precision: 2);
+        shares.Count.ShouldBe(3);
+        shares.Sum(s => s.ShareAmount).ShouldBe(100.00m);
+        shares[0].ShareAmount.ShouldBe(33.33m);
+        shares[1].ShareAmount.ShouldBe(33.34m);
+        shares[2].ShareAmount.ShouldBe(33.33m);
+
+        // Zero total weight throws (c3b83d3d20)
+        var zeroWeightEx = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateAdditionalCostPerQtyForFinishedGoods(
+                totalAdditionalCosts: 50m,
+                distributeBasedOn: "Amount",
+                rows: new[] { (fg1, false, 0m, 2m) }));
+        zeroWeightEx.Data["detail"]!.ToString()!.ShouldContain("Cannot distribute Additional Costs based on Amount, as the finished goods have zero Amount");
+
+        // 2. Cost Subcontracting Order raw materials from BOM unrounded base_rate & service item pairing (adbe37cbad, 922ad20647, eb6aecb851, cd45f385e5, 90944b84dd)
+        var rmCosting = MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateSubcontractingRawMaterialCostInCompanyCurrency(
+            bomItemBaseRate: 100m,
+            bomItemConversionFactor: 3m, // Unrounded rate = 33.333333...
+            suppliedRequiredQty: 3m,
+            bomQuantity: 2m);
+        rmCosting.SuppliedItemRate.ShouldBe(33.33m);
+        rmCosting.SuppliedItemAmount.ShouldBe(100.00m); // 3 * (100/3) = 100.00 from unrounded base_rate!
+        rmCosting.OrderItemRmCostPerQty.ShouldBe(150.00m); // (100 * 3) / 2 = 150.00
+
+        var poItem1 = Guid.NewGuid();
+        var missingServiceEx = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingOrderServiceItemPairing(
+                new[] { (1, "FG-001", (Guid?)poItem1), (2, "FG-002", (Guid?)Guid.NewGuid()) },
+                new Guid?[] { poItem1 }));
+        missingServiceEx.Data["detail"]!.ToString()!.ShouldContain("Row 2: Finished Good FG-002 has no Service Item row");
+
+        // 3. Subcontracting Order per-RM transfer status (e9d264a6a4)
+        var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), Guid.NewGuid(), "SCO-001", DateTime.UtcNow, Guid.NewGuid());
+        var rmA = Guid.NewGuid();
+        var rmB = Guid.NewGuid();
+        sco.AddSuppliedItem(new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmA, "RM-A", 10m) { TransferredQty = 15m });
+        sco.AddSuppliedItem(new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmB, "RM-B", 10m) { TransferredQty = 5m });
+        // Total supplied (20) >= total required (20), but RM-B is still short (5 < 10) -> Partial Material Transferred!
+        sco.GetMaterialTransferStatus().ShouldBe("Partial Material Transferred");
+        sco.SuppliedItems[1].TransferredQty = 10m;
+        sco.GetMaterialTransferStatus().ShouldBe("Material Transferred");
+
+        // 4. Subcontracting Receipt process-loss returnable qty, orphan secondary item guard, and LCV FG filter (17c2629110, 22222b39a8, 31d2158574, 42258d5660)
+        var scr = new MyERP.Purchasing.Entities.SubcontractingReceipt(Guid.NewGuid(), Guid.NewGuid(), "SCR-001", DateTime.UtcNow, Guid.NewGuid(), sco.Id);
+        var fgRow = new MyERP.Purchasing.Entities.SubcontractingReceiptItem(Guid.NewGuid(), scr.Id, Guid.NewGuid(), "FG-001", 8m, 100m)
+        {
+            ProcessLossQty = 2m,
+            ReturnedQty = 3m
+        };
+        // ReceivedQty (Qty) = 8, ProcessLossQty = 2 -> ReturnableQty = 6. Returning -3 more brings total returned to 6 >= 6!
+        fgRow.ReturnableQty.ShouldBe(6m);
+        fgRow.IsFinalFinishedGoodReturn(-3m).ShouldBeTrue();
+
+        scr.AddItem(fgRow);
+        var orphanSecRow = new MyERP.Purchasing.Entities.SubcontractingReceiptItem(Guid.NewGuid(), scr.Id, Guid.NewGuid(), "SCRAP-01", 1m, 10m)
+        {
+            SecondaryItemType = "Scrap",
+            ReferenceFinishedGoodRowId = Guid.NewGuid() // Not on this receipt!
+        };
+        scr.AddItem(orphanSecRow);
+        var orphanEx = Should.Throw<BusinessException>(() => scr.ValidateSecondaryItemsHaveFinishedGoodRow());
+        orphanEx.Data["detail"]!.ToString()!.ShouldContain("The Finished Good row of Secondary Item SCRAP-01 is not on this receipt");
+
+        var lcvEligible = LandedCostVoucher.FilterEligibleSubcontractingReceiptItems(scr.Items);
+        lcvEligible.Count.ShouldBe(1);
+        lcvEligible[0].Id.ShouldBe(fgRow.Id);
+
+        // 5. Subcontracting Inward Order conversion factor from SO row, batch return cap, and secondary item aggregation (76c448206a, a36fc2fd7a, 9b5a83412c, 3770398f2f, 19b846a497, a7755dcb8d)
+        var scio = new MyERP.Purchasing.Entities.SubcontractingInwardOrder(Guid.NewGuid(), Guid.NewGuid(), "SCIO-001", DateTime.UtcNow, Guid.NewGuid());
+        var soRow1 = Guid.NewGuid();
+        var soRowZero = Guid.NewGuid();
+        var scioItem1 = new MyERP.Purchasing.Entities.SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 10m, 50m)
+        {
+            SalesOrderItemId = soRow1,
+            SubcontractingConversionFactor = 1m
+        };
+        var scioItem2 = new MyERP.Purchasing.Entities.SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, Guid.NewGuid(), 10m, 50m)
+        {
+            SalesOrderItemId = soRowZero,
+            SubcontractingConversionFactor = 2.5m
+        };
+        scio.AddItem(scioItem1);
+        scio.AddItem(scioItem2);
+        scio.SyncSubcontractingConversionFactorsFromSalesOrder(
+            new Dictionary<Guid, (decimal StockQty, decimal FgItemQty)>
+            {
+                [soRow1] = (12m, 4m),
+                [soRowZero] = (0m, 4m) // Zero stock_qty -> keep existing 2.5m ratio!
+            });
+        scioItem1.SubcontractingConversionFactor.ShouldBe(3m);
+        scioItem2.SubcontractingConversionFactor.ShouldBe(2.5m);
+
+        var batchOverflowEx = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateInwardReturnBatchQuantities(
+                scioNumber: "SCIO-001",
+                unreturnedDeliveredBatchQtyByDetail: new Dictionary<(Guid, string), decimal>
+                {
+                    [(scioItem1.Id, "BATCH-01")] = 5m
+                },
+                returnRows: new[]
+                {
+                    (1, scioItem1.Id, (IReadOnlyDictionary<string, decimal>)new Dictionary<string, decimal> { ["BATCH-01"] = 3m }),
+                    (2, scioItem1.Id, (IReadOnlyDictionary<string, decimal>)new Dictionary<string, decimal> { ["BATCH-01"] = 3m })
+                }));
+        batchOverflowEx.Data["detail"]!.ToString()!.ShouldContain("Row #2: Only 2 of Batch BATCH-01 delivered against Subcontracting Inward Order SCIO-001 is left to return");
+
+        var secItemId = Guid.NewGuid();
+        var secWhId = Guid.NewGuid();
+        var summedInwardSec = MyERP.Purchasing.DomainServices.SubcontractingManager.AggregateAndValidateInwardSecondaryItems(
+            isCancel: false,
+            entrySecondaryRows: new[]
+            {
+                (secItemId, "BYPROD-1", secWhId, 1.11114m),
+                (secItemId, "BYPROD-1", secWhId, 2.22224m)
+            },
+            producedQtyPrecision: 4);
+        summedInwardSec.Count.ShouldBe(1);
+        summedInwardSec[(secItemId, secWhId)].ShouldBe(3.3334m);
+
+        Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.AggregateAndValidateInwardSecondaryItems(
+                isCancel: true,
+                entrySecondaryRows: new[]
+                {
+                    (secItemId, "BYPROD-1", secWhId, 2m),
+                    (secItemId, "BYPROD-1", secWhId, 2m)
+                },
+                existingScioSecondaryItems: new Dictionary<(Guid, Guid), (decimal, decimal)>
+                {
+                    [(secItemId, secWhId)] = (5m, 2m) // 5 - 4 = 1 < 2 delivered!
+                }));
+    }
 }

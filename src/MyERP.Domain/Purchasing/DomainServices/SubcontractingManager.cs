@@ -1157,6 +1157,224 @@ public class SubcontractingManager : DomainService
 
         return updatedTransferredBySre;
     }
+
+    /// <summary>
+    /// Distributes Subcontracting Receipt / Order additional costs across Finished Good rows using running-total rounding
+    /// and guards against zero total weight per ERPNext commits 4884d5e433, 9d9cfcae0c, and c3b83d3d20
+    /// (<c>calculate_additional_costs</c> in <c>subcontracting_controller.py</c>):
+    /// - Excludes secondary item rows (<c>IsSecondaryItem == true</c>).
+    /// - Throws when <paramref name="totalAdditionalCosts"/> != 0 and total FG weight (<c>Amount</c> or <c>QtyForCosting</c>) is 0.
+    /// - Rounds cumulative share at each FG row so shares sum to <paramref name="totalAdditionalCosts"/> and no row share goes negative.
+    /// </summary>
+    public static List<(Guid RowId, decimal ShareAmount, decimal AdditionalCostPerQty)> CalculateAdditionalCostPerQtyForFinishedGoods(
+        decimal totalAdditionalCosts,
+        string distributeBasedOn,
+        IReadOnlyList<(Guid RowId, bool IsSecondaryItem, decimal Amount, decimal QtyForCosting)> rows,
+        int precision = 2)
+    {
+        var result = new List<(Guid RowId, decimal ShareAmount, decimal AdditionalCostPerQty)>();
+        if (rows == null || rows.Count == 0)
+        {
+            return result;
+        }
+
+        var fgRows = rows.Where(r => !r.IsSecondaryItem).ToList();
+        if (totalAdditionalCosts == 0m)
+        {
+            foreach (var r in fgRows)
+            {
+                result.Add((r.RowId, 0m, 0m));
+            }
+            return result;
+        }
+
+        var basedOnAmount = string.Equals(distributeBasedOn, "Amount", StringComparison.OrdinalIgnoreCase);
+        var weights = fgRows.Select(r => basedOnAmount ? r.Amount : r.QtyForCosting).ToList();
+        var totalWeight = weights.Sum();
+
+        if (totalWeight == 0m)
+        {
+            var basisLabel = basedOnAmount ? "Amount" : "Qty";
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot distribute Additional Costs based on {basisLabel}, as the finished goods have zero {basisLabel}.");
+        }
+
+        decimal allocated = 0m;
+        decimal cumulativeWeight = 0m;
+
+        for (var i = 0; i < fgRows.Count; i++)
+        {
+            var fg = fgRows[i];
+            cumulativeWeight += weights[i];
+            var cumulativeShare = Math.Round(
+                totalAdditionalCosts * cumulativeWeight / totalWeight,
+                precision,
+                MidpointRounding.AwayFromZero);
+            var share = Math.Round(cumulativeShare - allocated, precision, MidpointRounding.AwayFromZero);
+            allocated = cumulativeShare;
+
+            var perQty = fg.QtyForCosting != 0m ? share / fg.QtyForCosting : 0m;
+            result.Add((fg.RowId, share, perQty));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Costs a Subcontracting Order's supplied raw materials and <c>rm_cost_per_qty</c> in company currency
+    /// from the BOM Item's unrounded <c>BaseRate</c> per ERPNext commits adbe37cbad, 922ad20647, and eb6aecb851.
+    /// </summary>
+    public static (decimal SuppliedItemRate, decimal SuppliedItemAmount, decimal OrderItemRmCostPerQty) CalculateSubcontractingRawMaterialCostInCompanyCurrency(
+        decimal bomItemBaseRate,
+        decimal bomItemConversionFactor,
+        decimal suppliedRequiredQty,
+        decimal bomQuantity,
+        IEnumerable<(decimal BaseRate, decimal Qty)>? allBomItems = null,
+        int ratePrecision = 2,
+        int amountPrecision = 2,
+        int rmCostPerQtyPrecision = 2)
+    {
+        var factor = bomItemConversionFactor > 0m ? bomItemConversionFactor : 1m;
+        var unroundedRate = bomItemBaseRate / factor;
+        var amount = Math.Round(suppliedRequiredQty * unroundedRate, amountPrecision, MidpointRounding.AwayFromZero);
+        var rate = Math.Round(unroundedRate, ratePrecision, MidpointRounding.AwayFromZero);
+
+        var totalBomRmBaseCost = allBomItems != null
+            ? allBomItems.Sum(i => i.BaseRate * i.Qty)
+            : (bomItemBaseRate * suppliedRequiredQty);
+        var bomQty = bomQuantity > 0m ? bomQuantity : 1m;
+        var rmCostPerQty = Math.Round(totalBomRmBaseCost / bomQty, rmCostPerQtyPrecision, MidpointRounding.AwayFromZero);
+
+        return (rate, amount, rmCostPerQty);
+    }
+
+    /// <summary>
+    /// Validates that every Subcontracting Order Finished Good row has a matching Service Item row paired by
+    /// <c>PurchaseOrderItemId</c> per ERPNext commits cd45f385e5 and 90944b84dd (<c>subcontracting_order.py</c>).
+    /// </summary>
+    public static void ValidateSubcontractingOrderServiceItemPairing(
+        IEnumerable<(int RowNumber, string ItemCode, Guid? PurchaseOrderItemId)> finishedGoodRows,
+        IEnumerable<Guid?> serviceItemPurchaseOrderItemIds)
+    {
+        if (finishedGoodRows == null)
+        {
+            return;
+        }
+
+        var servicePoItems = new HashSet<Guid>(
+            (serviceItemPurchaseOrderItemIds ?? Enumerable.Empty<Guid?>())
+                .Where(id => id.HasValue && id.Value != Guid.Empty)
+                .Select(id => id!.Value));
+
+        foreach (var fg in finishedGoodRows)
+        {
+            if (!fg.PurchaseOrderItemId.HasValue || !servicePoItems.Contains(fg.PurchaseOrderItemId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row {fg.RowNumber}: Finished Good {fg.ItemCode} has no Service Item row.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates on a Subcontracting Return against a Subcontracting Inward Order that no row returns more of a batch
+    /// than was delivered and not yet returned (tracking remaining open batch qty across rows in the entry)
+    /// per ERPNext commits 9b5a83412c and 7e4719bac3 (<c>validate_returned_batch_qty</c> in <c>subcontracting_inward_controller.py</c>).
+    /// </summary>
+    public static void ValidateInwardReturnBatchQuantities(
+        string scioNumber,
+        IReadOnlyDictionary<(Guid ScioDetailId, string BatchNo), decimal> unreturnedDeliveredBatchQtyByDetail,
+        IEnumerable<(int RowNumber, Guid ScioDetailId, IReadOnlyDictionary<string, decimal> BatchQuantities)> returnRows,
+        int precision = 4)
+    {
+        if (returnRows == null)
+        {
+            return;
+        }
+
+        var openQty = new Dictionary<(Guid ScioDetailId, string BatchNo), decimal>();
+        if (unreturnedDeliveredBatchQtyByDetail != null)
+        {
+            foreach (var (k, v) in unreturnedDeliveredBatchQtyByDetail)
+            {
+                openQty[k] = v;
+            }
+        }
+
+        foreach (var row in returnRows)
+        {
+            if (row.BatchQuantities == null)
+            {
+                continue;
+            }
+
+            foreach (var (batchNo, rawQty) in row.BatchQuantities)
+            {
+                var qty = Math.Abs(rawQty);
+                var key = (row.ScioDetailId, batchNo);
+                var allowedQty = Math.Round(openQty.GetValueOrDefault(key, 0m), precision, MidpointRounding.AwayFromZero);
+                openQty[key] = allowedQty - qty;
+
+                if (Math.Round(qty, precision, MidpointRounding.AwayFromZero) > allowedQty)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{row.RowNumber}: Only {allowedQty} of Batch {batchNo} delivered against Subcontracting Inward Order {scioNumber} is left to return.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Aggregates secondary item rows on a Subcontracting Inward Manufacture Stock Entry by <c>(ItemId, TargetWarehouseId)</c>,
+    /// rounds the summed quantity to <paramref name="producedQtyPrecision"/>, validates on cancel that all rows of a secondary item
+    /// together do not reduce <c>ProducedQty</c> below <c>DeliveredQty</c>, and produces one deduplicated row per
+    /// <c>(ItemId, TargetWarehouseId)</c> per ERPNext commits 3770398f2f, 19b846a497, and a7755dcb8d.
+    /// </summary>
+    public static Dictionary<(Guid ItemId, Guid TargetWarehouseId), decimal> AggregateAndValidateInwardSecondaryItems(
+        bool isCancel,
+        IEnumerable<(Guid ItemId, string ItemCode, Guid TargetWarehouseId, decimal TransferQty)> entrySecondaryRows,
+        IReadOnlyDictionary<(Guid ItemId, Guid TargetWarehouseId), (decimal ProducedQty, decimal DeliveredQty)>? existingScioSecondaryItems = null,
+        int producedQtyPrecision = 4)
+    {
+        var summed = new Dictionary<(Guid ItemId, Guid TargetWarehouseId), decimal>();
+        var itemCodes = new Dictionary<(Guid ItemId, Guid TargetWarehouseId), string>();
+
+        if (entrySecondaryRows == null)
+        {
+            return summed;
+        }
+
+        foreach (var row in entrySecondaryRows)
+        {
+            var key = (row.ItemId, row.TargetWarehouseId);
+            var delta = isCancel ? -row.TransferQty : row.TransferQty;
+            summed[key] = summed.GetValueOrDefault(key, 0m) + delta;
+            itemCodes[key] = row.ItemCode;
+        }
+
+        foreach (var key in summed.Keys.ToList())
+        {
+            summed[key] = Math.Round(summed[key], producedQtyPrecision, MidpointRounding.AwayFromZero);
+
+            if (isCancel &&
+                existingScioSecondaryItems != null &&
+                existingScioSecondaryItems.TryGetValue(key, out var existing))
+            {
+                var remainingProduced = Math.Round(
+                    existing.ProducedQty - Math.Abs(summed[key]),
+                    producedQtyPrecision,
+                    MidpointRounding.AwayFromZero);
+                var delivered = Math.Round(existing.DeliveredQty, producedQtyPrecision, MidpointRounding.AwayFromZero);
+                if (delivered > remainingProduced)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Cannot cancel Manufacture Stock Entry because Secondary Item {itemCodes[key]} has already delivered {existing.DeliveredQty}.");
+                }
+            }
+        }
+
+        return summed;
+    }
 }
 
 public class SubcontractingRmConsumption

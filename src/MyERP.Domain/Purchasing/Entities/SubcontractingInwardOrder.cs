@@ -165,6 +165,32 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
         var item = Items.FirstOrDefault(i => i.ItemId == itemId);
         return item?.Quantity ?? 0;
     }
+
+    /// <summary>
+    /// Refreshes each item row's <see cref="SubcontractingInwardOrderItem.SubcontractingConversionFactor"/>
+    /// from its linked Sales Order Item (<c>StockQty / FgItemQty</c>) whenever both quantities are non-zero,
+    /// preserving the existing ratio when the Sales Order row quantity is zero
+    /// per ERPNext commits 76c448206a and a36fc2fd7a (<c>set_subcontracting_conversion_factor</c>).
+    /// </summary>
+    public void SyncSubcontractingConversionFactorsFromSalesOrder(
+        IReadOnlyDictionary<Guid, (decimal StockQty, decimal FgItemQty)> salesOrderItemsById)
+    {
+        if (salesOrderItemsById == null)
+        {
+            return;
+        }
+
+        foreach (var item in Items)
+        {
+            if (item.SalesOrderItemId.HasValue &&
+                salesOrderItemsById.TryGetValue(item.SalesOrderItemId.Value, out var soItem) &&
+                soItem.StockQty != 0m &&
+                soItem.FgItemQty != 0m)
+            {
+                item.SubcontractingConversionFactor = soItem.StockQty / soItem.FgItemQty;
+            }
+        }
+    }
 }
 
 /// <summary>FG item expected from subcontracting.</summary>
@@ -173,6 +199,12 @@ public class SubcontractingInwardOrderItem : FullAuditedEntity<Guid>, IMultiTena
     public Guid? TenantId { get; set; }
     public Guid SubcontractingInwardOrderId { get; set; }
     public Guid ItemId { get; set; }
+
+    /// <summary>Linked Sales Order Item ID (ERPNext sales_order_item).</summary>
+    public Guid? SalesOrderItemId { get; set; }
+
+    /// <summary>Ratio of Sales Order Item stock_qty to fg_item_qty (ERPNext subcontracting_conversion_factor, commit 76c448206a).</summary>
+    public decimal SubcontractingConversionFactor { get; set; } = 1m;
 
     /// <summary>BOM used for manufacturing this item.</summary>
     public Guid? BomId { get; set; }

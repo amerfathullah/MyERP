@@ -129,6 +129,42 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = SubcontractingOrderStatus.Open;
     }
 
+    /// <summary>
+    /// Computes the raw material transfer status of this Subcontracting Order
+    /// per ERPNext commit e9d264a6a4 (<c>get_transfer_status</c> in <c>subcontracting_order.py</c>):
+    /// Returns <c>"Material Transferred"</c> only when every distinct raw material (<c>ItemId</c>) is fully supplied
+    /// across all supplied item rows; returns <c>"Partial Material Transferred"</c> if any raw material is short while
+    /// some material has been supplied; returns <c>"Open"</c> if no raw material has been supplied.
+    /// </summary>
+    public string GetMaterialTransferStatus(int precision = 4)
+    {
+        var requiredByRm = new Dictionary<Guid, decimal>();
+        var suppliedByRm = new Dictionary<Guid, decimal>();
+
+        foreach (var item in _suppliedItems)
+        {
+            requiredByRm[item.ItemId] = requiredByRm.GetValueOrDefault(item.ItemId, 0m) + item.RequiredQty;
+            suppliedByRm[item.ItemId] = suppliedByRm.GetValueOrDefault(item.ItemId, 0m) + item.TransferredQty;
+        }
+
+        if (!suppliedByRm.Values.Any(q => q > 0m))
+        {
+            return "Open";
+        }
+
+        foreach (var (rmItemId, reqQty) in requiredByRm)
+        {
+            var supQty = suppliedByRm.GetValueOrDefault(rmItemId, 0m);
+            if (Math.Round(supQty, precision, MidpointRounding.AwayFromZero) <
+                Math.Round(reqQty, precision, MidpointRounding.AwayFromZero))
+            {
+                return "Partial Material Transferred";
+            }
+        }
+
+        return "Material Transferred";
+    }
+
     private void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.Amount);
