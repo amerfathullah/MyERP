@@ -348,8 +348,9 @@ export class PurchaseReceiptFormComponent implements OnInit {
       });
     }
 
-    // Handle return creation from detail page "Create Return" action
+    // Handle return creation from detail page "Create Return" / "Return Rejected Qty" action
     const returnAgainst = this.route.snapshot.queryParams['returnAgainst'];
+    const returnRejectedOnly = this.route.snapshot.queryParams['returnRejected'] === 'true';
     if (returnAgainst && !this.isEditMode) {
       this.isReturn = true;
       this.form.patchValue({ isReturn: true, returnAgainstId: returnAgainst });
@@ -360,29 +361,73 @@ export class PurchaseReceiptFormComponent implements OnInit {
           warehouseId: original.warehouseId ?? '',
           purchaseOrderId: original.purchaseOrderId ?? '',
         });
-        (original.items ?? []).forEach((item: any) => {
-          const itemQty = Number(item.quantity ?? 0);
-          const itemRejected = Number(item.rejectedQty ?? 0);
-          const returnQty = itemQty > 0 ? -Math.abs(itemQty) : 0;
-          const returnRejected = itemRejected > 0 ? -Math.abs(itemRejected) : 0;
-          const returnReceived = returnQty + returnRejected;
-
+        const mappedItems = this.mapOriginalReceiptItemsForReturn(original.items ?? [], returnRejectedOnly);
+        mappedItems.forEach((mapped: any) => {
           const itemGroup = this.fb.group({
-            itemId: [item.itemId ?? '', Validators.required],
-            description: [item.description ?? '', Validators.required],
-            warehouseId: [item.warehouseId ?? ''],
-            receivedQty: [returnReceived, [Validators.required]],
-            quantity: [returnQty, [Validators.required]],
-            rejectedQty: [returnRejected],
-            rejectedWarehouseId: [item.rejectedWarehouseId ?? ''],
-            unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
-            uom: [item.uom ?? 'EA'],
-            purchaseOrderItemId: [item.purchaseOrderItemId ?? null],
+            itemId: [mapped.itemId ?? '', Validators.required],
+            description: [mapped.description ?? '', Validators.required],
+            warehouseId: [mapped.warehouseId ?? ''],
+            receivedQty: [mapped.receivedQty, [Validators.required]],
+            quantity: [mapped.quantity, [Validators.required]],
+            rejectedQty: [mapped.rejectedQty],
+            rejectedWarehouseId: [mapped.rejectedWarehouseId ?? ''],
+            returnQtyFromRejectedWarehouse: [mapped.returnQtyFromRejectedWarehouse ?? false],
+            unitPrice: [mapped.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+            uom: [mapped.uom ?? 'EA'],
+            purchaseOrderItemId: [mapped.purchaseOrderItemId ?? null],
           });
           this.items.push(itemGroup);
         });
       });
     }
+  }
+
+  /**
+   * Maps original Purchase Receipt items into negative return rows, supporting
+   * ReturnQtyFromRejectedWarehouse mode where rejected stock is returned from the rejected warehouse
+   * (ERPNext commits 4cc2ffb2a8, b11c0c4076, 67725d7fd6, 097411fb47, 3837f7b46a).
+   */
+  mapOriginalReceiptItemsForReturn(items: any[], returnFromRejectedWarehouse = false): any[] {
+    if (returnFromRejectedWarehouse) {
+      return (items ?? [])
+        .filter((item: any) => Number(item.rejectedQty ?? 0) > 0)
+        .map((item: any) => {
+          const rejQty = -Math.abs(Number(item.rejectedQty ?? 0));
+          return {
+            itemId: item.itemId ?? '',
+            description: item.description ?? '',
+            warehouseId: item.rejectedWarehouseId ?? item.warehouseId ?? '',
+            receivedQty: rejQty,
+            quantity: rejQty,
+            rejectedQty: 0,
+            rejectedWarehouseId: item.rejectedWarehouseId ?? '',
+            returnQtyFromRejectedWarehouse: true,
+            unitPrice: item.unitPrice ?? 0,
+            uom: item.uom ?? 'EA',
+            purchaseOrderItemId: item.purchaseOrderItemId ?? null,
+          };
+        });
+    }
+
+    return (items ?? []).map((item: any) => {
+      const itemQty = Number(item.quantity ?? 0);
+      const itemRejected = Number(item.rejectedQty ?? 0);
+      const returnQty = itemQty > 0 ? -Math.abs(itemQty) : 0;
+      const returnRejected = itemRejected > 0 ? -Math.abs(itemRejected) : 0;
+      return {
+        itemId: item.itemId ?? '',
+        description: item.description ?? '',
+        warehouseId: item.warehouseId ?? '',
+        receivedQty: returnQty + returnRejected,
+        quantity: returnQty,
+        rejectedQty: returnRejected,
+        rejectedWarehouseId: item.rejectedWarehouseId ?? '',
+        returnQtyFromRejectedWarehouse: false,
+        unitPrice: item.unitPrice ?? 0,
+        uom: item.uom ?? 'EA',
+        purchaseOrderItemId: item.purchaseOrderItemId ?? null,
+      };
+    });
   }
 
   save(): void {

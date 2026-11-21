@@ -129,6 +129,40 @@ describe('PurchaseReceiptDetailComponent', () => {
       const returnItem = { quantity: -5 };
       expect(returnItem.quantity).toBeLessThan(0);
     });
+
+    it('maps rejected warehouse return rows with returnQtyFromRejectedWarehouse = true (4cc2ffb2a8, b11c0c4076, 3837f7b46a)', () => {
+      const mapOriginalReceiptItemsForReturn = (items: any[], returnFromRejectedWarehouse = false) =>
+        returnFromRejectedWarehouse
+          ? items
+              .filter((item: any) => Number(item.rejectedQty ?? 0) > 0)
+              .map((item: any) => {
+                const rejQty = -Math.abs(Number(item.rejectedQty ?? 0));
+                return {
+                  itemId: item.itemId,
+                  warehouseId: item.rejectedWarehouseId ?? item.warehouseId,
+                  receivedQty: rejQty,
+                  quantity: rejQty,
+                  rejectedQty: 0,
+                  rejectedWarehouseId: item.rejectedWarehouseId,
+                  returnQtyFromRejectedWarehouse: true,
+                };
+              })
+          : items;
+
+      const mapped = mapOriginalReceiptItemsForReturn(
+        [
+          { itemId: 'itm-1', quantity: 10, rejectedQty: 3, warehouseId: 'wh-acc', rejectedWarehouseId: 'wh-rej' },
+          { itemId: 'itm-2', quantity: 5, rejectedQty: 0, warehouseId: 'wh-acc', rejectedWarehouseId: null },
+        ],
+        true,
+      );
+      expect(mapped).toHaveLength(1);
+      expect(mapped[0].itemId).toBe('itm-1');
+      expect(mapped[0].quantity).toBe(-3);
+      expect(mapped[0].rejectedQty).toBe(0);
+      expect(mapped[0].warehouseId).toBe('wh-rej');
+      expect(mapped[0].returnQtyFromRejectedWarehouse).toBe(true);
+    });
   });
 
   describe('amendment', () => {

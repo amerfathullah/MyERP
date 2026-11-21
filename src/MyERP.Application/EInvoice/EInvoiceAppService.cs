@@ -221,14 +221,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         billingReferenceNumber ??= invoice.OriginalInvoiceNumber;
         billingReferenceUuid ??= invoice.OriginalInvoiceUuid;
 
-        var isForeignCustomer = !string.IsNullOrWhiteSpace(customer.Country) &&
-            !customer.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&
-            !customer.Country.Equals("Malaysia", StringComparison.OrdinalIgnoreCase);
-
-        var defaultBuyerTin = isForeignCustomer ? EInvoiceConsts.ForeignPartyTin : EInvoiceConsts.GenericBuyerTin;
-        var buyerTin = !string.IsNullOrWhiteSpace(invoice.BuyerTin)
-            ? invoice.BuyerTin
-            : (!string.IsNullOrWhiteSpace(customer.Tin) ? customer.Tin : defaultBuyerTin);
+        var (buyerTin, buyerStateCode, buyerCountryCode) = InvoiceDocumentBuilder.ResolveBuyerTinAndStateForCountry(
+            !string.IsNullOrWhiteSpace(invoice.BuyerTin) ? invoice.BuyerTin : customer.Tin,
+            customer.State,
+            customer.Country);
+        var isForeignCustomer = buyerCountryCode != "MYS";
 
         return new EInvoiceDocumentData
         {
@@ -260,9 +257,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                     SstRegistration = customer.SstRegistrationNumber,
                     Address = customer.Address,
                     City = customer.City,
-                    State = customer.State,
+                    State = buyerStateCode,
                     PostalCode = customer.PostalCode,
-                    CountryCode = customer.Country ?? "MYS",
+                    CountryCode = buyerCountryCode,
                     Phone = customer.Phone,
                     Email = customer.Email,
                 },
@@ -277,11 +274,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TaxAmount = item.TaxAmount,
-                ClassificationCode = invoice.IsConsolidated
-                    ? EInvoiceConsts.ConsolidatedClassificationCode
-                    : (LhdnClassificationCodes.Normalize(item.ClassificationCode)
+                ClassificationCode = InvoiceDocumentBuilder.NormalizeClassificationCode(
+                    LhdnClassificationCodes.Normalize(item.ClassificationCode)
                         ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
-                        ?? EInvoiceConsts.DefaultSalesClassificationCode),
+                        ?? item.ClassificationCode,
+                    invoice.IsConsolidated),
             }).ToList(),
         };
     }

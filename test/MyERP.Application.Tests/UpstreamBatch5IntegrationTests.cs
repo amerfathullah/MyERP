@@ -1488,4 +1488,120 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             dn.Items[0].Quantity.ShouldBe(4m);
         });
     }
+
+    [Fact]
+    public async Task PurchaseReceipt_ReturnQtyFromRejectedWarehouse_DeductsRejectedBinAndValidatesAgainstOriginalRejectedQty_3837f7b46a_097411fb47_b11c0c4076()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PR Rejected Return Co"), autoSave: true);
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-PR-REJ", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PurchaseReceipt", "PurchaseReceipt", "PR-REJ-"), autoSave: true);
+
+            var accWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Accepted WH"), autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Rejected WH") { WarehouseType = WarehouseType.Rejected }, autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PR-REJ-ITM", "Inspectable Item", ItemType.Goods) { Uom = "Unit", MaintainStock = true }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "Rejected Return Supplier"), autoSave: true);
+
+            var prAppService = GetRequiredService<IPurchaseReceiptAppService>();
+
+            // 1. Original Purchase Receipt receives 10 accepted into accWh and 4 rejected into rejWh
+            var origPr = await prAppService.CreateAsync(new CreatePurchaseReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                WarehouseId = accWh.Id,
+                PostingDate = DateTime.Today.AddDays(-2),
+                Items = new List<CreatePurchaseReceiptItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = item.ItemName,
+                        Quantity = 10m,
+                        RejectedQty = 4m,
+                        ReceivedQty = 14m,
+                        WarehouseId = accWh.Id,
+                        RejectedWarehouseId = rejWh.Id,
+                        UnitPrice = 0m,
+                        Uom = "Unit"
+                    }
+                }
+            });
+            await prAppService.SubmitAsync(origPr.Id);
+
+            var rejBinAfterOrig = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == rejWh.Id);
+            rejBinAfterOrig.ActualQty.ShouldBe(4m);
+
+            // 2. Returning -3 with ReturnQtyFromRejectedWarehouse = true deducts from rejWh (leaving 1 in rejWh and 10 untouched in accWh) (4cc2ffb2a8, b11c0c4076, 3837f7b46a, 097411fb47)
+            var retPr = await prAppService.CreateAsync(new CreatePurchaseReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                WarehouseId = accWh.Id,
+                PostingDate = DateTime.Today.AddDays(-1),
+                IsReturn = true,
+                ReturnAgainstId = origPr.Id,
+                Items = new List<CreatePurchaseReceiptItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = item.ItemName,
+                        Quantity = -3m,
+                        RejectedQty = 0m,
+                        ReceivedQty = -3m,
+                        RejectedWarehouseId = rejWh.Id,
+                        ReturnQtyFromRejectedWarehouse = true,
+                        UnitPrice = 0m,
+                        Uom = "Unit"
+                    }
+                }
+            });
+            await prAppService.SubmitAsync(retPr.Id);
+
+            var rejBinAfterRet = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == rejWh.Id);
+            rejBinAfterRet.ActualQty.ShouldBe(1m);
+            var accBinAfterRet = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == accWh.Id);
+            accBinAfterRet.ActualQty.ShouldBe(10m);
+
+            // 3. Attempting to return -2 more from rejected warehouse exceeds remaining rejected qty (4 - 3 = 1) -> throws ReturnQtyExceedsOriginal!
+            var excessEx = await Should.ThrowAsync<BusinessException>(() =>
+                prAppService.CreateAsync(new CreatePurchaseReceiptDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    WarehouseId = accWh.Id,
+                    PostingDate = DateTime.Today,
+                    IsReturn = true,
+                    ReturnAgainstId = origPr.Id,
+                    Items = new List<CreatePurchaseReceiptItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = item.Id,
+                            Description = item.ItemName,
+                            Quantity = -2m,
+                            RejectedQty = 0m,
+                            ReceivedQty = -2m,
+                            RejectedWarehouseId = rejWh.Id,
+                            ReturnQtyFromRejectedWarehouse = true,
+                            UnitPrice = 0m,
+                            Uom = "Unit"
+                        }
+                    }
+                }));
+            excessEx.Code.ShouldBe(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal);
+        });
+    }
 }

@@ -759,33 +759,59 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     ? (originalItem.ConversionFactor != 0 ? originalItem.UnitPrice / originalItem.ConversionFactor : originalItem.UnitPrice)
                     : (item.ConversionFactor != 0 ? item.UnitPrice / item.ConversionFactor : item.UnitPrice);
 
-                // Accepted stock return: moves stock out from accepted warehouse
-                if (item.Quantity < 0)
-                {
-                    var returnStockQty = Math.Abs(item.StockQty);
-                    var returnWarehouseId = originalItem?.WarehouseId ?? item.WarehouseId ?? receipt.WarehouseId;
-
-                    await _valuationService.CreateLedgerEntryAsync(
-                        receipt.CompanyId, item.ItemId, returnWarehouseId,
-                        receipt.PostingDate, -returnStockQty, ratePerStockUnit,
-                        voucherType: "PurchaseReceipt", voucherId: receipt.Id,
-                        tenantId: receipt.TenantId, voucherDetailNo: item.Id);
-
-                    await _binService.ApplyStockMovementAsync(
-                        item.ItemId, returnWarehouseId,
-                        -returnStockQty, -(returnStockQty * ratePerStockUnit), receipt.TenantId);
-
-                    // Restore ordered qty in stock UOM
-                    await _binService.UpdateOrderedQtyAsync(
-                        item.ItemId, returnWarehouseId, returnStockQty, receipt.TenantId);
-
-                    stockValueByWarehouse.TryGetValue(returnWarehouseId, out var priorReturnValue);
-                    stockValueByWarehouse[returnWarehouseId] = priorReturnValue + (returnStockQty * ratePerStockUnit);
-                }
-
                 var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
                 var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId;
                 var staysInTransit = fromWarehouseId.HasValue && rejectedWarehouseId == fromWarehouseId;
+
+                // Accepted stock return or ReturnQtyFromRejectedWarehouse (PR #60672 / commits 4cc2ffb2a8, b11c0c4076, 67725d7fd6, 097411fb47, 3837f7b46a)
+                if (item.Quantity < 0)
+                {
+                    var returnStockQty = Math.Abs(item.StockQty);
+                    if (item.ReturnQtyFromRejectedWarehouse)
+                    {
+                        var targetRejWhId = rejectedWarehouseId ?? item.WarehouseId ?? originalItem?.WarehouseId ?? receipt.WarehouseId;
+                        if (!staysInTransit)
+                        {
+                            var setValuationForRejected = item.FromWarehouseId.HasValue || (originalItem?.FromWarehouseId.HasValue ?? false) ||
+                                await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
+                            var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
+
+                            await _valuationService.CreateLedgerEntryAsync(
+                                receipt.CompanyId, item.ItemId, targetRejWhId,
+                                receipt.PostingDate, -returnStockQty, rejectedRate,
+                                voucherType: "PurchaseReceipt", voucherId: receipt.Id,
+                                tenantId: receipt.TenantId, voucherDetailNo: item.Id);
+
+                            await _binService.ApplyStockMovementAsync(
+                                item.ItemId, targetRejWhId,
+                                -returnStockQty, -(returnStockQty * rejectedRate), receipt.TenantId);
+
+                            stockValueByWarehouse.TryGetValue(targetRejWhId, out var priorRejReturnVal);
+                            stockValueByWarehouse[targetRejWhId] = priorRejReturnVal + (returnStockQty * rejectedRate);
+                        }
+                    }
+                    else
+                    {
+                        var returnWarehouseId = originalItem?.WarehouseId ?? item.WarehouseId ?? receipt.WarehouseId;
+
+                        await _valuationService.CreateLedgerEntryAsync(
+                            receipt.CompanyId, item.ItemId, returnWarehouseId,
+                            receipt.PostingDate, -returnStockQty, ratePerStockUnit,
+                            voucherType: "PurchaseReceipt", voucherId: receipt.Id,
+                            tenantId: receipt.TenantId, voucherDetailNo: item.Id);
+
+                        await _binService.ApplyStockMovementAsync(
+                            item.ItemId, returnWarehouseId,
+                            -returnStockQty, -(returnStockQty * ratePerStockUnit), receipt.TenantId);
+
+                        // Restore ordered qty in stock UOM
+                        await _binService.UpdateOrderedQtyAsync(
+                            item.ItemId, returnWarehouseId, returnStockQty, receipt.TenantId);
+
+                        stockValueByWarehouse.TryGetValue(returnWarehouseId, out var priorReturnValue);
+                        stockValueByWarehouse[returnWarehouseId] = priorReturnValue + (returnStockQty * ratePerStockUnit);
+                    }
+                }
 
                 // Rejected stock return (PR #59280 / #66996): skip when rejected material stayed in transit (ERPNext commit 54df1053d0)
                 if (item.RejectedQty < 0)
@@ -1655,13 +1681,14 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         var priorAcceptedByItem = priorReturns
             .SelectMany(r => r.Items)
+            .Where(i => !i.ReturnQtyFromRejectedWarehouse)
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
 
         var priorRejectedByItem = priorReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.ItemId)
-            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.RejectedQty)));
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.RejectedQty) + (i.ReturnQtyFromRejectedWarehouse ? Math.Abs(i.Quantity) : 0m)));
 
         foreach (var returnItem in receipt.Items)
         {
@@ -1675,6 +1702,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
             if (originalItem == null)
                 continue;
+
+            if (returnItem.ReturnQtyFromRejectedWarehouse)
+            {
+                var priorRejected = priorRejectedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var maxRejectedQty = Math.Max(0m, originalItem.RejectedQty - priorRejected);
+                var returnRejectedQty = Math.Abs(returnItem.Quantity) + Math.Abs(returnItem.RejectedQty);
+                if (returnRejectedQty > maxRejectedQty)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                        .WithData("item", returnItem.Description)
+                        .WithData("originalQty", maxRejectedQty)
+                        .WithData("returnQty", returnRejectedQty);
+                }
+                continue;
+            }
 
             if (originalItem.Quantity != 0 || returnItem.Quantity != 0)
             {
