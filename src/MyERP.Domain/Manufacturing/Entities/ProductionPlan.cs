@@ -216,4 +216,70 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = ProductionPlanStatus.MaterialRequested;
         }
     }
+
+    /// <summary>
+    /// Validates before submitting a Production Plan that none of the Sales Order rows it actually plans
+    /// (directly on <paramref name="poItems"/> or through combined <paramref name="planReferences"/> with a non-zero
+    /// rounded allocated quantity) is closed or belongs to a Closed Sales Order
+    /// per ERPNext commits bf675b5480, d6c1294e97, and 0b4b095b8d (<c>validate_closed_sales_order_items</c> in <c>production_plan.py</c>).
+    /// </summary>
+    public static void ValidateNoClosedPlannedSalesOrderRows(
+        IEnumerable<(Guid PlanItemId, Guid? SalesOrderItemId, decimal PlannedQty)>? poItems,
+        IEnumerable<(Guid PlanItemReferenceId, Guid SalesOrderItemId, decimal ReferenceQty)>? planReferences,
+        IReadOnlyDictionary<Guid, (string SalesOrderNumber, int RowNumber, string ItemCode, bool IsRowClosed, bool IsOrderClosed)>? salesOrderRowsById,
+        int referenceQtyPrecision = 4)
+    {
+        if (salesOrderRowsById == null)
+        {
+            return;
+        }
+
+        var plannedSoItems = new HashSet<Guid>();
+        var remainingPlannedByPlanItem = new Dictionary<Guid, decimal>();
+
+        if (poItems != null)
+        {
+            foreach (var row in poItems)
+            {
+                if (row.SalesOrderItemId.HasValue && row.SalesOrderItemId.Value != Guid.Empty)
+                {
+                    plannedSoItems.Add(row.SalesOrderItemId.Value);
+                }
+                remainingPlannedByPlanItem[row.PlanItemId] = remainingPlannedByPlanItem.GetValueOrDefault(row.PlanItemId, 0m) + row.PlannedQty;
+            }
+        }
+
+        if (planReferences != null)
+        {
+            foreach (var r in planReferences)
+            {
+                var available = remainingPlannedByPlanItem.GetValueOrDefault(r.PlanItemReferenceId, 0m);
+                var allocated = Math.Min(available, r.ReferenceQty);
+                remainingPlannedByPlanItem[r.PlanItemReferenceId] = Math.Max(0m, available - allocated);
+
+                if (Math.Round(allocated, referenceQtyPrecision, MidpointRounding.AwayFromZero) != 0m)
+                {
+                    plannedSoItems.Add(r.SalesOrderItemId);
+                }
+            }
+        }
+
+        if (plannedSoItems.Count == 0)
+        {
+            return;
+        }
+
+        var closedRow = plannedSoItems
+            .Where(id => salesOrderRowsById.TryGetValue(id, out var info) && (info.IsRowClosed || info.IsOrderClosed))
+            .Select(id => salesOrderRowsById[id])
+            .OrderBy(info => info.SalesOrderNumber, StringComparer.Ordinal)
+            .ThenBy(info => info.RowNumber)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(closedRow.SalesOrderNumber))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Row #{closedRow.RowNumber} ({closedRow.ItemCode}) of Sales Order {closedRow.SalesOrderNumber} is closed, so it cannot be planned.");
+        }
+    }
 }

@@ -496,4 +496,136 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("detail", $"The cost of the secondary items ({secondaryItemsCost:F2}) cannot exceed the raw material cost of {TotalMaterialCost:F2}.");
         }
     }
+
+    /// <summary>
+    /// Computes BOM base cost totals rounded to field precision and detects whether any BOM item row
+    /// or parent BOM needs updating per ERPNext commits 42a3a8342d, 2dde60cc73, 83824c5562, 98fc122a1f,
+    /// 08cee5f68b, and 6b3749cd66 (<c>bom/services/costing.py</c>).
+    /// </summary>
+    public static (
+        decimal BaseOperatingCost,
+        decimal BaseRawMaterialCost,
+        decimal TotalCost,
+        decimal BaseTotalCost,
+        bool ShouldUpdateParentBoms,
+        List<(Guid ItemRowId, decimal Amount, decimal BaseAmount, bool ShouldSaveRow)> ItemResults)
+        CalculateBomBaseCostTotals(
+            decimal conversionRate,
+            decimal existingTotalCost,
+            decimal existingBaseTotalCost,
+            decimal operatingCost,
+            decimal baseOperatingCostUnrounded,
+            decimal secondaryItemsCost,
+            decimal baseSecondaryItemsCost,
+            IReadOnlyList<(Guid ItemRowId, decimal OldRate, decimal NewRate, decimal Qty, decimal OldBaseAmount)> items,
+            int currencyPrecision = 2)
+    {
+        var fx = conversionRate > 0m ? conversionRate : 1m;
+        var itemResults = new List<(Guid ItemRowId, decimal Amount, decimal BaseAmount, bool ShouldSaveRow)>();
+        decimal rawMaterialCost = 0m;
+        decimal baseRawMaterialCostUnrounded = 0m;
+
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                var amount = Math.Round(
+                    Math.Round(item.NewRate, currencyPrecision, MidpointRounding.AwayFromZero) * item.Qty,
+                    currencyPrecision,
+                    MidpointRounding.AwayFromZero);
+                var baseAmount = Math.Round(amount * fx, currencyPrecision, MidpointRounding.AwayFromZero);
+                var shouldSave = item.OldRate != item.NewRate || item.OldBaseAmount != baseAmount;
+
+                itemResults.Add((item.ItemRowId, amount, baseAmount, shouldSave));
+                rawMaterialCost += amount;
+                baseRawMaterialCostUnrounded += baseAmount;
+            }
+        }
+
+        var baseOperatingCost = Math.Round(baseOperatingCostUnrounded, currencyPrecision, MidpointRounding.AwayFromZero);
+        var baseRawMaterialCost = Math.Round(baseRawMaterialCostUnrounded, currencyPrecision, MidpointRounding.AwayFromZero);
+        var totalCost = operatingCost + rawMaterialCost - secondaryItemsCost;
+        var baseTotalCost = Math.Round(
+            baseOperatingCost + baseRawMaterialCost - baseSecondaryItemsCost,
+            currencyPrecision,
+            MidpointRounding.AwayFromZero);
+
+        var shouldUpdateParents = (totalCost, baseTotalCost) != (existingTotalCost, existingBaseTotalCost);
+        return (baseOperatingCost, baseRawMaterialCost, totalCost, baseTotalCost, shouldUpdateParents, itemResults);
+    }
+
+    /// <summary>
+    /// Splits a Manufacture Stock Entry's operation cost across workstation components in table order using
+    /// running-total rounding, recording a row for every positive-rate component (even when its rounded share is 0)
+    /// with <paramref name="entryConsumedQty"/> per ERPNext commits 1bc6b681ff, 21589f031f, 6688a76b2e,
+    /// b6048239c8, 8085efd1f8, bba6fcb0d6, and f868ded52f (<c>bom/services/operations_cost.py</c>).
+    /// </summary>
+    public static (bool AddedComponentRows, List<(string OperatingComponent, Guid ExpenseAccountId, decimal Amount, decimal ConsumedQty)> ComponentRows)
+        SplitOperationCostByWorkstationComponents(
+            decimal operationActualOperatingCost,
+            decimal entryOperationAmount,
+            decimal entryConsumedQty,
+            Guid fallbackExpenseAccountId,
+            IReadOnlyList<(string OperatingComponent, decimal ComponentRate, Guid? ComponentExpenseAccountId)>? workstationComponentsInTableOrder,
+            int amountPrecision = 2)
+    {
+        var rows = new List<(string OperatingComponent, Guid ExpenseAccountId, decimal Amount, decimal ConsumedQty)>();
+        if (workstationComponentsInTableOrder == null)
+        {
+            return (false, rows);
+        }
+
+        var positiveComponents = workstationComponentsInTableOrder
+            .Where(c => c.ComponentRate > 0m)
+            .ToList();
+        var totalComponentRate = positiveComponents.Sum(c => c.ComponentRate);
+
+        if (operationActualOperatingCost <= 0m || totalComponentRate <= 0m || entryOperationAmount <= 0m)
+        {
+            return (false, rows);
+        }
+
+        decimal allocated = 0m;
+        decimal cumulativeRate = 0m;
+
+        foreach (var wc in positiveComponents)
+        {
+            cumulativeRate += wc.ComponentRate;
+            var cumulativeAmount = Math.Round(
+                entryOperationAmount * cumulativeRate / totalComponentRate,
+                amountPrecision,
+                MidpointRounding.AwayFromZero);
+            var share = Math.Round(cumulativeAmount - allocated, amountPrecision, MidpointRounding.AwayFromZero);
+            allocated = cumulativeAmount;
+
+            var accountId = (wc.ComponentExpenseAccountId.HasValue && wc.ComponentExpenseAccountId.Value != Guid.Empty)
+                ? wc.ComponentExpenseAccountId.Value
+                : fallbackExpenseAccountId;
+            rows.Add((wc.OperatingComponent, accountId, share, entryConsumedQty));
+        }
+
+        return (true, rows);
+    }
+
+    /// <summary>
+    /// Blocks deactivating or cancelling a BOM when it is used as <c>finished_good_bom</c> in an active
+    /// Subcontracting BOM per ERPNext commit f10219955d (<c>bom.py</c>).
+    /// </summary>
+    public static void ValidateNotUsedByActiveSubcontractingBom(string? activeSubcontractingBomName)
+    {
+        if (!string.IsNullOrWhiteSpace(activeSubcontractingBomName))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot deactivate or cancel BOM as it is used in the active Subcontracting BOM {activeSubcontractingBomName}");
+        }
+    }
+
+    /// <summary>
+    /// Normalizes a material row copied from an operation BOM to stock UOM (<c>ConversionFactor = 1</c>,
+    /// <c>DoNotExplode = true</c>) per ERPNext commit 17cbca89c1 (<c>_append_bom_material_row</c> in <c>bom.py</c>).
+    /// </summary>
+    public static (string Uom, decimal ConversionFactor, bool DoNotExplode) NormalizeOperationBomMaterialRow(string stockUom)
+    {
+        return (stockUom, 1m, true);
+    }
 }

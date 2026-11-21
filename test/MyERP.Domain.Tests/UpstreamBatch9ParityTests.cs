@@ -2173,4 +2173,266 @@ public class UpstreamBatch9ParityTests
                     [(secItemId, secWhId)] = (5m, 2m) // 5 - 4 = 1 < 2 delivered!
                 }));
     }
+
+    [Fact]
+    public void BomBaseCostTotalsAndWorkstationComponentSplit_WorkOrderCorrectiveCostAndParallelPlannedEnd_JobCardLossDivisorAndPoorQualityUnion_ClosedWorkOrderReturnGuards_And_ProductionPlanClosedSoReservedWoOutputDoNotExplodeAndTransferSkip_42a3a8342d_2dde60cc73_83824c5562_1bc6b681ff_8085efd1f8_f10219955d_17cbca89c1_027c7a7a4e_2ce29e04ba_c6482b7a6c_3043a78686_691ab99981_0eef3bc575_e76c8c1fbb_7faed55958_e2ba9cb546_bf675b5480_d6c1294e97_3464dc31dd_ed2ce1f927_273db39e00_0fab64a3df_27e7009edd_a5229ac21c_a07e6e3ce4()
+    {
+        // 1. BOM base cost rounding, row base_amount save trigger, parent BOM update trigger, Subcontracting BOM guard, and operation BOM UOM reset (42a3a8342d, 2dde60cc73, 83824c5562, 98fc122a1f, 08cee5f68b, 6b3749cd66, f10219955d, 17cbca89c1)
+        var bomRowId = Guid.NewGuid();
+        var bomCostTotals = MyERP.Manufacturing.Entities.BillOfMaterials.CalculateBomBaseCostTotals(
+            conversionRate: 4.45m,
+            existingTotalCost: 100m,
+            existingBaseTotalCost: 440m, // Only base_total_cost changed (from 440 to 445) -> parent BOMs must update!
+            operatingCost: 0m,
+            baseOperatingCostUnrounded: 0m,
+            secondaryItemsCost: 0m,
+            baseSecondaryItemsCost: 0m,
+            items: new[]
+            {
+                (bomRowId, OldRate: 100m, NewRate: 100m, Qty: 1m, OldBaseAmount: 440m)
+            });
+        bomCostTotals.BaseTotalCost.ShouldBe(445.00m);
+        bomCostTotals.ShouldUpdateParentBoms.ShouldBeTrue();
+        bomCostTotals.ItemResults[0].ShouldSaveRow.ShouldBeTrue(); // Rate unchanged, but rounded BaseAmount changed!
+
+        var scBomEx = Should.Throw<BusinessException>(() =>
+            MyERP.Manufacturing.Entities.BillOfMaterials.ValidateNotUsedByActiveSubcontractingBom("SC-BOM-0001"));
+        scBomEx.Data["detail"]!.ToString()!.ShouldContain("Cannot deactivate or cancel BOM as it is used in the active Subcontracting BOM SC-BOM-0001");
+
+        var opMatRow = MyERP.Manufacturing.Entities.BillOfMaterials.NormalizeOperationBomMaterialRow("Kg");
+        opMatRow.Uom.ShouldBe("Kg");
+        opMatRow.ConversionFactor.ShouldBe(1m);
+        opMatRow.DoNotExplode.ShouldBeTrue();
+
+        // 2. Workstation component operating cost split by running total in table order, recording zero-rounded component rows with consumed qty (1bc6b681ff, 21589f031f, 6688a76b2e, b6048239c8, 8085efd1f8, f868ded52f)
+        var fallbackExpAcc = Guid.NewGuid();
+        var compSplit = MyERP.Manufacturing.Entities.BillOfMaterials.SplitOperationCostByWorkstationComponents(
+            operationActualOperatingCost: 100m,
+            entryOperationAmount: 0.01m, // Tiny operation cost rounds first component to 0.00 and second to 0.01
+            entryConsumedQty: 5m,
+            fallbackExpenseAccountId: fallbackExpAcc,
+            workstationComponentsInTableOrder: new[]
+            {
+                ("Electricity", 10m, (Guid?)null),
+                ("Rent", 90m, (Guid?)null)
+            });
+        compSplit.AddedComponentRows.ShouldBeTrue();
+        compSplit.ComponentRows.Count.ShouldBe(2);
+        compSplit.ComponentRows[0].Amount.ShouldBe(0.00m);
+        compSplit.ComponentRows[0].ConsumedQty.ShouldBe(5m); // Zero-rounded component row still records consumed qty!
+        compSplit.ComponentRows[1].Amount.ShouldBe(0.01m);
+        compSplit.ComponentRows[1].ConsumedQty.ShouldBe(5m);
+        compSplit.ComponentRows.Sum(c => c.Amount).ShouldBe(0.01m);
+
+        // 3. Work Order corrective operation cost rounding, parallel operation planned end date, Product Bundle SO row WO qty, and disassembly net of process loss (027c7a7a4e, ebf97959c8, 2ce29e04ba, c6482b7a6c, 3043a78686)
+        var woOpCosts = MyERP.Manufacturing.Entities.WorkOrder.CalculateCorrectiveAndTotalOperatingCost(
+            submittedCorrectiveJobCards: new[] { (20m, 10m), (20m, 10m), (20m, 10m) }, // 3.3333... * 3 = 10.00 when rounded AFTER summing!
+            actualOperatingCost: 50.004m,
+            plannedOperatingCost: 40m,
+            additionalOperatingCost: 5.004m);
+        woOpCosts.CorrectiveOperationCost.ShouldBe(10.00m);
+        woOpCosts.TotalOperatingCost.ShouldBe(65.01m);
+
+        var tBase = new DateTime(2026, 11, 21, 8, 0, 0, DateTimeKind.Utc);
+        var plannedEnd = MyERP.Manufacturing.Entities.WorkOrder.ResolvePlannedEndDateFromOperations(
+            new DateTime?[] { tBase.AddHours(6), tBase.AddHours(3) }); // First parallel op ends later than last op!
+        plannedEnd.ShouldBe(tBase.AddHours(6));
+
+        var soId = Guid.NewGuid();
+        var soRowA = Guid.NewGuid();
+        var soRowB = Guid.NewGuid();
+        var bundleCompId = Guid.NewGuid();
+        var bundleWoQty = MyERP.Manufacturing.Entities.WorkOrder.CalculateSalesOrderItemWorkOrderQty(
+            salesOrderId: soId,
+            salesOrderItemId: soRowA,
+            productionItemId: bundleCompId,
+            productBundleItemId: bundleCompId,
+            workOrders: new[]
+            {
+                (soId, (Guid?)soRowA, bundleCompId, (Guid?)bundleCompId, true, 4m),
+                (soId, (Guid?)soRowB, bundleCompId, (Guid?)bundleCompId, true, 7m) // Belongs to another SO row of same bundle!
+            });
+        bundleWoQty.ShouldBe(4m);
+
+        MyERP.Manufacturing.Entities.WorkOrder.CalculateDisassemblyAvailableQtyFromManufactureEntry(
+            sourceFgCompletedQty: 10m,
+            sourceProcessLossQty: 2m,
+            alreadyDisassembledQty: 3m).ShouldBe(5m);
+
+        // 4. Job Card secondary item divisor with unbooked process loss, unstarted draft sequence skip, and Cost of Poor Quality Report parallel operator union (691ab99981, 47095f5dc7, aef2c70d91, 0cf78ce8f5, 0eef3bc575, d507648396)
+        MyERP.Manufacturing.DomainServices.JobCardManager.CalculatePendingSecondaryItemDivisorQty(
+            hasDirectJobCardOnStockEntry: false,
+            stockEntryFgCompletedQty: 8m,
+            completedJobCardQty: 8m,
+            workOrderProducedQty: 0m,
+            pendingJobCardProcessLossQty: 2m).ShouldBe(10m);
+
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldValidateSequenceOnSave(
+            isSubmitted: false,
+            isMakeTimeLogAction: false,
+            hasTimeLogs: false,
+            processLossQty: 0m).ShouldBeFalse();
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldValidateSequenceOnSave(
+            isSubmitted: false,
+            isMakeTimeLogAction: true,
+            hasTimeLogs: false,
+            processLossQty: 0m).ShouldBeTrue();
+
+        var copq = MyERP.Manufacturing.DomainServices.JobCardManager.CalculateCostOfPoorQualityClippedTimeAndCost(
+            hourRate: 60m,
+            reportFromDate: tBase,
+            reportToDate: tBase.AddHours(2),
+            timeLogs: new (DateTime?, DateTime?)[]
+            {
+                (tBase, tBase.AddMinutes(60)), // Operator 1: 08:00 - 09:00
+                (tBase.AddMinutes(30), tBase.AddMinutes(90)), // Operator 2 (parallel overlap): 08:30 - 09:30 -> union is 90 mins!
+                (tBase.AddMinutes(90), null) // Open time log skipped!
+            });
+        copq.TotalTimeInMins.ShouldBe(90m);
+        copq.OperatingCost.ShouldBe(90m);
+
+        // 5. Stock Entry Manufacturing: refuse return-flagged Manufacture or Consumption against Closed WO, check every Repack FG row for manual rate, refuse Get Items on Job Card Manufacture SE, preserve duplicated row warehouses, and round transfer_qty indicator (e76c8c1fbb, 7faed55958, e2ba9cb546, 4cbe5b28e3, cb171c980f, 535b272814, 7dfeb67e39)
+        var seManager = new StockEntryManager(null!, null!, null!);
+        var closedWo = new MyERP.Manufacturing.Entities.WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-CLOSED", Guid.NewGuid(), Guid.NewGuid(), 10m, Guid.NewGuid());
+        closedWo.Submit();
+        closedWo.Close();
+
+        var returnMfgSe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = closedWo.Id,
+            IsReturn = true
+        };
+        Should.Throw<BusinessException>(() => seManager.ValidateWorkOrderStatus(returnMfgSe, closedWo));
+
+        var returnConsSe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialConsumptionForManufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = closedWo.Id,
+            IsReturn = true
+        };
+        Should.Throw<BusinessException>(() => seManager.ValidateWorkOrderStatus(returnConsSe, closedWo));
+
+        var returnTransferSe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = closedWo.Id,
+            IsReturn = true
+        };
+        Should.NotThrow(() => seManager.ValidateWorkOrderStatus(returnTransferSe, closedWo));
+
+        // Repack with two rows of FG-A (first without manual rate, second with manual rate) + one row of FG-B -> must fail because not ALL fg_rows have SetBasicRateManually! (4cbe5b28e3)
+        var fgItemA = Guid.NewGuid();
+        var fgItemB = Guid.NewGuid();
+        Should.Throw<BusinessException>(() =>
+            StockEntryManager.ValidateRepackFinishedGoodManualRates(
+                new[]
+                {
+                    (fgItemA, "FG-A", true, false),
+                    (fgItemA, "FG-A", true, true),
+                    (fgItemB, "FG-B", true, true)
+                }));
+
+        Should.Throw<BusinessException>(() =>
+            StockEntryManager.ValidateCanFetchItemsForStockEntry(StockEntryType.Manufacture, "JOB-0001"));
+
+        var dupWh = Guid.NewGuid();
+        var defWh = Guid.NewGuid();
+        var keptWh = StockEntryManager.ApplyDefaultWarehousesPreservingExistingRow(dupWh, null, defWh, defWh);
+        keptWh.SourceWarehouseId.ShouldBe(dupWh);
+        keptWh.TargetWarehouseId.ShouldBeNull();
+
+        StockEntryManager.GetStockEntryItemIndicatorColor(dupWh, transferQty: 5.00004m, actualWarehouseQty: 5.0000m, transferQtyPrecision: 4)
+            .ShouldBe("green");
+
+        // 6. Production Plan closed SO row submit check, SO pending qty with reserved WO output + deliveries, WO loss offset credit, Do Not Explode separation, and transfer location skip (bf675b5480, d6c1294e97, 0b4b095b8d, 3464dc31dd, b3f47bf37d, ed2ce1f927, 273db39e00, 0fab64a3df, 77f2a77489, 27e7009edd, a5229ac21c, 3a06b94144, a07e6e3ce4)
+        var planItemId = Guid.NewGuid();
+        var openSoRow = Guid.NewGuid();
+        var closedSoRow = Guid.NewGuid();
+        var soRowsMap = new Dictionary<Guid, (string, int, string, bool, bool)>
+        {
+            [openSoRow] = ("SO-001", 1, "FG-OPEN", false, false),
+            [closedSoRow] = ("SO-001", 2, "FG-CLOSED", true, false)
+        };
+        // Planned qty = 5 covers only the first reference (openSoRow = 5), leaving 0 allocated to closedSoRow -> submits cleanly! (d6c1294e97, 0b4b095b8d)
+        Should.NotThrow(() =>
+            MyERP.Manufacturing.Entities.ProductionPlan.ValidateNoClosedPlannedSalesOrderRows(
+                poItems: new[] { (planItemId, (Guid?)null, 5m) },
+                planReferences: new[] { (planItemId, openSoRow, 5m), (planItemId, closedSoRow, 5m) },
+                salesOrderRowsById: soRowsMap));
+
+        // Planned qty = 6 allocates 1 to closedSoRow -> throws! (bf675b5480)
+        var closedPlanEx = Should.Throw<BusinessException>(() =>
+            MyERP.Manufacturing.Entities.ProductionPlan.ValidateNoClosedPlannedSalesOrderRows(
+                poItems: new[] { (planItemId, (Guid?)null, 6m) },
+                planReferences: new[] { (planItemId, openSoRow, 5m), (planItemId, closedSoRow, 5m) },
+                salesOrderRowsById: soRowsMap));
+        closedPlanEx.Data["detail"]!.ToString()!.ShouldContain("Row #2 (FG-CLOSED) of Sales Order SO-001 is closed, so it cannot be planned");
+
+        // Reserved Work Order output is not subtracted twice from stock_qty, and deliveries count on top of reserved WO output (3464dc31dd, b3f47bf37d, ed2ce1f927)
+        // stock_qty = 10, stock_reserved_qty = 4 (all 4 from own WO output), work_order_qty = 4, delivered_qty = 2 (from other stock)
+        // qty = 10 - (4 - 4) = 10; delivered_or_reserved = 2 + 4 = 6; pending = 10 - max(4, 6) = 4!
+        var soPendingForPlan = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService.CalculateSalesOrderItemPendingQtyForProductionPlan(
+            stockQty: 10m,
+            stockReservedQty: 4m,
+            reservedOwnWorkOrderOutputQty: 4m,
+            workOrderQty: 4m,
+            deliveredQtyInOrderUom: 2m,
+            conversionFactor: 1m,
+            productionPlanQty: 0m);
+        soPendingForPlan.ShouldBe(4m);
+
+        // Work Order with 0 loss on a 10% planned-loss item produces 10 FG -> grossed up to 10 / 0.9 to offset another WO's excess loss (273db39e00)
+        var committedWithCredit = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService.CalculateWorkOrderCommittedQtyForPlan(
+            workOrderQty: 10m,
+            producedQty: 10m,
+            processLossQty: 0m,
+            plannedLossPercentage: 20m,
+            creditProducedQty: true);
+        committedWithCredit.ShouldBe(12.5m); // 10 / 0.8 = 12.5
+
+        // BOM explosion keeps Do Not Explode line separate from exploded/phantom line of same item and drops exploded phantom line from RM (0fab64a3df, 77f2a77489, 27e7009edd)
+        var sharedItemId = Guid.NewGuid();
+        var childBomId = Guid.NewGuid();
+        var dneWhId = Guid.NewGuid();
+        var subitemGroups = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService.EvaluateProductionPlanBomSubitemGroups(
+            includeExplodedItems: true,
+            includeSubcontractedItems: true,
+            bomLines: new[]
+            {
+                (1, sharedItemId, false, true, false, 2m, "Phantom Line", (Guid?)null, (Guid?)childBomId, (Guid?)childBomId),
+                (2, sharedItemId, true, false, false, 3m, "DNE Line", (Guid?)dneWhId, (Guid?)null, (Guid?)childBomId)
+            },
+            plannedParentQty: 5m);
+        subitemGroups.Count.ShouldBe(2);
+        // Group 0 (Phantom, explode = true): explodes childBomId, ShouldMergeIntoRawMaterials == false!
+        subitemGroups[0].DoNotExplode.ShouldBeFalse();
+        subitemGroups[0].ChildBomIdToExplode.ShouldBe(childBomId);
+        subitemGroups[0].ShouldMergeIntoRawMaterials.ShouldBeFalse();
+        // Group 1 (Do Not Explode): keeps own description & warehouse, does NOT take ItemDefaultBomId, ShouldMergeIntoRawMaterials == true!
+        subitemGroups[1].DoNotExplode.ShouldBeTrue();
+        subitemGroups[1].Description.ShouldBe("DNE Line");
+        subitemGroups[1].SourceWarehouseId.ShouldBe(dneWhId);
+        subitemGroups[1].ChildBomIdToExplode.ShouldBeNull();
+        subitemGroups[1].ShouldMergeIntoRawMaterials.ShouldBeTrue();
+
+        // Transfer locations skip receiving warehouse without crowding out subsequent locations & shortage bin counts item group default receiving warehouse (a5229ac21c, 3a06b94144, a07e6e3ce4)
+        var recvWh = Guid.NewGuid();
+        var otherWh = Guid.NewGuid();
+        var transferAlloc = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService.AllocateTransferLocationsSkippingReceivingWarehouse(
+            receivingWarehouseId: recvWh,
+            requiredQty: 5m,
+            availableLocations: new[] { (recvWh, 10m), (otherWh, 4m) });
+        transferAlloc.Transfers.Count.ShouldBe(1);
+        transferAlloc.Transfers[0].ShouldBe((otherWh, 4m));
+        transferAlloc.RemainingRequiredQty.ShouldBe(1m);
+
+        var shortageBin = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService.ResolveShortageBinDetails(
+            itemWarehouseId: null,
+            transferFromWarehouseIds: new[] { recvWh, otherWh },
+            companyBins: new[]
+            {
+                (recvWh, 6m, 6m, 0m, 0m, 0m),
+                (otherWh, 4m, 4m, 0m, 0m, 0m)
+            },
+            itemGroupDefaultWarehouseId: recvWh);
+        shortageBin.ActualQty.ShouldBe(6m); // Receiving warehouse (from item group default) counted!
+    }
 }

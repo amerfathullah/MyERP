@@ -510,4 +510,94 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return pendingByItem.Values.Any(qty => Math.Round(qty, precision) > 0m);
     }
+
+    /// <summary>
+    /// Computes the Work Order's <c>CorrectiveOperationCost</c> (rounded after summing all submitted corrective Job Cards)
+    /// and <c>TotalOperatingCost</c> (rounded to field precision) in company currency
+    /// per ERPNext commits 027c7a7a4e and ebf97959c8 (<c>job_card.py</c>, <c>work_order/services/operations.py</c>).
+    /// </summary>
+    public static (decimal CorrectiveOperationCost, decimal TotalOperatingCost) CalculateCorrectiveAndTotalOperatingCost(
+        IEnumerable<(decimal TotalTimeInMins, decimal HourRate)>? submittedCorrectiveJobCards,
+        decimal actualOperatingCost,
+        decimal plannedOperatingCost,
+        decimal additionalOperatingCost,
+        int precision = 2)
+    {
+        var rawCorrective = submittedCorrectiveJobCards != null
+            ? submittedCorrectiveJobCards.Sum(jc => (jc.TotalTimeInMins / 60m) * jc.HourRate)
+            : 0m;
+        var correctiveCost = Math.Round(rawCorrective, precision, MidpointRounding.AwayFromZero);
+
+        var variableCost = actualOperatingCost != 0m ? actualOperatingCost : plannedOperatingCost;
+        var totalOperatingCost = Math.Round(
+            additionalOperatingCost + variableCost + correctiveCost,
+            precision,
+            MidpointRounding.AwayFromZero);
+
+        return (correctiveCost, totalOperatingCost);
+    }
+
+    /// <summary>
+    /// Resolves the Work Order's <c>PlannedEndDate</c> from the latest <c>PlannedEndTime</c> across all operations
+    /// (since parallel operations with the same Sequence ID may end after the last operation row)
+    /// per ERPNext commit 2ce29e04ba (<c>work_order/services/operations.py</c>).
+    /// </summary>
+    public static DateTime? ResolvePlannedEndDateFromOperations(IEnumerable<DateTime?>? operationPlannedEndTimes)
+    {
+        if (operationPlannedEndTimes == null)
+        {
+            return null;
+        }
+
+        var valid = operationPlannedEndTimes
+            .Where(t => t.HasValue)
+            .Select(t => t!.Value)
+            .ToList();
+
+        return valid.Count > 0 ? valid.Max() : null;
+    }
+
+    /// <summary>
+    /// Sums the Work Order quantity against a specific Sales Order row (<paramref name="salesOrderItemId"/>),
+    /// always filtering by <paramref name="salesOrderItemId"/> even when <paramref name="productBundleItemId"/> is set
+    /// so a Product Bundle line counts only its own Work Orders per ERPNext commit c6482b7a6c (<c>work_order/services/status.py</c>).
+    /// </summary>
+    public static decimal CalculateSalesOrderItemWorkOrderQty(
+        Guid salesOrderId,
+        Guid salesOrderItemId,
+        Guid productionItemId,
+        Guid? productBundleItemId,
+        IEnumerable<(Guid SalesOrderId, Guid? SalesOrderItemId, Guid ProductionItemId, Guid? ProductBundleItemId, bool IsSubmitted, decimal QtyAgainstSalesOrder)>? workOrders)
+    {
+        if (workOrders == null)
+        {
+            return 0m;
+        }
+
+        return workOrders
+            .Where(wo => wo.IsSubmitted
+                && wo.SalesOrderId == salesOrderId
+                && wo.SalesOrderItemId == salesOrderItemId
+                && (productBundleItemId.HasValue && productBundleItemId.Value != Guid.Empty
+                    ? wo.ProductBundleItemId == productBundleItemId.Value
+                    : wo.ProductionItemId == productionItemId))
+            .Sum(wo => wo.QtyAgainstSalesOrder);
+    }
+
+    /// <summary>
+    /// Computes the remaining finished good quantity available to disassemble against a Manufacture Stock Entry,
+    /// subtracting <paramref name="sourceProcessLossQty"/> from <paramref name="sourceFgCompletedQty"/>
+    /// per ERPNext commit 3043a78686 (<c>work_order.py</c>, <c>stock_entry/services/disassemble.py</c>).
+    /// </summary>
+    public static decimal CalculateDisassemblyAvailableQtyFromManufactureEntry(
+        decimal sourceFgCompletedQty,
+        decimal sourceProcessLossQty,
+        decimal alreadyDisassembledQty,
+        int precision = 4)
+    {
+        return Math.Round(
+            sourceFgCompletedQty - sourceProcessLossQty - alreadyDisassembledQty,
+            precision,
+            MidpointRounding.AwayFromZero);
+    }
 }

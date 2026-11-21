@@ -326,7 +326,7 @@ public class StockEntryManager : DomainService
         }
 
         if (wo.Status == WorkOrderStatus.Closed &&
-            !entry.IsReturn &&
+            !(entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.IsReturn) &&
             entry.EntryType is StockEntryType.MaterialTransferForManufacture
                 or StockEntryType.Manufacture
                 or StockEntryType.MaterialConsumptionForManufacture)
@@ -1870,5 +1870,85 @@ public class StockEntryManager : DomainService
         }
 
         return qty;
+    }
+
+    /// <summary>
+    /// Refuses <c>get_items</c> on a Manufacture Stock Entry whose items come from a Job Card
+    /// per ERPNext commit cb171c980f (<c>stock_entry.py</c>).
+    /// </summary>
+    public static void ValidateCanFetchItemsForStockEntry(StockEntryType entryType, string? jobCardNumber)
+    {
+        if (entryType == StockEntryType.Manufacture && !string.IsNullOrWhiteSpace(jobCardNumber))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Items of this Stock Entry come from Job Card {jobCardNumber}. Use Record Output on the Job Card instead of Get Items.");
+        }
+    }
+
+    /// <summary>
+    /// Validates Repack finished good rows after output rows are marked (<c>IsFinishedItem == true</c>),
+    /// requiring <c>SetBasicRateManually == true</c> on EVERY finished good row whenever there is more than
+    /// one distinct finished good item per ERPNext commits e2ba9cb546 and 4cbe5b28e3 (<c>validate_repack_entry</c>).
+    /// </summary>
+    public static void ValidateRepackFinishedGoodManualRates(
+        IEnumerable<(Guid ItemId, string ItemCode, bool IsFinishedItem, bool SetBasicRateManually)> rows)
+    {
+        if (rows == null)
+        {
+            return;
+        }
+
+        var fgRows = rows.Where(r => r.IsFinishedItem).ToList();
+        var distinctFgItemCodes = fgRows.Select(r => r.ItemCode).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (distinctFgItemCodes.Count > 1 && !fgRows.All(r => r.SetBasicRateManually))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.RepackMultiFgManualRate)
+                .WithData("detail", $"When there are multiple finished goods ({string.Join(", ", distinctFgItemCodes)}) in a Repack stock entry, the basic rate for all finished goods must be set manually.");
+        }
+    }
+
+    /// <summary>
+    /// Applies document-level <paramref name="defaultFromWarehouseId"/> and <paramref name="defaultToWarehouseId"/>
+    /// to a Stock Entry row only when the row has neither <paramref name="rowSourceWarehouseId"/> nor
+    /// <paramref name="rowTargetWarehouseId"/> set, preserving the warehouses of a duplicated row
+    /// per ERPNext commits 6479ca47fe and 535b272814 (<c>stock_entry.js</c>).
+    /// </summary>
+    public static (Guid? SourceWarehouseId, Guid? TargetWarehouseId) ApplyDefaultWarehousesPreservingExistingRow(
+        Guid? rowSourceWarehouseId,
+        Guid? rowTargetWarehouseId,
+        Guid? defaultFromWarehouseId,
+        Guid? defaultToWarehouseId)
+    {
+        var hasSource = rowSourceWarehouseId.HasValue && rowSourceWarehouseId.Value != Guid.Empty;
+        var hasTarget = rowTargetWarehouseId.HasValue && rowTargetWarehouseId.Value != Guid.Empty;
+
+        if (!hasSource && !hasTarget)
+        {
+            return (defaultFromWarehouseId, defaultToWarehouseId);
+        }
+
+        return (rowSourceWarehouseId, rowTargetWarehouseId);
+    }
+
+    /// <summary>
+    /// Resolves the Stock Entry item warehouse availability indicator color by comparing
+    /// <c>Round(TransferQty, transferQtyPrecision)</c> against <paramref name="actualWarehouseQty"/>
+    /// per ERPNext commits 98d21bd399 and 7dfeb67e39 (<c>stock_entry.js</c>).
+    /// </summary>
+    public static string GetStockEntryItemIndicatorColor(
+        Guid? sourceWarehouseId,
+        decimal transferQty,
+        decimal actualWarehouseQty,
+        int transferQtyPrecision = 4)
+    {
+        if (!sourceWarehouseId.HasValue || sourceWarehouseId.Value == Guid.Empty)
+        {
+            return "blue";
+        }
+
+        return Math.Round(transferQty, transferQtyPrecision, MidpointRounding.AwayFromZero) <= actualWarehouseQty
+            ? "green"
+            : "orange";
     }
 }

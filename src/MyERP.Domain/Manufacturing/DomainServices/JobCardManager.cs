@@ -1027,6 +1027,113 @@ public class JobCardManager : DomainService
                 .WithData("detail", $"Cannot cancel Job Card because the Work Order has already produced {roundedProducedQty} which exceeds the remaining completed operation quantity ({roundedOperationTotal}).");
         }
     }
+
+    /// <summary>
+    /// Computes the pending finished-good divisor over which Job Card secondary items are spread on a Manufacture Stock Entry
+    /// per ERPNext commits 691ab99981 and 47095f5dc7 (<c>_get_pending_secondary_qty</c> in <c>stock_entry/services/manufacturing.py</c>):
+    /// When the entry is not for a single Job Card, adds unbooked Job Card <paramref name="pendingJobCardProcessLossQty"/>
+    /// (excluding BOM-estimated loss) to <c>completedJobCardQty - workOrderProducedQty</c>.
+    /// </summary>
+    public static decimal CalculatePendingSecondaryItemDivisorQty(
+        bool hasDirectJobCardOnStockEntry,
+        decimal stockEntryFgCompletedQty,
+        decimal completedJobCardQty,
+        decimal workOrderProducedQty,
+        decimal pendingJobCardProcessLossQty)
+    {
+        if (hasDirectJobCardOnStockEntry)
+        {
+            return stockEntryFgCompletedQty;
+        }
+
+        return completedJobCardQty - workOrderProducedQty + pendingJobCardProcessLossQty;
+    }
+
+    /// <summary>
+    /// Determines whether operation sequence validation (<c>validate_sequence_id</c>) must run on a Job Card save
+    /// per ERPNext commits aef2c70d91, 0cf78ce8f5, and 51bf79c376 (<c>job_card.py</c>):
+    /// An unstarted draft Job Card without time logs or process loss can be edited before previous operations produce,
+    /// whereas starting/adding time logs (<paramref name="isMakeTimeLogAction"/> or <paramref name="hasTimeLogs"/>),
+    /// recording process loss, or submitting enforces sequence order.
+    /// </summary>
+    public static bool ShouldValidateSequenceOnSave(
+        bool isSubmitted,
+        bool isMakeTimeLogAction,
+        bool hasTimeLogs,
+        decimal processLossQty)
+    {
+        return isSubmitted || isMakeTimeLogAction || hasTimeLogs || processLossQty != 0m;
+    }
+
+    /// <summary>
+    /// Computes the workstation minutes and operating cost for a Job Card in the Cost of Poor Quality Report date range,
+    /// skipping open time logs (missing <c>FromTime</c> or <c>ToTime</c>), clipping logs to <c>[fromDate, toDate]</c>,
+    /// and taking the union of overlapping intervals so parallel operators count once
+    /// per ERPNext commits 0eef3bc575 and d507648396 (<c>cost_of_poor_quality_report.py</c>).
+    /// </summary>
+    public static (decimal TotalTimeInMins, decimal OperatingCost) CalculateCostOfPoorQualityClippedTimeAndCost(
+        decimal hourRate,
+        DateTime? reportFromDate,
+        DateTime? reportToDate,
+        IEnumerable<(DateTime? FromTime, DateTime? ToTime)>? timeLogs)
+    {
+        if (timeLogs == null)
+        {
+            return (0m, 0m);
+        }
+
+        var clipped = new List<(DateTime Start, DateTime End)>();
+        foreach (var log in timeLogs)
+        {
+            if (!log.FromTime.HasValue || !log.ToTime.HasValue)
+            {
+                continue;
+            }
+
+            var start = reportFromDate.HasValue && reportFromDate.Value > log.FromTime.Value
+                ? reportFromDate.Value
+                : log.FromTime.Value;
+            var end = reportToDate.HasValue && reportToDate.Value < log.ToTime.Value
+                ? reportToDate.Value
+                : log.ToTime.Value;
+
+            if (start < end)
+            {
+                clipped.Add((start, end));
+            }
+        }
+
+        if (clipped.Count == 0)
+        {
+            return (0m, 0m);
+        }
+
+        var sorted = clipped.OrderBy(i => i.Start).ThenBy(i => i.End).ToList();
+        var merged = new List<(DateTime Start, DateTime End)> { sorted[0] };
+
+        for (var i = 1; i < sorted.Count; i++)
+        {
+            var current = sorted[i];
+            var last = merged[^1];
+            if (current.Start < last.End)
+            {
+                if (current.End > last.End)
+                {
+                    merged[^1] = (last.Start, current.End);
+                }
+            }
+            else
+            {
+                merged.Add(current);
+            }
+        }
+
+        var totalMinutes = merged.Sum(i => (decimal)(i.End - i.Start).TotalMinutes);
+        var roundedMins = Math.Round(totalMinutes, 2, MidpointRounding.AwayFromZero);
+        var operatingCost = hourRate * totalMinutes / 60m;
+
+        return (roundedMins, operatingCost);
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

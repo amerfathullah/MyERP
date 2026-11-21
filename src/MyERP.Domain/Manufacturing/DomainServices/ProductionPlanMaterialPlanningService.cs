@@ -370,7 +370,8 @@ public class ProductionPlanMaterialPlanningService : DomainService
     public static (decimal ActualQty, decimal ProjectedQty, decimal ReservedQtyForProduction, decimal OrderedQty, decimal PlannedQty) ResolveShortageBinDetails(
         Guid? itemWarehouseId,
         IReadOnlyCollection<Guid>? transferFromWarehouseIds,
-        IEnumerable<(Guid WarehouseId, decimal ActualQty, decimal ProjectedQty, decimal ReservedQtyForProduction, decimal OrderedQty, decimal PlannedQty)> companyBins)
+        IEnumerable<(Guid WarehouseId, decimal ActualQty, decimal ProjectedQty, decimal ReservedQtyForProduction, decimal OrderedQty, decimal PlannedQty)> companyBins,
+        Guid? itemGroupDefaultWarehouseId = null)
     {
         if (companyBins == null)
         {
@@ -384,7 +385,11 @@ public class ProductionPlanMaterialPlanningService : DomainService
         }
         else if (transferFromWarehouseIds != null && transferFromWarehouseIds.Count > 0)
         {
-            filteredBins = filteredBins.Where(b => !transferFromWarehouseIds.Contains(b.WarehouseId));
+            // Per ERPNext commit a07e6e3ce4: keep the item group's default warehouse (which receives the material)
+            // even when it was selected among transferFromWarehouseIds.
+            filteredBins = filteredBins.Where(b =>
+                (itemGroupDefaultWarehouseId.HasValue && b.WarehouseId == itemGroupDefaultWarehouseId.Value)
+                || !transferFromWarehouseIds.Contains(b.WarehouseId));
         }
 
         decimal actual = 0m, projected = 0m, reserved = 0m, ordered = 0m, planned = 0m;
@@ -398,5 +403,156 @@ public class ProductionPlanMaterialPlanningService : DomainService
         }
 
         return (actual, projected, reserved, ordered, planned);
+    }
+
+    /// <summary>
+    /// Computes the pending quantity of a Sales Order Item for a Production Plan, subtracting only non-Work-Order
+    /// stock reservations from <paramref name="stockQty"/> and counting deliveries on top of reserved Work Order output
+    /// per ERPNext commits 3464dc31dd, b3f47bf37d, and ed2ce1f927 (<c>sales_order_planning.py</c>).
+    /// </summary>
+    public static decimal CalculateSalesOrderItemPendingQtyForProductionPlan(
+        decimal stockQty,
+        decimal stockReservedQty,
+        decimal reservedOwnWorkOrderOutputQty,
+        decimal workOrderQty,
+        decimal deliveredQtyInOrderUom,
+        decimal conversionFactor,
+        decimal productionPlanQty,
+        int precision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var reservedFromStock = stockReservedQty - reservedOwnWorkOrderOutputQty;
+        var qty = stockQty - reservedFromStock;
+        var deliveredOrReservedQty = (deliveredQtyInOrderUom * factor) + reservedOwnWorkOrderOutputQty;
+        var pendingQty = qty - Math.Max(workOrderQty, Math.Max(deliveredOrReservedQty, 0m));
+
+        return Math.Round(
+            Math.Min(pendingQty, stockQty - productionPlanQty),
+            precision,
+            MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Computes a Work Order's committed quantity against a Production Plan row, grossing up <paramref name="producedQty"/>
+    /// by <c>1 - lossPercentage / 100</c> when <paramref name="creditProducedQty"/> is true so output above planned loss
+    /// offsets another Work Order's excess process loss per ERPNext commit 273db39e00 (<c>work_order_quantities.py</c>).
+    /// </summary>
+    public static decimal CalculateWorkOrderCommittedQtyForPlan(
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        decimal plannedLossPercentage,
+        bool creditProducedQty = true)
+    {
+        var lossFactor = 1m - (plannedLossPercentage / 100m);
+        if (lossFactor <= 0m)
+        {
+            return Math.Max(0m, producedQty);
+        }
+
+        var goodQty = workOrderQty - Math.Max(processLossQty, workOrderQty * (plannedLossPercentage / 100m));
+        var committedQty = goodQty / lossFactor;
+        var effectiveProduced = creditProducedQty ? (producedQty / lossFactor) : producedQty;
+
+        return Math.Max(0m, Math.Max(effectiveProduced, committedQty));
+    }
+
+    /// <summary>
+    /// Groups BOM subitems for Production Plan raw material calculation by <c>(ItemId, DoNotExplode)</c>,
+    /// taking a <c>DoNotExplode</c> group's description and warehouse from its own lines, preventing <c>DoNotExplode</c>
+    /// lines from using the item's <c>DefaultBomId</c>, and excluding exploded phantom lines from raw materials
+    /// per ERPNext commits 0fab64a3df, 77f2a77489, 27e7009edd, and e813d87d5d (<c>bom_explosion.py</c>).
+    /// </summary>
+    public static List<(Guid ItemId, bool DoNotExplode, decimal Qty, string Description, Guid? SourceWarehouseId, Guid? ChildBomIdToExplode, bool ShouldMergeIntoRawMaterials)>
+        EvaluateProductionPlanBomSubitemGroups(
+            bool includeExplodedItems,
+            bool includeSubcontractedItems,
+            IEnumerable<(int Idx, Guid ItemId, bool DoNotExplode, bool IsPhantomItem, bool IsSubcontractedItem, decimal StockQtyPerBomUnit, string Description, Guid? SourceWarehouseId, Guid? LineBomId, Guid? ItemDefaultBomId)> bomLines,
+            decimal plannedParentQty)
+    {
+        var results = new List<(Guid ItemId, bool DoNotExplode, decimal Qty, string Description, Guid? SourceWarehouseId, Guid? ChildBomIdToExplode, bool ShouldMergeIntoRawMaterials)>();
+        if (bomLines == null)
+        {
+            return results;
+        }
+
+        var groups = bomLines
+            .GroupBy(l => (l.ItemId, l.DoNotExplode))
+            .OrderBy(g => g.Min(x => x.Idx));
+
+        foreach (var group in groups)
+        {
+            var orderedLines = group.OrderBy(x => x.Idx).ToList();
+            var representative = orderedLines[0];
+            var totalQty = orderedLines.Sum(x => x.StockQtyPerBomUnit) * plannedParentQty;
+            var allPhantom = orderedLines.All(x => x.IsPhantomItem);
+            var lineBomId = orderedLines.Select(x => x.LineBomId).FirstOrDefault(id => id.HasValue && id.Value != Guid.Empty);
+            var defaultBomId = orderedLines.Select(x => x.ItemDefaultBomId).FirstOrDefault(id => id.HasValue && id.Value != Guid.Empty);
+
+            // A Do Not Explode line has no BOM, so it must not take the item's default BOM (0fab64a3df)
+            var childBomId = lineBomId ?? (group.Key.DoNotExplode ? null : defaultBomId);
+
+            var explodable = allPhantom || (includeExplodedItems && childBomId.HasValue);
+            var shouldExplodeSubitem = !group.Key.DoNotExplode
+                && (!representative.IsSubcontractedItem || includeSubcontractedItems);
+            var explode = explodable && shouldExplodeSubitem && totalQty > 0m && childBomId.HasValue;
+
+            // An exploded line (including an exploded phantom line) is NOT merged into raw materials (27e7009edd)
+            results.Add((
+                group.Key.ItemId,
+                group.Key.DoNotExplode,
+                totalQty,
+                representative.Description,
+                representative.SourceWarehouseId,
+                explode ? childBomId : null,
+                !explode));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Allocates transfer quantities from available warehouse locations for a Production Plan Material Request item,
+    /// skipping the item's own receiving warehouse so stock is never transferred from the receiving warehouse to itself
+    /// while keeping subsequent transfer locations intact per ERPNext commits a5229ac21c and 3a06b94144 (<c>material_request.py</c>).
+    /// </summary>
+    public static (List<(Guid SourceWarehouseId, decimal TransferQty)> Transfers, decimal RemainingRequiredQty)
+        AllocateTransferLocationsSkippingReceivingWarehouse(
+            Guid? receivingWarehouseId,
+            decimal requiredQty,
+            IEnumerable<(Guid WarehouseId, decimal AvailableQty)>? availableLocations,
+            int precision = 4)
+    {
+        var transfers = new List<(Guid SourceWarehouseId, decimal TransferQty)>();
+        var remaining = requiredQty;
+
+        if (availableLocations == null)
+        {
+            return (transfers, remaining);
+        }
+
+        foreach (var loc in availableLocations)
+        {
+            if (Math.Round(remaining, precision, MidpointRounding.AwayFromZero) <= 0m)
+            {
+                break;
+            }
+
+            if (receivingWarehouseId.HasValue && loc.WarehouseId == receivingWarehouseId.Value)
+            {
+                continue;
+            }
+
+            var qty = Math.Round(Math.Min(remaining, loc.AvailableQty), precision, MidpointRounding.AwayFromZero);
+            if (qty <= 0m)
+            {
+                continue;
+            }
+
+            transfers.Add((loc.WarehouseId, qty));
+            remaining -= qty;
+        }
+
+        return (transfers, remaining);
     }
 }
