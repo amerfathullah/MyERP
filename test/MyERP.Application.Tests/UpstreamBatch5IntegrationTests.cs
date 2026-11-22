@@ -3069,4 +3069,199 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             netLcvFreight.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch20_EndToEnd_ReverseGlForJournalEntry_Dunning_And_PaymentOrderCancel()
+    {
+        Guid companyId = Guid.Empty;
+        Guid fyId = Guid.Empty;
+        Guid arAccId = Guid.Empty;
+        Guid apAccId = Guid.Empty;
+        Guid bankAccId = Guid.Empty;
+        Guid incomeAccId = Guid.Empty;
+        Guid standaloneJeId = Guid.Empty;
+        Guid dunningId = Guid.Empty;
+        Guid paymentOrderId = Guid.Empty;
+        Guid paymentOrderJeId = Guid.Empty;
+
+        // UoW 1: Seed master data + post standalone JE, Dunning (with fee+interest GL), and PaymentOrder bank JE
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var bankRepo = GetRequiredService<IRepository<BankAccount, Guid>>();
+            var prRepo = GetRequiredService<IRepository<PaymentRequest, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var dunningService = GetRequiredService<MyERP.Sales.IDunningAppService>();
+            var paymentOrderService = GetRequiredService<MyERP.Accounting.IPaymentOrderAppService>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch20 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            companyId = company.Id;
+
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PaymentOrder", "PaymentOrder", "PMO-B20-"), autoSave: true);
+
+            var arAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1200-B20", "Accounts Receivable", AccountType.Asset), autoSave: true);
+            var apAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "2100-B20", "Accounts Payable", AccountType.Liability), autoSave: true);
+            var bankAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1010-B20", "Maybank Operating", AccountType.Asset), autoSave: true);
+            var incomeAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "4100-B20", "Dunning Fee Income", AccountType.Revenue), autoSave: true);
+            arAccId = arAcc.Id;
+            apAccId = apAcc.Id;
+            bankAccId = bankAcc.Id;
+            incomeAccId = incomeAcc.Id;
+
+            company.DefaultReceivableAccountId = arAcc.Id;
+            company.DefaultPayableAccountId = apAcc.Id;
+            company.DefaultBankAccountId = bankAcc.Id;
+            company.DefaultIncomeAccountId = incomeAcc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            var fy = await fyRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY2026-B20", new DateTime(DateTime.Today.Year, 1, 1), new DateTime(DateTime.Today.Year, 12, 31)), autoSave: true);
+            fyId = fy.Id;
+
+            // 1. Standalone posted JE (simulates Asset Depreciation / Invoice Discounting JE without ReferenceType)
+            var standaloneJe = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, DateTime.Today)
+            {
+                Narration = "Batch20 Standalone Posted JE",
+            };
+            standaloneJe.AddLine(bankAcc.Id, 500m, isDebit: true);
+            standaloneJe.AddLine(incomeAcc.Id, 500m, isDebit: false);
+            standaloneJe.Post();
+            await jeRepo.InsertAsync(standaloneJe, autoSave: true);
+            standaloneJeId = standaloneJe.Id;
+
+            // 2. Dunning Submit (posts GL JE: DR AR 75, CR Dunning Income 75)
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B20 Customer") { DefaultReceivableAccountId = arAcc.Id }, autoSave: true);
+            var overdueDueDate = DateTime.Today.AddDays(-15);
+            var si = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-B20-1", overdueDueDate.AddDays(-15))
+            {
+                DueDate = overdueDueDate,
+            };
+            si.AddItem(Guid.NewGuid(), "Consulting", 1m, 1000m, 0m);
+            si.Submit();
+            si.Post();
+            await siRepo.InsertAsync(si, autoSave: true);
+
+            var dunning = await dunningService.CreateAsync(new MyERP.Sales.CreateDunningDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                CustomerName = customer.Name,
+                PostingDate = DateTime.Today,
+                DunningFee = 50m,
+                InterestAmount = 25m,
+                IncomeAccountId = incomeAcc.Id,
+                OverduePayments = new[]
+                {
+                    new MyERP.Sales.CreateDunningOverdueDto
+                    {
+                        SalesInvoiceId = si.Id,
+                        OutstandingAmount = 1000m,
+                        DueDate = overdueDueDate,
+                        OverdueDays = 15,
+                    }
+                }
+            });
+            await dunningService.SubmitAsync(dunning.Id);
+            dunningId = dunning.Id;
+
+            // 3. PaymentOrder Submit + MakePaymentRecords (posts Bank Entry JE: DR AP 400, CR Bank 400)
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B20 Supplier") { DefaultPayableAccountId = apAcc.Id }, autoSave: true);
+            var companyBank = await bankRepo.InsertAsync(new BankAccount(Guid.NewGuid(), company.Id, "B20 Main Bank", bankAcc.Id, "Maybank"), autoSave: true);
+            var payReq = new PaymentRequest(Guid.NewGuid(), company.Id, "PurchaseInvoice", Guid.NewGuid(), supplier.Id, "Supplier", 400m);
+            payReq.Submit();
+            await prRepo.InsertAsync(payReq, autoSave: true);
+
+            var po = await paymentOrderService.CreateAsync(new MyERP.Accounting.CreatePaymentOrderDto
+            {
+                CompanyId = company.Id,
+                PaymentOrderType = PaymentOrderType.PaymentRequest,
+                PostingDate = DateTime.Today,
+                CompanyBankAccountId = companyBank.Id,
+                References = new List<MyERP.Accounting.CreatePaymentOrderReferenceDto>
+                {
+                    new()
+                    {
+                        ReferenceType = "PaymentRequest",
+                        ReferenceId = payReq.Id,
+                        Amount = 400m,
+                        SupplierId = supplier.Id,
+                        ModeOfPayment = "Bank Transfer",
+                        BankAccountId = companyBank.Id,
+                        PaymentReference = "REF-B20-1",
+                    }
+                }
+            });
+            await paymentOrderService.SubmitAsync(po.Id);
+            paymentOrderId = po.Id;
+            paymentOrderJeId = await paymentOrderService.MakePaymentRecordsAsync(po.Id, new MyERP.Accounting.MakePaymentRecordsDto
+            {
+                SupplierId = supplier.Id,
+                ModeOfPayment = "Bank Transfer",
+            });
+
+            await uowManager.Current!.SaveChangesAsync();
+        });
+
+        // UoW 2 (FRESH DbContext!): Execute reversals and verify every line is eager-loaded and netted to zero
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var orchestrator = GetRequiredService<DocumentPostingOrchestrator>();
+            var dunningService = GetRequiredService<MyERP.Sales.IDunningAppService>();
+            var paymentOrderService = GetRequiredService<MyERP.Accounting.IPaymentOrderAppService>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            // 1. ReverseGlForJournalEntryAsync in a fresh UoW (previously crashed with UnbalancedJournalEntry due to unloaded Lines)
+            await orchestrator.ReverseGlForJournalEntryAsync(standaloneJeId);
+            await uowManager.Current!.SaveChangesAsync();
+            // Second call must be idempotent (no duplicate reversal)
+            await orchestrator.ReverseGlForJournalEntryAsync(standaloneJeId);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var standaloneReversals = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReversalOfId == standaloneJeId)
+                .ToList();
+            standaloneReversals.Count.ShouldBe(1);
+            standaloneReversals[0].Status.ShouldBe(DocumentStatus.Posted);
+            standaloneReversals[0].VoucherType.ShouldBe(JournalEntryVoucherType.Reversal);
+            standaloneReversals[0].Lines.Count.ShouldBe(2);
+            standaloneReversals[0].Lines.ShouldContain(l => l.AccountId == bankAccId && !l.IsDebit && l.Amount == 500m);
+            standaloneReversals[0].Lines.ShouldContain(l => l.AccountId == incomeAccId && l.IsDebit && l.Amount == 500m);
+
+            // 2. Dunning CancelAsync must post contra reversal JE while keeping original JE Posted
+            await dunningService.CancelAsync(dunningId);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var dunningJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "Dunning" && j.ReferenceId == dunningId)
+                .ToList();
+            dunningJes.Count.ShouldBe(2);
+            dunningJes.All(j => j.Status == DocumentStatus.Posted).ShouldBeTrue();
+            dunningJes.Count(j => j.VoucherType == JournalEntryVoucherType.Reversal && j.ReversalOfId.HasValue).ShouldBe(1);
+            var netDunningAr = dunningJes.SelectMany(j => j.Lines).Where(l => l.AccountId == arAccId).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            var netDunningIncome = dunningJes.SelectMany(j => j.Lines).Where(l => l.AccountId == incomeAccId).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netDunningAr.ShouldBe(0m);
+            netDunningIncome.ShouldBe(0m);
+
+            // 3. PaymentOrder CancelAsync must reverse the posted bank JE created by MakePaymentRecordsAsync
+            await paymentOrderService.CancelAsync(paymentOrderId);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var poJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "PaymentOrder" && j.ReferenceId == paymentOrderId)
+                .ToList();
+            poJes.Count.ShouldBe(2);
+            poJes.ShouldContain(j => j.ReversalOfId == paymentOrderJeId && j.VoucherType == JournalEntryVoucherType.Reversal && j.Status == DocumentStatus.Posted);
+            var netPoAp = poJes.SelectMany(j => j.Lines).Where(l => l.AccountId == apAccId).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            var netPoBank = poJes.SelectMany(j => j.Lines).Where(l => l.AccountId == bankAccId).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netPoAp.ShouldBe(0m);
+            netPoBank.ShouldBe(0m);
+        });
+    }
 }

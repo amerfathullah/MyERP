@@ -841,9 +841,27 @@ public class DocumentPostingOrchestrator : DomainService
     /// </summary>
     public async Task ReverseGlForJournalEntryAsync(Guid journalEntryId)
     {
-        var original = await _journalRepository.FindAsync(journalEntryId);
+        var query = await GetJournalQueryWithLinesAsync();
+        var original = query.FirstOrDefault(j => j.Id == journalEntryId);
+        if (original == null)
+        {
+            var fallbackQuery = await _journalRepository.GetQueryableAsync();
+            original = fallbackQuery.FirstOrDefault(j => j.Id == journalEntryId);
+        }
+        if (original == null)
+        {
+            original = await _journalRepository.FindAsync(journalEntryId);
+        }
+
         if (original == null || original.Status != DocumentStatus.Posted
             || original.VoucherType == JournalEntryVoucherType.Reversal)
+        {
+            return;
+        }
+
+        var alreadyReversed = query.Any(j =>
+            j.ReversalOfId == original.Id && j.Status == DocumentStatus.Posted);
+        if (alreadyReversed)
         {
             return;
         }

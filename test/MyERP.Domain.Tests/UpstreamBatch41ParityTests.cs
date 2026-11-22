@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
@@ -452,5 +453,82 @@ public class UpstreamBatch41ParityTests
         loan.TotalPrincipalRepaid.ShouldBe(0m);
         loan.TotalInterestCharged.ShouldBe(0m);
         loan.TotalAmountRepaid.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void MyInvois_InvoiceDocumentBuilder_NormalizesClassificationForeignPartiesAndConsolidatedCodes()
+    {
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var data = new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "INV-MYINVOIS-01",
+            IssueDate = new DateTime(2026, 6, 15, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            IsConsolidated = false,
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Foreign Supplier Pte Ltd",
+                Tin = "EI00000000030",
+                CountryCode = "SG",
+                State = "Singapore",
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Overseas Buyer Inc",
+                Tin = "",
+                CountryCode = "US",
+                State = "California",
+            },
+            Delivery = new MyERP.EInvoice.Services.EInvoiceDeliveryData
+            {
+                RecipientName = "Overseas Warehouse",
+                CountryCode = "GB",
+                State = "London",
+            },
+            NetTotal = 300m,
+            TaxAmount = 0m,
+            GrandTotal = 300m,
+            Lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Blank Code Item", Quantity = 1m, UnitPrice = 100m, ClassificationCode = "" },
+                new() { Description = "Composite Code Item", Quantity = 1m, UnitPrice = 200m, ClassificationCode = "003 : Computer, smartphone or tablet" },
+            }
+        };
+
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(data));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+
+        // Foreign supplier & delivery get state "17" and ISO3 country codes
+        var supplierAddr = xml.Root!.Element(cac + "AccountingSupplierParty")!.Element(cac + "Party")!.Element(cac + "PostalAddress")!;
+        supplierAddr.Element(cbc + "CountrySubentityCode")!.Value.ShouldBe("17");
+        supplierAddr.Element(cac + "Country")!.Element(cbc + "IdentificationCode")!.Value.ShouldBe("SGP");
+
+        var deliveryAddr = xml.Root!.Element(cac + "Delivery")!.Element(cac + "DeliveryAddress")!;
+        deliveryAddr.Element(cbc + "CountrySubentityCode")!.Value.ShouldBe("17");
+        deliveryAddr.Element(cac + "Country")!.Element(cbc + "IdentificationCode")!.Value.ShouldBe("GBR");
+
+        // Foreign buyer with blank TIN gets EI00000000030, state "17", country "USA"
+        var buyerParty = xml.Root!.Element(cac + "AccountingCustomerParty")!.Element(cac + "Party")!;
+        buyerParty.Elements(cac + "PartyIdentification")
+            .First(x => x.Element(cbc + "ID")!.Attribute("schemeID")!.Value == "TIN")
+            .Element(cbc + "ID")!.Value.ShouldBe("EI00000000030");
+        buyerParty.Element(cac + "PostalAddress")!.Element(cbc + "CountrySubentityCode")!.Value.ShouldBe("17");
+        buyerParty.Element(cac + "PostalAddress")!.Element(cac + "Country")!.Element(cbc + "IdentificationCode")!.Value.ShouldBe("USA");
+
+        // Blank classification defaults to "022", composite strips description to "003"
+        var classCodes = xml.Root!.Elements(cac + "InvoiceLine")
+            .Select(l => l.Element(cac + "Item")!.Element(cac + "CommodityClassification")!.Element(cbc + "ItemClassificationCode")!.Value)
+            .ToList();
+        classCodes.ShouldBe(new[] { "022", "003" });
+
+        // Consolidated invoice forces "004" on every line
+        data.IsConsolidated = true;
+        var consolidatedXml = System.Xml.Linq.XDocument.Parse(builder.Build(data));
+        var consolidatedCodes = consolidatedXml.Root!.Elements(cac + "InvoiceLine")
+            .Select(l => l.Element(cac + "Item")!.Element(cac + "CommodityClassification")!.Element(cbc + "ItemClassificationCode")!.Value)
+            .ToList();
+        consolidatedCodes.ShouldBe(new[] { "004", "004" });
     }
 }

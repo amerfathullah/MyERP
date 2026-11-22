@@ -439,15 +439,27 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   }
 
   getLhdnQrCodeUrl(): string {
-    const longId = (this.invoice as any)?.lhdnLongId;
-    if (!longId) return '';
-    return `https://api.qrserver.com/v1/create-qr-code/?data=https://myinvois.hasil.gov.my/${longId}/share&size=96x96`;
+    const inv = this.invoice as any;
+    if (inv?.qrCodeUrl && (inv.qrCodeUrl.startsWith('data:image/') || inv.qrCodeUrl.includes('api.qrserver.com'))) {
+      return inv.qrCodeUrl;
+    }
+    const verifyUrl = this.getLhdnVerificationUrl();
+    if (!verifyUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(verifyUrl)}`;
   }
 
   getLhdnVerificationUrl(): string {
-    const longId = (this.invoice as any)?.lhdnLongId;
-    if (!longId) return '';
-    return `https://myinvois.hasil.gov.my/${longId}/share`;
+    const inv = this.invoice as any;
+    if (inv?.qrCodeUrl && /^https?:\/\//i.test(inv.qrCodeUrl) && !inv.qrCodeUrl.includes('api.qrserver.com')) {
+      return inv.qrCodeUrl;
+    }
+    if (inv?.lhdnUuid && inv?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${inv.lhdnUuid}/share/${inv.lhdnLongId}`;
+    }
+    if (inv?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${inv.lhdnLongId}/share`;
+    }
+    return '';
   }
 
   // --- Quick Payment Dialog ---

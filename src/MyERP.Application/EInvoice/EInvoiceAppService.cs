@@ -232,6 +232,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
+            IsConsolidated = invoice.IsConsolidated,
             BillingReferenceNumber = billingReferenceNumber ?? billingReferenceUuid,
             BillingReferenceUuid = billingReferenceUuid,
             Supplier = supplier,
@@ -306,9 +307,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         billingReferenceNumber ??= invoice.OriginalInvoiceNumber;
         billingReferenceUuid ??= invoice.OriginalInvoiceUuid;
 
-        var isForeignSupplier = !string.IsNullOrWhiteSpace(supplier.Country) &&
-            !supplier.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&
-            !supplier.Country.Equals("Malaysia", StringComparison.OrdinalIgnoreCase);
+        var supplierCountryCode = InvoiceDocumentBuilder.NormalizeCountryCode(supplier.Country);
+        var isForeignSupplier = supplierCountryCode != "MYS";
 
         var defaultSupplierTin = isForeignSupplier ? EInvoiceConsts.ForeignPartyTin : EInvoiceConsts.GenericBuyerTin;
         var supplierTin = !string.IsNullOrWhiteSpace(invoice.SupplierTin)
@@ -335,7 +335,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 City = supplier.City,
                 State = supplier.State,
                 PostalCode = supplier.PostalCode,
-                CountryCode = supplier.Country ?? "MYS",
+                CountryCode = supplierCountryCode,
                 Phone = supplier.Phone,
                 Email = supplier.Email,
             },
@@ -353,7 +353,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 TaxAmount = item.TaxAmount,
                 ClassificationCode = LhdnClassificationCodes.Normalize(item.ClassificationCode)
                     ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
-                    ?? EInvoiceConsts.DefaultSelfBilledClassificationCode,
+                    ?? (!string.IsNullOrWhiteSpace(item.ClassificationCode)
+                        ? InvoiceDocumentBuilder.NormalizeClassificationCode(item.ClassificationCode)
+                        : EInvoiceConsts.DefaultSelfBilledClassificationCode),
             }).ToList(),
         };
     }
@@ -684,6 +686,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = "01", // Standard invoice
             CurrencyCode = invoice.CurrencyCode,
+            IsConsolidated = true,
             Supplier = supplier,
             Buyer = buyer,
             NetTotal = invoice.NetTotal,

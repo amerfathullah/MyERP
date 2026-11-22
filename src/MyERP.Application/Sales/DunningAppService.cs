@@ -532,32 +532,73 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         d.Cancel();
 
-        // Cancel linked Journal Entries created by Dunning submit
+        // Reverse linked Journal Entries created by Dunning submit via contra-entry reversal
+        // (immutable double-entry GL protocol; original posted JE stays intact)
         try
         {
-            var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
-            var linkedJes = (await jeRepo.GetQueryableAsync())
-                .Where(j => j.ReferenceType == "Dunning" && j.ReferenceId == d.Id && j.Status == DocumentStatus.Posted)
-                .ToList();
-            foreach (var je in linkedJes)
+            var orchestrator = LazyServiceProvider?.LazyGetService<DocumentPostingOrchestrator>();
+            if (orchestrator != null)
             {
-                je.Cancel();
-                await jeRepo.UpdateAsync(je);
+                await orchestrator.ReverseGlForDocumentAsync("Dunning", d.Id);
+            }
+            else
+            {
+                var jeRepo = LazyServiceProvider?.LazyGetService<IRepository<JournalEntry, Guid>>();
+                if (jeRepo != null)
+                {
+                    IQueryable<JournalEntry> jeQuery;
+                    try
+                    {
+                        jeQuery = await jeRepo.WithDetailsAsync(j => j.Lines) ?? await jeRepo.GetQueryableAsync();
+                    }
+                    catch
+                    {
+                        jeQuery = await jeRepo.GetQueryableAsync();
+                    }
+                    var linkedJes = jeQuery
+                        .Where(j => j.ReferenceType == "Dunning" && j.ReferenceId == d.Id && j.Status == DocumentStatus.Posted)
+                        .ToList();
+                    var alreadyReversedIds = linkedJes
+                        .Where(j => j.ReversalOfId.HasValue)
+                        .Select(j => j.ReversalOfId!.Value)
+                        .ToHashSet();
+                    foreach (var orig in linkedJes.Where(j =>
+                        j.VoucherType != JournalEntryVoucherType.Reversal && !alreadyReversedIds.Contains(j.Id)))
+                    {
+                        var reversal = new JournalEntry(
+                            GuidGenerator.Create(), orig.CompanyId, orig.FiscalYearId, orig.PostingDate, orig.TenantId)
+                        {
+                            ReferenceType = orig.ReferenceType,
+                            ReferenceId = orig.ReferenceId,
+                            ReferenceNumber = orig.ReferenceNumber,
+                            VoucherType = JournalEntryVoucherType.Reversal,
+                            ReversalOfId = orig.Id,
+                            IsMultiCurrency = orig.IsMultiCurrency,
+                        };
+                        foreach (var line in orig.Lines)
+                            reversal.AddReversalLine(line);
+                        reversal.Post();
+                        await jeRepo.InsertAsync(reversal);
+                    }
+                }
             }
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to cancel linked Journal Entry for Dunning {DunningId}", d.Id);
+            Logger.LogWarning(ex, "Failed to reverse linked Journal Entry for Dunning {DunningId}", d.Id);
         }
 
         await _repository.UpdateAsync(d);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
-            "Dunning", d.Id, "Cancelled", d.CompanyId,
-            d.DunningLevel.ToString(), "Submitted", "Cancelled",
-            CurrentUser.Id,
-            $"Dunning level {d.DunningLevel} cancelled for customer {d.CustomerName}", d.TenantId));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new DocumentActivityLog(GuidGenerator.Create(),
+                "Dunning", d.Id, "Cancelled", d.CompanyId,
+                d.DunningLevel.ToString(), "Submitted", "Cancelled",
+                CurrentUser.Id,
+                $"Dunning level {d.DunningLevel} cancelled for customer {d.CustomerName}", d.TenantId));
+        }
 
         var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
         dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto

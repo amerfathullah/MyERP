@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
@@ -158,6 +159,14 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
     {
         var entity = (await _repository.WithDetailsAsync()).First(o => o.Id == id);
         entity.Cancel();
+
+        // Reverse any posted bank/cash Journal Entries created by MakePaymentRecordsAsync
+        var orchestrator = LazyServiceProvider?.LazyGetService<DocumentPostingOrchestrator>();
+        if (orchestrator != null)
+        {
+            await orchestrator.ReverseGlForDocumentAsync("PaymentOrder", entity.Id);
+        }
+
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }

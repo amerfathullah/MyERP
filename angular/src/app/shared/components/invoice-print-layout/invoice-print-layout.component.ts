@@ -296,19 +296,26 @@ export class InvoicePrintLayoutComponent {
     return '';
   }
 
-  /** QR code URL for LHDN e-Invoice verification (per myinvois get_status.py) */
+  /** QR code image URL for LHDN e-Invoice verification (per myinvois createxml.py) */
   getQrCodeUrl(): string {
-    if (this.invoice?.qrCodeUrl) return this.invoice.qrCodeUrl;
-    if (this.invoice?.lhdnLongId) {
-      // Generate QR via QR Server API (same approach as myinvois generate_qr_code)
-      const verifyUrl = `https://myinvois.hasil.gov.my/${this.invoice.lhdnLongId}/share`;
-      return `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(verifyUrl)}`;
+    const qr = this.invoice?.qrCodeUrl;
+    if (qr && (qr.startsWith('data:image/') || qr.includes('api.qrserver.com'))) {
+      return qr;
     }
-    return '';
+    const verifyUrl = this.getLhdnVerificationUrl();
+    if (!verifyUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(verifyUrl)}`;
   }
 
-  /** LHDN verification portal URL */
+  /** LHDN MyInvois verification portal URL (https://myinvois.hasil.gov.my/{uuid}/share/{longId}) */
   getLhdnVerificationUrl(): string {
+    const qr = this.invoice?.qrCodeUrl;
+    if (qr && /^https?:\/\//i.test(qr) && !qr.includes('api.qrserver.com')) {
+      return qr;
+    }
+    if (this.invoice?.lhdnUuid && this.invoice?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${this.invoice.lhdnUuid}/share/${this.invoice.lhdnLongId}`;
+    }
     if (this.invoice?.lhdnLongId) {
       return `https://myinvois.hasil.gov.my/${this.invoice.lhdnLongId}/share`;
     }

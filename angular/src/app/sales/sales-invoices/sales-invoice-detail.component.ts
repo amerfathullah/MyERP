@@ -576,20 +576,26 @@ export class SalesInvoiceDetailComponent implements OnInit {
     return Math.min(100, (paid / this.invoice.grandTotal) * 100);
   }
 
-  /** LHDN QR code URL generated from longId (per myinvois get_status.py pattern) */
+  /** LHDN QR code image URL generated from verification portal URL (per myinvois createxml.py) */
   getLhdnQrCodeUrl(): string {
     const inv = this.invoice as any;
-    if (inv?.qrCodeUrl) return inv.qrCodeUrl;
-    if (inv?.lhdnLongId) {
-      const verifyUrl = `https://myinvois.hasil.gov.my/${inv.lhdnLongId}/share`;
-      return `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(verifyUrl)}`;
+    if (inv?.qrCodeUrl && (inv.qrCodeUrl.startsWith('data:image/') || inv.qrCodeUrl.includes('api.qrserver.com'))) {
+      return inv.qrCodeUrl;
     }
-    return '';
+    const verifyUrl = this.getLhdnVerificationUrl();
+    if (!verifyUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(verifyUrl)}`;
   }
 
-  /** LHDN MyInvois verification portal URL */
+  /** LHDN MyInvois verification portal URL (https://myinvois.hasil.gov.my/{uuid}/share/{longId}) */
   getLhdnVerificationUrl(): string {
     const inv = this.invoice as any;
+    if (inv?.qrCodeUrl && /^https?:\/\//i.test(inv.qrCodeUrl) && !inv.qrCodeUrl.includes('api.qrserver.com')) {
+      return inv.qrCodeUrl;
+    }
+    if (inv?.lhdnUuid && inv?.lhdnLongId) {
+      return `https://myinvois.hasil.gov.my/${inv.lhdnUuid}/share/${inv.lhdnLongId}`;
+    }
     if (inv?.lhdnLongId) {
       return `https://myinvois.hasil.gov.my/${inv.lhdnLongId}/share`;
     }

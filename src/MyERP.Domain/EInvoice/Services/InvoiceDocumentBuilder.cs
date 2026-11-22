@@ -83,7 +83,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         // Invoice Lines
         for (int i = 0; i < data.Lines.Count; i++)
         {
-            invoice.Add(BuildInvoiceLine(i + 1, data.Lines[i], data.CurrencyCode));
+            invoice.Add(BuildInvoiceLine(i + 1, data.Lines[i], data.CurrencyCode, data.IsConsolidated));
         }
 
         return invoice.ToString(SaveOptions.DisableFormatting);
@@ -251,7 +251,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "Line", supplier.Address ?? "")),
                     new XElement(Cbc + "CityName", supplier.City ?? ""),
                     new XElement(Cbc + "PostalZone", supplier.PostalCode ?? ""),
-                    new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(supplier.State)),
+                    new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(supplier.State, supplier.CountryCode)),
                     new XElement(Cac + "Country",
                         new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(supplier.CountryCode)))),
                 new XElement(Cac + "PartyLegalEntity",
@@ -291,11 +291,13 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildCustomerParty(EInvoicePartyData buyer)
     {
+        var (resolvedTin, resolvedState, resolvedCountry) = ResolveBuyerTinAndStateForCountry(
+            buyer.Tin, buyer.State, buyer.CountryCode);
         var party = new XElement(Cac + "AccountingCustomerParty",
             new XElement(Cac + "Party",
                 new XElement(Cac + "PartyIdentification",
                     new XElement(Cbc + "ID",
-                        new XAttribute("schemeID", "TIN"), buyer.Tin)),
+                        new XAttribute("schemeID", "TIN"), resolvedTin)),
                 new XElement(Cac + "PartyIdentification",
                     new XElement(Cbc + "ID",
                         new XAttribute("schemeID", buyer.IdType ?? "BRN"), buyer.IdValue ?? "")),
@@ -304,9 +306,9 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "Line", buyer.Address ?? "")),
                     new XElement(Cbc + "CityName", buyer.City ?? ""),
                     new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
-                    new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(buyer.State)),
+                    new XElement(Cbc + "CountrySubentityCode", resolvedState),
                     new XElement(Cac + "Country",
-                        new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(buyer.CountryCode)))),
+                        new XElement(Cbc + "IdentificationCode", resolvedCountry))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", buyer.Name))));
 
@@ -388,7 +390,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 data.GrandTotal.ToString("F2", CultureInfo.InvariantCulture)));
     }
 
-    private XElement BuildInvoiceLine(int lineNumber, EInvoiceLineData line, string currency)
+    private XElement BuildInvoiceLine(int lineNumber, EInvoiceLineData line, string currency, bool isConsolidated = false)
     {
         var lineElem = new XElement(Cac + "InvoiceLine",
             new XElement(Cbc + "ID", lineNumber.ToString()),
@@ -434,15 +436,13 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
         lineElem.Add(taxTotal);
 
-        // Item with classification code
+        // Item with normalized LHDN classification code (defaults blank to "022" or "004" for consolidated per MyInvois commit e8ae07b)
         var item = new XElement(Cac + "Item",
-            new XElement(Cbc + "Description", line.Description));
-        if (!string.IsNullOrEmpty(line.ClassificationCode))
-        {
-            item.Add(new XElement(Cac + "CommodityClassification",
+            new XElement(Cbc + "Description", line.Description),
+            new XElement(Cac + "CommodityClassification",
                 new XElement(Cbc + "ItemClassificationCode",
-                    new XAttribute("listID", "CLASS"), line.ClassificationCode)));
-        }
+                    new XAttribute("listID", "CLASS"),
+                    NormalizeClassificationCode(line.ClassificationCode, isConsolidated))));
         lineElem.Add(item);
 
         lineElem.Add(new XElement(Cac + "Price",
@@ -461,7 +461,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "Line", delivery.Address ?? "")),
                 new XElement(Cbc + "CityName", delivery.City ?? ""),
                 new XElement(Cbc + "PostalZone", delivery.PostalCode ?? ""),
-                new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State)),
+                new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State, delivery.CountryCode)),
                 new XElement(Cac + "Country",
                     new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(delivery.CountryCode)))),
             new XElement(Cac + "DeliveryParty",
@@ -499,6 +499,7 @@ public class EInvoiceDocumentData
     public DateTime IssueDate { get; set; }
     public string DocumentTypeCode { get; set; } = "01";
     public string CurrencyCode { get; set; } = "MYR";
+    public bool IsConsolidated { get; set; }
     public EInvoicePartyData Supplier { get; set; } = null!;
     public EInvoicePartyData Buyer { get; set; } = null!;
     public EInvoiceDeliveryData? Delivery { get; set; }

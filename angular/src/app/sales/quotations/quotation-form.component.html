@@ -1,4 +1,4 @@
-<abp-page [title]="'New Quotation'">
+<abp-page [title]="(isEditMode ? '::EditQuotation' : '::NewQuotation') | abpLocalization">
   <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
     <div class="card mb-4">
       <div class="card-header">

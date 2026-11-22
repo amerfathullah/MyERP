@@ -317,5 +317,31 @@ describe('PurchaseInvoiceDetailComponent', () => {
       comp.amend();
       expect(toasterMock.error).toHaveBeenCalledWith('Amend blocked');
     });
+
+    it('builds LHDN MyInvois verification and QR URLs using {uuid}/share/{longId} format', () => {
+      const { comp } = createComponent();
+      comp.invoice = {
+        id: 'pi-1',
+        status: 'Posted',
+        lhdnUuid: 'UUID-PI-123',
+        lhdnLongId: 'LONG-PI-456',
+      } as any;
+
+      expect(comp.getLhdnVerificationUrl()).toBe('https://myinvois.hasil.gov.my/UUID-PI-123/share/LONG-PI-456');
+      expect(comp.getLhdnQrCodeUrl()).toBe(
+        `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent('https://myinvois.hasil.gov.my/UUID-PI-123/share/LONG-PI-456')}`
+      );
+
+      // Uses stored portal URL when present, and still wraps it into QR image endpoint
+      comp.invoice = {
+        id: 'pi-1',
+        status: 'Posted',
+        lhdnUuid: 'UUID-PI-123',
+        lhdnLongId: 'LONG-PI-456',
+        qrCodeUrl: 'https://preprod.myinvois.hasil.gov.my/UUID-PI-123/share/LONG-PI-456',
+      } as any;
+      expect(comp.getLhdnVerificationUrl()).toBe('https://preprod.myinvois.hasil.gov.my/UUID-PI-123/share/LONG-PI-456');
+      expect(comp.getLhdnQrCodeUrl()).toContain('api.qrserver.com/v1/create-qr-code/');
+    });
   });
 });
