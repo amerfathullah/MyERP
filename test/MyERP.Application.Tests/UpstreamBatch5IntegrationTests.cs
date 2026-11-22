@@ -2602,4 +2602,94 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             movedCard.HourRate.ShouldBe(95m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch16_EndToEnd_CommonPartyAccountsSettings_AutoReconcilesSubmittedInvoice()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var ccRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            var accSettingsRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountsSettings, Guid>>();
+            var partyLinkRepo = GetRequiredService<IRepository<MyERP.Core.Entities.PartyLink, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch16 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B16", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SalesInvoice", "SalesInvoice", "SINV-B16-"), autoSave: true);
+
+            var arAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1200-B16", "AR", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var apAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2100-B16", "AP", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            var revAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "4100-B16", "Sales Revenue", MyERP.Accounting.AccountType.Revenue), autoSave: true);
+            var cc = await ccRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B16 CC"), autoSave: true);
+
+            company.DefaultReceivableAccountId = arAcc.Id;
+            company.DefaultPayableAccountId = apAcc.Id;
+            company.DefaultIncomeAccountId = revAcc.Id;
+            company.DefaultCostCenterId = cc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "AR Debit", "SalesInvoice", isDebit: true, MyERP.Accounting.AccountSource.CustomerReceivable, MyERP.Accounting.AmountSource.GrandTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "Sales Credit", "SalesInvoice", isDebit: false, MyERP.Accounting.AccountSource.ItemIncome, MyERP.Accounting.AmountSource.NetTotal) { SortOrder = 2 }, autoSave: true);
+
+            // Enable Common Party Accounting via AccountsSettings DB entity (the same flag edited in Angular Accounts Settings UI)
+            var existingSettings = (await accSettingsRepo.GetQueryableAsync()).FirstOrDefault();
+            if (existingSettings == null)
+            {
+                await accSettingsRepo.InsertAsync(new MyERP.Accounting.Entities.AccountsSettings(Guid.NewGuid())
+                {
+                    EnableCommonPartyAccounting = true
+                }, autoSave: true);
+            }
+            else
+            {
+                existingSettings.EnableCommonPartyAccounting = true;
+                await accSettingsRepo.UpdateAsync(existingSettings, autoSave: true);
+            }
+
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B16 Primary Supplier") { DefaultPayableAccountId = apAcc.Id }, autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B16 Secondary Customer") { DefaultReceivableAccountId = arAcc.Id }, autoSave: true);
+            await partyLinkRepo.InsertAsync(new MyERP.Core.Entities.PartyLink(Guid.NewGuid(), "Supplier", supplier.Id, "Customer", customer.Id), autoSave: true);
+
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B16-SVC", "Batch 16 Service", ItemType.Service) { MaintainStock = false, Uom = "Unit" }, autoSave: true);
+
+            var siService = GetRequiredService<MyERP.Sales.ISalesInvoiceAppService>();
+            var created = await siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                CostCenterId = cc.Id,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = item.Id, Description = item.ItemName, Quantity = 1m, UnitPrice = 250m, TaxAmount = 0m }
+                }
+            });
+
+            await siService.SubmitAsync(created.Id);
+            var posted = await siService.PostAsync(created.Id);
+            posted.AmountPaid.ShouldBe(250m);
+            posted.OutstandingAmount.ShouldBe(0m);
+
+            var journals = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "SalesInvoice" && j.ReferenceId == created.Id)
+                .ToList();
+            journals.Count.ShouldBeGreaterThanOrEqualTo(2);
+            var reconJe = journals.FirstOrDefault(j => (j.Narration ?? string.Empty).Contains("Common Party Accounting"));
+            reconJe.ShouldNotBeNull();
+            reconJe!.TotalDebit.ShouldBe(250m);
+            reconJe.TotalCredit.ShouldBe(250m);
+            reconJe.Lines.ShouldContain(l => l.AccountId == arAcc.Id && !l.IsDebit && l.Amount == 250m);
+            reconJe.Lines.ShouldContain(l => l.AccountId == apAcc.Id && l.IsDebit && l.Amount == 250m);
+        });
+    }
 }

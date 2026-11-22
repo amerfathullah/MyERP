@@ -817,6 +817,7 @@ export class SalesInvoiceFormComponent implements OnInit {
       returnAgainstId: raw.returnAgainstId || undefined,
       originalInvoiceNumber: raw.originalInvoiceNumber || undefined,
       originalInvoiceUuid: raw.originalInvoiceUuid || undefined,
+      additionalDiscountPercentage: this.discountPercent > 0 ? this.discountPercent : undefined,
       discountAmount: this.discountAmount() > 0 ? this.discountAmount() : undefined,
       applyDiscountOn: this.discountAmount() > 0 ? this.discountOn : undefined,
       items: (raw.items ?? []).map((item: any) => ({

@@ -483,13 +483,14 @@ describe('SalesInvoice form calculations', () => {
     });
 
     it('uses rounded total when computing automatic write-off amount (commit f2219cf5b9)', () => {
+      const serviceMock = { get: vi.fn(), getNextNumber: vi.fn().mockReturnValue(of('SINV-0013')), create: vi.fn().mockReturnValue(of({})) };
       const injector = Injector.create({
         providers: [
           { provide: FormBuilder, useValue: new FormBuilder() },
           { provide: Router, useValue: { navigate: vi.fn() } },
           { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null }, queryParams: {} } } },
           { provide: TaxCalculationService, useValue: new TaxCalculationService() },
-          { provide: SalesInvoiceService, useValue: { get: vi.fn(), getNextNumber: vi.fn().mockReturnValue(of('SINV-0013')) } },
+          { provide: SalesInvoiceService, useValue: serviceMock },
           { provide: SalesOrderService, useValue: { getBillableSalesOrders: vi.fn().mockReturnValue(of([])) } },
           { provide: CustomerService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
           { provide: SalesPersonService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
@@ -523,6 +524,15 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.discountAmount()).toBe(0.5);
       expect(comp.discountAmount() > 0).toBe(true);
       expect(comp.calcResult.grandTotal).toBe(99.1);
+      expect(comp.discountPercent).toBeGreaterThan(0);
+
+      // Save forwards both additionalDiscountPercentage and discountAmount to CreateSalesInvoiceDto
+      comp.form.patchValue({ companyId: 'comp-1', customerId: 'cust-1', issueDate: '2026-11-22' });
+      comp.save();
+      expect(serviceMock.create).toHaveBeenCalledWith(expect.objectContaining({
+        additionalDiscountPercentage: comp.discountPercent,
+        discountAmount: 0.5,
+      }));
     });
   });
 });

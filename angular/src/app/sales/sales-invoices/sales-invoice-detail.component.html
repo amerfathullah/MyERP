@@ -339,6 +339,17 @@
             <span class="text-muted">{{ '::NetTotal' | abpLocalization }}</span>
             <span class="font-monospace">{{ invoice.netTotal | number:'1.2-2' }}</span>
           </div>
+          @if ((invoice.discountAmount ?? 0) > 0) {
+            <div class="d-flex justify-content-between mb-2 text-success">
+              <span>
+                {{ '::AdditionalDiscount' | abpLocalization }}
+                @if ((invoice.additionalDiscountPercentage ?? 0) > 0) {
+                  ({{ invoice.additionalDiscountPercentage | number:'1.0-2' }}%)
+                }
+              </span>
+              <span class="font-monospace">-{{ invoice.discountAmount | number:'1.2-2' }}</span>
+            </div>
+          }
           @if ((invoice.taxAmount ?? 0) > 0) {
             <div class="d-flex justify-content-between mb-2">
               <span class="text-muted">{{ '::Tax' | abpLocalization }}</span>
@@ -367,7 +378,7 @@
               <span class="font-monospace" [class.text-danger]="getOutstandingAmount() > 0" [class.fw-semibold]="getOutstandingAmount() > 0">{{ getOutstandingAmount() | number:'1.2-2' }}</span>
             </div>
             @if ((invoice.grandTotal ?? 0) > 0) {
-              <div class="progress mt-2" style="height: 6px;">>
+              <div class="progress mt-2" style="height: 6px;">
                 <div class="progress-bar" [class.bg-success]="getPaymentPercent() >= 100" [class.bg-primary]="getPaymentPercent() < 100 && getPaymentPercent() > 0" [style.width.%]="getPaymentPercent()"></div>
               </div>
             }

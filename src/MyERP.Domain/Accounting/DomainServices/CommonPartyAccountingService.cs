@@ -66,8 +66,7 @@ public class CommonPartyAccountingService : DomainService
     /// </summary>
     public async Task<CommonPartyReconciliationResult?> ReconcileAsync(CommonPartyReconciliationContext ctx)
     {
-        var enabled = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.EnableCommonPartyAccounting);
-        if (enabled != "true") return null;
+        if (!await IsCommonPartyAccountingEnabledAsync()) return null;
 
         var absOutstanding = Math.Abs(ctx.OutstandingAmount);
         if (absOutstanding <= 0) return null;
@@ -161,6 +160,23 @@ public class CommonPartyAccountingService : DomainService
             JournalEntry = je,
             ReconciledAmount = amountInSecondaryCurrency,
         };
+    }
+
+    private async Task<bool> IsCommonPartyAccountingEnabledAsync()
+    {
+        var accountsSettingsRepo = LazyServiceProvider?.LazyGetService<IRepository<AccountsSettings, Guid>>();
+        if (accountsSettingsRepo != null)
+        {
+            var query = await accountsSettingsRepo.GetQueryableAsync();
+            var settings = query?.FirstOrDefault();
+            if (settings != null && settings.EnableCommonPartyAccounting)
+            {
+                return true;
+            }
+        }
+
+        var enabled = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.EnableCommonPartyAccounting);
+        return string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase);
     }
 }
 

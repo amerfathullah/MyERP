@@ -27,21 +27,49 @@ public class TaxpayerValidationService : ITransientDependency
     /// </summary>
     public async Task<LhdnTaxpayerSearchResponse> ValidateTaxpayerAsync(string? idType, string? idValue, string? taxpayerName = null)
     {
+        var environment = ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken");
-        if (string.IsNullOrEmpty(accessToken))
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            accessToken = await TryRefreshAccessTokenAsync(environment);
+        }
+
+        if (string.IsNullOrWhiteSpace(accessToken))
         {
             throw new Volo.Abp.UserFriendlyException("Cannot validate taxpayer. E-Invoice API is not connected or token is missing.");
         }
 
-        var environment = ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
-
         var result = await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment, taxpayerName);
+
+        // Per MyInvois search_taxpayer.py: retry once after refreshing bearer token on 401 or 500
+        if (!result.IsFound && result.StatusCode is 401 or 500)
+        {
+            var refreshedToken = await TryRefreshAccessTokenAsync(environment);
+            if (!string.IsNullOrWhiteSpace(refreshedToken))
+            {
+                result = await _lhdnApiClient.SearchTaxpayerAsync(refreshedToken, idType, idValue, environment, taxpayerName);
+            }
+        }
+
         if (!result.IsFound && !string.IsNullOrEmpty(result.ErrorMessage))
         {
             throw new Volo.Abp.UserFriendlyException($"API request failed: {result.ErrorMessage}");
         }
 
         return result;
+    }
+
+    private async Task<string?> TryRefreshAccessTokenAsync(LhdnEnvironment environment)
+    {
+        var clientId = await _settingProvider.GetOrNullAsync("EInvoice.ClientId");
+        var clientSecret = await _settingProvider.GetOrNullAsync("EInvoice.ClientSecret");
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        {
+            return null;
+        }
+
+        return await _lhdnApiClient.GetAccessTokenAsync(clientId, clientSecret, environment);
     }
 
     public static LhdnEnvironment ParseEnvironment(string? envString) =>

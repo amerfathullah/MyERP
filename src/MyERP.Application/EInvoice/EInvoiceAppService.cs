@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.SettingManagement;
 using Volo.Abp.Settings;
 
 using MyERP;
@@ -120,12 +121,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword);
         }
 
-        // Step 4: Get credentials from settings (not hardcoded)
-        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
-                .WithData("reason", "LHDN access token not configured. Please authenticate first.");
-
+        // Step 4: Get credentials from settings (auto-fetch via ClientId/ClientSecret if token missing per myinvois taxpayerlogin.py)
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
+        var accessToken = await ResolveAccessTokenAsync(environment);
 
         // Step 5: Submit to LHDN
         var tenantId = LazyServiceProvider?.LazyGetService<Volo.Abp.MultiTenancy.ICurrentTenant>()?.Id;
@@ -527,10 +525,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
     public async Task<EInvoiceSubmissionDto> GetStatusAsync(Guid submissionId)
     {
-        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
-
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
+        var accessToken = await ResolveAccessTokenAsync(environment);
 
         var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
 
@@ -587,10 +583,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     [Authorize(MyERPPermissions.EInvoice.Cancel)]
     public async Task<EInvoiceSubmissionDto> CancelAsync(CancelEInvoiceDto input)
     {
-        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed);
-
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
+        var accessToken = await ResolveAccessTokenAsync(environment);
 
         var submission = await _eInvoiceService.CancelAsync(
             input.SubmissionId, input.Reason, accessToken, environment);
@@ -708,11 +702,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword);
         }
 
-        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
-                .WithData("reason", "LHDN access token not configured.");
-
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
+        var accessToken = await ResolveAccessTokenAsync(environment);
 
         var submission = await _eInvoiceService.SubmitAsync(
             input.CompanyId, "SalesInvoice", input.SourceDocumentId,
@@ -1503,16 +1494,44 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     [Authorize(MyERPPermissions.EInvoice.Default)]
     public async Task<EInvoiceSubmissionDto> RefreshStatusAsync(Guid submissionId)
     {
-        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken")
-            ?? throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
-                .WithData("reason", "LHDN access token not configured.");
-
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
+        var accessToken = await ResolveAccessTokenAsync(environment);
 
         var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
         await PropagateStatusToSourceAsync(submission);
 
         return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
+    }
+
+    private async Task<string> ResolveAccessTokenAsync(LhdnEnvironment environment)
+    {
+        var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken");
+        if (!string.IsNullOrWhiteSpace(accessToken))
+        {
+            return accessToken;
+        }
+
+        var clientId = await _settingProvider.GetOrNullAsync("EInvoice.ClientId");
+        var clientSecret = await _settingProvider.GetOrNullAsync("EInvoice.ClientSecret");
+        var lhdnApiClient = LazyServiceProvider?.LazyGetService<ILhdnApiClient>();
+
+        if (!string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(clientSecret) && lhdnApiClient != null)
+        {
+            var freshToken = await lhdnApiClient.GetAccessTokenAsync(clientId, clientSecret, environment);
+            if (!string.IsNullOrWhiteSpace(freshToken))
+            {
+                var settingManager = LazyServiceProvider?.LazyGetService<Volo.Abp.SettingManagement.ISettingManager>();
+                if (settingManager != null)
+                {
+                    await settingManager.SetGlobalAsync("EInvoice.AccessToken", freshToken);
+                }
+
+                return freshToken;
+            }
+        }
+
+        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
+            .WithData("reason", "LHDN access token not configured. Please authenticate first.");
     }
 }
 
