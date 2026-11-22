@@ -294,6 +294,41 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     public async Task<MaterialRequestDto> CancelAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id, includeDetails: true);
+
+        // Guard: cannot cancel Material Request while active Purchase Orders or Work Orders reference it
+        var mrItemIds = entity.Items.Select(i => i.Id).ToList();
+        var poRepo = LazyServiceProvider.LazyGetService<IRepository<PurchaseOrder, Guid>>();
+        if (poRepo != null && mrItemIds.Count > 0)
+        {
+            var poQuery = await poRepo.WithDetailsAsync(p => p.Items);
+            var hasActivePo = poQuery.Any(po =>
+                po.Status != Core.DocumentStatus.Draft
+                && po.Status != Core.DocumentStatus.Cancelled
+                && po.Items.Any(i => i.MaterialRequestItemId.HasValue && mrItemIds.Contains(i.MaterialRequestItemId.Value)));
+            if (hasActivePo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Material Request")
+                    .WithData("dependent", "Purchase Order");
+            }
+        }
+
+        var woRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+        if (woRepo != null)
+        {
+            var woQuery = await woRepo.GetQueryableAsync();
+            var hasActiveWo = woQuery.Any(wo =>
+                wo.MaterialRequestId == entity.Id
+                && wo.Status != Manufacturing.WorkOrderStatus.Draft
+                && wo.Status != Manufacturing.WorkOrderStatus.Cancelled);
+            if (hasActiveWo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Material Request")
+                    .WithData("dependent", "Work Order");
+            }
+        }
+
         entity.Cancel();
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: -1);

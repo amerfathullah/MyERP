@@ -2153,6 +2153,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 .WithData("invoiceNumber", invoice.InvoiceNumber);
         }
 
+        // Guard: cannot cancel if a submitted Landed Cost Voucher references this Purchase Invoice
+        var lcvRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.LandedCostVoucher, Guid>>();
+        if (lcvRepo != null)
+        {
+            var lcvQuery = await lcvRepo.WithDetailsAsync(v => v.Items);
+            var hasSubmittedLcv = lcvQuery.Any(v =>
+                v.Status == Core.DocumentStatus.Submitted
+                && v.Items.Any(i => i.ReceiptType == "PurchaseInvoice" && i.ReceiptId == invoice.Id));
+            if (hasSubmittedLcv)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Purchase Invoice")
+                    .WithData("dependent", "Landed Cost Voucher");
+            }
+        }
+
         // ERPNext PR #66916: cancelling an internal return PI restores its qty to the returned PI,
         // so guard against pushing net billed qty past the linked inter-company Sales Invoice.
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)

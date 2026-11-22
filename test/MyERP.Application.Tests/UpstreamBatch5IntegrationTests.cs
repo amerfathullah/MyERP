@@ -3567,4 +3567,103 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             slipCancelEx.Data["detail"]!.ToString()!.ShouldContain("Payroll Entry");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch23_EndToEnd_LcvAndMaterialRequestCancelGuards()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var prRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var piRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var lcvRepo = GetRequiredService<IRepository<LandedCostVoucher, Guid>>();
+            var mrRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.MaterialRequest, Guid>>();
+            var poRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+            var woRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid>>();
+
+            var prService = GetRequiredService<MyERP.Purchasing.IPurchaseReceiptAppService>();
+            var piService = GetRequiredService<MyERP.Purchasing.IPurchaseInvoiceAppService>();
+            var mrService = GetRequiredService<MyERP.Purchasing.IMaterialRequestAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch23 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await fyRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY2026-B23", new DateTime(DateTime.Today.Year, 1, 1), new DateTime(DateTime.Today.Year, 12, 31)), autoSave: true);
+            var freightAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5200-B23", "Freight", AccountType.Expense), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B23 WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B23-ITEM", "Batch23 Item", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B23 Supp"), autoSave: true);
+
+            // 1. PurchaseReceipt blocked from cancel when submitted LCV references it
+            var pr = new MyERP.Purchasing.Entities.PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, wh.Id, "PR-B23-1", DateTime.Today);
+            pr.AddItem(item.Id, item.ItemName, 5m, 100m, 0m, "Unit");
+            pr.Submit();
+            await prRepo.InsertAsync(pr, autoSave: true);
+
+            var lcvPr = new LandedCostVoucher(Guid.NewGuid(), company.Id, DateTime.Today) { VoucherNumber = "LCV-B23-PR" };
+            lcvPr.AddItem(pr.Id, "PurchaseReceipt", item.Id, 5m, 500m, item.ItemName);
+            lcvPr.AddCharge("Freight", freightAcc.Id, 50m);
+            lcvPr.DistributeCharges();
+            lcvPr.Submit();
+            await lcvRepo.InsertAsync(lcvPr, autoSave: true);
+
+            var prCancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => prService.CancelAsync(pr.Id));
+            prCancelEx.Code.ShouldBe("MyERP:01010");
+            prCancelEx.Data["dependent"]!.ToString()!.ShouldBe("Landed Cost Voucher");
+
+            // 2. PurchaseInvoice blocked from cancel when submitted LCV references it
+            var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-B23-1", DateTime.Today);
+            pi.AddItem(item.Id, item.ItemName, 5m, 100m, 0m, "Unit");
+            pi.Submit();
+            pi.Post();
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            var lcvPi = new LandedCostVoucher(Guid.NewGuid(), company.Id, DateTime.Today) { VoucherNumber = "LCV-B23-PI" };
+            lcvPi.AddItem(pi.Id, "PurchaseInvoice", item.Id, 5m, 500m, item.ItemName);
+            lcvPi.AddCharge("Customs", freightAcc.Id, 80m);
+            lcvPi.DistributeCharges();
+            lcvPi.Submit();
+            await lcvRepo.InsertAsync(lcvPi, autoSave: true);
+
+            var piCancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => piService.CancelAsync(pi.Id));
+            piCancelEx.Code.ShouldBe("MyERP:01010");
+            piCancelEx.Data["dependent"]!.ToString()!.ShouldBe("Landed Cost Voucher");
+
+            // 3. MaterialRequest blocked from cancel when active PO references its item
+            var mrPo = new MyERP.Purchasing.Entities.MaterialRequest(Guid.NewGuid(), company.Id, "MR-B23-PO", MyERP.Purchasing.MaterialRequestType.Purchase, DateTime.Today);
+            mrPo.AddItem(item.Id, item.ItemName, 10m, "Unit", wh.Id);
+            mrPo.Submit();
+            await mrRepo.InsertAsync(mrPo, autoSave: true);
+
+            var po = new MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-B23-1", DateTime.Today);
+            po.AddItem(item.Id, item.ItemName, 10m, 50m, 0m, "Unit", wh.Id);
+            po.Items[0].MaterialRequestItemId = mrPo.Items[0].Id;
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            var mrPoEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => mrService.CancelAsync(mrPo.Id));
+            mrPoEx.Code.ShouldBe("MyERP:01010");
+            mrPoEx.Data["dependent"]!.ToString()!.ShouldBe("Purchase Order");
+
+            // 4. MaterialRequest blocked from cancel when active WorkOrder references it
+            var mrWo = new MyERP.Purchasing.Entities.MaterialRequest(Guid.NewGuid(), company.Id, "MR-B23-WO", MyERP.Purchasing.MaterialRequestType.Manufacture, DateTime.Today);
+            mrWo.AddItem(item.Id, item.ItemName, 5m, "Unit", wh.Id);
+            mrWo.Submit();
+            await mrRepo.InsertAsync(mrWo, autoSave: true);
+
+            var wo = new MyERP.Manufacturing.Entities.WorkOrder(Guid.NewGuid(), company.Id, "WO-B23-1", item.Id, Guid.NewGuid(), 5m)
+            {
+                MaterialRequestId = mrWo.Id,
+            };
+            wo.Submit();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            var mrWoEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => mrService.CancelAsync(mrWo.Id));
+            mrWoEx.Code.ShouldBe("MyERP:01010");
+            mrWoEx.Data["dependent"]!.ToString()!.ShouldBe("Work Order");
+        });
+    }
 }

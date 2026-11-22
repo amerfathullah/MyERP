@@ -57,10 +57,10 @@
                 <td><app-status-badge [status]="getStatusLabel(row.status ?? 0)" /></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" [routerLink]="[row.id]" title="View">
+                    <button class="btn btn-outline-primary" [routerLink]="[row.id]" [title]="'::View' | abpLocalization">
                       <i class="fa fa-eye"></i>
                     </button>
-                    <button class="btn btn-outline-danger" (click)="delete(row.id)" title="Delete">
+                    <button class="btn btn-outline-danger" (click)="delete(row.id)" [title]="'::Delete' | abpLocalization">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>

@@ -52,6 +52,41 @@ public class EInvoiceConsolidationService : DomainService
         if (invoices.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationNoValidInvoices, "No valid Sales Invoices found.");
 
+        // Per LHDN MyInvois consolidation rules (consolidate_invoice.py):
+        // reject Cancelled, Return/Credit/Debit Note, already-submitted LHDN invoices, and mixed currencies.
+        var cancelled = invoices.Where(i => i.Status == Core.DocumentStatus.Cancelled).ToList();
+        if (cancelled.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot consolidate cancelled invoices: {string.Join(", ", cancelled.Select(i => i.InvoiceNumber))}");
+        }
+
+        var alreadySubmitted = invoices
+            .Where(i => i.EInvoiceStatus is EInvoiceStatus.Pending or EInvoiceStatus.Valid)
+            .ToList();
+        if (alreadySubmitted.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot consolidate invoices already submitted to LHDN: {string.Join(", ", alreadySubmitted.Select(i => i.InvoiceNumber))}");
+        }
+
+        var returnsOrNotes = invoices.Where(i => i.IsReturn || i.IsDebitNote).ToList();
+        if (returnsOrNotes.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot consolidate Credit/Debit Note invoices into a standard consolidated e-Invoice: {string.Join(", ", returnsOrNotes.Select(i => i.InvoiceNumber))}");
+        }
+
+        var distinctCurrencies = invoices
+            .Select(i => string.IsNullOrWhiteSpace(i.CurrencyCode) ? "MYR" : i.CurrencyCode.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+        if (distinctCurrencies.Count > 1)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot consolidate invoices with mixed currencies ({string.Join(", ", distinctCurrencies)}).");
+        }
+
         // B2C consolidation only — reject any invoice whose buyer has a real registered TIN.
         // LHDN requires B2B invoices to carry the actual buyer TIN on their own individual
         // e-Invoice; merging one into an anonymous consolidated document would lose that TIN

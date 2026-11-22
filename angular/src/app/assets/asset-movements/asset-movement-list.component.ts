@@ -68,15 +68,15 @@ const STATUS_LABELS: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: '
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (m.status === 0) {
-                          <button class="btn btn-outline-success" title="Submit" (click)="submitMovement(m)">
+                          <button class="btn btn-outline-success" [title]="'::Submit' | abpLocalization" (click)="submitMovement(m)">
                             <i class="fa fa-check"></i>
                           </button>
-                          <button class="btn btn-outline-danger" title="Delete" (click)="deleteMovement(m)">
+                          <button class="btn btn-outline-danger" [title]="'::Delete' | abpLocalization" (click)="deleteMovement(m)">
                             <i class="fa fa-trash"></i>
                           </button>
                         }
                         @if (m.status === 1) {
-                          <button class="btn btn-outline-danger" title="Cancel" (click)="cancelMovement(m)">
+                          <button class="btn btn-outline-danger" [title]="'::Cancel' | abpLocalization" (click)="cancelMovement(m)">
                             <i class="fa fa-times"></i>
                           </button>
                         }

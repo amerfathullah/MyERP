@@ -71,14 +71,14 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
                       {{ log.cost ? (log.cost | number:'1.2-2') : '—' }}
                     </td>
                     <td class="text-end">
-                      <a class="btn btn-sm btn-outline-secondary me-1" [routerLink]="['/assets/maintenance-logs', log.id]">
+                      <a class="btn btn-sm btn-outline-secondary me-1" [routerLink]="['/assets/maintenance-logs', log.id]" [title]="'::View' | abpLocalization">
                         <i class="fa fa-eye"></i>
                       </a>
                       @if (log.status === AssetMaintenanceStatus.Planned || log.status === AssetMaintenanceStatus.Overdue) {
-                        <button class="btn btn-sm btn-outline-success me-1" (click)="completeLog(log.id!)" title="Complete">
+                        <button class="btn btn-sm btn-outline-success me-1" (click)="completeLog(log.id!)" [title]="'::Complete' | abpLocalization">
                           <i class="fa fa-check"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-danger" (click)="cancelLog(log.id!)" title="Cancel">
+                        <button class="btn btn-sm btn-outline-danger" (click)="cancelLog(log.id!)" [title]="'::Cancel' | abpLocalization">
                           <i class="fa fa-ban"></i>
                         </button>
                       }

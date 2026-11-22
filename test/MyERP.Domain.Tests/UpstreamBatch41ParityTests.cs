@@ -640,4 +640,70 @@ public class UpstreamBatch41ParityTests
         period.Element(cbc + "Description")!.Value.ShouldBe("Monthly");
         xml.Root!.Element(cac + "TaxTotal")!.Elements(cac + "TaxSubtotal").Count().ShouldBe(2);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task MyInvois_EInvoiceConsolidationService_RejectsCancelledSubmittedReturnsAndMixedCurrencies()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        static MyERP.EInvoice.Services.EInvoiceConsolidationService BuildSvc(List<MyERP.Sales.Entities.SalesInvoice> list)
+        {
+            var invRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var consolRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var custRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var guidGen = NSubstitute.Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+            NSubstitute.SubstituteExtensions.Returns(guidGen.Create(), _ => Guid.NewGuid());
+            NSubstitute.SubstituteExtensions.Returns(
+                invRepo.WithDetailsAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.Sales.Entities.SalesInvoice, object>>[]>()),
+                System.Threading.Tasks.Task.FromResult(list.AsQueryable()));
+            NSubstitute.SubstituteExtensions.Returns(custRepo.GetQueryableAsync(), System.Threading.Tasks.Task.FromResult(new List<MyERP.Sales.Entities.Customer>().AsQueryable()));
+            NSubstitute.SubstituteExtensions.Returns(
+                consolRepo.GetListAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.EInvoice.Entities.EInvoiceConsolidation, bool>>>()),
+                System.Threading.Tasks.Task.FromResult(new List<MyERP.EInvoice.Entities.EInvoiceConsolidation>()));
+            return new MyERP.EInvoice.Services.EInvoiceConsolidationService(invRepo, consolRepo, custRepo, guidGen);
+        }
+
+        // 1. Cancelled invoice rejected
+        var ok1 = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-OK-1", DateTime.Today);
+        ok1.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        var cancelled = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-CANC", DateTime.Today);
+        cancelled.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        cancelled.Submit();
+        cancelled.Post();
+        cancelled.Cancel();
+        var ex1 = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            BuildSvc(new() { ok1, cancelled }).ConsolidateInvoicesAsync(new() { ok1.Id, cancelled.Id }, companyId));
+        ex1.Data["detail"]!.ToString()!.ShouldContain("cancelled");
+
+        // 2. Already submitted to LHDN rejected
+        var submitted = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-VALID", DateTime.Today)
+        {
+            EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid
+        };
+        submitted.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        var ex2 = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            BuildSvc(new() { ok1, submitted }).ConsolidateInvoicesAsync(new() { ok1.Id, submitted.Id }, companyId));
+        ex2.Data["detail"]!.ToString()!.ShouldContain("already submitted");
+
+        // 3. Return / Credit Note rejected
+        var retInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-RET", DateTime.Today)
+        {
+            IsReturn = true
+        };
+        retInv.AddItem(Guid.NewGuid(), "Item", -1m, 100m, 0m);
+        var ex3 = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            BuildSvc(new() { ok1, retInv }).ConsolidateInvoicesAsync(new() { ok1.Id, retInv.Id }, companyId));
+        ex3.Data["detail"]!.ToString()!.ShouldContain("Credit/Debit Note");
+
+        // 4. Mixed currencies rejected
+        var usdInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-USD", DateTime.Today)
+        {
+            CurrencyCode = "USD"
+        };
+        usdInv.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        var ex4 = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            BuildSvc(new() { ok1, usdInv }).ConsolidateInvoicesAsync(new() { ok1.Id, usdInv.Id }, companyId));
+        ex4.Data["detail"]!.ToString()!.ShouldContain("mixed currencies");
+    }
 }

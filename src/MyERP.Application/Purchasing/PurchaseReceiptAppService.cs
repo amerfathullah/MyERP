@@ -1193,6 +1193,22 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 .WithData("dependent", "Purchase Invoice");
         }
 
+        // Guard: cannot cancel if a submitted Landed Cost Voucher references this receipt
+        var lcvRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.LandedCostVoucher, Guid>>();
+        if (lcvRepo != null)
+        {
+            var lcvQuery = await lcvRepo.WithDetailsAsync(v => v.Items);
+            var hasSubmittedLcv = lcvQuery.Any(v =>
+                v.Status == Core.DocumentStatus.Submitted
+                && v.Items.Any(i => i.ReceiptType == "PurchaseReceipt" && i.ReceiptId == receipt.Id));
+            if (hasSubmittedLcv)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Purchase Receipt")
+                    .WithData("dependent", "Landed Cost Voucher");
+            }
+        }
+
         // Guard: cannot cancel a PR whose linked PO has since been Closed — reversing received
         // qty against a closed PO would corrupt its fulfillment tracking. The PO must be
         // reopened first. (Exempt for return documents per upstream PR #58126)
