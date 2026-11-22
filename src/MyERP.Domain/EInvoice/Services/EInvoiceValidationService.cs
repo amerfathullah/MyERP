@@ -71,6 +71,9 @@ public class EInvoiceValidationService : ITransientDependency
         if (invoice.Status != Core.DocumentStatus.Posted && invoice.Status != Core.DocumentStatus.Submitted)
             errors.Add("Invoice must be in Submitted or Posted status before e-Invoice submission.");
 
+        if (invoice.EInvoiceStatus == Sales.EInvoiceStatus.Valid)
+            errors.Add("Invoice already has a Valid LHDN e-Invoice submission and cannot be resubmitted.");
+
         // Consolidated invoice check (MyInvois commit 0e3fc83: cannot submit individual invoice once merged into consolidated)
         if (invoice.ConsolidatedSalesInvoiceId.HasValue ||
             (_consolidationRepository != null && await _consolidationRepository.AnyAsync(c => c.OriginalInvoiceId == invoice.Id)))
@@ -241,13 +244,19 @@ public class EInvoiceValidationService : ITransientDependency
             errors.Add("Company registration number (BRN) is required for e-Invoice submission.");
 
         // Supplier validations (in self-billed, Supplier is Seller)
-        var supplierTin = invoice.SupplierTin ?? supplier?.Tin;
+        var supplierTin = !string.IsNullOrWhiteSpace(invoice.SupplierTin) ? invoice.SupplierTin : supplier?.Tin;
         if (string.IsNullOrWhiteSpace(supplierTin))
             errors.Add("Supplier TIN is required for self-billed e-Invoice submission. For Malaysian general public use 'EI00000000020'; for foreign suppliers use 'EI00000000030'.");
 
         // Invoice status validations
         if (invoice.Status != Core.DocumentStatus.Posted && invoice.Status != Core.DocumentStatus.Submitted)
             errors.Add("Purchase Invoice must be in Submitted or Posted status before e-Invoice submission.");
+
+        if (invoice.EInvoiceStatus == Sales.EInvoiceStatus.Valid)
+            errors.Add("Purchase Invoice already has a Valid LHDN e-Invoice submission and cannot be resubmitted.");
+
+        if (string.IsNullOrWhiteSpace(invoice.CurrencyCode))
+            errors.Add("Currency code is required.");
 
         if (invoice.Items.Count == 0)
             errors.Add("Purchase Invoice must have at least one line item.");

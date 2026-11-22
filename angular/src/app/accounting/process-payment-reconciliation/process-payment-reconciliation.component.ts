@@ -101,19 +101,19 @@ const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled'
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       @if (item.status === 0) {
-                        <button class="btn btn-outline-success" (click)="submitItem(item)" title="Submit"><i class="fa fa-check"></i></button>
+                        <button class="btn btn-outline-success" (click)="submitItem(item)" [title]="'::Submit' | abpLocalization"><i class="fa fa-check"></i></button>
                       }
                       @if (item.status === 1 || item.status === 2) {
-                        <button class="btn btn-outline-warning" (click)="pauseItem(item)" title="{{ '::Pause' | abpLocalization }}"><i class="fa fa-pause"></i></button>
+                        <button class="btn btn-outline-warning" (click)="pauseItem(item)" [title]="'::Pause' | abpLocalization"><i class="fa fa-pause"></i></button>
                       }
                       @if (item.status === 7) {
-                        <button class="btn btn-outline-info" (click)="resumeItem(item)" title="{{ '::Resume' | abpLocalization }}"><i class="fa fa-play"></i></button>
+                        <button class="btn btn-outline-info" (click)="resumeItem(item)" [title]="'::Resume' | abpLocalization"><i class="fa fa-play"></i></button>
                       }
                       @if (item.status === 0 || item.status === 1 || item.status === 2 || item.status === 7) {
-                        <button class="btn btn-outline-danger" (click)="cancelItem(item)" title="Cancel"><i class="fa fa-ban"></i></button>
+                        <button class="btn btn-outline-danger" (click)="cancelItem(item)" [title]="'::Cancel' | abpLocalization"><i class="fa fa-ban"></i></button>
                       }
                       @if (item.status === 1 || item.status === 2) {
-                        <button class="btn btn-outline-secondary" (click)="refresh(item)" title="Refresh"><i class="fa fa-rotate"></i></button>
+                        <button class="btn btn-outline-secondary" (click)="refresh(item)" [title]="'::Refresh' | abpLocalization"><i class="fa fa-rotate"></i></button>
                       }
                     </div>
                   </td>

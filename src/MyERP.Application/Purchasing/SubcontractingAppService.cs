@@ -326,6 +326,19 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     public async Task<SubcontractingOrderDto> CancelOrderAsync(Guid id)
     {
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+
+        // Guard: cannot cancel Subcontracting Order while submitted Subcontracting Receipts exist
+        var scrQuery = await _scrRepository.GetQueryableAsync();
+        var hasActiveReceipt = scrQuery.Any(r =>
+            r.SubcontractingOrderId == sco.Id
+            && r.Status == SubcontractingReceiptStatus.Submitted);
+        if (hasActiveReceipt)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                .WithData("documentType", "SubcontractingOrder")
+                .WithData("dependent", "SubcontractingReceipt");
+        }
+
         sco.Cancel();
         await _scoRepository.UpdateAsync(sco);
 
@@ -848,6 +861,23 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     public async Task<SubcontractingReceiptDto> CancelReceiptAsync(Guid id)
     {
         var scr = await _scrRepository.GetAsync(id, includeDetails: true);
+
+        // Guard: cannot cancel Subcontracting Receipt while a submitted Landed Cost Voucher references it
+        var lcvRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.LandedCostVoucher, Guid>>();
+        if (lcvRepo != null)
+        {
+            var lcvQuery = await lcvRepo.WithDetailsAsync(v => v.Items);
+            var hasSubmittedLcv = lcvQuery.Any(v =>
+                v.Status == Core.DocumentStatus.Submitted
+                && v.Items.Any(i => i.ReceiptType == "SubcontractingReceipt" && i.ReceiptId == scr.Id));
+            if (hasSubmittedLcv)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                    .WithData("documentType", "SubcontractingReceipt")
+                    .WithData("dependent", "LandedCostVoucher");
+            }
+        }
+
         scr.Cancel();
 
         // Reverse stock-in for FG items (and rejected warehouse stock-in, mirroring SubmitReceiptAsync)

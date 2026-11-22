@@ -121,13 +121,13 @@ interface PendingVoucherRow extends RepostAccountingLedgerVoucherInputDto {
                   <td (click)="$event.stopPropagation()">
                     <div class="btn-group btn-group-sm">
                       @if (item.status === 0) {
-                        <button class="btn btn-outline-success" (click)="submitDoc(item)" title="Submit"><i class="fa fa-check"></i></button>
+                        <button class="btn btn-outline-success" (click)="submitDoc(item)" [title]="'::Submit' | abpLocalization"><i class="fa fa-check"></i></button>
                       }
                       @if (item.status === 0 || item.status === 1) {
-                        <button class="btn btn-outline-danger" (click)="cancelDoc(item)" title="Cancel"><i class="fa fa-ban"></i></button>
+                        <button class="btn btn-outline-danger" (click)="cancelDoc(item)" [title]="'::Cancel' | abpLocalization"><i class="fa fa-ban"></i></button>
                       }
                       @if (item.status === 2) {
-                        <button class="btn btn-outline-secondary" (click)="refresh(item)" title="Refresh"><i class="fa fa-rotate"></i></button>
+                        <button class="btn btn-outline-secondary" (click)="refresh(item)" [title]="'::Refresh' | abpLocalization"><i class="fa fa-rotate"></i></button>
                       }
                     </div>
                   </td>

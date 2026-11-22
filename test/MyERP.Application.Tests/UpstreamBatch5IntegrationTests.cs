@@ -3666,4 +3666,105 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             mrWoEx.Data["dependent"]!.ToString()!.ShouldBe("Work Order");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch24_EndToEnd_SubcontractingQuotationCancelGuards_And_ProductionPlanLog()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var scrRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingReceipt, Guid>>();
+            var lcvRepo = GetRequiredService<IRepository<LandedCostVoucher, Guid>>();
+            var quotRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Quotation, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var planRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.ProductionPlan, Guid>>();
+            var activityRepo = GetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+
+            var subService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+            var quotService = GetRequiredService<MyERP.Sales.IQuotationAppService>();
+            var planService = GetRequiredService<MyERP.Manufacturing.IProductionPlanAppService>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch24 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var freightAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5200-B24", "Freight", AccountType.Expense), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B24 WH"), autoSave: true);
+            var suppWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B24 Supp WH"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B24-FG", "Batch24 FG", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B24 Supp"), autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B24 Cust"), autoSave: true);
+
+            // 1. SubcontractingOrder blocked from cancel when submitted SubcontractingReceipt exists
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B24-1", DateTime.Today, supplier.Id)
+            {
+                SupplierWarehouseId = suppWh.Id,
+            };
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, fgItem.Id, fgItem.ItemName, 5m, 100m));
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var scr = new MyERP.Purchasing.Entities.SubcontractingReceipt(Guid.NewGuid(), company.Id, "SCR-B24-1", DateTime.Today, supplier.Id, sco.Id)
+            {
+                WarehouseId = wh.Id,
+            };
+            scr.AddItem(new MyERP.Purchasing.Entities.SubcontractingReceiptItem(Guid.NewGuid(), scr.Id, fgItem.Id, fgItem.ItemName, 5m, 100m));
+            scr.Submit();
+            await scrRepo.InsertAsync(scr, autoSave: true);
+
+            var scoEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => subService.CancelOrderAsync(sco.Id));
+            scoEx.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents);
+            scoEx.Data["dependent"]!.ToString()!.ShouldBe("SubcontractingReceipt");
+
+            // 2. SubcontractingReceipt blocked from cancel when submitted LCV references it
+            var lcvScr = new LandedCostVoucher(Guid.NewGuid(), company.Id, DateTime.Today) { VoucherNumber = "LCV-B24-SCR" };
+            lcvScr.AddItem(scr.Id, "SubcontractingReceipt", fgItem.Id, 5m, 500m, fgItem.ItemName);
+            lcvScr.AddCharge("Freight", freightAcc.Id, 40m);
+            lcvScr.DistributeCharges();
+            lcvScr.Submit();
+            await lcvRepo.InsertAsync(lcvScr, autoSave: true);
+
+            var scrEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => subService.CancelReceiptAsync(scr.Id));
+            scrEx.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents);
+            scrEx.Data["dependent"]!.ToString()!.ShouldBe("LandedCostVoucher");
+
+            // 3. Quotation blocked from cancel when active SalesOrder references it
+            var quot = new MyERP.Sales.Entities.Quotation(Guid.NewGuid(), company.Id, customer.Id, "QTN-B24-1", DateTime.Today);
+            quot.AddItem(fgItem.Id, fgItem.ItemName, 2m, 150m, 0m);
+            quot.Submit();
+            await quotRepo.InsertAsync(quot, autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-B24-1", DateTime.Today)
+            {
+                DeliveryDate = DateTime.Today.AddDays(7),
+                QuotationId = quot.Id,
+            };
+            so.AddItem(fgItem.Id, fgItem.ItemName, 2m, 150m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var quotEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => quotService.CancelAsync(quot.Id));
+            quotEx.Code.ShouldBe("MyERP:01010");
+            quotEx.Data["dependent"]!.ToString()!.ShouldBe("Sales Order");
+
+            // 4. ProductionPlan CancelAsync records true PreviousStatus ("Submitted", not "Cancelled")
+            var plan = new MyERP.Manufacturing.Entities.ProductionPlan(Guid.NewGuid(), company.Id, "PP-B24-1", DateTime.Today);
+            plan.AddPlannedItem(new MyERP.Manufacturing.Entities.ProductionPlanItem(Guid.NewGuid(), plan.Id, fgItem.Id, fgItem.ItemName, Guid.NewGuid(), 10m));
+            plan.Submit();
+            await planRepo.InsertAsync(plan, autoSave: true);
+
+            await planService.CancelAsync(plan.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var planLog = (await activityRepo.GetQueryableAsync())
+                .FirstOrDefault(a => a.DocumentType == "ProductionPlan" && a.DocumentId == plan.Id && a.ActivityType == "Cancelled");
+            planLog.ShouldNotBeNull();
+            planLog!.PreviousStatus.ShouldBe("Submitted");
+            planLog.NewStatus.ShouldBe("Cancelled");
+        });
+    }
 }

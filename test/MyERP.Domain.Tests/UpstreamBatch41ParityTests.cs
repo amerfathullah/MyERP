@@ -706,4 +706,60 @@ public class UpstreamBatch41ParityTests
             BuildSvc(new() { ok1, usdInv }).ConsolidateInvoicesAsync(new() { ok1.Id, usdInv.Id }, companyId));
         ex4.Data["detail"]!.ToString()!.ShouldContain("mixed currencies");
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task MyInvois_EInvoiceValidationService_BlocksAlreadyValidAndHandlesBlankSupplierTinFallback()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+
+        var company = new MyERP.Core.Entities.Company(companyId, "LHDN Co")
+        {
+            EnableLhdnInvoice = true,
+            TaxId = "C1234567890",
+            MsicCode = "46510",
+            RegistrationNumber = "202001012345",
+        };
+        var customer = new MyERP.Sales.Entities.Customer(customerId, companyId, "Buyer") { Tin = "C9876543210" };
+        var supplier = new MyERP.Purchasing.Entities.Supplier(supplierId, companyId, "Supplier") { Tin = "C5555555550" };
+
+        var companyRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var custRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+        var suppRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+        var siRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+        var piRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+
+        NSubstitute.SubstituteExtensions.Returns(companyRepo.GetAsync(companyId), System.Threading.Tasks.Task.FromResult(company));
+        NSubstitute.SubstituteExtensions.Returns(custRepo.FindAsync(customerId), System.Threading.Tasks.Task.FromResult<MyERP.Sales.Entities.Customer?>(customer));
+        NSubstitute.SubstituteExtensions.Returns(suppRepo.FindAsync(supplierId), System.Threading.Tasks.Task.FromResult<MyERP.Purchasing.Entities.Supplier?>(supplier));
+
+        var validator = new MyERP.EInvoice.Services.EInvoiceValidationService(companyRepo, custRepo, suppRepo, siRepo, piRepo);
+
+        // 1. SalesInvoice already Valid rejected
+        var si = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-V1", DateTime.Today)
+        {
+            IsSubmitToLhdn = true,
+            EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid,
+        };
+        si.AddItem(Guid.NewGuid(), "Service", 1m, 100m, 0m);
+        si.Submit();
+        var siErrors = await validator.ValidateForSubmissionAsync(si, companyId);
+        siErrors.ShouldContain(e => e.Contains("Valid LHDN"));
+
+        // 2. PurchaseInvoice whitespace SupplierTin falls back to Supplier.Tin (no TIN error), blank currency rejected, Valid status rejected
+        var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), companyId, supplierId, "PI-V1", DateTime.Today)
+        {
+            IsSubmitToLhdn = true,
+            SupplierTin = "   ",
+            CurrencyCode = "",
+            EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid,
+        };
+        pi.AddItem(Guid.NewGuid(), "Goods", 1m, 100m, 0m);
+        pi.Submit();
+        var piErrors = await validator.ValidatePurchaseInvoiceForSubmissionAsync(pi, companyId);
+        piErrors.ShouldNotContain(e => e.Contains("Supplier TIN is required"));
+        piErrors.ShouldContain(e => e.Contains("Currency code is required"));
+        piErrors.ShouldContain(e => e.Contains("Valid LHDN"));
+    }
 }

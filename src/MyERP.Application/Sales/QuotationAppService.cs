@@ -552,6 +552,24 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     public async Task<QuotationDto> CancelAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
+
+        // Per ERPNext quotation.py: cannot cancel Quotation while an active Sales Order references it
+        var soRepo = LazyServiceProvider.LazyGetService<IRepository<SalesOrder, Guid>>();
+        if (soRepo != null)
+        {
+            var soQuery = await soRepo.GetQueryableAsync();
+            var hasActiveSo = soQuery.Any(so =>
+                so.QuotationId == quotation.Id
+                && so.Status != Core.DocumentStatus.Draft
+                && so.Status != Core.DocumentStatus.Cancelled);
+            if (hasActiveSo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Quotation")
+                    .WithData("dependent", "Sales Order");
+            }
+        }
+
         quotation.Cancel();
         await _repository.UpdateAsync(quotation, autoSave: true);
 

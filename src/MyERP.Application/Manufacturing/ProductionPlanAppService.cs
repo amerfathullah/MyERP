@@ -417,6 +417,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
+        var previousStatus = plan.Status.ToString();
         plan.Cancel();
         await _planRepository.UpdateAsync(plan);
 
@@ -424,7 +425,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "ProductionPlan", plan.Id,
             "Cancelled", plan.CompanyId,
-            plan.PlanNumber, plan.Status.ToString(), "Cancelled", CurrentUser.Id,
+            plan.PlanNumber, previousStatus, "Cancelled", CurrentUser.Id,
             $"Production Plan {plan.PlanNumber} cancelled", CurrentTenant.Id));
 
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
