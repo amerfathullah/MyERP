@@ -497,13 +497,18 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                 0, -item.ApplicableCharges, lcv.TenantId);
         }
 
-        // Reverse the GL entry posted on Submit (swap debit↔credit per line, per the same pattern as
-        // JournalEntryAppService.CreateReversalAsync — no shared helper exists for reversing a
-        // programmatically-posted JE, so this mirrors that logic directly).
-        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
-        var sourceJe = jeQuery.FirstOrDefault(j =>
+        // Reverse the GL entry posted on Submit (eager-load Lines so EF Core actually populates sourceJe.Lines,
+        // falling back to GetQueryableAsync for unit tests that only stub GetQueryableAsync).
+        var jeWithDetails = await _journalEntryRepository.WithDetailsAsync(j => j.Lines);
+        var sourceJe = jeWithDetails?.FirstOrDefault(j =>
             j.ReferenceType == "LandedCostVoucher" && j.ReferenceId == lcv.Id && !j.ReversalOfId.HasValue);
-        if (sourceJe != null)
+        if (sourceJe == null)
+        {
+            var jeQuery = await _journalEntryRepository.GetQueryableAsync();
+            sourceJe = jeQuery.FirstOrDefault(j =>
+                j.ReferenceType == "LandedCostVoucher" && j.ReferenceId == lcv.Id && !j.ReversalOfId.HasValue);
+        }
+        if (sourceJe != null && sourceJe.Lines.Any())
         {
             var reversalNumber = await _numberGenerator.GenerateAsync("JE", lcv.CompanyId);
             var reversal = new JournalEntry(GuidGenerator.Create(), sourceJe.CompanyId, sourceJe.FiscalYearId, DateTime.UtcNow, sourceJe.TenantId)
@@ -517,9 +522,15 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             };
             foreach (var line in sourceJe.Lines)
             {
-                reversal.AddLine(line.AccountId, line.Amount, !line.IsDebit,
-                    line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry");
+                reversal.AddLineWithDimensions(
+                    line.AccountId,
+                    line.Amount,
+                    !line.IsDebit,
+                    costCenterId: line.CostCenterId,
+                    projectId: line.ProjectId,
+                    description: line.Description != null ? $"Reversal: {line.Description}" : "Reversal entry");
             }
+            reversal.Validate();
             reversal.Post();
             await _journalEntryRepository.InsertAsync(reversal);
         }

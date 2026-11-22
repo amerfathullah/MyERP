@@ -241,17 +241,18 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
     [Authorize(MyERPPermissions.Payroll.Cancel)]
     public async Task<PayrollEntryDto> CancelAsync(Guid id)
     {
-        var entry = await _repository.GetAsync(id);
+        var entry = await _repository.GetAsync(id, includeDetails: true);
 
-        // Reverse loan repayments before cancelling
+        // Reverse loan repayments before cancelling (split principal/interest and reopen FullyRepaid loans)
         var loanRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
+        var loanManager = LazyServiceProvider.LazyGetRequiredService<LoanManager>();
         foreach (var line in entry.Lines.Where(l => l.LoanId.HasValue && l.LoanDeduction > 0))
         {
             var loan = await loanRepo.FindAsync(line.LoanId!.Value);
             if (loan != null)
             {
-                // Reverse the repayment by reducing TotalPrincipalRepaid
-                loan.TotalPrincipalRepaid = Math.Max(0, loan.TotalPrincipalRepaid - line.LoanDeduction);
+                var (principalPortion, interestPortion) = loanManager.SplitRepayment(loan, line.LoanDeduction);
+                loan.ReverseRepayment(principalPortion, interestPortion);
                 await loanRepo.UpdateAsync(loan);
             }
         }
@@ -260,6 +261,7 @@ public class PayrollAppService : ApplicationService, IPayrollAppService
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ReversePleForDocumentAsync("PayrollEntry", entry.Id);
+        await postingOrchestrator.ReverseGlForDocumentAsync("PayrollEntry", entry.Id);
 
         // Cancel the linked Salary Slips alongside the payroll run
         var slipsQuery = await _salarySlipRepository.GetQueryableAsync();

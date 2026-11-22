@@ -2432,14 +2432,24 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("detail", "No fiscal year covers today's date; cannot post the write-off.");
 
         var je = new Accounting.Entities.JournalEntry(
-            GuidGenerator.Create(), invoice.CompanyId, fy.Id, DateTime.UtcNow, invoice.TenantId);
+            GuidGenerator.Create(), invoice.CompanyId, fy.Id, DateTime.UtcNow, invoice.TenantId)
+        {
+            ReferenceType = "SalesInvoice",
+            ReferenceId = invoice.Id,
+            Narration = $"Write-off: {invoice.InvoiceNumber}",
+        };
+        var numGen = LazyServiceProvider?.LazyGetService<Core.DomainServices.IDocumentNumberGenerator>();
+        if (numGen != null)
+        {
+            je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId);
+        }
         je.AddLine(writeOffAccountId.Value, writeOffAmount, true, $"Write-off: {invoice.InvoiceNumber}");
         je.AddLineWithParty(invoice.DebitToAccountId, writeOffAmount, false,
             invoice.CustomerId, "Customer", null, $"Write-off: {invoice.InvoiceNumber}");
         je.Validate();
         je.Post();
 
-        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
+        var jeRepo = LazyServiceProvider!.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
         await jeRepo.InsertAsync(je);
 
         invoice.SetWriteOff(invoice.WriteOffAmount + writeOffAmount, writeOffAccountId, invoice.WriteOffCostCenterId);

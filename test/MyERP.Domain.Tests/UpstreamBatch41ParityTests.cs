@@ -413,4 +413,44 @@ public class UpstreamBatch41ParityTests
         ignored.ShouldContain("Communication");
         ignored.ShouldContain("Email Account");
     }
+
+    [Fact]
+    public void Loan_ReverseRepayment_RestoresPrincipalInterestAndReopensFullyRepaidLoan()
+    {
+        var loan = new MyERP.HumanResources.Entities.Loan(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "LN-001",
+            MyERP.HumanResources.LoanType.TermLoan,
+            MyERP.HumanResources.InterestCalculationMethod.FlatRate,
+            loanAmount: 1000m,
+            annualInterestRate: 6m,
+            tenureMonths: 2);
+        loan.Sanction();
+        loan.Disburse(DateTime.Today, DateTime.Today);
+
+        loan.RecordRepayment(500m, 5m);
+        loan.Status.ShouldBe(MyERP.HumanResources.LoanStatus.PartiallyRepaid);
+
+        loan.RecordRepayment(500m, 5m);
+        loan.Status.ShouldBe(MyERP.HumanResources.LoanStatus.FullyRepaid);
+        loan.TotalPrincipalRepaid.ShouldBe(1000m);
+        loan.TotalInterestCharged.ShouldBe(10m);
+        loan.TotalAmountRepaid.ShouldBe(1010m);
+
+        // Reversing second repayment reopens loan to PartiallyRepaid
+        loan.ReverseRepayment(500m, 5m);
+        loan.Status.ShouldBe(MyERP.HumanResources.LoanStatus.PartiallyRepaid);
+        loan.TotalPrincipalRepaid.ShouldBe(500m);
+        loan.TotalInterestCharged.ShouldBe(5m);
+        loan.TotalAmountRepaid.ShouldBe(505m);
+
+        // Reversing first repayment restores loan to Disbursed with zero repaid
+        loan.ReverseRepayment(500m, 5m);
+        loan.Status.ShouldBe(MyERP.HumanResources.LoanStatus.Disbursed);
+        loan.TotalPrincipalRepaid.ShouldBe(0m);
+        loan.TotalInterestCharged.ShouldBe(0m);
+        loan.TotalAmountRepaid.ShouldBe(0m);
+    }
 }

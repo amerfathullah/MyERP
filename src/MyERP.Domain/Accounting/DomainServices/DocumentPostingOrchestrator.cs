@@ -755,16 +755,27 @@ public class DocumentPostingOrchestrator : DomainService
         // same (ReferenceType, ReferenceId) — those are reversed separately via
         // ReverseExchangeGainLossJournalEntriesAsync / ReversePaymentTaxJournalEntriesAsync, since an
         // unreconcile/cancel of one shouldn't touch the others.
-        var original = query.FirstOrDefault(j =>
+        // Reverses ALL remaining posted JEs for this document (e.g. main invoice JE + write-off JE +
+        // common-party reconciliation JE + expenses-added-to-stock JE), skipping any already reversed.
+        var linked = query.Where(j =>
             j.ReferenceType == voucherType && j.ReferenceId == voucherId
-            && j.Status == DocumentStatus.Posted
-            && j.VoucherType != JournalEntryVoucherType.Reversal
+            && j.Status == DocumentStatus.Posted).ToList();
+
+        var alreadyReversedIds = linked
+            .Where(j => j.ReversalOfId.HasValue)
+            .Select(j => j.ReversalOfId!.Value)
+            .ToHashSet();
+
+        var originals = linked.Where(j =>
+            j.VoucherType != JournalEntryVoucherType.Reversal
             && j.VoucherType != JournalEntryVoucherType.ExchangeGainOrLoss
-            && j.VoucherType != JournalEntryVoucherType.PaymentTax);
+            && j.VoucherType != JournalEntryVoucherType.PaymentTax
+            && !alreadyReversedIds.Contains(j.Id)).ToList();
 
-        if (original == null) return;
-
-        await ReverseJournalEntryAsync(original);
+        foreach (var original in originals)
+        {
+            await ReverseJournalEntryAsync(original);
+        }
     }
 
     /// <summary>

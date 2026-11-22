@@ -2503,13 +2503,23 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "No fiscal year covers today's date; cannot post the write-off.");
 
-        var je = new JournalEntry(GuidGenerator.Create(), invoice.CompanyId, fy.Id, today, invoice.TenantId);
+        var je = new JournalEntry(GuidGenerator.Create(), invoice.CompanyId, fy.Id, today, invoice.TenantId)
+        {
+            ReferenceType = "PurchaseInvoice",
+            ReferenceId = invoice.Id,
+            Narration = $"Write-off: {invoice.InvoiceNumber}",
+        };
+        var numGen = LazyServiceProvider?.LazyGetService<Core.DomainServices.IDocumentNumberGenerator>();
+        if (numGen != null)
+        {
+            je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId);
+        }
         je.AddLineWithParty(invoice.CreditToAccountId, writeOffAmount, true,
             invoice.SupplierId, "Supplier", null, $"Write-off: {invoice.InvoiceNumber}");
         je.AddLine(writeOffAccountId.Value, writeOffAmount, false, $"Write-off: {invoice.InvoiceNumber}");
         je.Validate();
         je.Post();
-        await LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>().InsertAsync(je);
+        await LazyServiceProvider!.LazyGetRequiredService<IRepository<JournalEntry, Guid>>().InsertAsync(je);
 
         invoice.SetWriteOff(invoice.WriteOffAmount + writeOffAmount, writeOffAccountId, invoice.WriteOffCostCenterId);
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);

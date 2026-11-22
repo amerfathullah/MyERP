@@ -159,6 +159,25 @@ public class Loan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Reverses a previously recorded loan repayment (e.g. when a submitted Payroll Entry is cancelled).
+    /// Restores principal, interest, and total repaid balances and reopens a FullyRepaid loan if needed.
+    /// </summary>
+    public void ReverseRepayment(decimal principalAmount, decimal interestAmount)
+    {
+        if (Status is not (LoanStatus.PartiallyRepaid or LoanStatus.FullyRepaid or LoanStatus.Disbursed))
+            return;
+
+        TotalPrincipalRepaid = Math.Max(0m, TotalPrincipalRepaid - principalAmount);
+        TotalInterestCharged = Math.Max(0m, TotalInterestCharged - interestAmount);
+        TotalAmountRepaid = Math.Max(0m, TotalAmountRepaid - (principalAmount + interestAmount));
+
+        if (TotalPrincipalRepaid <= 0m)
+            Status = LoanStatus.Disbursed;
+        else if (TotalPrincipalRepaid < LoanAmount)
+            Status = LoanStatus.PartiallyRepaid;
+    }
+
+    /// <summary>
     /// Calculate EMI based on the interest method.
     /// </summary>
     public decimal CalculateEmi()

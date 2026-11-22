@@ -2884,4 +2884,189 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             rejBinAfterCancel.ActualQty.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch19_EndToEnd_PayrollLcvAndWriteOff_GlReversal()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var ccRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+            var payrollRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.PayrollEntry, Guid>>();
+            var loanRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var prRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var payrollService = GetRequiredService<MyERP.HumanResources.IPayrollAppService>();
+            var siService = GetRequiredService<MyERP.Sales.ISalesInvoiceAppService>();
+            var lcvService = GetRequiredService<MyERP.Inventory.ILandedCostVoucherAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch19 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var fy = await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B19", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JournalEntry", "JournalEntry", "JE-B19-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JE", "JE", "JE2-B19-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SalesInvoice", "SalesInvoice", "SINV-B19-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "LandedCostVoucher", "LandedCostVoucher", "LCV-B19-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "LCV", "LCV", "LCV2-B19-"), autoSave: true);
+
+            var arAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1200-B19", "AR", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var stockAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1400-B19", "Stock", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var apAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2100-B19", "Payables", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            var revAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "4100-B19", "Revenue", MyERP.Accounting.AccountType.Revenue), autoSave: true);
+            var expAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5100-B19", "Expense", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var freightAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5200-B19", "Freight", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var cc = await ccRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B19 CC"), autoSave: true);
+
+            company.DefaultReceivableAccountId = arAcc.Id;
+            company.DefaultInventoryAccountId = stockAcc.Id;
+            company.DefaultPayableAccountId = apAcc.Id;
+            company.DefaultIncomeAccountId = revAcc.Id;
+            company.DefaultExpenseAccountId = expAcc.Id;
+            company.DefaultCostCenterId = cc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "B19 AR Dr", "SalesInvoice", isDebit: true, MyERP.Accounting.AccountSource.CustomerReceivable, MyERP.Accounting.AmountSource.GrandTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "B19 Rev Cr", "SalesInvoice", isDebit: false, MyERP.Accounting.AccountSource.ItemIncome, MyERP.Accounting.AmountSource.NetTotal) { SortOrder = 2 }, autoSave: true);
+
+            // 1. PayrollEntry Submit -> Cancel must reverse GL JE AND restore Loan balances/status
+            var empId = Guid.NewGuid();
+            var loan = new MyERP.HumanResources.Entities.Loan(
+                Guid.NewGuid(), company.Id, empId, "LN-B19",
+                MyERP.HumanResources.LoanType.TermLoan,
+                MyERP.HumanResources.InterestCalculationMethod.FlatRate,
+                loanAmount: 500m, annualInterestRate: 0m, tenureMonths: 1);
+            loan.Sanction();
+            loan.Disburse(DateTime.Today, DateTime.Today);
+            await loanRepo.InsertAsync(loan, autoSave: true);
+
+            var payroll = new MyERP.HumanResources.Entities.PayrollEntry(Guid.NewGuid(), company.Id, "PAY-B19-1", 2026, 11, DateTime.Today);
+            payroll.AddLine(empId, "Ali", 5000m, 0m, 0m, 0m, 0m, 0m, 0m, 0m);
+            payroll.Lines[0].LoanDeduction = 500m;
+            payroll.Lines[0].LoanId = loan.Id;
+            payroll.RecalculateTotals();
+            await payrollRepo.InsertAsync(payroll, autoSave: true);
+
+            await payrollService.SubmitAsync(payroll.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var loanAfterSubmit = await loanRepo.GetAsync(loan.Id);
+            loanAfterSubmit.Status.ShouldBe(MyERP.HumanResources.LoanStatus.FullyRepaid);
+
+            await payrollService.CancelAsync(payroll.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var payrollJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "PayrollEntry" && j.ReferenceId == payroll.Id)
+                .ToList();
+            payrollJes.Count.ShouldBe(2);
+            var netPayrollExp = payrollJes.SelectMany(j => j.Lines).Where(l => l.AccountId == expAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netPayrollExp.ShouldBe(0m);
+
+            var loanAfterCancel = await loanRepo.GetAsync(loan.Id);
+            loanAfterCancel.Status.ShouldBe(MyERP.HumanResources.LoanStatus.Disbursed);
+            loanAfterCancel.TotalPrincipalRepaid.ShouldBe(0m);
+            loanAfterCancel.TotalAmountRepaid.ShouldBe(0m);
+
+            // 2. SalesInvoice Post -> WriteOff -> Cancel must link & reverse BOTH invoice JE and write-off JE
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B19 Cust") { DefaultReceivableAccountId = arAcc.Id }, autoSave: true);
+            var svcItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B19-SVC", "B19 Service", ItemType.Service) { MaintainStock = false, Uom = "Unit" }, autoSave: true);
+
+            var si = await siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                CostCenterId = cc.Id,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = svcItem.Id, Description = svcItem.ItemName, Quantity = 1m, UnitPrice = 300m, TaxAmount = 0m }
+                }
+            });
+            await siService.SubmitAsync(si.Id);
+            await siService.PostAsync(si.Id);
+            await siService.WriteOffAsync(si.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var siJesBeforeCancel = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "SalesInvoice" && j.ReferenceId == si.Id)
+                .ToList();
+            siJesBeforeCancel.Count.ShouldBe(2); // Invoice JE + linked Write-Off JE
+
+            await siService.CancelAsync(si.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var siJesAfterCancel = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "SalesInvoice" && j.ReferenceId == si.Id)
+                .ToList();
+            var netSiAr = siJesAfterCancel.SelectMany(j => j.Lines).Where(l => l.AccountId == arAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            var netSiExp = siJesAfterCancel.SelectMany(j => j.Lines).Where(l => l.AccountId == expAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netSiAr.ShouldBe(0m);
+            netSiExp.ShouldBe(0m);
+
+            // 3. LandedCostVoucher Submit -> Cancel must eager-load JE lines, preserve dimensions, and zero net GL
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B19 WH") { DefaultAccountId = stockAcc.Id }, autoSave: true);
+            var goodsItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B19-GDS", "B19 Goods", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var supp = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B19 Supp"), autoSave: true);
+            var pr = new MyERP.Purchasing.Entities.PurchaseReceipt(Guid.NewGuid(), company.Id, supp.Id, wh.Id, "PR-B19-1", DateTime.Today);
+            pr.AddItem(goodsItem.Id, goodsItem.ItemName, 10m, 100m, 0m, "Unit");
+            pr.Submit();
+            await prRepo.InsertAsync(pr, autoSave: true);
+
+            var lcv = await lcvService.CreateAsync(new MyERP.Dtos.CreateLandedCostVoucherDto
+            {
+                CompanyId = company.Id,
+                PostingDate = DateTime.Today,
+                Items = new[]
+                {
+                    new MyERP.Dtos.CreateLandedCostItemDto
+                    {
+                        ReceiptId = pr.Id,
+                        ReceiptType = "PurchaseReceipt",
+                        ItemId = goodsItem.Id,
+                        Description = goodsItem.ItemName,
+                        Quantity = 10m,
+                        Amount = 1000m
+                    }
+                },
+                Charges = new[]
+                {
+                    new MyERP.Dtos.CreateLandedCostChargeDto
+                    {
+                        Description = "Ocean Freight",
+                        ExpenseAccountId = freightAcc.Id,
+                        Amount = 150m,
+                        CostCenterId = cc.Id
+                    }
+                }
+            });
+            await lcvService.SubmitAsync(lcv.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            await lcvService.CancelAsync(lcv.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var lcvJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "LandedCostVoucher" && j.ReferenceId == lcv.Id)
+                .ToList();
+            lcvJes.Count.ShouldBe(2);
+            lcvJes.All(j => j.Lines.Count == 2).ShouldBeTrue();
+            var lcvReversal = lcvJes.Single(j => j.ReversalOfId.HasValue);
+            lcvReversal.Lines.ShouldContain(l => l.AccountId == freightAcc.Id && l.IsDebit && l.Amount == 150m && l.CostCenterId == cc.Id);
+            var netLcvStock = lcvJes.SelectMany(j => j.Lines).Where(l => l.AccountId == stockAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            var netLcvFreight = lcvJes.SelectMany(j => j.Lines).Where(l => l.AccountId == freightAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netLcvStock.ShouldBe(0m);
+            netLcvFreight.ShouldBe(0m);
+        });
+    }
 }
