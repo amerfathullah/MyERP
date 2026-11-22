@@ -3862,4 +3862,101 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             scoLog.NewStatus.ShouldBe("Cancelled");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch26_EndToEnd_RfqBlanketOrderBomDeleteGuards()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var rfqRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.RequestForQuotation, Guid>>();
+            var sqRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SupplierQuotation, Guid>>();
+            var boRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.BlanketOrder, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var poRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.BillOfMaterials, Guid>>();
+
+            var rfqService = GetRequiredService<MyERP.Purchasing.IRequestForQuotationAppService>();
+            var boService = GetRequiredService<MyERP.Sales.IBlanketOrderAppService>();
+            var mfgService = GetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch26 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B26 WH"), autoSave: true);
+            var subItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B26-SUB", "Sub Assembly", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B26-FG", "Finished Good", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B26 Supp"), autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B26 Cust"), autoSave: true);
+
+            // 1. RFQ blocked from cancel while submitted SupplierQuotation references it
+            var rfq = new MyERP.Purchasing.Entities.RequestForQuotation(Guid.NewGuid(), company.Id, "RFQ-B26-1", DateTime.Today);
+            rfq.AddItem(fgItem.Id, fgItem.ItemName, 5m, "Unit", wh.Id);
+            rfq.AddSupplier(supplier.Id, supplier.Name, "supp@b26.test");
+            rfq.Submit();
+            await rfqRepo.InsertAsync(rfq, autoSave: true);
+
+            var sq = new MyERP.Purchasing.Entities.SupplierQuotation(Guid.NewGuid(), company.Id, supplier.Id, DateTime.Today)
+            {
+                QuotationNumber = "SQ-B26-1",
+                RequestForQuotationId = rfq.Id,
+            };
+            sq.AddItem(fgItem.Id, 5m, 100m, fgItem.ItemName);
+            sq.Submit();
+            await sqRepo.InsertAsync(sq, autoSave: true);
+
+            var rfqEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => rfqService.CancelAsync(rfq.Id));
+            rfqEx.Code.ShouldBe("MyERP:01010");
+            rfqEx.Data["dependent"]!.ToString()!.ShouldBe("Supplier Quotation");
+
+            // 2. Selling BlanketOrder blocked from cancel while active SalesOrder references it
+            var boSell = new MyERP.Sales.Entities.BlanketOrder(Guid.NewGuid(), company.Id, "BO-SELL-B26", "Selling", customer.Id, DateTime.Today, DateTime.Today.AddMonths(3));
+            boSell.AddItem(fgItem.Id, 100m, 50m, fgItem.ItemName);
+            boSell.Submit();
+            await boRepo.InsertAsync(boSell, autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-B26-1", DateTime.Today);
+            so.AddItem(fgItem.Id, fgItem.ItemName, 10m, 50m, 0m);
+            so.Items[0].BlanketOrderId = boSell.Id;
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var boSellEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => boService.CancelAsync(boSell.Id));
+            boSellEx.Code.ShouldBe("MyERP:01010");
+            boSellEx.Data["dependent"]!.ToString()!.ShouldBe("Sales Order");
+
+            // 3. Purchasing BlanketOrder blocked from cancel while active PurchaseOrder references it
+            var boBuy = new MyERP.Sales.Entities.BlanketOrder(Guid.NewGuid(), company.Id, "BO-BUY-B26", "Purchasing", supplier.Id, DateTime.Today, DateTime.Today.AddMonths(3));
+            boBuy.AddItem(fgItem.Id, 100m, 30m, fgItem.ItemName);
+            boBuy.Submit();
+            await boRepo.InsertAsync(boBuy, autoSave: true);
+
+            var po = new MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-B26-1", DateTime.Today);
+            po.AddItem(fgItem.Id, fgItem.ItemName, 10m, 30m, 0m, "Unit", wh.Id);
+            po.Items[0].BlanketOrderId = boBuy.Id;
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            var boBuyEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => boService.CancelAsync(boBuy.Id));
+            boBuyEx.Code.ShouldBe("MyERP:01010");
+            boBuyEx.Data["dependent"]!.ToString()!.ShouldBe("Purchase Order");
+
+            // 4. BOM DeleteBomAsync blocked when referenced as SubBomId by another active BOM
+            var subBom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-SUB-B26", subItem.Id) { IsActive = true };
+            await bomRepo.InsertAsync(subBom, autoSave: true);
+
+            var parentBom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-FG-B26", fgItem.Id) { IsActive = true };
+            parentBom.AddItem(new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), parentBom.Id, subItem.Id, subItem.ItemName, 2m, 10m)
+            {
+                SubBomId = subBom.Id,
+            });
+            await bomRepo.InsertAsync(parentBom, autoSave: true);
+
+            var bomEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => mfgService.DeleteBomAsync(subBom.Id));
+            bomEx.Code.ShouldBe("MyERP:10009");
+            bomEx.Data["reason"]!.ToString()!.ShouldContain("sub-assembly");
+        });
+    }
 }

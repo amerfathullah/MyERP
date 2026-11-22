@@ -2441,7 +2441,22 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var numGen = LazyServiceProvider?.LazyGetService<Core.DomainServices.IDocumentNumberGenerator>();
         if (numGen != null)
         {
-            je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId);
+            var today = DateTime.UtcNow;
+            try
+            {
+                je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId, today);
+            }
+            catch (Volo.Abp.BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+            {
+                try
+                {
+                    je.EntryNumber = await numGen.GenerateAsync("JE", invoice.CompanyId, today);
+                }
+                catch (Volo.Abp.BusinessException innerEx) when (innerEx.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+                {
+                    je.EntryNumber = $"JE-WO-{today:yyyyMMdd}-{GuidGenerator.Create().ToString("N")[..6].ToUpperInvariant()}";
+                }
+            }
         }
         je.AddLine(writeOffAccountId.Value, writeOffAmount, true, $"Write-off: {invoice.InvoiceNumber}");
         je.AddLineWithParty(invoice.DebitToAccountId, writeOffAmount, false,

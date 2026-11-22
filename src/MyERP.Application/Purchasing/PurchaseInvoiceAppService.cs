@@ -2528,7 +2528,21 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var numGen = LazyServiceProvider?.LazyGetService<Core.DomainServices.IDocumentNumberGenerator>();
         if (numGen != null)
         {
-            je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId);
+            try
+            {
+                je.EntryNumber = await numGen.GenerateAsync("JournalEntry", invoice.CompanyId, today);
+            }
+            catch (Volo.Abp.BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+            {
+                try
+                {
+                    je.EntryNumber = await numGen.GenerateAsync("JE", invoice.CompanyId, today);
+                }
+                catch (Volo.Abp.BusinessException innerEx) when (innerEx.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+                {
+                    je.EntryNumber = $"JE-WO-{today:yyyyMMdd}-{GuidGenerator.Create().ToString("N")[..6].ToUpperInvariant()}";
+                }
+            }
         }
         je.AddLineWithParty(invoice.CreditToAccountId, writeOffAmount, true,
             invoice.SupplierId, "Supplier", null, $"Write-off: {invoice.InvoiceNumber}");

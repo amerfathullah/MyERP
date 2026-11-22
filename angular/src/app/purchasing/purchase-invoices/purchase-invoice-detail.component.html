@@ -461,7 +461,7 @@
           <div class="row align-items-center">
             @if ($any(invoice).lhdnLongId) {
               <div class="col-auto">
-                <a [href]="getLhdnVerificationUrl()" target="_blank" title="Verify on MyInvois Portal">
+                <a [href]="getLhdnVerificationUrl()" target="_blank" [title]="'::VerifyOnLhdn' | abpLocalization">
                   <img [src]="getLhdnQrCodeUrl()" alt="LHDN QR" width="96" height="96" class="border rounded" />
                 </a>
               </div>

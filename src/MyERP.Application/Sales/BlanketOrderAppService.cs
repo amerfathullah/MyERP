@@ -191,13 +191,48 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
     public async Task<BlanketOrderDto> CancelAsync(Guid id)
     {
         var bo = await _repository.GetAsync(id);
+
+        // Per ERPNext blanket_order.py: cannot cancel Blanket Order while active Sales/Purchase Orders reference it
+        var soRepo = LazyServiceProvider.LazyGetService<IRepository<SalesOrder, Guid>>();
+        if (soRepo != null)
+        {
+            var soQuery = await soRepo.WithDetailsAsync(o => o.Items);
+            var hasActiveSo = soQuery.Any(so =>
+                so.Status != DocumentStatus.Draft
+                && so.Status != DocumentStatus.Cancelled
+                && so.Items.Any(i => i.BlanketOrderId == bo.Id));
+            if (hasActiveSo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Blanket Order")
+                    .WithData("dependent", "Sales Order");
+            }
+        }
+
+        var poRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+        if (poRepo != null)
+        {
+            var poQuery = await poRepo.WithDetailsAsync(o => o.Items);
+            var hasActivePo = poQuery.Any(po =>
+                po.Status != DocumentStatus.Draft
+                && po.Status != DocumentStatus.Cancelled
+                && po.Items.Any(i => i.BlanketOrderId == bo.Id));
+            if (hasActivePo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Blanket Order")
+                    .WithData("dependent", "Purchase Order");
+            }
+        }
+
+        var previousStatus = bo.Status.ToString();
         bo.Cancel();
         await _repository.UpdateAsync(bo);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "BlanketOrder", bo.Id, "Cancelled",
-            bo.CompanyId, bo.OrderNumber, "Submitted", "Cancelled",
+            bo.CompanyId, bo.OrderNumber, previousStatus, "Cancelled",
             CurrentUser.Id, tenantId: bo.TenantId));
 
         return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);

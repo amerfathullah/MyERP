@@ -169,6 +169,23 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
     public async Task<RfqDto> CancelAsync(Guid id)
     {
         var rfq = await _repository.GetAsync(id);
+
+        // Per ERPNext request_for_quotation.py: cannot cancel RFQ while submitted Supplier Quotations reference it
+        var sqRepo = LazyServiceProvider?.LazyGetService<IRepository<SupplierQuotation, Guid>>();
+        if (sqRepo != null)
+        {
+            var sqQuery = await sqRepo.GetQueryableAsync();
+            var hasActiveSq = sqQuery.Any(sq =>
+                sq.RequestForQuotationId == rfq.Id
+                && sq.Status == Core.DocumentStatus.Submitted);
+            if (hasActiveSq)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Request for Quotation")
+                    .WithData("dependent", "Supplier Quotation");
+            }
+        }
+
         rfq.Cancel();
         await _repository.UpdateAsync(rfq, autoSave: true);
         return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);

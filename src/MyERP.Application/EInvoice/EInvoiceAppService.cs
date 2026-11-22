@@ -428,13 +428,25 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
     private async Task UpdateSourceDocumentStatusAsync(string docType, Guid docId, EInvoiceSubmission submission)
     {
+        var mappedStatus = submission.Status switch
+        {
+            "Accepted" or "Pending" => Sales.EInvoiceStatus.Pending,
+            "Valid" => Sales.EInvoiceStatus.Valid,
+            "Rejected" => Sales.EInvoiceStatus.Rejected,
+            "Cancelled" => Sales.EInvoiceStatus.Cancelled,
+            _ => Sales.EInvoiceStatus.Invalid,
+        };
+
         if (docType == "SalesInvoice")
         {
             var invoice = await _salesInvoiceRepository.GetAsync(docId);
-            invoice.EInvoiceStatus = submission.Status == "Accepted"
-                ? Sales.EInvoiceStatus.Pending : Sales.EInvoiceStatus.Invalid;
-            invoice.LhdnUuid = submission.DocumentUuid;
-            invoice.LhdnLongId = submission.LongId;
+            invoice.EInvoiceStatus = mappedStatus;
+            if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))
+                invoice.LhdnUuid = submission.DocumentUuid;
+            if (!string.IsNullOrWhiteSpace(submission.LongId))
+                invoice.LhdnLongId = submission.LongId;
+            if (!string.IsNullOrWhiteSpace(submission.QrCodeUrl))
+                invoice.QrCodeUrl = submission.QrCodeUrl;
             invoice.LhdnSubmissionId = submission.Id;
             invoice.LhdnSubmittedAt = DateTime.UtcNow;
             await _salesInvoiceRepository.UpdateAsync(invoice);
@@ -442,10 +454,13 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         else if (docType == "PurchaseInvoice")
         {
             var invoice = await _purchaseInvoiceRepository.GetAsync(docId);
-            invoice.EInvoiceStatus = submission.Status == "Accepted"
-                ? Sales.EInvoiceStatus.Pending : Sales.EInvoiceStatus.Invalid;
-            invoice.LhdnUuid = submission.DocumentUuid;
-            invoice.LhdnLongId = submission.LongId;
+            invoice.EInvoiceStatus = mappedStatus;
+            if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))
+                invoice.LhdnUuid = submission.DocumentUuid;
+            if (!string.IsNullOrWhiteSpace(submission.LongId))
+                invoice.LhdnLongId = submission.LongId;
+            if (!string.IsNullOrWhiteSpace(submission.QrCodeUrl))
+                invoice.QrCodeUrl = submission.QrCodeUrl;
             invoice.LhdnSubmissionId = submission.Id;
             invoice.LhdnSubmittedAt = DateTime.UtcNow;
             await _purchaseInvoiceRepository.UpdateAsync(invoice);

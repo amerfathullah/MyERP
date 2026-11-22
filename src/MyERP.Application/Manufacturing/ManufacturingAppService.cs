@@ -376,6 +376,15 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("reason", "BOM is used by active Work Orders. Cancel or complete them first.");
         }
 
+        // Guard: cannot delete BOM referenced as a sub-assembly by another active BOM
+        var bomQuery = await _bomRepository.WithDetailsAsync(b => b.Items);
+        var hasParentBom = bomQuery.Any(b => b.Id != id && b.IsActive && b.Items.Any(i => i.SubBomId == id));
+        if (hasParentBom)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:10009")
+                .WithData("reason", "BOM is referenced as a sub-assembly by another active BOM.");
+        }
+
         await _bomRepository.DeleteAsync(id);
     }
 
