@@ -1471,23 +1471,23 @@ public class StockEntryManager : DomainService
 
         if (totalBasis <= 0m) return;
 
-        decimal allocated = 0;
-        for (int i = 0; i < incomingRows.Count; i++)
-        {
-            var row = incomingRows[i];
-            if (i == incomingRows.Count - 1)
-            {
-                row.AdditionalCost = entry.TotalAdditionalCosts - allocated;
-            }
-            else
+        // Per ERPNext PR #67386 (commit 0ef3c0adba): round running cumulative total via SplitByWeights
+        // so row shares always sum exactly to TotalAdditionalCosts and zero-weight rows receive 0.
+        var weights = incomingRows
+            .Select(row =>
             {
                 var basisVal = useBasicAmount
                     ? row.Quantity * (row.ValuationRate ?? 0m)
                     : (row.StockQty > 0 ? row.StockQty : row.Quantity);
-                var portion = Math.Round(entry.TotalAdditionalCosts * (basisVal / totalBasis), 4);
-                row.AdditionalCost = portion;
-                allocated += portion;
-            }
+                return basisVal / totalBasis;
+            })
+            .ToList();
+
+        var shares = SplitByWeights(entry.TotalAdditionalCosts, weights, precision: 4);
+        for (int i = 0; i < incomingRows.Count; i++)
+        {
+            var row = incomingRows[i];
+            row.AdditionalCost = shares[i];
 
             if (row.Quantity > 0)
             {
@@ -1495,6 +1495,72 @@ public class StockEntryManager : DomainService
                 row.ValuationRate = (row.ValuationRate ?? 0m) + rateIncrement;
             }
         }
+    }
+
+    /// <summary>
+    /// Splits <paramref name="amount"/> proportionally by <paramref name="weights"/>, rounding the
+    /// cumulative target at each step so shares sum exactly to <paramref name="amount"/> and any
+    /// zero-weight row receives 0 per ERPNext PR #67386 (commit 0ef3c0adba, <c>split_by_weights</c>).
+    /// </summary>
+    public static List<decimal> SplitByWeights(
+        decimal amount,
+        IReadOnlyList<decimal> weights,
+        int precision = 2)
+    {
+        var shares = new List<decimal>(weights?.Count ?? 0);
+        if (weights == null || weights.Count == 0)
+            return shares;
+
+        decimal previousTotal = 0m;
+        decimal cumulativeWeight = 0m;
+        foreach (var weight in weights)
+        {
+            cumulativeWeight += weight;
+            var total = Math.Round(amount * cumulativeWeight, precision, MidpointRounding.AwayFromZero);
+            shares.Add(Math.Round(total - previousTotal, precision, MidpointRounding.AwayFromZero));
+            previousTotal = total;
+        }
+
+        return shares;
+    }
+
+    /// <summary>
+    /// Splits additional costs per expense account across incoming rows using <see cref="SplitByWeights"/>
+    /// so each account's row shares sum exactly to that account's cost and each row's total additional cost
+    /// matches the sum of its account shares per ERPNext PR #67386 (commit 0ef3c0adba).
+    /// </summary>
+    public static List<(Guid RowId, Guid ExpenseAccountId, decimal Amount, decimal BaseAmount)> SplitAdditionalCostsByAccount(
+        IReadOnlyList<(Guid RowId, decimal BasisValue)> incomingRows,
+        IEnumerable<(Guid ExpenseAccountId, decimal Amount, decimal BaseAmount)> additionalCosts,
+        int precision = 2)
+    {
+        var result = new List<(Guid RowId, Guid ExpenseAccountId, decimal Amount, decimal BaseAmount)>();
+        if (incomingRows == null || incomingRows.Count == 0 || additionalCosts == null)
+            return result;
+
+        var totalBasis = incomingRows.Sum(r => r.BasisValue);
+        if (totalBasis <= 0m)
+            return result;
+
+        var weights = incomingRows.Select(r => r.BasisValue / totalBasis).ToList();
+        var costsByAccount = new Dictionary<Guid, (decimal Amount, decimal BaseAmount)>();
+        foreach (var cost in additionalCosts)
+        {
+            var prev = costsByAccount.GetValueOrDefault(cost.ExpenseAccountId);
+            costsByAccount[cost.ExpenseAccountId] = (prev.Amount + cost.Amount, prev.BaseAmount + cost.BaseAmount);
+        }
+
+        foreach (var (accountId, (amount, baseAmount)) in costsByAccount)
+        {
+            var amounts = SplitByWeights(amount, weights, precision);
+            var baseAmounts = SplitByWeights(baseAmount, weights, precision);
+            for (var i = 0; i < incomingRows.Count; i++)
+            {
+                result.Add((incomingRows[i].RowId, accountId, amounts[i], baseAmounts[i]));
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

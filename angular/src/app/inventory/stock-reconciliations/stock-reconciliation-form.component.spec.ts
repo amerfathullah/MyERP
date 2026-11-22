@@ -107,4 +107,45 @@ describe('StockReconciliationFormComponent', () => {
     expect(payload.items[1].newQuantity).toBe(8);
     expect(payload.items[1].newValuationRate).toBe(20);
   });
+
+  it('keeps user-edited counted qty and rate when posting date changes while refreshing book values (PR #67442)', () => {
+    const getBalanceSpy = vi.fn().mockImplementation((req: any) => {
+      if (req.itemId === 'item-edited') {
+        return of({ currentQuantity: 12, currentValuationRate: 18 });
+      }
+      return of({ currentQuantity: 20, currentValuationRate: 25 });
+    });
+
+    const injector = Injector.create({
+      providers: [
+        { provide: StockReconciliationService, useValue: { getStockBalanceFor: getBalanceSpy } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+        { provide: ItemService, useValue: {} },
+        { provide: WarehouseService, useValue: {} },
+        { provide: ToasterService, useValue: { error: vi.fn() } },
+      ],
+    });
+
+    const comp = runInInjectionContext(injector, () => new StockReconciliationFormComponent());
+    comp.form.items = [
+      // User edited both counted qty (7 vs book 10) and rate (15 vs book 14) -> both kept
+      { itemId: 'item-edited', warehouseId: 'wh-1', currentQuantity: 10, currentValuationRate: 14, newQuantity: 7, newValuationRate: 15 },
+      // User left qty & rate equal to book (5, 10) -> both follow new book values (20, 25)
+      { itemId: 'item-untouched', warehouseId: 'wh-1', currentQuantity: 5, currentValuationRate: 10, newQuantity: 5, newValuationRate: 10 },
+    ];
+
+    comp.onPostingDateChanged('2026-11-20');
+
+    expect(getBalanceSpy).toHaveBeenCalledTimes(2);
+    expect(comp.form.items[0].currentQuantity).toBe(12);
+    expect(comp.form.items[0].currentValuationRate).toBe(18);
+    expect(comp.form.items[0].newQuantity).toBe(7);
+    expect(comp.form.items[0].newValuationRate).toBe(15);
+
+    expect(comp.form.items[1].currentQuantity).toBe(20);
+    expect(comp.form.items[1].currentValuationRate).toBe(25);
+    expect(comp.form.items[1].newQuantity).toBe(20);
+    expect(comp.form.items[1].newValuationRate).toBe(25);
+  });
 });

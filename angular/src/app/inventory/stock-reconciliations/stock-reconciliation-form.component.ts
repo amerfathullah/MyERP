@@ -87,7 +87,7 @@ export function mapReconciliationPreviewRows(
         <div class="row mb-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">{{ '::PostingDate' | abpLocalization }}</label>
-            <input type="date" class="form-control" (ngModelChange)="isDirty=true" [(ngModel)]="form.postingDate" />
+            <input type="date" class="form-control" (ngModelChange)="onPostingDateChanged($event)" [ngModel]="form.postingDate" />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ '::Purpose' | abpLocalization }}</label>
@@ -256,7 +256,19 @@ export class StockReconciliationFormComponent implements OnInit {
     });
   }
 
-  onRowSelectionChanged(row: ReconciliationFormRow): void {
+  onPostingDateChanged(newPostingDate: string): void {
+    this.form.postingDate = newPostingDate;
+    this.isDirty = true;
+    // Per ERPNext PR #67442 (commit 7250386754): refresh book qty & rate on posting date change
+    // while keeping any counted qty or rate that the user already changed.
+    for (const row of this.form.items as ReconciliationFormRow[]) {
+      if (row.itemId && row.warehouseId) {
+        this.onRowSelectionChanged(row, true);
+      }
+    }
+  }
+
+  onRowSelectionChanged(row: ReconciliationFormRow, keepCountedValues = false): void {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId || !row.itemId || !row.warehouseId) return;
     this.stockReconciliationService.getStockBalanceFor({
@@ -266,14 +278,32 @@ export class StockReconciliationFormComponent implements OnInit {
       postingDate: this.form.postingDate,
     }).subscribe({
       next: preview => {
-        row.currentQuantity = preview.currentQuantity ?? 0;
-        row.currentValuationRate = preview.currentValuationRate ?? 0;
-        if (row.newQuantity === null || row.newQuantity === undefined) {
-          row.newQuantity = preview.currentQuantity ?? 0;
+        const nextBookQty = preview.currentQuantity ?? 0;
+        const nextBookRate = preview.currentValuationRate ?? 0;
+
+        // Per ERPNext PR #67442 (commit 7250386754): a value the user changed is kept;
+        // one still matching the prior book value follows the refreshed book value.
+        const qtyChanged =
+          row.newQuantity !== null &&
+          row.newQuantity !== undefined &&
+          roundTo(Number(row.newQuantity), 4) !== roundTo(Number(row.currentQuantity ?? 0), 4);
+        const rateChanged =
+          row.newValuationRate !== null &&
+          row.newValuationRate !== undefined &&
+          roundTo(Number(row.newValuationRate), 2) !== roundTo(Number(row.currentValuationRate ?? 0), 2);
+
+        const keepQty = keepCountedValues && qtyChanged;
+        const keepRate = keepCountedValues && rateChanged;
+
+        if (!keepQty && (keepCountedValues || row.newQuantity === null || row.newQuantity === undefined)) {
+          row.newQuantity = nextBookQty;
         }
-        if (row.newValuationRate === null || row.newValuationRate === undefined || !row.newValuationRate) {
-          row.newValuationRate = preview.currentValuationRate ?? 0;
+        if (!keepRate && (keepCountedValues || row.newValuationRate === null || row.newValuationRate === undefined || !row.newValuationRate)) {
+          row.newValuationRate = nextBookRate;
         }
+
+        row.currentQuantity = nextBookQty;
+        row.currentValuationRate = nextBookRate;
       },
       error: () => {},
     });

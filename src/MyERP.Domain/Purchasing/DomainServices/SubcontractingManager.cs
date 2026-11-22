@@ -1711,6 +1711,140 @@ public class SubcontractingManager : DomainService
             Math.Round(serviceToFgRatio * totalWorkedFgQty, precision, MidpointRounding.AwayFromZero),
             Math.Round(serviceToFgRatio * totalRejectedFgQty, precision, MidpointRounding.AwayFromZero));
     }
+
+    /// <summary>
+    /// Replays supplier transfer and return stock entries in chronological order
+    /// (<c>PostingDateTime, CreationTime</c>) to determine the serial numbers and batch quantities
+    /// currently held at the supplier per ERPNext PR #67370 (commit 72819fa0e3):
+    /// - Transfers append serial numbers and add batch quantities.
+    /// - Return transfers remove returned serial numbers and subtract returned batch quantities.
+    /// </summary>
+    public static (List<string> AvailableSerialNos, Dictionary<Guid, decimal> AvailableBatchQuantities)
+        BuildSupplierMaterialLotsChronological(
+            IEnumerable<(DateTime PostingDateTime, DateTime CreationTime, bool IsReturn, IEnumerable<string>? SerialNos, IReadOnlyDictionary<Guid, decimal>? BatchQuantities)> movements)
+    {
+        var serialNos = new List<string>();
+        var batchQuantities = new Dictionary<Guid, decimal>();
+
+        if (movements == null)
+        {
+            return (serialNos, batchQuantities);
+        }
+
+        foreach (var mv in movements.OrderBy(m => m.PostingDateTime).ThenBy(m => m.CreationTime))
+        {
+            if (mv.SerialNos != null)
+            {
+                foreach (var rawSn in mv.SerialNos)
+                {
+                    if (string.IsNullOrWhiteSpace(rawSn)) continue;
+                    var sn = rawSn.Trim();
+                    if (!mv.IsReturn)
+                    {
+                        serialNos.Add(sn);
+                    }
+                    else
+                    {
+                        var idx = serialNos.FindIndex(s => string.Equals(s, sn, StringComparison.OrdinalIgnoreCase));
+                        if (idx >= 0)
+                            serialNos.RemoveAt(idx);
+                    }
+                }
+            }
+
+            if (mv.BatchQuantities != null)
+            {
+                foreach (var (batchId, rawQty) in mv.BatchQuantities)
+                {
+                    var absQty = Math.Abs(rawQty);
+                    if (absQty <= 0m) continue;
+                    var delta = mv.IsReturn ? -absQty : absQty;
+                    batchQuantities[batchId] = batchQuantities.GetValueOrDefault(batchId, 0m) + delta;
+                }
+            }
+        }
+
+        return (serialNos, batchQuantities);
+    }
+
+    /// <summary>
+    /// Validates that every serial number consumed on a Subcontracting Receipt is currently present
+    /// in the supplier's available serial pool (rejecting even when the pool is empty, e.g. after all
+    /// supplied serials were returned) per ERPNext PR #67370 (commit 72819fa0e3, <c>__validate_serial_no</c>).
+    /// </summary>
+    public static void ValidateConsumedSerialNosAgainstSupplierPool(
+        string orderDocType,
+        string orderNumber,
+        IEnumerable<string>? availableSerialNosAtSupplier,
+        IEnumerable<string>? consumedSerialNos)
+    {
+        if (consumedSerialNos == null) return;
+
+        var available = new HashSet<string>(
+            (availableSerialNosAtSupplier ?? Enumerable.Empty<string>())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var incorrect = consumedSerialNos
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Where(s => !available.Contains(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (incorrect.Count > 0)
+        {
+            var joined = string.Join("\n", incorrect);
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("orderNumber", orderNumber)
+                .WithData("incorrectSerialNos", joined)
+                .WithData("detail", $"The Serial Nos {joined} have not been supplied against the {orderDocType} {orderNumber}");
+        }
+    }
+
+    /// <summary>
+    /// Allocates consumed raw material (and alternative item) quantities onto Subcontracting Order
+    /// supplied item rows based on what items were actually sent on each row, ignoring negative net
+    /// sent quantities caused by component returns booked on one row per ERPNext PR #67373 (commit 173f26d7ce).
+    /// </summary>
+    public static Dictionary<Guid, decimal> AllocateConsumedQtyOnOrderRows(
+        IEnumerable<(Guid OrderRowId, Guid MainItemId, Guid OrderId)> orderSuppliedRowsInIdxOrder,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<Guid, decimal>> netItemsSentByOrderRow,
+        IReadOnlyDictionary<(Guid ItemId, Guid MainItemId, Guid OrderId), decimal> itemwiseConsumedQty,
+        int precision = 4)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (orderSuppliedRowsInIdxOrder == null)
+            return result;
+
+        var remainingConsumed = itemwiseConsumedQty != null
+            ? new Dictionary<(Guid ItemId, Guid MainItemId, Guid OrderId), decimal>(itemwiseConsumedQty)
+            : new Dictionary<(Guid ItemId, Guid MainItemId, Guid OrderId), decimal>();
+
+        foreach (var row in orderSuppliedRowsInIdxOrder)
+        {
+            decimal consumedOnRow = 0m;
+            if (netItemsSentByOrderRow != null &&
+                netItemsSentByOrderRow.TryGetValue(row.OrderRowId, out var sentByItem) &&
+                sentByItem != null)
+            {
+                foreach (var (sentItemId, sentQty) in sentByItem)
+                {
+                    var key = (sentItemId, row.MainItemId, row.OrderId);
+                    var availableConsumed = remainingConsumed.GetValueOrDefault(key, 0m);
+                    var positiveSent = Math.Max(sentQty, 0m);
+                    var allocated = Math.Min(availableConsumed, positiveSent);
+                    consumedOnRow += allocated;
+                    remainingConsumed[key] = availableConsumed - allocated;
+                }
+            }
+
+            result[row.OrderRowId] = Math.Round(consumedOnRow, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return result;
+    }
 }
 
 public sealed record SubcontractingReservationPlanHandoff(

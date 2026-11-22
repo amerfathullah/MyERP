@@ -126,10 +126,12 @@ public class WorkstationSchedulingService : DomainService
                         continue; // Slot full, try next window
                 }
 
-                var availableMins = Math.Min(windowMins, remainingMins);
+                // Per ERPNext PR #67470 (commit 5d3b244c59): compare datetimes, not float minutes,
+                // so floating-point noise cannot spill into the next working-hour slot.
+                var (consumedEnd, nextRemainingMins) = ConsumeWorkingHourSlot(windowStart, windowEnd, remainingMins);
                 slotStart ??= windowStart;
-                slotEnd = windowStart.AddMinutes((double)availableMins);
-                remainingMins -= availableMins;
+                slotEnd = consumedEnd;
+                remainingMins = nextRemainingMins;
             }
 
             currentDate = currentDate.AddDays(1);
@@ -148,6 +150,48 @@ public class WorkstationSchedulingService : DomainService
         var finalEnd = slotEnd!.Value.AddMinutes(minsBetween);
 
         return new ScheduledTimeSlot(slotStart.Value, finalEnd, ScheduleStatus.Scheduled);
+    }
+
+    /// <summary>
+    /// Consumes a workstation working-hour slot using datetime comparison rather than floating-point
+    /// minutes so float noise cannot spill a job card into an extra slot per ERPNext PR #67470 (commit 5d3b244c59).
+    /// </summary>
+    public static (DateTime PlannedEndTime, decimal RemainingTimeInMins) ConsumeWorkingHourSlot(
+        DateTime plannedStartTime,
+        DateTime workstationEndTime,
+        decimal remainingTimeInMins)
+    {
+        if (remainingTimeInMins <= 0m)
+        {
+            return (plannedStartTime, 0m);
+        }
+
+        var plannedEndTime = plannedStartTime.AddMinutes((double)remainingTimeInMins);
+        if (plannedEndTime <= workstationEndTime)
+        {
+            return (plannedEndTime, 0m);
+        }
+
+        var consumedMins = (decimal)(workstationEndTime - plannedStartTime).TotalMinutes;
+        return (workstationEndTime, Math.Max(0m, remainingTimeInMins - consumedMins));
+    }
+
+    /// <summary>
+    /// Computes the overall time span for a Work Order operation split into multiple batch Job Cards,
+    /// spanning from the earliest card start to the latest card end because batch cards can be scheduled
+    /// out of order per ERPNext PR #67470 (commit 5d3b244c59, <c>set_batch_operation_time</c>).
+    /// </summary>
+    public static (DateTime PlannedStartTime, DateTime PlannedEndTime)? ComputeBatchOperationTimeSpan(
+        IReadOnlyList<(DateTime PlannedStartTime, DateTime PlannedEndTime)>? cardTimes)
+    {
+        if (cardTimes == null || cardTimes.Count == 0)
+        {
+            return null;
+        }
+
+        var minStart = cardTimes.Min(t => t.PlannedStartTime);
+        var maxEnd = cardTimes.Max(t => t.PlannedEndTime);
+        return (minStart, maxEnd);
     }
 
     /// <summary>

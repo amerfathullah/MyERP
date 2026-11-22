@@ -315,6 +315,68 @@ public class SubcontractingRmTransferService : DomainService
 
         return resolved;
     }
+
+    /// <summary>
+    /// Validates that a Return of Components (<c>MaterialTransfer</c> with <c>IsReturn == true</c>)
+    /// does not take back more of any raw material (in stock UOM) than the Subcontracting Order
+    /// still has unconsumed at the supplier per ERPNext PR #67368 (commit 54978a862d).
+    /// </summary>
+    public async Task ValidateReturnedQtyWithinSubcontractingOrderAsync(
+        Guid scoId,
+        IReadOnlyList<(int RowNumber, Guid ItemId, string ItemCode, decimal StockQty)> returnRows,
+        int precision = 4)
+    {
+        var sco = (await _scoRepository.WithDetailsAsync())
+            .First(s => s.Id == scoId);
+
+        var qtyAtSupplier = sco.SuppliedItems
+            .GroupBy(s => s.ItemId)
+            .ToDictionary(g => g.Key, g => Math.Max(0m, g.Sum(s => s.TransferredQty - s.ConsumedQty)));
+
+        ValidateReturnedQtyWithinSupplierBalance(sco.OrderNumber, qtyAtSupplier, returnRows, precision);
+    }
+
+    /// <summary>
+    /// Pure validation helper for ERPNext PR #67368 (<c>validate_returned_qty_within_subcontracting_order</c>):
+    /// accumulates stock-UOM return qty across rows of each item and throws if cumulative returned qty
+    /// exceeds what the order still holds at the supplier.
+    /// </summary>
+    public static void ValidateReturnedQtyWithinSupplierBalance(
+        string orderNumber,
+        IReadOnlyDictionary<Guid, decimal> qtyAtSupplierByItemId,
+        IReadOnlyList<(int RowNumber, Guid ItemId, string ItemCode, decimal StockQty)> returnRows,
+        int precision = 4)
+    {
+        if (returnRows == null || returnRows.Count == 0)
+            return;
+
+        var cumulativeReturned = new Dictionary<Guid, decimal>();
+        foreach (var row in returnRows)
+        {
+            var rowStockQty = Math.Round(Math.Abs(row.StockQty), precision, MidpointRounding.AwayFromZero);
+            var totalReturned = Math.Round(
+                cumulativeReturned.GetValueOrDefault(row.ItemId, 0m) + rowStockQty,
+                precision,
+                MidpointRounding.AwayFromZero);
+            cumulativeReturned[row.ItemId] = totalReturned;
+
+            var allowedQty = Math.Round(
+                qtyAtSupplierByItemId != null ? qtyAtSupplierByItemId.GetValueOrDefault(row.ItemId, 0m) : 0m,
+                precision,
+                MidpointRounding.AwayFromZero);
+
+            if (totalReturned > allowedQty)
+            {
+                var itemLabel = !string.IsNullOrWhiteSpace(row.ItemCode) ? row.ItemCode : row.ItemId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("row", row.RowNumber)
+                    .WithData("itemId", row.ItemId)
+                    .WithData("allowedQty", allowedQty)
+                    .WithData("orderNumber", orderNumber)
+                    .WithData("detail", $"Row #{row.RowNumber}: Only {allowedQty} of Item {itemLabel} can be returned against Subcontracting Order {orderNumber}");
+            }
+        }
+    }
 }
 
 public class SubcontractingRmRequirement

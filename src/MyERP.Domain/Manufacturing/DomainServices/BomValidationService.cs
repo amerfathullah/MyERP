@@ -219,6 +219,46 @@ public class BomValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Merges exploded BOM items by <c>(ItemId, OperationId)</c>, computing the weighted average rate
+    /// when the same item appears multiple times (e.g. direct row and sub-assembly) at different rates
+    /// per ERPNext PR #67337 (commit cae514c16d, <c>BOMExplodedItemsService.add_to_cur_exploded_items</c>).
+    /// </summary>
+    public static List<(Guid ItemId, Guid? OperationId, decimal StockQty, decimal Rate, decimal Amount)>
+        MergeExplodedBomItemsAtWeightedRate(
+            IEnumerable<(Guid ItemId, Guid? OperationId, decimal StockQty, decimal Rate)> rows)
+    {
+        var merged = new Dictionary<(Guid ItemId, Guid? OperationId), (decimal StockQty, decimal Rate)>();
+        var order = new List<(Guid ItemId, Guid? OperationId)>();
+
+        if (rows != null)
+        {
+            foreach (var row in rows)
+            {
+                var key = (row.ItemId, row.OperationId);
+                if (!merged.TryGetValue(key, out var existing))
+                {
+                    merged[key] = (row.StockQty, row.Rate);
+                    order.Add(key);
+                    continue;
+                }
+
+                var totalAmount = (existing.StockQty * existing.Rate) + (row.StockQty * row.Rate);
+                var totalQty = existing.StockQty + row.StockQty;
+                var weightedRate = totalQty != 0m ? totalAmount / totalQty : existing.Rate;
+                merged[key] = (totalQty, weightedRate);
+            }
+        }
+
+        return order
+            .Select(k =>
+            {
+                var (qty, rate) = merged[k];
+                return (k.ItemId, k.OperationId, qty, rate, qty * rate);
+            })
+            .ToList();
+    }
 }
 
 /// <summary>

@@ -1697,10 +1697,10 @@ public class StockReservationManager : DomainService
 
     /// <summary>
     /// Computes the default unreserved quantity offered in the Stock Reservation dialog for a document row
-    /// per ERPNext commits 3bf7091474 and 6e83c51495 (stock_reservation.js):
-    /// Every quantity field the reserve dialog reads (<paramref name="stockQty"/>, <paramref name="stockReservedQty"/>)
-    /// and sends back is in stock UOM, so the unreserved balance is returned directly in stock UOM
-    /// without dividing by <paramref name="conversionFactor"/>.
+    /// per ERPNext commits 3bf7091474, 6e83c51495, and PR #67452 (commit a7ce0050fe):
+    /// <paramref name="stockReservedQty"/> is what is still reserved, so both delivered/dispatched qty
+    /// (<paramref name="dispatchedQtyInOrderUom"/> * <paramref name="conversionFactor"/>) AND
+    /// <paramref name="stockReservedQty"/> are subtracted from <paramref name="stockQty"/>.
     /// </summary>
     public static decimal CalculateDialogUnreservedStockQty(
         decimal stockQty,
@@ -1710,11 +1710,33 @@ public class StockReservationManager : DomainService
         int precision = 4)
     {
         var factor = conversionFactor > 0m ? conversionFactor : 1m;
-        var alreadyCoveredStockQty = stockReservedQty > 0m
-            ? stockReservedQty
-            : dispatchedQtyInOrderUom * factor;
-        var unreserved = Math.Round(stockQty - alreadyCoveredStockQty, precision, MidpointRounding.AwayFromZero);
+        var unreservedStockQty = stockQty - (dispatchedQtyInOrderUom * factor) - stockReservedQty;
+        var unreserved = Math.Round(unreservedStockQty, precision, MidpointRounding.AwayFromZero);
         return Math.Max(0m, unreserved);
+    }
+
+    /// <summary>
+    /// Computes the unreserved quantity in order UOM for a Sales Order Item row
+    /// per ERPNext PR #67452 (commit a7ce0050fe, <c>get_unreserved_qty</c> in <c>sales_order.js</c>):
+    /// subtracts both delivered stock qty and still-reserved stock qty, returning 0 when rounded
+    /// unreserved stock qty is &lt;= 0, and leaving the division by <paramref name="conversionFactor"/>
+    /// unrounded so the server reconstructs the exact stock qty.
+    /// </summary>
+    public static decimal CalculateSalesOrderUnreservedOrderQty(
+        decimal stockQty,
+        decimal stockReservedQty,
+        decimal deliveredQtyInOrderUom,
+        decimal conversionFactor = 1m,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var unreservedStockQty = stockQty - (deliveredQtyInOrderUom * factor) - stockReservedQty;
+        if (Math.Round(unreservedStockQty, stockQtyPrecision, MidpointRounding.AwayFromZero) <= 0m)
+        {
+            return 0m;
+        }
+
+        return unreservedStockQty / factor;
     }
 
     /// <summary>

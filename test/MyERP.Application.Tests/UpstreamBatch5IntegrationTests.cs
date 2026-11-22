@@ -2018,4 +2018,116 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             overTransferEx.Code.ShouldBe(MyERPDomainErrorCodes.OverTransfer);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch12_EndToEnd_VariantReorder_BuyingPriceFallback_And_ScoComponentReturnGuard()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var mrRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.MaterialRequest, Guid>>();
+            var priceListRepo = GetRequiredService<IRepository<PriceList, Guid>>();
+            var itemPriceRepo = GetRequiredService<IRepository<ItemPrice, Guid>>();
+            var uomConvRepo = GetRequiredService<IRepository<UomConversion, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch12 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var mainWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B12 Main WH"), autoSave: true);
+            var suppWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B12 Supp WH"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B12 Supplier"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "StockEntry", "StockEntry", "SE-B12-"), autoSave: true);
+
+            // 1. PR #67451: AutoReorderService reorders variant from template's reorder levels using variant's own item details
+            var template = new Item(Guid.NewGuid(), company.Id, "B12-TPL", "Shirt Template", ItemType.Goods)
+            {
+                MaintainStock = true,
+                HasVariants = true,
+                Uom = "Unit",
+                ReorderLevel = 10m,
+                ReorderQty = 25m,
+                DefaultWarehouseId = mainWh.Id
+            };
+            await itemRepo.InsertAsync(template, autoSave: true);
+
+            var variant = new Item(Guid.NewGuid(), company.Id, "B12-VAR-RED", "Shirt Red", ItemType.Goods)
+            {
+                MaintainStock = true,
+                HasVariants = false,
+                VariantOfId = template.Id,
+                Uom = "Unit",
+                DefaultWarehouseId = mainWh.Id
+            };
+            await itemRepo.InsertAsync(variant, autoSave: true);
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), variant.Id, mainWh.Id) { ActualQty = 2m }, autoSave: true);
+
+            var reorderService = GetRequiredService<MyERP.Inventory.DomainServices.AutoReorderService>();
+            var createdMrIds = await reorderService.CheckAndReorderAsync(company.Id);
+            createdMrIds.Count.ShouldBe(1);
+            var mr = await mrRepo.GetAsync(createdMrIds[0], includeDetails: true);
+            mr.Items.Count.ShouldBe(1);
+            mr.Items[0].ItemId.ShouldBe(variant.Id);
+            mr.Items[0].ItemName.ShouldBe("Shirt Red");
+            mr.Items[0].Quantity.ShouldBe(25m);
+
+            // 2. PR #67377: StockValuationService.GetValuationRateAsync converts buying ItemPrice fallback to stock UOM
+            var boxItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B12-BOX", "Boxed Widget", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit"
+            }, autoSave: true);
+            var buyingPl = await priceListRepo.InsertAsync(new PriceList(Guid.NewGuid(), "B12 Buying", "MYR", isBuying: true, isSelling: false) { IsActive = true }, autoSave: true);
+            await uomConvRepo.InsertAsync(new UomConversion(Guid.NewGuid(), "Box", "Unit", 12m, boxItem.Id), autoSave: true);
+            await itemPriceRepo.InsertAsync(new ItemPrice(Guid.NewGuid(), boxItem.Id, buyingPl.Id, 120m, "Box", "MYR"), autoSave: true);
+
+            var valuationService = GetRequiredService<MyERP.Inventory.DomainServices.StockValuationService>();
+            var fallbackRate = await valuationService.GetValuationRateAsync(boxItem.Id, mainWh.Id);
+            fallbackRate.ShouldBe(10m); // 120 / 12
+
+            // 3. PR #67368: MaterialTransfer return against SubcontractingOrder refuses exceeding qty still at supplier
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B12-001", DateTime.Today, supplier.Id)
+            {
+                SupplierWarehouseId = suppWh.Id
+            };
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, variant.Id, variant.ItemName, 5m, 50m));
+            sco.AddSuppliedItem(new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, boxItem.Id, boxItem.ItemName, 10m)
+            {
+                ReserveWarehouseId = mainWh.Id,
+                TransferredQty = 10m,
+                ConsumedQty = 6m // only 4 left at supplier
+            });
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var seService = GetRequiredService<IStockEntryAppService>();
+            var overReturnSe = await seService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialTransfer,
+                IsReturn = true,
+                PostingDate = DateTime.Today,
+                ReferenceType = "SubcontractingOrder",
+                ReferenceId = sco.Id,
+                Items = new List<CreateStockEntryItemDto>
+                {
+                    new()
+                    {
+                        ItemId = boxItem.Id,
+                        Quantity = 5m, // > 4 left at supplier
+                        ConversionFactor = 1m,
+                        StockUom = "Unit",
+                        SourceWarehouseId = suppWh.Id,
+                        TargetWarehouseId = mainWh.Id
+                    }
+                }
+            });
+            var returnEx = await Should.ThrowAsync<BusinessException>(() => seService.SubmitAsync(overReturnSe.Id));
+            returnEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (returnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Only 4");
+        });
+    }
 }

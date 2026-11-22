@@ -294,6 +294,23 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Per ERPNext PR #67368 (commit 54978a862d): Return of Components takes back at most
+        // what the Subcontracting Order still holds unconsumed at the supplier (in stock UOM).
+        if (entry.EntryType == StockEntryType.MaterialTransfer && entry.IsReturn && entry.SubcontractingOrderId.HasValue)
+        {
+            var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
+            var returnRows = entry.Items
+                .Select((item, idx) => (
+                    RowNumber: idx + 1,
+                    item.ItemId,
+                    ItemCode: item.ItemId.ToString(),
+                    StockQty: item.StockQty > 0m ? item.StockQty : item.Quantity))
+                .ToList();
+            await rmService.ValidateReturnedQtyWithinSubcontractingOrderAsync(
+                entry.SubcontractingOrderId.Value,
+                returnRows);
+        }
+
         var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
         await seManager.ValidateDifferenceAccountAsync(entry);
         seManager.ValidateRepackItems(entry);

@@ -58,24 +58,54 @@ public class AutoReorderService : DomainService
         var createdMRs = new List<Guid>();
 
         var itemQuery = await _itemRepository.GetQueryableAsync();
-        var candidateItems = itemQuery
+        var activeStockItems = itemQuery
             .Where(i => i.CompanyId == companyId && i.IsActive && i.MaintainStock)
-            .Where(i => (i.ReorderLevel > 0 && i.ReorderQty > 0) || i.Reorders.Any())
             .ToList();
 
-        if (!candidateItems.Any()) return createdMRs;
+        if (!activeStockItems.Any()) return createdMRs;
+
+        // Per ERPNext PR #67451 (commit bf1275516f): template items hold shared reorder levels
+        // inherited by variants that do not define their own, using the variant's own item details.
+        var templatesById = activeStockItems
+            .Where(i => i.HasVariants)
+            .ToDictionary(i => i.Id);
+
+        var candidatePairs = new List<(Item Item, ICollection<ItemReorder> Reorders, decimal ReorderLevel, decimal ReorderQty, MaterialRequestType DefaultMrType)>();
+        foreach (var item in activeStockItems)
+        {
+            if (item.HasVariants)
+                continue; // Template items are not directly ordered; variants inherit their levels.
+
+            var hasOwnReorders = item.Reorders.Any();
+            var hasOwnGlobal = item.ReorderLevel > 0 && item.ReorderQty > 0;
+            if (hasOwnReorders || hasOwnGlobal)
+            {
+                candidatePairs.Add((item, item.Reorders, item.ReorderLevel, item.ReorderQty, item.DefaultMaterialRequestType));
+                continue;
+            }
+
+            if (item.VariantOfId.HasValue && templatesById.TryGetValue(item.VariantOfId.Value, out var template))
+            {
+                if (template.Reorders.Any() || (template.ReorderLevel > 0 && template.ReorderQty > 0))
+                {
+                    candidatePairs.Add((item, template.Reorders, template.ReorderLevel, template.ReorderQty, template.DefaultMaterialRequestType));
+                }
+            }
+        }
+
+        if (!candidatePairs.Any()) return createdMRs;
 
         var binQuery = await _binRepository.GetQueryableAsync();
         var childrenByParent = await GetWarehouseChildrenLookupAsync(companyId);
 
         var itemsNeedingReorder = new List<(Item item, Guid warehouseId, decimal reorderQty, MaterialRequestType mrType)>();
 
-        foreach (var item in candidateItems)
+        foreach (var (item, reorders, globalReorderLevel, globalReorderQty, globalMrType) in candidatePairs)
         {
             var overriddenWarehouseIds = new HashSet<Guid>();
 
             // Per-warehouse overrides take priority over the item's global reorder settings.
-            foreach (var reorder in item.Reorders)
+            foreach (var reorder in reorders)
             {
                 overriddenWarehouseIds.Add(reorder.WarehouseId);
 
@@ -93,7 +123,7 @@ public class AutoReorderService : DomainService
             }
 
             // Global fallback: applies only to warehouses not already covered by an override row above.
-            if (item.ReorderLevel > 0 && item.ReorderQty > 0)
+            if (globalReorderLevel > 0 && globalReorderQty > 0)
             {
                 var bins = binQuery
                     .Where(b => b.ItemId == item.Id && !overriddenWarehouseIds.Contains(b.WarehouseId))
@@ -101,18 +131,18 @@ public class AutoReorderService : DomainService
 
                 if (!bins.Any() && item.DefaultWarehouseId.HasValue && !overriddenWarehouseIds.Contains(item.DefaultWarehouseId.Value))
                 {
-                    var qtyToOrder = Math.Max(item.ReorderQty, item.ReorderLevel);
-                    itemsNeedingReorder.Add((item, item.DefaultWarehouseId.Value, qtyToOrder, item.DefaultMaterialRequestType));
+                    var qtyToOrder = Math.Max(globalReorderQty, globalReorderLevel);
+                    itemsNeedingReorder.Add((item, item.DefaultWarehouseId.Value, qtyToOrder, globalMrType));
                     continue;
                 }
 
                 foreach (var bin in bins)
                 {
-                    if (bin.ProjectedQty <= item.ReorderLevel)
+                    if (bin.ProjectedQty <= globalReorderLevel)
                     {
-                        var deficiency = item.ReorderLevel - bin.ProjectedQty;
-                        var qtyToOrder = Math.Max(item.ReorderQty, deficiency);
-                        itemsNeedingReorder.Add((item, bin.WarehouseId, qtyToOrder, item.DefaultMaterialRequestType));
+                        var deficiency = globalReorderLevel - bin.ProjectedQty;
+                        var qtyToOrder = Math.Max(globalReorderQty, deficiency);
+                        itemsNeedingReorder.Add((item, bin.WarehouseId, qtyToOrder, globalMrType));
                     }
                 }
             }
@@ -157,10 +187,20 @@ public class AutoReorderService : DomainService
     public async Task<Guid?> CheckSingleItemAsync(Guid itemId, Guid warehouseId, Guid companyId, Guid? tenantId = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
-        if (!item.IsActive || !item.MaintainStock)
+        if (!item.IsActive || !item.MaintainStock || item.HasVariants)
             return null;
 
         var reorder = item.Reorders.FirstOrDefault(r => r.WarehouseId == warehouseId);
+        Item? template = null;
+        if (reorder == null && !(item.ReorderLevel > 0 && item.ReorderQty > 0) && item.VariantOfId.HasValue)
+        {
+            // Per ERPNext PR #67451 (commit bf1275516f): fall back to template's reorder levels for variants.
+            template = await _itemRepository.FindAsync(item.VariantOfId.Value);
+            if (template != null)
+            {
+                reorder = template.Reorders.FirstOrDefault(r => r.WarehouseId == warehouseId);
+            }
+        }
 
         decimal reorderLevel;
         decimal reorderQty;
@@ -176,11 +216,12 @@ public class AutoReorderService : DomainService
         }
         else
         {
-            if (item.ReorderLevel <= 0 || item.ReorderQty <= 0)
+            var fallbackSource = (item.ReorderLevel > 0 && item.ReorderQty > 0) ? item : template;
+            if (fallbackSource == null || fallbackSource.ReorderLevel <= 0 || fallbackSource.ReorderQty <= 0)
                 return null;
-            reorderLevel = item.ReorderLevel;
-            reorderQty = item.ReorderQty;
-            mrType = item.DefaultMaterialRequestType;
+            reorderLevel = fallbackSource.ReorderLevel;
+            reorderQty = fallbackSource.ReorderQty;
+            mrType = fallbackSource.DefaultMaterialRequestType;
             checkRootWarehouseId = warehouseId;
         }
 

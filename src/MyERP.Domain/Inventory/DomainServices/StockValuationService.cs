@@ -435,7 +435,66 @@ public class StockValuationService : DomainService
         if (lastSle != null && lastSle.ValuationRate >= 0)
             return lastSle.ValuationRate;
 
-        return item?.StandardBuyingPrice ?? 0m;
+        if (item?.StandardBuyingPrice is > 0m)
+            return item.StandardBuyingPrice.Value;
+
+        // Per ERPNext PR #67377 (commit 6228e47a34): convert buying ItemPrice fallback to stock UOM.
+        var buyingPriceFallback = await GetBuyingPricePerStockUomAsync(itemId, item);
+        if (buyingPriceFallback > 0m)
+            return buyingPriceFallback;
+
+        return 0m;
+    }
+
+    /// <summary>
+    /// Converts a buying ItemPrice rate from its price UOM to the item's stock UOM
+    /// per ERPNext PR #67377 (commit 6228e47a34, <c>get_buying_price_per_stock_uom</c>).
+    /// </summary>
+    public static decimal ConvertBuyingPriceToStockUom(decimal priceListRate, decimal conversionFactor)
+    {
+        if (priceListRate <= 0m) return 0m;
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return priceListRate / factor;
+    }
+
+    private async Task<decimal> GetBuyingPricePerStockUomAsync(Guid itemId, Item? item)
+    {
+        if (LazyServiceProvider == null) return 0m;
+
+        var itemPriceRepo = LazyServiceProvider.LazyGetService<IRepository<ItemPrice, Guid>>();
+        var priceListRepo = LazyServiceProvider.LazyGetService<IRepository<PriceList, Guid>>();
+        if (itemPriceRepo == null || priceListRepo == null) return 0m;
+
+        var buyingPriceListIds = (await priceListRepo.GetQueryableAsync())
+            .Where(pl => pl.IsBuying && pl.IsActive)
+            .Select(pl => pl.Id)
+            .ToHashSet();
+
+        if (buyingPriceListIds.Count == 0) return 0m;
+
+        var priceQuery = await itemPriceRepo.GetQueryableAsync();
+        var buyingPrice = priceQuery
+            .Where(p => p.ItemId == itemId && buyingPriceListIds.Contains(p.PriceListId) && p.PriceListRate > 0m)
+            .OrderByDescending(p => p.CreationTime)
+            .FirstOrDefault();
+
+        if (buyingPrice == null) return 0m;
+
+        decimal conversionFactor = 1m;
+        var stockUom = item?.Uom;
+        if (!string.IsNullOrWhiteSpace(buyingPrice.Uom)
+            && !string.IsNullOrWhiteSpace(stockUom)
+            && !string.Equals(buyingPrice.Uom, stockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            var uomService = LazyServiceProvider.LazyGetService<UomConversionService>();
+            if (uomService != null)
+            {
+                conversionFactor = await uomService.GetConversionFactorAsync(
+                    itemId, buyingPrice.Uom, stockUom, item?.VariantOfId);
+            }
+        }
+
+        return ConvertBuyingPriceToStockUom(buyingPrice.PriceListRate, conversionFactor);
     }
 
     /// <summary>
