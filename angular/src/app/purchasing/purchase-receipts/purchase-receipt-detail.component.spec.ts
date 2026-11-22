@@ -226,5 +226,57 @@ describe('PurchaseReceiptDetailComponent', () => {
       comp.onWorkflowAction('amend');
       expect(toasterMock.error).toHaveBeenCalledWith('PR amend failed');
     });
+
+    it('hides Return Rejected Qty once all rejected qty is returned and hides return buttons on return receipts (PR #67404)', () => {
+      const injector = Injector.create({
+        providers: [
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'pr-1' } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: PurchaseReceiptService, useValue: { get: vi.fn().mockReturnValue(of({})) } },
+          { provide: PurchaseConversionService, useValue: {} },
+          { provide: PurchaseReceiptStore, useValue: {} },
+          { provide: ConfirmationService, useValue: { warn: vi.fn() } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: QualityInspectionService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new PurchaseReceiptDetailComponent());
+
+      // Rejected qty still left -> button shown
+      comp.receipt = {
+        id: 'pr-1',
+        status: 'Submitted',
+        isReturn: false,
+        hasRejectedQtyToReturn: true,
+        items: [{ itemId: 'itm-1', rejectedQty: 2 }],
+      } as any;
+      expect(comp.workflowActions.map(a => a.name)).toContain('returnRejected');
+      expect(comp.workflowActions.map(a => a.name)).toContain('return');
+
+      // All rejected qty already returned -> button hidden even though original row has rejectedQty > 0
+      comp.receipt = {
+        id: 'pr-1',
+        status: 'Submitted',
+        isReturn: false,
+        hasRejectedQtyToReturn: false,
+        items: [{ itemId: 'itm-1', rejectedQty: 2 }],
+      } as any;
+      expect(comp.workflowActions.map(a => a.name)).not.toContain('returnRejected');
+      expect(comp.workflowActions.map(a => a.name)).toContain('return');
+
+      // Return receipt itself -> neither Create Return nor Return Rejected Qty shown
+      comp.receipt = {
+        id: 'pr-ret-1',
+        status: 'Submitted',
+        isReturn: true,
+        hasRejectedQtyToReturn: false,
+        items: [{ itemId: 'itm-1', rejectedQty: -2 }],
+      } as any;
+      expect(comp.workflowActions.map(a => a.name)).not.toContain('return');
+      expect(comp.workflowActions.map(a => a.name)).not.toContain('returnRejected');
+    });
   });
 });

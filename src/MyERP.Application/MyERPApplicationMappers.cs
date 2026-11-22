@@ -736,10 +736,12 @@ public partial class PurchaseOrderMapper : MapperBase<Purchasing.Entities.Purcha
 public partial class PurchaseReceiptMapper : MapperBase<Purchasing.Entities.PurchaseReceipt, Purchasing.PurchaseReceiptDto>
 {
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.SupplierName))]
-    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.HasRejectedQtyToReturn))]
+
     public override partial Purchasing.PurchaseReceiptDto Map(Purchasing.Entities.PurchaseReceipt source);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.SupplierName))]
-    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.WarehouseName))]    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptDto.HasRejectedQtyToReturn))]
+
     public override partial void Map(Purchasing.Entities.PurchaseReceipt source, Purchasing.PurchaseReceiptDto destination);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.ItemName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.RejectedWarehouseName))]

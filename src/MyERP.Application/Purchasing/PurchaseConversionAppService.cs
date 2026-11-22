@@ -1005,8 +1005,12 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         if (returnableCount == 0)
         {
+            // Per ERPNext PR #67404 (commit ef84f3c6bd): surface rejected-qty specific message when returning rejected stock.
+            var detail = returnAgainstRejectedQty
+                ? $"All rejected qty of Purchase Receipt {original.ReceiptNumber} is already returned."
+                : $"All items in Purchase Receipt {original.ReceiptNumber} have already been returned.";
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"All items in Purchase Receipt {original.ReceiptNumber} have already been returned.");
+                .WithData("detail", detail);
         }
 
         await _purchaseReceiptRepository.InsertAsync(returnPr, autoSave: true);

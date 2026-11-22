@@ -2130,4 +2130,116 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             (returnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Only 4");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch13_EndToEnd_BankInternalTransferPostsGl_And_PrRejectedReturnFlag()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var bankAccRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.BankAccount, Guid>>();
+            var bankTxRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.BankTransaction, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch13 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B13", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PurchaseReceipt", "PurchaseReceipt", "PR-B13-"), autoSave: true);
+
+            // 1. BankReconciliationAppService.CreateInternalTransferAsync posts balanced GL JE (DR Target Bank, CR Source Bank)
+            var bankGlA = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1110-B13A", "Bank A GL", MyERP.Accounting.AccountType.Asset) { Currency = "MYR" }, autoSave: true);
+            var bankGlB = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1110-B13B", "Bank B GL", MyERP.Accounting.AccountType.Asset) { Currency = "MYR" }, autoSave: true);
+            var bankAccA = await bankAccRepo.InsertAsync(new MyERP.Accounting.Entities.BankAccount(Guid.NewGuid(), company.Id, "Bank A", bankGlA.Id, "Maybank"), autoSave: true);
+            var bankAccB = await bankAccRepo.InsertAsync(new MyERP.Accounting.Entities.BankAccount(Guid.NewGuid(), company.Id, "Bank B", bankGlB.Id, "CIMB"), autoSave: true);
+
+            var srcTx = await bankTxRepo.InsertAsync(new MyERP.Accounting.Entities.BankTransaction(
+                Guid.NewGuid(), company.Id, bankAccA.Id, DateTime.Today, "Transfer to Bank B", -500m)
+            { ReferenceNumber = "TRF-B13-01", CurrencyCode = "MYR" }, autoSave: true);
+            var mirTx = await bankTxRepo.InsertAsync(new MyERP.Accounting.Entities.BankTransaction(
+                Guid.NewGuid(), company.Id, bankAccB.Id, DateTime.Today, "Transfer from Bank A", 500m)
+            { ReferenceNumber = "TRF-B13-01", CurrencyCode = "MYR" }, autoSave: true);
+
+            var bankReconService = GetRequiredService<MyERP.Accounting.IBankReconciliationAppService>();
+            var sameAccEx = await Should.ThrowAsync<BusinessException>(() =>
+                bankReconService.CreateInternalTransferAsync(new MyERP.Accounting.CreateInternalTransferDto
+                {
+                    CompanyId = company.Id,
+                    BankTransactionId = srcTx.Id,
+                    MirrorTransactionId = mirTx.Id,
+                    TargetBankAccountGlId = bankGlA.Id
+                }));
+            sameAccEx.Code.ShouldBe(MyERPDomainErrorCodes.SameAccountInternalTransfer);
+
+            var transferResult = await bankReconService.CreateInternalTransferAsync(new MyERP.Accounting.CreateInternalTransferDto
+            {
+                CompanyId = company.Id,
+                BankTransactionId = srcTx.Id,
+                MirrorTransactionId = mirTx.Id,
+                TargetBankAccountGlId = bankGlB.Id
+            });
+
+            var postedJe = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .FirstOrDefault(j => j.ReferenceType == "PaymentEntry" && j.ReferenceId == transferResult.PaymentEntryId);
+            postedJe.ShouldNotBeNull();
+            postedJe!.Status.ShouldBe(Core.DocumentStatus.Posted);
+            postedJe.Lines.Count.ShouldBe(2);
+            postedJe.Lines.Single(l => l.IsDebit).AccountId.ShouldBe(bankGlB.Id);
+            postedJe.Lines.Single(l => l.IsDebit).Amount.ShouldBe(500m);
+            postedJe.Lines.Single(l => !l.IsDebit).AccountId.ShouldBe(bankGlA.Id);
+            postedJe.Lines.Single(l => !l.IsDebit).Amount.ShouldBe(500m);
+
+            // 2. PurchaseReceiptAppService.GetAsync HasRejectedQtyToReturn & MakePurchaseReceiptReturnAsync message (PR #67404)
+            var mainWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B13 Main WH"), autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B13 Rej WH"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B13 Supplier"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B13-ITM", "Batch 13 Item", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+
+            var prService = GetRequiredService<IPurchaseReceiptAppService>();
+            var convService = GetRequiredService<IPurchaseConversionAppService>();
+            var pr = await prService.CreateAsync(new CreatePurchaseReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                WarehouseId = mainWh.Id,
+                PostingDate = DateTime.Today,
+                Items = new List<CreatePurchaseReceiptItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = item.ItemName,
+                        Quantity = 8m,
+                        RejectedQty = 2m,
+                        ReceivedQty = 10m,
+                        UnitPrice = 0m,
+                        Uom = "Unit",
+                        WarehouseId = mainWh.Id,
+                        RejectedWarehouseId = rejWh.Id
+                    }
+                }
+            });
+            await prService.SubmitAsync(pr.Id);
+
+            var loadedBefore = await prService.GetAsync(pr.Id);
+            loadedBefore.HasRejectedQtyToReturn.ShouldBeTrue();
+
+            var rejReturn = await convService.MakePurchaseReceiptReturnAsync(pr.Id, returnAgainstRejectedQty: true);
+            await prService.SubmitAsync(rejReturn.Id);
+
+            var loadedAfter = await prService.GetAsync(pr.Id);
+            loadedAfter.HasRejectedQtyToReturn.ShouldBeFalse();
+
+            var exhaustedEx = await Should.ThrowAsync<BusinessException>(() =>
+                convService.MakePurchaseReceiptReturnAsync(pr.Id, returnAgainstRejectedQty: true));
+            (exhaustedEx.Data["detail"]?.ToString() ?? string.Empty)
+                .ShouldBe($"All rejected qty of Purchase Receipt {pr.ReceiptNumber} is already returned.");
+        });
+    }
 }

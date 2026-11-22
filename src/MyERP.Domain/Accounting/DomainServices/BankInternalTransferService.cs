@@ -108,7 +108,8 @@ public class BankInternalTransferService : DomainService
         Guid targetBankGlAccountId,
         Guid companyId)
     {
-        bool isWithdrawal = sourceTransaction.Withdrawal > 0;
+        bool isWithdrawal = sourceTransaction.Withdrawal > 0
+            || (sourceTransaction.Withdrawal == 0 && sourceTransaction.Deposit == 0 && sourceTransaction.Amount < 0);
         decimal amount = isWithdrawal ? sourceTransaction.Withdrawal : sourceTransaction.Deposit;
 
         // If using legacy Amount field

@@ -279,7 +279,13 @@ export class SalesInvoiceListComponent implements OnInit {
       if (!companyId) { this.toaster.warn(this.l.instant('::PleaseSelectCompanyFirst')); return; }
   
       const postedIds = this.store.entities()
-        .filter(inv => inv.id && this.selectedIds.has(inv.id) && inv.status === 'Posted' && (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
+        .filter((inv: any) =>
+          inv.id &&
+          this.selectedIds.has(inv.id) &&
+          inv.status === 'Posted' &&
+          !inv.isConsolidated &&
+          !inv.consolidatedSalesInvoiceId &&
+          (!inv.eInvoiceStatus || inv.eInvoiceStatus === 'NotSubmitted'))
         .map(inv => inv.id!);
   
       if (postedIds.length === 0) {

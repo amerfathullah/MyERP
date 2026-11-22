@@ -1069,6 +1069,7 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   status?: string;
   perBilled?: number;
   billingStatus?: string | null;
+  hasRejectedQtyToReturn?: boolean;
   items?: PurchaseReceiptItemDto[];
 }
 

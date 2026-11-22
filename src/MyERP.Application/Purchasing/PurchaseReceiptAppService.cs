@@ -105,6 +105,38 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        if (!receipt.IsReturn && receipt.Status == Core.DocumentStatus.Submitted && receipt.Items.Any(i => i.RejectedQty > 0m))
+        {
+            // Per ERPNext PR #67404 (commit ef84f3c6bd): expose HasRejectedQtyToReturn only while
+            // unreturned rejected stock quantity remains after submitted prior returns.
+            var prQuery = await _repository.WithDetailsAsync(p => p.Items)
+                ?? await _repository.GetQueryableAsync();
+            var priorReturnItems = prQuery
+                .Where(pr => pr.ReturnAgainstId == receipt.Id
+                             && pr.Id != receipt.Id
+                             && pr.Status != Core.DocumentStatus.Draft
+                             && pr.Status != Core.DocumentStatus.Cancelled)
+                .SelectMany(pr => pr.Items)
+                .ToList();
+
+            var returnedRejectedStockByItem = priorReturnItems
+                .GroupBy(i => i.ItemId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(i => (Math.Abs(i.RejectedQty) + (i.ReturnQtyFromRejectedWarehouse ? Math.Abs(i.Quantity) : 0m))
+                        * (i.ConversionFactor > 0m ? i.ConversionFactor : 1m)));
+
+            dto.HasRejectedQtyToReturn = receipt.Items
+                .Where(i => i.RejectedQty > 0m)
+                .Any(i =>
+                {
+                    var factor = i.ConversionFactor > 0m ? i.ConversionFactor : 1m;
+                    var origRejectedStock = i.RejectedQty * factor;
+                    var returned = returnedRejectedStockByItem.GetValueOrDefault(i.ItemId, 0m);
+                    return Math.Round(origRejectedStock - returned, 4, MidpointRounding.AwayFromZero) > 0m;
+                });
+        }
+
         return dto;
     }
 

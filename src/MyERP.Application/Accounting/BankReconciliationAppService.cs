@@ -265,6 +265,12 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         var spec = _internalTransferService.BuildInternalTransfer(
             tx, sourceBankGlId, input.TargetBankAccountGlId, input.CompanyId);
 
+        // Per ERPNext PR #58529: reject same-account internal transfers
+        if (spec.PaidFromAccountId != Guid.Empty && spec.PaidFromAccountId == spec.PaidToAccountId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SameAccountInternalTransfer);
+        }
+
         // Create the Internal Transfer Payment Entry
         var pe = new PaymentEntry(
             GuidGenerator.Create(),
@@ -286,12 +292,27 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         pe.SetClearanceDate(spec.PostingDate);
         await _paymentEntryRepository.InsertAsync(pe);
 
+        // Post balanced GL Journal Entry (DR PaidToAccountId, CR PaidFromAccountId) when an open
+        // FiscalYear is configured — previously CreateInternalTransferAsync flipped PE to Posted
+        // without creating any GL entry, leaving both bank GL accounts permanently out of sync.
+        await TryPostInternalTransferGlAsync(pe);
+
         // Reconcile both sides (source + mirror)
         await _internalTransferService.ReconcileBothSidesAsync(
             input.BankTransactionId,
             input.MirrorTransactionId,
             pe.Id,
             pe.PaymentNumber);
+
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "PaymentEntry", pe.Id, "Posted",
+                spec.CompanyId, pe.PaymentNumber, "Draft", "Posted",
+                CurrentUser.Id, details: $"Internal transfer from bank transaction: {tx.Description}",
+                tenantId: CurrentTenant.Id));
+        }
 
         return new InternalTransferResultDto
         {
@@ -508,6 +529,49 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
         var partySideAmount = isDeposit ? paidAmount : receivedAmount;
         return (bankCurrency, partyCurrency, paidFromCurrency, paidToCurrency, sourceRate, targetRate, paidAmount, receivedAmount, partySideAmount);
+    }
+
+    private async Task TryPostInternalTransferGlAsync(PaymentEntry pe)
+    {
+        var fyRepo = LazyServiceProvider?.LazyGetService<IRepository<FiscalYear, Guid>>();
+        var jeRepo = LazyServiceProvider?.LazyGetService<IRepository<JournalEntry, Guid>>();
+        if (fyRepo == null || jeRepo == null)
+            return;
+
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f => f.CompanyId == pe.CompanyId
+            && !f.IsClosed
+            && f.StartDate <= pe.PostingDate
+            && f.EndDate >= pe.PostingDate);
+        if (fy == null)
+            return;
+
+        var basePaid = Math.Round(pe.PaidAmount * (pe.SourceExchangeRate > 0 ? pe.SourceExchangeRate : pe.ExchangeRate), 2);
+        var baseReceived = Math.Round(pe.ReceivedAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate), 2);
+        var amount = basePaid > 0 ? basePaid : pe.PaidAmount;
+        var received = baseReceived > 0 ? baseReceived : amount;
+        if (amount <= 0)
+            return;
+
+        var transferJe = new JournalEntry(
+            GuidGenerator.Create(),
+            pe.CompanyId,
+            fy.Id,
+            pe.PostingDate,
+            pe.TenantId)
+        {
+            VoucherType = JournalEntryVoucherType.BankEntry,
+            ReferenceType = "PaymentEntry",
+            ReferenceId = pe.Id,
+            Narration = $"Internal Transfer {pe.PaymentNumber}",
+        };
+
+        // CR Source Bank Account (funds outgoing), DR Destination Bank Account (funds incoming)
+        transferJe.AddLineWithDimensions(pe.PaidFromAccountId, amount, false, pe.CostCenterId, pe.ProjectId, null, "Internal Transfer - Paid From");
+        transferJe.AddLineWithDimensions(pe.PaidToAccountId, received, true, pe.CostCenterId, pe.ProjectId, null, "Internal Transfer - Paid To");
+
+        transferJe.Post();
+        await jeRepo.InsertAsync(transferJe);
     }
 
     private async Task TryPostCreatedPaymentEntryAsync(
