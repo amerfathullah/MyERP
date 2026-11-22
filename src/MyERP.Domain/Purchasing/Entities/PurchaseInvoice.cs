@@ -432,9 +432,32 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
 
         ValidateDebitNote();
         ValidateEInvoiceDocumentType();
+        ResetReceiptQty();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PurchaseInvoiceSubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Clears received and rejected quantities left over from Update Stock once it is turned off,
+    /// preserving rows that are linked to an existing Purchase Receipt item.
+    /// Per ERPNext PR #68338 (commit 3496853eae / PurchaseInvoice.reset_receipt_qty).
+    /// </summary>
+    public void ResetReceiptQty()
+    {
+        if (UpdateStock)
+        {
+            return;
+        }
+
+        foreach (var item in _items)
+        {
+            if (!item.PurchaseReceiptItemId.HasValue)
+            {
+                item.ReceivedQty = 0m;
+                item.RejectedQty = 0m;
+            }
+        }
     }
 
     /// <summary>

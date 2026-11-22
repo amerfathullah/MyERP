@@ -952,6 +952,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Per ERPNext PR #68338 (commit 3496853eae): clear stale ReceivedQty/RejectedQty when UpdateStock is off
+        invoice.ResetReceiptQty();
+
         await PopulateMissingItemClassificationCodesAsync(invoice);
 
         // Resolve UOM conversion factors for direct PI creation (when UpdateStock=true, stock needs StockQty)
@@ -1143,6 +1146,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         invoice.UpdateStock = input.UpdateStock;
+        if (input.Items.Any(i => i.PurchaseReceiptItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
+        }
         invoice.WarehouseId = input.WarehouseId;
         invoice.RejectedWarehouseId = input.RejectedWarehouseId;
 
@@ -1172,6 +1179,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 added.ServiceStopDate = item.ServiceStopDate;
             }
         }
+
+        // Per ERPNext PR #68338 (commit 3496853eae): clear stale ReceivedQty/RejectedQty when UpdateStock is turned off
+        invoice.ResetReceiptQty();
 
         await PopulateMissingItemClassificationCodesAsync(invoice);
 

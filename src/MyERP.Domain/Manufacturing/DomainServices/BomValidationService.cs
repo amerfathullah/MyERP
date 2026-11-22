@@ -259,6 +259,65 @@ public class BomValidationService : DomainService
             })
             .ToList();
     }
+
+    /// <summary>
+    /// Returns true when a BOM's currency changed while its conversion rate remained unchanged at field precision.
+    /// Per ERPNext PR #67338 (commits 2aa1754513, ab9274a676 / BOM.has_stale_conversion_rate).
+    /// </summary>
+    public static bool HasStaleConversionRate(
+        string? previousCurrency,
+        decimal previousConversionRate,
+        string? currentCurrency,
+        decimal currentConversionRate,
+        int precision = 4)
+    {
+        if (string.IsNullOrWhiteSpace(previousCurrency) || string.IsNullOrWhiteSpace(currentCurrency))
+        {
+            return false;
+        }
+
+        var currencyChanged = !string.Equals(previousCurrency.Trim(), currentCurrency.Trim(), StringComparison.OrdinalIgnoreCase);
+        if (!currencyChanged)
+        {
+            return false;
+        }
+
+        var prevRounded = Math.Round(previousConversionRate, precision, MidpointRounding.AwayFromZero);
+        var currRounded = Math.Round(currentConversionRate, precision, MidpointRounding.AwayFromZero);
+        return prevRounded == currRounded;
+    }
+
+    /// <summary>
+    /// Resolves a BOM's conversion rate, resetting to 1 when matching company currency or invoking
+    /// <paramref name="fetchExchangeRate"/> when the rate is invalid, default 1, or stale after currency change.
+    /// Per ERPNext PR #67338 (BOM.set_conversion_rate).
+    /// </summary>
+    public static decimal ResolveBomConversionRate(
+        string? currency,
+        string? companyCurrency,
+        decimal currentConversionRate,
+        Func<decimal> fetchExchangeRate,
+        string? previousCurrency = null,
+        decimal? previousConversionRate = null,
+        int precision = 4)
+    {
+        if (!string.IsNullOrWhiteSpace(currency)
+            && !string.IsNullOrWhiteSpace(companyCurrency)
+            && string.Equals(currency.Trim(), companyCurrency.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return 1m;
+        }
+
+        var isStale = previousConversionRate.HasValue
+            && HasStaleConversionRate(previousCurrency, previousConversionRate.Value, currency, currentConversionRate, precision);
+
+        if (currentConversionRate == 1m || currentConversionRate <= 0m || isStale)
+        {
+            return fetchExchangeRate();
+        }
+
+        return currentConversionRate;
+    }
 }
 
 /// <summary>

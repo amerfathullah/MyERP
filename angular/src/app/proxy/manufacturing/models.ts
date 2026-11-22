@@ -277,6 +277,9 @@ export interface CreateJobCardDto {
   sequenceId?: number;
   plannedTimeInMins?: number;
   isCorrective?: boolean;
+  hourRate?: number | null;
+  forJobCardId?: string | null;
+  amendedFromId?: string | null;
   secondaryItems?: CreateJobCardSecondaryItemDto[];
 }
 

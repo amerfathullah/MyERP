@@ -2445,4 +2445,161 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             binBAfterCancel.ReservedQtyForProductionPlan.ShouldBe(10m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch15_EndToEnd_PiResetReceiptQty_And_CorrectiveJobCardHourRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var wsRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.Workstation, Guid>>();
+            var opRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.Operation, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch15 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var apAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2100-B15", "AP", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            company.DefaultPayableAccountId = apAcc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PurchaseInvoice", "PurchaseInvoice", "PINV-B15-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "WO", "WO", "WO-B15-"), autoSave: true);
+
+            var mainWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B15 Main WH"), autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B15 Rej WH"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B15 Supplier"), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B15-RM", "Batch 15 RM", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B15-FG", "Batch 15 FG", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+
+            // 1. PR #68338: turning UpdateStock off resets stale ReceivedQty & RejectedQty on non-PR rows
+            var piService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var createdPi = await piService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.Today,
+                UpdateStock = true,
+                WarehouseId = mainWh.Id,
+                RejectedWarehouseId = rejWh.Id,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = rmItem.Id,
+                        Description = rmItem.ItemName,
+                        Quantity = 5m,
+                        ReceivedQty = 7m,
+                        RejectedQty = 2m,
+                        UnitPrice = 10m,
+                        TaxAmount = 0m,
+                        Uom = "Unit",
+                        WarehouseId = mainWh.Id,
+                        RejectedWarehouseId = rejWh.Id
+                    }
+                }
+            });
+            createdPi.Items[0].ReceivedQty.ShouldBe(7m);
+            createdPi.Items[0].RejectedQty.ShouldBe(2m);
+
+            var updatedPi = await piService.UpdateAsync(createdPi.Id, new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.Today,
+                UpdateStock = false,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = rmItem.Id,
+                        Description = rmItem.ItemName,
+                        Quantity = 5m,
+                        ReceivedQty = 7m,
+                        RejectedQty = 2m,
+                        UnitPrice = 10m,
+                        TaxAmount = 0m,
+                        Uom = "Unit"
+                    }
+                }
+            });
+            updatedPi.Items[0].ReceivedQty.ShouldBe(0m);
+            updatedPi.Items[0].RejectedQty.ShouldBe(0m);
+
+            // 2. PR #67472: Corrective Job Card keeps manual rate when workstation unchanged, switches when workstation changes
+            var ws1 = new MyERP.Manufacturing.Entities.Workstation(Guid.NewGuid(), company.Id, "B15 WS-1");
+            ws1.AddCost("Electricity", 60m);
+            await wsRepo.InsertAsync(ws1, autoSave: true);
+
+            var ws2 = new MyERP.Manufacturing.Entities.Workstation(Guid.NewGuid(), company.Id, "B15 WS-2");
+            ws2.AddCost("Electricity", 95m);
+            await wsRepo.InsertAsync(ws2, autoSave: true);
+
+            var op = await opRepo.InsertAsync(new MyERP.Manufacturing.Entities.Operation(Guid.NewGuid(), "B15 Assembly"), autoSave: true);
+            var bom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-B15-001", fgItem.Id);
+            bom.AddItem(new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), bom.Id, rmItem.Id, rmItem.ItemName, 1m, 10m, "Unit"));
+            bom.AddOperation(new MyERP.Manufacturing.Entities.BomOperation(Guid.NewGuid(), bom.Id, op.Id, sequenceId: 1, timeInMins: 30m, workstationId: ws1.Id));
+            await bomRepo.InsertAsync(bom, autoSave: true);
+
+            var mfgService = GetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+            var wo = await mfgService.CreateWorkOrderAsync(new MyERP.Manufacturing.CreateWorkOrderDto
+            {
+                CompanyId = company.Id,
+                ItemId = fgItem.Id,
+                BomId = bom.Id,
+                Quantity = 5m,
+                SourceWarehouseId = mainWh.Id,
+                WipWarehouseId = mainWh.Id,
+                FgWarehouseId = rejWh.Id
+            });
+            await mfgService.SubmitWorkOrderAsync(wo.Id);
+
+            var jcService = GetRequiredService<MyERP.Manufacturing.IJobCardAppService>();
+            var sourceCard = await jcService.CreateAsync(new MyERP.Manufacturing.CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = op.Id,
+                WorkstationId = ws1.Id,
+                ForQuantity = 5m,
+                SequenceId = 1,
+                PlannedTimeInMins = 30m
+            });
+            sourceCard.HourRate.ShouldBe(60m);
+
+            // Corrective card on same workstation as source keeps manual hour rate (120)
+            var correctiveCard = await jcService.CreateAsync(new MyERP.Manufacturing.CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = op.Id,
+                WorkstationId = ws1.Id,
+                ForQuantity = 2m,
+                SequenceId = 1,
+                PlannedTimeInMins = 15m,
+                IsCorrective = true,
+                HourRate = 120m,
+                ForJobCardId = sourceCard.Id
+            });
+            correctiveCard.HourRate.ShouldBe(120m);
+
+            // Switching workstation on corrective card pulls the new workstation's hour rate (95)
+            var movedCard = await jcService.UpdateAsync(correctiveCard.Id, new MyERP.Manufacturing.CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = op.Id,
+                WorkstationId = ws2.Id,
+                ForQuantity = 2m,
+                SequenceId = 1,
+                PlannedTimeInMins = 15m,
+                IsCorrective = true,
+                HourRate = 120m
+            });
+            movedCard.HourRate.ShouldBe(95m);
+        });
+    }
 }

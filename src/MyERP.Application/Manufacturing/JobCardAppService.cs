@@ -139,6 +139,46 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             WeightPerPiece = input.WeightPerPiece,
         };
 
+        // Per ERPNext PR #67472 (commits 51abb93bdb, 38b5cbe21a): corrective Job Card keeps manual rate
+        // when workstation matches its amended/source card, and pulls the new workstation rate when changed.
+        if (jc.IsCorrective)
+        {
+            Guid? sourceWorkstationId = null;
+            var referenceCardId = input.AmendedFromId ?? input.ForJobCardId;
+            if (referenceCardId.HasValue)
+            {
+                var refCard = await _repository.FindAsync(referenceCardId.Value);
+                sourceWorkstationId = refCard?.WorkstationId;
+            }
+
+            decimal? wsHourRate = null;
+            if (jc.WorkstationId.HasValue && jc.WorkstationId != sourceWorkstationId)
+            {
+                var wsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Workstation, Guid>>();
+                var ws = await wsRepo.FindAsync(jc.WorkstationId.Value);
+                wsHourRate = ws?.HourRate;
+            }
+
+            jc.HourRate = JobCardManager.ResolveCorrectiveJobCardHourRate(
+                input.HourRate ?? 0m,
+                jc.WorkstationId,
+                sourceWorkstationId,
+                wsHourRate);
+        }
+        else if (input.HourRate.HasValue)
+        {
+            jc.HourRate = input.HourRate.Value;
+        }
+        else if (jc.WorkstationId.HasValue)
+        {
+            var wsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Workstation, Guid>>();
+            var ws = await wsRepo.FindAsync(jc.WorkstationId.Value);
+            if (ws != null)
+            {
+                jc.HourRate = ws.HourRate;
+            }
+        }
+
         if (input.SecondaryItems != null && input.SecondaryItems.Count > 0)
         {
             foreach (var sec in input.SecondaryItems)
@@ -213,17 +253,19 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 .WithData("status", woForUpdate.Status.ToString());
         }
 
+        var previousWorkstationId = jc.WorkstationId;
+        Workstation? updatedWorkstation = null;
         if (input.WorkstationId.HasValue && input.WorkstationId != jc.WorkstationId)
         {
             var wsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Workstation, Guid>>();
-            var ws = await wsRepo.GetAsync(input.WorkstationId.Value);
-            if (ws.CompanyId != jc.CompanyId)
+            updatedWorkstation = await wsRepo.GetAsync(input.WorkstationId.Value);
+            if (updatedWorkstation.CompanyId != jc.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
             }
         }
 
-        if (input.ForQuantity != jc.ForQuantity)
+        if (!jc.IsCorrective && input.ForQuantity != jc.ForQuantity)
         {
             await ValidateJobCardQtyAsync(jc.WorkOrderId, jc.OperationId, input.ForQuantity, woForUpdate.Quantity, jc.CompanyId, excludeJobCardId: jc.Id);
         }
@@ -234,6 +276,24 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         jc.SequenceId = input.SequenceId;
         jc.BatchSplit = input.BatchSplit;
         jc.WeightPerPiece = input.WeightPerPiece;
+
+        // Per ERPNext PR #67472: corrective Job Card keeps manual rate until workstation changes
+        if (jc.IsCorrective)
+        {
+            jc.HourRate = JobCardManager.ResolveCorrectiveJobCardHourRate(
+                input.HourRate ?? jc.HourRate,
+                jc.WorkstationId,
+                previousWorkstationId,
+                updatedWorkstation?.HourRate);
+        }
+        else if (input.HourRate.HasValue)
+        {
+            jc.HourRate = input.HourRate.Value;
+        }
+        else if (updatedWorkstation != null)
+        {
+            jc.HourRate = updatedWorkstation.HourRate;
+        }
 
         if (input.SecondaryItems != null)
         {

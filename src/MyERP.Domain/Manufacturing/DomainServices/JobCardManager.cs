@@ -1227,6 +1227,29 @@ public class JobCardManager : DomainService
 
         return currentRows;
     }
+
+    /// <summary>
+    /// Resolves the hour rate for a corrective Job Card.
+    /// Per ERPNext PR #67472 (commits 51abb93bdb, 38b5cbe21a / JobCard.set_corrective_hour_rate):
+    /// keeps the manual hour rate while the workstation is unchanged (compared against the prior saved
+    /// workstation or the amended/source Job Card's workstation), and switches to the new workstation's
+    /// hour rate when the workstation changes.
+    /// </summary>
+    public static decimal ResolveCorrectiveJobCardHourRate(
+        decimal currentHourRate,
+        Guid? currentWorkstationId,
+        Guid? previousWorkstationId,
+        decimal? newWorkstationHourRate)
+    {
+        if (currentWorkstationId.HasValue
+            && currentWorkstationId != previousWorkstationId
+            && newWorkstationHourRate.HasValue)
+        {
+            return newWorkstationHourRate.Value;
+        }
+
+        return currentHourRate;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

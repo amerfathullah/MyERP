@@ -66,6 +66,9 @@ public class CreateJobCardDto
     public int SequenceId { get; set; }
     public decimal PlannedTimeInMins { get; set; }
     public bool IsCorrective { get; set; }
+    public decimal? HourRate { get; set; }
+    public Guid? ForJobCardId { get; set; }
+    public Guid? AmendedFromId { get; set; }
     public List<CreateJobCardSecondaryItemDto> SecondaryItems { get; set; } = new();
 }
 

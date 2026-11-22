@@ -119,6 +119,26 @@ public class GrossProfitService : DomainService
         var totalIncomingValue = items.Sum(d => d.StockQty * (d.ValuationRate > 0 ? d.ValuationRate : fallbackValuationRate));
         return Math.Round(totalIncomingValue / totalStockQty, 4);
     }
+
+    /// <summary>
+    /// Calculates row gross profit in company currency for a Sales Order or Quotation item,
+    /// comparing the company-currency rate per stock UOM against the item's stock-UOM valuation rate.
+    /// Per ERPNext PR #67427 (commits b09add1b59, 5a4920da50, 418ab200e8): divides by conversion factor
+    /// for non-stock UOM rows and still computes gross profit when valuation rate is zero.
+    /// </summary>
+    public static decimal CalculateRowGrossProfit(
+        decimal rate,
+        decimal exchangeRate,
+        decimal conversionFactor,
+        decimal valuationRate,
+        decimal stockQty,
+        int precision = 2)
+    {
+        var effectiveExchangeRate = exchangeRate > 0m ? exchangeRate : 1m;
+        var effectiveConversionFactor = conversionFactor > 0m ? conversionFactor : 1m;
+        var ratePerStockUom = (rate * effectiveExchangeRate) / effectiveConversionFactor;
+        return Math.Round((ratePerStockUom - valuationRate) * stockQty, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public class GrossProfitResult

@@ -840,6 +840,83 @@ public class WorkOrderManager : DomainService
                 .WithData("detail", $"Set Serial No Series in Item '{item.ItemCode}' or disable Make Serial No / Batch from Work Order in Manufacturing Settings.");
         }
     }
+
+    /// <summary>
+    /// Returns true when a Job Card produces a semi-finished intermediate good rather than the Work Order's final finished good.
+    /// Per ERPNext PR #68701 (commit a96f709df4 / operations_cost.makes_semi_finished_good).
+    /// </summary>
+    public static bool MakesSemiFinishedGood(Guid workOrderItemId, Guid? jobCardFinishedGoodItemId)
+    {
+        return jobCardFinishedGoodItemId.HasValue && jobCardFinishedGoodItemId.Value != workOrderItemId;
+    }
+
+    /// <summary>
+    /// Calculates the maximum completed operation quantity eligible to absorb Work Order corrective operation cost.
+    /// Per ERPNext PR #68701 (commit ac5cc09181 / operations_cost._max_operation_quantity): when
+    /// <see cref="WorkOrder.TrackSemiFinishedGoods"/> is enabled, only Job Cards producing the Work Order's final
+    /// finished good (<see cref="WorkOrder.ItemId"/>) are counted.
+    /// </summary>
+    public static decimal CalculateMaxOperationQuantity(
+        WorkOrder workOrder,
+        IEnumerable<JobCard> submittedJobCards)
+    {
+        var eligible = submittedJobCards
+            .Where(jc => jc.WorkOrderId == workOrder.Id
+                && jc.Status == JobCardStatus.Completed
+                && !jc.IsCorrective);
+
+        if (workOrder.TrackSemiFinishedGoods)
+        {
+            eligible = eligible.Where(jc => jc.FinishedGoodItemId == workOrder.ItemId);
+        }
+
+        var perOperationTotals = eligible
+            .GroupBy(jc => jc.OperationId)
+            .Select(g => g.Sum(jc => jc.CompletedQty))
+            .ToList();
+
+        return perOperationTotals.Count > 0 ? perOperationTotals.Min() : 0m;
+    }
+
+    /// <summary>
+    /// Computes the corrective operation cost to allocate onto a Manufacture Stock Entry.
+    /// Per ERPNext PR #68701 (commits a96f709df4, ac5cc09181): skips semi-finished good entries and spreads
+    /// remaining corrective cost strictly over finished good units.
+    /// </summary>
+    public static decimal CalculateCorrectiveOperationCostForManufacture(
+        WorkOrder workOrder,
+        decimal correctiveOperationCost,
+        decimal utilisedCorrectiveCost,
+        decimal fgCompletedQty,
+        IEnumerable<JobCard> submittedJobCards,
+        JobCard? currentJobCard = null,
+        bool correctiveCostEnabled = true,
+        int precision = 4)
+    {
+        if (!correctiveCostEnabled || correctiveOperationCost <= 0m || fgCompletedQty <= 0m)
+        {
+            return 0m;
+        }
+
+        if (MakesSemiFinishedGood(workOrder.ItemId, currentJobCard?.FinishedGoodItemId))
+        {
+            return 0m;
+        }
+
+        var remaining = Math.Max(0m, correctiveOperationCost - utilisedCorrectiveCost);
+        if (remaining <= 0m)
+        {
+            return 0m;
+        }
+
+        var maxQty = CalculateMaxOperationQuantity(workOrder, submittedJobCards) - workOrder.ProducedQuantity;
+        if (maxQty <= 0m)
+        {
+            maxQty = fgCompletedQty;
+        }
+
+        return Math.Round((remaining / maxQty) * fgCompletedQty, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 /// <summary>

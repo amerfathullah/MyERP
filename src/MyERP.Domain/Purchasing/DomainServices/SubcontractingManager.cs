@@ -1845,6 +1845,46 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Distributes Subcontracting Order additional costs across finished-good rows using each row's
+    /// pre-additional-cost amount (<c>Qty * (RmCostPerQty + ServiceCostPerQty)</c>) when distributing by Amount.
+    /// Per ERPNext PR #67361 (commit 4fc3e35748): prevents repeated saves from compounding previous
+    /// additional costs into the distribution basis.
+    /// </summary>
+    public static IReadOnlyList<(Guid RowId, decimal AdditionalCostPerQty, decimal FinalRate, decimal FinalAmount)> DistributeOrderAdditionalCostsByPreCostAmount(
+        IReadOnlyList<(Guid RowId, decimal Qty, decimal RmCostPerQty, decimal ServiceCostPerQty)> rows,
+        decimal totalAdditionalCost,
+        bool distributeByQty = false,
+        int precision = 4)
+    {
+        if (rows == null || rows.Count == 0)
+        {
+            return Array.Empty<(Guid, decimal, decimal, decimal)>();
+        }
+
+        var preAmounts = rows.Select(r => r.Qty * (r.RmCostPerQty + r.ServiceCostPerQty)).ToList();
+        var totalBasis = distributeByQty ? rows.Sum(r => r.Qty) : preAmounts.Sum();
+
+        var result = new List<(Guid, decimal, decimal, decimal)>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            var basis = distributeByQty ? row.Qty : preAmounts[i];
+            var allocatedCost = totalBasis != 0m && totalAdditionalCost != 0m
+                ? totalAdditionalCost * (basis / totalBasis)
+                : 0m;
+            var additionalCostPerQty = row.Qty != 0m
+                ? Math.Round(allocatedCost / row.Qty, precision, MidpointRounding.AwayFromZero)
+                : 0m;
+            var finalRate = Math.Round(row.RmCostPerQty + row.ServiceCostPerQty + additionalCostPerQty, precision, MidpointRounding.AwayFromZero);
+            var finalAmount = Math.Round(row.Qty * finalRate, precision, MidpointRounding.AwayFromZero);
+
+            result.Add((row.RowId, additionalCostPerQty, finalRate, finalAmount));
+        }
+
+        return result;
+    }
 }
 
 public sealed record SubcontractingReservationPlanHandoff(
