@@ -17,9 +17,9 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" formControlName="opportunityType">
-              <option [value]="0">Sales</option>
-              <option [value]="1">Support</option>
-              <option [value]="2">Maintenance</option>
+              <option [ngValue]="0">Sales</option>
+              <option [ngValue]="1">Support</option>
+              <option [ngValue]="2">Maintenance</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">

@@ -66,10 +66,10 @@ interface CashFlowForecast {
             <div class="col-auto">
               <label class="form-label small mb-0">{{ '::ForecastDays' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="forecastDays" (change)="loadForecast()">
-                <option [value]="30">30 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="60">60 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="90">90 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="180">180 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="30">30 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="60">60 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="90">90 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="180">180 {{ '::Days' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto ms-auto">

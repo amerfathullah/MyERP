@@ -42,9 +42,9 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
             <div class="col-md-3">
               <label class="form-label">{{ '::TransactionType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newRule.transactionType">
-                <option [value]="0">Any</option>
-                <option [value]="1">Withdrawal</option>
-                <option [value]="2">Deposit</option>
+                <option [ngValue]="0">Any</option>
+                <option [ngValue]="1">Withdrawal</option>
+                <option [ngValue]="2">Deposit</option>
               </select>
             </div>
             <div class="col-md-2">
@@ -64,9 +64,9 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
             <div class="col-md-3">
               <label class="form-label">Classify As</label>
               <select class="form-select form-select-sm" [(ngModel)]="newRule.classifyAs">
-                <option [value]="0">Bank Entry</option>
-                <option [value]="1">Payment Entry</option>
-                <option [value]="2">Transfer</option>
+                <option [ngValue]="0">Bank Entry</option>
+                <option [ngValue]="1">Payment Entry</option>
+                <option [ngValue]="2">Transfer</option>
               </select>
             </div>
           </div>

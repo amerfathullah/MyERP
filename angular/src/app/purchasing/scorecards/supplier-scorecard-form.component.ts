@@ -33,9 +33,9 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             <div class="col-md-4">
               <label class="form-label">{{ '::Period' | abpLocalization }}</label>
               <select class="form-select" formControlName="periodType">
-                <option [value]="0">Weekly</option>
-                <option [value]="1">Monthly</option>
-                <option [value]="2">Yearly</option>
+                <option [ngValue]="0">Weekly</option>
+                <option [ngValue]="1">Monthly</option>
+                <option [ngValue]="2">Yearly</option>
               </select>
             </div>
           </div>

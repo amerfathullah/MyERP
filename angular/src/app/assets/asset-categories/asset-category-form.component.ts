@@ -32,10 +32,10 @@ import { AssetCategoryService } from '../../proxy/assets/asset-category.service'
               <div class="col-md-3">
                 <label class="form-label">{{ '::DepreciationMethod' | abpLocalization }}</label>
                 <select class="form-select" formControlName="defaultDepreciationMethod">
-                  <option [value]="0">Straight Line</option>
-                  <option [value]="1">Double Declining Balance</option>
-                  <option [value]="2">Written Down Value</option>
-                  <option [value]="3">Manual</option>
+                  <option [ngValue]="0">Straight Line</option>
+                  <option [ngValue]="1">Double Declining Balance</option>
+                  <option [ngValue]="2">Written Down Value</option>
+                  <option [ngValue]="3">Manual</option>
                 </select>
               </div>
               <div class="col-md-3">

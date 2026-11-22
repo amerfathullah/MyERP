@@ -22,8 +22,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="col-md-4">
               <label class="form-label">{{ '::VoucherType' | abpLocalization }} *</label>
               <select class="form-select" formControlName="voucherType">
-                <option [value]="0">{{ '::PaymentEntry' | abpLocalization }}</option>
-                <option [value]="1">{{ '::JournalEntry' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::PaymentEntry' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::JournalEntry' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-8">

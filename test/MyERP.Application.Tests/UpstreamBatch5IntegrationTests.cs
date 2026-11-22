@@ -1769,6 +1769,67 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             await dimAppService.DisableAsync(createdDim.Id);
             var afterDisableDims = await dimAppService.GetEnabledDimensionsAsync(company.Id);
             afterDisableDims.ShouldNotContain(d => d.Id == createdDim.Id);
+
+            // 7. PurchaseInvoiceAppService internal transfer with RejectedWarehouse == FromWarehouse (staysInTransit)
+            // deducts only accepted qty from transit (leaving rejected stock in transit) and cancel reverses posted transit SLE (2cb8e068a1, 95a51eabe3)
+            var stockAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1410-B10", "Stock In Hand", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var expenseAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5010-B10", "Purchase Expense", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var payableAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2010-B10", "Creditors", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            var costCenterRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var costCenter = await costCenterRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B10 Cost Center"), autoSave: true);
+            company.DefaultInventoryAccountId = stockAccount.Id;
+            company.DefaultExpenseAccountId = expenseAccount.Id;
+            company.DefaultPayableAccountId = payableAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "PI DR Expense", "PurchaseInvoice", true, MyERP.Accounting.AccountSource.ItemExpense, MyERP.Accounting.AmountSource.NetTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "PI CR Payable", "PurchaseInvoice", false, MyERP.Accounting.AccountSource.SupplierPayable, MyERP.Accounting.AmountSource.GrandTotal) { SortOrder = 2 }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PurchaseInvoice", "PurchaseInvoice", "PI-B10-"), autoSave: true);
+            var transitWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B10 Transit WH"), autoSave: true);
+            var valuationService = GetRequiredService<MyERP.Inventory.DomainServices.StockValuationService>();
+            await valuationService.CreateLedgerEntryAsync(company.Id, item.Id, transitWh.Id, DateTime.Today.AddDays(-1), 20m, 10m, "StockEntry", Guid.NewGuid());
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), item.Id, transitWh.Id) { ActualQty = 20m }, autoSave: true);
+
+            var piService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var internalPi = await piService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.Today,
+                DueDate = DateTime.Today.AddDays(30),
+                UpdateStock = true,
+                WarehouseId = mainWh.Id,
+                RejectedWarehouseId = transitWh.Id,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = item.ItemName,
+                        Quantity = 7m,
+                        RejectedQty = 3m,
+                        ReceivedQty = 10m,
+                        UnitPrice = 10m,
+                        Uom = "Unit",
+                        WarehouseId = mainWh.Id,
+                        FromWarehouseId = transitWh.Id,
+                        RejectedWarehouseId = transitWh.Id
+                    }
+                }
+            });
+            await piService.SubmitAsync(internalPi.Id);
+
+            var transitBinAfterPi = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == transitWh.Id);
+            transitBinAfterPi.ActualQty.ShouldBe(13m); // 20 - 7 accepted only (3 rejected stayed in transit)
+            var mainBinAfterPi = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == mainWh.Id);
+            mainBinAfterPi.ActualQty.ShouldBe(7m);
+
+            await piService.PostAsync(internalPi.Id);
+            await piService.CancelAsync(internalPi.Id);
+            var transitBinAfterCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == item.Id && b.WarehouseId == transitWh.Id);
+            transitBinAfterCancel.ActualQty.ShouldBe(20m);
         });
     }
 }

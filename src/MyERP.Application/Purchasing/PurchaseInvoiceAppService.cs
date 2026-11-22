@@ -1686,9 +1686,20 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
             PurchaseInvoice? originalPi = null;
+            List<PurchaseInvoice> priorSubmittedReturns = new();
             if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
             {
                 originalPi = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+                var piQuery = await _repository.GetQueryableAsync();
+                if (piQuery != null)
+                {
+                    priorSubmittedReturns = piQuery
+                        .Where(p => p.IsReturn
+                            && p.ReturnAgainstId == invoice.ReturnAgainstId.Value
+                            && p.Id != invoice.Id
+                            && (p.Status == Core.DocumentStatus.Submitted || p.Status == Core.DocumentStatus.Posted))
+                        .ToList();
+                }
             }
 
             foreach (var item in invoice.Items)
@@ -1722,10 +1733,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             -returnStockQty, -(returnStockQty * ratePerStockUnit), invoice.TenantId);
                     }
 
-                    // Return rejected stock (PR #59280 / #66996): stock out when rounded rejected stock qty > 0
-                    if (item.RejectedQty < 0)
+                    var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                    var rejectedWarehouseIdForReturn = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    var staysInTransit = fromWarehouseId.HasValue && rejectedWarehouseIdForReturn == fromWarehouseId;
+
+                    // Return rejected stock (PR #59280 / #66996): stock out when rounded rejected stock qty > 0 and rejected left transit
+                    if (!staysInTransit && item.RejectedQty < 0)
                     {
-                        var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                        var rejectedWarehouseId = rejectedWarehouseIdForReturn;
                         var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
                         if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                         {
@@ -1737,7 +1752,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                                 invoice.CompanyId, item.ItemId, rejectedWarehouseId.Value,
                                 invoice.IssueDate, -returnRejectedStockQty, rejectedRate,
                                 voucherType: "PurchaseInvoice", voucherId: invoice.Id,
-                                tenantId: invoice.TenantId);
+                                tenantId: invoice.TenantId, voucherDetailNo: item.Id);
 
                             await _binService.ApplyStockMovementAsync(
                                 item.ItemId, rejectedWarehouseId.Value,
@@ -1745,11 +1760,43 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         }
                     }
 
-                    // Internal transfer return (PR #59260 / #59280 / #66692): puts combined rounded qty back into in-transit warehouse
-                    var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                    // Internal transfer return (PR #59260 / #59280 / #66692 / #68435 / #68373):
+                    // puts accepted (and rejected when left transit) qty back into in-transit warehouse, capped at what original took out.
                     if (fromWarehouseId.HasValue)
                     {
-                        var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
+                        var repostedReturnTransitQty = await ResolveRepostedTransitQtyAsync(
+                            invoice.Id, item.ItemId, fromWarehouseId.Value, outward: false, voucherDetailNo: item.Id);
+                        var returnedToSourceQty = repostedReturnTransitQty
+                            ?? (staysInTransit ? Math.Abs(item.StockQty) : Math.Abs(item.TotalReceivedStockQty));
+                        if (!repostedReturnTransitQty.HasValue && originalItem != null && invoice.ReturnAgainstId.HasValue)
+                        {
+                            var originalFallback = staysInTransit
+                                ? Math.Abs(originalItem.StockQty)
+                                : Math.Abs(originalItem.TotalReceivedStockQty);
+                            var originalTakenFromTransit = await ResolvePostedTransitQtyAsync(
+                                invoice.ReturnAgainstId.Value, item.ItemId, fromWarehouseId.Value,
+                                outward: true, fallbackQty: originalFallback, voucherDetailNo: originalItem.Id);
+
+                            decimal alreadyReturnedToTransit = 0m;
+                            foreach (var priorRet in priorSubmittedReturns)
+                            {
+                                var priorRetFallback = priorRet.Items
+                                    .Where(ri => ri.ItemId == item.ItemId && (ri.FromWarehouseId ?? originalItem.FromWarehouseId) == fromWarehouseId)
+                                    .Sum(ri => staysInTransit ? Math.Abs(ri.StockQty) : Math.Abs(ri.TotalReceivedStockQty));
+                                if (priorRetFallback > 0m)
+                                {
+                                    alreadyReturnedToTransit += await ResolvePostedTransitQtyAsync(
+                                        priorRet.Id, item.ItemId, fromWarehouseId.Value,
+                                        outward: false, fallbackQty: priorRetFallback);
+                                }
+                            }
+
+                            var qtyLeftToReturn = Math.Max(0m, Math.Round(originalTakenFromTransit - alreadyReturnedToTransit, 4));
+                            if (qtyLeftToReturn > 0m)
+                            {
+                                returnedToSourceQty = Math.Min(returnedToSourceQty, qtyLeftToReturn);
+                            }
+                        }
 
                         if (returnedToSourceQty > 0)
                         {
@@ -1757,7 +1804,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                                 invoice.CompanyId, item.ItemId, fromWarehouseId.Value,
                                 invoice.IssueDate, returnedToSourceQty, ratePerStockUnit,
                                 voucherType: "PurchaseInvoice", voucherId: invoice.Id,
-                                tenantId: invoice.TenantId);
+                                tenantId: invoice.TenantId, voucherDetailNo: item.Id);
 
                             await _binService.ApplyStockMovementAsync(
                                 item.ItemId, fromWarehouseId.Value,
@@ -1769,18 +1816,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 {
                     // Use StockQty for SLE (respects UOM conversion)
                     var stockQty = item.StockQty;
+                    var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    var staysInTransit = item.FromWarehouseId.HasValue && rejectedWarehouseId == item.FromWarehouseId;
 
-                    // Source warehouse for internal transfer (in-transit warehouse, PR #66692)
+                    // Source warehouse for internal transfer (in-transit warehouse, PR #66692 / #68435 / #68373)
                     if (item.FromWarehouseId.HasValue)
                     {
-                        var sourceStockQty = item.TotalReceivedStockQty;
+                        var repostedSourceQty = await ResolveRepostedTransitQtyAsync(
+                            invoice.Id, item.ItemId, item.FromWarehouseId.Value, outward: true, voucherDetailNo: item.Id);
+                        var sourceStockQty = repostedSourceQty ?? (staysInTransit ? stockQty : item.TotalReceivedStockQty);
                         if (sourceStockQty > 0)
                         {
                             await _valuationService.CreateLedgerEntryAsync(
                                 invoice.CompanyId, item.ItemId, item.FromWarehouseId.Value,
                                 invoice.IssueDate, -sourceStockQty, ratePerStockUnit,
                                 voucherType: "PurchaseInvoice", voucherId: invoice.Id,
-                                tenantId: invoice.TenantId);
+                                tenantId: invoice.TenantId, voucherDetailNo: item.Id);
 
                             await _binService.ApplyStockMovementAsync(
                                 item.ItemId, item.FromWarehouseId.Value,
@@ -1798,17 +1849,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             invoice.CompanyId, item.ItemId, targetWarehouseId,
                             invoice.IssueDate, stockQty, ratePerStockUnit,
                             voucherType: "PurchaseInvoice", voucherId: invoice.Id,
-                            tenantId: invoice.TenantId);
+                            tenantId: invoice.TenantId, voucherDetailNo: item.Id);
 
                         await _binService.ApplyStockMovementAsync(
                             item.ItemId, targetWarehouseId,
                             stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
                     }
 
-                    // Rejected stock entry (PR #59257 & #59258 / #66996: skip when rounded to 0)
-                    var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    // Rejected stock entry (PR #59257 & #59258 / #66996: skip when rounded to 0 or rejected stays in transit)
                     var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
-                    if (rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
+                    if (!staysInTransit && rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                     {
                         // Valued only if billed on this invoice, or if internal transfer from in-transit warehouse
                         var isValued = billsRejectedQuantity || item.FromWarehouseId.HasValue;
@@ -2211,10 +2261,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             returnStockQty, returnStockQty * ratePerStockUnit, invoice.TenantId);
                     }
 
-                    // Reverse rejected return: restore stock to rejected warehouse (PR #66996: skip if rounded to 0)
-                    if (item.RejectedQty < 0)
+                    var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                    var rejectedWarehouseIdForReturnCancel = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    var staysInTransit = fromWarehouseId.HasValue && rejectedWarehouseIdForReturnCancel == fromWarehouseId;
+
+                    // Reverse rejected return: restore stock to rejected warehouse (PR #66996: skip if rounded to 0 or stayed in transit)
+                    if (!staysInTransit && item.RejectedQty < 0)
                     {
-                        var rejectedWarehouseId = item.RejectedWarehouseId ?? originalItem?.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                        var rejectedWarehouseId = rejectedWarehouseIdForReturnCancel;
                         var returnRejectedStockQty = Math.Round(Math.Abs(item.RejectedStockQty), 4);
                         if (rejectedWarehouseId.HasValue && returnRejectedStockQty > 0m)
                         {
@@ -2234,11 +2288,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         }
                     }
 
-                    // Reverse internal transfer return: deduct combined rounded qty from in-transit warehouse (PR #66692)
-                    var fromWarehouseId = item.FromWarehouseId ?? originalItem?.FromWarehouseId;
+                    // Reverse internal transfer return: deduct actual posted transit SLE qty (PR #66692 / #68435 / #68373)
                     if (fromWarehouseId.HasValue)
                     {
-                        var returnedToSourceQty = Math.Abs(item.TotalReceivedStockQty);
+                        var returnFallback = staysInTransit ? Math.Abs(item.StockQty) : Math.Abs(item.TotalReceivedStockQty);
+                        var returnedToSourceQty = await ResolvePostedTransitQtyAsync(
+                            invoice.Id, item.ItemId, fromWarehouseId.Value, outward: false, fallbackQty: returnFallback, voucherDetailNo: item.Id);
 
                         if (returnedToSourceQty > 0)
                         {
@@ -2257,11 +2312,15 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 else
                 {
                     var stockQty = item.StockQty;
+                    var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    var staysInTransit = item.FromWarehouseId.HasValue && rejectedWarehouseId == item.FromWarehouseId;
 
-                    // Reverse internal transfer source (PR #66692)
+                    // Reverse internal transfer source using actual posted transit SLE qty (PR #66692 / #68435 / #68373)
                     if (item.FromWarehouseId.HasValue)
                     {
-                        var sourceStockQty = item.TotalReceivedStockQty;
+                        var sourceStockQty = await ResolvePostedTransitQtyAsync(
+                            invoice.Id, item.ItemId, item.FromWarehouseId.Value, outward: true,
+                            fallbackQty: staysInTransit ? stockQty : item.TotalReceivedStockQty, voucherDetailNo: item.Id);
                         if (sourceStockQty > 0)
                         {
                             await _valuationService.CreateLedgerEntryAsync(
@@ -2292,10 +2351,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
                     }
 
-                    // Reverse out of rejected warehouse (PR #59257 & #59258 / #66996)
-                    var rejectedWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+                    // Reverse out of rejected warehouse (PR #59257 & #59258 / #66996: skip when stayed in transit)
                     var rejectedStockQty = item.RejectedQty > 0 ? Math.Round(item.RejectedStockQty, 4) : 0m;
-                    if (rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
+                    if (!staysInTransit && rejectedWarehouseId.HasValue && rejectedStockQty > 0m)
                     {
                         var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
                         var rejectedRate = isValued ? ratePerStockUnit : 0.0m;
@@ -2948,5 +3006,63 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 piItem.ClassificationCode = code;
             }
         }
+    }
+
+    private async Task<decimal> ResolvePostedTransitQtyAsync(
+        Guid invoiceId, Guid itemId, Guid warehouseId, bool outward, decimal fallbackQty,
+        bool cancelled = false, Guid? voucherDetailNo = null)
+    {
+        var found = await TryResolveTransitSleQtyAsync(invoiceId, itemId, warehouseId, outward, cancelled, voucherDetailNo);
+        return found ?? fallbackQty;
+    }
+
+    private Task<decimal?> ResolveRepostedTransitQtyAsync(
+        Guid invoiceId, Guid itemId, Guid warehouseId, bool outward, Guid? voucherDetailNo = null)
+    {
+        return TryResolveTransitSleQtyAsync(invoiceId, itemId, warehouseId, outward, cancelled: true, voucherDetailNo);
+    }
+
+    private async Task<decimal?> TryResolveTransitSleQtyAsync(
+        Guid invoiceId, Guid itemId, Guid warehouseId, bool outward, bool cancelled, Guid? voucherDetailNo)
+    {
+        var sleRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+        if (sleRepo == null) return null;
+
+        try
+        {
+            var query = await sleRepo.GetQueryableAsync();
+            if (query == null) return null;
+
+            var baseMatches = query
+                .Where(s => s.VoucherType == "PurchaseInvoice"
+                    && s.VoucherId == invoiceId
+                    && s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && s.IsCancelled == cancelled
+                    && (outward ? s.QuantityChange < 0m : s.QuantityChange > 0m))
+                .OrderBy(s => s.CreationTime)
+                .Select(s => new { s.VoucherDetailNo, s.QuantityChange })
+                .ToList();
+
+            if (voucherDetailNo.HasValue)
+            {
+                var detailMatch = baseMatches.FirstOrDefault(m => m.VoucherDetailNo == voucherDetailNo.Value);
+                if (detailMatch != null)
+                {
+                    return Math.Abs(detailMatch.QuantityChange);
+                }
+            }
+
+            if (baseMatches.Count > 0)
+            {
+                return Math.Abs(baseMatches[0].QuantityChange);
+            }
+        }
+        catch
+        {
+            // Unit tests where StockLedgerEntry queryable is not configured
+        }
+
+        return null;
     }
 }

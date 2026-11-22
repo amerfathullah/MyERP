@@ -8,6 +8,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { CompanyService } from '../proxy/core/company.service';
 import type { CompanyDto } from '../proxy/core/models';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
+import { EInvoiceSettingsService } from '../proxy/einvoice/einvoice-settings.service';
 
 import { AutoValidationDirective } from '../shared/directives/auto-validation.directive';
 
@@ -26,11 +27,13 @@ export class CompanyFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private service = inject(CompanyService);
   private einvoiceService = inject(EInvoiceService, { optional: true });
+  private einvoiceSettingsService = inject(EInvoiceSettingsService, { optional: true });
   private toaster = inject(ToasterService);
 
   isEditMode = false;
   entityId: string | null = null;
   searchingTaxpayer = signal(false);
+  testingLhdnLogin = signal(false);
   groupCompanies = signal<CompanyDto[]>([]);
 
   form = this.fb.group({
@@ -158,6 +161,26 @@ export class CompanyFormComponent implements OnInit {
       error: (err: any) => {
         this.searchingTaxpayer.set(false);
         this.toaster.error(err?.error?.error?.message || 'LHDN TIN lookup failed');
+      },
+    });
+  }
+
+  /** Per MyInvois public/js/company.js (custom_taxpayer_login): verifies LHDN Taxpayer OAuth token login. */
+  testTaxpayerLogin(): void {
+    if (!this.einvoiceSettingsService) return;
+    this.testingLhdnLogin.set(true);
+    this.einvoiceSettingsService.connect().subscribe({
+      next: (res) => {
+        this.testingLhdnLogin.set(false);
+        if (res.isSuccess) {
+          this.toaster.success('Access token fetched successfully!');
+        } else {
+          this.toaster.error(res.errorMessage || 'Failed to fetch access token.');
+        }
+      },
+      error: (err: any) => {
+        this.testingLhdnLogin.set(false);
+        this.toaster.error(err?.error?.error?.message || 'Failed to fetch access token.');
       },
     });
   }

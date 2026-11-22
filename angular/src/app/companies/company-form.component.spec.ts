@@ -7,6 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { CompanyFormComponent } from './company-form.component';
 import { CompanyService } from '../proxy/core/company.service';
 import { EInvoiceService } from '../proxy/einvoice/einvoice.service';
+import { EInvoiceSettingsService } from '../proxy/einvoice/einvoice-settings.service';
 
 describe('CompanyFormComponent LHDN TIN Lookup', () => {
   function createComponent(id: string | null = null) {
@@ -30,6 +31,9 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
         isPersisted: false,
       })),
     };
+    const einvoiceSettingsMock = {
+      connect: vi.fn().mockReturnValue(of({ isSuccess: true, errorMessage: null })),
+    };
     const toasterMock = { success: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
     const injector = Injector.create({
@@ -37,6 +41,7 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
         { provide: FormBuilder, useValue: new FormBuilder() },
         { provide: CompanyService, useValue: companyServiceMock },
         { provide: EInvoiceService, useValue: einvoiceServiceMock },
+        { provide: EInvoiceSettingsService, useValue: einvoiceSettingsMock },
         { provide: ToasterService, useValue: toasterMock },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => id } } } },
@@ -44,7 +49,7 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
     });
 
     const comp = runInInjectionContext(injector, () => new CompanyFormComponent());
-    return { comp, companyServiceMock, einvoiceServiceMock, toasterMock };
+    return { comp, companyServiceMock, einvoiceServiceMock, einvoiceSettingsMock, toasterMock };
   }
 
   it('calls searchTaxpayer with companyId and BRN and updates taxId form control', () => {
@@ -78,5 +83,14 @@ describe('CompanyFormComponent LHDN TIN Lookup', () => {
       'comp-1',
       expect.objectContaining({ parentCompanyId: 'grp-1', isGroup: false }),
     );
+  });
+
+  it('calls EInvoiceSettingsService.connect on testTaxpayerLogin (MyInvois custom_taxpayer_login)', () => {
+    const { comp, einvoiceSettingsMock, toasterMock } = createComponent('comp-1');
+    comp.testTaxpayerLogin();
+
+    expect(einvoiceSettingsMock.connect).toHaveBeenCalledTimes(1);
+    expect(toasterMock.success).toHaveBeenCalledWith('Access token fetched successfully!');
+    expect(comp.testingLhdnLogin()).toBe(false);
   });
 });

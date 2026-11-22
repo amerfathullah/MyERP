@@ -146,8 +146,8 @@ interface TaxRow {
                 <div class="col-md-3">
                   <label class="form-label">{{ '::Type' | abpLocalization }} *</label>
                   <select class="form-select" formControlName="templateType">
-                    <option [value]="0">Selling</option>
-                    <option [value]="1">Buying</option>
+                    <option [ngValue]="0">Selling</option>
+                    <option [ngValue]="1">Buying</option>
                   </select>
                 </div>
                 <div class="col-md-3">

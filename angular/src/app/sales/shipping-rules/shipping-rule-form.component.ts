@@ -26,16 +26,16 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
             <div class="col-md-3">
               <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select" formControlName="ruleType">
-                <option [value]="0">{{ '::Selling' | abpLocalization }}</option>
-                <option [value]="1">{{ '::Buying' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::Selling' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Buying' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">
               <label class="form-label">{{ '::Mode' | abpLocalization }}</label>
               <select class="form-select" formControlName="calculationMode">
-                <option [value]="0">Fixed</option>
-                <option [value]="1">Based on Net Total</option>
-                <option [value]="2">Based on Net Weight</option>
+                <option [ngValue]="0">Fixed</option>
+                <option [ngValue]="1">Based on Net Total</option>
+                <option [ngValue]="2">Based on Net Weight</option>
               </select>
             </div>
             <div class="col-md-2">

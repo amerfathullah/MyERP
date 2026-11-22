@@ -34,8 +34,8 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="col-md-6">
               <label class="form-label">{{ '::LoanType' | abpLocalization }}</label>
               <select class="form-select" formControlName="loanType">
-                <option [value]="0">Term Loan</option>
-                <option [value]="1">Demand Loan</option>
+                <option [ngValue]="0">Term Loan</option>
+                <option [ngValue]="1">Demand Loan</option>
               </select>
             </div>
             <div class="col-md-4">
@@ -49,8 +49,8 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
             <div class="col-md-4">
               <label class="form-label">{{ '::InterestMethod' | abpLocalization }}</label>
               <select class="form-select" formControlName="interestCalculationMethod">
-                <option [value]="0">Diminishing Balance</option>
-                <option [value]="1">Flat Rate</option>
+                <option [ngValue]="0">Diminishing Balance</option>
+                <option [ngValue]="1">Flat Rate</option>
               </select>
             </div>
             <div class="col-md-4">

@@ -26,6 +26,10 @@
                 [title]="'::TINLookup' | abpLocalization" (click)="verifyTaxpayer()">
                 <i class="fa" [class.fa-search]="!searchingTaxpayer()" [class.fa-spinner]="searchingTaxpayer()" [class.fa-spin]="searchingTaxpayer()"></i>
               </button>
+              <button type="button" class="btn btn-outline-success" [disabled]="testingLhdnLogin()"
+                title="Test LHDN Taxpayer Login" (click)="testTaxpayerLogin()">
+                <i class="fa" [class.fa-key]="!testingLhdnLogin()" [class.fa-spinner]="testingLhdnLogin()" [class.fa-spin]="testingLhdnLogin()"></i>
+              </button>
             </div>
           </div>
           <div class="col-12 col-md-4 mb-3">
@@ -104,7 +108,7 @@
             <label class="form-label">{{ '::FiscalYearStart' | abpLocalization }}</label>
             <select class="form-select" formControlName="fiscalYearStartMonth">
               @for (m of months; track m.value) {
-                <option [value]="m.value">{{ m.label }}</option>
+                <option [ngValue]="m.value">{{ m.label }}</option>
               }
             </select>
           </div>

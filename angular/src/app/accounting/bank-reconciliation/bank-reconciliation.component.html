@@ -386,9 +386,9 @@
             <div class="col-md-6">
               <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
               <select class="form-select" [ngModel]="jeVoucherType()" (ngModelChange)="jeVoucherType.set(+$event)">
-                <option [value]="2">{{ '::BankEntry' | abpLocalization }}</option>
-                <option [value]="7">{{ '::ContraEntry' | abpLocalization }}</option>
-                <option [value]="0">{{ '::JournalEntry' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::BankEntry' | abpLocalization }}</option>
+                <option [ngValue]="7">{{ '::ContraEntry' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::JournalEntry' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-12">

@@ -29,8 +29,8 @@ import { LeadService } from '../../proxy/crm/lead.service';
             <div class="col-md-3">
               <label class="form-label">{{ '::EmailCampaignFor' | abpLocalization }}</label>
               <select class="form-select" formControlName="emailCampaignFor">
-                <option [value]="0">{{ '::Lead' | abpLocalization }}</option>
-                <option [value]="1">{{ '::Contact' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::Lead' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Contact' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">

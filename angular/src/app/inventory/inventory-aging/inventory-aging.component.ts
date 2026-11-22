@@ -52,17 +52,17 @@ interface InventoryAgingReport {
             <div class="col-auto">
               <label class="form-label small mb-0">{{ '::SlowMovingThreshold' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="slowMovingDays" (change)="loadReport()">
-                <option [value]="60">60 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="90">90 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="120">120 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="60">60 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="90">90 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="120">120 {{ '::Days' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto">
               <label class="form-label small mb-0">{{ '::DeadStockThreshold' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="deadStockDays" (change)="loadReport()">
-                <option [value]="120">120 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="180">180 {{ '::Days' | abpLocalization }}</option>
-                <option [value]="365">365 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="120">120 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="180">180 {{ '::Days' | abpLocalization }}</option>
+                <option [ngValue]="365">365 {{ '::Days' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-auto ms-auto">

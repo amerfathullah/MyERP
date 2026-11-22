@@ -41,12 +41,12 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
             <div class="col-md-3">
               <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newPartner.partnerType">
-                <option [value]="0">Reseller</option>
-                <option [value]="1">Distributor</option>
-                <option [value]="2">Dealer</option>
-                <option [value]="3">Agent</option>
-                <option [value]="4">Broker</option>
-                <option [value]="5">Referral</option>
+                <option [ngValue]="0">Reseller</option>
+                <option [ngValue]="1">Distributor</option>
+                <option [ngValue]="2">Dealer</option>
+                <option [ngValue]="3">Agent</option>
+                <option [ngValue]="4">Broker</option>
+                <option [ngValue]="5">Referral</option>
               </select>
             </div>
             <div class="col-md-2">

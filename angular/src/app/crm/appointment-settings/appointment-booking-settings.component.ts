@@ -34,8 +34,8 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
             <div class="col-md-3">
               <label class="form-label">{{ '::ActionForExpiredUnverified' | abpLocalization }}</label>
               <select class="form-select" formControlName="actionForExpiredUnverified">
-                <option [value]="0">{{ '::NoAction' | abpLocalization }}</option>
-                <option [value]="1">{{ '::CancelAppointment' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::NoAction' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::CancelAppointment' | abpLocalization }}</option>
               </select>
             </div>
           </div>

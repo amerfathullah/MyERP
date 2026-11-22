@@ -33,10 +33,10 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
               <div class="col-md-3">
                 <label class="form-label">{{ '::ReportType' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="newReportType">
-                  <option [value]="0">Profit & Loss</option>
-                  <option [value]="1">Balance Sheet</option>
-                  <option [value]="2">Cash Flow</option>
-                  <option [value]="3">Custom</option>
+                  <option [ngValue]="0">Profit & Loss</option>
+                  <option [ngValue]="1">Balance Sheet</option>
+                  <option [ngValue]="2">Cash Flow</option>
+                  <option [ngValue]="3">Custom</option>
                 </select>
               </div>
               <div class="col-md-3">

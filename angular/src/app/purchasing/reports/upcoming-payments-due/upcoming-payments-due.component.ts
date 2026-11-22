@@ -42,11 +42,11 @@ interface UpcomingPaymentsDueReport {
         <h4><i class="fa fa-calendar-days me-2"></i>{{ '::UpcomingPaymentsDue' | abpLocalization }}</h4>
         <div class="d-flex gap-2">
           <select class="form-select form-select-sm" [(ngModel)]="daysAhead" (change)="loadReport()" style="width: 150px;">
-            <option [value]="7">{{ '::NextWeek' | abpLocalization }}</option>
-            <option [value]="14">{{ '::Next2Weeks' | abpLocalization }}</option>
-            <option [value]="30">{{ '::Next30Days' | abpLocalization }}</option>
-            <option [value]="60">{{ '::Next60Days' | abpLocalization }}</option>
-            <option [value]="90">{{ '::Next90Days' | abpLocalization }}</option>
+            <option [ngValue]="7">{{ '::NextWeek' | abpLocalization }}</option>
+            <option [ngValue]="14">{{ '::Next2Weeks' | abpLocalization }}</option>
+            <option [ngValue]="30">{{ '::Next30Days' | abpLocalization }}</option>
+            <option [ngValue]="60">{{ '::Next60Days' | abpLocalization }}</option>
+            <option [ngValue]="90">{{ '::Next90Days' | abpLocalization }}</option>
           </select>
           @if (report()) {
             <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">

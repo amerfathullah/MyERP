@@ -31,9 +31,9 @@ import type { PurchaseAnalyticsReportDto, PurchaseAnalyticsRowDto } from '../../
             <div class="col-md-2">
               <label class="form-label small">{{ '::GroupBy' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="groupBy" (ngModelChange)="onGroupByChange()">
-                <option [value]="0">{{ '::Supplier' | abpLocalization }}</option>
-                <option [value]="1">{{ '::Item' | abpLocalization }}</option>
-                <option [value]="4">{{ '::ItemGroup' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::Supplier' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Item' | abpLocalization }}</option>
+                <option [ngValue]="4">{{ '::ItemGroup' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-2">
@@ -43,9 +43,9 @@ import type { PurchaseAnalyticsReportDto, PurchaseAnalyticsRowDto } from '../../
             <div class="col-md-2">
               <label class="form-label small">{{ '::Period' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="periodType" (ngModelChange)="loadReport()">
-                <option [value]="0">{{ '::Monthly' | abpLocalization }}</option>
-                <option [value]="1">{{ '::Quarterly' | abpLocalization }}</option>
-                <option [value]="2">{{ '::Yearly' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::Monthly' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Quarterly' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Yearly' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-2">
