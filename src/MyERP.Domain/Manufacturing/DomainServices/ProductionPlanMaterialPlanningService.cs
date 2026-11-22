@@ -555,4 +555,82 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return (transfers, remaining);
     }
+
+    /// <summary>
+    /// Combines fetched Sales Order items for a Production Plan while preserving Sales Order,
+    /// Sales Order Item (<c>name</c>), and Product Bundle (<c>parent_item</c>) links
+    /// per ERPNext PR #67477 (commit 4109c29d2d, <c>SalesOrderSourcingService</c>).
+    /// </summary>
+    public static List<CombinedSalesOrderPlanItem> CombineFetchedSalesOrderItems(
+        IEnumerable<FetchedSalesOrderPlanRow> rows,
+        bool combineItems,
+        int precision = 4)
+    {
+        var result = new List<CombinedSalesOrderPlanItem>();
+        if (rows == null)
+        {
+            return result;
+        }
+
+        if (!combineItems)
+        {
+            foreach (var r in rows)
+            {
+                result.Add(new CombinedSalesOrderPlanItem(
+                    r.ItemId,
+                    r.WarehouseId,
+                    r.BomId,
+                    Math.Round(r.PendingQty, precision, MidpointRounding.AwayFromZero),
+                    r.SalesOrderId,
+                    r.SalesOrderItemId,
+                    r.ProductBundleItemId,
+                    new List<(Guid SalesOrderId, Guid SalesOrderItemId, Guid? ProductBundleItemId, decimal Qty)>
+                    {
+                        (r.SalesOrderId, r.SalesOrderItemId, r.ProductBundleItemId, Math.Round(r.PendingQty, precision, MidpointRounding.AwayFromZero))
+                    }));
+            }
+            return result;
+        }
+
+        foreach (var group in rows.GroupBy(r => (r.ItemId, r.BomId, r.WarehouseId)))
+        {
+            var members = group.ToList();
+            var first = members[0];
+            var totalQty = Math.Round(members.Sum(m => m.PendingQty), precision, MidpointRounding.AwayFromZero);
+            var links = members
+                .Select(m => (m.SalesOrderId, m.SalesOrderItemId, m.ProductBundleItemId, Math.Round(m.PendingQty, precision, MidpointRounding.AwayFromZero)))
+                .ToList();
+
+            result.Add(new CombinedSalesOrderPlanItem(
+                first.ItemId,
+                first.WarehouseId,
+                first.BomId,
+                totalQty,
+                members.Count == 1 ? first.SalesOrderId : null,
+                members.Count == 1 ? first.SalesOrderItemId : null,
+                members.Count == 1 ? first.ProductBundleItemId : null,
+                links));
+        }
+
+        return result;
+    }
 }
+
+public sealed record FetchedSalesOrderPlanRow(
+    Guid SalesOrderId,
+    Guid SalesOrderItemId,
+    Guid ItemId,
+    Guid? WarehouseId,
+    Guid? BomId,
+    decimal PendingQty,
+    Guid? ProductBundleItemId = null);
+
+public sealed record CombinedSalesOrderPlanItem(
+    Guid ItemId,
+    Guid? WarehouseId,
+    Guid? BomId,
+    decimal PlannedQty,
+    Guid? SalesOrderId,
+    Guid? SalesOrderItemId,
+    Guid? ProductBundleItemId,
+    IReadOnlyList<(Guid SalesOrderId, Guid SalesOrderItemId, Guid? ProductBundleItemId, decimal Qty)> SalesOrderLinks);

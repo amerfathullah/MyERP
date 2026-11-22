@@ -285,8 +285,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
             foreach (var line in entry.Items.GroupBy(i => i.ItemId))
             {
+                // Per ERPNext PR #67367 (commit ca527fd48c): compare material sent to supplier in stock UOM (transfer_qty).
                 await rmService.ValidateTransferQuantityAsync(
-                    entry.SubcontractingOrderId.Value, line.Key, line.Sum(i => i.Quantity), allowancePct);
+                    entry.SubcontractingOrderId.Value,
+                    line.Key,
+                    line.Sum(i => i.StockQty > 0m ? i.StockQty : i.Quantity),
+                    allowancePct);
             }
         }
 
@@ -633,7 +637,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
             var transferLines = entry.Items
                 .GroupBy(i => i.ItemId)
-                .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
+                .Select(g => new Purchasing.DomainServices.RmTransferLine
+                {
+                    ItemId = g.Key,
+                    Qty = g.Sum(i => i.StockQty > 0m ? i.StockQty : i.Quantity)
+                });
             await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines);
 
             var scoBatchPool = BuildBatchQuantityPool(entry.Items);
@@ -1153,7 +1161,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var rmService = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.SubcontractingRmTransferService>();
             var transferLines = entry.Items
                 .GroupBy(i => i.ItemId)
-                .Select(g => new Purchasing.DomainServices.RmTransferLine { ItemId = g.Key, Qty = g.Sum(i => i.Quantity) });
+                .Select(g => new Purchasing.DomainServices.RmTransferLine
+                {
+                    ItemId = g.Key,
+                    Qty = g.Sum(i => i.StockQty > 0m ? i.StockQty : i.Quantity)
+                });
             await rmService.RecordRmTransferAsync(entry.SubcontractingOrderId.Value, transferLines, reverse: true);
 
             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();

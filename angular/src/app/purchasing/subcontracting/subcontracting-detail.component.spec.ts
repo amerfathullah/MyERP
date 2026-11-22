@@ -94,4 +94,34 @@ describe('SubcontractingDetailComponent Order Summary', () => {
     expect(remaining.length).toBe(1);
     expect(remaining[0].id).toBe('svc-2');
   });
+
+  it('offers rejected-warehouse return only when hasRejectedQtyToReturn is true (PR #67404)', () => {
+    const { comp } = createComponent();
+
+    // Receipt with all rejected qty already returned -> toggle hidden and cannot enable
+    comp.openReturnDialog({
+      id: 'scr-1',
+      receiptNumber: 'SCR-001',
+      hasRejectedQtyToReturn: false,
+      items: [{ itemId: 'fg-1', itemName: 'FG', qty: 8, rejectedQty: 2, rate: 50, warehouseId: 'wh-1', rejectedWarehouseId: 'rej-1' }],
+    });
+    expect(comp.canReturnFromRejectedWarehouse).toBe(false);
+    comp.toggleReturnFromRejectedWarehouse(true);
+    expect(comp.returnFromRejectedWarehouse()).toBe(false);
+    expect(comp.returnItems()[0].returnQty).toBe(8);
+
+    // Receipt with remaining rejected qty -> toggle shown and switches rows to rejected warehouse/qty
+    comp.openReturnDialog({
+      id: 'scr-2',
+      receiptNumber: 'SCR-002',
+      hasRejectedQtyToReturn: true,
+      items: [{ itemId: 'fg-1', itemName: 'FG', qty: 8, rejectedQty: 2, rate: 50, warehouseId: 'wh-1', rejectedWarehouseId: 'rej-1' }],
+    });
+    expect(comp.canReturnFromRejectedWarehouse).toBe(true);
+    comp.toggleReturnFromRejectedWarehouse(true);
+    expect(comp.returnFromRejectedWarehouse()).toBe(true);
+    expect(comp.returnItems()[0].returnQty).toBe(2);
+    expect(comp.returnItems()[0].returnQtyFromRejectedWarehouse).toBe(true);
+    expect(comp.returnItems()[0].warehouseId).toBe('rej-1');
+  });
 });

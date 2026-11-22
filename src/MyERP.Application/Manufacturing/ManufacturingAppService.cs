@@ -1171,6 +1171,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var dto = ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
         var settings = await GetManufacturingSettingsAsync(wo.CompanyId);
         dto.OverproductionPercentage = settings?.OverproductionPercentage ?? 5m;
+        dto.TransferExtraMaterialsPercentage = settings?.TransferExtraMaterialsPercentage ?? 0m;
         return dto;
     }
 

@@ -993,7 +993,15 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             {
                 var priorReturned = priorReturnedRejectedByItem.GetValueOrDefault(retItem.ItemId, 0m);
                 var origRejQty = origItem.RejectedQty;
-                var maxReturnable = origRejQty - priorReturned;
+                var maxReturnable = Math.Round(origRejQty - priorReturned, 4, MidpointRounding.AwayFromZero);
+                if (maxReturnable <= 0m)
+                {
+                    // Per ERPNext PR #67404 (commit ef84f3c6bd): reject when all rejected qty is already returned.
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("docType", "Subcontracting Receipt")
+                        .WithData("documentNumber", original.ReceiptNumber)
+                        .WithData("detail", $"All rejected qty of Subcontracting Receipt {original.ReceiptNumber} is already returned.");
+                }
                 if (retItem.Qty > maxReturnable)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
@@ -1232,6 +1240,10 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             .OrderByDescending(r => r.CreationTime)
             .ToList();
 
+        var submittedReturns = receipts
+            .Where(r => r.IsReturn && r.Status == SubcontractingReceiptStatus.Submitted)
+            .ToList();
+
         return receipts.Select(scr => new SubcontractingReceiptDto
         {
             Id = scr.Id,
@@ -1246,15 +1258,20 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             Status = scr.Status,
             IsReturn = scr.IsReturn,
             ReturnAgainstReceiptId = scr.ReturnAgainstReceiptId,
+            HasRejectedQtyToReturn = MyERP.Purchasing.DomainServices.SubcontractingManager.HasRejectedQtyToReturn(
+                scr, submittedReturns),
             Items = scr.Items.Select(i => new SubcontractingReceiptItemDto
             {
                 Id = i.Id,
                 ItemId = i.ItemId,
                 ItemName = i.ItemName,
                 Qty = i.Qty,
+                RejectedQty = i.RejectedQty,
                 Rate = i.Rate,
                 Amount = i.Amount,
                 WarehouseId = i.WarehouseId,
+                RejectedWarehouseId = i.RejectedWarehouseId,
+                ReturnQtyFromRejectedWarehouse = i.ReturnQtyFromRejectedWarehouse,
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
                 CostCenterId = i.CostCenterId,

@@ -858,12 +858,33 @@ export class WorkOrderDetailComponent implements OnInit {
     return Math.max(0, Math.round(((wo.quantity ?? 0) - manufactured) * 1000) / 1000);
   }
 
+  getAllowancePercentage(purpose: 'Material Transfer for Manufacture' | 'Manufacture'): number {
+    // Per ERPNext PR #67352 (commit 5026be5275): transfers use Transfer Extra %, falling back to Overproduction %.
+    const wo = this.wo();
+    const overproduction = Number(wo?.overproductionPercentage ?? 5);
+    if (purpose === 'Material Transfer for Manufacture') {
+      const transferExtra = Number(wo?.transferExtraMaterialsPercentage ?? 0);
+      return transferExtra || overproduction;
+    }
+    return overproduction;
+  }
+
+  get allowedTransferQty(): number {
+    const wo = this.wo();
+    if (!wo) return 0;
+    const qty = wo.quantity ?? 0;
+    const transferred = wo.materialTransferred ?? 0;
+    const allowancePct = this.getAllowancePercentage('Material Transfer for Manufacture');
+    const maxAllowed = qty + (qty * allowancePct) / 100;
+    return Math.max(0, Math.round((maxAllowed - transferred) * 1000) / 1000);
+  }
+
   get allowedProductionQty(): number {
     const wo = this.wo();
     if (!wo) return 0;
     const qty = wo.quantity ?? 0;
     const manufactured = (wo.producedQuantity ?? 0) + (wo.processLossQty ?? 0);
-    const overproductionPct = wo.overproductionPercentage ?? 5;
+    const overproductionPct = this.getAllowancePercentage('Manufacture');
     const maxAllowed = qty + (qty * overproductionPct) / 100;
     return Math.max(0, Math.round((maxAllowed - manufactured) * 1000) / 1000);
   }

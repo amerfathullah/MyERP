@@ -256,6 +256,65 @@ public class SubcontractingRmTransferService : DomainService
         // Full implementation tracks per-transfer rates via SLE
         return matching.Sum(s => s.ConsumedQty) > 0 ? 0 : 0;
     }
+
+    /// <summary>
+    /// Validates Material to Supplier rows for "Material Transferred for Subcontract" backflush mode
+    /// per ERPNext PR #67371 (commit a956168607):
+    /// - Requires <c>SubcontractedItemId</c> on each row.
+    /// - Rejects rows whose <c>SubcontractedItemId</c> is not a finished good on the Subcontracting Order.
+    /// - Re-resolves the row's <c>OrderRmDetailId</c> when the existing link points to a different finished good.
+    /// </summary>
+    public static List<(int RowNumber, Guid? ResolvedOrderRmDetailId)> ValidateTransferSubcontractedItems(
+        string orderDocType,
+        string orderNumber,
+        IReadOnlySet<Guid> orderFinishedGoodItemIds,
+        IReadOnlyDictionary<Guid, Guid> finishedGoodByOrderRmRowId,
+        IReadOnlyList<(int RowNumber, Guid RmItemId, string RmItemCode, Guid? SubcontractedItemId, string? SubcontractedItemCode, Guid? ExistingOrderRmDetailId)> transferRows,
+        Func<Guid, Guid, Guid?>? resolveOrderRmDetailId = null)
+    {
+        var resolved = new List<(int RowNumber, Guid? ResolvedOrderRmDetailId)>();
+        if (transferRows == null || transferRows.Count == 0)
+        {
+            return resolved;
+        }
+
+        var fgSet = orderFinishedGoodItemIds ?? new HashSet<Guid>();
+        var fgByRow = finishedGoodByOrderRmRowId ?? new Dictionary<Guid, Guid>();
+
+        foreach (var row in transferRows)
+        {
+            if (!row.SubcontractedItemId.HasValue || row.SubcontractedItemId.Value == Guid.Empty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("row", row.RowNumber)
+                    .WithData("detail", $"Row {row.RowNumber}: Subcontracted Item is mandatory for the raw material {row.RmItemCode}");
+            }
+
+            if (!fgSet.Contains(row.SubcontractedItemId.Value))
+            {
+                var fgLabel = !string.IsNullOrWhiteSpace(row.SubcontractedItemCode)
+                    ? row.SubcontractedItemCode
+                    : row.SubcontractedItemId.Value.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("row", row.RowNumber)
+                    .WithData("detail", $"Row {row.RowNumber}: Subcontracted Item {fgLabel} is not a finished good of {orderDocType} {orderNumber}");
+            }
+
+            var effectiveRmDetailId = row.ExistingOrderRmDetailId;
+            var linkedFgId = effectiveRmDetailId.HasValue && fgByRow.TryGetValue(effectiveRmDetailId.Value, out var fgId)
+                ? (Guid?)fgId
+                : null;
+
+            if (linkedFgId != row.SubcontractedItemId.Value && resolveOrderRmDetailId != null)
+            {
+                effectiveRmDetailId = resolveOrderRmDetailId(row.RmItemId, row.SubcontractedItemId.Value);
+            }
+
+            resolved.Add((row.RowNumber, effectiveRmDetailId));
+        }
+
+        return resolved;
+    }
 }
 
 public class SubcontractingRmRequirement

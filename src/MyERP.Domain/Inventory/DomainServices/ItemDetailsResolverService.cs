@@ -175,6 +175,55 @@ public class ItemDetailsResolverService : DomainService
         return results;
     }
 
+    /// <summary>
+    /// Resolves effective price list for batch-based item price lookup and excludes already-used serial numbers
+    /// without requiring a parent transaction document (doc may be null) per ERPNext PR #67454 (commit 13b2b890ce).
+    /// </summary>
+    public static (Guid? EffectivePriceListId, List<string> AvailableSerialNos) ResolveBatchAndSerialWithoutDoc(
+        Guid? docSellingPriceListId,
+        Guid? contextPriceListId,
+        IEnumerable<string>? candidateSerialNos,
+        IEnumerable<string>? docUsedSerialNos,
+        IEnumerable<string>? extraIgnoredSerialNos,
+        int stockQty)
+    {
+        var effectivePriceListId = docSellingPriceListId ?? contextPriceListId;
+        var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (extraIgnoredSerialNos != null)
+        {
+            foreach (var sn in extraIgnoredSerialNos)
+            {
+                if (!string.IsNullOrWhiteSpace(sn))
+                    ignored.Add(sn.Trim());
+            }
+        }
+
+        if (docUsedSerialNos != null)
+        {
+            foreach (var sn in docUsedSerialNos)
+            {
+                if (!string.IsNullOrWhiteSpace(sn))
+                    ignored.Add(sn.Trim());
+            }
+        }
+
+        var available = new List<string>();
+        if (candidateSerialNos != null && stockQty > 0)
+        {
+            foreach (var sn in candidateSerialNos)
+            {
+                if (string.IsNullOrWhiteSpace(sn)) continue;
+                var trimmed = sn.Trim();
+                if (ignored.Contains(trimmed)) continue;
+                available.Add(trimmed);
+                if (available.Count >= stockQty) break;
+            }
+        }
+
+        return (effectivePriceListId, available);
+    }
+
     // --- Private methods ---
 
     private static void ValidateItemForTransaction(Item item)

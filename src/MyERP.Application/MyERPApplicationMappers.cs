@@ -1409,10 +1409,12 @@ public partial class BomMapper : MapperBase<Manufacturing.Entities.BillOfMateria
 public partial class WorkOrderMapper : MapperBase<Manufacturing.Entities.WorkOrder, Manufacturing.WorkOrderDto>
 {
     [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.ItemName))]
-    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.OverproductionPercentage))]
+    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.OverproductionPercentage))]    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.TransferExtraMaterialsPercentage))]
+
     public override partial Manufacturing.WorkOrderDto Map(Manufacturing.Entities.WorkOrder source);
     [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.ItemName))]
-    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.OverproductionPercentage))]
+    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.OverproductionPercentage))]    [MapperIgnoreTarget(nameof(Manufacturing.WorkOrderDto.TransferExtraMaterialsPercentage))]
+
     public override partial void Map(Manufacturing.Entities.WorkOrder source, Manufacturing.WorkOrderDto destination);
     private partial Manufacturing.WorkOrderItemDto MapChild(Manufacturing.Entities.WorkOrderItem source);
 }
@@ -1647,7 +1649,9 @@ public partial class SubcontractingOrderMapper : MapperBase<Purchasing.Entities.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class SubcontractingReceiptMapper : MapperBase<Purchasing.Entities.SubcontractingReceipt, Purchasing.SubcontractingReceiptDto>
 {
+    [MapperIgnoreTarget(nameof(Purchasing.SubcontractingReceiptDto.HasRejectedQtyToReturn))]
     public override partial Purchasing.SubcontractingReceiptDto Map(Purchasing.Entities.SubcontractingReceipt source);
+    [MapperIgnoreTarget(nameof(Purchasing.SubcontractingReceiptDto.HasRejectedQtyToReturn))]
     public override partial void Map(Purchasing.Entities.SubcontractingReceipt source, Purchasing.SubcontractingReceiptDto destination);
     private partial Purchasing.SubcontractingReceiptItemDto MapChild(Purchasing.Entities.SubcontractingReceiptItem source);
 }

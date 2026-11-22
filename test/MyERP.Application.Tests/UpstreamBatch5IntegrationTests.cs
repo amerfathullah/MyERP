@@ -1832,4 +1832,190 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             transitBinAfterCancel.ActualQty.ShouldBe(20m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch11_EndToEnd_WorkOrderTransferExtra_ScrHasRejectedReturn_And_ScoStockUom()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid>>();
+            var mfgSettingsRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.ManufacturingSettings, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch11 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var stockAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1410-B11", "Stock In Hand", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var payableAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2010-B11", "Creditors", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            var costCenterRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var costCenter = await costCenterRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B11 Cost Center"), autoSave: true);
+            company.DefaultInventoryAccountId = stockAccount.Id;
+            company.DefaultExpenseAccountId = stockAccount.Id;
+            company.DefaultPayableAccountId = payableAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "SCR DR Stock", "SubcontractingReceipt", true, MyERP.Accounting.AccountSource.ItemExpense, MyERP.Accounting.AmountSource.NetTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "SCR CR Payable", "SubcontractingReceipt", false, MyERP.Accounting.AccountSource.SupplierPayable, MyERP.Accounting.AmountSource.GrandTotal) { SortOrder = 2 }, autoSave: true);
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B11", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JournalEntry", "JournalEntry", "JE-B11-"), autoSave: true);
+            var mainWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B11 Main WH"), autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B11 Rej WH"), autoSave: true);
+            var suppWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B11 Supp WH"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B11 Supplier"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B11-FG", "Batch 11 FG", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B11-RM", "Batch 11 RM", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCR", "SCR", "SCR-B11-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "StockEntry", "StockEntry", "SE-B11-"), autoSave: true);
+
+            // 1. PR #67352: ManufacturingAppService.GetWorkOrderAsync populates TransferExtraMaterialsPercentage
+            var settings = new MyERP.Manufacturing.Entities.ManufacturingSettings(Guid.NewGuid(), company.Id)
+            {
+                OverproductionPercentage = 5m,
+                TransferExtraMaterialsPercentage = 15m
+            };
+            await mfgSettingsRepo.InsertAsync(settings, autoSave: true);
+            var bom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-B11", fgItem.Id) { Quantity = 1m };
+            await bomRepo.InsertAsync(bom, autoSave: true);
+            var wo = new MyERP.Manufacturing.Entities.WorkOrder(Guid.NewGuid(), company.Id, "WO-B11-001", fgItem.Id, bom.Id, 10m);
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            var mfgService = GetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+            var woDto = await mfgService.GetWorkOrderAsync(wo.Id);
+            woDto.OverproductionPercentage.ShouldBe(5m);
+            woDto.TransferExtraMaterialsPercentage.ShouldBe(15m);
+
+            // 2. PR #67404: SubcontractingAppService.GetReceiptsForOrderAsync computes HasRejectedQtyToReturn
+            // and CreateReceiptReturnAsync rejects once all rejected qty is returned
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B11-001", DateTime.Today, supplier.Id)
+            {
+                SupplierWarehouseId = suppWh.Id
+            };
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, fgItem.Id, fgItem.ItemName, 10m, 50m));
+            sco.AddSuppliedItem(new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmItem.Id, rmItem.ItemName, 12m)
+            {
+                ReserveWarehouseId = mainWh.Id,
+                TransferredQty = 0m
+            });
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var valuationService = GetRequiredService<MyERP.Inventory.DomainServices.StockValuationService>();
+            await valuationService.CreateLedgerEntryAsync(company.Id, rmItem.Id, mainWh.Id, DateTime.Today.AddDays(-1), 50m, 10m, "StockEntry", Guid.NewGuid());
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), rmItem.Id, mainWh.Id) { ActualQty = 50m }, autoSave: true);
+            await valuationService.CreateLedgerEntryAsync(company.Id, rmItem.Id, suppWh.Id, DateTime.Today.AddDays(-1), 20m, 10m, "StockEntry", Guid.NewGuid());
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), rmItem.Id, suppWh.Id) { ActualQty = 20m }, autoSave: true);
+
+            var subService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+            var scr = await subService.CreateReceiptAsync(new MyERP.Purchasing.CreateSubcontractingReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                SubcontractingOrderId = sco.Id,
+                PostingDate = DateTime.Today,
+                WarehouseId = mainWh.Id,
+                SupplierWarehouseId = suppWh.Id,
+                Items = new List<MyERP.Purchasing.CreateScrItemDto>
+                {
+                    new()
+                    {
+                        ItemId = fgItem.Id,
+                        ItemName = fgItem.ItemName,
+                        Qty = 8m,
+                        RejectedQty = 2m,
+                        Rate = 50m,
+                        WarehouseId = mainWh.Id,
+                        RejectedWarehouseId = rejWh.Id
+                    }
+                }
+            });
+            await subService.SubmitReceiptAsync(scr.Id);
+
+            var receiptsBefore = await subService.GetReceiptsForOrderAsync(sco.Id);
+            var origReceiptDtoBefore = receiptsBefore.First(r => r.Id == scr.Id);
+            origReceiptDtoBefore.HasRejectedQtyToReturn.ShouldBeTrue();
+
+            var rejReturn = await subService.CreateReceiptReturnAsync(new MyERP.Purchasing.CreateSubcontractingReceiptReturnDto
+            {
+                ReturnAgainstReceiptId = scr.Id,
+                PostingDate = DateTime.Today,
+                WarehouseId = rejWh.Id,
+                SupplierWarehouseId = suppWh.Id,
+                Items = new List<MyERP.Purchasing.CreateScrReturnItemDto>
+                {
+                    new()
+                    {
+                        ItemId = fgItem.Id,
+                        ItemName = fgItem.ItemName,
+                        Qty = 2m,
+                        Rate = 0m,
+                        WarehouseId = rejWh.Id,
+                        ReturnQtyFromRejectedWarehouse = true
+                    }
+                }
+            });
+            await subService.SubmitReceiptAsync(rejReturn.Id);
+
+            var receiptsAfter = await subService.GetReceiptsForOrderAsync(sco.Id);
+            receiptsAfter.First(r => r.Id == scr.Id).HasRejectedQtyToReturn.ShouldBeFalse();
+
+            var secondRejEx = await Should.ThrowAsync<BusinessException>(() =>
+                subService.CreateReceiptReturnAsync(new MyERP.Purchasing.CreateSubcontractingReceiptReturnDto
+                {
+                    ReturnAgainstReceiptId = scr.Id,
+                    PostingDate = DateTime.Today,
+                    WarehouseId = rejWh.Id,
+                    SupplierWarehouseId = suppWh.Id,
+                    Items = new List<MyERP.Purchasing.CreateScrReturnItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fgItem.Id,
+                            ItemName = fgItem.ItemName,
+                            Qty = 1m,
+                            Rate = 0m,
+                            WarehouseId = rejWh.Id,
+                            ReturnQtyFromRejectedWarehouse = true
+                        }
+                    }
+                }));
+            (secondRejEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is already returned");
+
+            // 3. PR #67367: SendToSubcontractor Stock Entry validates transfer in stock UOM (Quantity * ConversionFactor)
+            // SCO requires 12 stock units; attempting 2 boxes * 10 conversionFactor = 20 stock units must fail OverTransfer
+            var seService = GetRequiredService<IStockEntryAppService>();
+            var overSe = await seService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.SendToSubcontractor,
+                PostingDate = DateTime.Today,
+                ReferenceType = "SubcontractingOrder",
+                ReferenceId = sco.Id,
+                Items = new List<CreateStockEntryItemDto>
+                {
+                    new()
+                    {
+                        ItemId = rmItem.Id,
+                        Quantity = 2m,
+                        ConversionFactor = 10m,
+                        StockUom = "Unit",
+                        SourceWarehouseId = mainWh.Id,
+                        TargetWarehouseId = suppWh.Id
+                    }
+                }
+            });
+            var overTransferEx = await Should.ThrowAsync<BusinessException>(() => seService.SubmitAsync(overSe.Id));
+            overTransferEx.Code.ShouldBe(MyERPDomainErrorCodes.OverTransfer);
+        });
+    }
 }

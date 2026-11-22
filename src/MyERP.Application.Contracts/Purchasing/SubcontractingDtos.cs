@@ -100,6 +100,7 @@ public class SubcontractingReceiptDto : AuditedEntityDto<Guid>
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstReceiptId { get; set; }
     public Guid? ProjectId { get; set; }
+    public bool HasRejectedQtyToReturn { get; set; }
     public List<SubcontractingReceiptItemDto> Items { get; set; } = new();
 }
 

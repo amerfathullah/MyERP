@@ -257,19 +257,29 @@ public static class ExpectedValuationReplayEngine
 
         private int GetLayerIndexToConsume(decimal? preferredRate)
         {
-            if (_isLifo)
-                return _layers.Count - 1;
-
+            // Per ERPNext PR #67376 (commit 0c62d7399b): LIFO purchase returns also consume the layer
+            // carrying the returned receipt's rate first, scanning from the top of the stack.
             if (preferredRate.HasValue)
             {
-                for (var i = 0; i < _layers.Count; i++)
+                if (_isLifo)
                 {
-                    if (_layers[i].Rate == preferredRate.Value)
-                        return i;
+                    for (var i = _layers.Count - 1; i >= 0; i--)
+                    {
+                        if (_layers[i].Rate == preferredRate.Value)
+                            return i;
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < _layers.Count; i++)
+                    {
+                        if (_layers[i].Rate == preferredRate.Value)
+                            return i;
+                    }
                 }
             }
 
-            return 0;
+            return _isLifo ? _layers.Count - 1 : 0;
         }
 
         public void SetBalance(decimal qty, decimal rate)
@@ -778,7 +788,8 @@ public static class ExpectedValuationReplayEngine
 
     private static decimal? GetPurchaseReturnRate(LedgerEntryInput entry, ItemReplayContext context)
     {
-        if (context.ValuationMethod != ValuationMethod.FIFO
+        // Per ERPNext PR #67376 (commit 0c62d7399b): both FIFO and LIFO purchase returns value at receipt rate.
+        if (context.ValuationMethod is not (ValuationMethod.FIFO or ValuationMethod.LIFO)
             || context.ValuesEverythingInPool
             || !IsReturnablePurchaseVoucher(entry.VoucherType))
         {

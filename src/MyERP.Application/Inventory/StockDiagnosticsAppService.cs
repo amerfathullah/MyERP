@@ -986,7 +986,7 @@ public class StockDiagnosticsAppService : ApplicationService, IStockDiagnosticsA
         // Pending RepostItemValuation per (Item, Warehouse)
         var pendingReposts = await LoadPendingItemWarehouseRepostMapAsync(input.CompanyId, sleItemIds);
 
-        // Purchase return rates (for FIFO purchase returns)
+        // Purchase return rates (for FIFO and LIFO purchase returns, ERPNext PR #67376)
         var purchaseReturnRates = await LoadPurchaseReturnRateMapAsync(allSles);
 
         // Standard Cost schedule per Item

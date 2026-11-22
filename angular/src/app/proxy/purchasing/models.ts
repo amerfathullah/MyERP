@@ -1652,6 +1652,7 @@ export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   isReturn?: boolean;
   returnAgainstReceiptId?: string | null;
   projectId?: string | null;
+  hasRejectedQtyToReturn?: boolean;
   items?: SubcontractingReceiptItemDto[];
 }
 

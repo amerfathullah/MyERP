@@ -152,11 +152,20 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
               <button type="button" class="btn-close btn-sm" (click)="showReturnDialog.set(false)"></button>
             </div>
             <div class="card-body">
+              @if (canReturnFromRejectedWarehouse) {
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="returnRejectedToggle"
+                    [ngModel]="returnFromRejectedWarehouse()" (ngModelChange)="toggleReturnFromRejectedWarehouse($event)">
+                  <label class="form-check-label small" for="returnRejectedToggle">
+                    {{ '::ReturnFromRejectedWarehouse' | abpLocalization }}
+                  </label>
+                </div>
+              }
               <table class="table table-sm table-bordered">
                 <thead class="table-light">
                   <tr>
                     <th>{{ '::Item' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ returnFromRejectedWarehouse() ? ('::RejectedQty' | abpLocalization) : ('::ReceivedQty' | abpLocalization) }}</th>
                     <th class="text-center" style="width: 120px">{{ '::ReturnQty' | abpLocalization }}</th>
                   </tr>
                 </thead>
@@ -164,10 +173,10 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
                   @for (item of returnItems(); track item.itemId) {
                     <tr>
                       <td>{{ item.itemName }}</td>
-                      <td class="text-end">{{ item.qty | number:'1.0-2' }}</td>
+                      <td class="text-end">{{ (returnFromRejectedWarehouse() ? item.rejectedQty : item.qty) | number:'1.0-2' }}</td>
                       <td class="text-center">
                         <input type="number" class="form-control form-control-sm text-center"
-                          [(ngModel)]="item.returnQty" [max]="item.qty" min="0" step="0.01">
+                          [(ngModel)]="item.returnQty" [max]="returnFromRejectedWarehouse() ? item.rejectedQty : item.qty" min="0" step="0.01">
                       </td>
                     </tr>
                   }
@@ -314,6 +323,7 @@ export class SubcontractingDetailComponent implements OnInit {
   selectedReceiptSummary = signal<SubcontractingReceiptSummaryDto | null>(null);
   showReturnDialog = signal(false);
   returnAgainst = signal<any>(null);
+  returnFromRejectedWarehouse = signal(false);
   returnItems = signal<{ itemId: string; itemName: string; qty: number; rejectedQty: number; rate: number; returnQty: number; warehouseId?: string; rejectedWarehouseId?: string; returnQtyFromRejectedWarehouse?: boolean }[]>([]);
   isReturning = signal(false);
 
@@ -412,8 +422,27 @@ export class SubcontractingDetailComponent implements OnInit {
     });
   }
 
+  /**
+   * Per ERPNext PR #67404 (commit ef84f3c6bd): offer rejected-warehouse return only while unreturned rejected qty remains.
+   */
+  get canReturnFromRejectedWarehouse(): boolean {
+    return !!this.returnAgainst()?.hasRejectedQtyToReturn;
+  }
+
+  toggleReturnFromRejectedWarehouse(fromRejected: boolean): void {
+    const effective = fromRejected && this.canReturnFromRejectedWarehouse;
+    this.returnFromRejectedWarehouse.set(effective);
+    this.returnItems.update(items => items.map(i => ({
+      ...i,
+      returnQtyFromRejectedWarehouse: effective,
+      returnQty: effective ? i.rejectedQty : i.qty,
+      warehouseId: effective ? (i.rejectedWarehouseId || i.warehouseId) : i.warehouseId,
+    })));
+  }
+
   openReturnDialog(receipt: any): void {
     this.returnAgainst.set(receipt);
+    this.returnFromRejectedWarehouse.set(false);
     // Exclude backend-derived secondary items (Co-Product, By-Product, Scrap) so return UI only collects FG rows
     this.returnItems.set((receipt.items ?? [])
       .filter((i: any) => !i.secondaryItemType && (i.valuationType === undefined || i.valuationType === null) && !i.bomSecondaryItemId)

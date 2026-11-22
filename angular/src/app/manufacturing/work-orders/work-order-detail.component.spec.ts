@@ -174,4 +174,32 @@ describe('WorkOrderDetailComponent BOM & Return Actions', () => {
     expect(comp.qiRequired()).toBe(true);
     expect(comp.qiStatus()).toBe('Accepted');
   });
+
+  it('uses Transfer Extra % for Material Transfer allowance and falls back to Overproduction % (PR #67352)', () => {
+    const { comp } = createComponent();
+    comp.wo.set({
+      id: 'wo-10',
+      quantity: 100,
+      materialTransferred: 20,
+      producedQuantity: 10,
+      overproductionPercentage: 5,
+      transferExtraMaterialsPercentage: 15,
+    } as any);
+
+    expect(comp.getAllowancePercentage('Material Transfer for Manufacture')).toBe(15);
+    expect(comp.getAllowancePercentage('Manufacture')).toBe(5);
+    expect(comp.allowedTransferQty).toBe(95); // 100 * 1.15 - 20
+    expect(comp.allowedProductionQty).toBe(95); // 100 * 1.05 - 10
+
+    // Falls back to overproductionPercentage when transferExtraMaterialsPercentage is 0
+    comp.wo.set({
+      id: 'wo-11',
+      quantity: 100,
+      materialTransferred: 0,
+      overproductionPercentage: 8,
+      transferExtraMaterialsPercentage: 0,
+    } as any);
+    expect(comp.getAllowancePercentage('Material Transfer for Manufacture')).toBe(8);
+    expect(comp.allowedTransferQty).toBe(108);
+  });
 });

@@ -1482,7 +1482,250 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Computes net raw material sent to the supplier in stock UOM (<c>TransferQty</c>/<c>StockQty</c>),
+    /// negating return Material Transfer entries, and normalizes generated Stock Entry transfer/return rows
+    /// to stock UOM with <c>ConversionFactor = 1</c> per ERPNext PR #67367 (commit ca527fd48c).
+    /// </summary>
+    public static Dictionary<Guid, (decimal StockQty, string StockUom, decimal ConversionFactor)> CalculateMaterialSentToSupplierInStockUom(
+        IEnumerable<(Guid ItemId, string StockUom, decimal TransferStockQty, bool IsMaterialTransferReturn)> stockEntryDetails,
+        int precision = 4)
+    {
+        var totals = new Dictionary<Guid, (decimal StockQty, string StockUom, decimal ConversionFactor)>();
+        if (stockEntryDetails == null)
+        {
+            return totals;
+        }
+
+        foreach (var row in stockEntryDetails)
+        {
+            var signedQty = row.IsMaterialTransferReturn ? -Math.Abs(row.TransferStockQty) : row.TransferStockQty;
+            if (totals.TryGetValue(row.ItemId, out var existing))
+            {
+                totals[row.ItemId] = (
+                    Math.Round(existing.StockQty + signedQty, precision, MidpointRounding.AwayFromZero),
+                    string.IsNullOrWhiteSpace(existing.StockUom) ? row.StockUom : existing.StockUom,
+                    1m);
+            }
+            else
+            {
+                totals[row.ItemId] = (
+                    Math.Round(signedQty, precision, MidpointRounding.AwayFromZero),
+                    row.StockUom,
+                    1m);
+            }
+        }
+
+        return totals;
+    }
+
+    /// <summary>
+    /// Validates that every Additional Costs expense account on a Subcontracting Order or non-return
+    /// Subcontracting Receipt is denominated in the company currency per ERPNext PR #67403 (commit 168c8ede47).
+    /// Skipped on return Subcontracting Receipts and on Subcontracting Inward Orders (commits 2fb3f2c1d1, 60295657d4).
+    /// </summary>
+    public static void ValidateAdditionalCostAccountCurrencies(
+        string companyCurrency,
+        IEnumerable<(int RowNumber, string AccountName, string? AccountCurrency)>? additionalCosts,
+        bool isReturn = false,
+        bool isInwardOrder = false)
+    {
+        if (isReturn || isInwardOrder || additionalCosts == null || string.IsNullOrWhiteSpace(companyCurrency))
+        {
+            return;
+        }
+
+        var expectedCurrency = companyCurrency.Trim();
+        foreach (var row in additionalCosts)
+        {
+            if (string.IsNullOrWhiteSpace(row.AccountName) || string.IsNullOrWhiteSpace(row.AccountCurrency))
+            {
+                continue;
+            }
+
+            if (!string.Equals(row.AccountCurrency.Trim(), expectedCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("row", row.RowNumber)
+                    .WithData("account", row.AccountName)
+                    .WithData("companyCurrency", expectedCurrency)
+                    .WithData("detail", $"Row #{row.RowNumber}: Additional Costs account {row.AccountName} is not in the company currency {expectedCurrency}. Select an account in {expectedCurrency}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a non-return Subcontracting Receipt still has unreturned rejected quantity
+    /// after accounting for submitted rejected-warehouse returns per ERPNext PR #67404 (commit ef84f3c6bd).
+    /// </summary>
+    public static bool HasRejectedQtyToReturn(
+        SubcontractingReceipt receipt,
+        IEnumerable<SubcontractingReceipt>? submittedReturns,
+        int precision = 4)
+    {
+        if (receipt == null || receipt.IsReturn)
+        {
+            return false;
+        }
+
+        var rejectedRows = receipt.Items
+            .Where(i => !IsSecondaryItem(i) && Math.Round(i.RejectedQty, precision, MidpointRounding.AwayFromZero) > 0m)
+            .ToList();
+        if (rejectedRows.Count == 0)
+        {
+            return false;
+        }
+
+        var returnedRejectedByItem = (submittedReturns ?? Enumerable.Empty<SubcontractingReceipt>())
+            .Where(r => r.IsReturn
+                        && r.ReturnAgainstReceiptId == receipt.Id
+                        && r.Status == SubcontractingReceiptStatus.Submitted)
+            .SelectMany(r => r.Items)
+            .Where(i => !IsSecondaryItem(i) && IsRejectedSubcontractingReturn(
+                i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Qty)));
+
+        foreach (var row in rejectedRows)
+        {
+            var returned = returnedRejectedByItem.GetValueOrDefault(row.ItemId, 0m);
+            if (Math.Round(row.RejectedQty - returned, precision, MidpointRounding.AwayFromZero) > 0m)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Filters rejected-warehouse return candidate rows to drop items whose rejected quantity is already
+    /// fully returned, throwing when no returnable rejected rows remain per ERPNext PR #67404 (commit ef84f3c6bd).
+    /// </summary>
+    public static List<(Guid ItemId, decimal RemainingRejectedQty)> FilterReturnableRejectedRows(
+        string docType,
+        string documentNumber,
+        IEnumerable<(Guid ItemId, decimal RejectedQty, decimal PriorReturnedRejectedQty)> candidateRows,
+        int precision = 4)
+    {
+        var remaining = new List<(Guid ItemId, decimal RemainingRejectedQty)>();
+        if (candidateRows != null)
+        {
+            foreach (var row in candidateRows)
+            {
+                var left = Math.Round(row.RejectedQty - Math.Abs(row.PriorReturnedRejectedQty), precision, MidpointRounding.AwayFromZero);
+                if (left > 0m)
+                {
+                    remaining.Add((row.ItemId, left));
+                }
+            }
+        }
+
+        if (remaining.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("docType", docType)
+                .WithData("documentNumber", documentNumber)
+                .WithData("detail", $"All rejected qty of {docType} {documentNumber} is already returned.");
+        }
+
+        return remaining;
+    }
+
+    /// <summary>
+    /// Partitions Subcontracting Order raw material reservation requests into Production Plan handoff items
+    /// (where the Production Plan holds remaining reserved stock for the material) and direct stock reservation
+    /// items (where the Production Plan has no reservation row or no remaining reserved qty)
+    /// per ERPNext PR #67358 (commit 1e38bbed52).
+    /// </summary>
+    public static (List<SubcontractingReservationPlanHandoff> PlanHandoffItems, List<SubcontractingDirectReservationItem> DirectStockItems)
+        PartitionSubcontractingReservationsForProductionPlan(
+            Guid? productionPlanId,
+            IEnumerable<(Guid SuppliedItemId, Guid RmItemId, Guid? ReserveWarehouseId, Guid? ProductionPlanSubAssemblyItemId, decimal RequiredQty, decimal StockReservedQty)> suppliedItems,
+            IReadOnlyDictionary<(Guid SubAssemblyItemId, Guid RmItemId), (Guid PlanMrItemId, decimal PlanStockReservedQty)>? planReservationRowsByKey,
+            int precision = 4)
+    {
+        var planItems = new List<SubcontractingReservationPlanHandoff>();
+        var directItems = new List<SubcontractingDirectReservationItem>();
+
+        if (suppliedItems == null)
+        {
+            return (planItems, directItems);
+        }
+
+        foreach (var item in suppliedItems)
+        {
+            if (productionPlanId.HasValue
+                && productionPlanId.Value != Guid.Empty
+                && item.ProductionPlanSubAssemblyItemId.HasValue
+                && planReservationRowsByKey != null
+                && planReservationRowsByKey.TryGetValue((item.ProductionPlanSubAssemblyItemId.Value, item.RmItemId), out var planRow)
+                && Math.Round(item.StockReservedQty, precision, MidpointRounding.AwayFromZero)
+                    < Math.Round(planRow.PlanStockReservedQty, precision, MidpointRounding.AwayFromZero))
+            {
+                planItems.Add(new SubcontractingReservationPlanHandoff(
+                    item.SuppliedItemId,
+                    item.RmItemId,
+                    item.ReserveWarehouseId,
+                    item.RequiredQty,
+                    productionPlanId.Value,
+                    planRow.PlanMrItemId));
+                continue;
+            }
+
+            directItems.Add(new SubcontractingDirectReservationItem(
+                item.SuppliedItemId,
+                item.RmItemId,
+                item.ReserveWarehouseId,
+                item.RequiredQty));
+        }
+
+        return (planItems, directItems);
+    }
+
+    /// <summary>
+    /// Computes Purchase Receipt service item quantities from linked Subcontracting Receipt finished-good rows,
+    /// including <c>ProcessLossQty</c> in the billable/receivable service quantity because the job worker
+    /// performed the service on process-loss units too per ERPNext PR #67405 (commit 5e3db1d356).
+    /// </summary>
+    public static (decimal ServiceQty, decimal RejectedServiceQty) CalculatePurchaseReceiptServiceQuantitiesFromSubcontractingReceipt(
+        decimal serviceToFgRatio,
+        IEnumerable<(decimal AcceptedQty, decimal ProcessLossQty, decimal RejectedQty)> scrFinishedGoodItems,
+        int precision = 4)
+    {
+        if (scrFinishedGoodItems == null)
+        {
+            return (0m, 0m);
+        }
+
+        decimal totalWorkedFgQty = 0m;
+        decimal totalRejectedFgQty = 0m;
+        foreach (var item in scrFinishedGoodItems)
+        {
+            totalWorkedFgQty += item.AcceptedQty + item.ProcessLossQty;
+            totalRejectedFgQty += item.RejectedQty;
+        }
+
+        return (
+            Math.Round(serviceToFgRatio * totalWorkedFgQty, precision, MidpointRounding.AwayFromZero),
+            Math.Round(serviceToFgRatio * totalRejectedFgQty, precision, MidpointRounding.AwayFromZero));
+    }
 }
+
+public sealed record SubcontractingReservationPlanHandoff(
+    Guid SuppliedItemId,
+    Guid RmItemId,
+    Guid? ReserveWarehouseId,
+    decimal RequiredQty,
+    Guid ProductionPlanId,
+    Guid ProductionPlanMrItemId);
+
+public sealed record SubcontractingDirectReservationItem(
+    Guid SuppliedItemId,
+    Guid RmItemId,
+    Guid? ReserveWarehouseId,
+    decimal RequiredQty);
 
 public class SubcontractingRmConsumption
 {

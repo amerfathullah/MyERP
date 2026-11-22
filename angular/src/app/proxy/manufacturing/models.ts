@@ -1910,6 +1910,7 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   fromWipWarehouse?: boolean;
   reserveStock?: boolean;
   overproductionPercentage?: number;
+  transferExtraMaterialsPercentage?: number;
   requiredItems?: WorkOrderItemDto[];
 }
 
