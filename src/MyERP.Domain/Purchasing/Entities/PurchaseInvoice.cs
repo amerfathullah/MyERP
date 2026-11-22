@@ -295,11 +295,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         {
             Idx = _items.Count,
             WarehouseId = warehouseId,
-            ReceivedQty = receivedQty != 0 ? receivedQty : (UpdateStock ? (quantity + rejectedQty) : 0m),
+            ReceivedQty = receivedQty,
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId ?? RejectedWarehouseId,
             BillsRejectedQuantity = BillsRejectedQuantity
         };
+        item.SetReceivedQty(UpdateStock);
         if (!IsReturn && (quantity < 0 || rejectedQty < 0 || receivedQty < 0))
         {
             item.ValidateAcceptedRejectedQty(IsReturn);

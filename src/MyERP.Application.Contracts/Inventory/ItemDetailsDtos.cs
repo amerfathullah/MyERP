@@ -27,6 +27,12 @@ public class GetItemDetailsInput
     public string? CurrencyCode { get; set; }
     /// <summary>Optional: exchange rate from transaction currency to company currency.</summary>
     public decimal? ExchangeRate { get; set; }
+    /// <summary>Optional: source warehouse (e.g. Material Request Transfer source warehouse; ignores user read block and hides stock instead per ERPNext PR #67502).</summary>
+    public Guid? FromWarehouseId { get; set; }
+    /// <summary>Optional: true when resolving item details for a Material Request (forces rate=0).</summary>
+    public bool IsMaterialRequest { get; set; }
+    /// <summary>Optional: true when resolving item details for a Material Transfer Material Request.</summary>
+    public bool IsMaterialTransfer { get; set; }
 }
 
 public class ItemDetailsDto

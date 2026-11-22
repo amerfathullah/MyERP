@@ -125,8 +125,13 @@
                   <td><input type="number" class="form-control form-control-sm" formControlName="debit" /></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="credit" /></td>
                   @if (isMultiCurrency) {
-                    <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'debit') ? (companyAmount(i, 'debit') | number:'1.2-2') : '' }}</td>
-                    <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'credit') ? (companyAmount(i, 'credit') | number:'1.2-2') : '' }}</td>
+                    @if (isExchangeGainOrLossMultiCurrency && isForeignRow(i)) {
+                      <td><input type="number" step="any" class="form-control form-control-sm text-end font-monospace" formControlName="baseDebit" /></td>
+                      <td><input type="number" step="any" class="form-control form-control-sm text-end font-monospace" formControlName="baseCredit" /></td>
+                    } @else {
+                      <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'debit') ? (companyAmount(i, 'debit') | number:'1.2-2') : '' }}</td>
+                      <td class="text-end align-middle font-monospace">{{ companyAmount(i, 'credit') ? (companyAmount(i, 'credit') | number:'1.2-2') : '' }}</td>
+                    }
                   }
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeLine(i)">

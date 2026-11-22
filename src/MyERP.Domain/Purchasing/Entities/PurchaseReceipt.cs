@@ -182,8 +182,9 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId,
             ReturnQtyFromRejectedWarehouse = returnQtyFromRejectedWarehouse,
-            ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
+            ReceivedQty = receivedQty,
         };
+        item.SetReceivedQty();
         item.Idx = _items.Count;
         _items.Add(item);
 

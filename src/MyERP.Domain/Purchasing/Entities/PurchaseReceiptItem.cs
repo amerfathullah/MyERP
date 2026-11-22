@@ -36,6 +36,9 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor. Used for SLE creation.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Received quantity in stock UOM = ReceivedQty × ConversionFactor (ERPNext PR #68233 / commit c882ab662d).</summary>
+    public decimal ReceivedStockQty => Math.Round(ReceivedQty * ConversionFactor, 4, MidpointRounding.AwayFromZero);
+
     /// <summary>Rejected quantity in stock UOM = RejectedQty × ConversionFactor (PR #51968 / commit 343ee9695b).</summary>
     public decimal RejectedStockQty => RejectedQty * ConversionFactor;
 
@@ -84,10 +87,26 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     public decimal BilledQty { get; set; }
 
     /// <summary>
-    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197).
+    /// Fills <see cref="ReceivedQty"/> from <c>Quantity + RejectedQty</c> rounded to <paramref name="precision"/>
+    /// when <see cref="ReceivedQty"/> is 0 and either accepted or rejected qty is non-zero
+    /// per ERPNext PR #68233 (commits c882ab662d and cf4c5b043b, <c>set_received_qty</c>),
+    /// so <see cref="ReceivedStockQty"/> is populated on the first save before stock UOM conversion.
     /// </summary>
-    public void ValidateAcceptedRejectedQty(bool isReturn)
+    public void SetReceivedQty(int precision = 4)
     {
+        if (ReceivedQty == 0m && (Quantity != 0m || RejectedQty != 0m))
+        {
+            ReceivedQty = Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    /// <summary>
+    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197, PR #68233).
+    /// </summary>
+    public void ValidateAcceptedRejectedQty(bool isReturn, int precision = 4)
+    {
+        SetReceivedQty(precision);
+
         if (!isReturn)
         {
             if (Quantity < 0 || RejectedQty < 0 || ReceivedQty < 0)
@@ -96,11 +115,21 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
                     .WithData("detail", "Accepted, rejected, and received quantities cannot be negative on non-return receipts.");
             }
 
-            if (ReceivedQty == 0 && (Quantity > 0 || RejectedQty > 0))
+            if (Math.Abs(Math.Round(ReceivedQty, precision, MidpointRounding.AwayFromZero) - Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero)) > 0.0001m)
             {
-                ReceivedQty = Quantity + RejectedQty;
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
             }
-            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+        }
+        else
+        {
+            if (Quantity > 0 || RejectedQty > 0 || ReceivedQty > 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Accepted, rejected, and received quantities must be negative on return receipts.");
+            }
+
+            if (Math.Abs(Math.Round(ReceivedQty, precision, MidpointRounding.AwayFromZero) - Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero)) > 0.0001m)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");

@@ -31,6 +31,33 @@ public class BatchWarehousePermissionValidator : DomainService
     }
 
     /// <summary>
+    /// Checks whether a warehouse is within both the user's Warehouse permissions and Company permissions
+    /// per ERPNext PR #67502 (commits f7bff6daab and 67fe2bf517, <c>_is_within_user_permissions</c>):
+    /// used to hide stock of a Material Request source warehouse the user cannot read without refusing the request.
+    /// </summary>
+    public static bool IsWarehouseWithinUserPermissions(
+        Guid warehouseId,
+        Guid? warehouseCompanyId,
+        ISet<Guid>? permittedWarehouseIds,
+        ISet<Guid>? permittedCompanyIds = null)
+    {
+        if (permittedWarehouseIds != null && permittedWarehouseIds.Count > 0 && !permittedWarehouseIds.Contains(warehouseId))
+        {
+            return false;
+        }
+
+        if (permittedCompanyIds != null && permittedCompanyIds.Count > 0)
+        {
+            if (!warehouseCompanyId.HasValue || !permittedCompanyIds.Contains(warehouseCompanyId.Value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Filters a batch warehouse balance collection by permitted warehouses.
     /// </summary>
     public static List<T> FilterByPermittedWarehouses<T>(

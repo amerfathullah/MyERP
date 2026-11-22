@@ -647,6 +647,72 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
+    /// Looks up the stock quantity of a row's posted (or cancelled) Stock Ledger Entry in a transit warehouse
+    /// per ERPNext PR #68435 (commit 2cb8e068a1) and PR #68373 (commit 95a51eabe3, <c>get_posted_qty</c>):
+    /// Explicitly orders matching entries by <c>CreationTime ASC</c> so when <paramref name="cancelled"/> is true,
+    /// the oldest (original) cancelled entry is taken rather than a newer reversal of a rejected-into-transit entry.
+    /// </summary>
+    public static decimal? GetPostedTransitSleQty(
+        IEnumerable<Inventory.Entities.StockLedgerEntry>? entries,
+        Guid voucherDetailNo,
+        Guid warehouseId,
+        bool outward,
+        bool cancelled = false)
+    {
+        if (entries == null || voucherDetailNo == Guid.Empty || warehouseId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var match = entries
+            .Where(e =>
+                e.VoucherDetailNo == voucherDetailNo &&
+                e.WarehouseId == warehouseId &&
+                e.IsCancelled == cancelled &&
+                (outward ? e.QuantityChange < 0m : e.QuantityChange > 0m))
+            .OrderBy(e => e.CreationTime)
+            .FirstOrDefault();
+
+        return match?.QuantityChange;
+    }
+
+    /// <summary>
+    /// Resolves the in-transit source warehouse quantity for an internal Purchase Receipt (or Return) row
+    /// when reposted (e.g. by a Landed Cost Voucher or SLE repost) or cancelled, per ERPNext PR #68435
+    /// (commit 2cb8e068a1) and PR #68373 (commit 95a51eabe3, <c>get_qty_for_transit</c>):
+    /// - On cancel (<paramref name="isCancelling"/>): reverses what the active SLE posted.
+    /// - On repost: if an oldest cancelled SLE exists for the row in <paramref name="fromWarehouseId"/>,
+    ///   reuses <c>-repostedQty</c> so returns posted after the receipt do not alter the original transit quantity.
+    /// - Otherwise falls back to <paramref name="computedTransitQty"/>.
+    /// </summary>
+    public static decimal ResolveRepostedInternalReceiptTransitQty(
+        decimal computedTransitQty,
+        bool isCancelling,
+        bool isReturn,
+        Guid voucherDetailNo,
+        Guid fromWarehouseId,
+        IEnumerable<Inventory.Entities.StockLedgerEntry>? existingSles)
+    {
+        if (isCancelling)
+        {
+            var activeQty = GetPostedTransitSleQty(
+                existingSles, voucherDetailNo, fromWarehouseId, outward: !isReturn, cancelled: false);
+            return activeQty.HasValue && activeQty.Value != 0m
+                ? -activeQty.Value
+                : computedTransitQty;
+        }
+
+        var repostedQty = GetPostedTransitSleQty(
+            existingSles, voucherDetailNo, fromWarehouseId, outward: !isReturn, cancelled: true);
+        if (repostedQty.HasValue && repostedQty.Value != 0m)
+        {
+            return -repostedQty.Value;
+        }
+
+        return computedTransitQty;
+    }
+
+    /// <summary>
     /// Determines whether an internal receipt or return row has a non-zero rejected stock quantity in stock UOM
     /// requiring a rejected Serial and Batch Bundle, and computes the rounded package stock quantity
     /// per ERPNext commits 33410f737d, ae011f50fc, and ca0c0ce86a.

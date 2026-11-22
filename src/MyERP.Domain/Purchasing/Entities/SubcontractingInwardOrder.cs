@@ -98,6 +98,37 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
     }
 
     /// <summary>
+    /// Resolves the ERPNext Subcontracting Inward Order lifecycle status from fulfillment percentages
+    /// per ERPNext PR #68211 (commit 0187676e69): uses <c>&gt;= 100</c> (not <c>== 100</c>) for
+    /// <paramref name="perReturned"/>, <paramref name="perDelivered"/>, and <paramref name="perProduced"/>
+    /// so overproduction and over-delivery past 100% still advance the order status.
+    /// </summary>
+    public static string ResolveInwardOrderFulfillmentStatus(
+        bool isSubmitted,
+        string? currentStatus,
+        decimal perReturned,
+        decimal perDelivered,
+        decimal perProduced,
+        decimal perRawMaterialReceived)
+    {
+        if (!isSubmitted)
+            return currentStatus ?? "Draft";
+
+        if (string.Equals(currentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
+            return "Open";
+        if (perReturned >= 100m)
+            return "Returned";
+        if (perDelivered >= 100m)
+            return "Delivered";
+        if (perProduced >= 100m)
+            return "Produced";
+        if (perRawMaterialReceived > 0m)
+            return "Ongoing";
+
+        return "Open";
+    }
+
+    /// <summary>
     /// Proposes pending customer-provided material quantities to receive.
     /// Per ERPNext commit c31b8c9de6: keeps fully received customer-provided materials at 0 qty
     /// instead of skipping them, while still excluding rows with no required quantity.

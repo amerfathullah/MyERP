@@ -517,6 +517,12 @@ describe('SalesInvoice form calculations', () => {
       expect(comp.computeAutomaticWriteOffAmount(true, 98, 0, 100, true)).toBe(1.6);
       // When writeOffAutomatically is false -> 0
       expect(comp.computeAutomaticWriteOffAmount(false, 98, 0, 100, false)).toBe(0);
+
+      // Fractional additional discount below 1 stays > 0 so Net Total / discount row remains shown (PR #68731: 9c9466cc56)
+      comp.onDiscountAmountChanged('0.50');
+      expect(comp.discountAmount()).toBe(0.5);
+      expect(comp.discountAmount() > 0).toBe(true);
+      expect(comp.calcResult.grandTotal).toBe(99.1);
     });
   });
 });

@@ -26,6 +26,7 @@ public class AccountingDimensionService : DomainService
     private readonly IRepository<GlDimensionValue, Guid> _glDimensionValueRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private List<AccountingDimension>? _enabledDimensionsCache;
 
     public AccountingDimensionService(
         IRepository<AccountingDimension, Guid> dimensionRepository,
@@ -42,18 +43,29 @@ public class AccountingDimensionService : DomainService
     }
 
     /// <summary>
+    /// Clears cached accounting dimension lookups after dimension updates
+    /// (ERPNext PR #65679 / commit 51624525a5).
+    /// </summary>
+    public void ClearCache()
+    {
+        _enabledDimensionsCache = null;
+    }
+
+    /// <summary>
     /// Returns all enabled dimensions, optionally scoped by company.
     /// Global dimensions (CompanyId=null) are always included.
+    /// Caches repeated transaction lookups per service instance and returns a fresh list copy
+    /// per ERPNext PR #65679 (commit 51624525a5).
     /// </summary>
     public async Task<List<AccountingDimension>> GetEnabledDimensionsAsync(Guid? companyId = null)
     {
-        var all = await _dimensionRepository.GetListAsync(d => d.IsEnabled);
+        _enabledDimensionsCache ??= await _dimensionRepository.GetListAsync(d => d.IsEnabled);
 
         if (companyId == null)
-            return all;
+            return new List<AccountingDimension>(_enabledDimensionsCache);
 
         // Global (no company) + company-specific dimensions
-        return all.Where(d => d.CompanyId == null || d.CompanyId == companyId).ToList();
+        return _enabledDimensionsCache.Where(d => d.CompanyId == null || d.CompanyId == companyId).ToList();
     }
 
     /// <summary>

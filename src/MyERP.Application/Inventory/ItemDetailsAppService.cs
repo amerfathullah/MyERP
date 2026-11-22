@@ -128,6 +128,21 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             }
         }
 
+        Guid? fromWarehouseCompanyId = null;
+        if (input.FromWarehouseId.HasValue)
+        {
+            var whRepo = LazyServiceProvider?.LazyGetService<IRepository<Warehouse, Guid>>();
+            if (whRepo != null)
+            {
+                var fromWh = await whRepo.FindAsync(input.FromWarehouseId.Value);
+                fromWarehouseCompanyId = fromWh?.CompanyId;
+            }
+        }
+
+        var permittedCompanyIds = input.IsMaterialRequest && input.IsMaterialTransfer && input.CompanyId.HasValue
+            ? new System.Collections.Generic.HashSet<Guid> { input.CompanyId.Value }
+            : null;
+
         var context = new ItemResolutionContext
         {
             ItemId = input.ItemId,
@@ -137,6 +152,11 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             PartyId = txType == TransactionType.Buying ? input.SupplierId : resolvedCustomerId,
             PriceListId = effectivePriceListId,
             TransactionDate = input.TransactionDate,
+            IsMaterialRequest = input.IsMaterialRequest,
+            IsMaterialTransfer = input.IsMaterialTransfer,
+            FromWarehouseId = input.FromWarehouseId,
+            FromWarehouseCompanyId = fromWarehouseCompanyId,
+            PermittedCompanyIds = permittedCompanyIds,
         };
 
         var resolved = await _resolver.ResolveAsync(context);
@@ -174,7 +194,22 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
         {
             try
             {
-                var whId = resolved.WarehouseId ?? input.WarehouseId ?? Guid.Empty;
+                Guid whId;
+                if (context.IsMaterialRequest && context.IsMaterialTransfer)
+                {
+                    whId = context.FromWarehouseId.HasValue &&
+                           BatchWarehousePermissionValidator.IsWarehouseWithinUserPermissions(
+                               context.FromWarehouseId.Value,
+                               context.FromWarehouseCompanyId,
+                               context.PermittedWarehouseIds,
+                               context.PermittedCompanyIds)
+                        ? context.FromWarehouseId.Value
+                        : Guid.Empty;
+                }
+                else
+                {
+                    whId = resolved.WarehouseId ?? input.WarehouseId ?? Guid.Empty;
+                }
                 if (whId != Guid.Empty)
                 {
                     var binQuery = await _binRepo.GetQueryableAsync();

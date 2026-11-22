@@ -369,19 +369,27 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   addItem(): void {
+    const warehouses = this.applyDefaultWarehousesPreservingExistingRow(
+      '',
+      '',
+      this.form.get('sourceWarehouse')?.value,
+      this.form.get('targetWarehouse')?.value,
+      '',
+    );
     this.items.push(this.fb.group({
       itemId: ['', Validators.required],
       itemName: ['', Validators.required],
       qty: [1, [Validators.required, Validators.min(0.01)]],
       uom: ['Unit'],
+      stockUom: [''],
       conversionFactor: [1],
       transferQty: [1],
       basicRate: [0],
       amount: [0],
       setBasicRateManually: [false],
       isFinishedItem: [false],
-      sourceWarehouseId: [''],
-      targetWarehouseId: [''],
+      sourceWarehouseId: [warehouses.sourceWarehouseId ?? ''],
+      targetWarehouseId: [warehouses.targetWarehouseId ?? ''],
       materialRequestItemId: [null],
     }));
   }
@@ -393,9 +401,11 @@ export class StockEntryFormComponent implements OnInit {
   onItemSelected(index: number, item: ItemDto | null): void {
     if (item?.id) {
       const basicRate = item.standardBuyingPrice ?? 0;
+      const uom = item.uom ?? 'Unit';
       this.items.at(index).patchValue({
         itemName: item.itemName ?? item.itemCode,
-        uom: item.uom ?? 'Unit',
+        uom,
+        stockUom: uom,
         basicRate,
       });
       this.calculateRowAmount(index);
@@ -468,19 +478,25 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   /**
-   * Applies document-level default warehouses to a row only when the row has neither source nor target
-   * warehouse set, preserving existing warehouses on duplicated rows (per ERPNext commits 6479ca47fe and 535b272814).
+   * Applies document-level default warehouses to a new row while preserving a duplicated row's own warehouses.
+   * Per ERPNext PR #67369 (commits e68da1fde9 and 7665a796e4): tells a duplicated row apart by its read-only
+   * stock_uom (a user default can pre-fill item_code or warehouse on a new row, never stock_uom).
+   * When rowStockUom is omitted, falls back to the empty-warehouse check for backwards compatibility.
    */
   applyDefaultWarehousesPreservingExistingRow(
     rowSourceWarehouseId: string | null | undefined,
     rowTargetWarehouseId: string | null | undefined,
     defaultSourceWarehouseId: string | null | undefined,
     defaultTargetWarehouseId: string | null | undefined,
+    rowStockUom?: string | null,
   ): { sourceWarehouseId: string | null; targetWarehouseId: string | null } {
-    if (!rowSourceWarehouseId && !rowTargetWarehouseId) {
+    const isNewRow = rowStockUom !== undefined
+      ? !rowStockUom
+      : (!rowSourceWarehouseId && !rowTargetWarehouseId);
+    if (isNewRow) {
       return {
-        sourceWarehouseId: defaultSourceWarehouseId || null,
-        targetWarehouseId: defaultTargetWarehouseId || null,
+        sourceWarehouseId: defaultSourceWarehouseId || rowSourceWarehouseId || null,
+        targetWarehouseId: defaultTargetWarehouseId || rowTargetWarehouseId || null,
       };
     }
     return {
@@ -603,7 +619,7 @@ export class StockEntryFormComponent implements OnInit {
         valuationRate: item.basicRate ? Number(item.basicRate) : undefined,
         setBasicRateManually: !!item.setBasicRateManually,
         conversionFactor: item.conversionFactor ? Number(item.conversionFactor) : 1,
-        stockUom: item.uom ?? 'Unit',
+        stockUom: item.stockUom || item.uom || 'Unit',
         sourceWarehouseId: item.sourceWarehouseId || raw.sourceWarehouse || null,
         targetWarehouseId: item.targetWarehouseId || raw.targetWarehouse || null,
         isFinishedItem: item.isFinishedItem ?? false,

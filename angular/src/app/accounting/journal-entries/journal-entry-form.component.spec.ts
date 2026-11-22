@@ -270,5 +270,46 @@ describe('JournalEntry form logic', () => {
       expect(comp.lines.at(0).get('accountCurrency')?.value).toBe('EUR');
       expect(comp.lines.at(0).get('exchangeRate')?.value).toBe(4.85);
     });
+
+    it('preserves independent company currency amounts for Exchange Gain Or Loss multi-currency rows (PR #65261)', () => {
+      const createSpy = vi.fn().mockReturnValue(of({ id: 'je-fx-1' }));
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: AccountService, useValue: { get: vi.fn().mockReturnValue(of({ currencyCode: 'USD' })) } },
+          { provide: JournalEntryService, useValue: { create: createSpy } },
+          { provide: JournalEntryTemplateService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'comp-1', currencyCode: 'MYR' }] })) } },
+          { provide: FiscalYearService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'fy-1', companyId: 'comp-1', startDate: '2026-01-01', endDate: '2026-12-31' }] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn() } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: ChangeDetectorRef, useValue: { detectChanges: vi.fn(), markForCheck: vi.fn() } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new JournalEntryFormComponent());
+      comp.ngOnInit();
+      comp.form.patchValue({ companyId: 'comp-1', entryDate: '2026-11-22', voucherType: 13, isMultiCurrency: true });
+      comp.addLine();
+      comp.addLine();
+      // Foreign row with 0 USD balance but 150 MYR revaluation adjustment
+      comp.lines.at(0).patchValue({ accountId: 'acc-usd', accountCurrency: 'USD', exchangeRate: 4.5, debit: 0, credit: 0, baseDebit: 150, baseCredit: 0 });
+      // Counterpart FX gain/loss row in company currency
+      comp.lines.at(1).patchValue({ accountId: 'acc-fx', accountCurrency: 'MYR', exchangeRate: 1, debit: 0, credit: 150, baseDebit: 0, baseCredit: 150 });
+
+      expect(comp.isExchangeGainOrLossMultiCurrency).toBe(true);
+      expect(comp.companyAmount(0, 'debit')).toBe(150);
+      expect(comp.totalDebit).toBe(150);
+      expect(comp.totalCredit).toBe(150);
+      expect(comp.isBalanced).toBe(true);
+
+      comp.save();
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      const sentDto = createSpy.mock.calls[0][0];
+      expect(sentDto.lines[0].amount).toBe(150);
+      expect(sentDto.lines[0].amountInAccountCurrency).toBe(0);
+    });
   });
 });

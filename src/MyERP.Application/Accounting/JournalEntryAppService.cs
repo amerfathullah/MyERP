@@ -242,6 +242,9 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
             hasForeignCurrencyRow = true;
 
+            var isExchangeGainOrLossMultiCurrency =
+                entry.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss && input.IsMultiCurrency;
+
             // Per ERPNext _set_row_exchange_rate: a missing rate, or 1, on a foreign currency row
             // means "not set" — take the rate for the posting date.
             var exchangeRate = line.ExchangeRate ?? 0m;
@@ -257,7 +260,22 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
             decimal amountInAccountCurrency;
             decimal amountInCompanyCurrency;
-            if (line.AmountInAccountCurrency is > 0)
+            if (isExchangeGainOrLossMultiCurrency)
+            {
+                // Per ERPNext PR #65261 (commit eb610ea5a9): Exchange Gain Or Loss journals adjust
+                // company-currency and account-currency amounts independently (e.g. zero foreign balance revaluation).
+                amountInAccountCurrency = Math.Round(line.AmountInAccountCurrency ?? 0m, 2);
+                amountInCompanyCurrency = line.Amount > 0m
+                    ? Math.Round(line.Amount, 2)
+                    : (amountInAccountCurrency > 0m ? Math.Round(amountInAccountCurrency * exchangeRate, 2) : 0m);
+
+                if (amountInCompanyCurrency < 0m || amountInAccountCurrency < 0m ||
+                    (amountInCompanyCurrency <= 0m && amountInAccountCurrency <= 0m))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.JournalLineAmountRequired).WithData("row", rowIdx);
+                }
+            }
+            else if (line.AmountInAccountCurrency is > 0)
             {
                 amountInAccountCurrency = Math.Round(line.AmountInAccountCurrency.Value, 2);
                 amountInCompanyCurrency = Math.Round(amountInAccountCurrency * exchangeRate, 2);
@@ -268,7 +286,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 amountInAccountCurrency = Math.Round(line.Amount / exchangeRate, 2);
             }
 
-            if (amountInCompanyCurrency <= 0 || amountInAccountCurrency <= 0)
+            if (!isExchangeGainOrLossMultiCurrency && (amountInCompanyCurrency <= 0 || amountInAccountCurrency <= 0))
             {
                 throw new BusinessException(MyERPDomainErrorCodes.JournalLineAmountRequired).WithData("row", rowIdx);
             }

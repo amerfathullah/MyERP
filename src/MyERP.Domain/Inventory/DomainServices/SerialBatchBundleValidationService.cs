@@ -1297,6 +1297,33 @@ public class SerialBatchBundleValidationService : DomainService
 
         return 0m;
     }
+
+    /// <summary>
+    /// Resolves the incoming rate to store on a Packed Item row after its Serial and Batch Bundle is auto-picked
+    /// on submit per ERPNext PR #68372 (commit 4ed5d68047) and PR #68294 (commit 5b9c476c29,
+    /// <c>set_incoming_rate_from_bundle</c>):
+    /// - When serial numbers are valued as a pool (<paramref name="hasSerialNo"/> and serial-no-wise valuation is
+    ///   disabled via item flag or stock setting), the bundle carries no rate of its own (<c>avg_rate == 0</c>),
+    ///   so the packed row keeps its <paramref name="currentIncomingRate"/>.
+    /// - Otherwise sets the packed row's incoming rate from <paramref name="bundleAvgRate"/> rounded to
+    ///   <paramref name="precision"/> (because validate looked up the incoming rate before serial/batch nos were picked).
+    /// </summary>
+    public static decimal ResolvePackedItemIncomingRateFromBundle(
+        decimal currentIncomingRate,
+        decimal bundleAvgRate,
+        bool hasSerialNo,
+        bool useSerialNoWiseValuation,
+        bool disableSerialNoWiseValuationSetting = false,
+        int precision = 4)
+    {
+        var isSerialNoValuedAsPool = hasSerialNo && (!useSerialNoWiseValuation || disableSerialNoWiseValuationSetting);
+        if (isSerialNoValuedAsPool)
+        {
+            return currentIncomingRate;
+        }
+
+        return Math.Round(bundleAvgRate, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>

@@ -116,15 +116,27 @@ export class JournalEntryFormComponent implements OnInit {
     return !!this.form.get('isMultiCurrency')?.value;
   }
 
+  /**
+   * Per ERPNext PR #65261 (commit eb610ea5a9): Exchange Gain Or Loss journals in multi-currency
+   * mode adjust company-currency and account-currency amounts independently (e.g. zero foreign balance).
+   */
+  get isExchangeGainOrLossMultiCurrency(): boolean {
+    return Number(this.form.get('voucherType')?.value) === 13 && this.isMultiCurrency;
+  }
+
   /** A row is foreign when its account's currency is known and differs from the company's. */
   isForeignRow(index: number): boolean {
     const currency = this.lines.at(index).get('accountCurrency')?.value;
     return !!currency && !!this.companyCurrency && currency !== this.companyCurrency;
   }
 
-  /** Company currency value of a row's debit or credit (ERPNext: amount in account currency x exchange rate). */
+  /** Company currency value of a row's debit or credit (preserved independently for multi-currency Exchange Gain Or Loss). */
   companyAmount(index: number, side: 'debit' | 'credit'): number {
     const row = this.lines.at(index);
+    if (this.isExchangeGainOrLossMultiCurrency && this.isForeignRow(index)) {
+      const baseField = side === 'debit' ? 'baseDebit' : 'baseCredit';
+      return Math.round((Number(row.get(baseField)?.value) || 0) * 100) / 100;
+    }
     const amount = Number(row.get(side)?.value) || 0;
     const rate = this.isForeignRow(index) ? Number(row.get('exchangeRate')?.value) || 0 : 1;
     return Math.round(amount * rate * 100) / 100;
@@ -182,6 +194,8 @@ export class JournalEntryFormComponent implements OnInit {
             exchangeRate: [1, [Validators.min(0)]],
             debit: [line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
             credit: [!line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
+            baseDebit: [line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
+            baseCredit: [!line.isDebit ? (line.amount ?? 0) : 0, [Validators.min(0)]],
           }));
           if (line.accountId) this.loadAccountDetails(this.lines.length - 1, line.accountId);
         }
@@ -207,6 +221,8 @@ export class JournalEntryFormComponent implements OnInit {
           exchangeRate: [1, [Validators.min(0)]],
           debit: [line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
           credit: [!line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
+          baseDebit: [line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
+          baseCredit: [!line.isDebit ? (line.defaultAmount ?? 0) : 0, [Validators.min(0)]],
         }));
         if (line.accountId) this.loadAccountDetails(this.lines.length - 1, line.accountId);
       }
@@ -221,6 +237,8 @@ export class JournalEntryFormComponent implements OnInit {
       exchangeRate: [1, [Validators.min(0)]],
       debit: [0, [Validators.min(0)]],
       credit: [0, [Validators.min(0)]],
+      baseDebit: [0, [Validators.min(0)]],
+      baseCredit: [0, [Validators.min(0)]],
     }));
   }
 
@@ -285,12 +303,24 @@ export class JournalEntryFormComponent implements OnInit {
       return;
     }
     const raw = this.form.getRawValue();
-    const rows = raw.lines as { accountId: string; debit: number; credit: number; exchangeRate: number }[];
-    if (rows.some(r => (Number(r.debit) || 0) > 0 && (Number(r.credit) || 0) > 0)) {
+    const rows = raw.lines as { accountId: string; debit: number; credit: number; baseDebit?: number; baseCredit?: number; exchangeRate: number }[];
+    if (rows.some((r, index) => {
+      if (this.isExchangeGainOrLossMultiCurrency && this.isForeignRow(index)) {
+        return ((Number(r.debit) || 0) > 0 && (Number(r.credit) || 0) > 0)
+          || ((Number(r.baseDebit) || 0) > 0 && (Number(r.baseCredit) || 0) > 0);
+      }
+      return (Number(r.debit) || 0) > 0 && (Number(r.credit) || 0) > 0;
+    })) {
       this.toaster.error('::CannotDebitAndCreditSameRow');
       return;
     }
-    if (rows.some(r => !(Number(r.debit) || 0) && !(Number(r.credit) || 0))) {
+    if (rows.some((r, index) => {
+      if (this.isExchangeGainOrLossMultiCurrency && this.isForeignRow(index)) {
+        return !(Number(r.debit) || 0) && !(Number(r.credit) || 0)
+          && !(Number(r.baseDebit) || 0) && !(Number(r.baseCredit) || 0);
+      }
+      return !(Number(r.debit) || 0) && !(Number(r.credit) || 0);
+    })) {
       this.toaster.error('::EveryRowNeedsDebitOrCredit');
       return;
     }
@@ -316,6 +346,20 @@ export class JournalEntryFormComponent implements OnInit {
         }
 
         const lines: CreateJournalEntryLineDto[] = rows.map((r, index) => {
+          if (this.isExchangeGainOrLossMultiCurrency && this.isForeignRow(index)) {
+            const baseDebit = Number(r.baseDebit) || 0;
+            const baseCredit = Number(r.baseCredit) || 0;
+            const acctDebit = Number(r.debit) || 0;
+            const acctCredit = Number(r.credit) || 0;
+            const isDebit = baseDebit > 0 || (baseCredit <= 0 && acctDebit > 0);
+            return {
+              accountId: r.accountId,
+              isDebit,
+              amount: isDebit ? baseDebit : baseCredit,
+              amountInAccountCurrency: isDebit ? acctDebit : acctCredit,
+              exchangeRate: Number(r.exchangeRate) || null,
+            };
+          }
           const isDebit = (Number(r.debit) || 0) > 0;
           const amount = Number(isDebit ? r.debit : r.credit);
           // A foreign currency row sends what was entered: the account currency amount and its rate.

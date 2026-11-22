@@ -43,6 +43,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Received quantity in stock UOM = ReceivedQty × ConversionFactor (ERPNext PR #68233 / commit c882ab662d).</summary>
+    public decimal ReceivedStockQty => Math.Round(ReceivedQty * ConversionFactor, 4, MidpointRounding.AwayFromZero);
+
     /// <summary>Rejected quantity in stock UOM = RejectedQty × ConversionFactor.</summary>
     public decimal RejectedStockQty => RejectedQty * ConversionFactor;
 
@@ -140,19 +143,33 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     }
 
     /// <summary>
-    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197).
+    /// Fills <see cref="ReceivedQty"/> from <c>Quantity + RejectedQty</c> rounded to <paramref name="precision"/>
+    /// when <paramref name="updateStock"/> is true, <see cref="ReceivedQty"/> is 0, and either accepted or rejected
+    /// qty is non-zero per ERPNext PR #68233 (commits c882ab662d and cf4c5b043b, <c>set_received_qty</c>).
     /// </summary>
-    public void ValidateAcceptedRejectedQty(bool isReturn)
+    public void SetReceivedQty(bool updateStock = true, int precision = 4)
     {
+        if (!updateStock) return;
+        if (ReceivedQty == 0m && (Quantity != 0m || RejectedQty != 0m))
+        {
+            ReceivedQty = Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    /// <summary>
+    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197, PR #68233).
+    /// </summary>
+    public void ValidateAcceptedRejectedQty(bool isReturn, int precision = 4)
+    {
+        SetReceivedQty(updateStock: true, precision: precision);
+
         if (isReturn)
         {
             if (Quantity > 0 || RejectedQty > 0 || ReceivedQty > 0)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Accepted, rejected, and received quantities must be negative for return invoices.");
 
-            if (ReceivedQty == 0 && (Quantity < 0 || RejectedQty < 0))
-                ReceivedQty = Quantity + RejectedQty;
-            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+            if (Math.Abs(Math.Round(ReceivedQty, precision, MidpointRounding.AwayFromZero) - Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero)) > 0.0001m)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
         }
@@ -162,9 +179,7 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Accepted, rejected, and received quantities cannot be negative for normal invoices.");
 
-            if (ReceivedQty == 0 && (Quantity > 0 || RejectedQty > 0))
-                ReceivedQty = Quantity + RejectedQty;
-            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+            if (Math.Abs(Math.Round(ReceivedQty, precision, MidpointRounding.AwayFromZero) - Math.Round(Quantity + RejectedQty, precision, MidpointRounding.AwayFromZero)) > 0.0001m)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
         }

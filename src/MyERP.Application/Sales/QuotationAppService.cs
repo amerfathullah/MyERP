@@ -234,6 +234,10 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     [Authorize(MyERPPermissions.Quotations.Create)]
     public async Task<QuotationDto> CreateAsync(CreateQuotationDto input)
     {
+        // Per ERPNext PR #67433 (commit 930843cae7): raise mandatory error for selling documents without items
+        if (input.Items == null || input.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
         // Per ERPNext PR #59915 / commit 3d94050ade: default ValidUntil from CRM Settings if not set
         if (!input.ValidUntil.HasValue)
         {
@@ -388,6 +392,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     [Authorize(MyERPPermissions.Quotations.Edit)]
     public async Task<QuotationDto> UpdateAsync(Guid id, CreateQuotationDto input)
     {
+        if (input.Items == null || input.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
         var quotation = await _repository.GetAsync(id);
         if (quotation.Status != Core.DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);

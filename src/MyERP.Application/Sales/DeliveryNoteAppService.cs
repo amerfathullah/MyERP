@@ -387,6 +387,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
     public async Task<DeliveryNoteDto> UpdateAsync(Guid id, CreateDeliveryNoteDto input)
     {
+        if (input.Items == null || input.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
         var dn = await _repository.GetAsync(id);
         if (dn.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)

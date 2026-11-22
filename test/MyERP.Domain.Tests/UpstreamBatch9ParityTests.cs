@@ -2835,4 +2835,184 @@ public class UpstreamBatch9ParityTests
         mrpBulkRows[1].DefaultSupplierId.ShouldBe(groupSupplierId);
         mrpBulkRows[1].LeadTimeDays.ShouldBe(11); // 9 supplier purchase days + 2 buffer days (e17b4540ee)
     }
+
+    [Fact]
+    public async Task UpstreamBatch10_Subcontracting_Buying_Transit_PackedRate_MrSourceWh_And_DimensionCache_Parity()
+    {
+        var companyId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
+
+        // 1. Refuse cancelling Material to Supplier Stock Entry whose material was already consumed (e7d1fceb21)
+        var sco = new SubcontractingOrder(Guid.NewGuid(), companyId, "SCO-68170", DateTime.UtcNow.Date, Guid.NewGuid());
+        var rmItemId = Guid.NewGuid();
+        sco.AddSuppliedItem(new SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, rmItemId, "Steel Sheet", requiredQty: 10m)
+        {
+            TransferredQty = 4m,
+            ConsumedQty = 6m
+        });
+        var consumedEx = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingRmTransferService.ValidateConsumedQtyIsStillSupplied(sco, new[] { rmItemId }));
+        consumedEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (consumedEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("already consumed");
+
+        sco.SuppliedItems[0].TransferredQty = 6m;
+        Should.NotThrow(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingRmTransferService.ValidateConsumedQtyIsStillSupplied(sco, new[] { rmItemId }));
+
+        // 2. Subcontracting Inward Order status uses >= 100 for overproduction and over-delivery (0187676e69)
+        SubcontractingInwardOrder.ResolveInwardOrderFulfillmentStatus(true, "Ongoing", perReturned: 0m, perDelivered: 0m, perProduced: 120m, perRawMaterialReceived: 100m)
+            .ShouldBe("Produced");
+        SubcontractingInwardOrder.ResolveInwardOrderFulfillmentStatus(true, "Produced", perReturned: 0m, perDelivered: 120m, perProduced: 120m, perRawMaterialReceived: 100m)
+            .ShouldBe("Delivered");
+        SubcontractingInwardOrder.ResolveInwardOrderFulfillmentStatus(true, "Delivered", perReturned: 105m, perDelivered: 120m, perProduced: 120m, perRawMaterialReceived: 100m)
+            .ShouldBe("Returned");
+
+        // 3. Fill ReceivedQty rounded to precision before stock UOM conversion (c882ab662d, cf4c5b043b)
+        var pr = new PurchaseReceipt(Guid.NewGuid(), companyId, Guid.NewGuid(), Guid.NewGuid(), "PR-68233", DateTime.UtcNow.Date);
+        pr.AddItem(Guid.NewGuid(), "Box Item", quantity: 1.33334m, unitPrice: 10m, taxAmount: 0m, uom: "Box", rejectedQty: 0.66664m, receivedQty: 0m);
+        pr.Items[0].ConversionFactor = 10m;
+        pr.Items[0].ReceivedQty.ShouldBe(2.0m);
+        pr.Items[0].ReceivedStockQty.ShouldBe(20.0m);
+
+        var pi = new PurchaseInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "PI-68233", DateTime.UtcNow.Date)
+        {
+            UpdateStock = true
+        };
+        pi.AddItem(Guid.NewGuid(), "Box Item", quantity: 2.33334m, unitPrice: 10m, taxAmount: 0m, uom: "Box", receivedQty: 0m, rejectedQty: 0.16667m);
+        pi.Items[0].ConversionFactor = 4m;
+        pi.Items[0].ReceivedQty.ShouldBe(2.5m);
+        pi.Items[0].ReceivedStockQty.ShouldBe(10.0m);
+
+        // 4. Reposted internal receipt takes oldest cancelled SLE (CreationTime ASC), not newer rejected-into-transit reversal (2cb8e068a1, 95a51eabe3)
+        var detailId = Guid.NewGuid();
+        var transitWhId = Guid.NewGuid();
+        var creationTimeProp = typeof(StockLedgerEntry).GetProperty(nameof(StockLedgerEntry.CreationTime))!;
+        var oldestOriginalSle = new StockLedgerEntry(Guid.NewGuid(), companyId, rmItemId, transitWhId, DateTime.UtcNow.Date, TimeSpan.FromHours(9), -10m, 50m, 0m, 0m, "PurchaseReceipt", pr.Id, voucherDetailNo: detailId)
+        {
+            IsCancelled = true
+        };
+        creationTimeProp.SetValue(oldestOriginalSle, new DateTime(2026, 11, 18, 9, 0, 0, DateTimeKind.Utc));
+        var newerRejectedReversalSle = new StockLedgerEntry(Guid.NewGuid(), companyId, rmItemId, transitWhId, DateTime.UtcNow.Date, TimeSpan.FromHours(9), -3m, 50m, 0m, 0m, "PurchaseReceipt", pr.Id, voucherDetailNo: detailId)
+        {
+            IsCancelled = true
+        };
+        creationTimeProp.SetValue(newerRejectedReversalSle, new DateTime(2026, 11, 18, 9, 5, 0, DateTimeKind.Utc));
+        var repostedTransitQty = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveRepostedInternalReceiptTransitQty(
+            computedTransitQty: 7m, // e.g. distorted by subsequent return
+            isCancelling: false,
+            isReturn: false,
+            voucherDetailNo: detailId,
+            fromWarehouseId: transitWhId,
+            existingSles: new[] { newerRejectedReversalSle, oldestOriginalSle });
+        repostedTransitQty.ShouldBe(10m);
+
+        // 5. Packed item incoming rate updated from bundle picked on submit, except serial nos valued as a pool (4ed5d68047, 5b9c476c29)
+        SerialBatchBundleValidationService.ResolvePackedItemIncomingRateFromBundle(
+            currentIncomingRate: 100m,
+            bundleAvgRate: 125.55556m,
+            hasSerialNo: false,
+            useSerialNoWiseValuation: false).ShouldBe(125.5556m);
+        SerialBatchBundleValidationService.ResolvePackedItemIncomingRateFromBundle(
+            currentIncomingRate: 100m,
+            bundleAvgRate: 0m,
+            hasSerialNo: true,
+            useSerialNoWiseValuation: false).ShouldBe(100m); // pooled serial nos keep pre-bundle rate
+        SerialBatchBundleValidationService.ResolvePackedItemIncomingRateFromBundle(
+            currentIncomingRate: 100m,
+            bundleAvgRate: 140m,
+            hasSerialNo: true,
+            useSerialNoWiseValuation: true).ShouldBe(140m);
+
+        // 6. Material Request source warehouse ignores user read refusal and hides stock when outside warehouse OR company permissions (f7bff6daab, 67fe2bf517)
+        var targetWhId = Guid.NewGuid();
+        var restrictedSourceWhId = Guid.NewGuid();
+        var permittedSourceWhId = Guid.NewGuid();
+        var mrItemId = Guid.NewGuid();
+        var mrItem = new Item(mrItemId, companyId, "MR-ITM-67502", "MR Item", ItemType.Goods) { MaintainStock = true, Uom = "Unit" };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetAsync(mrItemId).Returns(mrItem);
+        var itemDefaultRepo = Substitute.For<IRepository<ItemDefault, Guid>>();
+        itemDefaultRepo.GetQueryableAsync().Returns(Array.Empty<ItemDefault>().AsQueryable());
+        var itemGroupRepo = Substitute.For<IRepository<ItemGroup, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        binRepo.GetQueryableAsync().Returns(new[]
+        {
+            new Bin(Guid.NewGuid(), mrItemId, restrictedSourceWhId) { ActualQty = 50m },
+            new Bin(Guid.NewGuid(), mrItemId, permittedSourceWhId) { ActualQty = 25m },
+            new Bin(Guid.NewGuid(), mrItemId, targetWhId) { ActualQty = 5m }
+        }.AsQueryable());
+        var uomRepo = Substitute.For<IRepository<UomConversion, Guid>>();
+        uomRepo.GetQueryableAsync().Returns(Array.Empty<UomConversion>().AsQueryable());
+        var resolver = new ItemDetailsResolverService(itemRepo, itemDefaultRepo, itemGroupRepo, binRepo, new UomConversionService(uomRepo));
+
+        // Unpermitted warehouse: allowed without throwing, stock hidden as 0
+        var hiddenByWh = await resolver.ResolveAsync(new ItemResolutionContext
+        {
+            ItemId = mrItemId,
+            CompanyId = companyId,
+            TransactionType = TransactionType.Buying,
+            WarehouseOverride = targetWhId,
+            FromWarehouseId = restrictedSourceWhId,
+            FromWarehouseCompanyId = companyId,
+            IsMaterialRequest = true,
+            IsMaterialTransfer = true,
+            PermittedWarehouseIds = new HashSet<Guid> { targetWhId, permittedSourceWhId }
+        });
+        hiddenByWh.ActualQty.ShouldBe(0m);
+        hiddenByWh.ProjectedQty.ShouldBe(0m);
+
+        // Outside user's company permission: allowed without throwing, stock hidden as 0
+        var hiddenByCompany = await resolver.ResolveAsync(new ItemResolutionContext
+        {
+            ItemId = mrItemId,
+            CompanyId = companyId,
+            TransactionType = TransactionType.Buying,
+            WarehouseOverride = targetWhId,
+            FromWarehouseId = permittedSourceWhId,
+            FromWarehouseCompanyId = otherCompanyId,
+            IsMaterialRequest = true,
+            IsMaterialTransfer = true,
+            PermittedCompanyIds = new HashSet<Guid> { companyId }
+        });
+        hiddenByCompany.ActualQty.ShouldBe(0m);
+
+        // Permitted source warehouse + company: shows source warehouse stock
+        var visibleStock = await resolver.ResolveAsync(new ItemResolutionContext
+        {
+            ItemId = mrItemId,
+            CompanyId = companyId,
+            TransactionType = TransactionType.Buying,
+            WarehouseOverride = targetWhId,
+            FromWarehouseId = permittedSourceWhId,
+            FromWarehouseCompanyId = companyId,
+            IsMaterialRequest = true,
+            IsMaterialTransfer = true,
+            PermittedWarehouseIds = new HashSet<Guid> { targetWhId, permittedSourceWhId },
+            PermittedCompanyIds = new HashSet<Guid> { companyId }
+        });
+        visibleStock.ActualQty.ShouldBe(25m);
+
+        // 7. AccountingDimensionService caches enabled dimensions per service instance and invalidates on ClearCache (51624525a5)
+        var dimRepo = Substitute.For<IRepository<MyERP.Accounting.Entities.AccountingDimension, Guid>>();
+        dimRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.Accounting.Entities.AccountingDimension, bool>>>())
+            .Returns(new List<MyERP.Accounting.Entities.AccountingDimension>
+            {
+                new(Guid.NewGuid(), "Branch", "Branch") { CompanyId = companyId }
+            });
+        var dimService = new MyERP.Accounting.DomainServices.AccountingDimensionService(
+            dimRepo,
+            Substitute.For<IRepository<MyERP.Accounting.Entities.AccountingDimensionFilter, Guid>>(),
+            Substitute.For<IRepository<MyERP.Accounting.Entities.GlDimensionValue, Guid>>(),
+            Substitute.For<IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+            Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>());
+
+        (await dimService.GetEnabledDimensionsAsync(companyId)).Count.ShouldBe(1);
+        (await dimService.GetEnabledDimensionsAsync(companyId)).Count.ShouldBe(1);
+        await dimRepo.Received(1).GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.Accounting.Entities.AccountingDimension, bool>>>());
+
+        dimService.ClearCache();
+        (await dimService.GetEnabledDimensionsAsync(companyId)).Count.ShouldBe(1);
+        await dimRepo.Received(2).GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.Accounting.Entities.AccountingDimension, bool>>>());
+    }
 }

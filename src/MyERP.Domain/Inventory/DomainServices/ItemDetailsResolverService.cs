@@ -93,6 +93,20 @@ public class ItemDetailsResolverService : DomainService
         // STEP 6: Warehouse resolution — 6-level chain per ERPNext
         result.WarehouseId = ResolveWarehouse(context, defaults, item);
 
+        // Per ERPNext PR #67502 (commit f7bff6daab): validate user permission on target warehouse only;
+        // Material Request source warehouse (FromWarehouseId) ignores user permissions and hides its stock instead.
+        if (context.PermittedWarehouseIds != null && context.PermittedWarehouseIds.Count > 0)
+        {
+            if (result.WarehouseId.HasValue)
+            {
+                BatchWarehousePermissionValidator.ValidateWarehouseAccess(result.WarehouseId.Value, context.PermittedWarehouseIds);
+            }
+            if (context.WarehouseOverride.HasValue && context.WarehouseOverride != result.WarehouseId)
+            {
+                BatchWarehousePermissionValidator.ValidateWarehouseAccess(context.WarehouseOverride.Value, context.PermittedWarehouseIds);
+            }
+        }
+
         // STEP 7: Price resolution — priority chain per ERPNext get_price_list_rate_for():
         // 1. Party-specific Item Price (supplier for buying, customer for selling)
         // 2. Generic Item Price from the applicable price list
@@ -252,8 +266,32 @@ public class ItemDetailsResolverService : DomainService
     {
         var binQuery = await _binRepo.GetQueryableAsync();
 
+        // Per ERPNext PR #67502 (commits f7bff6daab and 67fe2bf517, update_bin_details):
+        // Material Request (Material Transfer) inspects stock at FromWarehouseId, but hides stock as zero
+        // when the source warehouse is outside the user's warehouse OR company permissions.
+        Guid? targetWarehouse;
+        if (context.IsMaterialRequest && context.IsMaterialTransfer)
+        {
+            if (context.FromWarehouseId.HasValue &&
+                BatchWarehousePermissionValidator.IsWarehouseWithinUserPermissions(
+                    context.FromWarehouseId.Value,
+                    context.FromWarehouseCompanyId,
+                    context.PermittedWarehouseIds,
+                    context.PermittedCompanyIds))
+            {
+                targetWarehouse = context.FromWarehouseId.Value;
+            }
+            else
+            {
+                targetWarehouse = null;
+            }
+        }
+        else
+        {
+            targetWarehouse = result.WarehouseId;
+        }
+
         // Per-warehouse stock
-        var targetWarehouse = result.WarehouseId;
         if (targetWarehouse.HasValue)
         {
             var bin = binQuery.FirstOrDefault(b => b.ItemId == result.ItemId && b.WarehouseId == targetWarehouse.Value);
@@ -460,6 +498,16 @@ public class ItemResolutionContext
     public DateTime? TransactionDate { get; set; }
     /// <summary>Per ERPNext: Material Request forces rate=0 for all items.</summary>
     public bool IsMaterialRequest { get; set; }
+    /// <summary>Per ERPNext PR #67502: Material Request with type Material Transfer checks stock at FromWarehouseId.</summary>
+    public bool IsMaterialTransfer { get; set; }
+    /// <summary>Optional source warehouse (e.g. Material Request Transfer source warehouse; ignores user read block and hides stock instead).</summary>
+    public Guid? FromWarehouseId { get; set; }
+    /// <summary>Company ID of <see cref="FromWarehouseId"/> for company-permission visibility checks (commit 67fe2bf517).</summary>
+    public Guid? FromWarehouseCompanyId { get; set; }
+    /// <summary>Optional set of warehouses the current user is permitted to read.</summary>
+    public ISet<Guid>? PermittedWarehouseIds { get; set; }
+    /// <summary>Optional set of companies the current user is permitted to read.</summary>
+    public ISet<Guid>? PermittedCompanyIds { get; set; }
 }
 
 public class ResolvedItemDetails

@@ -1604,4 +1604,130 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             excessEx.Code.ShouldBe(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch10_EndToEnd_SubcontractingCancelGuard_ExchangeGainLoss_ReceivedQty_MrSourceWh_And_EmptyQuotation()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch10 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var otherCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch10 Other Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var fy = await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B10", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JournalEntry", "JournalEntry", "JE-B10-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PurchaseReceipt", "PurchaseReceipt", "PR-B10-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "StockEntry", "StockEntry", "SE-B10-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation", "Quotation", "QTN-B10-"), autoSave: true);
+
+            // 1. JournalEntryAppService preserves independent base amount & zero foreign balance for ExchangeGainOrLoss + MultiCurrency (eb610ea5a9)
+            var usdArAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1210-USD", "AR USD", MyERP.Accounting.AccountType.Asset) { Currency = "USD" }, autoSave: true);
+            var fxGainLossAccount = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "7900-FX", "Exchange Gain/Loss", MyERP.Accounting.AccountType.Expense) { Currency = "MYR" }, autoSave: true);
+            var jeService = GetRequiredService<MyERP.Accounting.IJournalEntryAppService>();
+            var fxJe = await jeService.CreateAsync(new MyERP.Accounting.CreateJournalEntryDto
+            {
+                CompanyId = company.Id,
+                FiscalYearId = fy.Id,
+                PostingDate = DateTime.Today,
+                VoucherType = MyERP.Accounting.JournalEntryVoucherType.ExchangeGainOrLoss,
+                IsMultiCurrency = true,
+                Narration = "Zero foreign balance revaluation",
+                Lines = new List<MyERP.Accounting.CreateJournalEntryLineDto>
+                {
+                    new() { AccountId = usdArAccount.Id, IsDebit = true, Amount = 125.50m, AmountInAccountCurrency = 0m, ExchangeRate = 4.45m },
+                    new() { AccountId = fxGainLossAccount.Id, IsDebit = false, Amount = 125.50m }
+                }
+            });
+            fxJe.Lines.First(l => l.AccountId == usdArAccount.Id).Amount.ShouldBe(125.50m);
+            fxJe.Lines.First(l => l.AccountId == usdArAccount.Id).AmountInAccountCurrency.ShouldBe(0m);
+
+            // 2. PurchaseReceiptAppService fills & rounds ReceivedQty before stock conversion on first save (c882ab662d, cf4c5b043b)
+            var mainWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B10 Main WH"), autoSave: true);
+            var otherWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), otherCompany.Id, "B10 Other Co WH"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B10 Supplier"), autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B10 Customer"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B10-ITM", "Batch 10 Item", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var prService = GetRequiredService<IPurchaseReceiptAppService>();
+            var createdPr = await prService.CreateAsync(new CreatePurchaseReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                WarehouseId = mainWh.Id,
+                PostingDate = DateTime.Today,
+                Items = new List<CreatePurchaseReceiptItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = item.ItemName,
+                        Quantity = 3.33334m,
+                        RejectedQty = 0m,
+                        ReceivedQty = 0m,
+                        UnitPrice = 10m,
+                        Uom = "Unit"
+                    }
+                }
+            });
+            createdPr.Items[0].ReceivedQty.ShouldBe(3.3333m);
+
+            // 3. ItemDetailsAppService hides stock of Material Request Transfer source warehouse outside company permissions (f7bff6daab, 67fe2bf517)
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), item.Id, otherWh.Id) { ActualQty = 99m }, autoSave: true);
+            var itemDetailsService = GetRequiredService<IItemDetailsAppService>();
+            var mrDetails = await itemDetailsService.GetItemDetailsAsync(new GetItemDetailsInput
+            {
+                ItemId = item.Id,
+                CompanyId = company.Id,
+                TransactionType = "Buying",
+                WarehouseId = mainWh.Id,
+                FromWarehouseId = otherWh.Id,
+                IsMaterialRequest = true,
+                IsMaterialTransfer = true
+            });
+            mrDetails.ActualQty.ShouldBe(0m);
+            mrDetails.ProjectedQty.ShouldBe(0m);
+            mrDetails.Rate.ShouldBe(0m);
+
+            // 4. QuotationAppService raises mandatory validation error when created without items (930843cae7)
+            var quotationService = GetRequiredService<MyERP.Sales.IQuotationAppService>();
+            await Should.ThrowAsync<Volo.Abp.Validation.AbpValidationException>(() =>
+                quotationService.CreateAsync(new MyERP.Sales.CreateQuotationDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    IssueDate = DateTime.Today,
+                    Items = new List<MyERP.Sales.CreateQuotationItemDto>()
+                }));
+
+            // 5. SubcontractingRmTransferService.RecordRmTransferAsync(reverse: true) refuses cancellation when SCO already consumed supplied RM (e7d1fceb21)
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B10-001", DateTime.Today, supplier.Id);
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, item.Id, item.ItemName, 10m, 20m));
+            sco.AddSuppliedItem(new MyERP.Purchasing.Entities.SubcontractingOrderSuppliedItem(Guid.NewGuid(), sco.Id, item.Id, item.ItemName, 10m)
+            {
+                TransferredQty = 10m,
+                ConsumedQty = 6m
+            });
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var rmTransferService = GetRequiredService<MyERP.Purchasing.DomainServices.SubcontractingRmTransferService>();
+            var cancelRmEx = await Should.ThrowAsync<BusinessException>(() =>
+                rmTransferService.RecordRmTransferAsync(
+                    sco.Id,
+                    new[] { new MyERP.Purchasing.DomainServices.RmTransferLine { ItemId = item.Id, Qty = 5m } },
+                    reverse: true));
+            cancelRmEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (cancelRmEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("already consumed");
+        });
+    }
 }

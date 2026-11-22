@@ -168,8 +168,10 @@ public class SubcontractingRmTransferService : DomainService
     }
 
     /// <summary>
-    /// Updates the SCO supplied items when RM stock entry is submitted.
-    /// Increments transferred_qty for each supplied item row.
+    /// Updates the SCO supplied items when RM stock entry is submitted or cancelled.
+    /// Increments transferred_qty on submit; decrements on cancel and validates per ERPNext
+    /// PR #68170 (commit e7d1fceb21) that receipts of the order have not already consumed
+    /// more material than the order would still have supplied after cancellation.
     /// </summary>
     public async Task RecordRmTransferAsync(
         Guid scoId, IEnumerable<RmTransferLine> transferLines, bool reverse = false)
@@ -177,6 +179,7 @@ public class SubcontractingRmTransferService : DomainService
         var sco = (await _scoRepository.WithDetailsAsync())
             .First(s => s.Id == scoId);
 
+        var touchedItemIds = new HashSet<Guid>();
         foreach (var line in transferLines)
         {
             var suppliedItem = sco.SuppliedItems
@@ -189,10 +192,50 @@ public class SubcontractingRmTransferService : DomainService
             else
                 suppliedItem.TransferredQty += line.Qty;
 
+            touchedItemIds.Add(suppliedItem.ItemId);
             // Rate tracking done via SLE (incoming_rate at transfer time)
         }
 
+        if (reverse)
+        {
+            ValidateConsumedQtyIsStillSupplied(sco, touchedItemIds);
+        }
+
         await _scoRepository.UpdateAsync(sco);
+    }
+
+    /// <summary>
+    /// Validates that receipts of a Subcontracting Order have not consumed more raw material
+    /// than remains supplied after cancelling a Send to Subcontractor stock entry
+    /// (ERPNext PR #68170 / commit e7d1fceb21, <c>validate_consumed_qty_is_still_supplied</c>).
+    /// </summary>
+    public static void ValidateConsumedQtyIsStillSupplied(
+        SubcontractingOrder sco,
+        IEnumerable<Guid>? itemIds = null,
+        int precision = 4)
+    {
+        if (sco == null) return;
+
+        var filterSet = itemIds != null ? new HashSet<Guid>(itemIds) : null;
+        var rowIndex = 0;
+        foreach (var row in sco.SuppliedItems)
+        {
+            rowIndex++;
+            if (filterSet != null && filterSet.Count > 0 && !filterSet.Contains(row.ItemId))
+                continue;
+
+            var consumed = Math.Round(row.ConsumedQty, precision, MidpointRounding.AwayFromZero);
+            var supplied = Math.Round(row.TransferredQty, precision, MidpointRounding.AwayFromZero);
+            if (consumed > supplied)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("orderNumber", sco.OrderNumber)
+                    .WithData("itemId", row.ItemId)
+                    .WithData("consumedQty", row.ConsumedQty)
+                    .WithData("suppliedQty", row.TransferredQty)
+                    .WithData("detail", $"Cannot cancel: receipts of Subcontracting Order {sco.OrderNumber} already consumed {row.ConsumedQty} of Item {row.ItemName} (row {rowIndex}), more than the {row.TransferredQty} it would still have supplied.");
+            }
+        }
     }
 
     /// <summary>

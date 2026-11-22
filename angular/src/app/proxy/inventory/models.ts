@@ -1182,6 +1182,9 @@ export interface GetItemDetailsInput {
   prospectId?: string | null;
   currencyCode?: string | null;
   exchangeRate?: number | null;
+  fromWarehouseId?: string | null;
+  isMaterialRequest?: boolean;
+  isMaterialTransfer?: boolean;
 }
 
 export interface GetItemLeadTimeListDto extends PagedAndSortedResultRequestDto {
