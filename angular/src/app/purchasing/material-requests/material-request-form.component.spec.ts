@@ -1,5 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { FormBuilder, FormArray, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
+import { of } from 'rxjs';
+import { MaterialRequestFormComponent } from './material-request-form.component';
+import { MaterialRequestStore } from '../store/material-request.store';
+import { MaterialRequestService } from '../../proxy/purchasing/material-request.service';
+import { CompanyService } from '../../proxy/core/company.service';
+import { CompanyContextService } from '../../shared/services/company-context.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ItemService } from '../../proxy/inventory/item.service';
+import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
+import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 
 /**
  * Material Request Form Component — Critical procurement form tests.
@@ -204,6 +218,50 @@ describe('MaterialRequestFormComponent', () => {
       const dto = form.getRawValue();
       expect(dto.items[0].warehouseId).toBe('wh-stores');
       expect(dto.items[1].warehouseId).toBe('wh-production');
+    });
+  });
+
+  describe('Material Transfer source warehouse stock resolution (PR #67502)', () => {
+    it('passes fromWarehouseId and isMaterialTransfer to ItemDetailsService and clears sourceWarehouseId when leaving MaterialTransfer', () => {
+      const getItemDetailsMock = vi.fn().mockReturnValue(of({ actualQty: 0 }));
+      const injector = Injector.create({
+        providers: [
+          { provide: FormBuilder, useValue: new FormBuilder() },
+          { provide: Router, useValue: { navigate: vi.fn() } },
+          { provide: MaterialRequestStore, useValue: {} },
+          { provide: MaterialRequestService, useValue: { create: vi.fn() } },
+          { provide: CompanyService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: CompanyContextService, useValue: { currentCompanyId: () => 'comp-1' } },
+          { provide: WarehouseService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ItemService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [{ id: 'item-1', itemName: 'Steel', uom: 'Kg' }] })) } },
+          { provide: ItemDetailsService, useValue: { getItemDetails: getItemDetailsMock } },
+          { provide: SalesOrderService, useValue: { getList: vi.fn().mockReturnValue(of({ items: [] })) } },
+          { provide: ToasterService, useValue: { success: vi.fn(), error: vi.fn(), info: vi.fn() } },
+          { provide: LocalizationService, useValue: { instant: (k: string) => k } },
+        ],
+      });
+
+      const comp = runInInjectionContext(injector, () => new MaterialRequestFormComponent());
+      comp.ngOnInit();
+      comp.form.patchValue({ companyId: 'comp-1', requestType: 1, sourceWarehouseId: 'wh-other-co', targetWarehouseId: 'wh-target' });
+      expect(comp.isMaterialTransfer).toBe(true);
+
+      comp.items.at(0).patchValue({ itemId: 'item-1' });
+      comp.onItemSelected(0, 'item-1');
+
+      expect(getItemDetailsMock).toHaveBeenCalledWith(expect.objectContaining({
+        itemId: 'item-1',
+        companyId: 'comp-1',
+        fromWarehouseId: 'wh-other-co',
+        isMaterialRequest: true,
+        isMaterialTransfer: true,
+      }));
+      expect(comp.rowActualQty()[0]).toBe(0);
+
+      // Switching away from MaterialTransfer clears sourceWarehouseId
+      comp.form.patchValue({ requestType: 0 });
+      expect(comp.isMaterialTransfer).toBe(false);
+      expect(comp.form.get('sourceWarehouseId')?.value).toBe('');
     });
   });
 });

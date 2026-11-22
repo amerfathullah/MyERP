@@ -45,10 +45,16 @@
           </div>
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label" for="idType">{{ '::IDType' | abpLocalization }}</label>
-            <input id="idType" type="text" class="form-control" formControlName="idType" />
+            <select id="idType" class="form-select" formControlName="idType">
+              <option value="BRN">BRN (Business Registration)</option>
+              <option value="NRIC">NRIC (MyKad)</option>
+              <option value="PASSPORT">Passport</option>
+              <option value="ARMY">ARMY (My Tentera)</option>
+              <option value="MYKAS">MyKas</option>
+            </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
-            <label class="form-label" for="idValue">{{ '::IDValue' | abpLocalization }}</label>
+            <label class="form-label" for="idValue">{{ idValueLabel }}</label>
             <div class="input-group">
               <input id="idValue" type="text" class="form-control" formControlName="idValue" />
               <button type="button" class="btn btn-outline-info" (click)="verifyTaxpayer()" [disabled]="searchingTaxpayer() || !form.get('idValue')?.value">

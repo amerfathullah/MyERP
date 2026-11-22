@@ -16,10 +16,10 @@
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label">{{ '::RequestType' | abpLocalization }} <span class="text-danger">*</span></label>
             <select class="form-select" formControlName="requestType">
-              <option [value]="0">{{ '::Purchase' | abpLocalization }}</option>
-              <option [value]="1">{{ '::MaterialTransfer' | abpLocalization }}</option>
-              <option [value]="2">{{ '::MaterialIssue' | abpLocalization }}</option>
-              <option [value]="3">{{ '::Manufacture' | abpLocalization }}</option>
+              <option [ngValue]="0">{{ '::Purchase' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::MaterialTransfer' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::MaterialIssue' | abpLocalization }}</option>
+              <option [ngValue]="3">{{ '::Manufacture' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
@@ -30,15 +30,17 @@
             <label class="form-label">{{ '::RequiredByDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="requiredByDate" />
           </div>
-          <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
-            <select class="form-select" formControlName="sourceWarehouseId">
-              <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
-              @for (w of warehouses(); track w.id) {
-                <option [value]="w.id">{{ w.name }}</option>
-              }
-            </select>
-          </div>
+          @if (isMaterialTransfer) {
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
+              <select class="form-select" formControlName="sourceWarehouseId">
+                <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
+                @for (w of warehouses(); track w.id) {
+                  <option [value]="w.id">{{ w.name }}</option>
+                }
+              </select>
+            </div>
+          }
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::TargetWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="targetWarehouseId">
@@ -102,12 +104,17 @@
                            title="{{ '::UomLockedToItemStockUnit' | abpLocalization }}" />
                   </td>
                   <td>
-                    <select class="form-select form-select-sm" formControlName="warehouseId">
+                    <select class="form-select form-select-sm" formControlName="warehouseId" (change)="fetchRowStock(i)">
                       <option value="">— {{ '::SelectWarehouse' | abpLocalization }} —</option>
                       @for (w of warehouses(); track w.id) {
                         <option [value]="w.id">{{ w.name }}</option>
                       }
                     </select>
+                    @if (rowActualQty()[i] !== null && rowActualQty()[i] !== undefined) {
+                      <small class="text-muted d-block mt-1">
+                        {{ '::Stock' | abpLocalization }}: <span class="font-monospace">{{ rowActualQty()[i] }}</span>
+                      </small>
+                    }
                   </td>
                   <td>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItemRow(i)" aria-label="Remove">

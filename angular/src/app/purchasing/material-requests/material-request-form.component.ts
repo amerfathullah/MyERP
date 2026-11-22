@@ -10,6 +10,7 @@ import { MaterialRequestService } from '../../proxy/purchasing/material-request.
 import { CompanyService } from '../../proxy/core/company.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { ItemDetailsService } from '../../proxy/inventory/item-details.service';
 import { SalesOrderService } from '../../proxy/sales/sales-order.service';
 import type { CompanyDto } from '../../proxy/core/models';
 
@@ -34,6 +35,7 @@ export class MaterialRequestFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private warehouseService = inject(WarehouseService);
   private itemService = inject(ItemService);
+  private itemDetailsService = inject(ItemDetailsService, { optional: true });
   private salesOrderService = inject(SalesOrderService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -44,6 +46,12 @@ export class MaterialRequestFormComponent implements OnInit {
   availableItems = signal<any[]>([]);
   salesOrders = signal<any[]>([]);
   isLoadingSoItems = signal(false);
+  /** Per-row stock availability from ItemDetailsService (0 when MR Transfer source warehouse is hidden/unpermitted per PR #67502). */
+  rowActualQty = signal<Record<number, number | null>>({});
+
+  get isMaterialTransfer(): boolean {
+    return Number(this.form?.get('requestType')?.value) === 1;
+  }
 
   get items(): FormArray {
     return this.form.get('items') as FormArray;
@@ -61,6 +69,14 @@ export class MaterialRequestFormComponent implements OnInit {
       items: this.fb.array([]),
     });
     this.addItemRow();
+
+    this.form.get('requestType')?.valueChanges.subscribe((type) => {
+      if (Number(type) !== 1) {
+        this.form.get('sourceWarehouseId')?.setValue('', { emitEvent: false });
+      }
+      this.refreshAllRowsStock();
+    });
+    this.form.get('sourceWarehouseId')?.valueChanges.subscribe(() => this.refreshAllRowsStock());
 
     const cid = this.companyContext.currentCompanyId();
     if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
@@ -96,6 +112,49 @@ export class MaterialRequestFormComponent implements OnInit {
     if (item) {
       const row = this.items.at(index) as FormGroup;
       row.patchValue({ itemName: item.itemName || item.itemCode, uom: item.uom || 'Unit' });
+    }
+    this.fetchRowStock(index);
+  }
+
+  /**
+   * Fetches stock availability via ItemDetailsService.
+   * Per ERPNext PR #67502 (commits f7bff6daab, 67fe2bf517): Material Transfer passes fromWarehouseId
+   * with isMaterialRequest/isMaterialTransfer so unpermitted source warehouses return 0 without failing.
+   */
+  fetchRowStock(index: number): void {
+    if (!this.itemDetailsService) return;
+    const row = this.items.at(index) as FormGroup | undefined;
+    const itemId = row?.get('itemId')?.value;
+    if (!itemId) {
+      this.rowActualQty.update((curr) => ({ ...curr, [index]: null }));
+      return;
+    }
+    const companyId = this.form.get('companyId')?.value || null;
+    const warehouseId = row?.get('warehouseId')?.value || this.form.get('targetWarehouseId')?.value || null;
+    const fromWarehouseId = this.isMaterialTransfer ? (this.form.get('sourceWarehouseId')?.value || null) : null;
+    this.itemDetailsService.getItemDetails({
+      itemId,
+      companyId,
+      transactionType: 'Buying',
+      warehouseId,
+      fromWarehouseId,
+      isMaterialRequest: true,
+      isMaterialTransfer: this.isMaterialTransfer,
+    }).subscribe({
+      next: (details) => {
+        this.rowActualQty.update((curr) => ({ ...curr, [index]: details.actualQty ?? 0 }));
+      },
+      error: () => {
+        this.rowActualQty.update((curr) => ({ ...curr, [index]: null }));
+      },
+    });
+  }
+
+  private refreshAllRowsStock(): void {
+    for (let i = 0; i < this.items.length; i++) {
+      if (this.items.at(i).get('itemId')?.value) {
+        this.fetchRowStock(i);
+      }
     }
   }
 

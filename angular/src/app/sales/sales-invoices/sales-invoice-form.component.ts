@@ -247,6 +247,10 @@ export class SalesInvoiceFormComponent implements OnInit {
           originalInvoiceNumber: invoice.originalInvoiceNumber ?? '',
           originalInvoiceUuid: invoice.originalInvoiceUuid ?? '',
         });
+        // Per MyInvois public/js/sales.js: disable isSubmitToLhdn when already merged into a Consolidated Invoice
+        if ((invoice as any).consolidatedSalesInvoiceId) {
+          this.form.get('isSubmitToLhdn')?.disable({ emitEvent: false });
+        }
         // Rebuild child FormArray from loaded items
         invoice.items?.forEach((item) => this.addItemRow(item));
 

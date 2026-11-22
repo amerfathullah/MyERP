@@ -111,6 +111,27 @@ export class SupplierFormComponent implements OnInit {
   isEditMode = false;
   entityId: string | null = null;
 
+  /** Per MyInvois public/js/customer.js: dynamic label for registration/IC/passport number based on selected ID type. */
+  get idValueLabel(): string {
+    const type = (this.form.get('idType')?.value || '').trim().toLowerCase();
+    switch (type) {
+      case 'brn':
+        return 'Business Registration Number';
+      case 'nric':
+      case 'mykad':
+        return 'MyKad Number';
+      case 'mykas':
+        return 'MyKas Number';
+      case 'army':
+      case 'my tentera':
+        return 'My Tentera Number';
+      case 'passport':
+        return 'Passport Number';
+      default:
+        return 'Registration / IC / Passport Number';
+    }
+  }
+
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;

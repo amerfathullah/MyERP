@@ -842,17 +842,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 // puts accepted (and rejected when left transit) qty back into in-transit warehouse.
                 if (fromWarehouseId.HasValue)
                 {
-                    var returnedToSourceQty = staysInTransit
-                        ? Math.Abs(item.StockQty)
-                        : Math.Abs(item.TotalReceivedStockQty);
-                    if (originalItem != null && receipt.ReturnAgainstId.HasValue)
+                    var repostedReturnTransitQty = await ResolveRepostedTransitQtyAsync(
+                        receipt.Id, item.ItemId, fromWarehouseId.Value, outward: false, voucherDetailNo: item.Id);
+                    var returnedToSourceQty = repostedReturnTransitQty
+                        ?? (staysInTransit ? Math.Abs(item.StockQty) : Math.Abs(item.TotalReceivedStockQty));
+                    if (!repostedReturnTransitQty.HasValue && originalItem != null && receipt.ReturnAgainstId.HasValue)
                     {
                         var originalFallback = staysInTransit
                             ? Math.Abs(originalItem.StockQty)
                             : Math.Abs(originalItem.TotalReceivedStockQty);
                         var originalTakenFromTransit = await ResolvePostedTransitQtyAsync(
                             receipt.ReturnAgainstId.Value, item.ItemId, fromWarehouseId.Value,
-                            outward: true, fallbackQty: originalFallback);
+                            outward: true, fallbackQty: originalFallback, voucherDetailNo: originalItem.Id);
 
                         decimal alreadyReturnedToTransit = 0m;
                         foreach (var priorRet in priorSubmittedReturns)
@@ -942,7 +943,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 var staysInTransit = item.FromWarehouseId.HasValue && item.RejectedWarehouseId == item.FromWarehouseId;
                 if (item.FromWarehouseId.HasValue)
                 {
-                    var sourceStockQty = staysInTransit ? stockQty : item.TotalReceivedStockQty;
+                    // Per ERPNext PR #68435 & #68373 (commits 2cb8e068a1, 95a51eabe3):
+                    // if this row was reposted, reuse what its oldest cancelled SLE originally took out of transit.
+                    var repostedSourceQty = await ResolveRepostedTransitQtyAsync(
+                        receipt.Id, item.ItemId, item.FromWarehouseId.Value, outward: true, voucherDetailNo: item.Id);
+                    var sourceStockQty = repostedSourceQty ?? (staysInTransit ? stockQty : item.TotalReceivedStockQty);
                     if (sourceStockQty > 0)
                     {
                         await _valuationService.CreateLedgerEntryAsync(
@@ -1520,29 +1525,60 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     /// Per ERPNext commit efa1c14797: when rejected material stays in the transit warehouse, the row
     /// has both an outward and an inward entry there; filtering by direction reverses the transit entry itself.
     /// </summary>
+    /// <summary>
+    /// Looks up the stock quantity of a receipt row's active or cancelled transit Stock Ledger Entry,
+    /// explicitly ordered by <c>CreationTime ASC</c> per ERPNext PR #68435 (commit 2cb8e068a1) and
+    /// PR #68373 (commit 95a51eabe3, <c>get_posted_qty</c>) so cancelled reposts take the original entry
+    /// rather than a newer reversal of a rejected-into-transit entry.
+    /// </summary>
     private async Task<decimal> ResolvePostedTransitQtyAsync(
-        Guid receiptId, Guid itemId, Guid warehouseId, bool outward, decimal fallbackQty)
+        Guid receiptId, Guid itemId, Guid warehouseId, bool outward, decimal fallbackQty,
+        bool cancelled = false, Guid? voucherDetailNo = null)
+    {
+        var found = await TryResolveTransitSleQtyAsync(receiptId, itemId, warehouseId, outward, cancelled, voucherDetailNo);
+        return found ?? fallbackQty;
+    }
+
+    private Task<decimal?> ResolveRepostedTransitQtyAsync(
+        Guid receiptId, Guid itemId, Guid warehouseId, bool outward, Guid? voucherDetailNo = null)
+    {
+        return TryResolveTransitSleQtyAsync(receiptId, itemId, warehouseId, outward, cancelled: true, voucherDetailNo);
+    }
+
+    private async Task<decimal?> TryResolveTransitSleQtyAsync(
+        Guid receiptId, Guid itemId, Guid warehouseId, bool outward, bool cancelled, Guid? voucherDetailNo)
     {
         var sleRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
-        if (sleRepo == null) return fallbackQty;
+        if (sleRepo == null) return null;
 
         try
         {
             var query = await sleRepo.GetQueryableAsync();
-            if (query == null) return fallbackQty;
+            if (query == null) return null;
 
-            var matching = query
+            var baseMatches = query
                 .Where(s => s.VoucherType == "PurchaseReceipt"
                     && s.VoucherId == receiptId
                     && s.ItemId == itemId
                     && s.WarehouseId == warehouseId
+                    && s.IsCancelled == cancelled
                     && (outward ? s.QuantityChange < 0m : s.QuantityChange > 0m))
-                .Select(s => s.QuantityChange)
+                .OrderBy(s => s.CreationTime)
+                .Select(s => new { s.VoucherDetailNo, s.QuantityChange })
                 .ToList();
 
-            if (matching.Count > 0)
+            if (voucherDetailNo.HasValue)
             {
-                return Math.Abs(matching[0]);
+                var detailMatch = baseMatches.FirstOrDefault(m => m.VoucherDetailNo == voucherDetailNo.Value);
+                if (detailMatch != null)
+                {
+                    return Math.Abs(detailMatch.QuantityChange);
+                }
+            }
+
+            if (baseMatches.Count > 0)
+            {
+                return Math.Abs(baseMatches[0].QuantityChange);
             }
         }
         catch
@@ -1550,7 +1586,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             // Unit tests where StockLedgerEntry queryable is not configured
         }
 
-        return fallbackQty;
+        return null;
     }
 
     /// <summary>

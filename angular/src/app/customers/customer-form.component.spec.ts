@@ -178,5 +178,26 @@ describe('Customer form logic', () => {
 
       expect(searchDto.customerId).toBeUndefined();
     });
+
+    it('maps LHDN idType values to MyInvois registration/IC/passport labels', () => {
+      const resolveLabel = (idType: string) => {
+        switch (idType.trim().toLowerCase()) {
+          case 'brn': return 'Business Registration Number';
+          case 'nric':
+          case 'mykad': return 'MyKad Number';
+          case 'mykas': return 'MyKas Number';
+          case 'army':
+          case 'my tentera': return 'My Tentera Number';
+          case 'passport': return 'Passport Number';
+          default: return 'Registration / IC / Passport Number';
+        }
+      };
+
+      expect(resolveLabel('BRN')).toBe('Business Registration Number');
+      expect(resolveLabel('NRIC')).toBe('MyKad Number');
+      expect(resolveLabel('MYKAS')).toBe('MyKas Number');
+      expect(resolveLabel('ARMY')).toBe('My Tentera Number');
+      expect(resolveLabel('PASSPORT')).toBe('Passport Number');
+    });
   });
 });

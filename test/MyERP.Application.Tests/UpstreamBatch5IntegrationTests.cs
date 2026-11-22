@@ -863,18 +863,41 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             var reloaded = await mpsAppService.GetAsync(mps.Id);
             reloaded.Items.ShouldBeEmpty();
 
-            // SubcontractingInwardOrder refuses two rows linked to the same Sales Order Item row (a736bb99fc)
+            // SubcontractingInwardOrder refuses closed SO rows (c3b83d3d20) and duplicate SO item links (a736bb99fc)
             var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
             var supplier = new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "SCIO Supplier");
             await suppRepo.InsertAsync(supplier, autoSave: true);
 
             var scioAppService = GetRequiredService<MyERP.Purchasing.ISubcontractingInwardOrderAppService>();
-            var dupEx = await Should.ThrowAsync<BusinessException>(() =>
+            var closedEx = await Should.ThrowAsync<BusinessException>(() =>
                 scioAppService.CreateAsync(new MyERP.Purchasing.CreateSubcontractingInwardOrderDto
                 {
                     CompanyId = company.Id,
                     SupplierId = supplier.Id,
                     SalesOrderId = so.Id,
+                    OrderDate = new DateTime(2026, 6, 2),
+                    Items = new List<MyERP.Purchasing.CreateScioItemDto>
+                    {
+                        new() { ItemId = item.Id, Quantity = 4m, Rate = 50m, WarehouseId = leafWh.Id }
+                    }
+                }));
+            closedEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (closedEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("closed Sales Order Item");
+
+            var openSo = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-MPS-OPEN", new DateTime(2026, 6, 1))
+            {
+                DeliveryDate = new DateTime(2026, 6, 15)
+            };
+            openSo.AddItem(item.Id, item.ItemName, 8m, 100m, 0m);
+            openSo.Submit();
+            await soRepo.InsertAsync(openSo, autoSave: true);
+
+            var dupEx = await Should.ThrowAsync<BusinessException>(() =>
+                scioAppService.CreateAsync(new MyERP.Purchasing.CreateSubcontractingInwardOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    SalesOrderId = openSo.Id,
                     OrderDate = new DateTime(2026, 6, 2),
                     Items = new List<MyERP.Purchasing.CreateScioItemDto>
                     {
@@ -1728,6 +1751,24 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
                     reverse: true));
             cancelRmEx.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
             (cancelRmEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("already consumed");
+
+            // 6. AccountingDimensionAppService invalidates AccountingDimensionService cache on CreateAsync / DisableAsync (51624525a5)
+            var dimAppService = GetRequiredService<MyERP.Accounting.IAccountingDimensionAppService>();
+            var beforeDims = await dimAppService.GetEnabledDimensionsAsync(company.Id);
+            var createdDim = await dimAppService.CreateAsync(new MyERP.Accounting.CreateAccountingDimensionDto
+            {
+                DocumentType = "Department",
+                Label = "Department",
+                CompanyId = company.Id,
+                IsMandatory = false
+            });
+            var afterCreateDims = await dimAppService.GetEnabledDimensionsAsync(company.Id);
+            afterCreateDims.Count.ShouldBe(beforeDims.Count + 1);
+            afterCreateDims.ShouldContain(d => d.Id == createdDim.Id);
+
+            await dimAppService.DisableAsync(createdDim.Id);
+            var afterDisableDims = await dimAppService.GetEnabledDimensionsAsync(company.Id);
+            afterDisableDims.ShouldNotContain(d => d.Id == createdDim.Id);
         });
     }
 }

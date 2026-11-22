@@ -188,6 +188,10 @@ export class SalesInvoiceDetailComponent implements OnInit {
             || this.invoice.eInvoiceStatus === 'Failed';
           actions.push({ name: 'submitLhdn', label: isResubmit ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
+        // Per MyInvois public/js/sales.js (custom_check_customer_tin): allow on-demand LHDN TIN lookup from Sales Invoice
+        if (this.invoice.customerId) {
+          actions.push({ name: 'checkCustomerTin', label: 'Check Customer TIN', icon: 'fa fa-id-card', btnClass: 'btn-outline-info' });
+        }
         if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
           actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', btnClass: 'btn-outline-info' });
 
@@ -291,6 +295,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'cancelLhdn':
         this.cancelLhdn();
         break;
+      case 'checkCustomerTin':
+        this.checkCustomerTin();
+        break;
       case 'writeOff':
         this.confirmation.warn('::WriteOffConfirmation', '::AreYouSure').subscribe((status) => {
           if (status === Confirmation.Status.confirm) {
@@ -384,6 +391,25 @@ export class SalesInvoiceDetailComponent implements OnInit {
         this.reloadAfterAction();
       },
       error: () => this.toaster.error('::LhdnRefreshFailed'),
+    });
+  }
+
+  /** Per MyInvois public/js/sales.js (custom_check_customer_tin): fetches and persists Customer TIN via LHDN API. */
+  checkCustomerTin(): void {
+    if (!this.invoice?.id) return;
+    this.eInvoiceService.searchTaxpayer({
+      salesInvoiceId: this.invoice.id,
+      customerId: this.invoice.customerId || undefined,
+    }).subscribe({
+      next: (res) => {
+        if (res.isSuccess && res.tin) {
+          this.toaster.success(`TIN Fetched Successfully: ${res.tin}`);
+          this.reloadAfterAction();
+        } else {
+          this.toaster.warn(res.errorMessage || 'TIN lookup completed, but TIN was not found.');
+        }
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || 'Something went wrong while fetching TIN.'),
     });
   }
 

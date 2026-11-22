@@ -64,6 +64,7 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         dimension.CompanyId = input.CompanyId;
 
         await _repository.InsertAsync(dimension);
+        _dimensionService.ClearCache();
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -85,6 +86,7 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         dimension.CompanyId = input.CompanyId;
         dimension.HideDisabledValues = input.HideDisabledValues;
         await _repository.UpdateAsync(dimension);
+        _dimensionService.ClearCache();
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -103,6 +105,7 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         var dimension = await _repository.GetAsync(id);
         dimension.Enable();
         await _repository.UpdateAsync(dimension);
+        _dimensionService.ClearCache();
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -119,6 +122,7 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
         var dimension = await _repository.GetAsync(id);
         dimension.Disable();
         await _repository.UpdateAsync(dimension);
+        _dimensionService.ClearCache();
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -133,6 +137,7 @@ public class AccountingDimensionAppService : ApplicationService, IAccountingDime
     public async Task DeleteAsync(Guid id)
     {
         await _repository.DeleteAsync(id);
+        _dimensionService.ClearCache();
     }
 
     #region Dimension Filters

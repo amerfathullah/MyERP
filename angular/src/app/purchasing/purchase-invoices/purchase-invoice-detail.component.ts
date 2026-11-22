@@ -155,6 +155,10 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
           || this.invoice.eInvoiceStatus === 'Failed';
         actions.push({ name: 'submitLhdn', label: isResubmit ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
       }
+      // Per MyInvois public/js/puchase.js (custom_check_supplier_tin): allow on-demand LHDN Supplier TIN lookup
+      if (this.invoice.supplierId) {
+        actions.push({ name: 'checkSupplierTin', label: 'Check Supplier TIN', icon: 'fa fa-id-card', color: 'info' });
+      }
       if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
         actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', color: 'info' });
       }
@@ -357,6 +361,9 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'cancelLhdn':
         this.cancelLhdn();
         break;
+      case 'checkSupplierTin':
+        this.checkSupplierTin();
+        break;
     }
   }
 
@@ -384,6 +391,25 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         this.reloadAfterAction();
       },
       error: () => this.toaster.error('::LhdnRefreshFailed'),
+    });
+  }
+
+  /** Per MyInvois public/js/puchase.js (custom_check_supplier_tin): fetches and persists Supplier TIN via LHDN API. */
+  checkSupplierTin(): void {
+    if (!this.invoice?.id) return;
+    this.eInvoiceService.searchTaxpayer({
+      purchaseInvoiceId: this.invoice.id,
+      supplierId: this.invoice.supplierId || undefined,
+    }).subscribe({
+      next: (res) => {
+        if (res.isSuccess && res.tin) {
+          this.toaster.success(`TIN Fetched Successfully: ${res.tin}`);
+          this.reloadAfterAction();
+        } else {
+          this.toaster.warn(res.errorMessage || 'TIN lookup completed, but TIN was not found.');
+        }
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || 'Something went wrong while fetching TIN.'),
     });
   }
 
