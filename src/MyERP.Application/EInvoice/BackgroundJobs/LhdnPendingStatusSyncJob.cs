@@ -81,7 +81,15 @@ public class LhdnPendingStatusSyncJob : AsyncBackgroundJob<LhdnPendingStatusSync
         {
             try
             {
-                await _eInvoiceService.RefreshStatusAsync(sub.Id, accessToken, environment);
+                await _eInvoiceService.RefreshStatusAsync(
+                    sub.Id,
+                    accessToken,
+                    environment,
+                    refreshTokenAsync: async () =>
+                    {
+                        accessToken = await _lhdnApiClient.GetAccessTokenAsync(clientId, clientSecret, environment);
+                        return accessToken;
+                    });
                 syncedCount++;
             }
             catch (Exception ex)

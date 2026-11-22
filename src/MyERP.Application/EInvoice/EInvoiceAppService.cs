@@ -134,7 +134,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             xmlDocument,
             accessToken,
             environment,
-            tenantId);
+            tenantId,
+            refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
 
         // Update source document e-Invoice status
         await UpdateSourceDocumentStatusAsync(input.SourceDocumentType, input.SourceDocumentId, submission);
@@ -528,7 +529,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
         var accessToken = await ResolveAccessTokenAsync(environment);
 
-        var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
+        var submission = await _eInvoiceService.RefreshStatusAsync(
+            submissionId,
+            accessToken,
+            environment,
+            refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
 
         // Propagate LHDN validation status to source document
         // Per myinvois get_status.py: updates source invoice EInvoiceStatus field
@@ -711,7 +716,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         var submission = await _eInvoiceService.SubmitAsync(
             input.CompanyId, "SalesInvoice", input.SourceDocumentId,
-            xmlDocument, accessToken, environment, CurrentTenant.Id);
+            xmlDocument, accessToken, environment, CurrentTenant.Id,
+            refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
 
         await UpdateSourceDocumentStatusAsync("SalesInvoice", input.SourceDocumentId, submission);
 
@@ -1501,7 +1507,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
         var accessToken = await ResolveAccessTokenAsync(environment);
 
-        var submission = await _eInvoiceService.RefreshStatusAsync(submissionId, accessToken, environment);
+        var submission = await _eInvoiceService.RefreshStatusAsync(
+            submissionId,
+            accessToken,
+            environment,
+            refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
         await PropagateStatusToSourceAsync(submission);
 
         return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);

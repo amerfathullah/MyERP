@@ -29,6 +29,7 @@ public class EInvoiceService : DomainService
 
     /// <summary>
     /// Submit an invoice document to LHDN MyInvois.
+    /// Per myinvois original.py: retries once with a refreshed bearer token on HTTP 401/500.
     /// </summary>
     public async Task<EInvoiceSubmission> SubmitAsync(
         Guid companyId,
@@ -37,10 +38,12 @@ public class EInvoiceService : DomainService
         string xmlDocument,
         string accessToken,
         LhdnEnvironment environment,
-        Guid? tenantId = null)
+        Guid? tenantId = null,
+        Func<Task<string?>>? refreshTokenAsync = null)
     {
+        var nextId = LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid();
         var submission = new EInvoiceSubmission(
-            GuidGenerator.Create(),
+            nextId,
             companyId,
             sourceDocumentType,
             sourceDocumentId,
@@ -53,26 +56,40 @@ public class EInvoiceService : DomainService
 
         var response = await _lhdnApiClient.SubmitDocumentAsync(accessToken, xmlDocument, environment);
 
-        if (response.IsSuccess)
+        // Per myinvois original.py lines 408-415: retry once with refreshed bearer token on 401/500
+        if (!response.IsSuccess && (response.StatusCode == 401 || response.StatusCode == 500) && refreshTokenAsync != null)
         {
+            var refreshedToken = await refreshTokenAsync();
+            if (!string.IsNullOrWhiteSpace(refreshedToken))
+            {
+                response = await _lhdnApiClient.SubmitDocumentAsync(refreshedToken, xmlDocument, environment);
+            }
+        }
+
+        if (response.IsSuccess && !string.IsNullOrWhiteSpace(response.DocumentUuid))
+        {
+            var qrCodeUrl = response.QrCodeUrl
+                ?? LhdnApiClient.BuildQrVerificationUrl(environment, response.DocumentUuid, response.LongId);
+
             submission.MarkAccepted(
                 response.SubmissionUid!,
-                response.DocumentUuid!,
+                response.DocumentUuid,
                 response.LongId,
-                response.QrCodeUrl,
+                qrCodeUrl,
                 response.RawJson);
 
+            var logId = LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid();
             var log = new LhdnSuccessLog(
-                GuidGenerator.Create(),
+                logId,
                 companyId,
                 submission.Id,
-                response.DocumentUuid!,
+                response.DocumentUuid,
                 sourceDocumentType,
                 sourceDocumentId,
                 tenantId)
             {
                 LongId = response.LongId,
-                QrCodeUrl = response.QrCodeUrl,
+                QrCodeUrl = qrCodeUrl,
                 ResponseJson = response.RawJson
             };
             await _successLogRepository.InsertAsync(log);
@@ -88,13 +105,14 @@ public class EInvoiceService : DomainService
 
     /// <summary>
     /// Refresh the status of a submission from LHDN.
-    /// Per myinvois get_status.py: updates QR code URL, document UUID, longId,
-    /// and marks validated time when status = "Valid".
+    /// Per myinvois get_status.py: retries once on HTTP 401/500 with a refreshed bearer token,
+    /// updates QR code URL, document UUID, longId, and marks validated time when status = "Valid".
     /// </summary>
     public async Task<EInvoiceSubmission> RefreshStatusAsync(
         Guid submissionId,
         string accessToken,
-        LhdnEnvironment environment)
+        LhdnEnvironment environment,
+        Func<Task<string?>>? refreshTokenAsync = null)
     {
         var submission = await _submissionRepository.GetAsync(submissionId);
 
@@ -104,12 +122,37 @@ public class EInvoiceService : DomainService
         var response = await _lhdnApiClient.GetDocumentStatusAsync(
             accessToken, submission.SubmissionUid, environment);
 
+        // Per myinvois get_status.py lines 65-70: retry once with refreshed bearer token on 401/500
+        if (!response.IsSuccess && (response.StatusCode == 401 || response.StatusCode == 500) && refreshTokenAsync != null)
+        {
+            var refreshedToken = await refreshTokenAsync();
+            if (!string.IsNullOrWhiteSpace(refreshedToken))
+            {
+                response = await _lhdnApiClient.GetDocumentStatusAsync(
+                    refreshedToken, submission.SubmissionUid, environment);
+            }
+        }
+
+        if (!response.IsSuccess)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceSubmissionFailed)
+                .WithData("reason", response.ErrorMessage ?? $"Failed to retrieve LHDN status (HTTP {response.StatusCode}).");
+        }
+
         // Update all fields from LHDN response
         var previousStatus = submission.Status;
         submission.Status = response.Status;
         if (response.DocumentUuid != null) submission.DocumentUuid = response.DocumentUuid;
         if (response.LongId != null) submission.LongId = response.LongId;
-        if (response.QrCodeUrl != null) submission.QrCodeUrl = response.QrCodeUrl;
+        if (response.QrCodeUrl != null)
+        {
+            submission.QrCodeUrl = response.QrCodeUrl;
+        }
+        else if (string.IsNullOrWhiteSpace(submission.QrCodeUrl))
+        {
+            submission.QrCodeUrl = LhdnApiClient.BuildQrVerificationUrl(
+                environment, submission.DocumentUuid, submission.LongId);
+        }
 
         // Per myinvois: mark validated timestamp when LHDN confirms "Valid"
         if (response.Status == "Valid" && submission.ValidatedAt == null)

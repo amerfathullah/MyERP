@@ -370,5 +370,16 @@ describe('BomFormComponent', () => {
       expect(comp.getSecondaryItemBaseCost(1, 4.5)).toBe(810);
       expect(comp.getBaseSecondaryItemsCost(4.5)).toBe(1260);
     });
+
+    it('recomputes processLossQty and resets it to 0 when processLossPercentage is cleared (PR #67407)', () => {
+      const comp = createBomForm();
+      comp.form.patchValue({ quantity: 10, processLossPercentage: 15 });
+      expect(comp.processLossQty).toBe(1.5);
+      expect(comp.goodQuantity).toBe(8.5);
+
+      comp.form.patchValue({ processLossPercentage: null as any });
+      expect(comp.processLossQty).toBe(0);
+      expect(comp.goodQuantity).toBe(10);
+    });
   });
 });

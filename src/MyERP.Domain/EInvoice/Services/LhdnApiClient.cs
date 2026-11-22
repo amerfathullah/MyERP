@@ -20,6 +20,8 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
     private const string SandboxBaseUrl = "https://preprod-api.myinvois.hasil.gov.my";
     private const string ProductionBaseUrl = "https://api.myinvois.hasil.gov.my";
+    private const string SandboxPortalBaseUrl = "https://preprod.myinvois.hasil.gov.my";
+    private const string ProductionPortalBaseUrl = "https://myinvois.hasil.gov.my";
 
     public LhdnApiClient(IHttpClientFactory httpClientFactory, ILogger<LhdnApiClient> logger)
     {
@@ -29,6 +31,19 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
     private string GetBaseUrl(LhdnEnvironment environment) =>
         environment == LhdnEnvironment.Production ? ProductionBaseUrl : SandboxBaseUrl;
+
+    /// <summary>
+    /// Builds the official LHDN MyInvois QR verification URL when both DocumentUuid and LongId are available.
+    /// Mirrors myinvois createxml.py lines 1279-1283.
+    /// </summary>
+    public static string? BuildQrVerificationUrl(LhdnEnvironment environment, string? documentUuid, string? longId)
+    {
+        if (string.IsNullOrWhiteSpace(documentUuid) || string.IsNullOrWhiteSpace(longId))
+            return null;
+
+        var portalBase = environment == LhdnEnvironment.Production ? ProductionPortalBaseUrl : SandboxPortalBaseUrl;
+        return $"{portalBase}/{documentUuid}/share/{longId}";
+    }
 
     public async Task<string> GetAccessTokenAsync(string clientId, string clientSecret, LhdnEnvironment environment)
     {
@@ -62,34 +77,68 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
         var response = await client.SendAsync(request);
         var rawJson = await response.Content.ReadAsStringAsync();
+        var statusCode = (int)response.StatusCode;
 
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("LHDN submission failed: {StatusCode} {Body}", response.StatusCode, rawJson);
-            return new LhdnSubmissionResponse { IsSuccess = false, ErrorMessage = rawJson, RawJson = rawJson };
+            return new LhdnSubmissionResponse { IsSuccess = false, StatusCode = statusCode, ErrorMessage = rawJson, RawJson = rawJson };
         }
 
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
 
-        var submissionUid = root.GetProperty("submissionUid").GetString();
+        string? submissionUid = root.TryGetProperty("submissionUid", out var suidProp) ? suidProp.GetString() : null;
         string? documentUuid = null;
         string? longId = null;
 
         if (root.TryGetProperty("acceptedDocuments", out var accepted) && accepted.GetArrayLength() > 0)
         {
             var first = accepted[0];
-            documentUuid = first.GetProperty("uuid").GetString();
+            if (first.TryGetProperty("uuid", out var u))
+                documentUuid = u.GetString();
             if (first.TryGetProperty("longId", out var lid))
                 longId = lid.GetString();
+        }
+
+        // LHDN returns HTTP 202 even when documents are rejected in rejectedDocuments[]
+        if (string.IsNullOrWhiteSpace(documentUuid))
+        {
+            string? rejectionReason = null;
+            if (root.TryGetProperty("rejectedDocuments", out var rejected) && rejected.GetArrayLength() > 0)
+            {
+                var firstRejected = rejected[0];
+                if (firstRejected.TryGetProperty("error", out var errProp))
+                {
+                    rejectionReason = errProp.TryGetProperty("message", out var msgProp)
+                        ? msgProp.GetString()
+                        : errProp.GetRawText();
+                }
+                else
+                {
+                    rejectionReason = firstRejected.GetRawText();
+                }
+            }
+
+            _logger.LogWarning("LHDN submission returned no accepted document UUID: {Body}", rawJson);
+            return new LhdnSubmissionResponse
+            {
+                IsSuccess = false,
+                StatusCode = statusCode,
+                SubmissionUid = submissionUid,
+                ErrorMessage = rejectionReason ?? "LHDN rejected document (no accepted document UUID).",
+                RawJson = rawJson
+            };
         }
 
         return new LhdnSubmissionResponse
         {
             IsSuccess = true,
+            StatusCode = statusCode,
             SubmissionUid = submissionUid,
             DocumentUuid = documentUuid,
             LongId = longId,
+            QrCodeUrl = BuildQrVerificationUrl(environment, documentUuid, longId),
             RawJson = rawJson
         };
     }
@@ -104,7 +153,20 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
         var response = await client.SendAsync(request);
         var rawJson = await response.Content.ReadAsStringAsync();
-        response.EnsureSuccessStatusCode();
+        var statusCode = (int)response.StatusCode;
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("LHDN status query failed: {StatusCode} {Body}", response.StatusCode, rawJson);
+            return new LhdnStatusResponse
+            {
+                IsSuccess = false,
+                StatusCode = statusCode,
+                Status = "Unknown",
+                ErrorMessage = rawJson,
+                RawJson = rawJson
+            };
+        }
 
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
@@ -116,12 +178,21 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         if (root.TryGetProperty("documentSummary", out var summary) && summary.GetArrayLength() > 0)
         {
             var first = summary[0];
-            status = first.GetProperty("status").GetString() ?? "Unknown";
+            if (first.TryGetProperty("status", out var st)) status = st.GetString() ?? "Unknown";
             if (first.TryGetProperty("uuid", out var u)) uuid = u.GetString();
             if (first.TryGetProperty("longId", out var l)) lid = l.GetString();
         }
 
-        return new LhdnStatusResponse { Status = status, DocumentUuid = uuid, LongId = lid, RawJson = rawJson };
+        return new LhdnStatusResponse
+        {
+            IsSuccess = true,
+            StatusCode = statusCode,
+            Status = status,
+            DocumentUuid = uuid,
+            LongId = lid,
+            QrCodeUrl = BuildQrVerificationUrl(environment, uuid, lid),
+            RawJson = rawJson
+        };
     }
 
     public async Task<LhdnCancelResponse> CancelDocumentAsync(string accessToken, string documentUuid, string reason, LhdnEnvironment environment)

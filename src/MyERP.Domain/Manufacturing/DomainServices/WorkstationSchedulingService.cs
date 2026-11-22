@@ -244,25 +244,7 @@ public class WorkstationSchedulingService : DomainService
             && jc.Status == JobCardStatus.WorkInProgress)
             .ToList();
 
-        var logs = new List<JobCardTimeLogRange>();
-        foreach (var jc in activeJcs)
-        {
-            if (jc.TimeLogs.Any())
-            {
-                logs.AddRange(jc.TimeLogs
-                    .Where(tl => tl.FromTime < to && tl.ToTime > from)
-                    .Select(tl => new JobCardTimeLogRange(tl.FromTime, tl.ToTime, jc.Id)));
-            }
-            else if (jc.StartedAt.HasValue)
-            {
-                var sFrom = jc.StartedAt.Value;
-                var sTo = sFrom.AddMinutes((double)(jc.PlannedTimeInMins > 0 ? jc.PlannedTimeInMins : 30m));
-                if (sFrom < to && sTo > from)
-                {
-                    logs.Add(new JobCardTimeLogRange(sFrom, sTo, jc.Id));
-                }
-            }
-        }
+        var logs = JobCardManager.ExtractOverlappingLogs(activeJcs, from, to, includeRunning: true);
 
         var merged = JobCardManager.MergeTimeLogsPerJobCard(logs);
         return JobCardManager.GetAllotedCapacity(merged).Count;

@@ -850,7 +850,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var scr = await _scrRepository.GetAsync(id, includeDetails: true);
         scr.Cancel();
 
-        // Reverse stock-in for FG items
+        // Reverse stock-in for FG items (and rejected warehouse stock-in, mirroring SubmitReceiptAsync)
         foreach (var item in scr.Items)
         {
             var warehouseId = item.WarehouseId ?? scr.WarehouseId;
@@ -858,9 +858,20 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             {
                 await _stockValuationService.CreateLedgerEntryAsync(
                     scr.CompanyId, item.ItemId, warehouseId.Value, scr.PostingDate,
-                    -item.Qty, item.Rate, "SubcontractingReceipt", scr.Id, scr.TenantId);
+                    -item.Qty, item.Rate, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                    voucherDetailNo: item.Id);
 
                 await _binService.ApplyStockMovementAsync(item.ItemId, warehouseId.Value, -item.Qty, -(item.Qty * item.Rate));
+            }
+
+            if (!scr.IsReturn && item.RejectedQty > 0 && item.RejectedWarehouseId.HasValue)
+            {
+                await _stockValuationService.CreateLedgerEntryAsync(
+                    scr.CompanyId, item.ItemId, item.RejectedWarehouseId.Value, scr.PostingDate,
+                    -item.RejectedQty, 0m, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                    voucherDetailNo: item.Id);
+
+                await _binService.ApplyStockMovementAsync(item.ItemId, item.RejectedWarehouseId.Value, -item.RejectedQty, 0m);
             }
         }
 
@@ -908,9 +919,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
         await _scoRepository.UpdateAsync(sco);
 
-        // Reverse GL entries for the receipt
+        // Reverse GL Journal Entries posted on submit (DR Stock / CR SRBNB)
         var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
-        await postingOrchestrator.ReversePleForDocumentAsync("SubcontractingReceipt", scr.Id);
+        await postingOrchestrator.ReverseGlForDocumentAsync("SubcontractingReceipt", scr.Id);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(

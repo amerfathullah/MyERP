@@ -28,6 +28,7 @@ public interface ILhdnApiClient
 public class LhdnSubmissionResponse
 {
     public bool IsSuccess { get; set; }
+    public int StatusCode { get; set; }
     public string? SubmissionUid { get; set; }
     public string? DocumentUuid { get; set; }
     public string? LongId { get; set; }
@@ -38,12 +39,15 @@ public class LhdnSubmissionResponse
 
 public class LhdnStatusResponse
 {
+    public bool IsSuccess { get; set; } = true;
+    public int StatusCode { get; set; } = 200;
     public string Status { get; set; } = null!; // "Valid", "Invalid", "Cancelled"
     public string? DocumentUuid { get; set; }
     public string? LongId { get; set; }
     /// <summary>QR code validation URL returned by LHDN when document is validated.</summary>
     public string? QrCodeUrl { get; set; }
     public string? RawJson { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 public class LhdnCancelResponse

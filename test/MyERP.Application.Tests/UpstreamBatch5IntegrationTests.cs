@@ -2772,4 +2772,116 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             fgSle.VoucherDetailNo.ShouldBe(fgRowId);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch18_EndToEnd_SubcontractingReceiptCancel_ReversesGlAndRejectedStock()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var ccRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountingRule, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var subService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch18 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B18", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCO", "SCO", "SCO-B18-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCR", "SCR", "SCR-B18-"), autoSave: true);
+
+            var stockAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1400-B18", "Stock In Hand", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var srbnbAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2150-B18", "SRBNB", MyERP.Accounting.AccountType.Liability), autoSave: true);
+            var cc = await ccRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B18 CC"), autoSave: true);
+
+            company.DefaultInventoryAccountId = stockAcc.Id;
+            company.StockReceivedButNotBilledAccountId = srbnbAcc.Id;
+            company.DefaultCostCenterId = cc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "SCR Stock Debit", "SubcontractingReceipt", isDebit: true, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.NetTotal) { FixedAccountId = stockAcc.Id, SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new MyERP.Accounting.Entities.AccountingRule(Guid.NewGuid(), company.Id, "SCR SRBNB Credit", "SubcontractingReceipt", isDebit: false, MyERP.Accounting.AccountSource.FixedAccount, MyERP.Accounting.AmountSource.NetTotal) { FixedAccountId = srbnbAcc.Id, SortOrder = 2 }, autoSave: true);
+
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B18 Subcontractor"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B18-FG", "Batch 18 FG", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var accWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B18 Accepted WH"), autoSave: true);
+            var rejWh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B18 Rejected WH") { WarehouseType = WarehouseType.Rejected }, autoSave: true);
+
+            var sco = await subService.CreateOrderAsync(new MyERP.Purchasing.CreateSubcontractingOrderDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                OrderDate = DateTime.Today,
+                Items = new List<MyERP.Purchasing.CreateScoItemDto>
+                {
+                    new() { ItemId = fgItem.Id, ItemName = fgItem.ItemName, Qty = 10m, Rate = 50m, ServiceCostPerQty = 50m, WarehouseId = accWh.Id }
+                }
+            });
+            await subService.SubmitOrderAsync(sco.Id);
+
+            var scr = await subService.CreateReceiptAsync(new MyERP.Purchasing.CreateSubcontractingReceiptDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                SubcontractingOrderId = sco.Id,
+                PostingDate = DateTime.Today,
+                WarehouseId = accWh.Id,
+                Items = new List<MyERP.Purchasing.CreateScrItemDto>
+                {
+                    new()
+                    {
+                        ItemId = fgItem.Id,
+                        ItemName = fgItem.ItemName,
+                        Qty = 8m,
+                        RejectedQty = 2m,
+                        Rate = 50m,
+                        WarehouseId = accWh.Id,
+                        RejectedWarehouseId = rejWh.Id
+                    }
+                }
+            });
+
+            await subService.SubmitReceiptAsync(scr.Id);
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+            await uowManager.Current!.SaveChangesAsync();
+
+            var journalsAfterSubmit = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "SubcontractingReceipt" && j.ReferenceId == scr.Id)
+                .ToList();
+            journalsAfterSubmit.Count.ShouldBe(1);
+            journalsAfterSubmit[0].TotalDebit.ShouldBe(400m);
+            journalsAfterSubmit[0].TotalCredit.ShouldBe(400m);
+
+            var rejBinBeforeCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == fgItem.Id && b.WarehouseId == rejWh.Id);
+            rejBinBeforeCancel.ActualQty.ShouldBe(2m);
+
+            // Cancel receipt -> must post reversing GL JE and reverse BOTH accepted and rejected warehouse stock
+            await subService.CancelReceiptAsync(scr.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var journalsAfterCancel = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "SubcontractingReceipt" && j.ReferenceId == scr.Id)
+                .ToList();
+            journalsAfterCancel.Count.ShouldBe(2);
+
+            var allLines = journalsAfterCancel.SelectMany(j => j.Lines).ToList();
+            var netStockDebit = allLines.Where(l => l.AccountId == stockAcc.Id).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            var netSrbnbCredit = allLines.Where(l => l.AccountId == srbnbAcc.Id).Sum(l => l.IsDebit ? -l.Amount : l.Amount);
+            netStockDebit.ShouldBe(0m);
+            netSrbnbCredit.ShouldBe(0m);
+
+            var accBinAfterCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == fgItem.Id && b.WarehouseId == accWh.Id);
+            var rejBinAfterCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == fgItem.Id && b.WarehouseId == rejWh.Id);
+            accBinAfterCancel.ActualQty.ShouldBe(0m);
+            rejBinAfterCancel.ActualQty.ShouldBe(0m);
+        });
+    }
 }

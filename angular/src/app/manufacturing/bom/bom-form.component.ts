@@ -19,23 +19,30 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, ItemPickerComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="isEditMode ? 'EditBOM' : ('::NewBOM' | abpLocalization)">
+    <abp-page [title]="(isEditMode ? '::EditBOM' : '::NewBOM') | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
         <div class="card mb-3">
           <div class="card-body">
             <div class="row">
-              <div class="col-md-4 mb-3">
+              <div class="col-md-3 mb-3">
                 <label class="form-label">{{ '::Item' | abpLocalization }} *</label>
                 <app-item-picker formControlName="itemId" [companyId]="form.get('companyId')?.value || null"
                   (itemSelected)="onParentItemSelected($event)"></app-item-picker>
               </div>
-              <div class="col-md-4 mb-3">
+              <div class="col-md-3 mb-3">
                 <label class="form-label">{{ '::ItemName' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="itemName" />
               </div>
               <div class="col-md-2 mb-3">
                 <label class="form-label">{{ '::Quantity' | abpLocalization }} *</label>
                 <input type="number" class="form-control" formControlName="quantity" min="0.01" step="0.01" />
+              </div>
+              <div class="col-md-2 mb-3">
+                <label class="form-label">{{ '::ProcessLossPercent' | abpLocalization }}</label>
+                <input type="number" class="form-control text-end" formControlName="processLossPercentage" min="0" max="99.99" step="0.01" />
+                @if (processLossQty > 0) {
+                  <div class="form-text">{{ '::ProcessLossQty' | abpLocalization }}: {{ processLossQty | number:'1.0-4' }}</div>
+                }
               </div>
               <div class="col-md-2 mb-3">
                 <label class="form-label">{{ '::IsActive' | abpLocalization }}</label>
@@ -254,6 +261,7 @@ export class BomFormComponent implements OnInit {
     itemId: ['', Validators.required],
     itemName: [''],
     quantity: [1, [Validators.required, Validators.min(0.01)]],
+    processLossPercentage: [0, [Validators.min(0), Validators.max(99.99)]],
     isActive: [true],
     isPhantomBom: [false],
     fgBasedOperatingCost: [false],
@@ -341,6 +349,20 @@ export class BomFormComponent implements OnInit {
 
   get totalCost(): number { return this.materialCost + this.operatingCost - this.secondaryItemsCost; }
 
+  /** Process loss quantity derived from percentage; resets cleanly to 0 when cleared (PR #67407). */
+  get processLossQty(): number {
+    const qty = Number(this.form.get('quantity')?.value ?? 0);
+    const pct = Number(this.form.get('processLossPercentage')?.value ?? 0);
+    if (!pct || pct <= 0 || qty <= 0) return 0;
+    return Math.round(((qty * pct) / 100 + Number.EPSILON) * 10000) / 10000;
+  }
+
+  get goodQuantity(): number {
+    const qty = Number(this.form.get('quantity')?.value ?? 0);
+    const good = qty - this.processLossQty;
+    return good > 0 ? good : (qty > 0 ? qty : 1);
+  }
+
   ngOnInit(): void {
     // Auto-fill company from context
     const cid = this.companyContext.currentCompanyId();
@@ -354,6 +376,7 @@ export class BomFormComponent implements OnInit {
           itemId: bom.itemId,
           itemName: bom.itemName,
           quantity: bom.quantity,
+          processLossPercentage: bom.processLossPercentage ?? 0,
           isActive: bom.isActive,
           isPhantomBom: bom.isPhantomBom ?? false,
           fgBasedOperatingCost: bom.fgBasedOperatingCost ?? false,
@@ -519,6 +542,7 @@ export class BomFormComponent implements OnInit {
     const raw = this.form.getRawValue();
     const payload = {
       ...raw,
+      processLossPercentage: Number(raw.processLossPercentage ?? 0),
       withOperations: this.operations.length > 0,
       isPhantomBom: !!raw.isPhantomBom,
       fgBasedOperatingCost: this.operations.length === 0 && !raw.isPhantomBom ? !!raw.fgBasedOperatingCost : false,
