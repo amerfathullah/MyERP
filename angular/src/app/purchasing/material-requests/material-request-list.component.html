@@ -125,12 +125,12 @@
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" [routerLink]="['/purchasing/material-requests', row.id]"
-                        aria-label="View" title="View">
+                        [attr.aria-label]="'::View' | abpLocalization" [title]="'::View' | abpLocalization">
                         <i class="fa fa-eye"></i>
                       </button>
                       @if (row.status === 0) {
                         <button class="btn btn-outline-danger" (click)="delete(row.id!)"
-                          aria-label="Delete" title="Delete">
+                          [attr.aria-label]="'::Delete' | abpLocalization" [title]="'::Delete' | abpLocalization">
                           <i class="fa fa-trash"></i>
                         </button>
                       }

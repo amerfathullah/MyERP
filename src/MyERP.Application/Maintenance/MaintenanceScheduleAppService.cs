@@ -209,6 +209,7 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
     public async Task<MaintenanceScheduleDto> CancelAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+        var previousStatus = entity.Status.ToString();
         entity.Cancel();
         await _repository.UpdateAsync(entity, autoSave: true);
 
@@ -218,7 +219,7 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
             await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
                 GuidGenerator.Create(), "MaintenanceSchedule", entity.Id,
                 "Cancelled", entity.CompanyId,
-                entity.Id.ToString()[..8], entity.Status.ToString(), "Cancelled", CurrentUser?.Id,
+                entity.Id.ToString()[..8], previousStatus, "Cancelled", CurrentUser?.Id,
                 $"Maintenance Schedule {entity.Id.ToString()[..8]} cancelled", CurrentTenant?.Id));
         }
 

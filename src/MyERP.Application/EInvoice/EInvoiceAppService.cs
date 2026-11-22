@@ -626,12 +626,16 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             {
                 "Valid" => Sales.EInvoiceStatus.Valid,
                 "Cancelled" => Sales.EInvoiceStatus.Cancelled,
-                "Invalid" or "Rejected" => Sales.EInvoiceStatus.Invalid,
+                "Rejected" => Sales.EInvoiceStatus.Rejected,
+                "Invalid" => Sales.EInvoiceStatus.Invalid,
                 _ => invoice.EInvoiceStatus // preserve existing
             };
-            invoice.LhdnUuid = submission.DocumentUuid;
-            invoice.LhdnLongId = submission.LongId;
-            invoice.QrCodeUrl = submission.QrCodeUrl;
+            if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))
+                invoice.LhdnUuid = submission.DocumentUuid;
+            if (!string.IsNullOrWhiteSpace(submission.LongId))
+                invoice.LhdnLongId = submission.LongId;
+            if (!string.IsNullOrWhiteSpace(submission.QrCodeUrl))
+                invoice.QrCodeUrl = submission.QrCodeUrl;
             await _salesInvoiceRepository.UpdateAsync(invoice);
         }
         else if (submission.SourceDocumentType == "PurchaseInvoice")
@@ -643,12 +647,16 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             {
                 "Valid" => Sales.EInvoiceStatus.Valid,
                 "Cancelled" => Sales.EInvoiceStatus.Cancelled,
-                "Invalid" or "Rejected" => Sales.EInvoiceStatus.Invalid,
+                "Rejected" => Sales.EInvoiceStatus.Rejected,
+                "Invalid" => Sales.EInvoiceStatus.Invalid,
                 _ => invoice.EInvoiceStatus
             };
-            invoice.LhdnUuid = submission.DocumentUuid;
-            invoice.LhdnLongId = submission.LongId;
-            invoice.QrCodeUrl = submission.QrCodeUrl;
+            if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))
+                invoice.LhdnUuid = submission.DocumentUuid;
+            if (!string.IsNullOrWhiteSpace(submission.LongId))
+                invoice.LhdnLongId = submission.LongId;
+            if (!string.IsNullOrWhiteSpace(submission.QrCodeUrl))
+                invoice.QrCodeUrl = submission.QrCodeUrl;
             await _purchaseInvoiceRepository.UpdateAsync(invoice);
         }
     }

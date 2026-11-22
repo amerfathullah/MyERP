@@ -3767,4 +3767,99 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             planLog.NewStatus.ShouldBe("Cancelled");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch25_EndToEnd_SqCancelGuard_PickListCancelBundle_And_CancelAuditLogs()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var sqRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SupplierQuotation, Guid>>();
+            var poRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+            var plRepo = GetRequiredService<IRepository<PickList, Guid>>();
+            var bundleRepo = GetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+            var projectRepo = GetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var activityRepo = GetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+
+            var sqService = GetRequiredService<MyERP.Purchasing.ISupplierQuotationAppService>();
+            var plService = GetRequiredService<MyERP.Inventory.IPickListAppService>();
+            var projectService = GetRequiredService<MyERP.Projects.IProjectAppService>();
+            var subService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch25 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B25 WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B25-ITEM", "Batch25 Item", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B25 Supp"), autoSave: true);
+
+            // 1. SupplierQuotation blocked from cancel while active PurchaseOrder references it
+            var sq = new MyERP.Purchasing.Entities.SupplierQuotation(Guid.NewGuid(), company.Id, supplier.Id, DateTime.Today)
+            {
+                QuotationNumber = "SQ-B25-1",
+            };
+            sq.AddItem(item.Id, 10m, 25m, item.ItemName);
+            sq.Submit();
+            await sqRepo.InsertAsync(sq, autoSave: true);
+
+            var po = new MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-B25-1", DateTime.Today)
+            {
+                SupplierQuotationId = sq.Id,
+            };
+            po.AddItem(item.Id, item.ItemName, 10m, 25m, 0m, "Unit", wh.Id);
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            var sqEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => sqService.CancelAsync(sq.Id));
+            sqEx.Code.ShouldBe("MyERP:01010");
+            sqEx.Data["dependent"]!.ToString()!.ShouldBe("Purchase Order");
+
+            // 2. PickList CancelAsync cancels linked submitted SerialAndBatchBundle
+            var plId = Guid.NewGuid();
+            var bundle = new SerialAndBatchBundle(
+                Guid.NewGuid(), company.Id, item.Id, wh.Id,
+                BundleTransactionType.Outward, "PickList", plId, DateTime.Today);
+            bundle.Submit();
+            await bundleRepo.InsertAsync(bundle, autoSave: true);
+
+            var pl = new PickList(plId, company.Id, "Delivery");
+            pl.AddItem(item.Id, wh.Id, 2m, itemName: item.ItemName, serialAndBatchBundleId: bundle.Id);
+            pl.Submit();
+            await plRepo.InsertAsync(pl, autoSave: true);
+
+            await plService.CancelAsync(pl.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var bundleAfterCancel = await bundleRepo.GetAsync(bundle.Id);
+            bundleAfterCancel.Status.ShouldBe(DocumentStatus.Cancelled);
+
+            // 3. Project & SubcontractingOrder CancelAsync log true PreviousStatus (not "Cancelled")
+            var project = new MyERP.Projects.Entities.Project(Guid.NewGuid(), company.Id, "PRJ-B25-1", "Batch25 Project");
+            await projectRepo.InsertAsync(project, autoSave: true);
+            await projectService.CancelAsync(project.Id);
+
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B25-1", DateTime.Today, supplier.Id);
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, item.Id, item.ItemName, 3m, 50m));
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+            await subService.CancelOrderAsync(sco.Id);
+
+            await uowManager.Current!.SaveChangesAsync();
+
+            var projectLog = (await activityRepo.GetQueryableAsync())
+                .FirstOrDefault(a => a.DocumentType == "Project" && a.DocumentId == project.Id && a.ActivityType == "Cancelled");
+            projectLog.ShouldNotBeNull();
+            projectLog!.PreviousStatus.ShouldBe("Open");
+            projectLog.NewStatus.ShouldBe("Cancelled");
+
+            var scoLog = (await activityRepo.GetQueryableAsync())
+                .FirstOrDefault(a => a.DocumentType == "SubcontractingOrder" && a.DocumentId == sco.Id && a.ActivityType == "Cancelled");
+            scoLog.ShouldNotBeNull();
+            scoLog!.PreviousStatus.ShouldBe("Open");
+            scoLog.NewStatus.ShouldBe("Cancelled");
+        });
+    }
 }

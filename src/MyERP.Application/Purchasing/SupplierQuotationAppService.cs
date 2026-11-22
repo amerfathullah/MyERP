@@ -153,7 +153,27 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
     [Authorize(MyERPPermissions.PurchaseOrders.Cancel)]
     public async Task<SupplierQuotationDto> CancelAsync(Guid id)
     {
-        var sq = await _repository.GetAsync(id);
+        var sq = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        // Per ERPNext supplier_quotation.py: cannot cancel while an active Purchase Order references it
+        var poRepo = LazyServiceProvider.LazyGetService<IRepository<PurchaseOrder, Guid>>();
+        if (poRepo != null)
+        {
+            var sqItemIds = sq.Items.Select(i => i.Id).ToList();
+            var poQuery = await poRepo.WithDetailsAsync(p => p.Items);
+            var hasActivePo = poQuery.Any(po =>
+                po.Status != DocumentStatus.Draft
+                && po.Status != DocumentStatus.Cancelled
+                && (po.SupplierQuotationId == sq.Id
+                    || (sqItemIds.Count > 0 && po.Items.Any(i => i.SupplierQuotationItemId.HasValue && sqItemIds.Contains(i.SupplierQuotationItemId.Value)))));
+            if (hasActivePo)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:01010")
+                    .WithData("documentType", "Supplier Quotation")
+                    .WithData("dependent", "Purchase Order");
+            }
+        }
+
         sq.Cancel();
         await _repository.UpdateAsync(sq);
         await UpdateRfqSupplierQuoteStatusAsync(sq, includeSelf: false);

@@ -245,6 +245,7 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
                 .WithData("detail", "Cannot cancel Warranty Claim with active Maintenance Visits. Please cancel all linked Maintenance Visits first.");
         }
 
+        var previousStatus = entity.Status.ToString();
         entity.Cancel();
         await _repository.UpdateAsync(entity);
 
@@ -254,7 +255,7 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
             await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
                 Guid.NewGuid(), "WarrantyClaim", entity.Id,
                 "Cancelled", entity.CompanyId,
-                entity.ClaimNumber, entity.Status.ToString(), "Cancelled", CurrentUser?.Id,
+                entity.ClaimNumber, previousStatus, "Cancelled", CurrentUser?.Id,
                 $"Warranty Claim {entity.ClaimNumber} cancelled", CurrentTenant?.Id));
         }
     }

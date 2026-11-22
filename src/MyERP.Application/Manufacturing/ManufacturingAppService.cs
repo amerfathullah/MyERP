@@ -2572,6 +2572,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
+        var previousStatus = wo.Status.ToString();
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
 
@@ -2606,7 +2607,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
             "Cancelled", wo.CompanyId,
-            wo.WorkOrderNumber, wo.Status.ToString(), "Cancelled", CurrentUser.Id,
+            wo.WorkOrderNumber, previousStatus, "Cancelled", CurrentUser.Id,
             $"Work Order {wo.WorkOrderNumber} cancelled", CurrentTenant.Id));
 
         if (wo.SalesOrderId.HasValue)

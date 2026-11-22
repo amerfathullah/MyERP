@@ -257,6 +257,36 @@ public class PickListAppService : ApplicationService, IPickListAppService
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         pl.Cancel();
         await _repository.UpdateAsync(pl);
+
+        // Release any stock reservations and submitted Serial/Batch Bundles tied to this Pick List
+        var sreManager = LazyServiceProvider?.LazyGetService<Inventory.DomainServices.StockReservationManager>();
+        if (sreManager != null)
+        {
+            await sreManager.CancelReservationsForVoucherAsync(pl.Id);
+        }
+
+        var bundleIds = pl.Items
+            .Where(i => i.SerialAndBatchBundleId.HasValue)
+            .Select(i => i.SerialAndBatchBundleId!.Value)
+            .Distinct()
+            .ToList();
+        if (bundleIds.Count > 0)
+        {
+            var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+            if (bundleRepo != null)
+            {
+                foreach (var bId in bundleIds)
+                {
+                    var bundle = await bundleRepo.FindAsync(bId);
+                    if (bundle != null && bundle.Status == DocumentStatus.Submitted)
+                    {
+                        bundle.Cancel();
+                        await bundleRepo.UpdateAsync(bundle);
+                    }
+                }
+            }
+        }
+
         if (pl.SalesOrderId.HasValue)
         {
             await UpdateSalesOrderPickingStatusAsync(pl, isSubmit: false);

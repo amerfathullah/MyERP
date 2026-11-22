@@ -339,6 +339,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 .WithData("dependent", "SubcontractingReceipt");
         }
 
+        var previousStatus = sco.Status.ToString();
         sco.Cancel();
         await _scoRepository.UpdateAsync(sco);
 
@@ -352,7 +353,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "SubcontractingOrder", sco.Id,
             "Cancelled", sco.CompanyId,
-            sco.OrderNumber, sco.Status.ToString(), "Cancelled", CurrentUser.Id,
+            sco.OrderNumber, previousStatus, "Cancelled", CurrentUser.Id,
             $"Subcontracting Order {sco.OrderNumber} cancelled", CurrentTenant.Id));
 
         return ObjectMapper.Map<SubcontractingOrder, SubcontractingOrderDto>(sco);

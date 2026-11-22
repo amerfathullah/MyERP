@@ -280,6 +280,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectDto> CancelAsync(Guid id)
     {
         var project = await _projectRepository.GetAsync(id);
+        var previousStatus = project.Status.ToString();
         project.Cancel();
         await _projectRepository.UpdateAsync(project);
 
@@ -287,7 +288,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "Project", project.Id,
             "Cancelled", project.CompanyId,
-            project.ProjectNumber, project.Status.ToString(), "Cancelled", CurrentUser.Id,
+            project.ProjectNumber, previousStatus, "Cancelled", CurrentUser.Id,
             $"Project {project.ProjectNumber} ({project.ProjectName}) cancelled", CurrentTenant.Id));
 
         return ObjectMapper.Map<Project, ProjectDto>(project);
