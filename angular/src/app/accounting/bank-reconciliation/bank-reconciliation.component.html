@@ -125,13 +125,14 @@
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" (click)="reconcile(t.id!)">
                         <i class="fa fa-check me-1"></i>{{ '::Reconcile' | abpLocalization }}
-                      </button>                      <button class="btn btn-outline-success" (click)="openCreatePayment(t)" title="Create Payment Entry">
+                      </button>
+                      <button class="btn btn-outline-success" (click)="openCreatePayment(t)" [title]="'::CreatePaymentEntry' | abpLocalization">
                         <i class="fa fa-plus"></i>
                       </button>
-                      <button class="btn btn-outline-warning" (click)="openCreateJournal(t)" title="Create Journal Entry">
+                      <button class="btn btn-outline-warning" (click)="openCreateJournal(t)" [title]="'::CreateJournalEntry' | abpLocalization">
                         <i class="fa fa-book"></i>
                       </button>
-                      <button class="btn btn-outline-info" (click)="createTransfer(t.id!)" title="Create Internal Transfer">
+                      <button class="btn btn-outline-info" (click)="createTransfer(t.id!)" [title]="'::CreateInternalTransfer' | abpLocalization">
                         <i class="fa fa-exchange-alt"></i>
                       </button>
                     </div>

@@ -2198,9 +2198,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         foreach (var je in linkedJes)
         {
-            je.Cancel();
             await _postingOrchestrator.ReversePleForDocumentAsync("JournalEntry", je.Id);
-            await _postingOrchestrator.ReverseGlForDocumentAsync("JournalEntry", je.Id);
+            await _postingOrchestrator.ReverseGlForJournalEntryAsync(je.Id);
+            je.Cancel();
             await jeRepo.UpdateAsync(je, autoSave: true);
         }
 

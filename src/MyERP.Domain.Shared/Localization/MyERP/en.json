@@ -3261,6 +3261,8 @@
     "ValidateComponentQtyPerBom": "Validate Component Qty per BOM",
     "Sanction": "Sanction",
     "Disburse": "Disburse",
+    "Settle": "Settle",
+    "ViewGlEntries": "View GL Entries",
     "RecordRepayment": "Record Repayment",
     "DisburseLoan": "Disburse Loan",
     "ConfirmDisburse": "Confirm Disburse",

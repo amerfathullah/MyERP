@@ -531,4 +531,62 @@ public class UpstreamBatch41ParityTests
             .ToList();
         consolidatedCodes.ShouldBe(new[] { "004", "004" });
     }
+
+    [Fact]
+    public void MyInvois_InvoiceDocumentBuilder_EmitsTaxExchangeRateItemPriceExtensionTaxExemptionAndVersion11()
+    {
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var usdData = new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "INV-USD-01",
+            IssueDate = new DateTime(2026, 7, 1, 9, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            DocumentVersion = "1.1",
+            CurrencyCode = "USD",
+            ExchangeRate = 4.45m,
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "MY Seller Sdn Bhd", Tin = "C1234567890", CountryCode = "MYS", State = "14" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "US Buyer LLC", Tin = "EI00000000030", CountryCode = "USA" },
+            NetTotal = 250m,
+            TaxAmount = 0m,
+            GrandTotal = 250m,
+            TaxBreakdown = new List<MyERP.EInvoice.Services.EInvoiceTaxBreakdown>
+            {
+                new() { TaxCategoryCode = "E", TaxRate = 0m, TaxExemptionReason = "Export Goods", TaxableAmount = 250m, TaxAmount = 0m }
+            },
+            Lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Export Widget", Quantity = 2m, UnitPrice = 125m, TaxAmount = 0m, TaxCategoryCode = "E", TaxRate = 0m }
+            }
+        };
+
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(usdData));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+
+        xml.Root!.Element(cbc + "InvoiceTypeCode")!.Attribute("listVersionID")!.Value.ShouldBe("1.1");
+
+        var taxRateElem = xml.Root!.Element(cac + "TaxExchangeRate");
+        taxRateElem.ShouldNotBeNull();
+        taxRateElem!.Element(cbc + "SourceCurrencyCode")!.Value.ShouldBe("USD");
+        taxRateElem.Element(cbc + "TargetCurrencyCode")!.Value.ShouldBe("MYR");
+        taxRateElem.Element(cbc + "CalculationRate")!.Value.ShouldBe("4.4500");
+
+        xml.Root!.Element(cac + "TaxTotal")!
+            .Element(cac + "TaxSubtotal")!
+            .Element(cac + "TaxCategory")!
+            .Element(cbc + "TaxExemptionReason")!.Value.ShouldBe("Export Goods");
+
+        var invLine = xml.Root!.Element(cac + "InvoiceLine")!;
+        invLine.Element(cac + "TaxTotal")!
+            .Element(cac + "TaxSubtotal")!
+            .Element(cac + "TaxCategory")!
+            .Element(cbc + "TaxExemptionReason")!.Value.ShouldBe("NA");
+        invLine.Element(cac + "ItemPriceExtension")!
+            .Element(cbc + "Amount")!.Value.ShouldBe("250.00");
+
+        // MYR invoice omits TaxExchangeRate
+        usdData.CurrencyCode = "MYR";
+        var myrXml = System.Xml.Linq.XDocument.Parse(builder.Build(usdData));
+        myrXml.Root!.Element(cac + "TaxExchangeRate").ShouldBeNull();
+    }
 }

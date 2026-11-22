@@ -167,16 +167,16 @@ interface PledgeRow extends InvoiceForDiscountingDto {
                   <td (click)="$event.stopPropagation()">
                     <div class="btn-group btn-group-sm">
                       @if (item.status === 0) {
-                        <button class="btn btn-outline-success" (click)="openSubmit(item)" title="Submit"><i class="fa fa-check"></i></button>
+                        <button class="btn btn-outline-success" (click)="openSubmit(item)" [title]="'::Submit' | abpLocalization"><i class="fa fa-check"></i></button>
                       }
                       @if (item.status === 1) {
-                        <button class="btn btn-outline-primary" (click)="openDisburse(item)" title="Disburse"><i class="fa fa-money-bill-wave"></i></button>
+                        <button class="btn btn-outline-primary" (click)="openDisburse(item)" [title]="'::Disburse' | abpLocalization"><i class="fa fa-money-bill-wave"></i></button>
                       }
                       @if (item.status === 2) {
-                        <button class="btn btn-outline-info" (click)="settle(item)" title="Settle"><i class="fa fa-handshake"></i></button>
+                        <button class="btn btn-outline-info" (click)="settle(item)" [title]="'::Settle' | abpLocalization"><i class="fa fa-handshake"></i></button>
                       }
                       @if (item.status === 0 || item.status === 1 || item.status === 2) {
-                        <button class="btn btn-outline-danger" (click)="cancelDoc(item)" title="Cancel"><i class="fa fa-ban"></i></button>
+                        <button class="btn btn-outline-danger" (click)="cancelDoc(item)" [title]="'::Cancel' | abpLocalization"><i class="fa fa-ban"></i></button>
                       }
                     </div>
                   </td>

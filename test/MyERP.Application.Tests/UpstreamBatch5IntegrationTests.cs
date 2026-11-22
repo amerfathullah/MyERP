@@ -3264,4 +3264,211 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             netPoBank.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch21_EndToEnd_PcvInvoiceLinkedJeAndFxUnreconcile_GlReversal()
+    {
+        Guid companyId = Guid.Empty;
+        Guid arAccId = Guid.Empty;
+        Guid cashAccId = Guid.Empty;
+        Guid revAccId = Guid.Empty;
+        Guid retainedAccId = Guid.Empty;
+        Guid fxAccId = Guid.Empty;
+        Guid pcvId = Guid.Empty;
+        Guid salesInvoiceId = Guid.Empty;
+        Guid linkedCreditNoteJeId = Guid.Empty;
+        Guid paymentEntryId = Guid.Empty;
+        Guid invAId = Guid.Empty;
+        Guid invBId = Guid.Empty;
+        Guid fxJeAId = Guid.Empty;
+        Guid fxJeBId = Guid.Empty;
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var peRepo = GetRequiredService<IRepository<PaymentEntry, Guid>>();
+            var pcvService = GetRequiredService<MyERP.Accounting.IPeriodClosingVoucherAppService>();
+            var siService = GetRequiredService<MyERP.Sales.ISalesInvoiceAppService>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch21 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            companyId = company.Id;
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SalesInvoice", "SalesInvoice", "SINV-B21-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JournalEntry", "JournalEntry", "JE-B21-"), autoSave: true);
+
+            var arAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1200-B21", "Accounts Receivable", AccountType.Asset), autoSave: true);
+            var cashAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1000-B21", "Cash", AccountType.Asset), autoSave: true);
+            var revAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "4100-B21", "Sales Revenue", AccountType.Revenue), autoSave: true);
+            var retainedAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "3200-B21", "Retained Earnings", AccountType.Equity), autoSave: true);
+            var fxAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5900-B21", "FX Gain Loss", AccountType.Expense), autoSave: true);
+            var ccRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.InsertAsync(new CostCenter(Guid.NewGuid(), company.Id, "B21 CC"), autoSave: true);
+            arAccId = arAcc.Id;
+            cashAccId = cashAcc.Id;
+            revAccId = revAcc.Id;
+            retainedAccId = retainedAcc.Id;
+            fxAccId = fxAcc.Id;
+
+            company.DefaultReceivableAccountId = arAcc.Id;
+            company.DefaultBankAccountId = cashAcc.Id;
+            company.DefaultIncomeAccountId = revAcc.Id;
+            company.DefaultCostCenterId = cc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            var fy = await fyRepo.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY2026-B21", new DateTime(DateTime.Today.Year, 1, 1), new DateTime(DateTime.Today.Year, 12, 31)),
+                autoSave: true);
+
+            await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "B21 AR Dr", "SalesInvoice", isDebit: true, AccountSource.CustomerReceivable, AmountSource.GrandTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "B21 Rev Cr", "SalesInvoice", isDebit: false, AccountSource.ItemIncome, AmountSource.NetTotal) { SortOrder = 2 }, autoSave: true);
+
+            // 1. Seed P&L JE + Submit PeriodClosingVoucher
+            var pnlJe = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, new DateTime(DateTime.Today.Year, 6, 15));
+            pnlJe.AddLine(cashAcc.Id, 600m, isDebit: true);
+            pnlJe.AddLine(revAcc.Id, 600m, isDebit: false);
+            pnlJe.Post();
+            await jeRepo.InsertAsync(pnlJe, autoSave: true);
+
+            var pcv = await pcvService.CreateAsync(new MyERP.Accounting.CreatePeriodClosingVoucherDto
+            {
+                CompanyId = company.Id,
+                FiscalYearId = fy.Id,
+                PostingDate = new DateTime(DateTime.Today.Year, 12, 31),
+                ClosingAccountId = retainedAcc.Id,
+                Remarks = "Batch21 Closing",
+            });
+            await pcvService.SubmitAsync(pcv.Id);
+            pcvId = pcv.Id;
+
+            // 2. Post SalesInvoice + attach a system-generated CreditNote JE (gotcha #3909)
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B21 Cust") { DefaultReceivableAccountId = arAcc.Id }, autoSave: true);
+            var svcItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B21-SVC", "B21 Service", ItemType.Service) { MaintainStock = false, Uom = "Unit" }, autoSave: true);
+
+            var si = await siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                CostCenterId = cc.Id,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = svcItem.Id, Description = svcItem.ItemName, Quantity = 1m, UnitPrice = 200m, TaxAmount = 0m }
+                }
+            });
+            await siService.SubmitAsync(si.Id);
+            await siService.PostAsync(si.Id);
+            salesInvoiceId = si.Id;
+
+            var creditNoteJe = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, DateTime.Today)
+            {
+                ReferenceType = "SalesInvoice",
+                ReferenceId = si.Id,
+                VoucherType = JournalEntryVoucherType.CreditNote,
+                Narration = "Linked Credit Note JE",
+            };
+            creditNoteJe.AddLine(revAcc.Id, 50m, isDebit: true);
+            creditNoteJe.AddLine(arAcc.Id, 50m, isDebit: false);
+            creditNoteJe.Post();
+            await jeRepo.InsertAsync(creditNoteJe, autoSave: true);
+            linkedCreditNoteJeId = creditNoteJe.Id;
+
+            // 3. PaymentEntry + two ExchangeGainOrLoss JEs targeting different invoices (invA vs invB)
+            invAId = Guid.NewGuid();
+            invBId = Guid.NewGuid();
+            var pe = new PaymentEntry(Guid.NewGuid(), company.Id, PaymentType.Receive, DateTime.Today, 100m, arAcc.Id, cashAcc.Id)
+            {
+                PartyType = "Customer",
+                PartyId = customer.Id,
+            };
+            pe.Submit();
+            pe.Post();
+            await peRepo.InsertAsync(pe, autoSave: true);
+            paymentEntryId = pe.Id;
+
+            var fxJeA = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, DateTime.Today)
+            {
+                ReferenceType = "PaymentEntry",
+                ReferenceId = pe.Id,
+                VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            };
+            fxJeA.AddReconciliationLine(arAcc.Id, 20m, true, customer.Id, "Customer", null, null, "MYR", 20m, 1m, "SalesInvoice", invAId, false);
+            fxJeA.AddLine(fxAcc.Id, 20m, false);
+            fxJeA.Post();
+            await jeRepo.InsertAsync(fxJeA, autoSave: true);
+            fxJeAId = fxJeA.Id;
+
+            var fxJeB = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, DateTime.Today)
+            {
+                ReferenceType = "PaymentEntry",
+                ReferenceId = pe.Id,
+                VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            };
+            fxJeB.AddReconciliationLine(arAcc.Id, 35m, true, customer.Id, "Customer", null, null, "MYR", 35m, 1m, "SalesInvoice", invBId, false);
+            fxJeB.AddLine(fxAcc.Id, 35m, false);
+            fxJeB.Post();
+            await jeRepo.InsertAsync(fxJeB, autoSave: true);
+            fxJeBId = fxJeB.Id;
+
+            await uowManager.Current!.SaveChangesAsync();
+        });
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var pcvService = GetRequiredService<MyERP.Accounting.IPeriodClosingVoucherAppService>();
+            var siService = GetRequiredService<MyERP.Sales.ISalesInvoiceAppService>();
+            var reconService = GetRequiredService<MyERP.Accounting.IPaymentReconciliationAppService>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            // 1. Cancel PCV -> contra reversal JE posted, original stays Posted, net GL = 0
+            await pcvService.CancelAsync(pcvId);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var pcvJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "PeriodClosingVoucher" && j.ReferenceId == pcvId)
+                .ToList();
+            pcvJes.Count.ShouldBe(2);
+            pcvJes.All(j => j.Status == DocumentStatus.Posted).ShouldBeTrue();
+            pcvJes.Count(j => j.VoucherType == JournalEntryVoucherType.Reversal && j.ReversalOfId.HasValue).ShouldBe(1);
+            var netPcvRetained = pcvJes.SelectMany(j => j.Lines).Where(l => l.AccountId == retainedAccId).Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+            netPcvRetained.ShouldBe(0m);
+
+            // 2. Cancel SalesInvoice -> linked CreditNote JE reversed via contra JE (not lost no-op!)
+            await siService.CancelAsync(salesInvoiceId);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var creditNoteReversals = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReversalOfId == linkedCreditNoteJeId && j.Status == DocumentStatus.Posted)
+                .ToList();
+            creditNoteReversals.Count.ShouldBe(1);
+            creditNoteReversals[0].Lines.ShouldContain(l => l.AccountId == arAccId && l.IsDebit && l.Amount == 50m);
+            creditNoteReversals[0].Lines.ShouldContain(l => l.AccountId == revAccId && !l.IsDebit && l.Amount == 50m);
+
+            // 3. Unreconcile invA -> ONLY fxJeA reversed via contra JE; fxJeB untouched!
+            await reconService.UnreconcileAsync(new MyERP.Accounting.UnreconcileDto
+            {
+                PaymentVoucherType = "PaymentEntry",
+                PaymentVoucherId = paymentEntryId,
+                InvoiceVoucherType = "SalesInvoice",
+                InvoiceVoucherId = invAId,
+            });
+            await uowManager.Current!.SaveChangesAsync();
+
+            var allFxJes = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .Where(j => j.ReferenceType == "PaymentEntry" && j.ReferenceId == paymentEntryId)
+                .ToList();
+            allFxJes.Single(j => j.Id == fxJeAId).Status.ShouldBe(DocumentStatus.Posted);
+            allFxJes.Single(j => j.Id == fxJeBId).Status.ShouldBe(DocumentStatus.Posted);
+            allFxJes.Count(j => j.ReversalOfId == fxJeAId && j.VoucherType == JournalEntryVoucherType.Reversal && j.Status == DocumentStatus.Posted).ShouldBe(1);
+            allFxJes.Count(j => j.ReversalOfId == fxJeBId).ShouldBe(0);
+        });
+    }
 }

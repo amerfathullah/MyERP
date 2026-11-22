@@ -281,18 +281,54 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
             }
         }
 
-        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
-        var relatedJes = jeQuery
+        var jeQuery = await _journalEntryRepository.WithDetailsAsync(j => j.Lines);
+        var paymentFxJes = jeQuery
             .Where(je => je.ReferenceType == input.PaymentVoucherType
                       && je.ReferenceId == input.PaymentVoucherId
                       && je.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss
                       && je.Status == Core.DocumentStatus.Posted)
             .ToList();
+        if (paymentFxJes.Count == 0)
+        {
+            var fallbackQuery = await _journalEntryRepository.GetQueryableAsync();
+            paymentFxJes = fallbackQuery
+                .Where(je => je.ReferenceType == input.PaymentVoucherType
+                          && je.ReferenceId == input.PaymentVoucherId
+                          && je.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss
+                          && je.Status == Core.DocumentStatus.Posted)
+                .ToList();
+        }
 
+        // Scope FX reversal to the unreconciled invoice when AgainstVoucherId is recorded on lines
+        var relatedJes = paymentFxJes
+            .Where(je => je.Lines.Any(l => l.AgainstVoucherType == input.InvoiceVoucherType && l.AgainstVoucherId == input.InvoiceVoucherId)
+                      || !je.Lines.Any(l => l.AgainstVoucherId.HasValue))
+            .ToList();
+
+        var orchestrator = LazyServiceProvider?.LazyGetService<DocumentPostingOrchestrator>();
         foreach (var je in relatedJes)
         {
-            je.Cancel();
-            await _journalEntryRepository.UpdateAsync(je);
+            if (orchestrator != null)
+            {
+                await orchestrator.ReverseGlForJournalEntryAsync(je.Id);
+            }
+            else
+            {
+                var reversal = new JournalEntry(
+                    GuidGenerator.Create(), je.CompanyId, je.FiscalYearId, je.PostingDate, je.TenantId)
+                {
+                    ReferenceType = je.ReferenceType,
+                    ReferenceId = je.ReferenceId,
+                    ReferenceNumber = je.ReferenceNumber,
+                    VoucherType = JournalEntryVoucherType.Reversal,
+                    ReversalOfId = je.Id,
+                    IsMultiCurrency = je.IsMultiCurrency,
+                };
+                foreach (var line in je.Lines)
+                    reversal.AddReversalLine(line);
+                reversal.Post();
+                await _journalEntryRepository.InsertAsync(reversal);
+            }
         }
     }
 

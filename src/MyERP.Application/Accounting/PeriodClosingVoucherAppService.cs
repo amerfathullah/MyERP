@@ -208,16 +208,9 @@ public class PeriodClosingVoucherAppService : ApplicationService, IPeriodClosing
         pcv.Cancel();
         await _repository.UpdateAsync(pcv);
 
-        // Cancel the linked Journal Entry
-        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
-        var linkedJe = (await jeRepo.GetListAsync(je =>
-            je.ReferenceType == "PeriodClosingVoucher" && je.ReferenceId == pcv.Id
-            && je.Status == DocumentStatus.Posted)).FirstOrDefault();
-        if (linkedJe != null)
-        {
-            linkedJe.Cancel();
-            await jeRepo.UpdateAsync(linkedJe);
-        }
+        // Reverse the linked Period Closing Journal Entry via contra reversal entry
+        // (immutable double-entry GL protocol; original posted JE stays intact for audit)
+        await _postingOrchestrator.ReverseGlForDocumentAsync("PeriodClosingVoucher", pcv.Id);
 
         // Delete closing balances for the cancelled period
         var period = AccountClosingBalanceService.GetPeriodFromDate(pcv.PostingDate);

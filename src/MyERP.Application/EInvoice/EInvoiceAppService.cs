@@ -108,17 +108,20 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             await _validationService.EnsureValidPurchaseInvoiceForSubmissionAsync(invoice, input.CompanyId);
         }
 
-        // Step 2: Build UBL 2.1 XML from source document
+        // Step 2: Check certificate configuration to set UBL DocumentVersion ("1.1" signed vs "1.0" unsigned per myinvois createxml.py)
+        var pfxBase64 = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePfxBase64");
+        var pfxPassword = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePassword");
+        var hasCertificate = !string.IsNullOrEmpty(pfxBase64) && !string.IsNullOrEmpty(pfxPassword);
+
         var documentData = await BuildDocumentDataAsync(input.CompanyId, input.SourceDocumentType, input.SourceDocumentId);
+        documentData.DocumentVersion = hasCertificate ? "1.1" : "1.0";
         var xmlDocument = _documentBuilder.Build(documentData);
 
         // Step 3: Digital signature (XAdES) if certificate is configured
-        var pfxBase64 = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePfxBase64");
-        var pfxPassword = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePassword");
-        if (!string.IsNullOrEmpty(pfxBase64) && !string.IsNullOrEmpty(pfxPassword))
+        if (hasCertificate)
         {
-            var pfxBytes = Convert.FromBase64String(pfxBase64);
-            xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword);
+            var pfxBytes = Convert.FromBase64String(pfxBase64!);
+            xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword!);
         }
 
         // Step 4: Get credentials from settings (auto-fetch via ClientId/ClientSecret if token missing per myinvois taxpayerlogin.py)
@@ -232,6 +235,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
+            ExchangeRate = invoice.ExchangeRate,
             IsConsolidated = invoice.IsConsolidated,
             BillingReferenceNumber = billingReferenceNumber ?? billingReferenceUuid,
             BillingReferenceUuid = billingReferenceUuid,
@@ -322,6 +326,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
+            ExchangeRate = invoice.ExchangeRate,
             BillingReferenceNumber = billingReferenceNumber ?? billingReferenceUuid,
             BillingReferenceUuid = billingReferenceUuid,
             Supplier = new EInvoicePartyData
@@ -680,12 +685,18 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             CountryCode = "MYS",
         };
 
+        var pfxBase64 = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePfxBase64");
+        var pfxPassword = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePassword");
+        var hasCertificate = !string.IsNullOrEmpty(pfxBase64) && !string.IsNullOrEmpty(pfxPassword);
+
         var documentData = new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
             DocumentTypeCode = "01", // Standard invoice
+            DocumentVersion = hasCertificate ? "1.1" : "1.0",
             CurrencyCode = invoice.CurrencyCode,
+            ExchangeRate = invoice.ExchangeRate,
             IsConsolidated = true,
             Supplier = supplier,
             Buyer = buyer,
@@ -706,12 +717,10 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var xmlDocument = _documentBuilder.Build(documentData);
 
         // Sign if certificate configured
-        var pfxBase64 = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePfxBase64");
-        var pfxPassword = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePassword");
-        if (!string.IsNullOrEmpty(pfxBase64) && !string.IsNullOrEmpty(pfxPassword))
+        if (hasCertificate)
         {
-            var pfxBytes = Convert.FromBase64String(pfxBase64);
-            xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword);
+            var pfxBytes = Convert.FromBase64String(pfxBase64!);
+            xmlDocument = _documentSigner.Sign(xmlDocument, pfxBytes, pfxPassword!);
         }
 
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));

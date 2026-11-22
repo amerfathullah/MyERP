@@ -31,7 +31,8 @@ public class InvoiceDocumentBuilder : ITransientDependency
         invoice.Add(new XElement(Cbc + "IssueDate", data.IssueDate.ToString("yyyy-MM-dd")));
         invoice.Add(new XElement(Cbc + "IssueTime", data.IssueDate.ToString("HH:mm:ssZ")));
         invoice.Add(new XElement(Cbc + "InvoiceTypeCode",
-            new XAttribute("listVersionID", "1.0"), data.DocumentTypeCode));
+            new XAttribute("listVersionID", string.IsNullOrWhiteSpace(data.DocumentVersion) ? "1.0" : data.DocumentVersion),
+            data.DocumentTypeCode));
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
         invoice.Add(new XElement(Cbc + "TaxCurrencyCode", data.CurrencyCode));
 
@@ -72,6 +73,17 @@ public class InvoiceDocumentBuilder : ITransientDependency
         if (data.DiscountAmount != 0)
         {
             invoice.Add(BuildAllowanceCharge(data.DiscountAmount, data.CurrencyCode, data.DiscountReason));
+        }
+
+        // Tax Exchange Rate (mandatory per LHDN MyInvois createxml.py when document currency != MYR)
+        if (!string.IsNullOrWhiteSpace(data.CurrencyCode)
+            && !string.Equals(data.CurrencyCode, "MYR", StringComparison.OrdinalIgnoreCase))
+        {
+            var rate = data.ExchangeRate.HasValue && data.ExchangeRate.Value > 0 ? data.ExchangeRate.Value : 1m;
+            invoice.Add(new XElement(Cac + "TaxExchangeRate",
+                new XElement(Cbc + "SourceCurrencyCode", data.CurrencyCode),
+                new XElement(Cbc + "TargetCurrencyCode", "MYR"),
+                new XElement(Cbc + "CalculationRate", rate.ToString("F4", CultureInfo.InvariantCulture))));
         }
 
         // Tax Total
@@ -353,6 +365,20 @@ public class InvoiceDocumentBuilder : ITransientDependency
         {
             foreach (var bd in breakdowns)
             {
+                var taxCategory = new XElement(Cac + "TaxCategory",
+                    new XElement(Cbc + "ID", bd.TaxCategoryCode),
+                    new XElement(Cbc + "Percent", bd.TaxRate.ToString("F2", CultureInfo.InvariantCulture)));
+                if (string.Equals(bd.TaxCategoryCode, "E", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(bd.TaxExemptionReason))
+                {
+                    taxCategory.Add(new XElement(Cbc + "TaxExemptionReason",
+                        !string.IsNullOrWhiteSpace(bd.TaxExemptionReason) ? bd.TaxExemptionReason : "NA"));
+                }
+                taxCategory.Add(new XElement(Cac + "TaxScheme",
+                    new XElement(Cbc + "ID",
+                        new XAttribute("schemeAgencyID", "6"),
+                        new XAttribute("schemeID", "UN/ECE 5153"), "OTH")));
+
                 taxTotal.Add(new XElement(Cac + "TaxSubtotal",
                     new XElement(Cbc + "TaxableAmount",
                         new XAttribute("currencyID", currency),
@@ -360,13 +386,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "TaxAmount",
                         new XAttribute("currencyID", currency),
                         bd.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)),
-                    new XElement(Cac + "TaxCategory",
-                        new XElement(Cbc + "ID", bd.TaxCategoryCode),
-                        new XElement(Cbc + "Percent", bd.TaxRate.ToString("F2", CultureInfo.InvariantCulture)),
-                        new XElement(Cac + "TaxScheme",
-                            new XElement(Cbc + "ID",
-                                new XAttribute("schemeAgencyID", "6"),
-                                new XAttribute("schemeID", "UN/ECE 5153"), "OTH")))));
+                    taxCategory));
             }
         }
 
@@ -419,6 +439,20 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)));
         if (line.TaxCategoryCode != null)
         {
+            var lineTaxCategory = new XElement(Cac + "TaxCategory",
+                new XElement(Cbc + "ID", line.TaxCategoryCode),
+                new XElement(Cbc + "Percent", (line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)));
+            if (string.Equals(line.TaxCategoryCode, "E", StringComparison.OrdinalIgnoreCase)
+                || !string.IsNullOrWhiteSpace(line.TaxExemptionReason))
+            {
+                lineTaxCategory.Add(new XElement(Cbc + "TaxExemptionReason",
+                    !string.IsNullOrWhiteSpace(line.TaxExemptionReason) ? line.TaxExemptionReason : "NA"));
+            }
+            lineTaxCategory.Add(new XElement(Cac + "TaxScheme",
+                new XElement(Cbc + "ID",
+                    new XAttribute("schemeAgencyID", "6"),
+                    new XAttribute("schemeID", "UN/ECE 5153"), "OTH")));
+
             taxTotal.Add(new XElement(Cac + "TaxSubtotal",
                 new XElement(Cbc + "TaxableAmount",
                     new XAttribute("currencyID", currency),
@@ -426,13 +460,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "TaxAmount",
                     new XAttribute("currencyID", currency),
                     line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)),
-                new XElement(Cac + "TaxCategory",
-                    new XElement(Cbc + "ID", line.TaxCategoryCode),
-                    new XElement(Cbc + "Percent", (line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)),
-                    new XElement(Cac + "TaxScheme",
-                        new XElement(Cbc + "ID",
-                            new XAttribute("schemeAgencyID", "6"),
-                            new XAttribute("schemeID", "UN/ECE 5153"), "OTH")))));
+                lineTaxCategory));
         }
         lineElem.Add(taxTotal);
 
@@ -449,6 +477,11 @@ public class InvoiceDocumentBuilder : ITransientDependency
             new XElement(Cbc + "PriceAmount",
                 new XAttribute("currencyID", currency),
                 line.UnitPrice.ToString("F4", CultureInfo.InvariantCulture))));
+
+        lineElem.Add(new XElement(Cac + "ItemPriceExtension",
+            new XElement(Cbc + "Amount",
+                new XAttribute("currencyID", currency),
+                line.LineTotal.ToString("F2", CultureInfo.InvariantCulture))));
 
         return lineElem;
     }
@@ -498,7 +531,9 @@ public class EInvoiceDocumentData
     public string InvoiceNumber { get; set; } = null!;
     public DateTime IssueDate { get; set; }
     public string DocumentTypeCode { get; set; } = "01";
+    public string DocumentVersion { get; set; } = "1.0";
     public string CurrencyCode { get; set; } = "MYR";
+    public decimal? ExchangeRate { get; set; }
     public bool IsConsolidated { get; set; }
     public EInvoicePartyData Supplier { get; set; } = null!;
     public EInvoicePartyData Buyer { get; set; } = null!;
@@ -564,6 +599,7 @@ public class EInvoiceLineData
     public string? ClassificationCode { get; set; }
     public string? TaxCategoryCode { get; set; }
     public decimal? TaxRate { get; set; }
+    public string? TaxExemptionReason { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? DiscountReason { get; set; }
 }
@@ -572,6 +608,7 @@ public class EInvoiceTaxBreakdown
 {
     public string TaxCategoryCode { get; set; } = "01";
     public decimal TaxRate { get; set; }
+    public string? TaxExemptionReason { get; set; }
     public decimal TaxableAmount { get; set; }
     public decimal TaxAmount { get; set; }
 }
