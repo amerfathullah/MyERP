@@ -6655,7 +6655,11 @@
     "BatchCount": "Batches",
     "ConsumedStockItems": "Consumed Stock Items",
     "ConsumedItemsCost": "Consumed Items Cost",
-    "TotalRepairCost": "Total Repair Cost"
+    "TotalRepairCost": "Total Repair Cost",
+    "ExpensesAddedToStockAccount": "Expenses Added To Stock Account",
+    "ExpensesAddedToStockContraAccount": "Expenses Added To Stock Contra Account",
+    "MaxDiscount": "Max Discount (%)",
+    "MaxDiscountHelp": "Maximum allowed discount percentage (0–100) for selling transactions"
   }
 }
 

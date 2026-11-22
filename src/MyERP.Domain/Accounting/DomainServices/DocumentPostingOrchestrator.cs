@@ -9,10 +9,13 @@ using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Purchasing.Entities;
+using MyERP.Settings;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 using Volo.Abp.Guids;
+using Volo.Abp.Settings;
 
 namespace MyERP.Accounting.DomainServices;
 
@@ -335,7 +338,7 @@ public class DocumentPostingOrchestrator : DomainService
     {
         await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt);
+        var journal = await BuildAndPostPurchaseReceiptJournalAsync(purchaseReceipt, stockAccountId: null, warehouseStockSplit: null);
         await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
@@ -359,10 +362,79 @@ public class DocumentPostingOrchestrator : DomainService
     {
         await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt, stockAccountId, warehouseStockSplit);
+        var journal = await BuildAndPostPurchaseReceiptJournalAsync(purchaseReceipt, stockAccountId, warehouseStockSplit);
         await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;
+    }
+
+    private async Task<JournalEntry> BuildAndPostPurchaseReceiptJournalAsync(
+        IAccountableDocument purchaseReceipt,
+        Guid? stockAccountId,
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit)
+    {
+        if (purchaseReceipt is PurchaseReceipt pr && await IsBookStockExpenseGlEntriesEnabledAsync())
+        {
+            var lcvItems = pr.Items.Where(i => i.LandedCostVoucherAmount != 0m).ToList();
+            if (lcvItems.Count > 0)
+            {
+                var stockExpenseGl = ResolveStockExpenseGlService();
+                if (stockExpenseGl != null)
+                {
+                    var draftJournal = await _ruleEngine.BuildDocumentJournalAsync(
+                        purchaseReceipt, stockAccountId, warehouseStockSplit);
+                    var company = await _companyRepository.GetAsync(purchaseReceipt.CompanyId);
+                    foreach (var item in lcvItems)
+                    {
+                        await stockExpenseGl.AppendExpensesAddedToStockPairAsync(
+                            draftJournal, company, item.ItemId, item.LandedCostVoucherAmount,
+                            purchaseReceipt.CostCenterId, projectId: null);
+                    }
+                    draftJournal.Validate();
+                    draftJournal.Post();
+                    return draftJournal;
+                }
+            }
+        }
+
+        return stockAccountId.HasValue
+            ? await _ruleEngine.PostDocumentAsync(purchaseReceipt, stockAccountId, warehouseStockSplit)
+            : await _ruleEngine.PostDocumentAsync(purchaseReceipt);
+    }
+
+    private async Task<bool> IsBookStockExpenseGlEntriesEnabledAsync()
+    {
+        var accountsSettingsRepo = LazyServiceProvider?.LazyGetService<IRepository<AccountsSettings, Guid>>();
+        if (accountsSettingsRepo != null)
+        {
+            var query = await accountsSettingsRepo.GetQueryableAsync();
+            var settings = query?.FirstOrDefault();
+            if (settings != null && settings.BookStockExpenseGlEntries)
+            {
+                return true;
+            }
+        }
+
+        var settingProvider = LazyServiceProvider?.LazyGetService<ISettingProvider>();
+        if (settingProvider != null)
+        {
+            var settingVal = await settingProvider.GetOrNullAsync(MyERPSettings.Accounts.BookStockExpenseGlEntries);
+            if (string.Equals(settingVal, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private StockExpenseGlService? ResolveStockExpenseGlService()
+    {
+        var svc = LazyServiceProvider?.LazyGetService<StockExpenseGlService>();
+        if (svc != null) return svc;
+
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
+        return itemRepo != null ? new StockExpenseGlService(_companyRepository, itemRepo) : null;
     }
 
     /// <summary>
@@ -500,6 +572,27 @@ public class DocumentPostingOrchestrator : DomainService
                     throw new BusinessException(MyERPDomainErrorCodes.StockEntryGlPurposeNotSupported)
                         .WithData("documentType", ((IAccountableDocument)stockEntry).DocumentType)
                         .WithData("purpose", stockEntry.EntryType.ToString());
+            }
+
+            // Per ERPNext PR #57190 & PR #57519 (stock_entry/services/gl_composer.py: book_expenses_added_to_stock = True):
+            // append balanced Expenses Added To Stock pair per item with non-zero net stock value difference.
+            if (await IsBookStockExpenseGlEntriesEnabledAsync())
+            {
+                var stockExpenseGl = ResolveStockExpenseGlService();
+                if (stockExpenseGl != null)
+                {
+                    foreach (var group in sles.GroupBy(s => s.ItemId))
+                    {
+                        var netStockValueDiff = group.Sum(s => s.StockValue);
+                        if (netStockValueDiff != 0m)
+                        {
+                            await stockExpenseGl.AppendExpensesAddedToStockPairAsync(
+                                journal, company, group.Key, netStockValueDiff,
+                                stockEntry.CostCenterId,
+                                stockEntry.ProjectId);
+                        }
+                    }
+                }
             }
         }
 

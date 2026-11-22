@@ -192,6 +192,17 @@ public class BinService : DomainService
     }
 
     /// <summary>
+    /// Sets reserved qty for production plan directly from recalculated cross-warehouse plan reservations
+    /// (per ERPNext PR #59429 / bin.update_reserved_qty_for_production_plan).
+    /// </summary>
+    public virtual async Task SetReservedQtyForProductionPlanAsync(Guid itemId, Guid warehouseId, decimal reservedQty, Guid? tenantId = null)
+    {
+        var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
+        bin.ReservedQtyForProductionPlan = Math.Max(0m, Math.Round(reservedQty, 4));
+        await _binRepository.UpdateAsync(bin);
+    }
+
+    /// <summary>
     /// Get current stock balance for item+warehouse.
     /// Returns zero-value Bin if no record exists.
     /// </summary>

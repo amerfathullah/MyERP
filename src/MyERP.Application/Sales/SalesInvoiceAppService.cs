@@ -1064,6 +1064,27 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Map document-level discount fields & validate against Item.MaxDiscount ceiling (ERPNext selling_controller.validate_max_discount, Gotcha #3222)
+        if (!invoice.IsReturn)
+        {
+            invoice.AdditionalDiscountPercentage = input.AdditionalDiscountPercentage;
+            invoice.DiscountAmount = input.DiscountAmount;
+            var netSubtotal = invoice.Items.Sum(i => i.LineTotal);
+            if (invoice.DiscountAmount > 0 && netSubtotal > 0 && invoice.AdditionalDiscountPercentage == 0)
+            {
+                invoice.AdditionalDiscountPercentage = Math.Round(invoice.DiscountAmount / netSubtotal * 100m, 4);
+            }
+            else if (invoice.AdditionalDiscountPercentage > 0 && invoice.DiscountAmount == 0 && netSubtotal > 0)
+            {
+                invoice.DiscountAmount = Math.Round(netSubtotal * invoice.AdditionalDiscountPercentage / 100m, 2);
+            }
+
+            if (invoice.AdditionalDiscountPercentage != 0 || invoice.DiscountAmount != 0)
+            {
+                await ValidateInvoiceDiscountCeilingAsync(invoice);
+            }
+        }
+
         // Apply pricing rules (auto-discount based on configured rules)
         if (!invoice.IsReturn)
         {
@@ -1468,6 +1489,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             {
                 discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
                 invoice.DiscountAmount = discountAmt;
+            }
+            if (!invoice.IsReturn && (invoice.AdditionalDiscountPercentage != 0 || discountAmt != 0))
+            {
+                await ValidateInvoiceDiscountCeilingAsync(invoice);
             }
             var totals = await taxRecalcService.RecalculateAsync(new TaxRecalculationInput
             {
@@ -2857,6 +2882,43 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                              select item.Id).Distinct().Count();
 
         return soItemIds.Count != matchingCount;
+    }
+
+    /// <summary>
+    /// Validates document-level discount percentage (and effective percentage from flat DiscountAmount)
+    /// against every invoice item's <see cref="Inventory.Entities.Item.MaxDiscount"/> ceiling
+    /// via <see cref="DiscountCeilingValidationService"/> (ERPNext selling_controller.validate_max_discount, Gotcha #3222).
+    /// </summary>
+    private async Task ValidateInvoiceDiscountCeilingAsync(SalesInvoice invoice)
+    {
+        if (invoice.DiscountAmount < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "DiscountAmount");
+        }
+
+        if (invoice.AdditionalDiscountPercentage < 0 || invoice.AdditionalDiscountPercentage > 100)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
+        }
+
+        var netSubtotal = invoice.Items.Sum(i => i.LineTotal);
+        var effectivePct = invoice.AdditionalDiscountPercentage > 0
+            ? invoice.AdditionalDiscountPercentage
+            : (invoice.DiscountAmount > 0 && netSubtotal > 0
+                ? Math.Round(invoice.DiscountAmount / netSubtotal * 100m, 4)
+                : 0m);
+
+        if (effectivePct <= 0m) return;
+
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        var validator = LazyServiceProvider?.LazyGetService<DiscountCeilingValidationService>()
+            ?? (itemRepo != null ? new DiscountCeilingValidationService(itemRepo) : null);
+
+        if (validator == null) return;
+
+        await validator.ValidateDiscountsAsync(
+            invoice.Items.Select(i => (i.ItemId, effectivePct)));
     }
 }
 

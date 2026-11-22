@@ -452,6 +452,7 @@ export interface CreateSalesInvoiceDto {
   posProfileId?: string | null;
   couponCode?: string | null;
   loyaltyPointsToRedeem?: number;
+  additionalDiscountPercentage?: number;
   discountAmount?: number;
   applyDiscountOn?: string | null;
   items: CreateSalesInvoiceItemDto[];
@@ -2456,6 +2457,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   exchangeRate?: number;
   priceListId?: string | null;
   netTotal?: number;
+  additionalDiscountPercentage?: number;
+  discountAmount?: number;
   taxAmount?: number;
   grandTotal?: number;
   amountPaid?: number;

@@ -89,6 +89,8 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultInventoryAccountId { get; set; }
     public System.Guid? StockReceivedButNotBilledAccountId { get; set; }
     public System.Guid? StockDeliveredButNotBilledAccountId { get; set; }
+    public System.Guid? ExpensesAddedToStockAccountId { get; set; }
+    public System.Guid? ExpensesAddedToStockContraAccountId { get; set; }
     public System.Guid? ExchangeGainLossAccountId { get; set; }
     public System.Guid? ExchangeGainAccountId { get; set; }
     public System.Guid? ExchangeLossAccountId { get; set; }

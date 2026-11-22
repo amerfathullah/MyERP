@@ -1898,6 +1898,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
         }
 
+        // Per ERPNext PR #59429: offset linked Production Plan bin reservations across warehouses
+        if (wo.ProductionPlanId.HasValue)
+        {
+            await SyncProductionPlanReservationsAsync(wo.ProductionPlanId.Value, wo.TenantId);
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
@@ -2487,6 +2493,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 plan.UpdateProducedStatus(allProduced && allWosCompleted, anyProduced);
                 await planRepo.UpdateAsync(plan);
             }
+
+            // Per ERPNext PR #59429: recalculate Production Plan bin reservations across warehouses
+            await SyncProductionPlanReservationsAsync(wo.ProductionPlanId.Value, wo.TenantId);
         }
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -2587,6 +2596,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             await mrManager.UpdateFulfillmentForItemsAsync(new[] { (wo.MaterialRequestItemId.Value, wo.Quantity) }, reverse: true);
         }
 
+        // Per ERPNext PR #59429: recalculate Production Plan bin reservations when a linked WO is cancelled
+        if (wo.ProductionPlanId.HasValue)
+        {
+            await SyncProductionPlanReservationsAsync(wo.ProductionPlanId.Value, wo.TenantId);
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
@@ -2602,6 +2617,24 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
+    }
+
+    private async Task SyncProductionPlanReservationsAsync(Guid productionPlanId, Guid? tenantId)
+    {
+        if (CurrentUnitOfWork != null)
+        {
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
+
+        var reservationService = LazyServiceProvider?.LazyGetService<Manufacturing.DomainServices.ProductionPlanReservationService>();
+        if (reservationService == null)
+        {
+            var planRepo = LazyServiceProvider?.LazyGetService<IRepository<ProductionPlan, Guid>>();
+            if (planRepo == null) return;
+            reservationService = new Manufacturing.DomainServices.ProductionPlanReservationService(planRepo, _workOrderRepository);
+        }
+
+        await reservationService.SyncBinReservationsForPlanAsync(productionPlanId, _binService, tenantId);
     }
 
     /// <summary>

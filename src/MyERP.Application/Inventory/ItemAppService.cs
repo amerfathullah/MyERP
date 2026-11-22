@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.DomainServices;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
@@ -663,13 +664,6 @@ public class ItemAppService :
             queryable = queryable.Where(i => i.CompanyId == companyId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(filter))
-        {
-            queryable = queryable.Where(i =>
-                i.ItemCode.Contains(filter)
-                || i.ItemName.Contains(filter));
-        }
-
         if (!string.IsNullOrWhiteSpace(input.ItemType) && Enum.TryParse<ItemType>(input.ItemType, true, out var itemType))
         {
             queryable = queryable.Where(i => i.ItemType == itemType);
@@ -707,12 +701,47 @@ public class ItemAppService :
             }
         }
 
-        var totalCount = queryable.Count();
-        var items = queryable
-            .OrderBy(i => i.ItemName)
-            .Skip(input.SkipCount)
-            .Take(input.MaxResultCount)
-            .ToList();
+        int totalCount;
+        List<Item> items;
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            // Per ERPNext PR #65020 & PR #65117: fold accents, character widths, kana, and script digits
+            // and match all whitespace-separated query tokens across code, name, and description.
+            var tokens = ItemSearchNormalizationService.FoldText(filter.Trim())
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var candidates = queryable.OrderBy(i => i.ItemName).ToList();
+            var matched = candidates
+                .Where(i =>
+                {
+                    var foldedCode = ItemSearchNormalizationService.FoldText(i.ItemCode);
+                    var foldedName = ItemSearchNormalizationService.FoldText(i.ItemName);
+                    var foldedDesc = string.IsNullOrEmpty(i.Description)
+                        ? string.Empty
+                        : ItemSearchNormalizationService.FoldText(i.Description);
+
+                    return tokens.All(t =>
+                        foldedCode.Contains(t, StringComparison.OrdinalIgnoreCase)
+                        || foldedName.Contains(t, StringComparison.OrdinalIgnoreCase)
+                        || foldedDesc.Contains(t, StringComparison.OrdinalIgnoreCase));
+                })
+                .ToList();
+
+            totalCount = matched.Count;
+            items = matched
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount)
+                .ToList();
+        }
+        else
+        {
+            totalCount = queryable.Count();
+            items = queryable
+                .OrderBy(i => i.ItemName)
+                .Skip(input.SkipCount)
+                .Take(input.MaxResultCount)
+                .ToList();
+        }
 
         var dtos = items.Select(ObjectMapper.Map<Item, ItemDto>).ToList();
 

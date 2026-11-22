@@ -149,6 +149,20 @@
               </select>
             </div>
             <div class="col-md-6 mb-3">
+              <label class="form-label">{{ '::ExpensesAddedToStockAccount' | abpLocalization }}</label>
+              <select class="form-select" formControlName="expensesAddedToStockAccountId">
+                <option value="">—</option>
+                @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ '::ExpensesAddedToStockContraAccount' | abpLocalization }}</label>
+              <select class="form-select" formControlName="expensesAddedToStockContraAccountId">
+                <option value="">—</option>
+                @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.accountCode }} - {{ a.accountName }}</option> }
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
               <label class="form-label">{{ '::DepreciationExpenseAccount' | abpLocalization }}</label>
               <select class="form-select" formControlName="depreciationExpenseAccountId">
                 <option value="">—</option>

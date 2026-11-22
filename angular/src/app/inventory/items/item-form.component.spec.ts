@@ -24,6 +24,7 @@ describe('Item form logic', () => {
       uom: ['Unit'],
       standardSellingPrice: [0],
       standardBuyingPrice: [0],
+      maxDiscount: [null as number | null, [Validators.min(0), Validators.max(100)]],
       lhdnClassificationCode: [''],
       maintainStock: [true],
       isActive: [true],
@@ -224,6 +225,27 @@ describe('Item form logic', () => {
       expect(form.get('lhdnClassificationCode')?.value).toBe('');
       form.patchValue({ lhdnClassificationCode: '022' });
       expect(form.get('lhdnClassificationCode')?.value).toBe('022');
+    });
+  });
+
+  describe('maxDiscount ceiling validation', () => {
+    it('should default maxDiscount to null and accept values between 0 and 100', () => {
+      const form = createItemForm();
+      form.patchValue({ companyId: 'c', itemCode: 'ITM-1', itemName: 'Item 1' });
+      expect(form.get('maxDiscount')?.value).toBeNull();
+      expect(form.valid).toBe(true);
+
+      form.patchValue({ maxDiscount: 15.5 });
+      expect(form.get('maxDiscount')?.valid).toBe(true);
+    });
+
+    it('should reject maxDiscount below 0 or above 100', () => {
+      const form = createItemForm();
+      form.patchValue({ companyId: 'c', itemCode: 'ITM-1', itemName: 'Item 1', maxDiscount: -1 });
+      expect(form.get('maxDiscount')?.valid).toBe(false);
+
+      form.patchValue({ maxDiscount: 100.01 });
+      expect(form.get('maxDiscount')?.valid).toBe(false);
     });
   });
 });

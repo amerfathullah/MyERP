@@ -2242,4 +2242,207 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
                 .ShouldBe($"All rejected qty of Purchase Receipt {pr.ReceiptNumber} is already returned.");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch14_EndToEnd_StockExpenseGl_MaxDiscount_FoldedSearch_PlanReservationOffset()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var ccRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.JournalEntry, Guid>>();
+            var accSettingsRepo = GetRequiredService<IRepository<MyERP.Accounting.Entities.AccountsSettings, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var planRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.ProductionPlan, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch14 Co")
+            {
+                CurrencyCode = "MYR",
+                EnablePerpetualInventory = true
+            }, autoSave: true);
+            await fyRepo.InsertAsync(
+                new MyERP.Accounting.Entities.FiscalYear(Guid.NewGuid(), company.Id, "FY-B14", new DateTime(2020, 1, 1), new DateTime(2030, 12, 31)),
+                autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "StockEntry", "StockEntry", "SE-B14-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SalesInvoice", "SalesInvoice", "SINV-B14-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "WO", "WO", "WO-B14-"), autoSave: true);
+
+            var stockAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1400-B14", "Stock In Hand", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var stockAdjAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5200-B14", "Stock Adjustment", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var arAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1200-B14", "AR", MyERP.Accounting.AccountType.Asset), autoSave: true);
+            var expAddedAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5300-B14", "Expenses Added To Stock", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var expContraAcc = await accRepo.InsertAsync(new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5301-B14", "Expenses Added To Stock Contra", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var mainCc = await ccRepo.InsertAsync(new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), company.Id, "B14 Main CC"), autoSave: true);
+
+            company.DefaultCostCenterId = mainCc.Id;
+            company.DefaultInventoryAccountId = stockAcc.Id;
+            company.DefaultStockAdjustmentAccountId = stockAdjAcc.Id;
+            company.DefaultReceivableAccountId = arAcc.Id;
+            company.ExpensesAddedToStockAccountId = expAddedAcc.Id;
+            company.ExpensesAddedToStockContraAccountId = expContraAcc.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            // 1. Expenses Added To Stock GL pair on StockEntry MaterialReceipt (PR #57190 & #57519)
+            var existingAccSettings = (await accSettingsRepo.GetQueryableAsync()).FirstOrDefault();
+            if (existingAccSettings == null)
+            {
+                await accSettingsRepo.InsertAsync(new MyERP.Accounting.Entities.AccountsSettings(Guid.NewGuid())
+                {
+                    BookStockExpenseGlEntries = true
+                }, autoSave: true);
+            }
+            else
+            {
+                existingAccSettings.BookStockExpenseGlEntries = true;
+                await accSettingsRepo.UpdateAsync(existingAccSettings, autoSave: true);
+            }
+
+            var whA = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B14 WH-A") { DefaultAccountId = stockAcc.Id }, autoSave: true);
+            var whB = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B14 WH-B") { DefaultAccountId = stockAcc.Id }, autoSave: true);
+            var stockItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B14-STK", "Batch 14 Stock Item", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit",
+                MaxDiscount = 10m
+            }, autoSave: true);
+            var serviceItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B14-SVC", "Batch 14 Service Item", ItemType.Service)
+            {
+                MaintainStock = false,
+                Uom = "Unit"
+            }, autoSave: true);
+
+            var seService = GetRequiredService<IStockEntryAppService>();
+            var se = await seService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialReceipt,
+                PostingDate = DateTime.Today,
+                Items = new List<CreateStockEntryItemDto>
+                {
+                    new() { ItemId = stockItem.Id, Quantity = 5m, TargetWarehouseId = whA.Id, ValuationRate = 40m }
+                }
+            });
+            await seService.SubmitAsync(se.Id);
+            await seService.PostAsync(se.Id);
+
+            var seJe = (await jeRepo.WithDetailsAsync(j => j.Lines))
+                .FirstOrDefault(j => j.ReferenceType == "StockEntry" && j.ReferenceId == se.Id);
+            seJe.ShouldNotBeNull();
+            seJe!.TotalDebit.ShouldBe(seJe.TotalCredit);
+            seJe.Lines.ShouldContain(l => l.AccountId == expAddedAcc.Id && l.IsDebit && l.Amount == 200m);
+            seJe.Lines.ShouldContain(l => l.AccountId == expContraAcc.Id && !l.IsDebit && l.Amount == 200m);
+
+            // Non-stock item must skip Expenses Added To Stock even without company accounts configured (PR #57519)
+            var stockExpenseGl = GetRequiredService<MyERP.Accounting.DomainServices.StockExpenseGlService>();
+            var noAcctCompany = new Company(Guid.NewGuid(), "No Acct Co");
+            var draftJe = new MyERP.Accounting.Entities.JournalEntry(Guid.NewGuid(), company.Id, Guid.NewGuid(), DateTime.Today);
+            var postedNonStock = await stockExpenseGl.AppendExpensesAddedToStockPairAsync(draftJe, noAcctCompany, serviceItem.Id, 100m);
+            postedNonStock.ShouldBeFalse();
+            draftJe.Lines.ShouldBeEmpty();
+
+            // 2. SalesInvoice DiscountCeilingValidationService enforcement (Gotcha #3222 / validate_max_discount)
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B14 Customer"), autoSave: true);
+            var siService = GetRequiredService<MyERP.Sales.ISalesInvoiceAppService>();
+
+            var pctEx = await Should.ThrowAsync<BusinessException>(() => siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                AdditionalDiscountPercentage = 15m,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = stockItem.Id, Description = stockItem.ItemName, Quantity = 1m, UnitPrice = 100m, TaxAmount = 0m }
+                }
+            }));
+            pctEx.Code.ShouldBe(MyERPDomainErrorCodes.MaxDiscountExceeded);
+
+            var flatEx = await Should.ThrowAsync<BusinessException>(() => siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                DiscountAmount = 20m,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = stockItem.Id, Description = stockItem.ItemName, Quantity = 1m, UnitPrice = 100m, TaxAmount = 0m }
+                }
+            }));
+            flatEx.Code.ShouldBe(MyERPDomainErrorCodes.MaxDiscountExceeded);
+
+            var validSi = await siService.CreateAsync(new MyERP.Sales.CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                AdditionalDiscountPercentage = 10m,
+                Items = new List<MyERP.Sales.CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = stockItem.Id, Description = stockItem.ItemName, Quantity = 1m, UnitPrice = 100m, TaxAmount = 0m }
+                }
+            });
+            validSi.AdditionalDiscountPercentage.ShouldBe(10m);
+            validSi.DiscountAmount.ShouldBe(10m);
+
+            // 3. Unicode / accent / kana / script-digit folded Item search (PR #65020 & #65117)
+            await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B14-CAFE", "Café Latte １２３", ItemType.Goods), autoSave: true);
+            await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B14-KANA", "カフェ マッチャ", ItemType.Goods), autoSave: true);
+
+            var itemAppService = GetRequiredService<IItemAppService>();
+            var cafeResults = await itemAppService.GetListAsync(new GetItemListDto { CompanyId = company.Id, Filter = "cafe 123", MaxResultCount = 20 });
+            cafeResults.Items.ShouldContain(i => i.ItemCode == "B14-CAFE");
+
+            var kanaResults = await itemAppService.GetListAsync(new GetItemListDto { CompanyId = company.Id, Filter = "かふぇ", MaxResultCount = 20 });
+            kanaResults.Items.ShouldContain(i => i.ItemCode == "B14-KANA");
+
+            // 4. ProductionPlan cross-warehouse WorkOrder reservation offset (PR #59429)
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B14-FG", "Batch 14 FG", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var bom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-B14-FG-001", fgItem.Id);
+            bom.AddItem(new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), bom.Id, stockItem.Id, stockItem.ItemName, 1m, 10m, "Unit"));
+            await bomRepo.InsertAsync(bom, autoSave: true);
+
+            var plan = new MyERP.Manufacturing.Entities.ProductionPlan(Guid.NewGuid(), company.Id, "PP-B14-001", DateTime.Today);
+            var planItem = new MyERP.Manufacturing.Entities.ProductionPlanItem(Guid.NewGuid(), plan.Id, fgItem.Id, fgItem.ItemName, bom.Id, 20m);
+            plan.AddPlannedItem(planItem);
+            plan.AddMaterialRequirement(new MyERP.Manufacturing.Entities.ProductionPlanMrItem(Guid.NewGuid(), plan.Id, stockItem.Id, stockItem.ItemName, 10m) { WarehouseId = whA.Id });
+            plan.AddMaterialRequirement(new MyERP.Manufacturing.Entities.ProductionPlanMrItem(Guid.NewGuid(), plan.Id, stockItem.Id, stockItem.ItemName, 10m) { WarehouseId = whB.Id });
+            plan.Submit();
+            await planRepo.InsertAsync(plan, autoSave: true);
+
+            var mfgService = GetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+            var wo = await mfgService.CreateWorkOrderAsync(new MyERP.Manufacturing.CreateWorkOrderDto
+            {
+                CompanyId = company.Id,
+                ItemId = fgItem.Id,
+                BomId = bom.Id,
+                Quantity = 10m,
+                SourceWarehouseId = whA.Id,
+                WipWarehouseId = whA.Id,
+                FgWarehouseId = whB.Id,
+                ProductionPlanId = plan.Id,
+                ProductionPlanItemId = planItem.Id
+            });
+            await mfgService.SubmitWorkOrderAsync(wo.Id);
+
+            var binA = (await binRepo.GetQueryableAsync()).FirstOrDefault(b => b.ItemId == stockItem.Id && b.WarehouseId == whA.Id);
+            var binB = (await binRepo.GetQueryableAsync()).FirstOrDefault(b => b.ItemId == stockItem.Id && b.WarehouseId == whB.Id);
+            binA.ShouldNotBeNull();
+            binB.ShouldNotBeNull();
+            binA!.ReservedQtyForProductionPlan.ShouldBe(0m);
+            binB!.ReservedQtyForProductionPlan.ShouldBe(10m);
+
+            await mfgService.CancelWorkOrderAsync(wo.Id);
+            var binAAfterCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == stockItem.Id && b.WarehouseId == whA.Id);
+            var binBAfterCancel = (await binRepo.GetQueryableAsync()).First(b => b.ItemId == stockItem.Id && b.WarehouseId == whB.Id);
+            binAAfterCancel.ReservedQtyForProductionPlan.ShouldBe(10m);
+            binBAfterCancel.ReservedQtyForProductionPlan.ShouldBe(10m);
+        });
+    }
 }

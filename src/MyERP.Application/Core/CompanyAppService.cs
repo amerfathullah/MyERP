@@ -39,6 +39,8 @@ public class UpdateCompanySettingsDto
     public Guid? DefaultBankAccountId { get; set; }
     public string? RoleAllowedForFrozenEntries { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
+    public Guid? ExpensesAddedToStockAccountId { get; set; }
+    public Guid? ExpensesAddedToStockContraAccountId { get; set; }
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
@@ -206,6 +208,8 @@ public class CompanyAppService :
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
         entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
+        entity.ExpensesAddedToStockAccountId = input.ExpensesAddedToStockAccountId;
+        entity.ExpensesAddedToStockContraAccountId = input.ExpensesAddedToStockContraAccountId;
         entity.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
         entity.ExchangeGainAccountId = input.ExchangeGainAccountId;
         entity.ExchangeLossAccountId = input.ExchangeLossAccountId;
@@ -304,6 +308,8 @@ public class CompanyAppService :
         company.DefaultBankAccountId = input.DefaultBankAccountId;
         company.RoleAllowedForFrozenEntries = input.RoleAllowedForFrozenEntries;
         company.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
+        company.ExpensesAddedToStockAccountId = input.ExpensesAddedToStockAccountId;
+        company.ExpensesAddedToStockContraAccountId = input.ExpensesAddedToStockContraAccountId;
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;

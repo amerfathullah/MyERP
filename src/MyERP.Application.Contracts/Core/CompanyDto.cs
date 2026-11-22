@@ -57,6 +57,8 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultInventoryAccountId { get; set; }
     public Guid? StockReceivedButNotBilledAccountId { get; set; }
     public Guid? StockDeliveredButNotBilledAccountId { get; set; }
+    public Guid? ExpensesAddedToStockAccountId { get; set; }
+    public Guid? ExpensesAddedToStockContraAccountId { get; set; }
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }

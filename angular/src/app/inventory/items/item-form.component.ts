@@ -63,6 +63,7 @@ export class ItemFormComponent implements OnInit {
     valuationMethod: [0],
     standardSellingPrice: [0, Validators.min(0)],
     standardBuyingPrice: [0, Validators.min(0)],
+    maxDiscount: [null as number | null, [Validators.min(0), Validators.max(100)]],
     lhdnClassificationCode: [''],
     maintainStock: [true],
     isActive: [true],
@@ -210,6 +211,9 @@ export class ItemFormComponent implements OnInit {
     }
     const value = this.form.getRawValue() as any;
     value.lhdnClassificationCode = value.lhdnClassificationCode || null;
+    value.maxDiscount = value.maxDiscount === '' || value.maxDiscount === null || value.maxDiscount === undefined
+      ? null
+      : Number(value.maxDiscount);
     for (const r of value.reorders ?? []) {
       r.warehouseGroupId = r.warehouseGroupId || null;
     }

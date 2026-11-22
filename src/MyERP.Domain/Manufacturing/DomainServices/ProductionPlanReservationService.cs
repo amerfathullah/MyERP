@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -70,9 +71,10 @@ public class ProductionPlanReservationService : DomainService
     /// </summary>
     public async Task<decimal> GetReservedQtyForProductionPlanAsync(Guid itemId, Guid warehouseId)
     {
-        var planQuery = await _planRepository.GetQueryableAsync();
+        var planQuery = await GetPlansQueryableWithDetailsAsync();
         var openPlans = planQuery
             .Where(p => p.Status != ProductionPlanStatus.Draft
+                && p.Status != ProductionPlanStatus.Cancelled
                 && p.Status != ProductionPlanStatus.Closed
                 && p.Status != ProductionPlanStatus.Completed)
             .ToList();
@@ -83,7 +85,7 @@ public class ProductionPlanReservationService : DomainService
         }
 
         var planIds = openPlans.Select(p => p.Id).ToList();
-        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var woQuery = await GetWorkOrdersQueryableWithDetailsAsync();
         var openWos = woQuery
             .Where(w => w.ProductionPlanId.HasValue
                 && planIds.Contains(w.ProductionPlanId.Value)
@@ -118,5 +120,54 @@ public class ProductionPlanReservationService : DomainService
         }
 
         return Math.Round(totalReserved, 4);
+    }
+
+    /// <summary>
+    /// Recalculates and updates <see cref="Inventory.Entities.Bin.ReservedQtyForProductionPlan"/>
+    /// for every (ItemId, WarehouseId) referenced by the given Production Plan, offsetting open
+    /// Work Order demand across warehouses per ERPNext PR #59429.
+    /// </summary>
+    public async Task SyncBinReservationsForPlanAsync(Guid productionPlanId, BinService binService, Guid? tenantId = null)
+    {
+        var planQuery = await GetPlansQueryableWithDetailsAsync();
+        var plan = planQuery.FirstOrDefault(p => p.Id == productionPlanId);
+        if (plan == null)
+        {
+            return;
+        }
+
+        var pairs = plan.MaterialRequirements
+            .Where(mr => mr.WarehouseId.HasValue)
+            .Select(mr => (mr.ItemId, WarehouseId: mr.WarehouseId!.Value))
+            .Distinct()
+            .ToList();
+
+        foreach (var (itemId, warehouseId) in pairs)
+        {
+            var reservedQty = await GetReservedQtyForProductionPlanAsync(itemId, warehouseId);
+            await binService.SetReservedQtyForProductionPlanAsync(itemId, warehouseId, reservedQty, tenantId);
+        }
+    }
+
+    private async Task<IQueryable<ProductionPlan>> GetPlansQueryableWithDetailsAsync()
+    {
+        var withDetails = await _planRepository.WithDetailsAsync(p => p.MaterialRequirements);
+        if (withDetails != null && withDetails.Any())
+        {
+            return withDetails;
+        }
+
+        return await _planRepository.GetQueryableAsync();
+    }
+
+    private async Task<IQueryable<WorkOrder>> GetWorkOrdersQueryableWithDetailsAsync()
+    {
+        var withDetails = await _workOrderRepository.WithDetailsAsync(w => w.RequiredItems);
+        if (withDetails != null && withDetails.Any())
+        {
+            return withDetails;
+        }
+
+        return await _workOrderRepository.GetQueryableAsync();
     }
 }

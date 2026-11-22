@@ -153,6 +153,8 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
+  expensesAddedToStockAccountId?: string | null;
+  expensesAddedToStockContraAccountId?: string | null;
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;
@@ -373,6 +375,8 @@ export interface CreateUpdateCompanyDto {
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
+  expensesAddedToStockAccountId?: string | null;
+  expensesAddedToStockContraAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;
   exchangeGainAccountId?: string | null;
   exchangeLossAccountId?: string | null;
@@ -1079,6 +1083,8 @@ export interface UpdateCompanySettingsDto {
   defaultBankAccountId?: string | null;
   roleAllowedForFrozenEntries?: string | null;
   defaultInventoryAccountId?: string | null;
+  expensesAddedToStockAccountId?: string | null;
+  expensesAddedToStockContraAccountId?: string | null;
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;
   exchangeGainLossAccountId?: string | null;

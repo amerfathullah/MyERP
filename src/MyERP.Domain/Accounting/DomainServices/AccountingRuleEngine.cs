@@ -129,6 +129,27 @@ public class AccountingRuleEngine : DomainService
         IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit,
         IReadOnlyList<DeferredCarveOutLine>? deferredCarveOuts = null)
     {
+        var journal = await BuildDocumentJournalAsync(
+            document, warehouseStockAccountOverride, warehouseStockSplit, deferredCarveOuts);
+
+        // Double-entry validation — will throw if unbalanced
+        journal.Validate();
+        journal.Post();
+
+        return journal;
+    }
+
+    /// <summary>
+    /// Builds and balances a draft journal entry for a document without posting it yet, allowing
+    /// callers (e.g. <see cref="DocumentPostingOrchestrator"/>) to append companion balanced lines
+    /// such as Expenses Added To Stock before final validation and posting.
+    /// </summary>
+    internal async Task<JournalEntry> BuildDocumentJournalAsync(
+        IAccountableDocument document,
+        Guid? warehouseStockAccountOverride = null,
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit = null,
+        IReadOnlyList<DeferredCarveOutLine>? deferredCarveOuts = null)
+    {
         var rules = await _ruleRepository.GetListAsync(r =>
             r.CompanyId == document.CompanyId &&
             r.DocumentType == document.DocumentType &&
@@ -271,10 +292,6 @@ public class AccountingRuleEngine : DomainService
         // hard-erroring on a sub-cent difference. Added AFTER cost center allocation so the
         // round-off line is never split across dimensions — per ERPNext's own round-off exception.
         ApplyRoundOff(journal, company);
-
-        // Double-entry validation — will throw if unbalanced
-        journal.Validate();
-        journal.Post();
 
         return journal;
     }

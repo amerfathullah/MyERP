@@ -1,7 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
@@ -76,5 +78,56 @@ public class StockExpenseGlService : DomainService
     {
         var company = await _companyRepository.GetAsync(companyId);
         return company.ExpensesAddedToStockContraAccountId;
+    }
+
+    /// <summary>
+    /// Appends a balanced "Expenses Added To Stock" GL pair onto a draft JournalEntry.
+    /// Per ERPNext PR #57190 &amp; PR #57519 (base_stock_gl_composer.append_expenses_added_to_stock_pair):
+    /// - Skips zero amounts and non-stock items (<see cref="Item.MaintainStock"/> == false) without requiring accounts.
+    /// - Requires both <see cref="Company.ExpensesAddedToStockAccountId"/> and <see cref="Company.ExpensesAddedToStockContraAccountId"/>.
+    /// - Positive amount: DR ExpensesAddedToStock, CR Contra. Negative amount: reversed direction.
+    /// </summary>
+    public async Task<bool> AppendExpensesAddedToStockPairAsync(
+        JournalEntry journal,
+        Company company,
+        Guid itemId,
+        decimal amount,
+        Guid? costCenterId = null,
+        Guid? projectId = null)
+    {
+        var rounded = Math.Round(amount, 2);
+        if (rounded == 0m) return false;
+
+        var item = await _itemRepository.FindAsync(itemId);
+        if (item == null || !item.MaintainStock) return false;
+
+        if (!company.ExpensesAddedToStockAccountId.HasValue || !company.ExpensesAddedToStockContraAccountId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
+                .WithData("reason", $"Please set Expenses Added To Stock Account and Contra Account in Company '{company.Name}'.");
+        }
+
+        var effectiveCostCenterId = costCenterId ?? company.DefaultCostCenterId;
+        var absAmount = Math.Abs(rounded);
+        var isPositive = rounded > 0m;
+        var remarks = $"Expenses Added To Stock for Item {item.ItemCode}";
+
+        journal.AddLine(
+            company.ExpensesAddedToStockAccountId.Value,
+            absAmount,
+            isDebit: isPositive,
+            description: remarks,
+            costCenterId: effectiveCostCenterId,
+            projectId: projectId);
+
+        journal.AddLine(
+            company.ExpensesAddedToStockContraAccountId.Value,
+            absAmount,
+            isDebit: !isPositive,
+            description: remarks,
+            costCenterId: effectiveCostCenterId,
+            projectId: projectId);
+
+        return true;
     }
 }

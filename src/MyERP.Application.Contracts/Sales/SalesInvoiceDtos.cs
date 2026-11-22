@@ -72,6 +72,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public decimal ExchangeRate { get; set; } = 1m;
     public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
+    public decimal AdditionalDiscountPercentage { get; set; }
+    public decimal DiscountAmount { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }
@@ -253,6 +255,11 @@ public class CreateSalesInvoiceDto
 
     /// <summary>Loyalty points to redeem against this invoice (reduces payable amount).</summary>
     public int LoyaltyPointsToRedeem { get; set; }
+
+    /// <summary>
+    /// Document-level additional discount percentage (0–100, validated against Item.MaxDiscount per ERPNext validate_max_discount).
+    /// </summary>
+    public decimal AdditionalDiscountPercentage { get; set; }
 
     /// <summary>
     /// Document-level discount amount (per ERPNext additional_discount_section).
