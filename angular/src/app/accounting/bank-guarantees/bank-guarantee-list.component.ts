@@ -74,19 +74,19 @@ import { BankGuaranteeType } from '../../proxy/accounting/bank-guarantee-type.en
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
                         @if (bg.status === 0) {
-                          <button class="btn btn-outline-success" (click)="submit(bg.id)" title="Submit">
+                          <button class="btn btn-outline-success" (click)="submit(bg.id)" [title]="'MyERP::Submit' | abpLocalization">
                             <i class="bi bi-check-lg"></i>
                           </button>
                         }
                         @if (bg.status === 1) {
-                          <button class="btn btn-outline-warning" (click)="cancel(bg.id)" title="Cancel">
+                          <button class="btn btn-outline-warning" (click)="cancel(bg.id)" [title]="'MyERP::Cancel' | abpLocalization">
                             <i class="bi bi-x-circle"></i>
                           </button>
                         }
-                        <a [routerLink]="[bg.id, 'edit']" class="btn btn-outline-primary" title="Edit">
+                        <a [routerLink]="[bg.id, 'edit']" class="btn btn-outline-primary" [title]="'MyERP::Edit' | abpLocalization">
                           <i class="bi bi-pencil"></i>
                         </a>
-                        <button class="btn btn-outline-danger" (click)="delete(bg.id)" title="Delete">
+                        <button class="btn btn-outline-danger" (click)="delete(bg.id)" [title]="'MyERP::Delete' | abpLocalization">
                           <i class="bi bi-trash"></i>
                         </button>
                       </div>

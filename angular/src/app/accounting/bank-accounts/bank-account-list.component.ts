@@ -68,26 +68,26 @@ import { ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
                   </td>
                   <td class="text-center">
                     @if (account.isDisabled) {
-                      <span class="badge bg-secondary">Disabled</span>
+                      <span class="badge bg-secondary">{{ 'MyERP::Disabled' | abpLocalization }}</span>
                     } @else {
-                      <span class="badge bg-success">Active</span>
+                      <span class="badge bg-success">{{ 'MyERP::Active' | abpLocalization }}</span>
                     }
                   </td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       @if (!account.isDefault && !account.isDisabled) {
-                        <button class="btn btn-outline-warning" title="Set as Default"
+                        <button class="btn btn-outline-warning" [title]="'MyERP::SetAsDefault' | abpLocalization"
                           (click)="setDefault(account.id!)">
                           <i class="bi bi-star"></i>
                         </button>
                       }
                       @if (!account.isDisabled) {
-                        <button class="btn btn-outline-danger" title="Disable"
+                        <button class="btn btn-outline-danger" [title]="'MyERP::Disable' | abpLocalization"
                           (click)="disable(account.id!)">
                           <i class="bi bi-x-circle"></i>
                         </button>
                       }
-                      <a [routerLink]="[account.id, 'edit']" class="btn btn-outline-primary">
+                      <a [routerLink]="[account.id, 'edit']" class="btn btn-outline-primary" [title]="'MyERP::Edit' | abpLocalization">
                         <i class="bi bi-pencil"></i>
                       </a>
                     </div>

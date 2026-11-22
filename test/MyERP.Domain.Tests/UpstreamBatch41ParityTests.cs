@@ -589,4 +589,55 @@ public class UpstreamBatch41ParityTests
         var myrXml = System.Xml.Linq.XDocument.Parse(builder.Build(usdData));
         myrXml.Root!.Element(cac + "TaxExchangeRate").ShouldBeNull();
     }
+
+    [Fact]
+    public void MyInvois_InvoiceDocumentBuilder_MapsTaxTypesBuildsBreakdownAndEmitsInvoicePeriod()
+    {
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(MyERP.Tax.TaxType.Sales, 6m).ShouldBe("01");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(MyERP.Tax.TaxType.Service, 8m).ShouldBe("02");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(MyERP.Tax.TaxType.Exempt, 0m).ShouldBe("E");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(MyERP.Tax.TaxType.ZeroRated, 0m).ShouldBe("06");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(MyERP.Tax.TaxType.OutOfScope, 0m).ShouldBe("06");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(null, 10m).ShouldBe("01");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(null, 0m).ShouldBe("06");
+
+        var lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+        {
+            new() { Description = "Item A", Quantity = 1m, UnitPrice = 100m, TaxAmount = 6m, TaxCategoryCode = "01", TaxRate = 6m },
+            new() { Description = "Item B", Quantity = 2m, UnitPrice = 50m, TaxAmount = 6m, TaxCategoryCode = "01", TaxRate = 6m },
+            new() { Description = "Service C", Quantity = 1m, UnitPrice = 200m, TaxAmount = 16m, TaxCategoryCode = "02", TaxRate = 8m },
+        };
+        var breakdown = MyERP.EInvoice.Services.InvoiceDocumentBuilder.BuildTaxBreakdown(lines);
+        breakdown.Count.ShouldBe(2);
+        breakdown.Single(b => b.TaxCategoryCode == "01").TaxableAmount.ShouldBe(200m);
+        breakdown.Single(b => b.TaxCategoryCode == "01").TaxAmount.ShouldBe(12m);
+        breakdown.Single(b => b.TaxCategoryCode == "02").TaxableAmount.ShouldBe(200m);
+        breakdown.Single(b => b.TaxCategoryCode == "02").TaxAmount.ShouldBe(16m);
+
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "INV-PERIOD-01",
+            IssueDate = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
+            InvoicePeriodStartDate = new DateTime(2026, 8, 1),
+            InvoicePeriodEndDate = new DateTime(2026, 8, 31),
+            InvoicePeriodDescription = "Monthly",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Seller", Tin = "C111", CountryCode = "MYS", State = "14" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer", Tin = "C222", CountryCode = "MYS", State = "14" },
+            NetTotal = 400m,
+            TaxAmount = 28m,
+            GrandTotal = 428m,
+            Lines = lines,
+            TaxBreakdown = breakdown,
+        }));
+
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var period = xml.Root!.Element(cac + "InvoicePeriod");
+        period.ShouldNotBeNull();
+        period!.Element(cbc + "StartDate")!.Value.ShouldBe("2026-08-01");
+        period.Element(cbc + "EndDate")!.Value.ShouldBe("2026-08-31");
+        period.Element(cbc + "Description")!.Value.ShouldBe("Monthly");
+        xml.Root!.Element(cac + "TaxTotal")!.Elements(cac + "TaxSubtotal").Count().ShouldBe(2);
+    }
 }

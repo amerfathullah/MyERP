@@ -198,11 +198,43 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         return items.ToDictionary(i => i.Id, i => i.LhdnClassificationCode);
     }
 
+    private async Task<Dictionary<Guid, Tax.Entities.TaxCategory>> ResolveTaxCategoryMapAsync(IEnumerable<Guid?> taxCategoryIds)
+    {
+        var ids = taxCategoryIds.Where(id => id.HasValue && id.Value != Guid.Empty).Select(id => id!.Value).Distinct().ToList();
+        var taxCatRepo = LazyServiceProvider?.LazyGetService<IRepository<Tax.Entities.TaxCategory, Guid>>();
+        if (ids.Count == 0 || taxCatRepo == null)
+            return new Dictionary<Guid, Tax.Entities.TaxCategory>();
+
+        var categories = await taxCatRepo.GetListAsync(c => ids.Contains(c.Id));
+        return categories.ToDictionary(c => c.Id);
+    }
+
+    private static (string CategoryCode, decimal Rate, string? ExemptionReason) ResolveLineTaxDetails(
+        Guid? taxCategoryId,
+        decimal lineTotal,
+        decimal taxAmount,
+        Dictionary<Guid, Tax.Entities.TaxCategory> taxCategoryMap)
+    {
+        Tax.Entities.TaxCategory? category = null;
+        if (taxCategoryId.HasValue)
+            taxCategoryMap.TryGetValue(taxCategoryId.Value, out category);
+
+        var categoryCode = InvoiceDocumentBuilder.MapTaxTypeToLhdnCategoryCode(category?.TaxType, taxAmount);
+        var rate = lineTotal != 0 && taxAmount != 0
+            ? Math.Round(Math.Abs(taxAmount) / Math.Abs(lineTotal) * 100m, 2)
+            : 0m;
+        var exemptionReason = string.Equals(categoryCode, "E", StringComparison.OrdinalIgnoreCase)
+            ? (!string.IsNullOrWhiteSpace(category?.Description) ? category!.Description : category?.Name ?? "NA")
+            : null;
+        return (categoryCode, rate, exemptionReason);
+    }
+
     private async Task<EInvoiceDocumentData> BuildFromSalesInvoiceAsync(Guid invoiceId, EInvoicePartyData supplier)
     {
         var invoice = await _salesInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var customer = await _customerRepository.GetAsync(invoice.CustomerId);
         var itemClassificationMap = await ResolveItemClassificationMapAsync(invoice.Items.Select(i => i.ItemId));
+        var taxCategoryMap = await ResolveTaxCategoryMapAsync(invoice.Items.Select(i => i.TaxCategoryId));
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
@@ -229,10 +261,35 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             customer.Country);
         var isForeignCustomer = buyerCountryCode != "MYS";
 
+        var salesLines = invoice.Items.Select(item =>
+        {
+            var (taxCode, taxRate, exemptionReason) = ResolveLineTaxDetails(
+                item.TaxCategoryId, item.LineTotal, item.TaxAmount, taxCategoryMap);
+            return new EInvoiceLineData
+            {
+                Description = item.Description,
+                Uom = item.Uom ?? "C62",
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TaxAmount = item.TaxAmount,
+                TaxCategoryCode = taxCode,
+                TaxRate = taxRate,
+                TaxExemptionReason = exemptionReason,
+                ClassificationCode = InvoiceDocumentBuilder.NormalizeClassificationCode(
+                    LhdnClassificationCodes.Normalize(item.ClassificationCode)
+                        ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
+                        ?? item.ClassificationCode,
+                    invoice.IsConsolidated),
+            };
+        }).ToList();
+
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
+            InvoicePeriodStartDate = invoice.IssueDate,
+            InvoicePeriodEndDate = invoice.DueDate ?? invoice.IssueDate,
+            InvoicePeriodDescription = "Monthly",
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
             ExchangeRate = invoice.ExchangeRate,
@@ -271,19 +328,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
             DiscountAmount = invoice.DiscountAmount,
-            Lines = invoice.Items.Select(item => new EInvoiceLineData
-            {
-                Description = item.Description,
-                Uom = item.Uom ?? "C62",
-                Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
-                TaxAmount = item.TaxAmount,
-                ClassificationCode = InvoiceDocumentBuilder.NormalizeClassificationCode(
-                    LhdnClassificationCodes.Normalize(item.ClassificationCode)
-                        ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
-                        ?? item.ClassificationCode,
-                    invoice.IsConsolidated),
-            }).ToList(),
+            Lines = salesLines,
+            TaxBreakdown = InvoiceDocumentBuilder.BuildTaxBreakdown(salesLines),
         };
     }
 
@@ -293,6 +339,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var invoice = await _purchaseInvoiceRepository.GetAsync(invoiceId, includeDetails: true);
         var supplier = await _supplierRepository.GetAsync(invoice.SupplierId);
         var itemClassificationMap = await ResolveItemClassificationMapAsync(invoice.Items.Select(i => i.ItemId));
+        var taxCategoryMap = await ResolveTaxCategoryMapAsync(invoice.Items.Select(i => i.TaxCategoryId));
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
@@ -319,11 +366,36 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             ? invoice.SupplierTin
             : (!string.IsNullOrWhiteSpace(supplier.Tin) ? supplier.Tin : defaultSupplierTin);
 
+        var purchaseLines = invoice.Items.Select(item =>
+        {
+            var (taxCode, taxRate, exemptionReason) = ResolveLineTaxDetails(
+                item.TaxCategoryId, item.LineTotal, item.TaxAmount, taxCategoryMap);
+            return new EInvoiceLineData
+            {
+                Description = item.Description,
+                Uom = item.Uom ?? "C62",
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TaxAmount = item.TaxAmount,
+                TaxCategoryCode = taxCode,
+                TaxRate = taxRate,
+                TaxExemptionReason = exemptionReason,
+                ClassificationCode = LhdnClassificationCodes.Normalize(item.ClassificationCode)
+                    ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
+                    ?? (!string.IsNullOrWhiteSpace(item.ClassificationCode)
+                        ? InvoiceDocumentBuilder.NormalizeClassificationCode(item.ClassificationCode)
+                        : EInvoiceConsts.DefaultSelfBilledClassificationCode),
+            };
+        }).ToList();
+
         // For purchase: supplier is the seller, company is the buyer
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
+            InvoicePeriodStartDate = invoice.IssueDate,
+            InvoicePeriodEndDate = invoice.DueDate ?? invoice.IssueDate,
+            InvoicePeriodDescription = "Monthly",
             DocumentTypeCode = docTypeCode,
             CurrencyCode = invoice.CurrencyCode,
             ExchangeRate = invoice.ExchangeRate,
@@ -349,19 +421,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
             DiscountAmount = invoice.DiscountAmount,
-            Lines = invoice.Items.Select(item => new EInvoiceLineData
-            {
-                Description = item.Description,
-                Uom = item.Uom ?? "C62",
-                Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
-                TaxAmount = item.TaxAmount,
-                ClassificationCode = LhdnClassificationCodes.Normalize(item.ClassificationCode)
-                    ?? LhdnClassificationCodes.Normalize(itemClassificationMap.GetValueOrDefault(item.ItemId))
-                    ?? (!string.IsNullOrWhiteSpace(item.ClassificationCode)
-                        ? InvoiceDocumentBuilder.NormalizeClassificationCode(item.ClassificationCode)
-                        : EInvoiceConsts.DefaultSelfBilledClassificationCode),
-            }).ToList(),
+            Lines = purchaseLines,
+            TaxBreakdown = InvoiceDocumentBuilder.BuildTaxBreakdown(purchaseLines),
         };
     }
 
@@ -689,10 +750,32 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var pfxPassword = await _settingProvider.GetOrNullAsync("EInvoice.CertificatePassword");
         var hasCertificate = !string.IsNullOrEmpty(pfxBase64) && !string.IsNullOrEmpty(pfxPassword);
 
+        var taxCategoryMap = await ResolveTaxCategoryMapAsync(invoice.Items.Select(i => i.TaxCategoryId));
+        var consolidatedLines = invoice.Items.Select(item =>
+        {
+            var (taxCode, taxRate, exemptionReason) = ResolveLineTaxDetails(
+                item.TaxCategoryId, item.LineTotal, item.TaxAmount, taxCategoryMap);
+            return new EInvoiceLineData
+            {
+                Description = item.Description,
+                Uom = item.Uom ?? "C62",
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TaxAmount = item.TaxAmount,
+                TaxCategoryCode = taxCode,
+                TaxRate = taxRate,
+                TaxExemptionReason = exemptionReason,
+                ClassificationCode = "004",
+            };
+        }).ToList();
+
         var documentData = new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
             IssueDate = invoice.IssueDate,
+            InvoicePeriodStartDate = invoice.IssueDate,
+            InvoicePeriodEndDate = invoice.DueDate ?? invoice.IssueDate,
+            InvoicePeriodDescription = "Monthly",
             DocumentTypeCode = "01", // Standard invoice
             DocumentVersion = hasCertificate ? "1.1" : "1.0",
             CurrencyCode = invoice.CurrencyCode,
@@ -703,15 +786,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
-            Lines = invoice.Items.Select(item => new EInvoiceLineData
-            {
-                Description = item.Description,
-                Uom = item.Uom ?? "C62",
-                Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
-                TaxAmount = item.TaxAmount,
-                ClassificationCode = "004",
-            }).ToList(),
+            Lines = consolidatedLines,
+            TaxBreakdown = InvoiceDocumentBuilder.BuildTaxBreakdown(consolidatedLines),
         };
 
         var xmlDocument = _documentBuilder.Build(documentData);

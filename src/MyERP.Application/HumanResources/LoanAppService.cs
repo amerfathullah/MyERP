@@ -157,15 +157,25 @@ public class LoanAppService : ApplicationService, ILoanAppService
     public async Task<LoanDto> CancelAsync(Guid id)
     {
         var loan = (await _repository.WithDetailsAsync()).First(l => l.Id == id);
+        if (loan.TotalAmountRepaid > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Loan {loan.LoanNumber} because repayments totaling {loan.TotalAmountRepaid:F2} have been recorded. Reverse repayments first.");
+        }
+
+        var previousStatus = loan.Status.ToString();
         loan.Cancel();
         await _repository.UpdateAsync(loan);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "Loan", loan.Id,
-            "Cancelled", loan.CompanyId,
-            loan.LoanNumber, loan.Status.ToString(), "Cancelled", CurrentUser.Id,
-            $"Loan {loan.LoanNumber} cancelled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "Loan", loan.Id,
+                "Cancelled", loan.CompanyId,
+                loan.LoanNumber, previousStatus, "Cancelled", CurrentUser.Id,
+                $"Loan {loan.LoanNumber} cancelled", CurrentTenant.Id));
+        }
 
         return ObjectMapper.Map<Loan, LoanDto>(loan);
     }

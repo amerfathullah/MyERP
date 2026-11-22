@@ -135,15 +135,41 @@ public class ExpenseClaimAppService : ApplicationService, IExpenseClaimAppServic
     public async Task<ExpenseClaimDto> CancelAsync(Guid id)
     {
         var ec = await _repository.GetAsync(id);
+
+        // Per ERPNext expense_claim.py: block cancelling an Expense Claim that has an active linked reimbursement Payment Entry
+        var peRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Accounting.Entities.PaymentEntry, Guid>>();
+        if (peRepo != null)
+        {
+            var peQuery = await peRepo.WithDetailsAsync(p => p.References);
+            var linkedPe = peQuery
+                .Where(p => p.Status != Core.DocumentStatus.Cancelled
+                    && p.References.Any(r => r.ReferenceType == "ExpenseClaim" && r.ReferenceId == ec.Id))
+                .Select(p => p.PaymentNumber)
+                .FirstOrDefault();
+            if (linkedPe != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot cancel Expense Claim {ec.Id} because active Payment Entry {linkedPe} is linked to it. Cancel the payment entry first.");
+            }
+        }
+        if (ec.TotalAmountReimbursed > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Expense Claim {ec.Id} with reimbursed amount {ec.TotalAmountReimbursed:F2}. Cancel linked reimbursement payment first.");
+        }
+
         ec.Cancel();
         await _repository.UpdateAsync(ec);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "ExpenseClaim", ec.Id,
-            "Cancelled", ec.CompanyId,
-            ec.EmployeeName ?? ec.Id.ToString(), "Submitted", "Cancelled", CurrentUser.Id,
-            $"Expense Claim for {ec.EmployeeName} cancelled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "ExpenseClaim", ec.Id,
+                "Cancelled", ec.CompanyId,
+                ec.EmployeeName ?? ec.Id.ToString(), "Submitted", "Cancelled", CurrentUser.Id,
+                $"Expense Claim for {ec.EmployeeName} cancelled", CurrentTenant.Id));
+        }
 
         return ObjectMapper.Map<ExpenseClaim, ExpenseClaimDto>(ec);
     }

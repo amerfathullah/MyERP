@@ -3471,4 +3471,100 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             allFxJes.Count(j => j.ReversalOfId == fxJeBId).ShouldBe(0);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch22_EndToEnd_HrLinkedCancelGuards_And_LoanCancelAuditLog()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var empRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.Employee, Guid>>();
+            var ecRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.ExpenseClaim, Guid>>();
+            var loanRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.Loan, Guid>>();
+            var payrollRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.PayrollEntry, Guid>>();
+            var slipRepo = GetRequiredService<IRepository<MyERP.HumanResources.Entities.SalarySlip, Guid>>();
+            var activityRepo = GetRequiredService<IRepository<DocumentActivityLog, Guid>>();
+
+            var ecService = GetRequiredService<MyERP.HumanResources.IExpenseClaimAppService>();
+            var loanService = GetRequiredService<MyERP.HumanResources.ILoanAppService>();
+            var slipService = GetRequiredService<MyERP.HumanResources.ISalarySlipAppService>();
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch22 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PaymentEntry", "PaymentEntry", "PE-B22-"), autoSave: true);
+            await fyRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY2026-B22", new DateTime(DateTime.Today.Year, 1, 1), new DateTime(DateTime.Today.Year, 12, 31)), autoSave: true);
+
+            var bankAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1010-B22", "Bank", AccountType.Asset), autoSave: true);
+            var expAcc = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5100-B22", "Travel Expense", AccountType.Expense), autoSave: true);
+            var emp = await empRepo.InsertAsync(new MyERP.HumanResources.Entities.Employee(Guid.NewGuid(), company.Id, "EMP-B22", "Ali") { LastName = "Bin Abu" }, autoSave: true);
+
+            // 1. ExpenseClaim: block CancelAsync once reimbursed via active PaymentEntry
+            var claim = new MyERP.HumanResources.Entities.ExpenseClaim(Guid.NewGuid(), company.Id, emp.Id, DateTime.Today)
+            {
+                EmployeeName = "Ali Bin Abu",
+                ExpenseType = "Travel",
+            };
+            claim.AddExpense(DateTime.Today, "Flight KL-PEN", 250m, expAcc.Id);
+            claim.Approve();
+            claim.Submit();
+            await ecRepo.InsertAsync(claim, autoSave: true);
+
+            await ecService.ReimburseAsync(claim.Id, bankAcc.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var ecCancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => ecService.CancelAsync(claim.Id));
+            ecCancelEx.Data["detail"]!.ToString()!.ShouldContain("Payment Entry");
+
+            // 2. Loan: block CancelAsync when repaid > 0; unpaid disbursed loan cancels and logs true PreviousStatus ("Disbursed")
+            var repaidLoan = new MyERP.HumanResources.Entities.Loan(
+                Guid.NewGuid(), company.Id, emp.Id, "LN-B22-PAID",
+                MyERP.HumanResources.LoanType.TermLoan, MyERP.HumanResources.InterestCalculationMethod.FlatRate,
+                1000m, 0m, 2);
+            repaidLoan.Sanction();
+            repaidLoan.Disburse(DateTime.Today, DateTime.Today);
+            repaidLoan.RecordRepayment(500m, 0m);
+            await loanRepo.InsertAsync(repaidLoan, autoSave: true);
+
+            var loanCancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => loanService.CancelAsync(repaidLoan.Id));
+            loanCancelEx.Data["detail"]!.ToString()!.ShouldContain("repayments");
+
+            var unpaidLoan = new MyERP.HumanResources.Entities.Loan(
+                Guid.NewGuid(), company.Id, emp.Id, "LN-B22-OPEN",
+                MyERP.HumanResources.LoanType.TermLoan, MyERP.HumanResources.InterestCalculationMethod.FlatRate,
+                1000m, 0m, 2);
+            unpaidLoan.Sanction();
+            unpaidLoan.Disburse(DateTime.Today, DateTime.Today);
+            await loanRepo.InsertAsync(unpaidLoan, autoSave: true);
+
+            await loanService.CancelAsync(unpaidLoan.Id);
+            await uowManager.Current!.SaveChangesAsync();
+
+            var loanLog = (await activityRepo.GetQueryableAsync())
+                .FirstOrDefault(a => a.DocumentType == "Loan" && a.DocumentId == unpaidLoan.Id && a.ActivityType == "Cancelled");
+            loanLog.ShouldNotBeNull();
+            loanLog!.PreviousStatus.ShouldBe("Disbursed");
+            loanLog.NewStatus.ShouldBe("Cancelled");
+
+            // 3. SalarySlip: block independent CancelAsync while parent PayrollEntry is Submitted
+            var payroll = new MyERP.HumanResources.Entities.PayrollEntry(
+                Guid.NewGuid(), company.Id, "PAY-B22-1", DateTime.Today.Year, DateTime.Today.Month, DateTime.Today);
+            payroll.AddLine(emp.Id, "Ali Bin Abu", 3000m, 330m, 390m, 14.75m, 51.65m, 5.90m, 5.90m, 0m);
+            payroll.Submit();
+            await payrollRepo.InsertAsync(payroll, autoSave: true);
+
+            var slip = new MyERP.HumanResources.Entities.SalarySlip(
+                Guid.NewGuid(), company.Id, emp.Id, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), DateTime.Today, DateTime.Today)
+            {
+                PayrollEntryId = payroll.Id,
+            };
+            slip.Submit();
+            await slipRepo.InsertAsync(slip, autoSave: true);
+
+            var slipCancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => slipService.CancelAsync(slip.Id));
+            slipCancelEx.Data["detail"]!.ToString()!.ShouldContain("Payroll Entry");
+        });
+    }
 }

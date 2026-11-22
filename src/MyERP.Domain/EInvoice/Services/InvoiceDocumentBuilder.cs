@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Xml.Linq;
+using MyERP.Tax;
 using Volo.Abp.DependencyInjection;
 
 namespace MyERP.EInvoice.Services;
@@ -35,6 +37,19 @@ public class InvoiceDocumentBuilder : ITransientDependency
             data.DocumentTypeCode));
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
         invoice.Add(new XElement(Cbc + "TaxCurrencyCode", data.CurrencyCode));
+
+        // Invoice Period (per myinvois createxml.py: StartDate, EndDate, Description)
+        if (data.InvoicePeriodStartDate.HasValue && data.InvoicePeriodEndDate.HasValue)
+        {
+            var periodElem = new XElement(Cac + "InvoicePeriod",
+                new XElement(Cbc + "StartDate", data.InvoicePeriodStartDate.Value.ToString("yyyy-MM-dd")),
+                new XElement(Cbc + "EndDate", data.InvoicePeriodEndDate.Value.ToString("yyyy-MM-dd")));
+            if (!string.IsNullOrWhiteSpace(data.InvoicePeriodDescription))
+            {
+                periodElem.Add(new XElement(Cbc + "Description", data.InvoicePeriodDescription));
+            }
+            invoice.Add(periodElem);
+        }
 
         // Billing Reference (for credit/debit notes referencing original invoice)
         if (!string.IsNullOrEmpty(data.BillingReferenceNumber) || !string.IsNullOrEmpty(data.BillingReferenceUuid))
@@ -228,6 +243,46 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
 
         return trimmed;
+    }
+
+    /// <summary>
+    /// Maps MyERP TaxType to LHDN MyInvois Tax Type Code:
+    /// 01=Sales Tax, 02=Service Tax, E=Tax Exemption, 06=Not Applicable.
+    /// </summary>
+    public static string MapTaxTypeToLhdnCategoryCode(TaxType? taxType, decimal taxAmount)
+    {
+        return taxType switch
+        {
+            TaxType.Sales => "01",
+            TaxType.Service => "02",
+            TaxType.Exempt => "E",
+            TaxType.ZeroRated or TaxType.OutOfScope => "06",
+            _ => taxAmount > 0 ? "01" : "06",
+        };
+    }
+
+    /// <summary>
+    /// Aggregates per-line tax figures into document-level LHDN TaxSubtotal breakdowns grouped by
+    /// (TaxCategoryCode, TaxRate, TaxExemptionReason).
+    /// </summary>
+    public static List<EInvoiceTaxBreakdown> BuildTaxBreakdown(IEnumerable<EInvoiceLineData> lines)
+    {
+        return lines
+            .GroupBy(l => new
+            {
+                Category = string.IsNullOrWhiteSpace(l.TaxCategoryCode) ? (l.TaxAmount > 0 ? "01" : "06") : l.TaxCategoryCode!,
+                Rate = l.TaxRate ?? 0m,
+                Reason = l.TaxExemptionReason,
+            })
+            .Select(g => new EInvoiceTaxBreakdown
+            {
+                TaxCategoryCode = g.Key.Category,
+                TaxRate = g.Key.Rate,
+                TaxExemptionReason = g.Key.Reason,
+                TaxableAmount = g.Sum(x => x.LineTotal),
+                TaxAmount = g.Sum(x => x.TaxAmount),
+            })
+            .ToList();
     }
 
     /// <summary>
@@ -530,6 +585,9 @@ public class EInvoiceDocumentData
 {
     public string InvoiceNumber { get; set; } = null!;
     public DateTime IssueDate { get; set; }
+    public DateTime? InvoicePeriodStartDate { get; set; }
+    public DateTime? InvoicePeriodEndDate { get; set; }
+    public string? InvoicePeriodDescription { get; set; }
     public string DocumentTypeCode { get; set; } = "01";
     public string DocumentVersion { get; set; } = "1.0";
     public string CurrencyCode { get; set; } = "MYR";

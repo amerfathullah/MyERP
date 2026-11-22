@@ -124,6 +124,22 @@ public class SalarySlipAppService : ApplicationService, ISalarySlipAppService
     public async Task<SalarySlipDto> CancelAsync(Guid id)
     {
         var slip = await _repository.GetAsync(id);
+
+        // Per ERPNext salary_slip.py: cannot independently cancel a slip linked to a submitted/posted Payroll Entry
+        if (slip.PayrollEntryId.HasValue)
+        {
+            var payrollRepo = LazyServiceProvider?.LazyGetService<IRepository<PayrollEntry, Guid>>();
+            if (payrollRepo != null)
+            {
+                var payroll = await payrollRepo.FindAsync(slip.PayrollEntryId.Value);
+                if (payroll != null && payroll.Status is Core.DocumentStatus.Submitted or Core.DocumentStatus.Posted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Cannot cancel Salary Slip {slip.Id} while linked Payroll Entry {payroll.Id} is still {payroll.Status}. Cancel the Payroll Entry instead.");
+                }
+            }
+        }
+
         slip.Cancel();
         await _repository.UpdateAsync(slip, autoSave: true);
         return ObjectMapper.Map<SalarySlip, SalarySlipDto>(slip);
