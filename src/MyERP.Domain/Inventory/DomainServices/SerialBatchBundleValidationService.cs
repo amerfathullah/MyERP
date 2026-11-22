@@ -1324,6 +1324,36 @@ public class SerialBatchBundleValidationService : DomainService
 
         return Math.Round(bundleAvgRate, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves the absolute stock-UOM target quantity for the Serial / Batch Selector
+    /// per ERPNext PR #67381 (commits da4e711c5a, 69c7afaa46 in <c>serial_no_batch_selector.js</c>):
+    /// when selecting for rejected items (<paramref name="isRejected"/> is true), converts
+    /// <paramref name="rejectedQty"/> into stock UOM via <paramref name="conversionFactor"/> and rounds
+    /// at <paramref name="stockQtyPrecision"/>.
+    /// </summary>
+    public static decimal ResolveSelectorTargetStockQty(
+        decimal stockQty,
+        decimal transferQty,
+        decimal qty,
+        bool isRejected,
+        decimal rejectedQty,
+        decimal conversionFactor = 1m,
+        int stockQtyPrecision = 4)
+    {
+        decimal resolved;
+        if (isRejected)
+        {
+            var factor = conversionFactor != 0m ? conversionFactor : 1m;
+            resolved = Math.Round(rejectedQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            resolved = stockQty != 0m ? stockQty : (transferQty != 0m ? transferQty : qty);
+        }
+
+        return Math.Abs(resolved);
+    }
 }
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>

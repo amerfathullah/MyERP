@@ -160,7 +160,50 @@ public class PricingAppService : ApplicationService, IPricingAppService
         {
             var batchPrice = candidates.FirstOrDefault(p => p.BatchNo == input.BatchNo);
             if (batchPrice != null)
-                return new ItemRateResultDto { Rate = batchPrice.PriceListRate, ItemPriceId = batchPrice.Id, Source = "Batch" };
+                return new ItemRateResultDto { Rate = batchPrice.PriceListRate, ItemPriceId = batchPrice.Id, Source = "Batch", MatchedUom = batchPrice.Uom };
+        }
+
+        // Per ERPNext PR #67397: when row UOM is specified, prefer a party's own price in row UOM,
+        // then a party's own price in stock UOM (before a general price in row UOM).
+        if (!string.IsNullOrWhiteSpace(input.Uom))
+        {
+            var stockUom = !string.IsNullOrWhiteSpace(input.StockUom) ? input.StockUom : input.Uom;
+            var factor = input.ConversionFactor > 0m ? input.ConversionFactor : 1m;
+            var isBuying = input.SupplierId.HasValue && !input.CustomerId.HasValue;
+            var partyId = isBuying ? input.SupplierId : input.CustomerId;
+
+            var uomCandidates = candidates
+                .Where(p => string.IsNullOrEmpty(p.BatchNo))
+                .Select(p => new DomainServices.ItemPriceCandidate(
+                    p.PriceListRate, p.Uom, PackingUnit: 0m, p.CustomerId, p.SupplierId, p.ValidFrom))
+                .ToList();
+
+            var resolved = DomainServices.ItemDetailsResolverService.ResolvePriceListRateWithPartyStockUomPriority(
+                uomCandidates,
+                input.Uom,
+                stockUom,
+                input.Qty,
+                factor,
+                partyId,
+                isBuying);
+
+            if (resolved.PriceListRate.HasValue)
+            {
+                var matchedEntity = candidates.FirstOrDefault(p =>
+                    p.PriceListRate == resolved.PriceListRate.Value
+                    && string.Equals(p.Uom, resolved.MatchedUom, StringComparison.OrdinalIgnoreCase)
+                    && (resolved.IsPartyPrice
+                        ? (isBuying ? p.SupplierId == partyId : p.CustomerId == partyId)
+                        : (p.CustomerId == null && p.SupplierId == null)));
+
+                return new ItemRateResultDto
+                {
+                    Rate = resolved.PriceListRate.Value,
+                    ItemPriceId = matchedEntity?.Id,
+                    Source = resolved.IsPartyPrice ? (isBuying ? "Supplier" : "Customer") : "PriceList",
+                    MatchedUom = resolved.MatchedUom
+                };
+            }
         }
 
         // Priority 2: party-specific (customer or supplier)
@@ -171,7 +214,7 @@ public class PricingAppService : ApplicationService, IPricingAppService
                 .OrderByDescending(p => p.MinQty)
                 .FirstOrDefault();
             if (customerPrice != null)
-                return new ItemRateResultDto { Rate = customerPrice.PriceListRate, ItemPriceId = customerPrice.Id, Source = "Customer" };
+                return new ItemRateResultDto { Rate = customerPrice.PriceListRate, ItemPriceId = customerPrice.Id, Source = "Customer", MatchedUom = customerPrice.Uom };
         }
         if (input.SupplierId.HasValue)
         {
@@ -180,7 +223,7 @@ public class PricingAppService : ApplicationService, IPricingAppService
                 .OrderByDescending(p => p.MinQty)
                 .FirstOrDefault();
             if (supplierPrice != null)
-                return new ItemRateResultDto { Rate = supplierPrice.PriceListRate, ItemPriceId = supplierPrice.Id, Source = "Supplier" };
+                return new ItemRateResultDto { Rate = supplierPrice.PriceListRate, ItemPriceId = supplierPrice.Id, Source = "Supplier", MatchedUom = supplierPrice.Uom };
         }
 
         // Priority 3: generic price (no party, no batch) — highest min_qty that applies
@@ -190,7 +233,7 @@ public class PricingAppService : ApplicationService, IPricingAppService
             .FirstOrDefault();
 
         if (genericPrice != null)
-            return new ItemRateResultDto { Rate = genericPrice.PriceListRate, ItemPriceId = genericPrice.Id, Source = "PriceList" };
+            return new ItemRateResultDto { Rate = genericPrice.PriceListRate, ItemPriceId = genericPrice.Id, Source = "PriceList", MatchedUom = genericPrice.Uom };
 
         return new ItemRateResultDto { Rate = 0, Source = "None" };
     }

@@ -87,6 +87,9 @@ public class GetItemRateRequestDto
     public Guid? CustomerId { get; set; }
     public Guid? SupplierId { get; set; }
     public string? BatchNo { get; set; }
+    public string? Uom { get; set; }
+    public string? StockUom { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
 }
 
 public class ItemRateResultDto
@@ -94,6 +97,7 @@ public class ItemRateResultDto
     public decimal Rate { get; set; }
     public Guid? ItemPriceId { get; set; }
     public string? Source { get; set; }
+    public string? MatchedUom { get; set; }
 }
 
 public class BulkPriceUpdateDto

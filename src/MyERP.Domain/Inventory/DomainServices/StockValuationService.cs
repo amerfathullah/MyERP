@@ -854,6 +854,57 @@ public class StockValuationService : DomainService
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// Returns the <c>CreationTime</c> of the earliest active Stock Ledger Entry posted by a voucher
+    /// (or null if the voucher has not posted any SLE yet) per ERPNext PR #67471 (commit 6c8fa3a2c1:
+    /// <c>StockController.first_sle_creation</c>). Used when valuing secondary items before a receipt's SLEs.
+    /// </summary>
+    public async Task<DateTime?> GetFirstSleCreationAsync(string voucherType, Guid voucherId)
+    {
+        if (string.IsNullOrWhiteSpace(voucherType) || voucherId == Guid.Empty)
+            return null;
+
+        var query = await _ledgerRepository.GetQueryableAsync();
+        return query
+            .Where(e => e.VoucherType == voucherType && e.VoucherId == voucherId && !e.IsCancelled)
+            .OrderBy(e => e.CreationTime)
+            .Select(e => (DateTime?)e.CreationTime)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Finds active Stock Ledger Entries belonging to secondary items of a Subcontracting Receipt finished-good row
+    /// so backdated reposts revalue secondary items alongside their finished good
+    /// per ERPNext PR #67471 (commit 0c809185d1: <c>update_entries_after.get_secondary_item_sles_of_receipt</c>).
+    /// </summary>
+    public async Task<List<StockLedgerEntry>> GetSecondaryItemSlesOfSubcontractingReceiptAsync(
+        Guid receiptId,
+        Guid finishedGoodRowId,
+        IEnumerable<Purchasing.Entities.SubcontractingReceiptItem> receiptItems)
+    {
+        if (receiptId == Guid.Empty || finishedGoodRowId == Guid.Empty || receiptItems == null)
+            return new List<StockLedgerEntry>();
+
+        var secondaryRowIds = receiptItems
+            .Where(i => i.ReferenceFinishedGoodRowId == finishedGoodRowId)
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        if (secondaryRowIds.Count == 0)
+            return new List<StockLedgerEntry>();
+
+        var query = await _ledgerRepository.GetQueryableAsync();
+        return query
+            .Where(e => e.VoucherType == "SubcontractingReceipt"
+                && e.VoucherId == receiptId
+                && e.VoucherDetailNo.HasValue
+                && secondaryRowIds.Contains(e.VoucherDetailNo.Value)
+                && !e.IsCancelled)
+            .OrderBy(e => e.PostingDateTime)
+            .ThenBy(e => e.CreationTime)
+            .ToList();
+    }
+
     private static (decimal valuationRate, decimal balanceQty, decimal balanceValue, string stockQueue)
         CalculateFifoLifo(StockLedgerEntry? previousSle, decimal quantityChange, decimal incomingRate, bool isLifo)
     {

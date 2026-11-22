@@ -46,6 +46,33 @@ public class CompanyRestrictionValidationService : DomainService
         "RepostPaymentLedger", "SerialNo", "SerialAndBatchBundle", "UnreconcilePayment"
     };
 
+    /// <summary>
+    /// Sorted list of configuration/system doctypes preserved during company Transaction Deletion
+    /// per ERPNext PR #67149 (commits e407ee388a, 9efa546314): includes <c>Communication</c> and <c>Email Account</c>.
+    /// </summary>
+    private static readonly string[] DefaultTransactionDeletionIgnoredDoctypes =
+    {
+        "Asset Maintenance Team",
+        "Authorization Rule",
+        "Bank Transaction Rule",
+        "Communication",
+        "Dunning Type",
+        "Email Account",
+        "Email Digest",
+        "Journal Entry Template",
+        "Loyalty Program",
+        "Mode of Payment",
+        "Payment Terms Template",
+        "POS Profile",
+        "Price List",
+        "Sales Taxes and Charges Template",
+        "Purchase Taxes and Charges Template",
+        "Warehouse"
+    };
+
+    public static IReadOnlyList<string> GetDefaultTransactionDeletionIgnoredDoctypes() =>
+        DefaultTransactionDeletionIgnoredDoctypes;
+
     public CompanyRestrictionValidationService(
         IRepository<CompanyRestrictionEntry, Guid> restrictionEntryRepo,
         IRepository<Item, Guid> itemRepo,

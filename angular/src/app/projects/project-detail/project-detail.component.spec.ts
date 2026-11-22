@@ -99,5 +99,23 @@ describe('ProjectDetailComponent Task Dependencies', () => {
 
     expect(comp.totalProjectCost()).toBe(1500);
     expect(comp.computedGrossMargin()).toBe(1000);
+    expect(comp.computedGrossMarginPercent()).toBe(40);
+  });
+
+  it('toggles collapsible Costing & Billing and Margin sections (PR #68336)', () => {
+    const { comp } = createComponent();
+
+    expect(comp.costingCollapsed()).toBe(false);
+    expect(comp.marginCollapsed()).toBe(false);
+
+    comp.toggleCostingSection();
+    expect(comp.costingCollapsed()).toBe(true);
+    expect(comp.marginCollapsed()).toBe(false);
+
+    comp.toggleMarginSection();
+    expect(comp.marginCollapsed()).toBe(true);
+
+    comp.toggleCostingSection();
+    expect(comp.costingCollapsed()).toBe(false);
   });
 });

@@ -917,7 +917,108 @@ public class WorkOrderManager : DomainService
 
         return Math.Round((remaining / maxQty) * fgCompletedQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Allocates Work Order operation costs onto a Manufacture Stock Entry per ERPNext PR #67334
+    /// (commits 437afa2d63, d51959d7a4, 205f50785b in <c>bom/services/operations_cost.py</c>):
+    /// - Resolves operating components from <c>Workstation</c> when assigned, or from <c>WorkstationType</c>
+    ///   when an operation is planned on a Workstation Type without a specific Workstation.
+    /// - Operations whose workstation/type has no positive-rate operating components are collected in
+    ///   <c>withoutComponents</c>; when at least one operation adds component-wise costs, those remaining
+    ///   operations are still booked as per-operation operating cost rows instead of being silently dropped.
+    /// - When no operation has positive-rate operating components, returns per-operation cost entries for all
+    ///   operations with positive <c>ActualOperationTime</c>.
+    /// </summary>
+    public static IReadOnlyList<WorkOrderOperationCostEntry> CalculateOperationOperatingCosts(
+        IEnumerable<WorkOrderOperationCostInput> operations,
+        Func<Guid, IReadOnlyList<(string Component, decimal OperatingCost, Guid? AccountId)>>? getWorkstationComponents,
+        Func<Guid, IReadOnlyList<(string Component, decimal OperatingCost, Guid? AccountId)>>? getWorkstationTypeComponents,
+        Guid? defaultOperatingExpenseAccountId = null,
+        Guid? filterOperationId = null,
+        int precision = 4)
+    {
+        var entries = new List<WorkOrderOperationCostEntry>();
+        var withoutComponents = new List<WorkOrderOperationCostInput>();
+        var componentCostAdded = false;
+
+        foreach (var op in operations ?? Array.Empty<WorkOrderOperationCostInput>())
+        {
+            if (filterOperationId.HasValue && op.OperationId != filterOperationId.Value)
+                continue;
+            if (op.ActualOperationTime <= 0m)
+                continue;
+
+            IReadOnlyList<(string Component, decimal OperatingCost, Guid? AccountId)> rawComponents =
+                op.WorkstationId.HasValue && getWorkstationComponents != null
+                    ? getWorkstationComponents(op.WorkstationId.Value)
+                    : (op.WorkstationTypeId.HasValue && getWorkstationTypeComponents != null
+                        ? getWorkstationTypeComponents(op.WorkstationTypeId.Value)
+                        : Array.Empty<(string, decimal, Guid?)>());
+
+            var positiveComponents = rawComponents
+                .Where(c => c.OperatingCost > 0m)
+                .ToList();
+
+            var totalComponentRate = positiveComponents.Sum(c => c.OperatingCost);
+            if (positiveComponents.Count == 0 || op.ActualOperatingCost <= 0m || totalComponentRate <= 0m)
+            {
+                withoutComponents.Add(op);
+                continue;
+            }
+
+            foreach (var comp in positiveComponents)
+            {
+                var share = Math.Round(op.ActualOperatingCost * (comp.OperatingCost / totalComponentRate), precision, MidpointRounding.AwayFromZero);
+                if (share > 0m)
+                {
+                    entries.Add(new WorkOrderOperationCostEntry(
+                        op.OperationId,
+                        op.OperationName,
+                        comp.Component,
+                        comp.AccountId ?? defaultOperatingExpenseAccountId,
+                        share,
+                        IsComponentWise: true));
+                    componentCostAdded = true;
+                }
+            }
+        }
+
+        // Per PR #67334: whether component-wise costs were added on sibling operations or not,
+        // operations without positive-rate components are still costed per operation.
+        var fallbackOps = componentCostAdded ? withoutComponents : withoutComponents;
+        foreach (var op in fallbackOps)
+        {
+            if (op.ActualOperatingCost > 0m)
+            {
+                entries.Add(new WorkOrderOperationCostEntry(
+                    op.OperationId,
+                    op.OperationName,
+                    OperatingComponent: null,
+                    defaultOperatingExpenseAccountId,
+                    Math.Round(op.ActualOperatingCost, precision, MidpointRounding.AwayFromZero),
+                    IsComponentWise: false));
+            }
+        }
+
+        return entries;
+    }
 }
+
+public sealed record WorkOrderOperationCostInput(
+    Guid OperationId,
+    string OperationName,
+    Guid? WorkstationId,
+    Guid? WorkstationTypeId,
+    decimal ActualOperationTime,
+    decimal ActualOperatingCost);
+
+public sealed record WorkOrderOperationCostEntry(
+    Guid OperationId,
+    string OperationName,
+    string? OperatingComponent,
+    Guid? ExpenseAccountId,
+    decimal Amount,
+    bool IsComponentWise);
 
 /// <summary>
 /// Represents a calculated material requirement for production.

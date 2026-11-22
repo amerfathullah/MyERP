@@ -329,11 +329,19 @@ public class JobCardManager : DomainService
         return null;
     }
 
+    /// <summary>
+    /// Sentinel end time for an open/running Job Card time log (<c>ToTime == default</c>)
+    /// per ERPNext PR #67447 (commits f2fe397926, caa7472ff0, ae63e778bb: <c>RUNNING_TIME_LOG_END</c>).
+    /// Keeps the workstation slot occupied until the running time log is stopped.
+    /// </summary>
+    public static readonly DateTime RunningTimeLogEnd = new(9999, 12, 31);
+
     private async Task<List<JobCardTimeLogRange>> GetOverlappingLogsAsync(
         Guid workstationId,
         Guid excludeJobCardId,
         DateTime candidateFrom,
-        DateTime candidateTo)
+        DateTime candidateTo,
+        bool includeRunning = true)
     {
         var queryable = await _jobCardRepository.GetQueryableAsync();
         if (queryable == null)
@@ -345,28 +353,68 @@ public class JobCardManager : DomainService
                 && jc.Status == JobCardStatus.WorkInProgress)
             .ToList();
 
-        return ExtractOverlappingLogs(activeJcs, candidateFrom, candidateTo);
+        return ExtractOverlappingLogs(activeJcs, candidateFrom, candidateTo, includeRunning);
     }
 
-    private static List<JobCardTimeLogRange> ExtractOverlappingLogs(
+    /// <summary>
+    /// Extracts time log ranges on other active Job Cards overlapping <paramref name="candidateFrom"/>..<paramref name="candidateTo"/>.
+    /// Per ERPNext PR #67447:
+    /// - Qty-only logs (<c>FromTime == default</c>) skip overlap detection and save beside running Job Cards.
+    /// - Running time logs (<c>ToTime == default</c>) on draft/WIP Job Cards occupy the workstation up to
+    ///   <see cref="RunningTimeLogEnd"/> when <paramref name="includeRunning"/> is true.
+    /// </summary>
+    public static List<JobCardTimeLogRange> ExtractOverlappingLogs(
         IEnumerable<JobCard> activeJcs,
         DateTime candidateFrom,
-        DateTime candidateTo)
+        DateTime candidateTo,
+        bool includeRunning = true)
     {
         var logs = new List<JobCardTimeLogRange>();
+        if (candidateFrom == default)
+        {
+            return logs;
+        }
+
+        var effectiveCandidateTo = (includeRunning && candidateTo == default) ? RunningTimeLogEnd : candidateTo;
+        if (effectiveCandidateTo == default)
+        {
+            return logs;
+        }
+
         foreach (var other in activeJcs)
         {
             if (other.TimeLogs.Any())
             {
-                logs.AddRange(other.TimeLogs
-                    .Where(tl => tl.FromTime < candidateTo && tl.ToTime > candidateFrom)
-                    .Select(tl => new JobCardTimeLogRange(tl.FromTime, tl.ToTime, other.Id)));
+                foreach (var tl in other.TimeLogs)
+                {
+                    if (tl.FromTime == default)
+                    {
+                        continue;
+                    }
+
+                    if (tl.ToTime == default)
+                    {
+                        if (includeRunning
+                            && other.Status != JobCardStatus.Completed
+                            && other.Status != JobCardStatus.Cancelled
+                            && tl.FromTime < effectiveCandidateTo)
+                        {
+                            logs.Add(new JobCardTimeLogRange(tl.FromTime, RunningTimeLogEnd, other.Id));
+                        }
+                        continue;
+                    }
+
+                    if (tl.FromTime < effectiveCandidateTo && tl.ToTime > candidateFrom)
+                    {
+                        logs.Add(new JobCardTimeLogRange(tl.FromTime, tl.ToTime, other.Id));
+                    }
+                }
             }
             else if (other.StartedAt.HasValue)
             {
                 var sFrom = other.StartedAt.Value;
                 var sTo = sFrom.AddMinutes((double)(other.PlannedTimeInMins > 0 ? other.PlannedTimeInMins : 30m));
-                if (sFrom < candidateTo && sTo > candidateFrom)
+                if (sFrom < effectiveCandidateTo && sTo > candidateFrom)
                 {
                     logs.Add(new JobCardTimeLogRange(sFrom, sTo, other.Id));
                 }
@@ -477,12 +525,20 @@ public class JobCardManager : DomainService
         IEnumerable<JobCardTimeLogRange> otherEmployeeLogs,
         string? employeeName = null)
     {
+        if (fromTime == default)
+            return;
+
+        var effectiveTo = toTime == default ? RunningTimeLogEnd : toTime;
         foreach (var other in otherEmployeeLogs)
         {
-            if (other.FromTime < toTime && other.ToTime > fromTime)
+            if (other.FromTime == default)
+                continue;
+
+            var otherEnd = other.ToTime == default ? RunningTimeLogEnd : other.ToTime;
+            if (other.FromTime < effectiveTo && otherEnd > fromTime)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Employee {(employeeName ?? "assigned")} is already working from {other.FromTime:yyyy-MM-dd HH:mm:ss} to {other.ToTime:yyyy-MM-dd HH:mm:ss} on another Job Card.");
+                    .WithData("detail", $"Employee {(employeeName ?? "assigned")} is already working from {other.FromTime:yyyy-MM-dd HH:mm:ss} to {otherEnd:yyyy-MM-dd HH:mm:ss} on another Job Card.");
             }
         }
     }

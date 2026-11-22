@@ -157,7 +157,7 @@ public class BomValidationService : DomainService
 
         foreach (var item in bom.Items)
         {
-            var bomOutputQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+            var bomOutputQty = bom.ExplodedGoodQuantity;
             var qty = (item.StockQty / bomOutputQty) * multiplier;
 
             if (!item.DoNotExplode && item.IsPhantom && item.SubBomId.HasValue)

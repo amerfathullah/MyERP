@@ -61,6 +61,9 @@ public class BomSecondaryItem : Entity<Guid>, IMultiTenant
     /// </summary>
     public decimal ProcessLossPercentage { get; set; }
 
+    /// <summary>Process loss quantity for this secondary item (resets to 0 when ProcessLossPercentage is cleared, PR #67407).</summary>
+    public decimal ProcessLossQty => Math.Round(Quantity * (ProcessLossPercentage / 100m), 4, MidpointRounding.AwayFromZero);
+
     /// <summary>Effective quantity after process loss deduction.</summary>
     public decimal EffectiveQuantity =>
         ProcessLossPercentage > 0

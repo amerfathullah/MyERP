@@ -49,6 +49,7 @@ public class LhdnStatusResponse
 public class LhdnCancelResponse
 {
     public bool IsSuccess { get; set; }
+    public int StatusCode { get; set; }
     public string? ErrorMessage { get; set; }
     public string? RawJson { get; set; }
 }

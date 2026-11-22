@@ -697,6 +697,20 @@ public class PurchaseOrderManager : DomainService
         var receivedStockQty = poReceivedQty * effectivePoFactor;
         return Math.Round(receivedStockQty / effectiveSoFactor, 4);
     }
+
+    /// <summary>
+    /// Determines whether a Purchase Order Item row is subject to quantity over-receipt limits
+    /// per ERPNext PR #67402 (commit c5f5a53ad6 in <c>status_updater.py</c>):
+    /// stock items, active Product Bundles, AND non-stock subcontracted service rows (those linked to a
+    /// finished good <paramref name="fgItemId"/>) are all capped by their ordered qty + allowance.
+    /// </summary>
+    public static bool IsQuantityLimitEnforcedForPurchaseOrderItem(
+        bool isStockItem,
+        bool isActiveProductBundle,
+        Guid? fgItemId)
+    {
+        return isStockItem || isActiveProductBundle || (fgItemId.HasValue && fgItemId.Value != Guid.Empty);
+    }
 }
 
 /// <summary>Summary of overdue items in a Purchase Order.</summary>

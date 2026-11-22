@@ -85,14 +85,24 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public decimal ProcessLossPercentage { get; set; }
 
-    /// <summary>Process loss quantity derived from BOM-level percentage.</summary>
-    public decimal ProcessLossQty => Quantity * (ProcessLossPercentage / 100m);
+    /// <summary>
+    /// Process loss quantity derived from BOM-level percentage.
+    /// Per ERPNext PR #67407 (commit 048052105a): always recomputed from ProcessLossPercentage so
+    /// clearing the percentage resets ProcessLossQty to 0 rather than leaving a stale value.
+    /// </summary>
+    public decimal ProcessLossQty => Math.Round(Quantity * (ProcessLossPercentage / 100m), 4, MidpointRounding.AwayFromZero);
 
     /// <summary>
     /// Effective good output quantity after deducting BOM-level process loss (ERPNext PR #60561 / commit 9167d69a84).
     /// Falls back to Quantity (or 1) if process loss is 100% or Quantity is 0.
     /// </summary>
     public decimal GoodQuantity => (Quantity - ProcessLossQty) > 0 ? (Quantity - ProcessLossQty) : (Quantity > 0 ? Quantity : 1m);
+
+    /// <summary>
+    /// Quantity a child BOM's components are spread over when exploded into a parent BOM:
+    /// a phantom BOM's process loss is ignored (ERPNext PR #67449 / commit 7f35a5287b, <c>get_exploded_good_qty</c>).
+    /// </summary>
+    public decimal ExplodedGoodQuantity => IsPhantomBom ? (Quantity > 0 ? Quantity : 1m) : GoodQuantity;
 
     /// <summary>
     /// Cost per good output unit = TotalCost / (Quantity - ProcessLossQty) per ERPNext PR #60561.

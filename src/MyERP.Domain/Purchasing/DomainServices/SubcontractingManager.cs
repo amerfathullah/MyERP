@@ -1885,7 +1885,193 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Computes mapped process loss quantity on a Subcontracting Receipt row created from a Subcontracting Order
+    /// per ERPNext PR #67461 (commits 94dd20a724, 32ffe97c4d: <c>get_mapped_process_loss_qty</c>):
+    /// - For a whole-number UOM, rounds running cumulative loss on <c>receivedBefore + rowQty</c> minus
+    ///   running cumulative loss on <c>receivedBefore</c> so partial receipts together lose the BOM's exact process loss in whole units.
+    /// - For fractional UOMs, keeps per-receipt rounding at field precision.
+    /// </summary>
+    public static decimal CalculateMappedProcessLossQty(
+        decimal rowQty,
+        decimal receivedBefore,
+        decimal processLossPercentage,
+        bool mustBeWholeNumber,
+        int precision = 4)
+    {
+        if (rowQty <= 0m || processLossPercentage <= 0m)
+        {
+            return 0m;
+        }
+
+        if (!mustBeWholeNumber)
+        {
+            return Math.Round(rowQty * (processLossPercentage / 100m), precision, MidpointRounding.AwayFromZero);
+        }
+
+        decimal WholeLossOn(decimal qty) =>
+            Math.Round(qty * (processLossPercentage / 100m), 0, MidpointRounding.AwayFromZero);
+
+        return WholeLossOn(receivedBefore + rowQty) - WholeLossOn(receivedBefore);
+    }
+
+    /// <summary>
+    /// Computes the subcontracting service cost credited (or debited on return) to the service account in GL
+    /// per ERPNext PR #67460 (commits 9136647a14, 724dbf5c6b, 298036aa36 in <c>gl_composer.py</c>):
+    /// - On receipt: stock value absorbs the service cost of accepted, rejected, and process-loss units,
+    ///   so service cost is <c>serviceCostPerQty * (acceptedQty + rejectedQty + processLossQty)</c>.
+    /// - On return of accepted qty: scales returned accepted qty by the original receipt's
+    ///   <c>receivedQty / acceptedQty</c> ratio (<paramref name="returnReceivedQtyRatio"/>) so the full service cost reverses.
+    /// </summary>
+    public static decimal CalculateSubcontractingServiceCostForGl(
+        decimal serviceCostPerQty,
+        decimal acceptedQty,
+        decimal rejectedQty,
+        decimal processLossQty,
+        bool isReturn = false,
+        decimal? returnReceivedQtyRatio = null,
+        int precision = 2)
+    {
+        decimal serviceQty;
+        if (isReturn && returnReceivedQtyRatio.HasValue)
+        {
+            serviceQty = acceptedQty * returnReceivedQtyRatio.Value;
+        }
+        else
+        {
+            serviceQty = acceptedQty + rejectedQty + processLossQty;
+        }
+
+        return Math.Round(serviceCostPerQty * serviceQty, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Computes finished-good RM cost per qty FIRST, then prices own-cost secondary items at posting-time valuation,
+    /// then prices percentage secondary items from the finished good's current RM + service cost net of own-cost rows
+    /// per ERPNext PR #67471 (commits 9eae88272a, 06eb206cf3, 41afbe4e7c).
+    /// </summary>
+    public static SubcontractingReceiptCostingResult CalculateReceiptFinishedGoodAndSecondaryRates(
+        decimal fgAcceptedQty,
+        decimal fgReceivedQty,
+        decimal suppliedRmTotalAmount,
+        decimal serviceCostPerQty,
+        decimal additionalCostPerQty,
+        decimal lcvAmount,
+        IEnumerable<SubcontractingSecondaryRowInput> secondaryRows,
+        Func<Guid, Guid?, decimal> resolveValuationRateAtPosting,
+        int precision = 4)
+    {
+        var effectiveReceivedQty = fgReceivedQty != 0m ? fgReceivedQty : fgAcceptedQty;
+        var rmCostPerQty = effectiveReceivedQty != 0m
+            ? suppliedRmTotalAmount / effectiveReceivedQty
+            : 0m;
+
+        var rows = (secondaryRows ?? Array.Empty<SubcontractingSecondaryRowInput>()).ToList();
+        var ratedRows = new Dictionary<Guid, (decimal Rate, decimal Amount)>();
+        var ownSecondaryCost = 0m;
+
+        // Pass 1: Own-cost rows (Manual / ValuationRate) valued at posting time
+        foreach (var row in rows.Where(r => r.ValuationType is Manufacturing.SecondaryItemValuationType.Manual or Manufacturing.SecondaryItemValuationType.ValuationRate))
+        {
+            var rate = ResolveSecondaryItemRate(
+                isReturn: false,
+                secondaryQty: row.Qty,
+                valuationType: row.ValuationType,
+                bomSecondaryBaseCost: row.BomSecondaryBaseCost,
+                bomSecondaryStockQty: row.BomSecondaryStockQty,
+                resolveWarehouseValuationRate: () => resolveValuationRateAtPosting(row.ItemId, row.WarehouseId),
+                precision: precision);
+            var amount = Math.Round(row.Qty * rate, precision, MidpointRounding.AwayFromZero);
+            ratedRows[row.RowId] = (rate, amount);
+            ownSecondaryCost += amount;
+        }
+
+        // Pass 2: Percentage rows priced from current RM cost + service cost net of own-cost rows
+        var totalSecondaryCost = ownSecondaryCost;
+        foreach (var row in rows.Where(r => r.ValuationType == Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost))
+        {
+            var rate = CalculatePercentageSecondaryRate(
+                fgReceivedQty: effectiveReceivedQty,
+                rmCostPerQty: rmCostPerQty,
+                serviceCostPerQty: serviceCostPerQty,
+                additionalCostPerQty: additionalCostPerQty,
+                lcvAmount: lcvAmount,
+                ownSecondaryCost: ownSecondaryCost,
+                costAllocationPercentage: row.CostAllocationPercentage,
+                secondaryQty: row.Qty,
+                precision: precision);
+            var amount = Math.Round(row.Qty * rate, precision, MidpointRounding.AwayFromZero);
+            ratedRows[row.RowId] = (rate, amount);
+            totalSecondaryCost += amount;
+        }
+
+        var secondaryCostPerQty = fgAcceptedQty != 0m
+            ? totalSecondaryCost / fgAcceptedQty
+            : 0m;
+        var fgRate = CalculateFinishedGoodRateWithSecondaryCost(
+            serviceCostPerQty + additionalCostPerQty + (effectiveReceivedQty != 0m ? lcvAmount / effectiveReceivedQty : 0m),
+            rmCostPerQty,
+            secondaryCostPerQty,
+            precision);
+
+        return new SubcontractingReceiptCostingResult(
+            Math.Round(rmCostPerQty, precision, MidpointRounding.AwayFromZero),
+            Math.Round(secondaryCostPerQty, precision, MidpointRounding.AwayFromZero),
+            fgRate,
+            ratedRows);
+    }
+
+    /// <summary>
+    /// Computes accepted finished-good received quantities for Production Plan subcontracted sub-assembly rows
+    /// from submitted Subcontracting Orders / Receipts (via SCO Item -> PO Item -> ProductionPlanSubAssemblyItem)
+    /// per ERPNext PR #67483 (commits 318766f908, 41841dd27b, e672df9bb3: <c>update_subcontracted_received_qty</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateSubcontractedPlanReceivedQuantities(
+        IEnumerable<Guid> affectedPlanSubAssemblyItemIds,
+        IEnumerable<(Guid PurchaseOrderItemId, Guid ProductionPlanSubAssemblyItemId)> submittedPoItems,
+        IReadOnlyDictionary<Guid, decimal> subcontractedReceivedQtyByPoItemId,
+        int precision = 4)
+    {
+        var totals = new Dictionary<Guid, decimal>();
+        foreach (var id in affectedPlanSubAssemblyItemIds ?? Array.Empty<Guid>())
+        {
+            totals[id] = 0m;
+        }
+
+        foreach (var (poItemId, planSubAssemblyItemId) in submittedPoItems ?? Array.Empty<(Guid, Guid)>())
+        {
+            if (!totals.ContainsKey(planSubAssemblyItemId))
+                continue;
+
+            var received = subcontractedReceivedQtyByPoItemId.GetValueOrDefault(poItemId, 0m);
+            totals[planSubAssemblyItemId] += received;
+        }
+
+        foreach (var key in totals.Keys.ToList())
+        {
+            totals[key] = Math.Round(totals[key], precision, MidpointRounding.AwayFromZero);
+        }
+
+        return totals;
+    }
 }
+
+public sealed record SubcontractingSecondaryRowInput(
+    Guid RowId,
+    Guid ItemId,
+    Guid? WarehouseId,
+    decimal Qty,
+    Manufacturing.SecondaryItemValuationType ValuationType,
+    decimal CostAllocationPercentage = 0m,
+    decimal BomSecondaryBaseCost = 0m,
+    decimal BomSecondaryStockQty = 0m);
+
+public sealed record SubcontractingReceiptCostingResult(
+    decimal RmCostPerQty,
+    decimal SecondaryItemsCostPerQty,
+    decimal FinishedGoodRate,
+    IReadOnlyDictionary<Guid, (decimal Rate, decimal Amount)> SecondaryRatesByRowId);
 
 public sealed record SubcontractingReservationPlanHandoff(
     Guid SuppliedItemId,

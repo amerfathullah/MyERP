@@ -131,7 +131,8 @@ public class EInvoiceService : DomainService
         Guid submissionId,
         string reason,
         string accessToken,
-        LhdnEnvironment environment)
+        LhdnEnvironment environment,
+        Func<Task<string?>>? refreshTokenAsync = null)
     {
         var submission = await _submissionRepository.GetAsync(submissionId);
 
@@ -169,6 +170,17 @@ public class EInvoiceService : DomainService
 
         var response = await _lhdnApiClient.CancelDocumentAsync(
             accessToken, submission.DocumentUuid, reason, environment);
+
+        // Per myinvois cancel_doc.py: retry once with a refreshed bearer token on 401/500
+        if (!response.IsSuccess && (response.StatusCode == 401 || response.StatusCode == 500) && refreshTokenAsync != null)
+        {
+            var refreshedToken = await refreshTokenAsync();
+            if (!string.IsNullOrWhiteSpace(refreshedToken))
+            {
+                response = await _lhdnApiClient.CancelDocumentAsync(
+                    refreshedToken, submission.DocumentUuid, reason, environment);
+            }
+        }
 
         if (response.IsSuccess)
         {

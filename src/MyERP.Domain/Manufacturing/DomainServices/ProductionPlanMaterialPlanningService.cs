@@ -469,6 +469,76 @@ public class ProductionPlanMaterialPlanningService : DomainService
             bool includeSubcontractedItems,
             IEnumerable<(int Idx, Guid ItemId, bool DoNotExplode, bool IsPhantomItem, bool IsSubcontractedItem, decimal StockQtyPerBomUnit, string Description, Guid? SourceWarehouseId, Guid? LineBomId, Guid? ItemDefaultBomId)> bomLines,
             decimal plannedParentQty)
+        => EvaluateProductionPlanBomSubitemGroups(
+            includeExplodedItems,
+            includeSubcontractedItems,
+            bomLines,
+            plannedParentQty,
+            requestedSubAssemblies: null,
+            plannedSubAssemblies: null);
+
+    /// <summary>
+    /// Classifies a Production Plan's sub-assembly rows per parent plan item into:
+    /// - <c>RequestedSubAssemblies</c> (<c>MaterialRequest</c> / <c>Purchase</c>): requested directly via MR, never re-requested as raw material.
+    /// - <c>PlannedSubAssemblies</c> (<c>InHouse</c> / <c>Subcontract</c>): made or subcontracted, so only their components are requested.
+    /// Per ERPNext PR #67396 (commits 1449380676, c3437b2eba, 07c5dfcab8: <c>_get_sub_assemblies_by_plan_row</c>).
+    /// </summary>
+    public static (
+        Dictionary<Guid, HashSet<(Guid ItemId, Guid? BomId)>> RequestedByPlanRow,
+        Dictionary<Guid, Dictionary<(Guid ItemId, Guid? BomId), SubAssemblyType>> PlannedByPlanRow)
+        ClassifySubAssembliesByPlanRow(
+            IEnumerable<(Guid ProductionPlanItemId, Guid ProductionItemId, Guid? BomId, SubAssemblyType TypeOfManufacturing)>? subAssemblyRows)
+    {
+        var requested = new Dictionary<Guid, HashSet<(Guid ItemId, Guid? BomId)>>();
+        var planned = new Dictionary<Guid, Dictionary<(Guid ItemId, Guid? BomId), SubAssemblyType>>();
+
+        if (subAssemblyRows == null)
+        {
+            return (requested, planned);
+        }
+
+        foreach (var row in subAssemblyRows)
+        {
+            var key = (row.ProductionItemId, row.BomId);
+            if (row.TypeOfManufacturing == SubAssemblyType.MaterialRequest)
+            {
+                if (!requested.TryGetValue(row.ProductionPlanItemId, out var set))
+                {
+                    set = new HashSet<(Guid, Guid?)>();
+                    requested[row.ProductionPlanItemId] = set;
+                }
+                set.Add(key);
+            }
+            else
+            {
+                if (!planned.TryGetValue(row.ProductionPlanItemId, out var map))
+                {
+                    map = new Dictionary<(Guid, Guid?), SubAssemblyType>();
+                    planned[row.ProductionPlanItemId] = map;
+                }
+                map[key] = row.TypeOfManufacturing;
+            }
+        }
+
+        return (requested, planned);
+    }
+
+    /// <summary>
+    /// Groups BOM subitems for Production Plan raw material calculation by <c>(ItemId, DoNotExplode)</c>,
+    /// taking planned and requested sub-assemblies into account per ERPNext PR #67396:
+    /// - A sub-assembly in <paramref name="requestedSubAssemblies"/> is skipped (already requested).
+    /// - A planned sub-assembly is matched by <c>(ItemId, LineBomId)</c> (so a <c>DoNotExplode</c> line without a line BOM is still requested).
+    /// - A planned <c>Subcontract</c> sub-assembly is skipped when <paramref name="includeSubcontractedItems"/> is false.
+    /// - Otherwise, a planned sub-assembly (<c>InHouse</c> or <c>Subcontract</c>) explodes to request its components regardless of default request type.
+    /// </summary>
+    public static List<(Guid ItemId, bool DoNotExplode, decimal Qty, string Description, Guid? SourceWarehouseId, Guid? ChildBomIdToExplode, bool ShouldMergeIntoRawMaterials)>
+        EvaluateProductionPlanBomSubitemGroups(
+            bool includeExplodedItems,
+            bool includeSubcontractedItems,
+            IEnumerable<(int Idx, Guid ItemId, bool DoNotExplode, bool IsPhantomItem, bool IsSubcontractedItem, decimal StockQtyPerBomUnit, string Description, Guid? SourceWarehouseId, Guid? LineBomId, Guid? ItemDefaultBomId)> bomLines,
+            decimal plannedParentQty,
+            IReadOnlySet<(Guid ItemId, Guid? BomId)>? requestedSubAssemblies,
+            IReadOnlyDictionary<(Guid ItemId, Guid? BomId), SubAssemblyType>? plannedSubAssemblies)
     {
         var results = new List<(Guid ItemId, bool DoNotExplode, decimal Qty, string Description, Guid? SourceWarehouseId, Guid? ChildBomIdToExplode, bool ShouldMergeIntoRawMaterials)>();
         if (bomLines == null)
@@ -492,10 +562,27 @@ public class ProductionPlanMaterialPlanningService : DomainService
             // A Do Not Explode line has no BOM, so it must not take the item's default BOM (0fab64a3df)
             var childBomId = lineBomId ?? (group.Key.DoNotExplode ? null : defaultBomId);
 
+            if (requestedSubAssemblies != null && requestedSubAssemblies.Contains((group.Key.ItemId, childBomId)))
+            {
+                continue;
+            }
+
+            // Per PR #67396: match planned sub-assemblies by the BOM on the line (LineBomId)
+            SubAssemblyType? plannedType = null;
+            if (plannedSubAssemblies != null && plannedSubAssemblies.TryGetValue((group.Key.ItemId, lineBomId), out var matchedType))
+            {
+                plannedType = matchedType;
+            }
+
+            if (plannedType == SubAssemblyType.Subcontracting && !includeSubcontractedItems)
+            {
+                continue;
+            }
+
             var explodable = allPhantom || (includeExplodedItems && childBomId.HasValue);
             var shouldExplodeSubitem = !group.Key.DoNotExplode
                 && (!representative.IsSubcontractedItem || includeSubcontractedItems);
-            var explode = explodable && shouldExplodeSubitem && totalQty > 0m && childBomId.HasValue;
+            var explode = explodable && (plannedType.HasValue || shouldExplodeSubitem) && totalQty > 0m && childBomId.HasValue;
 
             // An exploded line (including an exploded phantom line) is NOT merged into raw materials (27e7009edd)
             results.Add((

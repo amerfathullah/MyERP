@@ -140,6 +140,7 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         return new LhdnCancelResponse
         {
             IsSuccess = response.IsSuccessStatusCode,
+            StatusCode = (int)response.StatusCode,
             ErrorMessage = response.IsSuccessStatusCode ? null : rawJson,
             RawJson = rawJson
         };

@@ -112,7 +112,7 @@ public class PickListManager : DomainService
         var alreadyPicked = Math.Round(otherPickLists
             .SelectMany(pl => pl.Items)
             .Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
-            .Sum(pi => Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty))), 4);
+            .Sum(pi => Math.Max(0m, pi.Qty - pi.DeliveredQty - pi.TransferredQty)), 4);
 
         decimal reservedQty = 0;
         if (_sreRepository != null)
@@ -132,7 +132,7 @@ public class PickListManager : DomainService
             var woPickHolds = otherPickLists
                 .Where(pl => pl.WorkOrderId.HasValue)
                 .SelectMany(pl => pl.Items.Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
-                    .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty)) }))
+                    .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = Math.Max(0m, pi.Qty - pi.DeliveredQty - pi.TransferredQty) }))
                 .GroupBy(x => x.WorkOrderId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
 
@@ -238,7 +238,7 @@ public class PickListManager : DomainService
         var pickedQty = Math.Round(pickListQuery
             .SelectMany(pl => pl.Items)
             .Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
-            .Sum(pi => pi.Qty - pi.TransferredQty), 4);
+            .Sum(pi => Math.Max(0m, pi.Qty - pi.DeliveredQty - pi.TransferredQty)), 4);
 
         decimal reservedQty = 0;
         if (sreRepository != null)
@@ -306,7 +306,7 @@ public class PickListManager : DomainService
 
                 foreach (var pi in matchingItems)
                 {
-                    var holdingQty = Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty));
+                    var holdingQty = Math.Max(0m, pi.Qty - pi.DeliveredQty - pi.TransferredQty);
                     if (holdingQty > 0)
                     {
                         holders.Add(new HoldingPickListInfo(
@@ -343,7 +343,7 @@ public class PickListManager : DomainService
                 var woPickHolds = otherPickLists
                     .Where(pl => pl.WorkOrderId.HasValue)
                     .SelectMany(pl => pl.Items.Where(pi => pi.ItemId == pair.ItemId && pi.WarehouseId == pair.WarehouseId)
-                        .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty) }))
+                        .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = Math.Max(0m, pi.Qty - pi.DeliveredQty - pi.TransferredQty) }))
                     .GroupBy(x => x.WorkOrderId!.Value)
                     .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
 
@@ -849,6 +849,60 @@ public class PickListManager : DomainService
         }
 
         return projected;
+    }
+
+    /// <summary>
+    /// Filters candidate pick locations against materials already held by other active Pick Lists
+    /// per ERPNext PR #67381 (commit 3d24a5b8ea) and PR #67382 (commit cb24f32fa8:
+    /// <c>filter_locations_by_picked_materials</c>):
+    /// - Deducts held quantity (<c>picked - delivered - transferred</c>).
+    /// - Removes already-picked serial numbers from serialized locations AND caps <c>Qty</c> at
+    ///   <c>Math.Min(Qty, freeSerialNos.Count)</c> so a location never offers more qty than its free serial numbers.
+    /// </summary>
+    public static List<PickLocationAllocation> FilterLocationsByPickedMaterials(
+        IEnumerable<PickLocationAllocation> locations,
+        IReadOnlyDictionary<(Guid WarehouseId, Guid? BatchId), (decimal HeldQty, IReadOnlySet<string>? PickedSerialNos)> pickedByLocation,
+        int precision = 4)
+    {
+        var filtered = new List<PickLocationAllocation>();
+        if (locations == null)
+        {
+            return filtered;
+        }
+
+        foreach (var loc in locations)
+        {
+            var qty = loc.Qty;
+            var serials = loc.SerialNumbers != null ? new List<string>(loc.SerialNumbers) : new List<string>();
+            var hasSerials = serials.Count > 0;
+
+            if (pickedByLocation != null
+                && pickedByLocation.TryGetValue((loc.WarehouseId, loc.BatchId), out var picked))
+            {
+                qty = Math.Max(0m, qty - picked.HeldQty);
+                if (hasSerials && picked.PickedSerialNos != null && picked.PickedSerialNos.Count > 0)
+                {
+                    serials = serials
+                        .Where(sn => !picked.PickedSerialNos.Contains(sn))
+                        .ToList();
+                    // A partly moved pick list row can still list more serial nos than it holds (PR #67382)
+                    qty = Math.Min(qty, serials.Count);
+                }
+            }
+
+            if (Math.Round(qty, precision, MidpointRounding.AwayFromZero) > 0m)
+            {
+                filtered.Add(new PickLocationAllocation
+                {
+                    WarehouseId = loc.WarehouseId,
+                    BatchId = loc.BatchId,
+                    Qty = qty,
+                    SerialNumbers = serials
+                });
+            }
+        }
+
+        return filtered;
     }
 }
 

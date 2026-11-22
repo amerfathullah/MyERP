@@ -587,7 +587,11 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var accessToken = await ResolveAccessTokenAsync(environment);
 
         var submission = await _eInvoiceService.CancelAsync(
-            input.SubmissionId, input.Reason, accessToken, environment);
+            input.SubmissionId,
+            input.Reason,
+            accessToken,
+            environment,
+            refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
 
         // Propagate cancellation status back to source invoice
         await PropagateStatusToSourceAsync(submission);
@@ -1511,6 +1515,18 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             return accessToken;
         }
 
+        var freshToken = await ForceRefreshAccessTokenAsync(environment);
+        if (!string.IsNullOrWhiteSpace(freshToken))
+        {
+            return freshToken;
+        }
+
+        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
+            .WithData("reason", "LHDN access token not configured. Please authenticate first.");
+    }
+
+    private async Task<string?> ForceRefreshAccessTokenAsync(LhdnEnvironment environment)
+    {
         var clientId = await _settingProvider.GetOrNullAsync("EInvoice.ClientId");
         var clientSecret = await _settingProvider.GetOrNullAsync("EInvoice.ClientSecret");
         var lhdnApiClient = LazyServiceProvider?.LazyGetService<ILhdnApiClient>();
@@ -1530,8 +1546,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             }
         }
 
-        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EInvoiceValidationFailed)
-            .WithData("reason", "LHDN access token not configured. Please authenticate first.");
+        return null;
     }
 }
 

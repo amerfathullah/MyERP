@@ -1221,6 +1221,9 @@ export interface GetItemRateRequestDto {
   customerId?: string | null;
   supplierId?: string | null;
   batchNo?: string | null;
+  uom?: string | null;
+  stockUom?: string | null;
+  conversionFactor?: number;
 }
 
 export interface GetItemStandardCostListDto extends CompanyFilteredPagedRequestDto {
@@ -1649,6 +1652,7 @@ export interface ItemRateResultDto {
   rate?: number;
   itemPriceId?: string | null;
   source?: string | null;
+  matchedUom?: string | null;
 }
 
 export interface ItemReorderDto extends EntityDto<string> {

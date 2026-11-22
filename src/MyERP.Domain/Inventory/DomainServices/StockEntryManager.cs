@@ -2066,4 +2066,151 @@ public class StockEntryManager : DomainService
 
         return existingRowQty > 0m ? existingRowQty : fgCompletedQty;
     }
+
+    /// <summary>
+    /// Computes the pending finished-goods quantity that a Job-Card-transferred raw material in WIP covers,
+    /// sharing consumption across alternative items and warehouses (keyed by <c>OriginalItemId ?? ItemId</c>)
+    /// and counting each Manufacture entry once even when the material is used by multiple operations
+    /// per ERPNext PR #67406 (commits cedfcdf739, 2c51379659, 2eddd25c6c, 07685bf1f9).
+    /// </summary>
+    public static decimal CalculateJobCardMaterialPendingQty(
+        Guid bomItemId,
+        decimal workOrderQty,
+        decimal workOrderTransferredQty,
+        decimal totalRequiredQtyForItem,
+        decimal totalTransferredQtyForItem,
+        IEnumerable<(Guid ItemId, Guid? OriginalItemId, IReadOnlyDictionary<Guid, decimal> ConsumedForByManufactureEntry)> availableMaterials)
+    {
+        var consumedForByEntry = new Dictionary<Guid, decimal>();
+        foreach (var row in availableMaterials ?? Array.Empty<(Guid, Guid?, IReadOnlyDictionary<Guid, decimal>)>())
+        {
+            if ((row.OriginalItemId ?? row.ItemId) != bomItemId)
+                continue;
+            foreach (var (entryId, fgQty) in row.ConsumedForByManufactureEntry)
+            {
+                consumedForByEntry[entryId] = fgQty;
+            }
+        }
+
+        var transferredForQty = totalRequiredQtyForItem > 0m
+            ? (totalTransferredQtyForItem * workOrderQty) / totalRequiredQtyForItem
+            : workOrderQty;
+
+        // Material moved in excess is spread over the order qty
+        transferredForQty = Math.Min(transferredForQty, Math.Max(workOrderQty, workOrderTransferredQty));
+        return transferredForQty - consumedForByEntry.Values.Sum();
+    }
+
+    /// <summary>
+    /// Computes transfer-based raw material consumption qty for a partial Manufacture entry
+    /// per ERPNext PR #67430 (commit a88ca080d7: <c>_append_transfer_based_rm</c>).
+    /// Rounds to 9 decimal places to drop floating-point noise (so 7.000000000000001 is not ceiled to 8)
+    /// while still ceiling genuine fractional whole-number shares (e.g. 0.004 -> 1) below qty precision.
+    /// </summary>
+    public static decimal CalculateTransferBasedRawMaterialQty(
+        decimal availableWipQty,
+        decimal fgCompletedQty,
+        decimal pendingQtyToMfg,
+        bool isReturn,
+        bool uomMustBeWholeNumber)
+    {
+        if (isReturn)
+        {
+            return uomMustBeWholeNumber ? Math.Ceiling(Math.Round(availableWipQty, 9, MidpointRounding.AwayFromZero)) : availableWipQty;
+        }
+
+        if (pendingQtyToMfg <= 0m)
+        {
+            return 0m;
+        }
+
+        var qty = Math.Round((availableWipQty * fgCompletedQty) / pendingQtyToMfg, 9, MidpointRounding.AwayFromZero);
+        return uomMustBeWholeNumber ? Math.Ceiling(qty) : qty;
+    }
+
+    /// <summary>
+    /// Orders Manufacture Stock Entry incoming rows for valuation per ERPNext PR #67449 (commit 6ef895beb4):
+    /// 1. Own-cost secondary rows (ValuationRate / Manual / BOM-less scrap)
+    /// 2. Sub-assembly percentage secondary rows (valued from their sub-assembly BOM's consumed components)
+    /// 3. Top-BOM percentage secondary rows
+    /// 4. Finished good rows last
+    /// </summary>
+    public static List<StockEntryItem> OrderManufactureIncomingRows(
+        IEnumerable<StockEntryItem> items,
+        IReadOnlySet<Guid>? subAssemblySecondaryItemIds = null)
+    {
+        return (items ?? Array.Empty<StockEntryItem>())
+            .OrderBy(r => r.IsFinishedItem ? 1 : 0)
+            .ThenBy(r => IsCostedOut(r, subAssemblySecondaryItemIds) ? 0 : 1)
+            .ThenBy(r => IsCostedOutOfFinishedItem(r) ? 0 : 1)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Whether a row is deducted from the top BOM's cost pool: either an own-cost secondary item
+    /// or a percentage secondary item originating from a sub-assembly BOM (PR #67449).
+    /// </summary>
+    public static bool IsCostedOut(StockEntryItem row, IReadOnlySet<Guid>? subAssemblySecondaryItemIds = null) =>
+        IsCostedOutOfFinishedItem(row)
+        || (subAssemblySecondaryItemIds != null
+            && row.BomSecondaryItemId.HasValue
+            && subAssemblySecondaryItemIds.Contains(row.BomSecondaryItemId.Value));
+
+    /// <summary>
+    /// Total cost of rows deducted from the top BOM's cost pool (own-cost + sub-assembly secondary rows, PR #67449).
+    /// </summary>
+    public static decimal GetCostedOutItemsCost(
+        IEnumerable<StockEntryItem> items,
+        IReadOnlySet<Guid>? subAssemblySecondaryItemIds) =>
+        items.Where(d => IsCostedOut(d, subAssemblySecondaryItemIds) && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+    /// <summary>
+    /// Computes the net consumed component cost basis for a sub-assembly BOM's percentage co-product
+    /// per ERPNext PR #67449 (commits 6ef895beb4, 30162fa85a, 2fa4b9d93d, 7ad2c28e3b, 7f35a5287b):
+    /// - Scales by <paramref name="fgCompletedQty"/> (not the secondary row's qty, which process loss/rounding alter).
+    /// - Divides sub-assemblies made by the sub-assembly BOM's exploded good qty (ignoring process loss for phantom BOMs).
+    /// - Deducts the sub-assembly BOM's own-cost secondary rows (ValuationRate / Manual).
+    /// </summary>
+    public static decimal CalculateSubAssemblyComponentCost(
+        decimal subAssemblySecondaryQtyPerBom,
+        decimal subAssemblySecondaryQtyPerFinishedGood,
+        decimal fgCompletedQty,
+        decimal subAssemblyBomQuantity,
+        decimal subAssemblyBomProcessLossQty,
+        bool subAssemblyBomIsPhantom,
+        IEnumerable<(Guid ComponentItemId, decimal StockQtyPerSubBom)> subAssemblyExplodedComponents,
+        IReadOnlyDictionary<Guid, decimal> consumedRatesByBomItemId,
+        decimal subAssemblyOwnCostSecondaryValue = 0m,
+        int precision = 4)
+    {
+        if (subAssemblySecondaryQtyPerBom <= 0m || fgCompletedQty <= 0m)
+        {
+            return 0m;
+        }
+
+        var bomQty = subAssemblyBomQuantity > 0m ? subAssemblyBomQuantity : 1m;
+        decimal explodedGoodQty;
+        if (subAssemblyBomIsPhantom)
+        {
+            explodedGoodQty = bomQty;
+        }
+        else
+        {
+            var good = bomQty - subAssemblyBomProcessLossQty;
+            explodedGoodQty = good > 0m ? good : bomQty;
+        }
+
+        var subAssembliesMade = (subAssemblySecondaryQtyPerFinishedGood * fgCompletedQty * bomQty) / subAssemblySecondaryQtyPerBom;
+        var bomsMade = subAssembliesMade / explodedGoodQty;
+
+        var componentCost = 0m;
+        foreach (var (compItemId, stockQty) in subAssemblyExplodedComponents ?? Array.Empty<(Guid, decimal)>())
+        {
+            var rate = consumedRatesByBomItemId.GetValueOrDefault(compItemId, 0m);
+            componentCost += stockQty * bomsMade * rate;
+        }
+
+        return Math.Round(componentCost - subAssemblyOwnCostSecondaryValue, precision, MidpointRounding.AwayFromZero);
+    }
 }

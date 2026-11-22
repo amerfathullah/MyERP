@@ -129,34 +129,59 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
               <h4>{{ project()!.taskCount }}</h4>
             </div>
           </div>
+          <!-- Costing & Billing (collapsible per ERPNext PR #68336) -->
           <div class="card mb-3">
-            <div class="card-header py-2">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                 role="button" tabindex="0"
+                 (click)="toggleCostingSection()" (keydown.enter)="toggleCostingSection()">
               <h6 class="mb-0"><i class="fas fa-coins me-1"></i>{{ '::CostingAndBilling' | abpLocalization }}</h6>
+              <i class="fas" [class.fa-chevron-down]="costingCollapsed()" [class.fa-chevron-up]="!costingCollapsed()"></i>
             </div>
-            <div class="card-body py-2 small">
-              <div class="d-flex justify-content-between py-1 border-bottom">
-                <span class="text-muted">{{ '::TotalCostingAmount' | abpLocalization }}</span>
-                <span class="fw-semibold">{{ (project()!.totalCostingAmount ?? 0) | number:'1.2-2' }}</span>
+            @if (!costingCollapsed()) {
+              <div class="card-body py-2 small">
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                  <span class="text-muted">{{ '::TotalCostingAmount' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ (project()!.totalCostingAmount ?? 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                  <span class="text-muted">{{ '::MaterialCost' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ (project()!.totalConsumedMaterialCost ?? 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                  <span class="text-muted">{{ '::TotalBillingAmount' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ (project()!.totalBillingAmount ?? 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-1">
+                  <span class="text-muted">{{ '::TotalBilledAmount' | abpLocalization }}</span>
+                  <span class="fw-semibold">{{ (project()!.totalBilledAmount ?? 0) | number:'1.2-2' }}</span>
+                </div>
               </div>
-              <div class="d-flex justify-content-between py-1 border-bottom">
-                <span class="text-muted">{{ '::MaterialCost' | abpLocalization }}</span>
-                <span class="fw-semibold">{{ (project()!.totalConsumedMaterialCost ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="d-flex justify-content-between py-1 border-bottom">
-                <span class="text-muted">{{ '::TotalBillingAmount' | abpLocalization }}</span>
-                <span class="fw-semibold">{{ (project()!.totalBillingAmount ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="d-flex justify-content-between py-1 border-bottom">
-                <span class="text-muted">{{ '::TotalBilledAmount' | abpLocalization }}</span>
-                <span class="fw-semibold">{{ (project()!.totalBilledAmount ?? 0) | number:'1.2-2' }}</span>
-              </div>
-              <div class="d-flex justify-content-between pt-2">
-                <span class="fw-semibold">{{ '::GrossProfit' | abpLocalization }}</span>
-                <span class="fw-bold" [class]="computedGrossMargin() >= 0 ? 'text-success' : 'text-danger'">
-                  {{ computedGrossMargin() | number:'1.2-2' }}
-                </span>
-              </div>
+            }
+          </div>
+          <!-- Margin (collapsible per ERPNext PR #68336) -->
+          <div class="card mb-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                 role="button" tabindex="0"
+                 (click)="toggleMarginSection()" (keydown.enter)="toggleMarginSection()">
+              <h6 class="mb-0"><i class="fas fa-chart-line me-1"></i>{{ '::Margin' | abpLocalization }}</h6>
+              <i class="fas" [class.fa-chevron-down]="marginCollapsed()" [class.fa-chevron-up]="!marginCollapsed()"></i>
             </div>
+            @if (!marginCollapsed()) {
+              <div class="card-body py-2 small">
+                <div class="d-flex justify-content-between py-1 border-bottom">
+                  <span class="fw-semibold">{{ '::GrossProfit' | abpLocalization }}</span>
+                  <span class="fw-bold" [class]="computedGrossMargin() >= 0 ? 'text-success' : 'text-danger'">
+                    {{ computedGrossMargin() | number:'1.2-2' }}
+                  </span>
+                </div>
+                <div class="d-flex justify-content-between pt-2">
+                  <span class="text-muted">{{ '::GrossMargin' | abpLocalization }}</span>
+                  <span class="fw-semibold" [class]="computedGrossMarginPercent() >= 0 ? 'text-success' : 'text-danger'">
+                    {{ computedGrossMarginPercent() | number:'1.1-1' }}%
+                  </span>
+                </div>
+              </div>
+            }
           </div>
         </div>
       </div>
@@ -815,6 +840,17 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
+  costingCollapsed = signal(false);
+  marginCollapsed = signal(false);
+
+  toggleCostingSection(): void {
+    this.costingCollapsed.set(!this.costingCollapsed());
+  }
+
+  toggleMarginSection(): void {
+    this.marginCollapsed.set(!this.marginCollapsed());
+  }
+
   totalProjectCost = computed(() => {
     const p = this.project();
     if (!p) return 0;
@@ -828,5 +864,11 @@ export class ProjectDetailComponent implements OnInit {
       return p.grossMargin;
     }
     return (p.totalBilledAmount ?? 0) - this.totalProjectCost();
+  });
+
+  computedGrossMarginPercent = computed(() => {
+    const billed = this.project()?.totalBilledAmount ?? 0;
+    if (billed <= 0) return 0;
+    return (this.computedGrossMargin() / billed) * 100;
   });
 }

@@ -2692,4 +2692,84 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             reconJe.Lines.ShouldContain(l => l.AccountId == apAcc.Id && l.IsDebit && l.Amount == 250m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch17_EndToEnd_PartyStockUomPricing_And_SubcontractingSecondarySleRepost()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var priceListRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.PriceList, Guid>>();
+            var itemPriceRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.ItemPrice, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var binRepo = GetRequiredService<IRepository<Bin, Guid>>();
+            var pickListRepo = GetRequiredService<IRepository<PickList, Guid>>();
+            var pricingService = GetRequiredService<MyERP.Inventory.IPricingAppService>();
+            var pickListManager = GetRequiredService<MyERP.Inventory.DomainServices.PickListManager>();
+            var stockValuation = GetRequiredService<MyERP.Inventory.DomainServices.StockValuationService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch17 Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "Batch17 VIP"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B17-ITM", "Batch 17 Widget", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+            var priceList = await priceListRepo.InsertAsync(new MyERP.Inventory.Entities.PriceList(Guid.NewGuid(), "B17 Selling", isSelling: true, isBuying: false, currencyCode: "MYR") { IsActive = true }, autoSave: true);
+
+            // General Box price = 150, Customer-specific stock UOM (Unit) price = 9.5
+            await itemPriceRepo.InsertAsync(new MyERP.Inventory.Entities.ItemPrice(Guid.NewGuid(), item.Id, priceList.Id, 150m, "Box", "MYR"), autoSave: true);
+            await itemPriceRepo.InsertAsync(new MyERP.Inventory.Entities.ItemPrice(Guid.NewGuid(), item.Id, priceList.Id, 9.5m, "Unit", "MYR") { CustomerId = customer.Id }, autoSave: true);
+
+            // PR #67397: Party stock-UOM price wins over general row-UOM price
+            var partyRate = await pricingService.GetItemRateAsync(new MyERP.Inventory.GetItemRateRequestDto
+            {
+                ItemId = item.Id,
+                PriceListId = priceList.Id,
+                Qty = 1m,
+                CustomerId = customer.Id,
+                Uom = "Box",
+                StockUom = "Unit",
+                ConversionFactor = 12m
+            });
+            partyRate.Rate.ShouldBe(9.5m);
+            partyRate.Source.ShouldBe("Customer");
+            partyRate.MatchedUom.ShouldBe("Unit");
+
+            // PR #67381: PickListManager stops holding qty that another Pick List already transferred + delivered
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Batch 17 WH"), autoSave: true);
+            await binRepo.InsertAsync(new Bin(Guid.NewGuid(), item.Id, wh.Id) { ActualQty = 10m }, autoSave: true);
+            var otherPl = new PickList(Guid.NewGuid(), company.Id, "Delivery") { PickListNumber = "PL-B17-1" };
+            otherPl.AddItem(item.Id, wh.Id, 8m, itemName: item.ItemName);
+            otherPl.Items[0].DeliveredQty = 3m;
+            otherPl.Items[0].TransferredQty = 2m; // Only 8 - 3 - 2 = 3 held!
+            otherPl.Submit();
+            await pickListRepo.InsertAsync(otherPl, autoSave: true);
+
+            var freeQty = await pickListManager.GetAvailableQtyForPickAsync(item.Id, wh.Id, Guid.NewGuid());
+            freeQty.ShouldBe(7m);
+
+            // PR #67471: StockValuationService resolves first SLE creation and secondary item SLEs for a SubcontractingReceipt
+            var scrId = Guid.NewGuid();
+            var fgRowId = Guid.NewGuid();
+            var secRowId = Guid.NewGuid();
+            var scrapItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B17-SCRAP", "Batch 17 Scrap", ItemType.Goods) { MaintainStock = true, Uom = "Unit" }, autoSave: true);
+
+            var fgSle = await stockValuation.CreateLedgerEntryAsync(company.Id, item.Id, wh.Id, DateTime.Today, 5m, 100m, "SubcontractingReceipt", scrId, voucherDetailNo: fgRowId);
+            var secSle = await stockValuation.CreateLedgerEntryAsync(company.Id, scrapItem.Id, wh.Id, DateTime.Today, 1m, 20m, "SubcontractingReceipt", scrId, voucherDetailNo: secRowId);
+            var uowManager = GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+            await uowManager.Current!.SaveChangesAsync();
+
+            var firstCreation = await stockValuation.GetFirstSleCreationAsync("SubcontractingReceipt", scrId);
+            firstCreation.ShouldNotBeNull();
+
+            var secRow = new MyERP.Purchasing.Entities.SubcontractingReceiptItem(secRowId, scrId, scrapItem.Id, scrapItem.ItemName, 1m, 20m)
+            {
+                ReferenceFinishedGoodRowId = fgRowId,
+                SecondaryItemType = "Scrap"
+            };
+            var dependentSecondarySles = await stockValuation.GetSecondaryItemSlesOfSubcontractingReceiptAsync(scrId, fgRowId, new[] { secRow });
+            dependentSecondarySles.Count.ShouldBe(1);
+            dependentSecondarySles[0].Id.ShouldBe(secSle.Id);
+            fgSle.VoucherDetailNo.ShouldBe(fgRowId);
+        });
+    }
 }

@@ -425,6 +425,34 @@ public class ProductBundleDecompositionService : DomainService
 
         return slices;
     }
+
+    /// <summary>
+    /// Computes a Product Bundle parent row's rate from its packed component rows per ERPNext PR #67382
+    /// (commits da24942bbd and d70a7a5de5 in <c>packed_item.py</c>):
+    /// - On return documents (<paramref name="isReturn"/> is true) or when
+    ///   <paramref name="editableBundleItemRates"/> is false, preserves <paramref name="originalParentRate"/>
+    ///   so returns keep the bundle rate of their original document.
+    /// - Otherwise divides total component value (<c>Sum(componentRate * componentQty)</c>) by
+    ///   <paramref name="parentRowQty"/> (the parent row's transaction UOM qty, NOT stock qty).
+    /// </summary>
+    public static decimal CalculateProductBundleRateFromComponents(
+        decimal parentRowQty,
+        bool isReturn,
+        decimal originalParentRate,
+        bool editableBundleItemRates,
+        IEnumerable<(decimal ComponentRate, decimal ComponentQty)> packedComponents,
+        int precision = 4)
+    {
+        if (isReturn || !editableBundleItemRates || parentRowQty == 0m)
+        {
+            return originalParentRate;
+        }
+
+        var totalComponentAmount = (packedComponents ?? Array.Empty<(decimal, decimal)>())
+            .Sum(c => c.ComponentRate * c.ComponentQty);
+
+        return Math.Round(totalComponentAmount / parentRowQty, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public record PickedComponentSlice(Guid WarehouseId, decimal Qty, Guid? BatchId = null);

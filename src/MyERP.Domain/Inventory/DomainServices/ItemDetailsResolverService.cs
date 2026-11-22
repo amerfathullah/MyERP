@@ -224,6 +224,114 @@ public class ItemDetailsResolverService : DomainService
         return (effectivePriceListId, available);
     }
 
+    /// <summary>
+    /// Resolves price list rate with ERPNext PR #67397 priority
+    /// (commits 4b287d6938, ada41a92d9, fa00a30be1, eedcb42842, 153a5a02ef, 8eeacf1177):
+    /// 1. Resolves <paramref name="conversionFactor"/> (via <paramref name="resolveConversionFactor"/> when missing)
+    ///    and <c>stockQty = Round(qty * conversionFactor, stockQtyPrecision)</c> BEFORE price lookup.
+    /// 2. Matches row-UOM item prices fitting <c>packingUnit</c> against <paramref name="qty"/>.
+    /// 3. When <paramref name="qty"/> &gt; 0, party is set, <paramref name="rowUom"/> differs from <paramref name="stockUom"/>,
+    ///    and the row-UOM match is NOT a party-specific price, looks up a party-specific price in
+    ///    <paramref name="stockUom"/> whose <c>packingUnit</c> fits the rounded <c>stockQty</c>,
+    ///    preferring a party's stock-UOM price over a general price in the row UOM.
+    /// </summary>
+    public static PartyStockUomPriceResolution ResolvePriceListRateWithPartyStockUomPriority(
+        IReadOnlyList<ItemPriceCandidate> candidates,
+        string rowUom,
+        string stockUom,
+        decimal qty,
+        decimal conversionFactor,
+        Guid? partyId,
+        bool isBuying,
+        Func<decimal>? resolveConversionFactor = null,
+        int stockQtyPrecision = 4)
+    {
+        var effectiveFactor = conversionFactor > 0m
+            ? conversionFactor
+            : (resolveConversionFactor != null ? resolveConversionFactor() : 1m);
+        if (effectiveFactor <= 0m)
+        {
+            effectiveFactor = 1m;
+        }
+
+        var stockQty = Math.Round(qty * effectiveFactor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        var all = candidates ?? Array.Empty<ItemPriceCandidate>();
+
+        bool MatchesParty(ItemPriceCandidate c) =>
+            partyId.HasValue && (isBuying ? c.SupplierId == partyId.Value : c.CustomerId == partyId.Value);
+
+        bool IsGeneric(ItemPriceCandidate c) => !c.CustomerId.HasValue && !c.SupplierId.HasValue;
+
+        bool FitsPackingUnit(ItemPriceCandidate c, decimal desiredQty) =>
+            c.PackingUnit <= 0m || (desiredQty % c.PackingUnit) == 0m;
+
+        ItemPriceCandidate? FindBest(string uom, decimal desiredQty, bool partyOnly)
+        {
+            var uomCandidates = all
+                .Where(c => string.Equals(c.Uom, uom, StringComparison.OrdinalIgnoreCase))
+                .Where(c => partyOnly ? MatchesParty(c) : (MatchesParty(c) || IsGeneric(c)))
+                .OrderByDescending(c => MatchesParty(c) ? 1 : 0)
+                .ThenByDescending(c => c.ValidFrom ?? DateTime.MinValue)
+                .ToList();
+
+            if (desiredQty != 0m)
+            {
+                return uomCandidates.FirstOrDefault(c => FitsPackingUnit(c, desiredQty));
+            }
+
+            return uomCandidates.FirstOrDefault();
+        }
+
+        var rowMatch = FindBest(rowUom, qty, partyOnly: false);
+        var isRowPartyPrice = rowMatch != null && MatchesParty(rowMatch);
+
+        if (qty != 0m
+            && partyId.HasValue
+            && !isRowPartyPrice
+            && !string.IsNullOrWhiteSpace(stockUom)
+            && !string.Equals(rowUom, stockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            var partyStockMatch = FindBest(stockUom, stockQty, partyOnly: true);
+            if (partyStockMatch != null)
+            {
+                return new PartyStockUomPriceResolution(
+                    partyStockMatch.PriceListRate,
+                    partyStockMatch.Uom,
+                    IsPartyPrice: true,
+                    EffectiveConversionFactor: effectiveFactor,
+                    StockQty: stockQty);
+            }
+        }
+
+        if (rowMatch != null)
+        {
+            return new PartyStockUomPriceResolution(
+                rowMatch.PriceListRate,
+                rowMatch.Uom,
+                IsPartyPrice: isRowPartyPrice,
+                EffectiveConversionFactor: effectiveFactor,
+                StockQty: stockQty);
+        }
+
+        // Fallback: general price in stock UOM if none in row UOM
+        if (!string.IsNullOrWhiteSpace(stockUom)
+            && !string.Equals(rowUom, stockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            var stockFallback = FindBest(stockUom, stockQty, partyOnly: false);
+            if (stockFallback != null)
+            {
+                return new PartyStockUomPriceResolution(
+                    stockFallback.PriceListRate,
+                    stockFallback.Uom,
+                    IsPartyPrice: MatchesParty(stockFallback),
+                    EffectiveConversionFactor: effectiveFactor,
+                    StockQty: stockQty);
+            }
+        }
+
+        return new PartyStockUomPriceResolution(null, null, false, effectiveFactor, stockQty);
+    }
+
     // --- Private methods ---
 
     private static void ValidateItemForTransaction(Item item)
@@ -651,3 +759,18 @@ internal class ResolvedDefaults
     public Guid? DefaultSupplierId { get; set; }
     public decimal DefaultDiscountPercentage { get; set; }
 }
+
+public sealed record ItemPriceCandidate(
+    decimal PriceListRate,
+    string Uom,
+    decimal PackingUnit = 0m,
+    Guid? CustomerId = null,
+    Guid? SupplierId = null,
+    DateTime? ValidFrom = null);
+
+public sealed record PartyStockUomPriceResolution(
+    decimal? PriceListRate,
+    string? MatchedUom,
+    bool IsPartyPrice,
+    decimal EffectiveConversionFactor,
+    decimal StockQty);

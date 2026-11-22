@@ -78,4 +78,34 @@ public class TaxpayerValidationTokenRefreshTests
         var svc = new TaxpayerValidationService(apiClient, settings);
         await Should.ThrowAsync<UserFriendlyException>(() => svc.ValidateTaxpayerAsync("BRN", "202001012345"));
     }
+
+    [Theory]
+    [InlineData(401)]
+    [InlineData(500)]
+    public async Task EInvoiceService_CancelAsync_RefreshesTokenAndRetriesOnce_On401Or500(int failStatus)
+    {
+        var apiClient = Substitute.For<ILhdnApiClient>();
+        var submissionRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, System.Guid>>();
+        var successLogRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, System.Guid>>();
+        var subId = System.Guid.NewGuid();
+        var submission = new MyERP.EInvoice.Entities.EInvoiceSubmission(
+            subId, System.Guid.NewGuid(), "SalesInvoice", System.Guid.NewGuid());
+        submission.MarkAccepted("SUB-UID-1", "DOC-UUID-1", "LONG-1", null, "{}");
+
+        submissionRepo.GetAsync(subId).Returns(submission);
+        apiClient.CancelDocumentAsync("expired-token", "DOC-UUID-1", "Mistake", LhdnEnvironment.Sandbox)
+            .Returns(new LhdnCancelResponse { IsSuccess = false, StatusCode = failStatus, ErrorMessage = "Expired" });
+        apiClient.CancelDocumentAsync("refreshed-token", "DOC-UUID-1", "Mistake", LhdnEnvironment.Sandbox)
+            .Returns(new LhdnCancelResponse { IsSuccess = true, StatusCode = 200 });
+
+        var svc = new EInvoiceService(apiClient, submissionRepo, successLogRepo);
+        var refreshCalls = 0;
+        var cancelled = await svc.CancelAsync(
+            subId, "Mistake", "expired-token", LhdnEnvironment.Sandbox,
+            refreshTokenAsync: () => { refreshCalls++; return Task.FromResult<string?>("refreshed-token"); });
+
+        cancelled.Status.ShouldBe("Cancelled");
+        refreshCalls.ShouldBe(1);
+        await apiClient.Received(1).CancelDocumentAsync("refreshed-token", "DOC-UUID-1", "Mistake", LhdnEnvironment.Sandbox);
+    }
 }

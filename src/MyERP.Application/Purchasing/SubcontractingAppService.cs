@@ -693,7 +693,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
             await _stockValuationService.CreateLedgerEntryAsync(
                 scr.CompanyId, item.ItemId, warehouseId, scr.PostingDate,
-                item.Qty, item.Rate, "SubcontractingReceipt", scr.Id, scr.TenantId);
+                item.Qty, item.Rate, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                voucherDetailNo: item.Id);
 
             await _binService.ApplyStockMovementAsync(item.ItemId, warehouseId, item.Qty, item.Qty * item.Rate);
 
