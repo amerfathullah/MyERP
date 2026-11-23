@@ -188,8 +188,8 @@ public class EInvoiceCancellationAndForeignPartyTests
         Assert.Contains($"<cbc:ID schemeID=\"TIN\">{EInvoiceConsts.ForeignPartyTin}</cbc:ID>", xml);
         // Passport ID type
         Assert.Contains("<cbc:ID schemeID=\"PASSPORT\">E9876543A</cbc:ID>", xml);
-        // Country SGP
-        Assert.Contains("<cbc:IdentificationCode>SGP</cbc:IdentificationCode>", xml);
+        // Country SGP (with LHDN ISO3166-1 attributes)
+        Assert.Contains("<cbc:IdentificationCode listID=\"ISO3166-1\" listAgencyID=\"6\">SGP</cbc:IdentificationCode>", xml);
         // Contact phone and email
         Assert.Contains("<cbc:Telephone>+6561234567</cbc:Telephone>", xml);
         Assert.Contains("<cbc:ElectronicMail>finance@sgimporter.com</cbc:ElectronicMail>", xml);
@@ -241,7 +241,7 @@ public class EInvoiceCancellationAndForeignPartyTests
 
         Assert.Contains($"<cbc:ID schemeID=\"TIN\">{EInvoiceConsts.ForeignPartyTin}</cbc:ID>", xml);
         Assert.Contains("<cbc:ID schemeID=\"BRN\">JP-12345678</cbc:ID>", xml);
-        Assert.Contains("<cbc:IdentificationCode>JPN</cbc:IdentificationCode>", xml);
+        Assert.Contains("<cbc:IdentificationCode listID=\"ISO3166-1\" listAgencyID=\"6\">JPN</cbc:IdentificationCode>", xml);
         Assert.Contains("<cbc:Telephone>+81312345678</cbc:Telephone>", xml);
         Assert.Contains("<cbc:ElectronicMail>export@jpcomponent.jp</cbc:ElectronicMail>", xml);
     }
