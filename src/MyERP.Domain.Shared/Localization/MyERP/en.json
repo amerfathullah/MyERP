@@ -6699,7 +6699,21 @@
     "Placeholder:LostReasonDetails": "Additional details or guidelines for using this reason...",
     "Placeholder:OpportunityTypeDetails": "Optional details for this opportunity type",
     "Placeholder:FilterByTypeName": "Filter by type name...",
-    "Placeholder:ChequeTransferRef": "Cheque/Transfer Ref"
+    "Placeholder:ChequeTransferRef": "Cheque/Transfer Ref",
+    "Placeholder:Km": "Km",
+    "Placeholder:FilterByItem": "Filter by item...",
+    "Placeholder:OptionalDescription": "Optional description...",
+    "Placeholder:FilterByGroupName": "Filter by group name...",
+    "Placeholder:FilterByBatchOrItem": "Filter by batch number or item...",
+    "Placeholder:FilterByItemOrWarehouse": "Filter by item or warehouse...",
+    "Placeholder:SearchItemCodeNameDescSupplier": "Search by item code, name, description, supplier...",
+    "Placeholder:CodeOrName": "Code or name...",
+    "Placeholder:OptionalPackageSpecifications": "Optional description / package specifications...",
+    "Placeholder:FilterByName": "Filter by name...",
+    "Placeholder:InvoiceIdOrReference": "Invoice ID / Reference",
+    "Placeholder:DescribeComplaintOrIssue": "Describe the customer complaint or product issue...",
+    "Placeholder:CodeNameWarehouse": "Code, name, warehouse...",
+    "Placeholder:OrderNoItemMaterial": "Order No, Item, Material..."
   }
 }
 

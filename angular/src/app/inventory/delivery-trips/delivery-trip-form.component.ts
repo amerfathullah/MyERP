@@ -50,7 +50,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::DistanceUom' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="uom" placeholder="Km" />
+              <input type="text" class="form-control" formControlName="uom" [placeholder]="'::Placeholder:Km' | abpLocalization" />
             </div>
           </div>
 

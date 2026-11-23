@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ItemLeadTimeService } from '../../proxy/inventory/item-lead-time.service';
 import { ItemLeadTimeDto } from '../../proxy/inventory/models';
 
 @Component({
   selector: 'app-item-lead-time-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -20,7 +21,7 @@ import { ItemLeadTimeDto } from '../../proxy/inventory/models';
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" placeholder="Filter by item..." [(ngModel)]="filter" (ngModelChange)="load()">
+            <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:FilterByItem' | abpLocalization" [(ngModel)]="filter" (ngModelChange)="load()">
           </div>
         </div>
 

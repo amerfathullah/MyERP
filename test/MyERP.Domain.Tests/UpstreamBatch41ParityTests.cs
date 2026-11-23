@@ -2107,6 +2107,109 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(9m);
     }
 
+    [Fact]
+    public void UpstreamBatch17_CountryIso_SreStatusRound_ReturnReReserve_DeletedBin_BackflushSerial_Parity()
+    {
+        // 1. MyInvois: Country/IdentificationCode emits listID="ISO3166-1" and listAgencyID="6" on Supplier, Buyer, and Delivery
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-2026-0017",
+            IssueDate = new DateTime(2026, 7, 17, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Supplier", Tin = "C1111111111", Address = "A", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer", Tin = "C2222222222", Address = "B", City = "KL", State = "14", CountryCode = "MYS" },
+            Delivery = new MyERP.EInvoice.Services.EInvoiceDeliveryData { RecipientName = "Wh", Address = "C", City = "KL", State = "14", CountryCode = "MYS" },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var countryCodes = xml.Root!.Descendants(cac + "Country").Select(c => c.Element(cbc + "IdentificationCode")!).ToList();
+        countryCodes.Count.ShouldBe(3);
+        foreach (var code in countryCodes)
+        {
+            code.Attribute("listID")!.Value.ShouldBe("ISO3166-1");
+            code.Attribute("listAgencyID")!.Value.ShouldBe("6");
+            code.Value.ShouldBe("MYS");
+        }
+
+        // 2. ERPNext 0f3a1a2ed3 & b14a643fb4: SRE status rounds (transferred + consumed) vs reserved_qty at precision
+        var (statusClosed, stillHoldsClosed) = MyERP.Inventory.DomainServices.StockReservationManager
+            .EvaluateStockReservationEntryStatus(
+                MyERP.Core.DocumentStatus.Submitted,
+                voucherQty: 10m,
+                reservedQty: 10m,
+                deliveredQty: 0m,
+                transferredQty: 3.33333m,
+                consumedQty: 6.66666m,
+                reservedQtyPrecision: 4);
+        statusClosed.ShouldBe("Closed");
+        stillHoldsClosed.ShouldBeFalse();
+
+        var (statusPartial, stillHoldsPartial) = MyERP.Inventory.DomainServices.StockReservationManager
+            .EvaluateStockReservationEntryStatus(
+                MyERP.Core.DocumentStatus.Submitted,
+                voucherQty: 10m,
+                reservedQty: 10m,
+                deliveredQty: 0m,
+                transferredQty: 3m,
+                consumedQty: 4m,
+                reservedQtyPrecision: 4);
+        statusPartial.ShouldBe("Partially Used");
+        stillHoldsPartial.ShouldBeTrue();
+
+        // 3. ERPNext b14a643fb4 & 2cec6e36eb: Returned components re-reserved per destination warehouse up to order shortfall
+        var rowId = Guid.NewGuid();
+        var whA = Guid.NewGuid();
+        var whB = Guid.NewGuid();
+        var reReserved = MyERP.Inventory.DomainServices.StockReservationManager.AllocateReturnedComponentReReservations(
+            returnedRows: new[] { (rowId, whA, 4m), (rowId, whB, 5m) },
+            orderRowDemand: new System.Collections.Generic.Dictionary<Guid, (decimal, decimal)> { [rowId] = (10m, 4m) });
+        reReserved.Count.ShouldBe(2);
+        reReserved[0].ShouldBe((rowId, whA, 4m));
+        reReserved[1].ShouldBe((rowId, whB, 2m)); // capped at remaining shortfall (6 - 4 = 2), surplus 3 unreserved
+
+        // 4. ERPNext 3c92ab4303: Update Items deleted row refreshes bundle component bins (SO) & MR item warehouse (PO)
+        var bundleId = Guid.NewGuid();
+        var compId = Guid.NewGuid();
+        var soWh = Guid.NewGuid();
+        var compWh = Guid.NewGuid();
+        var (soBins, soMrIds) = MyERP.Inventory.DomainServices.StockReservationManager.ResolveDeletedRowBinRefreshTargets(
+            parentDocType: "SalesOrder",
+            rowItemId: bundleId,
+            rowWarehouseId: soWh,
+            linkedPackedItems: new[] { (compId, (Guid?)compWh) });
+        soBins.ShouldContain((bundleId, soWh, "reserved_qty"));
+        soBins.ShouldContain((compId, compWh, "reserved_qty"));
+        soMrIds.ShouldBeEmpty();
+
+        var mrItemId = Guid.NewGuid();
+        var (poBins, poMrIds) = MyERP.Inventory.DomainServices.StockReservationManager.ResolveDeletedRowBinRefreshTargets(
+            parentDocType: "PurchaseOrder",
+            rowItemId: compId,
+            rowWarehouseId: soWh,
+            linkedMaterialRequestItemId: mrItemId);
+        poBins.ShouldContain((compId, soWh, "ordered_qty"));
+        poMrIds.ShouldBe(new[] { mrItemId });
+
+        // 5. ERPNext 94d3fa6598: Backflush serial/batch assignment uses whole-number-ceilinged qty (2, not 1.5 -> 1)
+        MyERP.Inventory.DomainServices.StockEntryManager
+            .ResolveBackflushSerialBatchAssignmentQty(
+                rowQty: 3m,
+                fgCompletedQty: 1m,
+                pendingQtyToManufacture: 2m,
+                isReturn: false,
+                uomMustBeWholeNumber: true)
+            .ShouldBe(2m);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

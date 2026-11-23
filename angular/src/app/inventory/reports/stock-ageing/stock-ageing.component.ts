@@ -92,7 +92,7 @@ import {
               type="text"
               class="form-control form-control-sm"
               [(ngModel)]="filterText"
-              placeholder="Code or name..."
+              [placeholder]="'::Placeholder:CodeOrName' | abpLocalization"
               (keyup.enter)="loadData()"
             />
           </div>

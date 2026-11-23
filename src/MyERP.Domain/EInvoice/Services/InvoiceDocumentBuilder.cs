@@ -347,7 +347,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "PostalZone", supplier.PostalCode ?? ""),
                     new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(supplier.State, supplier.CountryCode)),
                     new XElement(Cac + "Country",
-                        new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(supplier.CountryCode)))),
+                        new XElement(Cbc + "IdentificationCode",
+                            new XAttribute("listID", "ISO3166-1"),
+                            new XAttribute("listAgencyID", "6"),
+                            NormalizeCountryCode(supplier.CountryCode)))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", supplier.Name))));
 
@@ -424,7 +427,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
                         new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(buyer.State, "MYS")),
                         new XElement(Cac + "Country",
-                            new XElement(Cbc + "IdentificationCode", "MYS"))),
+                            new XElement(Cbc + "IdentificationCode",
+                                new XAttribute("listID", "ISO3166-1"),
+                                new XAttribute("listAgencyID", "6"),
+                                "MYS"))),
                     new XElement(Cac + "PartyLegalEntity",
                         new XElement(Cbc + "RegistrationName", consName)),
                     new XElement(Cac + "Contact",
@@ -449,7 +455,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
                     new XElement(Cbc + "CountrySubentityCode", resolvedState),
                     new XElement(Cac + "Country",
-                        new XElement(Cbc + "IdentificationCode", resolvedCountry))),
+                        new XElement(Cbc + "IdentificationCode",
+                            new XAttribute("listID", "ISO3166-1"),
+                            new XAttribute("listAgencyID", "6"),
+                            resolvedCountry))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", buyer.Name))));
 
@@ -655,7 +664,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "PostalZone", delivery.PostalCode ?? ""),
                 new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State, delivery.CountryCode)),
                 new XElement(Cac + "Country",
-                    new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(delivery.CountryCode)))),
+                    new XElement(Cbc + "IdentificationCode",
+                        new XAttribute("listID", "ISO3166-1"),
+                        new XAttribute("listAgencyID", "6"),
+                        NormalizeCountryCode(delivery.CountryCode)))),
             deliveryParty);
     }
 

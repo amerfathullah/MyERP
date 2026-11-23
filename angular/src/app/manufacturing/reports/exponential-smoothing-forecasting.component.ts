@@ -145,7 +145,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   class="form-control form-control-sm"
                   [(ngModel)]="searchTerm"
                   (keyup.enter)="loadData()"
-                  placeholder="Code, name, warehouse..."
+                  [placeholder]="'::Placeholder:CodeNameWarehouse' | abpLocalization"
                 />
                 <button class="btn btn-outline-secondary" type="button" (click)="loadData()">
                   <i class="fa fa-search"></i>

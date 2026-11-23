@@ -47,7 +47,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               type="text"
               class="form-control form-control-sm"
               [(ngModel)]="searchText"
-              placeholder="Filter by item or warehouse..."
+              [placeholder]="'::Placeholder:FilterByItemOrWarehouse' | abpLocalization"
               (keyup.enter)="loadData()"
             />
           </div>

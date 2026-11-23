@@ -2597,4 +2597,28 @@ public class StockEntryManager : DomainService
                 .WithData("detail", $"A later entry against {orderLabel} moved the stock this entry reserved. Cancel it first.");
         }
     }
+
+    /// <summary>
+    /// Resolves the quantity passed to serial/batch assignment during transfer-based manufacture backflush:
+    /// uses the post-rounding / whole-number-ceilinged row quantity (computed by
+    /// <see cref="CalculateTransferBasedManufactureRawMaterialQty"/>) rather than the unrounded proportional share,
+    /// so a whole-number UOM row rounded up to 2 picks 2 serial numbers instead of 1.
+    /// Per ERPNext commit <c>94d3fa6598</c> (<c>stock_entry/services/manufacturing.py</c>).
+    /// </summary>
+    public static decimal ResolveBackflushSerialBatchAssignmentQty(
+        decimal rowQty,
+        decimal fgCompletedQty,
+        decimal pendingQtyToManufacture,
+        bool isReturn,
+        bool uomMustBeWholeNumber,
+        int qtyPrecision = 4)
+    {
+        return CalculateTransferBasedManufactureRawMaterialQty(
+            rowQty,
+            fgCompletedQty,
+            pendingQtyToManufacture,
+            isReturn,
+            uomMustBeWholeNumber,
+            qtyPrecision);
+    }
 }

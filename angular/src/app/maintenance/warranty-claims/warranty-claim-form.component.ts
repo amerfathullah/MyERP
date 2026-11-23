@@ -70,7 +70,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'MyERP::SalesInvoice' | abpLocalization }}</label>
-              <input type="text" class="form-control" formControlName="salesInvoiceId" placeholder="Invoice ID / Reference" />
+              <input type="text" class="form-control" formControlName="salesInvoiceId" [placeholder]="'::Placeholder:InvoiceIdOrReference' | abpLocalization" />
             </div>
           </div>
 
@@ -87,7 +87,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 
           <div class="mb-3">
             <label class="form-label">{{ 'MyERP::Complaint' | abpLocalization }} / Defect Description</label>
-            <textarea class="form-control" rows="4" formControlName="complaint" placeholder="Describe the customer complaint or product issue..."></textarea>
+            <textarea class="form-control" rows="4" formControlName="complaint" [placeholder]="'::Placeholder:DescribeComplaintOrIssue' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex justify-content-end gap-2 mt-4">

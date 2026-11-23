@@ -1853,8 +1853,9 @@ public class StockReservationManager : DomainService
         decimal consumedQty,
         int reservedQtyPrecision = 4)
     {
-        var stillHolds = docStatus == DocumentStatus.Submitted &&
-            (deliveredQty + transferredQty + consumedQty) < reservedQty;
+        var roundedReserved = Math.Round(reservedQty, reservedQtyPrecision, MidpointRounding.AwayFromZero);
+        var roundedTotalUsed = Math.Round(deliveredQty + transferredQty + consumedQty, reservedQtyPrecision, MidpointRounding.AwayFromZero);
+        var stillHolds = docStatus == DocumentStatus.Submitted && roundedTotalUsed < roundedReserved;
 
         if (docStatus == DocumentStatus.Draft)
         {
@@ -1868,7 +1869,10 @@ public class StockReservationManager : DomainService
 
         if (transferredQty > 0m)
         {
-            return (transferredQty < reservedQty ? "Partially Used" : "Closed", stillHolds);
+            // Per ERPNext commits 0f3a1a2ed3 & b14a643fb4: a supplier warehouse reservation is both consumed
+            // and returned; round used_qty (transferred + consumed) and reserved_qty to precision before comparing.
+            var usedQty = Math.Round(transferredQty + consumedQty, reservedQtyPrecision, MidpointRounding.AwayFromZero);
+            return (usedQty < roundedReserved ? "Partially Used" : "Closed", stillHolds);
         }
 
         if (deliveredQty + consumedQty >= reservedQty)
@@ -2180,6 +2184,111 @@ public class StockReservationManager : DomainService
         return Math.Round(unreserved, stockQtyPrecision, MidpointRounding.AwayFromZero) > 0m
             ? unreserved
             : 0m;
+    }
+
+    /// <summary>
+    /// Allocates re-reservation quantities across each target warehouse receiving returned components from a
+    /// Reserve-Stock Subcontracting Order, capping each order row at its unreserved shortfall
+    /// (<c>RequiredQty - CurrentReservedQty</c>) so returned stock is reserved in each destination warehouse
+    /// and any surplus stays unreserved.
+    /// Per ERPNext commits <c>b14a643fb4</c> and <c>2cec6e36eb</c> (<c>stock_entry.py</c>).
+    /// </summary>
+    public static List<(Guid OrderRowId, Guid WarehouseId, decimal ReserveQty)> AllocateReturnedComponentReReservations(
+        IEnumerable<(Guid OrderRowId, Guid WarehouseId, decimal ReturnedQty)>? returnedRows,
+        IReadOnlyDictionary<Guid, (decimal RequiredQty, decimal CurrentReservedQty)>? orderRowDemand,
+        int precision = 4)
+    {
+        var allocations = new List<(Guid OrderRowId, Guid WarehouseId, decimal ReserveQty)>();
+        if (returnedRows == null || orderRowDemand == null)
+        {
+            return allocations;
+        }
+
+        var remainingShortfall = new Dictionary<Guid, decimal>();
+        foreach (var (rowId, (required, reserved)) in orderRowDemand)
+        {
+            remainingShortfall[rowId] = Math.Max(0m, required - reserved);
+        }
+
+        foreach (var row in returnedRows)
+        {
+            if (row.ReturnedQty <= 0m)
+            {
+                continue;
+            }
+
+            if (!remainingShortfall.TryGetValue(row.OrderRowId, out var shortfall) || shortfall <= 0m)
+            {
+                continue;
+            }
+
+            var toReserve = Math.Round(Math.Min(row.ReturnedQty, shortfall), precision, MidpointRounding.AwayFromZero);
+            if (toReserve <= 0m)
+            {
+                continue;
+            }
+
+            allocations.Add((row.OrderRowId, row.WarehouseId, toReserve));
+            remainingShortfall[row.OrderRowId] = shortfall - toReserve;
+        }
+
+        return allocations;
+    }
+
+    /// <summary>
+    /// Resolves all <c>(ItemId, WarehouseId, BinField)</c> targets whose Bin balances must be refreshed when a
+    /// child item row is deleted via Update Items:
+    /// - For a <c>SalesOrder</c>: refreshes <c>reserved_qty</c> for the row's warehouse AND for every linked
+    ///   Product Bundle packed component's <c>(ItemId, WarehouseId)</c>.
+    /// - For a <c>PurchaseOrder</c>: refreshes <c>ordered_qty</c> for the row's warehouse AND refreshes
+    ///   <c>indented_qty</c> via the linked <c>MaterialRequestItemId</c>'s own warehouse (not the PO row's warehouse).
+    /// Per ERPNext commits <c>3c92ab4303</c> and <c>7608f562dd</c> (<c>child_item_update.py</c>).
+    /// </summary>
+    public static (
+        List<(Guid ItemId, Guid WarehouseId, string BinField)> BinRefreshes,
+        List<Guid> MaterialRequestItemIdsToRefresh) ResolveDeletedRowBinRefreshTargets(
+        string parentDocType,
+        Guid rowItemId,
+        Guid? rowWarehouseId,
+        IEnumerable<(Guid PackedItemId, Guid? PackedWarehouseId)>? linkedPackedItems = null,
+        Guid? linkedMaterialRequestItemId = null)
+    {
+        var bins = new List<(Guid ItemId, Guid WarehouseId, string BinField)>();
+        var mrItemIds = new List<Guid>();
+
+        if (string.Equals(parentDocType, "SalesOrder", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parentDocType, "Sales Order", StringComparison.OrdinalIgnoreCase))
+        {
+            if (rowWarehouseId.HasValue && rowWarehouseId.Value != Guid.Empty)
+            {
+                bins.Add((rowItemId, rowWarehouseId.Value, "reserved_qty"));
+            }
+
+            if (linkedPackedItems != null)
+            {
+                foreach (var (packedItemId, packedWhId) in linkedPackedItems)
+                {
+                    if (packedWhId.HasValue && packedWhId.Value != Guid.Empty)
+                    {
+                        bins.Add((packedItemId, packedWhId.Value, "reserved_qty"));
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (rowWarehouseId.HasValue && rowWarehouseId.Value != Guid.Empty)
+            {
+                bins.Add((rowItemId, rowWarehouseId.Value, "ordered_qty"));
+            }
+
+            if (linkedMaterialRequestItemId.HasValue && linkedMaterialRequestItemId.Value != Guid.Empty)
+            {
+                mrItemIds.Add(linkedMaterialRequestItemId.Value);
+            }
+        }
+
+        return (bins, mrItemIds);
     }
 }
 

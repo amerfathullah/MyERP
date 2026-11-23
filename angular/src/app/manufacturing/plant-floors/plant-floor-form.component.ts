@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PlantFloorService } from '../../proxy/manufacturing/plant-floor.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -12,7 +13,7 @@ import { WarehouseDto } from '../../proxy/inventory/models';
 @Component({
   selector: 'app-plant-floor-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -57,7 +58,7 @@ import { WarehouseDto } from '../../proxy/inventory/models';
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Optional description..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">

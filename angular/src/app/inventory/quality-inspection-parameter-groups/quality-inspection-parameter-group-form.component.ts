@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { QualityInspectionParameterGroupService } from '../../proxy/inventory/quality-inspection-parameter-group.service';
 
 @Component({
   selector: 'app-quality-inspection-parameter-group-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -32,7 +33,7 @@ import { QualityInspectionParameterGroupService } from '../../proxy/inventory/qu
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Optional description..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">

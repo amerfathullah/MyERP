@@ -119,7 +119,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               type="text"
               class="form-control form-control-sm"
               [(ngModel)]="searchText"
-              placeholder="Filter by batch number or item..."
+              [placeholder]="'::Placeholder:FilterByBatchOrItem' | abpLocalization"
               (keyup.enter)="loadData()"
             />
           </div>
