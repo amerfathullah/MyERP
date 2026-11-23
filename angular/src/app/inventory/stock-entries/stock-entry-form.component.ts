@@ -479,19 +479,19 @@ export class StockEntryFormComponent implements OnInit {
 
   /**
    * Applies document-level default warehouses to a new row while preserving a duplicated row's own warehouses.
-   * Per ERPNext PR #67369 (commits e68da1fde9 and 7665a796e4): tells a duplicated row apart by its read-only
-   * stock_uom (a user default can pre-fill item_code or warehouse on a new row, never stock_uom).
-   * When rowStockUom is omitted, falls back to the empty-warehouse check for backwards compatibility.
+   * Per ERPNext PR #68786 (commit 925aacca46, fixing PR #67369): tells a duplicated row apart by its
+   * item_name rather than stock_uom (defaults can pre-fill stock_uom on a new row, never item_name).
+   * When rowItemName is omitted, falls back to the empty-warehouse check for backwards compatibility.
    */
   applyDefaultWarehousesPreservingExistingRow(
     rowSourceWarehouseId: string | null | undefined,
     rowTargetWarehouseId: string | null | undefined,
     defaultSourceWarehouseId: string | null | undefined,
     defaultTargetWarehouseId: string | null | undefined,
-    rowStockUom?: string | null,
+    rowItemName?: string | null,
   ): { sourceWarehouseId: string | null; targetWarehouseId: string | null } {
-    const isNewRow = rowStockUom !== undefined
-      ? !rowStockUom
+    const isNewRow = rowItemName !== undefined
+      ? !rowItemName
       : (!rowSourceWarehouseId && !rowTargetWarehouseId);
     if (isNewRow) {
       return {

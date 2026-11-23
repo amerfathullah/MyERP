@@ -2213,4 +2213,48 @@ public class StockEntryManager : DomainService
 
         return Math.Round(componentCost - subAssemblyOwnCostSecondaryValue, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes the default Finished Good Quantity to propose for a new Stock Entry against a Work Order
+    /// based on the Stock Entry purpose per ERPNext PR #67413 (<c>get_pending_fg_qty</c>):
+    /// - <c>Disassemble</c>: <c>producedQty - disassembledQty</c>
+    /// - <c>MaterialTransferForManufacture</c>: <c>woQty - materialTransferredQty</c>
+    /// - <c>Manufacture</c>: <c>min(transferredQty or woQty, woQty) - producedQty - processLossQty</c> (skipping transfer cap when <paramref name="skipTransfer"/> is true)
+    /// - Other purposes: <c>woQty - producedQty</c>
+    /// Always clamped at <c>&gt;= 0</c>.
+    /// </summary>
+    public static decimal CalculatePendingFgQtyForPurpose(
+        decimal woQty,
+        decimal producedQty,
+        decimal disassembledQty,
+        decimal materialTransferredQty,
+        decimal processLossQty,
+        bool skipTransfer,
+        StockEntryType purpose,
+        int precision = 4)
+    {
+        decimal qty;
+        switch (purpose)
+        {
+            case StockEntryType.Disassemble:
+                qty = producedQty - disassembledQty;
+                break;
+            case StockEntryType.MaterialTransferForManufacture:
+                qty = woQty - materialTransferredQty;
+                break;
+            case StockEntryType.Manufacture:
+            {
+                var transferredQty = skipTransfer ? 0m : materialTransferredQty;
+                // Extra material transferred is no allowance to produce more than the Work Order qty
+                var plannedQty = Math.Min(transferredQty > 0m ? transferredQty : woQty, woQty);
+                qty = plannedQty - producedQty - processLossQty;
+                break;
+            }
+            default:
+                qty = woQty - producedQty;
+                break;
+        }
+
+        return Math.Max(Math.Round(qty, precision, MidpointRounding.AwayFromZero), 0m);
+    }
 }

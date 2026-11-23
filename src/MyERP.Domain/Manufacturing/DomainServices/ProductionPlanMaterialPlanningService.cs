@@ -408,7 +408,7 @@ public class ProductionPlanMaterialPlanningService : DomainService
     /// <summary>
     /// Computes the pending quantity of a Sales Order Item for a Production Plan, subtracting only non-Work-Order
     /// stock reservations from <paramref name="stockQty"/> and counting deliveries on top of reserved Work Order output
-    /// per ERPNext commits 3464dc31dd, b3f47bf37d, and ed2ce1f927 (<c>sales_order_planning.py</c>).
+    /// per ERPNext commits 3464dc31dd, b3f47bf37d, ed2ce1f927, and PR #67479 (7549d6d5e8: <c>sales_order_planning.py</c>).
     /// </summary>
     public static decimal CalculateSalesOrderItemPendingQtyForProductionPlan(
         decimal stockQty,
@@ -426,8 +426,10 @@ public class ProductionPlanMaterialPlanningService : DomainService
         var deliveredOrReservedQty = (deliveredQtyInOrderUom * factor) + reservedOwnWorkOrderOutputQty;
         var pendingQty = qty - Math.Max(workOrderQty, Math.Max(deliveredOrReservedQty, 0m));
 
+        // Per ERPNext PR #67479: cap by qty - productionPlanQty (not stockQty - productionPlanQty)
+        // so the stock-reserved portion of the Sales Order is left out of Production Plan pending qty.
         return Math.Round(
-            Math.Min(pendingQty, stockQty - productionPlanQty),
+            Math.Min(pendingQty, qty - productionPlanQty),
             precision,
             MidpointRounding.AwayFromZero);
     }
@@ -435,14 +437,16 @@ public class ProductionPlanMaterialPlanningService : DomainService
     /// <summary>
     /// Computes a Work Order's committed quantity against a Production Plan row, grossing up <paramref name="producedQty"/>
     /// by <c>1 - lossPercentage / 100</c> when <paramref name="creditProducedQty"/> is true so output above planned loss
-    /// offsets another Work Order's excess process loss per ERPNext commit 273db39e00 (<c>work_order_quantities.py</c>).
+    /// offsets another Work Order's excess process loss per ERPNext commit 273db39e00 (<c>work_order_quantities.py</c>),
+    /// and capping closed Work Orders to their made qty per ERPNext PR #67481 (3515f99a79).
     /// </summary>
     public static decimal CalculateWorkOrderCommittedQtyForPlan(
         decimal workOrderQty,
         decimal producedQty,
         decimal processLossQty,
         decimal plannedLossPercentage,
-        bool creditProducedQty = true)
+        bool creditProducedQty = true,
+        bool isClosed = false)
     {
         var lossFactor = 1m - (plannedLossPercentage / 100m);
         if (lossFactor <= 0m)
@@ -451,10 +455,17 @@ public class ProductionPlanMaterialPlanningService : DomainService
         }
 
         var goodQty = workOrderQty - Math.Max(processLossQty, workOrderQty * (plannedLossPercentage / 100m));
-        var committedQty = goodQty / lossFactor;
         var effectiveProduced = creditProducedQty ? (producedQty / lossFactor) : producedQty;
+        var committedQty = Math.Max(0m, Math.Max(effectiveProduced, goodQty / lossFactor));
 
-        return Math.Max(0m, Math.Max(effectiveProduced, committedQty));
+        if (isClosed)
+        {
+            // Per ERPNext PR #67481: a closed Work Order makes nothing more, so its unmade qty and loss
+            // are freed to be ordered again; closing never raises its committed count.
+            return Math.Min(committedQty, Math.Max(0m, producedQty) / lossFactor);
+        }
+
+        return committedQty;
     }
 
     /// <summary>

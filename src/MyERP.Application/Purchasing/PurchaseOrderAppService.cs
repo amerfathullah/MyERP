@@ -737,6 +737,40 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Release Blanket Order allocation for unreceived quantities (short-close)
         await ReleaseBlanketOrdersOnCloseAsync(po);
 
+        // Per ERPNext PR #67365: closing a PO closes linked open Subcontracting Orders
+        // (and releases their pending RM reservations + SREs).
+        var scoRepo = LazyServiceProvider?.LazyGetService<IRepository<SubcontractingOrder, Guid>>();
+        if (scoRepo != null)
+        {
+            var openScos = await scoRepo.GetListAsync(
+                s => s.PurchaseOrderId == po.Id
+                    && (s.Status == SubcontractingOrderStatus.Open || s.Status == SubcontractingOrderStatus.PartiallyReceived),
+                includeDetails: true);
+
+            var sreManager = LazyServiceProvider?.LazyGetService<StockReservationManager>();
+            foreach (var sco in openScos)
+            {
+                sco.Close();
+                foreach (var supplied in sco.SuppliedItems)
+                {
+                    var pendingRm = SubcontractingOrder.CalculatePendingRawMaterialReserveQty(
+                        supplied.RequiredQty, supplied.TransferredQty, supplied.ConsumedQty);
+                    if (pendingRm > 0 && supplied.ReserveWarehouseId.HasValue)
+                    {
+                        await _binService.UpdateReservedQtyForSubContractAsync(
+                            supplied.ItemId, supplied.ReserveWarehouseId.Value, -pendingRm);
+                    }
+                }
+
+                if (sreManager != null)
+                {
+                    await sreManager.CancelReservationsForVoucherAsync(sco.Id);
+                }
+
+                await scoRepo.UpdateAsync(sco);
+            }
+        }
+
         await _repository.UpdateAsync(po, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
@@ -761,6 +795,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Re-record Blanket Order allocation for pending receipt quantities
         await ConsumeBlanketOrdersOnReopenAsync(po);
 
+        // Per ERPNext PR #67365: reopening a PO intentionally leaves linked Subcontracting Orders closed,
+        // since a user may have closed them on purpose.
+
         await _repository.UpdateAsync(po, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
@@ -772,6 +809,30 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var item = po.Items.FirstOrDefault(i => i.Id == itemId);
         if (item == null)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        // Per ERPNext PR #67362: refuse to close a PO row that is still on an open Subcontracting Order
+        var scoRepo = LazyServiceProvider?.LazyGetService<IRepository<SubcontractingOrder, Guid>>();
+        if (scoRepo != null)
+        {
+            var openScos = await scoRepo.GetListAsync(
+                s => s.PurchaseOrderId == po.Id
+                    && s.Status != SubcontractingOrderStatus.Draft
+                    && s.Status != SubcontractingOrderStatus.Closed
+                    && s.Status != SubcontractingOrderStatus.Completed
+                    && s.Status != SubcontractingOrderStatus.Cancelled,
+                includeDetails: true);
+
+            var blockingSco = openScos.FirstOrDefault(s =>
+                s.Items.Any(si => si.ItemId == item.ItemId && si.ReceivedQty < si.Qty));
+            if (blockingSco != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                    .WithData("documentType", "PurchaseOrderItem")
+                    .WithData("dependent", "SubcontractingOrder")
+                    .WithData("subcontractingOrder", blockingSco.OrderNumber)
+                    .WithData("detail", $"Item '{item.Description}' is on open Subcontracting Order {blockingSco.OrderNumber}. Close it before closing the row.");
+            }
+        }
 
         var pendingQty = item.PendingReceiptQty;
         po.CloseItem(itemId);
@@ -788,13 +849,16 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         if (item.BlanketOrderId.HasValue && pendingQty > 0)
         {
             var pendingStockQty = pendingQty * item.ConversionFactor;
-            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
-            var bo = await boRepo.FindAsync(item.BlanketOrderId.Value);
-            if (bo != null)
+            var boRepo = LazyServiceProvider?.LazyGetService<IRepository<BlanketOrder, Guid>>();
+            if (boRepo != null)
             {
-                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
-                boItem?.UnrecordOrder(pendingStockQty);
-                await boRepo.UpdateAsync(bo);
+                var bo = await boRepo.FindAsync(item.BlanketOrderId.Value);
+                if (bo != null)
+                {
+                    var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                    boItem?.UnrecordOrder(pendingStockQty);
+                    await boRepo.UpdateAsync(bo);
+                }
             }
         }
 

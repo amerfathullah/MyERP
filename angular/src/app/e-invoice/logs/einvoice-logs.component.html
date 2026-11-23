@@ -84,11 +84,11 @@
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       @if (log.qrCodeUrl) {
-                        <a [href]="log.qrCodeUrl" target="_blank" class="btn btn-outline-info" title="Verify on LHDN MyInvois Portal">
+                        <a [href]="log.qrCodeUrl" target="_blank" class="btn btn-outline-info" [title]="'::VerifyOnLhdn' | abpLocalization">
                           <i class="fa fa-qrcode"></i>
                         </a>
                       }
-                      <button class="btn btn-outline-secondary" (click)="refreshStatus(log)" [disabled]="refreshingId() === log.id" title="Refresh LHDN Status">
+                      <button class="btn btn-outline-secondary" (click)="refreshStatus(log)" [disabled]="refreshingId() === log.id" [title]="'::RefreshStatus' | abpLocalization">
                         <i class="fa fa-rotate" [class.fa-spin]="refreshingId() === log.id"></i>
                       </button>
                     </div>

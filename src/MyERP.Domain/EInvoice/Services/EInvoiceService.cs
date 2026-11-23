@@ -191,10 +191,13 @@ public class EInvoiceService : DomainService
                 .WithData("reason", "Document is already cancelled.");
         }
 
-        if (submission.Status != "Valid" && submission.Status != "Submitted" && submission.Status != "Pending")
+        if (submission.Status != "Valid"
+            && submission.Status != "Submitted"
+            && submission.Status != "Accepted"
+            && submission.Status != "Pending")
         {
             throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
-                .WithData("reason", $"Cannot cancel e-Invoice with status '{submission.Status}'. Only submitted or valid documents can be cancelled.");
+                .WithData("reason", $"Cannot cancel e-Invoice with status '{submission.Status}'. Only submitted, accepted, pending, or valid documents can be cancelled.");
         }
 
         if (!submission.SubmittedAt.HasValue)

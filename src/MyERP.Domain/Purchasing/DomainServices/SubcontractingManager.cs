@@ -98,6 +98,39 @@ public class SubcontractingManager : DomainService
     }
 
     /// <summary>
+    /// Validates that no unreceived Subcontracting Order row points to a closed Purchase Order or closed PO row.
+    /// Per ERPNext PR #67362 (validate_purchase_order_rows_are_open): a closed PO row cannot be reopened/processed
+    /// via a Subcontracting Order while qty remains to be received.
+    /// </summary>
+    public void ValidatePurchaseOrderRowsAreOpen(PurchaseOrder po, IEnumerable<SubcontractingOrderItem> scoItems)
+    {
+        if (po.Status == DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                .WithData("orderNumber", po.OrderNumber)
+                .WithData("status", po.Status.ToString())
+                .WithData("detail", $"Purchase Order {po.OrderNumber} is closed and linked Subcontracting Order cannot be reopened.");
+        }
+
+        var rowIndex = 0;
+        foreach (var scoItem in scoItems)
+        {
+            rowIndex++;
+            if (scoItem.ReceivedQty >= scoItem.Qty)
+                continue;
+
+            var poItem = po.Items.FirstOrDefault(i => i.ItemId == scoItem.ItemId);
+            if (poItem != null && poItem.IsClosed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                    .WithData("orderNumber", po.OrderNumber)
+                    .WithData("itemId", scoItem.ItemId)
+                    .WithData("detail", $"Row #{rowIndex}: Item '{poItem.Description}' is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates a Subcontracting Receipt against its linked SCO.
     /// Ensures receipt qty doesn't exceed remaining ordered qty per item.
     /// </summary>

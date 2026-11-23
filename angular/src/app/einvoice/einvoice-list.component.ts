@@ -110,17 +110,18 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
                     </td>
                     <td>
                       @if (inv.qrCodeUrl) {
-                        <a [href]="inv.qrCodeUrl" target="_blank" class="btn btn-outline-secondary btn-sm">
+                        <a [href]="inv.qrCodeUrl" target="_blank" class="btn btn-outline-secondary btn-sm"
+                          [title]="'::VerifyOnLhdn' | abpLocalization">
                           <i class="fa fa-qrcode"></i>
                         </a>
                       } @else { <span class="text-muted">—</span> }
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" title="Refresh status" (click)="refreshStatus(inv)">
+                        <button class="btn btn-outline-primary" [title]="'::RefreshStatus' | abpLocalization" (click)="refreshStatus(inv)">
                           <i class="fa fa-refresh"></i>
                         </button>
-                        @if (inv.status === 'Valid' || inv.status === 'Submitted') {
+                        @if (inv.status === 'Valid' || inv.status === 'Submitted' || inv.status === 'Accepted' || inv.status === 'Pending') {
                           <button
                             class="btn btn-outline-danger"
                             [disabled]="isCancellationWindowExpired(inv)"

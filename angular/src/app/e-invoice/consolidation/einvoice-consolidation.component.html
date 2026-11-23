@@ -140,17 +140,17 @@
                     </td>
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
-                        @if (!c.eInvoiceStatus || c.eInvoiceStatus === 'NotSubmitted' || c.eInvoiceStatus === 'Invalid') {
-                          <button class="btn btn-outline-primary" (click)="submitConsolidatedToLhdn(c)" title="Submit to LHDN">
-                            <i class="fa fa-cloud-arrow-up me-1"></i>Submit
+                        @if (!c.eInvoiceStatus || c.eInvoiceStatus === 'NotSubmitted' || c.eInvoiceStatus === 'Invalid' || c.eInvoiceStatus === 'Rejected') {
+                          <button class="btn btn-outline-primary" (click)="submitConsolidatedToLhdn(c)" [title]="'::SubmitToLhdn' | abpLocalization">
+                            <i class="fa fa-cloud-arrow-up me-1"></i>{{ '::Submit' | abpLocalization }}
                           </button>
                         }
                         @if (c.qrCodeUrl) {
-                          <a [href]="c.qrCodeUrl" target="_blank" class="btn btn-outline-info" title="View LHDN Portal">
+                          <a [href]="c.qrCodeUrl" target="_blank" class="btn btn-outline-info" [title]="'::VerifyOnLhdn' | abpLocalization">
                             <i class="fa fa-qrcode"></i>
                           </a>
                         }
-                        <button class="btn btn-outline-secondary" (click)="viewOriginalInvoices(c)" title="View Details">
+                        <button class="btn btn-outline-secondary" (click)="viewOriginalInvoices(c)" [title]="'::View' | abpLocalization">
                           <i class="fa fa-eye"></i>
                         </button>
                       </div>

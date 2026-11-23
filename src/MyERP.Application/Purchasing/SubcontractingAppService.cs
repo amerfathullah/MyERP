@@ -399,6 +399,44 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     public async Task<SubcontractingOrderDto> ReopenOrderAsync(Guid id)
     {
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+
+        // Per ERPNext PR #67362: a closed PO or closed PO item row cannot be reopened on an SCO with pending qty
+        if (sco.PurchaseOrderId.HasValue && sco.Status == SubcontractingOrderStatus.Closed)
+        {
+            var poRepo = LazyServiceProvider?.LazyGetService<IRepository<PurchaseOrder, Guid>>();
+            if (poRepo != null)
+            {
+                var po = await poRepo.FindAsync(sco.PurchaseOrderId.Value, includeDetails: true);
+                if (po != null)
+                {
+                    var scoManager = LazyServiceProvider?.LazyGetService<DomainServices.SubcontractingManager>();
+                    if (scoManager != null)
+                    {
+                        scoManager.ValidatePurchaseOrderRowsAreOpen(po, sco.Items);
+                    }
+                    else
+                    {
+                        if (po.Status == Core.DocumentStatus.Closed)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                                .WithData("orderNumber", po.OrderNumber);
+                        }
+
+                        foreach (var scoItem in sco.Items.Where(i => i.ReceivedQty < i.Qty))
+                        {
+                            var poItem = po.Items.FirstOrDefault(i => i.ItemId == scoItem.ItemId);
+                            if (poItem != null && poItem.IsClosed)
+                            {
+                                throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                                    .WithData("orderNumber", po.OrderNumber)
+                                    .WithData("itemId", scoItem.ItemId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         sco.Reopen();
 
         // Re-apply RM reservation for unreturned/unsupplied items (commit 42258d5660: deduct max(TransferredQty, ConsumedQty))

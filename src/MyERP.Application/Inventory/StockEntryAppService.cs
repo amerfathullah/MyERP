@@ -1286,6 +1286,20 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 throw new Volo.Abp.BusinessException("MyERP:10003")
                     .WithData("reason", "Work Order has no linked BOM");
 
+            // Per ERPNext PR #67413: when produceQty is not explicitly specified, propose the purpose-aware
+            // pending FG quantity (respecting transferred qty cap and process loss) instead of 0.
+            if (produceQty <= 0m)
+            {
+                produceQty = StockEntryManager.CalculatePendingFgQtyForPurpose(
+                    wo.Quantity,
+                    wo.ProducedQuantity,
+                    wo.DisassembledQuantity,
+                    wo.MaterialTransferred,
+                    wo.ProcessLossQty,
+                    wo.SkipTransfer,
+                    StockEntryType.Manufacture);
+            }
+
             bom = await bomRepo.GetAsync(wo.BomId, includeDetails: true);
             result = new ManufactureItemsDto
             {

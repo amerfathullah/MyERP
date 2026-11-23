@@ -3959,4 +3959,68 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             bomEx.Data["reason"]!.ToString()!.ShouldContain("sub-assembly");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch27_PoScoCloseGuards_And_ReopenParity()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var poRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var poService = GetRequiredService<MyERP.Purchasing.IPurchaseOrderAppService>();
+            var scoService = GetRequiredService<MyERP.Purchasing.ISubcontractingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch27 Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B27 WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B27-FG", "FG Sub", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit",
+            }, autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B27 Supp"), autoSave: true);
+
+            // Create submitted subcontracted PO + submitted open SCO
+            var po = new MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-B27-1", DateTime.Today)
+            {
+                IsSubcontracted = true,
+            };
+            po.AddItem(item.Id, item.ItemName, 10m, 50m, 0m, "Unit", wh.Id);
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+            var poItemId = po.Items[0].Id;
+
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-B27-1", DateTime.Today, supplier.Id)
+            {
+                PurchaseOrderId = po.Id,
+                SupplierWarehouseId = wh.Id,
+            };
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(
+                Guid.NewGuid(), sco.Id, item.Id, item.ItemName, 10m, 50m));
+            sco.Submit();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            // 1. PR #67362: closing PO item row blocked while open SCO has unreceived qty
+            var closeRowEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => poService.CloseItemAsync(po.Id, poItemId));
+            closeRowEx.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents);
+            closeRowEx.Data["dependent"]!.ToString()!.ShouldBe("SubcontractingOrder");
+
+            // 2. PR #67365: closing PO closes linked open SCO; reopening PO leaves SCO closed
+            await poService.CloseAsync(po.Id);
+            var scoAfterPoClose = await scoRepo.GetAsync(sco.Id);
+            scoAfterPoClose.Status.ShouldBe(MyERP.Purchasing.SubcontractingOrderStatus.Closed);
+
+            await poService.ReopenAsync(po.Id);
+            var scoAfterPoReopen = await scoRepo.GetAsync(sco.Id);
+            scoAfterPoReopen.Status.ShouldBe(MyERP.Purchasing.SubcontractingOrderStatus.Closed);
+
+            // 3. PR #67362: now that SCO is closed, closing PO item row succeeds — and reopening SCO while PO row is closed is blocked!
+            await poService.CloseItemAsync(po.Id, poItemId);
+            var reopenScoEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => scoService.ReopenOrderAsync(sco.Id));
+            reopenScoEx.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
+        });
+    }
 }

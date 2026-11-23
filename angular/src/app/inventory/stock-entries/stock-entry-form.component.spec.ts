@@ -290,28 +290,28 @@ describe('ERPNext PR #60751: recalculate stock entry row amounts when qty change
     expect(emptyAdditionalCostsTotal).toBe(0);
   });
 
-  it('applies header warehouses to a new row by empty stockUom even when defaults prefilled warehouses, and keeps duplicated row warehouses (PR #67369: e68da1fde9, 7665a796e4)', () => {
+  it('applies header warehouses to a new row by empty itemName even when defaults prefilled stockUom or warehouses, and keeps duplicated row warehouses (PR #68786: 925aacca46)', () => {
     const apply = (
       rowS: string | null,
       rowT: string | null,
       defS: string | null,
       defT: string | null,
-      rowStockUom?: string | null,
+      rowItemName?: string | null,
     ) => {
-      const isNewRow = rowStockUom !== undefined ? !rowStockUom : (!rowS && !rowT);
+      const isNewRow = rowItemName !== undefined ? !rowItemName : (!rowS && !rowT);
       if (isNewRow) {
         return { sourceWarehouseId: defS || rowS || null, targetWarehouseId: defT || rowT || null };
       }
       return { sourceWarehouseId: rowS || null, targetWarehouseId: rowT || null };
     };
 
-    // Brand-new row (stockUom empty) gets header warehouses even if user default prefilled a warehouse/item_code
+    // Brand-new row (itemName empty) gets header warehouses even if user defaults prefilled stockUom or warehouse
     const newRow = apply('wh-user-default', null, 'wh-header-s', 'wh-header-t', '');
     expect(newRow.sourceWarehouseId).toBe('wh-header-s');
     expect(newRow.targetWarehouseId).toBe('wh-header-t');
 
-    // Duplicated row (stockUom already set from item) keeps its own warehouses
-    const dupRow = apply('wh-dup-s', 'wh-dup-t', 'wh-header-s', 'wh-header-t', 'Nos');
+    // Duplicated row (itemName already set from item) keeps its own warehouses
+    const dupRow = apply('wh-dup-s', 'wh-dup-t', 'wh-header-s', 'wh-header-t', 'Widget A');
     expect(dupRow.sourceWarehouseId).toBe('wh-dup-s');
     expect(dupRow.targetWarehouseId).toBe('wh-dup-t');
   });

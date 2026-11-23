@@ -762,4 +762,93 @@ public class UpstreamBatch41ParityTests
         piErrors.ShouldContain(e => e.Contains("Currency code is required"));
         piErrors.ShouldContain(e => e.Contains("Valid LHDN"));
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamPRs_67479_67481_67413_And_LhdnAcceptedCancel_Parity()
+    {
+        // 1. ERPNext PR #67479: stock-reserved part of Sales Order excluded from Production Plan pending qty cap
+        // stockQty=10, stockReservedQty=4 (all from stock, not own WO), productionPlanQty=3 => qty=6, pending=min(6, 6-3)=3 (not 6)
+        var pendingWithReservation = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateSalesOrderItemPendingQtyForProductionPlan(
+                stockQty: 10m,
+                stockReservedQty: 4m,
+                reservedOwnWorkOrderOutputQty: 0m,
+                workOrderQty: 0m,
+                deliveredQtyInOrderUom: 0m,
+                conversionFactor: 1m,
+                productionPlanQty: 3m);
+        pendingWithReservation.ShouldBe(3m);
+
+        // 2. ERPNext PR #67481: closed Work Order counts only its made qty (grossed up for planned loss), never exceeding open count
+        var openCommitted = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateWorkOrderCommittedQtyForPlan(
+                workOrderQty: 10m,
+                producedQty: 4m,
+                processLossQty: 0m,
+                plannedLossPercentage: 20m,
+                creditProducedQty: true,
+                isClosed: false);
+        openCommitted.ShouldBe(10m);
+
+        var closedCommitted = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateWorkOrderCommittedQtyForPlan(
+                workOrderQty: 10m,
+                producedQty: 4m,
+                processLossQty: 0m,
+                plannedLossPercentage: 20m,
+                creditProducedQty: true,
+                isClosed: true);
+        closedCommitted.ShouldBe(5m); // 4 / (1 - 0.2) = 5
+
+        // 3. ERPNext PR #67413: purpose-aware pending FG qty for Stock Entry against Work Order
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingFgQtyForPurpose(
+            woQty: 10m, producedQty: 6m, disassembledQty: 2m, materialTransferredQty: 8m, processLossQty: 1m,
+            skipTransfer: false, purpose: MyERP.Inventory.StockEntryType.Disassemble)
+            .ShouldBe(4m); // 6 - 2
+
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingFgQtyForPurpose(
+            woQty: 10m, producedQty: 6m, disassembledQty: 0m, materialTransferredQty: 7m, processLossQty: 0m,
+            skipTransfer: false, purpose: MyERP.Inventory.StockEntryType.MaterialTransferForManufacture)
+            .ShouldBe(3m); // 10 - 7
+
+        // Manufacture caps transferred qty at woQty and subtracts produced + process loss
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingFgQtyForPurpose(
+            woQty: 10m, producedQty: 4m, disassembledQty: 0m, materialTransferredQty: 12m, processLossQty: 1m,
+            skipTransfer: false, purpose: MyERP.Inventory.StockEntryType.Manufacture)
+            .ShouldBe(5m); // min(12, 10) - 4 - 1 = 5
+
+        // Manufacture with partial transfer uses transferredQty, unless skipTransfer is enabled
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingFgQtyForPurpose(
+            woQty: 10m, producedQty: 2m, disassembledQty: 0m, materialTransferredQty: 6m, processLossQty: 1m,
+            skipTransfer: false, purpose: MyERP.Inventory.StockEntryType.Manufacture)
+            .ShouldBe(3m); // 6 - 2 - 1
+
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingFgQtyForPurpose(
+            woQty: 10m, producedQty: 2m, disassembledQty: 0m, materialTransferredQty: 6m, processLossQty: 1m,
+            skipTransfer: true, purpose: MyERP.Inventory.StockEntryType.Manufacture)
+            .ShouldBe(7m); // 10 - 2 - 1
+
+        // 4. MyInvois: EInvoiceService.CancelAsync allows cancelling submissions in "Accepted" status within 72h
+        var subId = Guid.NewGuid();
+        var sub = new MyERP.EInvoice.Entities.EInvoiceSubmission(subId, Guid.NewGuid(), "SalesInvoice", Guid.NewGuid())
+        {
+            SubmissionUid = "SUB-ACC-1",
+            DocumentUuid = "UUID-ACC-1",
+            Status = "Accepted",
+            SubmittedAt = DateTime.UtcNow.AddHours(-2),
+        };
+        var lhdnClient = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+        var subRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+        var logRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+
+        NSubstitute.SubstituteExtensions.Returns(subRepo.GetAsync(subId), System.Threading.Tasks.Task.FromResult(sub));
+        NSubstitute.SubstituteExtensions.Returns(
+            lhdnClient.CancelDocumentAsync("tok", "UUID-ACC-1", "Duplicate", MyERP.EInvoice.LhdnEnvironment.Sandbox),
+            System.Threading.Tasks.Task.FromResult(new MyERP.EInvoice.Services.LhdnCancelResponse { IsSuccess = true, StatusCode = 200 }));
+
+        var eInvoiceService = new MyERP.EInvoice.Services.EInvoiceService(lhdnClient, subRepo, logRepo);
+        var cancelled = await eInvoiceService.CancelAsync(subId, "Duplicate", "tok", MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        cancelled.Status.ShouldBe("Cancelled");
+        cancelled.Reason.ShouldBe("Duplicate");
+    }
 }
