@@ -1435,6 +1435,102 @@ public class UpstreamBatch41ParityTests
         netBasis.ShouldBe(800m); // 1000 - 120 - 80
     }
 
+    [Fact]
+    public void UpstreamBatch9_MyInvoisCreditNoteAbsAmounts_CorrectiveCost_WholeNumberShare_InterCompanyRateLock_Parity()
+    {
+        // 1. MyInvois createxml.py: Credit Note (02) emits non-negative absolute amounts & AllowanceTotalAmount
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var cnXml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "CN-2026-01",
+            IssueDate = new DateTime(2026, 7, 2, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "02",
+            CurrencyCode = "MYR",
+            BillingReferenceNumber = "SI-2026-01",
+            BillingReferenceUuid = "UUID-ORIG-01",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Seller Sdn Bhd", Tin = "C1000", CountryCode = "MYS", State = "14" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer Sdn Bhd", Tin = "C2000", CountryCode = "MYS", State = "14" },
+            DiscountAmount = -10m,
+            NetTotal = -100m,
+            TaxAmount = -6m,
+            GrandTotal = -106m,
+            TaxBreakdown = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceTaxBreakdown>
+            {
+                new() { TaxCategoryCode = "01", TaxRate = 6m, TaxableAmount = -100m, TaxAmount = -6m }
+            },
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new()
+                {
+                    Description = "Returned Widget",
+                    Quantity = -2m,
+                    UnitPrice = 50m,
+                    DiscountAmount = -10m,
+                    TaxCategoryCode = "01",
+                    TaxRate = 6m,
+                    TaxAmount = -6m,
+                }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var lmt = cnXml.Root!.Element(cac + "LegalMonetaryTotal")!;
+        lmt.Element(cbc + "LineExtensionAmount")!.Value.ShouldBe("100.00");
+        lmt.Element(cbc + "TaxExclusiveAmount")!.Value.ShouldBe("100.00");
+        lmt.Element(cbc + "TaxInclusiveAmount")!.Value.ShouldBe("106.00");
+        lmt.Element(cbc + "AllowanceTotalAmount")!.Value.ShouldBe("10.00");
+        lmt.Element(cbc + "PayableAmount")!.Value.ShouldBe("106.00");
+        cnXml.Root!.Element(cac + "TaxTotal")!.Element(cbc + "TaxAmount")!.Value.ShouldBe("6.00");
+        var line0 = cnXml.Root!.Element(cac + "InvoiceLine")!;
+        line0.Element(cbc + "InvoicedQuantity")!.Value.ShouldBe("2.0000");
+        line0.Element(cbc + "LineExtensionAmount")!.Value.ShouldBe("100.00");
+        line0.Element(cac + "AllowanceCharge")!.Element(cbc + "Amount")!.Value.ShouldBe("10.00");
+        line0.Element(cac + "TaxTotal")!.Element(cbc + "TaxAmount")!.Value.ShouldBe("6.00");
+
+        // 2. ERPNext ac5cc09181: corrective operation cost spreads over finished-good qty only when tracking semi-FG
+        var fgItemId = Guid.NewGuid();
+        var semiFgItemId = Guid.NewGuid();
+        var op1 = Guid.NewGuid();
+        var op2 = Guid.NewGuid();
+        MyERP.Manufacturing.DomainServices.JobCardManager.CalculateCorrectiveOperationCostBasisQty(
+            workOrderProductionItemId: fgItemId,
+            trackSemiFinishedGoods: true,
+            jobCardCompletions: new[]
+            {
+                (op1, (Guid?)semiFgItemId, 2m), // semi-FG ignored
+                (op2, (Guid?)fgItemId, 10m),    // FG counted
+            }).ShouldBe(10m);
+
+        // 3. ERPNext a88ca080d7: transfer-based Manufacture raw material qty keeps small share < qty precision for whole-number UOM
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculateTransferBasedManufactureRawMaterialQty(
+            rowQty: 1m, fgCompletedQty: 1m, pendingQtyToManufacture: 250m, isReturn: false, uomMustBeWholeNumber: true, qtyPrecision: 2)
+            .ShouldBe(1m); // 0.004 rounds to 0.00 at precision 2, but 9-dec pre-round keeps 0.004 -> ceil to 1
+        MyERP.Inventory.DomainServices.StockEntryManager.CalculateTransferBasedManufactureRawMaterialQty(
+            rowQty: 7m, fgCompletedQty: 3m, pendingQtyToManufacture: 3m, isReturn: false, uomMustBeWholeNumber: true, qtyPrecision: 2)
+            .ShouldBe(7m); // exact 7 not ceiled to 8
+
+        // 4. ERPNext 8eeacf1177: stock qty for party packing unit rounds to row stock_qty precision
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .RoundStockQtyForPartyPackingUnit(rowQty: 1.33336m, conversionFactor: 3m, rowStockQtyPrecision: 4)
+            .ShouldBe(4.0001m);
+
+        // 5. ERPNext 2de31e743c + 453051e1c7: rate lock & same-rate check apply to inter-company sales/purchases, skip only internal transfers
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ShouldEnforceMaintainSameRateAndSourceRateLock(maintainSameRateEnabled: true, isReturn: false, isInternalTransfer: false)
+            .ShouldBeTrue();
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ShouldEnforceMaintainSameRateAndSourceRateLock(maintainSameRateEnabled: true, isReturn: false, isInternalTransfer: true)
+            .ShouldBeFalse();
+
+        // 6. ERPNext 5b9c476c29: packed row keeps incoming rate when serial numbers are valued as a pool (avg_rate = 0)
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ResolvePackedRowIncomingRateFromBundle(currentIncomingRate: 45m, bundleAvgRate: 0m, isSerialNoWiseValuationDisabled: true)
+            .ShouldBe(45m);
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ResolvePackedRowIncomingRateFromBundle(currentIncomingRate: 45m, bundleAvgRate: 52.125m, isSerialNoWiseValuationDisabled: false)
+            .ShouldBe(52.125m);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

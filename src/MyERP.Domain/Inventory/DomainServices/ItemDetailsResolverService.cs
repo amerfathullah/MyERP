@@ -736,6 +736,48 @@ public class ItemDetailsResolverService : DomainService
         var rowRate = ConvertStockValuationRateToRowUom(stockValuationRate, factor, ratePrecision);
         return (factor, lookupStockQty, rowRate);
     }
+
+    /// <summary>
+    /// Rounds the stock quantity used for party Item Price <c>packing_unit</c> divisibility checks at
+    /// the transaction row's <paramref name="rowStockQtyPrecision"/> rather than <c>Item Price.packing_unit</c>
+    /// precision so fractional stock quantities match row precision.
+    /// Per ERPNext commit <c>8eeacf1177</c> (<c>get_party_price_in_stock_uom</c> in <c>get_item_details.py</c>).
+    /// </summary>
+    public static decimal RoundStockQtyForPartyPackingUnit(
+        decimal rowQty,
+        decimal conversionFactor,
+        int rowStockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return Math.Round(rowQty * factor, rowStockQtyPrecision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Determines whether source-document rate lock and <c>maintain_same_rate</c> validation apply:
+    /// skips ONLY internal transfers (<paramref name="isInternalTransfer"/> = true) and returns, while
+    /// keeping rate lock and same-rate checks active for inter-company sales/purchases.
+    /// Per ERPNext commits <c>2de31e743c</c> and <c>453051e1c7</c> (<c>get_item_details.py</c> / <c>transaction_base.py</c>).
+    /// </summary>
+    public static bool ShouldEnforceMaintainSameRateAndSourceRateLock(
+        bool maintainSameRateEnabled,
+        bool isReturn,
+        bool isInternalTransfer)
+        => maintainSameRateEnabled && !isReturn && !isInternalTransfer;
+
+    /// <summary>
+    /// Updates a Packed Item row's incoming rate from its submitted Serial and Batch Bundle ONLY when
+    /// serial-no-wise valuation is enabled; when serial numbers are valued as a single pool, preserves
+    /// the row's pre-submit incoming rate instead of overwriting it with the bundle's <c>0</c> avg rate.
+    /// Per ERPNext commit <c>5b9c476c29</c> (<c>set_incoming_rate_from_bundle</c> in <c>packed_item.py</c>).
+    /// </summary>
+    public static decimal ResolvePackedRowIncomingRateFromBundle(
+        decimal currentIncomingRate,
+        decimal bundleAvgRate,
+        bool isSerialNoWiseValuationDisabled,
+        int ratePrecision = 4)
+        => isSerialNoWiseValuationDisabled
+            ? currentIncomingRate
+            : Math.Round(bundleAvgRate, ratePrecision, MidpointRounding.AwayFromZero);
 }
 
 // --- Supporting types ---

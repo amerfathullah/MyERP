@@ -112,8 +112,8 @@ export interface DepartmentNode {
                     @if (node.isGroup) {
                       <button class="btn btn-outline-primary" title="Add child" (click)="addChildTo(node)"><i class="fas fa-plus"></i></button>
                     }
-                    <button class="btn btn-outline-secondary" title="Edit" (click)="editNode(node)"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-outline-danger" title="Delete" (click)="deleteNode(node.id)"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-outline-secondary" [title]="'::Edit' | abpLocalization" (click)="editNode(node)"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-outline-danger" [title]="'::Delete' | abpLocalization" (click)="deleteNode(node.id)"><i class="fas fa-trash"></i></button>
                   </div>
                 </div>
               }

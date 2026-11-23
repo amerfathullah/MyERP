@@ -123,9 +123,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                     }
                     @if (c.status === 0 || c.status === 1) {
                       <button class="btn btn-outline-success btn-sm me-1" (click)="close(c)"
-                        title="Close"><i class="fa fa-check"></i></button>
+                        [title]="'::Close' | abpLocalization"><i class="fa fa-check"></i></button>
                       <button class="btn btn-outline-danger btn-sm" (click)="cancel(c)"
-                        title="Cancel"><i class="fa fa-times"></i></button>
+                        [title]="'::Cancel' | abpLocalization"><i class="fa fa-times"></i></button>
                     }
                   </td>
                 </tr>

@@ -54,13 +54,13 @@
             }
           </div>
           <div class="d-flex gap-1">
-            <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!); openRuleForm(cat.id!)" title="Add Rule">
+            <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!); openRuleForm(cat.id!)" [title]="'::AddRule' | abpLocalization">
               <i class="fa fa-plus-circle"></i>
             </button>
             <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!)" title="View Rules">
               <i class="fa fa-chevron-down"></i>
             </button>
-            <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteCategory(cat.id!)" title="Delete">
+            <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteCategory(cat.id!)" [title]="'::Delete' | abpLocalization">
               <i class="fa fa-trash"></i>
             </button>
           </div>
@@ -136,7 +136,7 @@
                     <td>{{ r.effectiveTo ? (r.effectiveTo | date:'dd/MM/yyyy') : '—' }}</td>
                     <td>{{ r.regionFilter ?? 'All' }}</td>
                     <td>
-                      <button class="btn btn-sm btn-link p-1" (click)="editRule(r)" title="Edit">
+                      <button class="btn btn-sm btn-link p-1" (click)="editRule(r)" [title]="'::Edit' | abpLocalization">
                       <i class="fa fa-pencil small"></i>
                       </button>
                       <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteRule(r.id!, cat.id!)">

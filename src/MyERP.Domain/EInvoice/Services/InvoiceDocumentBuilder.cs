@@ -451,10 +451,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildTaxTotal(decimal taxAmount, string currency, List<EInvoiceTaxBreakdown>? breakdowns)
     {
+        // Per myinvois createxml.py (tax_total / tax_total_with_template): LHDN UBL 2.1 requires
+        // non-negative absolute amounts even on Credit Notes (02/12) and Refund Notes (04/14).
         var taxTotal = new XElement(Cac + "TaxTotal",
             new XElement(Cbc + "TaxAmount",
                 new XAttribute("currencyID", currency),
-                taxAmount.ToString("F2", CultureInfo.InvariantCulture)));
+                Math.Abs(taxAmount).ToString("F2", CultureInfo.InvariantCulture)));
 
         if (breakdowns != null)
         {
@@ -462,7 +464,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
             {
                 var taxCategory = new XElement(Cac + "TaxCategory",
                     new XElement(Cbc + "ID", bd.TaxCategoryCode),
-                    new XElement(Cbc + "Percent", bd.TaxRate.ToString("F2", CultureInfo.InvariantCulture)));
+                    new XElement(Cbc + "Percent", Math.Abs(bd.TaxRate).ToString("F2", CultureInfo.InvariantCulture)));
                 if (string.Equals(bd.TaxCategoryCode, "E", StringComparison.OrdinalIgnoreCase)
                     || !string.IsNullOrWhiteSpace(bd.TaxExemptionReason))
                 {
@@ -477,10 +479,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 taxTotal.Add(new XElement(Cac + "TaxSubtotal",
                     new XElement(Cbc + "TaxableAmount",
                         new XAttribute("currencyID", currency),
-                        bd.TaxableAmount.ToString("F2", CultureInfo.InvariantCulture)),
+                        Math.Abs(bd.TaxableAmount).ToString("F2", CultureInfo.InvariantCulture)),
                     new XElement(Cbc + "TaxAmount",
                         new XAttribute("currencyID", currency),
-                        bd.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)),
+                        Math.Abs(bd.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)),
                     taxCategory));
             }
         }
@@ -490,19 +492,29 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildLegalMonetaryTotal(EInvoiceDocumentData data)
     {
-        return new XElement(Cac + "LegalMonetaryTotal",
+        var elem = new XElement(Cac + "LegalMonetaryTotal",
             new XElement(Cbc + "LineExtensionAmount",
                 new XAttribute("currencyID", data.CurrencyCode),
-                data.NetTotal.ToString("F2", CultureInfo.InvariantCulture)),
+                Math.Abs(data.NetTotal).ToString("F2", CultureInfo.InvariantCulture)),
             new XElement(Cbc + "TaxExclusiveAmount",
                 new XAttribute("currencyID", data.CurrencyCode),
-                data.NetTotal.ToString("F2", CultureInfo.InvariantCulture)),
+                Math.Abs(data.NetTotal).ToString("F2", CultureInfo.InvariantCulture)),
             new XElement(Cbc + "TaxInclusiveAmount",
                 new XAttribute("currencyID", data.CurrencyCode),
-                data.GrandTotal.ToString("F2", CultureInfo.InvariantCulture)),
-            new XElement(Cbc + "PayableAmount",
+                Math.Abs(data.GrandTotal).ToString("F2", CultureInfo.InvariantCulture)));
+
+        if (data.DiscountAmount != 0)
+        {
+            elem.Add(new XElement(Cbc + "AllowanceTotalAmount",
                 new XAttribute("currencyID", data.CurrencyCode),
-                data.GrandTotal.ToString("F2", CultureInfo.InvariantCulture)));
+                Math.Abs(data.DiscountAmount).ToString("F2", CultureInfo.InvariantCulture)));
+        }
+
+        elem.Add(new XElement(Cbc + "PayableAmount",
+            new XAttribute("currencyID", data.CurrencyCode),
+            Math.Abs(data.GrandTotal).ToString("F2", CultureInfo.InvariantCulture)));
+
+        return elem;
     }
 
     private XElement BuildInvoiceLine(int lineNumber, EInvoiceLineData line, string currency, bool isConsolidated = false)
@@ -511,10 +523,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
             new XElement(Cbc + "ID", lineNumber.ToString()),
             new XElement(Cbc + "InvoicedQuantity",
                 new XAttribute("unitCode", line.Uom),
-                line.Quantity.ToString("F4", CultureInfo.InvariantCulture)),
+                Math.Abs(line.Quantity).ToString("F4", CultureInfo.InvariantCulture)),
             new XElement(Cbc + "LineExtensionAmount",
                 new XAttribute("currencyID", currency),
-                line.LineTotal.ToString("F2", CultureInfo.InvariantCulture)));
+                Math.Abs(line.LineTotal).ToString("F2", CultureInfo.InvariantCulture)));
 
         // Per-line discount (AllowanceCharge)
         if (line.DiscountAmount != 0)
@@ -524,19 +536,19 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "AllowanceChargeReason", line.DiscountReason ?? "Discount"),
                 new XElement(Cbc + "Amount",
                     new XAttribute("currencyID", currency),
-                    line.DiscountAmount.ToString("F2", CultureInfo.InvariantCulture))));
+                    Math.Abs(line.DiscountAmount).ToString("F2", CultureInfo.InvariantCulture))));
         }
 
         // Per-line tax
         var taxTotal = new XElement(Cac + "TaxTotal",
             new XElement(Cbc + "TaxAmount",
                 new XAttribute("currencyID", currency),
-                line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)));
+                Math.Abs(line.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)));
         if (line.TaxCategoryCode != null)
         {
             var lineTaxCategory = new XElement(Cac + "TaxCategory",
                 new XElement(Cbc + "ID", line.TaxCategoryCode),
-                new XElement(Cbc + "Percent", (line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)));
+                new XElement(Cbc + "Percent", Math.Abs(line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)));
             if (string.Equals(line.TaxCategoryCode, "E", StringComparison.OrdinalIgnoreCase)
                 || !string.IsNullOrWhiteSpace(line.TaxExemptionReason))
             {
@@ -551,10 +563,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
             taxTotal.Add(new XElement(Cac + "TaxSubtotal",
                 new XElement(Cbc + "TaxableAmount",
                     new XAttribute("currencyID", currency),
-                    line.LineTotal.ToString("F2", CultureInfo.InvariantCulture)),
+                    Math.Abs(line.LineTotal).ToString("F2", CultureInfo.InvariantCulture)),
                 new XElement(Cbc + "TaxAmount",
                     new XAttribute("currencyID", currency),
-                    line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture)),
+                    Math.Abs(line.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)),
                 lineTaxCategory));
         }
         lineElem.Add(taxTotal);
@@ -571,12 +583,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
         lineElem.Add(new XElement(Cac + "Price",
             new XElement(Cbc + "PriceAmount",
                 new XAttribute("currencyID", currency),
-                line.UnitPrice.ToString("F4", CultureInfo.InvariantCulture))));
+                Math.Abs(line.UnitPrice).ToString("F4", CultureInfo.InvariantCulture))));
 
         lineElem.Add(new XElement(Cac + "ItemPriceExtension",
             new XElement(Cbc + "Amount",
                 new XAttribute("currencyID", currency),
-                line.LineTotal.ToString("F2", CultureInfo.InvariantCulture))));
+                Math.Abs(line.LineTotal).ToString("F2", CultureInfo.InvariantCulture))));
 
         return lineElem;
     }

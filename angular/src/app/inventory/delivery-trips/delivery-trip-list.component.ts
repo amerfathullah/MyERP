@@ -77,7 +77,7 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                           </button>
                         }
                         @if (trip.status === 2 || trip.status === 1) {
-                          <button class="btn btn-outline-success" (click)="complete(trip.id)" title="Complete">
+                          <button class="btn btn-outline-success" (click)="complete(trip.id)" [title]="'MyERP::Complete' | abpLocalization">
                             <i class="bi bi-check-circle"></i>
                           </button>
                           @if (canNotifyCustomers(trip)) {
@@ -90,14 +90,14 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                           <button class="btn btn-outline-secondary" (click)="calculateArrivalTimes(trip.id)" title="{{ 'MyERP::CalculateArrivalTimes' | abpLocalization }}">
                             <i class="bi bi-clock-history"></i>
                           </button>
-                          <button class="btn btn-outline-warning" (click)="cancel(trip.id)" title="Cancel">
+                          <button class="btn btn-outline-warning" (click)="cancel(trip.id)" [title]="'MyERP::Cancel' | abpLocalization">
                             <i class="bi bi-x-circle"></i>
                           </button>
                         }
-                        <a [routerLink]="[trip.id, 'edit']" class="btn btn-outline-primary" title="Edit">
+                        <a [routerLink]="[trip.id, 'edit']" class="btn btn-outline-primary" [title]="'MyERP::Edit' | abpLocalization">
                           <i class="bi bi-pencil"></i>
                         </a>
-                        <button class="btn btn-outline-danger" (click)="delete(trip.id)" title="Delete">
+                        <button class="btn btn-outline-danger" (click)="delete(trip.id)" [title]="'MyERP::Delete' | abpLocalization">
                           <i class="bi bi-trash"></i>
                         </button>
                       </div>

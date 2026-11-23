@@ -1333,6 +1333,35 @@ public class JobCardManager : DomainService
 
         return jobCardFinishedGoodId.HasValue && jobCardFinishedGoodId.Value == workOrderProductionItemId;
     }
+
+    /// <summary>
+    /// Computes the denominator quantity over which corrective operation cost is spread:
+    /// when <paramref name="trackSemiFinishedGoods"/> is enabled, filters completed Job Cards to ONLY
+    /// those producing <paramref name="workOrderProductionItemId"/> (excluding semi-finished operation cards)
+    /// before taking the minimum total completed quantity across operations.
+    /// Per ERPNext commit <c>ac5cc09181</c> (<c>_max_operation_quantity</c> in <c>operations_cost.py</c>).
+    /// </summary>
+    public static decimal CalculateCorrectiveOperationCostBasisQty(
+        Guid workOrderProductionItemId,
+        bool trackSemiFinishedGoods,
+        IEnumerable<(Guid OperationId, Guid? FinishedGoodItemId, decimal CompletedQty)>? jobCardCompletions)
+    {
+        if (jobCardCompletions == null)
+        {
+            return 0m;
+        }
+
+        var filtered = trackSemiFinishedGoods
+            ? jobCardCompletions.Where(c => c.FinishedGoodItemId == workOrderProductionItemId)
+            : jobCardCompletions;
+
+        var totalsByOp = filtered
+            .GroupBy(c => c.OperationId)
+            .Select(g => g.Sum(x => x.CompletedQty))
+            .ToList();
+
+        return totalsByOp.Count > 0 ? totalsByOp.Min() : 0m;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

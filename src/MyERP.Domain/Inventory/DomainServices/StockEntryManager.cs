@@ -2479,4 +2479,37 @@ public class StockEntryManager : DomainService
 
         return Math.Round(Math.Max(grossComponentCost - deduction, 0m), precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes transfer-based Manufacture raw-material share: drops floating-point noise at 9 decimals
+    /// (so <c>7.000000000000001</c> is not ceiled to <c>8</c>) while keeping small positive shares below
+    /// qty precision (<c>0.004</c>) alive so whole-number UOMs still ceil them to <c>1</c>, then suppresses
+    /// rows whose final qty rounds to <c>0</c> at <paramref name="qtyPrecision"/>.
+    /// Per ERPNext commit <c>a88ca080d7</c> (<c>ManufactureStockEntry</c> in <c>manufacturing.py</c>).
+    /// </summary>
+    public static decimal CalculateTransferBasedManufactureRawMaterialQty(
+        decimal rowQty,
+        decimal fgCompletedQty,
+        decimal pendingQtyToManufacture,
+        bool isReturn,
+        bool uomMustBeWholeNumber,
+        int qtyPrecision = 4)
+    {
+        if (!isReturn && pendingQtyToManufacture <= 0m)
+        {
+            return 0m;
+        }
+
+        var rawQty = isReturn
+            ? rowQty
+            : Math.Round((rowQty * fgCompletedQty) / pendingQtyToManufacture, 9, MidpointRounding.AwayFromZero);
+
+        var finalQty = uomMustBeWholeNumber && rawQty > 0m
+            ? Math.Ceiling(rawQty)
+            : rawQty;
+
+        return Math.Round(finalQty, qtyPrecision, MidpointRounding.AwayFromZero) == 0m
+            ? 0m
+            : finalQty;
+    }
 }
