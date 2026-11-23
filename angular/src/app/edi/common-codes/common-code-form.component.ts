@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CommonCodeService } from '../../proxy/edi/common-code.service';
 import { CodeListService } from '../../proxy/edi/code-list.service';
 import { CodeListDto } from '../../proxy/edi/models';
@@ -10,7 +11,7 @@ import { CodeListDto } from '../../proxy/edi/models';
 @Component({
   selector: 'app-common-code-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -43,12 +44,12 @@ import { CodeListDto } from '../../proxy/edi/models';
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Description of this code value..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:CodeValueDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Additional Data (JSON)</label>
-            <textarea class="form-control font-monospace" rows="4" formControlName="additionalDataJson" placeholder="Optional JSON metadata..."></textarea>
+            <textarea class="form-control font-monospace" rows="4" formControlName="additionalDataJson" [placeholder]="'::Placeholder:OptionalJsonMetadata' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">

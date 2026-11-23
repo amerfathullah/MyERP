@@ -6713,7 +6713,20 @@
     "Placeholder:InvoiceIdOrReference": "Invoice ID / Reference",
     "Placeholder:DescribeComplaintOrIssue": "Describe the customer complaint or product issue...",
     "Placeholder:CodeNameWarehouse": "Code, name, warehouse...",
-    "Placeholder:OrderNoItemMaterial": "Order No, Item, Material..."
+    "Placeholder:OrderNoItemMaterial": "Order No, Item, Material...",
+    "Placeholder:FilterByTitle": "Filter by title...",
+    "Placeholder:FilterByCommunicationChannel": "Filter by communication channel...",
+    "Placeholder:FallbackCommonCode": "Fallback code when none matches",
+    "Placeholder:CodeListDescription": "Description of the standard code list...",
+    "Placeholder:FilterByTitleUriOrDescription": "Filter by title, URI, or description...",
+    "Placeholder:CodeValueDescription": "Description of this code value...",
+    "Placeholder:OptionalJsonMetadata": "Optional JSON metadata...",
+    "Placeholder:FilterByCodeTitleOrDescription": "Filter by code, title, or description...",
+    "Placeholder:ProgressSummary": "Brief summary of progress / checkpoint...",
+    "Placeholder:ProjectUpdateNotes": "Detailed update notes, blockers, milestones achieved, next steps...",
+    "Placeholder:FilterByProjectOrSummary": "Filter by project or summary...",
+    "Placeholder:TermsAndConditionsClauses": "Enter standard legal / commercial clauses...",
+    "Placeholder:PriorityLevels": "Low / Medium / High / Urgent"
   }
 }
 

@@ -194,16 +194,16 @@ public class EInvoiceService : DomainService
                 .WithData("reason", "Missing submission UID or UUID. Cannot proceed with cancellation.");
         }
 
-        if (submission.Status == "Cancelled")
+        if (string.Equals(submission.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
         {
             throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
                 .WithData("reason", "Document is already cancelled.");
         }
 
-        if (submission.Status != "Valid"
-            && submission.Status != "Submitted"
-            && submission.Status != "Accepted"
-            && submission.Status != "Pending")
+        if (!string.Equals(submission.Status, "Valid", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(submission.Status, "Submitted", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(submission.Status, "Accepted", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(submission.Status, "Pending", StringComparison.OrdinalIgnoreCase))
         {
             throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
                 .WithData("reason", $"Cannot cancel e-Invoice with status '{submission.Status}'. Only submitted, accepted, pending, or valid documents can be cancelled.");

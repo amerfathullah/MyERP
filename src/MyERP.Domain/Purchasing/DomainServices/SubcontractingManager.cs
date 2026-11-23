@@ -2445,6 +2445,43 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates cumulative delivery or return quantities across ALL rows referencing the same
+    /// Subcontracting Inward Order row, rounding both the summed transfer quantity and maximum allowed
+    /// quantity to <paramref name="qtyPrecision"/> before comparing so split rows cannot bypass the cap
+    /// and sub-precision float dust does not trigger false rejections.
+    /// Per ERPNext commits <c>a7fe007c52</c> and <c>4311634e8e</c> (<c>subcontracting_inward_controller.py</c>).
+    /// </summary>
+    public static void ValidateInwardOrderCumulativeRowQuantities(
+        IEnumerable<(int RowIdx, Guid ScioDetailId, string ItemCode, decimal TransferQty)>? rows,
+        IReadOnlyDictionary<Guid, decimal>? maxAllowedQtyByScioDetailId,
+        string orderNumber,
+        int qtyPrecision = 4)
+    {
+        if (rows == null || maxAllowedQtyByScioDetailId == null)
+        {
+            return;
+        }
+
+        var cumulativeByDetail = new Dictionary<Guid, decimal>();
+        foreach (var row in rows)
+        {
+            var running = cumulativeByDetail.GetValueOrDefault(row.ScioDetailId, 0m) + row.TransferQty;
+            cumulativeByDetail[row.ScioDetailId] = running;
+
+            if (maxAllowedQtyByScioDetailId.TryGetValue(row.ScioDetailId, out var maxAllowed))
+            {
+                var roundedRunning = Math.Round(running, qtyPrecision, MidpointRounding.AwayFromZero);
+                var roundedMax = Math.Round(maxAllowed, qtyPrecision, MidpointRounding.AwayFromZero);
+                if (roundedRunning > roundedMax)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{row.RowIdx}: Quantity of Item {row.ItemCode} cannot be more than {roundedMax} against Subcontracting Inward Order {orderNumber}.");
+                }
+            }
+        }
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

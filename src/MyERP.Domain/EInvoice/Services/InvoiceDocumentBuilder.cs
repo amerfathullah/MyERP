@@ -34,7 +34,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         invoice.Add(new XElement(Cbc + "IssueTime", data.IssueDate.ToString("HH:mm:ssZ")));
         invoice.Add(new XElement(Cbc + "InvoiceTypeCode",
             new XAttribute("listVersionID", string.IsNullOrWhiteSpace(data.DocumentVersion) ? "1.0" : data.DocumentVersion),
-            data.DocumentTypeCode));
+            NormalizeDocumentTypeCode(data.DocumentTypeCode)));
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
         invoice.Add(new XElement(Cbc + "TaxCurrencyCode", data.CurrencyCode));
 
@@ -140,6 +140,25 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
 
         return invoice.ToString(SaveOptions.DisableFormatting);
+    }
+
+    /// <summary>
+    /// Extracts the 2-digit LHDN InvoiceTypeCode from composite strings like "02 : Credit Note" -> "02"
+    /// per myinvois createxml.py get_invoice_type_code(), defaulting blank to "01".
+    /// </summary>
+    public static string NormalizeDocumentTypeCode(string? rawTypeCode)
+    {
+        if (string.IsNullOrWhiteSpace(rawTypeCode))
+            return "01";
+
+        var trimmed = rawTypeCode.Trim();
+        var colonIndex = trimmed.IndexOf(':');
+        if (colonIndex > 0)
+        {
+            trimmed = trimmed.Substring(0, colonIndex).Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(trimmed) ? "01" : trimmed;
     }
 
     /// <summary>

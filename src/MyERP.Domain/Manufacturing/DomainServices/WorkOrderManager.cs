@@ -1025,6 +1025,36 @@ public class WorkOrderManager : DomainService
             && fgCompletedQty == 0m
             && !jobCardId.HasValue;
     }
+
+    /// <summary>
+    /// Computes the proposed BOM-based Material Consumption quantity for a Work Order by flooring
+    /// <c>min(leftForQty, workOrderQty - producedQty - processLossQty)</c> at <paramref name="qtyPrecision"/>
+    /// (rounding down, never up) so the consumption proposal never requests more than remains unconsumed.
+    /// Per ERPNext commit <c>9ebd625556</c> (<c>work_order/mapper.py</c>).
+    /// </summary>
+    public static decimal CalculatePendingConsumptionQtyBasedOnBom(
+        decimal leftForQty,
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        int qtyPrecision = 4)
+    {
+        var pendingToProduce = workOrderQty - producedQty - processLossQty;
+        var raw = Math.Min(leftForQty, pendingToProduce);
+        if (raw <= 0m)
+        {
+            return 0m;
+        }
+
+        var step = 1m;
+        for (var i = 0; i < qtyPrecision; i++)
+        {
+            step *= 10m;
+        }
+
+        var scaled = Math.Round(raw * step, 9, MidpointRounding.AwayFromZero);
+        return Math.Max(Math.Floor(scaled) / step, 0m);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

@@ -2210,6 +2210,119 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(2m);
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch18_DocTypeNorm_CancelCase_WoConsumeFloor_ScioSum_JobCard_Parity()
+    {
+        // 1. MyInvois: Composite DocumentTypeCode ("02 : Credit Note") normalized to "02" in UBL InvoiceTypeCode
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "CN-2026-0018",
+            IssueDate = new DateTime(2026, 7, 18, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "02 : Credit Note",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Supplier", Tin = "C1111111111", Address = "A", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer", Tin = "C2222222222", Address = "B", City = "KL", State = "14", CountryCode = "MYS" },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        xml.Root!.Element(cbc + "InvoiceTypeCode")!.Value.ShouldBe("02");
+
+        // 1b. MyInvois: EInvoiceService.CancelAsync handles lowercase "cancelled" / "valid" case-insensitively
+        var subRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+        var logRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+        var lhdnClient = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+        var subId = Guid.NewGuid();
+        var alreadyCancelled = new MyERP.EInvoice.Entities.EInvoiceSubmission(subId, Guid.NewGuid(), "SalesInvoice", Guid.NewGuid())
+        {
+            SubmissionUid = "SUB-18",
+            DocumentUuid = "DOC-18",
+            Status = "cancelled",
+            SubmittedAt = DateTime.UtcNow.AddHours(-1)
+        };
+        NSubstitute.SubstituteExtensions.Returns(subRepo.GetAsync(subId), System.Threading.Tasks.Task.FromResult(alreadyCancelled));
+        var svc = new MyERP.EInvoice.Services.EInvoiceService(lhdnClient, subRepo, logRepo);
+        var cancelEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            svc.CancelAsync(subId, "Duplicate", "tok", MyERP.EInvoice.LhdnEnvironment.Sandbox));
+        cancelEx.Data["reason"]!.ToString()!.ShouldContain("already cancelled");
+
+        // 2. ERPNext 9ebd625556: Work Order BOM-based consumption proposal floors to qty precision (never rounds up past remaining)
+        MyERP.Manufacturing.DomainServices.WorkOrderManager
+            .CalculatePendingConsumptionQtyBasedOnBom(
+                leftForQty: 1.66669m,
+                workOrderQty: 5m,
+                producedQty: 0m,
+                processLossQty: 0m,
+                qtyPrecision: 4)
+            .ShouldBe(1.6666m);
+
+        // 3. ERPNext a7fe007c52 & 4311634e8e: Subcontracting Inward Order sums split rows per detail and rounds before limit check
+        var scioDetail = Guid.NewGuid();
+        var scioEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateInwardOrderCumulativeRowQuantities(
+                rows: new[] { (1, scioDetail, "FG-1", 6m), (2, scioDetail, "FG-1", 5m) },
+                maxAllowedQtyByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioDetail] = 10m },
+                orderNumber: "SCIO-2026-0001"));
+        scioEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        scioEx.Data["detail"]!.ToString()!.ShouldContain("Row #2");
+
+        // Sub-precision dust rounds cleanly within cap
+        Should.NotThrow(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateInwardOrderCumulativeRowQuantities(
+                rows: new[] { (1, scioDetail, "FG-1", 3.33333m), (2, scioDetail, "FG-1", 6.66666m) },
+                maxAllowedQtyByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioDetail] = 10m },
+                orderNumber: "SCIO-2026-0001",
+                qtyPrecision: 4));
+
+        // 4. ERPNext 51abb93bdb & 38b5cbe21a: Corrective Job Card keeps manual rate on amendment until workstation changes
+        var wsOld = Guid.NewGuid();
+        var wsNew = Guid.NewGuid();
+        MyERP.Manufacturing.DomainServices.JobCardManager
+            .ResolveCorrectiveJobCardHourRate(
+                currentHourRate: 125m,
+                currentWorkstationId: wsOld,
+                previousSavedWorkstationId: null,
+                amendedFromWorkstationId: wsOld,
+                sourceJobCardWorkstationId: wsNew,
+                fetchWorkstationHourRate: _ => 500m)
+            .ShouldBe(125m); // amended card keeps manual rate when workstation == amendedFrom
+        MyERP.Manufacturing.DomainServices.JobCardManager
+            .ResolveCorrectiveJobCardHourRate(
+                currentHourRate: 125m,
+                currentWorkstationId: wsNew,
+                previousSavedWorkstationId: null,
+                amendedFromWorkstationId: wsOld,
+                sourceJobCardWorkstationId: wsOld,
+                fetchWorkstationHourRate: _ => 500m)
+            .ShouldBe(500m); // changed workstation fetches new workstation rate
+
+        // 5. ERPNext c530d6f106 & 3b6942f4dd: Job Card rescale floors RequiredQty at TransferredQty & drops untransferred stale rows
+        var itemKept = Guid.NewGuid();
+        var itemStaleUntransferred = Guid.NewGuid();
+        var itemStaleTransferred = Guid.NewGuid();
+        var reconciled = MyERP.Manufacturing.DomainServices.JobCardManager.ReconcileJobCardItemsOnRescale(
+            existingRows: new[]
+            {
+                (itemKept, 10m, 8m, 0m),
+                (itemStaleUntransferred, 5m, 0m, 0m),
+                (itemStaleTransferred, 4m, 2m, 0m)
+            },
+            newRequiredQtyByItemId: new System.Collections.Generic.Dictionary<Guid, decimal>
+            {
+                [itemKept] = 6m // lowered below transferred 8 -> floored at 8
+            });
+        reconciled.Count.ShouldBe(2);
+        reconciled.First(r => r.ItemId == itemKept).RequiredQty.ShouldBe(8m);
+        reconciled.Any(r => r.ItemId == itemStaleUntransferred).ShouldBeFalse();
+        reconciled.Any(r => r.ItemId == itemStaleTransferred).ShouldBeTrue();
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

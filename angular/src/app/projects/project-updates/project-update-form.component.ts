@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ProjectUpdateService } from '../../proxy/projects/project-update.service';
 import { ProjectService } from '../../proxy/projects/project.service';
 
 @Component({
   selector: 'app-project-update-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -40,12 +41,12 @@ import { ProjectService } from '../../proxy/projects/project.service';
 
           <div class="mb-3">
             <label class="form-label">Summary</label>
-            <input type="text" class="form-control" formControlName="summary" placeholder="Brief summary of progress / checkpoint...">
+            <input type="text" class="form-control" formControlName="summary" [placeholder]="'::Placeholder:ProgressSummary' | abpLocalization">
           </div>
 
           <div class="mb-3">
             <label class="form-label">Notes & Details</label>
-            <textarea class="form-control" rows="5" formControlName="notes" placeholder="Detailed update notes, blockers, milestones achieved, next steps..."></textarea>
+            <textarea class="form-control" rows="5" formControlName="notes" [placeholder]="'::Placeholder:ProjectUpdateNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="row mb-4">

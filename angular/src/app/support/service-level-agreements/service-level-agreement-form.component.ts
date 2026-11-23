@@ -66,7 +66,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
             <tbody formArrayName="priorities">
               @for (row of priorities.controls; track $index; let i = $index) {
                 <tr [formGroupName]="i">
-                  <td><input type="text" class="form-control form-control-sm" formControlName="priorityName" placeholder="Low / Medium / High / Urgent"></td>
+                  <td><input type="text" class="form-control form-control-sm" formControlName="priorityName" [placeholder]="'::Placeholder:PriorityLevels' | abpLocalization"></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="responseTimeHours" min="0"></td>
                   <td><input type="number" class="form-control form-control-sm" formControlName="resolutionTimeHours" min="0"></td>
                   <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removePriority(i)"><i class="fa fa-trash"></i></button></td>

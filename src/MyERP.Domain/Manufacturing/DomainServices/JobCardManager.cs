@@ -1444,6 +1444,77 @@ public class JobCardManager : DomainService
 
         return totalMinutes;
     }
+
+    /// <summary>
+    /// Resolves the hour rate for a corrective Job Card: keeps any manual rate until its workstation changes
+    /// from the baseline workstation (<c>previousSavedWorkstationId ?? amendedFromWorkstationId ?? sourceJobCardWorkstationId</c>),
+    /// and fetches the new workstation's rate once changed.
+    /// Per ERPNext commits <c>51abb93bdb</c> and <c>38b5cbe21a</c> (<c>job_card.py</c>).
+    /// </summary>
+    public static decimal ResolveCorrectiveJobCardHourRate(
+        decimal currentHourRate,
+        Guid? currentWorkstationId,
+        Guid? previousSavedWorkstationId,
+        Guid? amendedFromWorkstationId,
+        Guid? sourceJobCardWorkstationId,
+        Func<Guid, decimal>? fetchWorkstationHourRate)
+    {
+        var baselineWorkstation = previousSavedWorkstationId ?? amendedFromWorkstationId ?? sourceJobCardWorkstationId;
+        if (currentWorkstationId.HasValue
+            && currentWorkstationId != baselineWorkstation
+            && fetchWorkstationHourRate != null)
+        {
+            return fetchWorkstationHourRate(currentWorkstationId.Value);
+        }
+
+        return currentHourRate;
+    }
+
+    /// <summary>
+    /// Reconciles Job Card item rows in place when <c>ForQuantity</c> or <c>Operation</c> changes:
+    /// - Matched required items keep <c>RequiredQty = max(newRequiredQty, TransferredQty)</c> so lowering
+    ///   <c>ForQuantity</c> after a transfer never drops <c>RequiredQty</c> below already transferred qty.
+    /// - Existing rows no longer required by the operation are dropped when neither transferred nor consumed;
+    ///   rows with transferred or consumed stock are preserved.
+    /// Per ERPNext commits <c>c530d6f106</c> and <c>3b6942f4dd</c> (<c>job_card.py</c>).
+    /// </summary>
+    public static List<(Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty)> ReconcileJobCardItemsOnRescale(
+        IEnumerable<(Guid ItemId, decimal ExistingRequiredQty, decimal TransferredQty, decimal ConsumedQty)>? existingRows,
+        IReadOnlyDictionary<Guid, decimal>? newRequiredQtyByItemId)
+    {
+        var result = new List<(Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty)>();
+        var unmatched = existingRows != null
+            ? existingRows.ToList()
+            : new List<(Guid ItemId, decimal ExistingRequiredQty, decimal TransferredQty, decimal ConsumedQty)>();
+
+        if (newRequiredQtyByItemId != null)
+        {
+            foreach (var (itemId, newReqQty) in newRequiredQtyByItemId)
+            {
+                var idx = unmatched.FindIndex(r => r.ItemId == itemId);
+                if (idx >= 0)
+                {
+                    var row = unmatched[idx];
+                    unmatched.RemoveAt(idx);
+                    result.Add((row.ItemId, Math.Max(newReqQty, row.TransferredQty), row.TransferredQty, row.ConsumedQty));
+                }
+                else
+                {
+                    result.Add((itemId, newReqQty, 0m, 0m));
+                }
+            }
+        }
+
+        foreach (var leftover in unmatched)
+        {
+            if (leftover.TransferredQty != 0m || leftover.ConsumedQty != 0m)
+            {
+                result.Add((leftover.ItemId, leftover.ExistingRequiredQty, leftover.TransferredQty, leftover.ConsumedQty));
+            }
+        }
+
+        return result;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

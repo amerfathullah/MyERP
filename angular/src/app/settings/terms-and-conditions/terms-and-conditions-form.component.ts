@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { TermsAndConditionsService } from '../../proxy/core/terms-and-conditions.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -11,7 +12,7 @@ import type { CompanyDto } from '../../proxy/core/models';
 @Component({
   selector: 'app-terms-and-conditions-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -38,7 +39,7 @@ import type { CompanyDto } from '../../proxy/core/models';
 
           <div class="mb-3">
             <label class="form-label">Terms Content</label>
-            <textarea class="form-control font-monospace" formControlName="terms" rows="8" placeholder="Enter standard legal / commercial clauses..."></textarea>
+            <textarea class="form-control font-monospace" formControlName="terms" rows="8" [placeholder]="'::Placeholder:TermsAndConditionsClauses' | abpLocalization"></textarea>
             <small class="form-text text-muted">Legal terms, warranty conditions, payment timelines, and dispute clauses.</small>
           </div>
 
