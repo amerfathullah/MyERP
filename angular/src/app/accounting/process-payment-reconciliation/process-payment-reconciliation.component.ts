@@ -54,7 +54,7 @@ const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled'
               </div>
               <div class="col-md-5">
                 <label class="form-label">{{ '::ReceivablePayableAccount' | abpLocalization }}</label>
-                <input class="form-control form-control-sm" [(ngModel)]="draft.receivablePayableAccountId" placeholder="Account Id" />
+                <input class="form-control form-control-sm" [(ngModel)]="draft.receivablePayableAccountId" [placeholder]="'::Placeholder:AccountId' | abpLocalization" />
               </div>
             </div>
             <div class="d-flex gap-2">

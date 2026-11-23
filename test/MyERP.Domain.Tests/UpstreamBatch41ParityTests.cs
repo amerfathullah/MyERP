@@ -1889,6 +1889,138 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(1000m);
     }
 
+    [Fact]
+    public void UpstreamBatch15_DeliveryPartyId_BomHourRate_ScrFgShare_SeCancel_WoPickList_Parity()
+    {
+        // 1. MyInvois: DeliveryParty emits PartyIdentification (TIN, ID) when provided, omitted when absent
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-2026-0015",
+            IssueDate = new DateTime(2026, 7, 15, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Supplier Sdn Bhd", Tin = "C1111111111", Address = "Jalan 1", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer Sdn Bhd", Tin = "C2222222222", Address = "Jalan 2", City = "KL", State = "14", CountryCode = "MYS" },
+            Delivery = new MyERP.EInvoice.Services.EInvoiceDeliveryData
+            {
+                RecipientName = "Warehouse A",
+                Tin = "C3333333333",
+                IdType = "BRN",
+                IdValue = "202001012345",
+                Address = "Lot 9",
+                City = "Shah Alam",
+                State = "10",
+                PostalCode = "40000",
+                CountryCode = "MYS"
+            },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item A", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var deliveryParty = xml.Root!.Element(cac + "Delivery")!.Element(cac + "DeliveryParty")!;
+        deliveryParty.Elements(cac + "PartyIdentification")
+            .First(x => x.Element(cbc + "ID")!.Attribute("schemeID")!.Value == "TIN")
+            .Element(cbc + "ID")!.Value.ShouldBe("C3333333333");
+        deliveryParty.Elements(cac + "PartyIdentification")
+            .First(x => x.Element(cbc + "ID")!.Attribute("schemeID")!.Value == "BRN")
+            .Element(cbc + "ID")!.Value.ShouldBe("202001012345");
+
+        // 2. ERPNext 6d04024f6d / 07106a9125 / 0af88d7771 / 85124767ea / e86eeba24d / db5a3ce30f:
+        //    BOM operation hour_rate refetch on workstation change, currency rescale, precision rounding, null==empty, zero-rate guard
+        // Workstation changed (rate unchanged from previous) -> refetch new workstation rate & divide by conversion rate, rounded
+        MyERP.Manufacturing.Entities.BomOperation.ResolveUpdatedHourRate(
+            currentHourRate: 50m, previousHourRate: 50m,
+            previousWorkstation: "WS-1", currentWorkstation: "WS-2",
+            previousWorkstationType: null, currentWorkstationType: "",
+            previousConversionRate: 1m, currentConversionRate: 3m,
+            fetchWorkstationHourRateInCompanyCurrency: () => 100m,
+            precision: 2).ShouldBe(33.33m);
+        // Only conversion rate changed -> rescale to preserve company-currency rate (even manual rate)
+        MyERP.Manufacturing.Entities.BomOperation.ResolveUpdatedHourRate(
+            currentHourRate: 100m, previousHourRate: 100m,
+            previousWorkstation: "WS-1", currentWorkstation: "WS-1",
+            previousWorkstationType: null, currentWorkstationType: "",
+            previousConversionRate: 4m, currentConversionRate: 2m,
+            fetchWorkstationHourRateInCompanyCurrency: () => 999m,
+            precision: 2).ShouldBe(200m);
+        // Null vs empty workstation treated as unchanged (do not clear manual rate)
+        MyERP.Manufacturing.Entities.BomOperation.ResolveUpdatedHourRate(
+            currentHourRate: 75m, previousHourRate: 75m,
+            previousWorkstation: null, currentWorkstation: "",
+            previousWorkstationType: "", currentWorkstationType: null,
+            previousConversionRate: 1m, currentConversionRate: 1m,
+            fetchWorkstationHourRateInCompanyCurrency: () => 999m).ShouldBe(75m);
+        // Zero old or new conversion rate -> skip rescaling
+        MyERP.Manufacturing.Entities.BomOperation.ResolveUpdatedHourRate(
+            currentHourRate: 80m, previousHourRate: 80m,
+            previousWorkstation: "WS-1", currentWorkstation: "WS-1",
+            previousWorkstationType: null, currentWorkstationType: null,
+            previousConversionRate: 0m, currentConversionRate: 4m).ShouldBe(80m);
+
+        // 3. ERPNext 7938233f41: Non-return SCR gives FG 100 - sum(present % co-products); return keeps BOM share
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveFinishedGoodCostAllocationPercentage(isReturn: false, bomCostAllocationPercentage: 60m, receiptPercentageSecondaryAllocations: new[] { 15m })
+            .ShouldBe(85m);
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveFinishedGoodCostAllocationPercentage(isReturn: false, bomCostAllocationPercentage: 60m, receiptPercentageSecondaryAllocations: Array.Empty<decimal>())
+            .ShouldBe(100m);
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveFinishedGoodCostAllocationPercentage(isReturn: true, bomCostAllocationPercentage: 60m, receiptPercentageSecondaryAllocations: new[] { 15m })
+            .ShouldBe(60m);
+
+        // 4. ERPNext d12484abad: Block cancelling SendToSubcontractor OR reserved-components return when later entry moved reserved stock
+        var seEx1 = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Inventory.DomainServices.StockEntryManager.ValidateReservedStockNotMovedOn(
+                MyERP.Inventory.StockEntryType.SendToSubcontractor,
+                isReservedComponentsReturn: false,
+                hasLaterActiveReservationFromThisEntry: true,
+                subcontractingOrderNumber: "SCO-0001"));
+        seEx1.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        seEx1.Data["detail"]!.ToString()!.ShouldContain("SCO-0001");
+
+        var seEx2 = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Inventory.DomainServices.StockEntryManager.ValidateReservedStockNotMovedOn(
+                MyERP.Inventory.StockEntryType.MaterialTransfer,
+                isReservedComponentsReturn: true,
+                hasLaterActiveReservationFromThisEntry: true,
+                subcontractingOrderNumber: "SCO-0001"));
+        seEx2.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+
+        Should.NotThrow(() =>
+            MyERP.Inventory.DomainServices.StockEntryManager.ValidateReservedStockNotMovedOn(
+                MyERP.Inventory.StockEntryType.SendToSubcontractor,
+                isReservedComponentsReturn: false,
+                hasLaterActiveReservationFromThisEntry: false,
+                subcontractingOrderNumber: "SCO-0001"));
+
+        // 5. ERPNext 2511433013: Additional transfer entries excluded from Work Order Pick List transfer check
+        MyERP.Manufacturing.DomainServices.WorkOrderManager
+            .IsEligibleForWorkOrderPickListTransferCheck(
+                isSubmitted: true,
+                entryType: MyERP.Inventory.StockEntryType.MaterialTransferForManufacture,
+                isReturn: false,
+                isAdditionalTransferEntry: false,
+                fgCompletedQty: 0m,
+                jobCardId: null)
+            .ShouldBeTrue();
+        MyERP.Manufacturing.DomainServices.WorkOrderManager
+            .IsEligibleForWorkOrderPickListTransferCheck(
+                isSubmitted: true,
+                entryType: MyERP.Inventory.StockEntryType.MaterialTransferForManufacture,
+                isReturn: false,
+                isAdditionalTransferEntry: true,
+                fgCompletedQty: 0m,
+                jobCardId: null)
+            .ShouldBeFalse();
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

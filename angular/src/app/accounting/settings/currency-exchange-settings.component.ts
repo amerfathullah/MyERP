@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CurrencyExchangeSettingsService } from '../../proxy/accounting/currency-exchange-settings.service';
 import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-currency-exchange-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -37,7 +38,7 @@ import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/
 
             <div class="col-md-6 mb-3">
               <label class="form-label">Access Key (if required)</label>
-              <input type="text" class="form-control" formControlName="accessKey" placeholder="Access key or token">
+              <input type="text" class="form-control" formControlName="accessKey" [placeholder]="'::Placeholder:AccessKeyOrToken' | abpLocalization">
             </div>
 
             <div class="col-12 mb-3">

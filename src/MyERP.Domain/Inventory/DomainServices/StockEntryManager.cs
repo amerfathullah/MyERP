@@ -2573,4 +2573,28 @@ public class StockEntryManager : DomainService
 
         return (SkipVoucher: false, StopRepost: unchanged);
     }
+
+    /// <summary>
+    /// Blocks cancelling a Subcontracting Stock Entry (either <see cref="StockEntryType.SendToSubcontractor"/>
+    /// or a reserved-components return) when a later entry against the same Subcontracting Order has already
+    /// moved the stock this entry reserved (an active submitted <c>StockReservationEntry</c> references this entry
+    /// via <c>from_voucher_no</c>).
+    /// Per ERPNext commit <c>d12484abad</c> (<c>validate_reserved_stock_not_moved_on</c> in <c>stock_entry.py</c>).
+    /// </summary>
+    public static void ValidateReservedStockNotMovedOn(
+        StockEntryType entryType,
+        bool isReservedComponentsReturn,
+        bool hasLaterActiveReservationFromThisEntry,
+        string? subcontractingOrderNumber = null)
+    {
+        if ((entryType == StockEntryType.SendToSubcontractor || isReservedComponentsReturn)
+            && hasLaterActiveReservationFromThisEntry)
+        {
+            var orderLabel = string.IsNullOrWhiteSpace(subcontractingOrderNumber)
+                ? "the Subcontracting Order"
+                : subcontractingOrderNumber;
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"A later entry against {orderLabel} moved the stock this entry reserved. Cancel it first.");
+        }
+    }
 }

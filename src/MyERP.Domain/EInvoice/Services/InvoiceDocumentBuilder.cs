@@ -603,6 +603,24 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildDelivery(EInvoiceDeliveryData delivery)
     {
+        var deliveryParty = new XElement(Cac + "DeliveryParty");
+
+        // Per myinvois purchase_invoice.py & consolidate_invoice.py: emit DeliveryParty PartyIdentification (TIN, ID) when supplied
+        if (!string.IsNullOrWhiteSpace(delivery.Tin))
+        {
+            deliveryParty.Add(new XElement(Cac + "PartyIdentification",
+                new XElement(Cbc + "ID", new XAttribute("schemeID", "TIN"), delivery.Tin)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(delivery.IdType) && !string.IsNullOrWhiteSpace(delivery.IdValue))
+        {
+            deliveryParty.Add(new XElement(Cac + "PartyIdentification",
+                new XElement(Cbc + "ID", new XAttribute("schemeID", delivery.IdType), delivery.IdValue)));
+        }
+
+        deliveryParty.Add(new XElement(Cac + "PartyLegalEntity",
+            new XElement(Cbc + "RegistrationName", delivery.RecipientName ?? "")));
+
         return new XElement(Cac + "Delivery",
             new XElement(Cac + "DeliveryAddress",
                 new XElement(Cac + "AddressLine",
@@ -612,9 +630,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State, delivery.CountryCode)),
                 new XElement(Cac + "Country",
                     new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(delivery.CountryCode)))),
-            new XElement(Cac + "DeliveryParty",
-                new XElement(Cac + "PartyLegalEntity",
-                    new XElement(Cbc + "RegistrationName", delivery.RecipientName ?? ""))));
+            deliveryParty);
     }
 
     private XElement BuildPaymentMeans(EInvoicePaymentData payment)
@@ -691,6 +707,9 @@ public class EInvoicePartyData
 public class EInvoiceDeliveryData
 {
     public string? RecipientName { get; set; }
+    public string? Tin { get; set; }
+    public string? IdType { get; set; }
+    public string? IdValue { get; set; }
     public string? Address { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }

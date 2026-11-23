@@ -172,4 +172,63 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
 
         return Math.Round(timePerUnit * qty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves a BOM operation row's <c>hour_rate</c> on save/update per ERPNext commits
+    /// <c>6d04024f6d</c>, <c>07106a9125</c>, <c>0af88d7771</c>, <c>85124767ea</c>, <c>e86eeba24d</c>, and <c>db5a3ce30f</c>:
+    /// - When the row's <c>hour_rate</c> was not manually changed from its saved value:
+    ///   - Changing workstation or workstation type (treating <c>null</c> and <c>""</c> as equal) clears
+    ///     <c>hour_rate</c> to <c>0</c> so it is re-fetched from the new workstation/type.
+    ///   - Changing BOM conversion rate (when both old and new rates are non-zero) rescales
+    ///     <c>hour_rate</c> to preserve the company-currency rate, including manual rates.
+    /// - When <c>hour_rate</c> is 0 or <paramref name="forceUpdateHourRate"/> is true, fetches the workstation
+    ///   company-currency rate and divides by <paramref name="currentConversionRate"/> (or 1 if 0), rounded to
+    ///   <paramref name="precision"/>.
+    /// </summary>
+    public static decimal ResolveUpdatedHourRate(
+        decimal currentHourRate,
+        decimal? previousHourRate,
+        string? previousWorkstation,
+        string? currentWorkstation,
+        string? previousWorkstationType,
+        string? currentWorkstationType,
+        decimal previousConversionRate,
+        decimal currentConversionRate,
+        Func<decimal>? fetchWorkstationHourRateInCompanyCurrency = null,
+        bool forceUpdateHourRate = false,
+        int precision = 2)
+    {
+        var resolvedRate = currentHourRate;
+
+        if (previousHourRate.HasValue && previousHourRate.Value == currentHourRate)
+        {
+            var workstationChanged =
+                !string.Equals(previousWorkstation ?? string.Empty, currentWorkstation ?? string.Empty, StringComparison.Ordinal) ||
+                !string.Equals(previousWorkstationType ?? string.Empty, currentWorkstationType ?? string.Empty, StringComparison.Ordinal);
+
+            if (workstationChanged)
+            {
+                resolvedRate = 0m;
+            }
+            else if (previousConversionRate != 0m && currentConversionRate != 0m && previousConversionRate != currentConversionRate)
+            {
+                resolvedRate = Math.Round(
+                    resolvedRate * previousConversionRate / currentConversionRate,
+                    precision,
+                    MidpointRounding.AwayFromZero);
+            }
+        }
+
+        if ((resolvedRate == 0m || forceUpdateHourRate) && fetchWorkstationHourRateInCompanyCurrency != null)
+        {
+            var wsRate = fetchWorkstationHourRateInCompanyCurrency();
+            if (wsRate != 0m)
+            {
+                var divisor = currentConversionRate != 0m ? currentConversionRate : 1m;
+                resolvedRate = Math.Round(wsRate / divisor, precision, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        return resolvedRate;
+    }
 }

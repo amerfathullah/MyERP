@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { AccountsSettingsService } from '../../proxy/accounting/accounts-settings.service';
 
 @Component({
   selector: 'app-accounts-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -91,7 +92,7 @@ import { AccountsSettingsService } from '../../proxy/accounting/accounts-setting
                 </div>
                 <div class="col-md-4 mb-3">
                   <label class="form-label">Credit Controller Role</label>
-                  <input type="text" class="form-control" formControlName="creditControllerRole" placeholder="Accounts Manager">
+                  <input type="text" class="form-control" formControlName="creditControllerRole" [placeholder]="'::Placeholder:AccountsManager' | abpLocalization">
                 </div>
                 <div class="col-md-4 mb-3">
                   <div class="form-check form-switch mt-4">

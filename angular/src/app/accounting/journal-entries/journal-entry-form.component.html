@@ -60,7 +60,7 @@
                 <option value="SalesOrder">{{ '::SalesOrder' | abpLocalization }}</option>
                 <option value="PurchaseOrder">{{ '::PurchaseOrder' | abpLocalization }}</option>
               </select>
-              <input type="text" class="form-control" [(ngModel)]="sourceDocId" [ngModelOptions]="{ standalone: true }" placeholder="Document ID" />
+              <input type="text" class="form-control" [(ngModel)]="sourceDocId" [ngModelOptions]="{ standalone: true }" [placeholder]="'::Placeholder:DocumentId' | abpLocalization" />
               <button type="button" class="btn btn-outline-primary" [disabled]="loadingDocTemplate() || !sourceDocId.trim()" (click)="loadFromSourceDocument()">
                 <i class="fa fa-download me-1"></i>{{ '::LoadFromDocument' | abpLocalization }}
               </button>

@@ -22,7 +22,7 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" placeholder="Filter by bank name..." [(ngModel)]="filter" (ngModelChange)="load()">
+            <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:FilterByBankName' | abpLocalization" [(ngModel)]="filter" (ngModelChange)="load()">
           </div>
         </div>
 

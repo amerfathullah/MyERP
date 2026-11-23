@@ -1002,6 +1002,29 @@ public class WorkOrderManager : DomainService
 
         return entries;
     }
+
+    /// <summary>
+    /// Determines whether a Stock Entry counts toward the Work Order's Pick List transfer check:
+    /// requires a submitted, non-return, non-additional <see cref="StockEntryType.MaterialTransferForManufacture"/>
+    /// with <c>fgCompletedQty == 0</c> and no linked <c>jobCardId</c>, so additional transfer entries do not
+    /// skew Pick List required-item checks.
+    /// Per ERPNext commit <c>2511433013</c> (<c>work_order/services/required_items.py</c>).
+    /// </summary>
+    public static bool IsEligibleForWorkOrderPickListTransferCheck(
+        bool isSubmitted,
+        StockEntryType entryType,
+        bool isReturn,
+        bool isAdditionalTransferEntry,
+        decimal fgCompletedQty,
+        Guid? jobCardId)
+    {
+        return isSubmitted
+            && entryType == StockEntryType.MaterialTransferForManufacture
+            && !isReturn
+            && !isAdditionalTransferEntry
+            && fgCompletedQty == 0m
+            && !jobCardId.HasValue;
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

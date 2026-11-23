@@ -2396,6 +2396,28 @@ public class SubcontractingManager : DomainService
 
         return existingRatio;
     }
+
+    /// <summary>
+    /// Resolves the cost-allocation percentage attributed to the finished good row on a Subcontracting Receipt:
+    /// - On a return (<paramref name="isReturn"/> = true), uses <paramref name="bomCostAllocationPercentage"/>
+    ///   so the return gives back the finished good at its receipt share.
+    /// - On a regular receipt, uses <c>100 - sum(receiptPercentageSecondaryAllocations)</c> so the share of any
+    ///   percentage-based co-products omitted from the receipt is absorbed by the finished good instead of lost.
+    /// Per ERPNext commit <c>7938233f41</c> (<c>subcontracting_receipt.py</c>).
+    /// </summary>
+    public static decimal ResolveFinishedGoodCostAllocationPercentage(
+        bool isReturn,
+        decimal bomCostAllocationPercentage,
+        IEnumerable<decimal>? receiptPercentageSecondaryAllocations)
+    {
+        if (isReturn)
+        {
+            return bomCostAllocationPercentage;
+        }
+
+        var allocatedSecondaryPct = receiptPercentageSecondaryAllocations?.Sum() ?? 0m;
+        return 100m - allocatedSecondaryPct;
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

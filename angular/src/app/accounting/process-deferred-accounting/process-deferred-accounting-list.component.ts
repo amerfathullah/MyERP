@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ProcessDeferredAccountingService } from '../../proxy/accounting/process-deferred-accounting.service';
 import { DeferredAccountingType } from '../../proxy/accounting/deferred-accounting-type.enum';
 import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
@@ -9,7 +10,7 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
 @Component({
   selector: 'app-process-deferred-accounting-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -22,7 +23,7 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
       <div class="card-body">
         <div class="row g-2 mb-3">
           <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" placeholder="Search by number..."
+            <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:SearchByNumber' | abpLocalization"
               [(ngModel)]="filterText" (ngModelChange)="loadList()">
           </div>
           <div class="col-md-3">

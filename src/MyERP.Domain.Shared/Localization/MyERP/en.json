@@ -6676,7 +6676,21 @@
     "ClearLocation": "Clear Location",
     "ChequeLayoutPreview": "Cheque Layout Preview",
     "LowerDeductionCertificate": "Lower Deduction Certificate",
-    "ReadyForPayment": "Ready for Payment"
+    "ReadyForPayment": "Ready for Payment",
+    "Placeholder:AccountSubtypeDescription": "Description of this account subtype...",
+    "Placeholder:FilterBySubtype": "Filter by subtype...",
+    "Placeholder:AccountClassificationDescription": "Description of this account classification...",
+    "Placeholder:FilterByType": "Filter by type...",
+    "Placeholder:FilterByBankNameOrSwift": "Filter by bank name, SWIFT...",
+    "Placeholder:SearchByNumberOrUser": "Search by number or user...",
+    "Placeholder:FilterByBankName": "Filter by bank name...",
+    "Placeholder:DocumentId": "Document ID",
+    "Placeholder:SearchByNumber": "Search by number...",
+    "Placeholder:AccountsManager": "Accounts Manager",
+    "Placeholder:AccessKeyOrToken": "Access key or token",
+    "Placeholder:FilterByUuidOrNumber": "Filter by UUID or number...",
+    "Placeholder:MyInvoisClientId": "MyInvois Client ID",
+    "Placeholder:Base64PfxCertificate": "Paste base64-encoded PFX certificate here..."
   }
 }
 

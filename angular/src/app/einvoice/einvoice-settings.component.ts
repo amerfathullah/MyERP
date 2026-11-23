@@ -66,11 +66,11 @@ import type { EInvoiceConnectionStatusDto } from '../proxy/einvoice/models';
             <div class="row g-3">
               <div class="col-md-5">
                 <label class="form-label">Client ID *</label>
-                <input class="form-control font-monospace" formControlName="clientId" placeholder="MyInvois Client ID" />
+                <input class="form-control font-monospace" formControlName="clientId" [placeholder]="'::Placeholder:MyInvoisClientId' | abpLocalization" />
               </div>
               <div class="col-md-5">
                 <label class="form-label">Client Secret</label>
-                <input type="password" class="form-control font-monospace" formControlName="clientSecret" placeholder="Leave blank to keep existing" />
+                <input type="password" class="form-control font-monospace" formControlName="clientSecret" [placeholder]="'::Placeholder:LeaveBlankToKeep' | abpLocalization" />
               </div>
               <div class="col-md-2">
                 <label class="form-label">Environment</label>
@@ -99,7 +99,7 @@ import type { EInvoiceConnectionStatusDto } from '../proxy/einvoice/models';
               <div class="col-12">
                 <label class="form-label">Certificate (Base64 PFX/P12) *</label>
                 <textarea class="form-control font-monospace" formControlName="certificateBase64" rows="4"
-                  placeholder="Paste base64-encoded PFX certificate here..."></textarea>
+                  [placeholder]="'::Placeholder:Base64PfxCertificate' | abpLocalization"></textarea>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Certificate Password</label>

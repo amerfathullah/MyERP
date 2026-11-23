@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BankAccountSubtypeService } from '../../proxy/accounting/bank-account-subtype.service';
 import { BankAccountSubtypeDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-bank-account-subtype-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -20,7 +21,7 @@ import { BankAccountSubtypeDto } from '../../proxy/accounting/models';
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" placeholder="Filter by subtype..." [(ngModel)]="filter" (ngModelChange)="load()">
+            <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:FilterBySubtype' | abpLocalization" [(ngModel)]="filter" (ngModelChange)="load()">
           </div>
         </div>
 
