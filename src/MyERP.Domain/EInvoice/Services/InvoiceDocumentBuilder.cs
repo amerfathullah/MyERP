@@ -70,7 +70,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         invoice.Add(BuildSupplierParty(data.Supplier));
 
         // Buyer (AccountingCustomerParty)
-        invoice.Add(BuildCustomerParty(data.Buyer));
+        invoice.Add(BuildCustomerParty(data.Buyer, data.IsConsolidated));
 
         // Delivery (shipping address — per LHDN spec)
         if (data.Delivery != null)
@@ -357,8 +357,47 @@ public class InvoiceDocumentBuilder : ITransientDependency
         return party;
     }
 
-    private XElement BuildCustomerParty(EInvoicePartyData buyer)
+    private XElement BuildCustomerParty(EInvoicePartyData buyer, bool isConsolidated = false)
     {
+        if (isConsolidated)
+        {
+            var consTin = !string.IsNullOrWhiteSpace(buyer.Tin) ? buyer.Tin.Trim() : "EI00000000010";
+            var consIdType = !string.IsNullOrWhiteSpace(buyer.IdType) ? buyer.IdType.Trim() : "BRN";
+            var consIdValue = !string.IsNullOrWhiteSpace(buyer.IdValue) ? buyer.IdValue.Trim() : "NA";
+            var consSst = !string.IsNullOrWhiteSpace(buyer.SstRegistration) ? buyer.SstRegistration.Trim() : "NA";
+            var consTtx = !string.IsNullOrWhiteSpace(buyer.TourismTaxNumber) ? buyer.TourismTaxNumber.Trim() : "NA";
+            var consAddress = !string.IsNullOrWhiteSpace(buyer.Address) ? buyer.Address.Trim() : "NA";
+            var consName = !string.IsNullOrWhiteSpace(buyer.Name) ? buyer.Name.Trim() : "Consolidated Buyers";
+            var consPhone = !string.IsNullOrWhiteSpace(buyer.Phone) ? buyer.Phone.Trim() : "NA";
+            var consEmail = !string.IsNullOrWhiteSpace(buyer.Email) ? buyer.Email.Trim() : "NA";
+
+            // Per myinvois consolidate_invoice.py (customer_data_consolidate):
+            // Consolidated e-Invoices require TIN EI00000000010, BRN/SST/TTX/Address/Contact = "NA", Country = "MYS".
+            return new XElement(Cac + "AccountingCustomerParty",
+                new XElement(Cac + "Party",
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", "TIN"), consTin)),
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", consIdType), consIdValue)),
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", "SST"), consSst)),
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", "TTX"), consTtx)),
+                    new XElement(Cac + "PostalAddress",
+                        new XElement(Cac + "AddressLine",
+                            new XElement(Cbc + "Line", consAddress)),
+                        new XElement(Cbc + "CityName", buyer.City ?? ""),
+                        new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
+                        new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(buyer.State, "MYS")),
+                        new XElement(Cac + "Country",
+                            new XElement(Cbc + "IdentificationCode", "MYS"))),
+                    new XElement(Cac + "PartyLegalEntity",
+                        new XElement(Cbc + "RegistrationName", consName)),
+                    new XElement(Cac + "Contact",
+                        new XElement(Cbc + "Telephone", consPhone),
+                        new XElement(Cbc + "ElectronicMail", consEmail))));
+        }
+
         var (resolvedTin, resolvedState, resolvedCountry) = ResolveBuyerTinAndStateForCountry(
             buyer.Tin, buyer.State, buyer.CountryCode);
         var party = new XElement(Cac + "AccountingCustomerParty",

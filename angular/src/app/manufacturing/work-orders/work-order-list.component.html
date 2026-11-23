@@ -119,7 +119,7 @@
                   </td>
                   <td><app-status-badge [status]="getStatusLabel(row.status ?? 0)" /></td>
                   <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary" [routerLink]="['/manufacturing/work-orders', row.id]" title="View">
+                    <button class="btn btn-sm btn-outline-primary" [routerLink]="['/manufacturing/work-orders', row.id]" [title]="'::View' | abpLocalization">
                       <i class="fa fa-eye"></i>
                     </button>
                   </td>

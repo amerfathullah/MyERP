@@ -73,7 +73,7 @@
                   <td class="text-end">{{ plan.plannedItems?.length ?? 0 }}</td>
                   <td><app-status-badge [status]="getStatusLabel(plan.status)" /></td>
                   <td class="text-end">
-                    <a [routerLink]="['/manufacturing/production-plans', plan.id]" class="btn btn-sm btn-outline-primary" title="View">
+                    <a [routerLink]="['/manufacturing/production-plans', plan.id]" class="btn btn-sm btn-outline-primary" [title]="'::View' | abpLocalization">
                       <i class="fa fa-eye"></i>
                     </a>
                   </td>

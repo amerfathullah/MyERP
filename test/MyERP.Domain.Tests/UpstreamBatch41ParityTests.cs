@@ -1329,6 +1329,112 @@ public class UpstreamBatch41ParityTests
         dnVal.RowUomRate.ShouldBe(60m);
     }
 
+    [Fact]
+    public void UpstreamBatch8_MyInvoisConsolidatedBuyer_ReservationCancelReplay_NestedSubAssemblyCoProducts_Parity()
+    {
+        // 1. MyInvois consolidate_invoice.py: consolidated buyer emits TIN EI00000000010, BRN/SST/TTX/Address/Contact = NA, MYS
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var consXml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "CONS-2026-01",
+            IssueDate = new DateTime(2026, 7, 1, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            IsConsolidated = true,
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Seller Sdn Bhd", Tin = "C1000", CountryCode = "MYS", State = "14" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData(), // blank buyer fields
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Receipt #1", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var buyerParty = consXml.Root!.Element(cac + "AccountingCustomerParty")!.Element(cac + "Party")!;
+        string GetPartyId(string scheme) => buyerParty.Elements(cac + "PartyIdentification")
+            .First(x => x.Element(cbc + "ID")!.Attribute("schemeID")!.Value == scheme)
+            .Element(cbc + "ID")!.Value;
+        GetPartyId("TIN").ShouldBe("EI00000000010");
+        GetPartyId("BRN").ShouldBe("NA");
+        GetPartyId("SST").ShouldBe("NA");
+        GetPartyId("TTX").ShouldBe("NA");
+        buyerParty.Element(cac + "PartyLegalEntity")!.Element(cbc + "RegistrationName")!.Value.ShouldBe("Consolidated Buyers");
+        buyerParty.Element(cac + "Contact")!.Element(cbc + "Telephone")!.Value.ShouldBe("NA");
+        buyerParty.Element(cac + "Contact")!.Element(cbc + "ElectronicMail")!.Value.ShouldBe("NA");
+        buyerParty.Element(cac + "PostalAddress")!.Element(cac + "AddressLine")!.Element(cbc + "Line")!.Value.ShouldBe("NA");
+
+        // 2. ERPNext a2c2bc92c2 + f4a3af2745: replay submits & earlier cancels in order; cancelling V1 reopens ONLY SRE1, keeping V2 on SRE2
+        var t0 = new DateTime(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
+        var sre1 = Guid.NewGuid();
+        var sre2 = Guid.NewGuid();
+        var v1 = Guid.NewGuid();
+        var v2 = Guid.NewGuid();
+        var v0CancelledEarlier = Guid.NewGuid();
+        var replayed = MyERP.Inventory.DomainServices.StockReservationManager.ReplayReservationUsageOnCancel(
+            reservations: new[]
+            {
+                (sre1, t0, 5m),
+                (sre2, t0.AddMinutes(1), 5m),
+            },
+            usages: new[]
+            {
+                (v0CancelledEarlier, t0.AddMinutes(2), (DateTime?)t0.AddMinutes(3), 5m), // took SRE1 then released before V1
+                (v1, t0.AddMinutes(4), (DateTime?)t0.AddMinutes(10), 5m),               // took SRE1, now cancelling
+                (v2, t0.AddMinutes(5), (DateTime?)null, 5m),                            // took SRE2, stays on SRE2
+            },
+            cancelledVoucherId: v1);
+        replayed[sre1].ShouldBe(0m);
+        replayed[sre2].ShouldBe(5m);
+
+        // 3. ERPNext 07915b5632 + f0483b53a5 + 83976ff833: subcontracted qty excluded ONLY on new WO reservations
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .CalculateWorkOrderAllowedReservationQty(10m, subcontractedQty: 4m, alreadyReservedQty: 2m, consumedQty: 0m, transferredQty: 0m, isNewReservation: true)
+            .ShouldBe(4m); // 10 - 4 - 2 = 4
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .CalculateWorkOrderAllowedReservationQty(10m, subcontractedQty: 4m, alreadyReservedQty: 2m, consumedQty: 0m, transferredQty: 0m, isNewReservation: false)
+            .ShouldBe(8m); // existing reservation keeps full 10 - 2 = 8
+
+        // 4. ERPNext 05b5ca5548: nested sub-assembly secondary items scale by parent qty at every level
+        var rootBom = Guid.NewGuid();
+        var midBom = Guid.NewGuid();
+        var innerBom = Guid.NewGuid();
+        var midSecItem = Guid.NewGuid();
+        var innerSecItem = Guid.NewGuid();
+        var scaledSecs = MyERP.Inventory.DomainServices.StockEntryManager.ScaleNestedSubAssemblySecondaryItems(
+            rootBomId: rootBom,
+            rootQty: 3m,
+            subAssembliesByBom: new System.Collections.Generic.Dictionary<Guid, System.Collections.Generic.IReadOnlyList<(Guid, decimal)>>
+            {
+                [rootBom] = new[] { (midBom, 2m) },  // 3 * 2 = 6 midBom
+                [midBom] = new[] { (innerBom, 4m) }, // 6 * 4 = 24 innerBom
+            },
+            secondaryItemsByBom: new System.Collections.Generic.Dictionary<Guid, System.Collections.Generic.IReadOnlyList<(Guid, decimal)>>
+            {
+                [midBom] = new[] { (midSecItem, 0.5m) },     // 6 * 0.5 = 3
+                [innerBom] = new[] { (innerSecItem, 0.25m) }, // 24 * 0.25 = 6
+            });
+        scaledSecs.Single(x => x.ItemId == midSecItem).ScaledQty.ShouldBe(3m);
+        scaledSecs.Single(x => x.ItemId == innerSecItem).ScaledQty.ShouldBe(6m);
+
+        // 5. ERPNext 7df8a18e13 + 7949464d7e: outer sub-assembly co-product basis deducts ONLY own ValuationRate/Manual + inner sub-assembly rows (not sibling BOMs)
+        var siblingBom = Guid.NewGuid();
+        var netBasis = MyERP.Inventory.DomainServices.StockEntryManager.CalculateOuterCoProductNetCostBasis(
+            bomId: midBom,
+            grossComponentCost: 1000m,
+            subAssemblyBomIdsUnderBom: new System.Collections.Generic.HashSet<Guid> { innerBom },
+            secondaryRows: new[]
+            {
+                (innerBom, MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, 120m), // deducted (nested under midBom)
+                (midBom, MyERP.Manufacturing.SecondaryItemValuationType.Manual, 80m),                        // deducted (own Manual)
+                (midBom, MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, 200m),    // NOT deducted (own %)
+                (siblingBom, MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, 300m),// NOT deducted (sibling BOM)
+            });
+        netBasis.ShouldBe(800m); // 1000 - 120 - 80
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

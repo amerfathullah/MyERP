@@ -100,13 +100,13 @@
                     <div class="btn-group btn-group-sm">
                       @if (row.status === 'Draft') {
                         <button class="btn btn-outline-primary" (click)="store.submit(row.id)"
-                          title="Submit" aria-label="Submit">
+                          [title]="'::Submit' | abpLocalization" [attr.aria-label]="'::Submit' | abpLocalization">
                           <i class="fa fa-paper-plane"></i>
                         </button>
                       }
                       @if (row.status === 'Submitted') {
                         <button class="btn btn-outline-success" (click)="store.postEntry(row.id)"
-                          title="Post" aria-label="Post">
+                          [title]="'::Post' | abpLocalization" [attr.aria-label]="'::Post' | abpLocalization">
                           <i class="fa fa-check-circle"></i>
                         </button>
                       }

@@ -83,7 +83,7 @@
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" [routerLink]="[item.id, 'edit']"
-                        title="Edit" aria-label="Edit">
+                        [title]="'::Edit' | abpLocalization" [attr.aria-label]="'::Edit' | abpLocalization">
                         <i class="fa fa-pencil"></i>
                       </button>
                     </div>

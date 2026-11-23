@@ -59,12 +59,12 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
                   <td>
                     <div class="btn-group btn-group-sm">
                       @if (item.status === 0) {
-                        <button class="btn btn-outline-success" (click)="submit(item.id)" title="Submit">
+                        <button class="btn btn-outline-success" (click)="submit(item.id)" [title]="'::Submit' | abpLocalization">
                           <i class="fa fa-check"></i>
                         </button>
                       }
                       @if (item.status === 1) {
-                        <button class="btn btn-outline-danger" (click)="cancelEntry(item.id)" title="Cancel">
+                        <button class="btn btn-outline-danger" (click)="cancelEntry(item.id)" [title]="'::Cancel' | abpLocalization">
                           <i class="fa fa-times"></i>
                         </button>
                       }

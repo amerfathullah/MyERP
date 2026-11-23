@@ -96,7 +96,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
                       <td class="text-end font-monospace">{{ jc.totalTimeInMins | number:'1.0-0' }} min</td>
                       <td><span class="badge" [ngClass]="getStatusClass(jc.status)">{{ getStatusLabel(jc.status) }}</span></td>
                       <td class="text-end">
-                        <a [routerLink]="['/manufacturing/job-cards', jc.id]" class="btn btn-sm btn-outline-primary" title="View">
+                        <a [routerLink]="['/manufacturing/job-cards', jc.id]" class="btn btn-sm btn-outline-primary" [title]="'::View' | abpLocalization">
                           <i class="fa fa-eye"></i>
                         </a>
                       </td>

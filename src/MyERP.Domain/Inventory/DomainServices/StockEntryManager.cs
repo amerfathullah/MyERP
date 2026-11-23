@@ -2392,4 +2392,91 @@ public class StockEntryManager : DomainService
 
         return Math.Max(Math.Round(Math.Min(maxPending, pendingToProduce), precision, MidpointRounding.AwayFromZero), 0m);
     }
+
+    /// <summary>
+    /// Recursively collects and scales secondary items (co-products/scrap) of every nested sub-assembly BOM
+    /// under <paramref name="rootBomId"/> by the cumulative parent sub-assembly quantity at each level.
+    /// Per ERPNext commit <c>05b5ca5548</c> (<c>get_secondary_items_from_sub_assemblies</c>).
+    /// </summary>
+    public static List<(Guid SourceBomId, Guid ItemId, decimal ScaledQty)> ScaleNestedSubAssemblySecondaryItems(
+        Guid rootBomId,
+        decimal rootQty,
+        IReadOnlyDictionary<Guid, IReadOnlyList<(Guid SubBomId, decimal QtyPerParentUnit)>>? subAssembliesByBom,
+        IReadOnlyDictionary<Guid, IReadOnlyList<(Guid ItemId, decimal QtyPerUnit)>>? secondaryItemsByBom,
+        int precision = 4)
+    {
+        var result = new List<(Guid SourceBomId, Guid ItemId, decimal ScaledQty)>();
+        if (rootQty <= 0m || subAssembliesByBom == null)
+        {
+            return result;
+        }
+
+        var visited = new HashSet<Guid> { rootBomId };
+        Collect(rootBomId, rootQty);
+        return result;
+
+        void Collect(Guid bomId, decimal parentQty)
+        {
+            if (!subAssembliesByBom.TryGetValue(bomId, out var children))
+                return;
+
+            foreach (var (subBomId, qtyPerUnit) in children)
+            {
+                var subQty = parentQty * qtyPerUnit;
+                if (subQty <= 0m) continue;
+
+                if (secondaryItemsByBom != null && secondaryItemsByBom.TryGetValue(subBomId, out var secs))
+                {
+                    foreach (var (itemId, secPerUnit) in secs)
+                    {
+                        var scaled = Math.Round(subQty * secPerUnit, precision, MidpointRounding.AwayFromZero);
+                        if (scaled > 0m)
+                        {
+                            result.Add((subBomId, itemId, scaled));
+                        }
+                    }
+                }
+
+                if (visited.Add(subBomId))
+                {
+                    Collect(subBomId, subQty);
+                    visited.Remove(subBomId);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes the net component cost basis available for percentage co-products of <paramref name="bomId"/>:
+    /// deducts <paramref name="bomId"/>'s own <c>ValuationRate</c>/<c>Manual</c> secondary items AND every
+    /// secondary item belonging to sub-assembly BOMs nested underneath <paramref name="bomId"/> (ignoring
+    /// secondary items of unrelated sibling BOMs), matching inner-BOM-first deduction order.
+    /// Per ERPNext commits <c>7df8a18e13</c> and <c>7949464d7e</c> (<c>get_secondary_items_cost_within</c>).
+    /// </summary>
+    public static decimal CalculateOuterCoProductNetCostBasis(
+        Guid bomId,
+        decimal grossComponentCost,
+        IReadOnlySet<Guid>? subAssemblyBomIdsUnderBom,
+        IEnumerable<(Guid SourceBomId, Manufacturing.SecondaryItemValuationType ValuationType, decimal BasicAmount)>? secondaryRows,
+        int precision = 4)
+    {
+        var deduction = 0m;
+        if (secondaryRows != null)
+        {
+            foreach (var row in secondaryRows)
+            {
+                var isUnderSubAssembly = subAssemblyBomIdsUnderBom != null && subAssemblyBomIdsUnderBom.Contains(row.SourceBomId);
+                var isOwnCostedOut = row.SourceBomId == bomId
+                    && row.ValuationType is Manufacturing.SecondaryItemValuationType.ValuationRate
+                        or Manufacturing.SecondaryItemValuationType.Manual;
+
+                if (isUnderSubAssembly || isOwnCostedOut)
+                {
+                    deduction += row.BasicAmount;
+                }
+            }
+        }
+
+        return Math.Round(Math.Max(grossComponentCost - deduction, 0m), precision, MidpointRounding.AwayFromZero);
+    }
 }

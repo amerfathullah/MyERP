@@ -1970,6 +1970,127 @@ public class StockReservationManager : DomainService
 
         return picked;
     }
+
+    /// <summary>
+    /// Replays stock reservation usage across submits and earlier cancels in chronological order
+    /// (<c>(EventTime, IsCancel)</c>), keeping <paramref name="cancelledVoucherId"/> in place during replay
+    /// so later vouchers remain attached to the reservations they originally consumed, and then reverses
+    /// ONLY <paramref name="cancelledVoucherId"/>'s shares.
+    /// Per ERPNext commits <c>a2c2bc92c2</c> and <c>f4a3af2745</c> (<c>replay_reservation_usage</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> ReplayReservationUsageOnCancel(
+        IEnumerable<(Guid ReservationId, DateTime CreatedAt, decimal ReservedQty)>? reservations,
+        IEnumerable<(Guid VoucherId, DateTime SubmittedAt, DateTime? CancelledAt, decimal Qty)>? usages,
+        Guid cancelledVoucherId,
+        int precision = 4)
+    {
+        var usedBySre = new Dictionary<Guid, decimal>();
+        if (reservations == null)
+        {
+            return usedBySre;
+        }
+
+        var sreList = reservations.OrderBy(r => r.CreatedAt).ToList();
+        var capBySre = new Dictionary<Guid, decimal>();
+        foreach (var sre in sreList)
+        {
+            capBySre[sre.ReservationId] = sre.ReservedQty;
+            usedBySre[sre.ReservationId] = 0m;
+        }
+
+        if (usages == null)
+        {
+            return usedBySre;
+        }
+
+        var usageList = usages.ToList();
+        var sharesByVoucher = new Dictionary<Guid, List<(Guid ReservationId, decimal Share)>>();
+
+        var events = new List<(DateTime Time, bool IsCancel, Guid VoucherId, DateTime SubmittedAt, decimal Qty)>();
+        foreach (var u in usageList)
+        {
+            events.Add((u.SubmittedAt, false, u.VoucherId, u.SubmittedAt, u.Qty));
+            if (u.CancelledAt.HasValue && u.VoucherId != cancelledVoucherId)
+            {
+                events.Add((u.CancelledAt.Value, true, u.VoucherId, u.SubmittedAt, u.Qty));
+            }
+        }
+
+        foreach (var ev in events.OrderBy(e => e.Time).ThenBy(e => e.IsCancel))
+        {
+            if (ev.IsCancel)
+            {
+                if (sharesByVoucher.TryGetValue(ev.VoucherId, out var shares))
+                {
+                    foreach (var (sreId, share) in shares)
+                    {
+                        usedBySre[sreId] = Math.Max(0m, usedBySre[sreId] - share);
+                    }
+                }
+            }
+            else
+            {
+                var remaining = ev.Qty;
+                if (!sharesByVoucher.TryGetValue(ev.VoucherId, out var shares))
+                {
+                    shares = new List<(Guid, decimal)>();
+                    sharesByVoucher[ev.VoucherId] = shares;
+                }
+
+                foreach (var sre in sreList)
+                {
+                    if (remaining <= 0m) break;
+                    if (sre.CreatedAt >= ev.SubmittedAt) continue;
+
+                    var free = capBySre[sre.ReservationId] - usedBySre[sre.ReservationId];
+                    if (free <= 0m) continue;
+
+                    var take = Math.Min(remaining, free);
+                    usedBySre[sre.ReservationId] += take;
+                    shares.Add((sre.ReservationId, take));
+                    remaining -= take;
+                }
+            }
+        }
+
+        // Remove ONLY the currently cancelling voucher's share after replay
+        if (sharesByVoucher.TryGetValue(cancelledVoucherId, out var cancelledShares))
+        {
+            foreach (var (sreId, share) in cancelledShares)
+            {
+                usedBySre[sreId] = Math.Max(0m, usedBySre[sreId] - share);
+            }
+        }
+
+        foreach (var sreId in usedBySre.Keys.ToList())
+        {
+            usedBySre[sreId] = Math.Round(usedBySre[sreId], precision, MidpointRounding.AwayFromZero);
+        }
+
+        return usedBySre;
+    }
+
+    /// <summary>
+    /// Computes the maximum allowed reservation quantity for a Work Order required-item row:
+    /// leaves <paramref name="subcontractedQty"/> out ONLY for new reservations (<paramref name="isNewReservation"/> = true)
+    /// so existing reservations partly sent to a subcontractor can still be updated without false over-reservation errors,
+    /// rounded to <paramref name="precision"/>.
+    /// Per ERPNext commits <c>07915b5632</c>, <c>83976ff833</c>, and <c>f0483b53a5</c>.
+    /// </summary>
+    public static decimal CalculateWorkOrderAllowedReservationQty(
+        decimal requiredQty,
+        decimal subcontractedQty,
+        decimal alreadyReservedQty,
+        decimal consumedQty,
+        decimal transferredQty,
+        bool isNewReservation,
+        int precision = 4)
+    {
+        var effectiveSubcontracted = isNewReservation ? Math.Max(subcontractedQty, 0m) : 0m;
+        var fulfilled = Math.Max(alreadyReservedQty + consumedQty, transferredQty);
+        var allowed = requiredQty - effectiveSubcontracted - fulfilled;
+        return Math.Max(Math.Round(allowed, precision, MidpointRounding.AwayFromZero), 0m);
+    }
 }
 
 public class ReservationConsumption
