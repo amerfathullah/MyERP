@@ -64,7 +64,7 @@ const STATUS_BADGE: Record<number, string> = { 0: 'bg-success', 1: 'bg-warning t
                           <button class="btn btn-outline-success" [title]="'::Reinstate' | abpLocalization" (click)="reinstate(d)"><i class="fa fa-play"></i></button>
                         }
                         @if (d.status === 0 || d.status === 1) {
-                          <button class="btn btn-outline-secondary" title="Mark Left" (click)="markLeft(d)"><i class="fa fa-right-from-bracket"></i></button>
+                          <button class="btn btn-outline-secondary" [title]="'::MarkLeft' | abpLocalization" (click)="markLeft(d)"><i class="fa fa-right-from-bracket"></i></button>
                         }
                         <a class="btn btn-outline-primary" [routerLink]="['/assets/drivers', d.id, 'edit']">
                           <i class="fa fa-edit"></i>

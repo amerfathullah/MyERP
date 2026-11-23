@@ -45,7 +45,7 @@ interface FlattenedRowChange {
                 <button
                   type="button"
                   class="btn btn-outline-secondary btn-sm"
-                  title="Swap BOMs"
+                  [title]="'::SwapBoms' | abpLocalization"
                   (click)="swapBoms()"
                   [disabled]="isSubmitting() || !form.value.bomId1 || !form.value.bomId2"
                 >

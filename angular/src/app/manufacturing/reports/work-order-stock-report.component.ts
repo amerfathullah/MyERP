@@ -148,7 +148,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       <button
                         class="btn btn-sm btn-link p-0 text-decoration-none"
                         (click)="toggleRow(row.workOrderId)"
-                        title="Toggle Components"
+                        [title]="'::ToggleComponents' | abpLocalization"
                       >
                         <i
                           class="fa"

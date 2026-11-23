@@ -1160,4 +1160,35 @@ public class PurchaseReceiptManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Computes the remaining quantity to receive on a Purchase Receipt mapped from a Purchase Invoice row:
+    /// sums debit notes in stock UOM from unrounded <c>-debitQty * debitConversionFactor</c> BEFORE dividing
+    /// by the invoice row's <paramref name="invoiceConversionFactor"/> (avoiding rounded stock-qty and
+    /// per-row division drift), subtracts received/mapped and debited qty from <paramref name="invoiceQty"/>,
+    /// rounds to <paramref name="qtyPrecision"/>, and clamps to <c>&gt;= 0</c>.
+    /// Per ERPNext commits <c>4dd309aec7</c>, <c>3e5f527cfd</c>, and <c>d82d54cf42</c> (<c>purchase_invoice/mapper.py</c>).
+    /// </summary>
+    public static decimal CalculatePurchaseInvoicePendingReceiptQty(
+        decimal invoiceQty,
+        decimal invoiceConversionFactor,
+        decimal receivedAndMappedQty,
+        IEnumerable<(decimal DebitNoteQty, decimal DebitNoteConversionFactor)>? submittedDebitNotes,
+        int qtyPrecision = 4)
+    {
+        var invFactor = invoiceConversionFactor > 0m ? invoiceConversionFactor : 1m;
+        var returnedStockQty = 0m;
+        if (submittedDebitNotes != null)
+        {
+            foreach (var (dnQty, dnFactor) in submittedDebitNotes)
+            {
+                var factor = dnFactor > 0m ? dnFactor : 1m;
+                returnedStockQty += (-dnQty) * factor;
+            }
+        }
+
+        var returnedInRowUom = returnedStockQty / invFactor;
+        var pending = invoiceQty - receivedAndMappedQty - returnedInRowUom;
+        return Math.Max(Math.Round(pending, qtyPrecision, MidpointRounding.AwayFromZero), 0m);
+    }
 }

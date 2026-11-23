@@ -2164,6 +2164,23 @@ public class StockReservationManager : DomainService
 
         return restoredBySre;
     }
+
+    /// <summary>
+    /// Computes a Sales Order row's unreserved stock quantity, rounding at <paramref name="stockQtyPrecision"/>
+    /// before checking positivity so sub-precision float remainders do not leave phantom unreserved qty.
+    /// Per ERPNext commit <c>072fe92f40</c>.
+    /// </summary>
+    public static decimal CalculateSalesOrderUnreservedStockQty(
+        decimal stockQty,
+        decimal deliveredStockQty,
+        decimal stockReservedQty,
+        int stockQtyPrecision = 4)
+    {
+        var unreserved = stockQty - deliveredStockQty - stockReservedQty;
+        return Math.Round(unreserved, stockQtyPrecision, MidpointRounding.AwayFromZero) > 0m
+            ? unreserved
+            : 0m;
+    }
 }
 
 public class ReservationConsumption

@@ -57,7 +57,7 @@
             <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!); openRuleForm(cat.id!)" [title]="'::AddRule' | abpLocalization">
               <i class="fa fa-plus-circle"></i>
             </button>
-            <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!)" title="View Rules">
+            <button class="btn btn-sm btn-link p-1" (click)="loadRules(cat.id!)" [title]="'::ViewRules' | abpLocalization">
               <i class="fa fa-chevron-down"></i>
             </button>
             <button class="btn btn-sm btn-link p-1 text-danger" (click)="deleteCategory(cat.id!)" [title]="'::Delete' | abpLocalization">

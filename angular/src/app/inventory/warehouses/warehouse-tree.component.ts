@@ -100,7 +100,7 @@ interface WarehouseNode {
                   <!-- Actions -->
                   <div class="ms-3">
                     <a [routerLink]="['/inventory/reports/stock-balance']" [queryParams]="{ warehouseId: node.id }"
-                       class="btn btn-outline-secondary btn-sm" title="View Stock">
+                       class="btn btn-outline-secondary btn-sm" [title]="'::ViewStock' | abpLocalization">
                       <i class="fas fa-boxes-stacked"></i>
                     </a>
                   </div>

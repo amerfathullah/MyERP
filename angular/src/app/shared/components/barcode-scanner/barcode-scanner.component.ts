@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, signal, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BarcodeScanService } from '../../../proxy/inventory/barcode-scan.service';
 
 export interface BarcodeScanResult {
@@ -45,7 +46,7 @@ export interface ScanEvent {
 @Component({
   selector: 'app-barcode-scanner',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   template: `
     <div class="barcode-scanner d-flex align-items-center gap-2">
       <div class="input-group">
@@ -74,7 +75,7 @@ export interface ScanEvent {
           <i class="fa fa-warehouse"></i>
           {{ warehouseContext() }}
           <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem"
-            (click)="clearWarehouseContext()" title="Clear Location"></button>
+            (click)="clearWarehouseContext()" [title]="'::ClearLocation' | abpLocalization"></button>
         </span>
       }
     </div>

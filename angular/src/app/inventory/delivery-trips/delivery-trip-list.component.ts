@@ -67,12 +67,12 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
                         @if (trip.status === 0) {
-                          <button class="btn btn-outline-info" (click)="schedule(trip.id)" title="Schedule">
+                          <button class="btn btn-outline-info" (click)="schedule(trip.id)" [title]="'MyERP::Schedule' | abpLocalization">
                             <i class="bi bi-calendar-check"></i>
                           </button>
                         }
                         @if (trip.status === 1) {
-                          <button class="btn btn-outline-primary" (click)="startTransit(trip.id)" title="Start Transit">
+                          <button class="btn btn-outline-primary" (click)="startTransit(trip.id)" [title]="'MyERP::StartTransit' | abpLocalization">
                             <i class="bi bi-truck"></i>
                           </button>
                         }

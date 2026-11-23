@@ -1758,6 +1758,58 @@ public class UpstreamBatch41ParityTests
         resetRows.Single(r => r.RowId == prLinkedRow).ShouldBe((prLinkedRow, 8m, 1m));
     }
 
+    [Fact]
+    public void UpstreamBatch13_PiPendingReceiptDebitNotes_SoUnreservedPrecision_StockRepostStop_Parity()
+    {
+        // 1. ERPNext 4dd309aec7 + 3e5f527cfd + d82d54cf42: sum debit notes in stock UOM before dividing by row conversion factor
+        // 3 debit notes of -1/3 each in Box UOM (factor 1) against 1 Box billed (factor 3): summed stock = 3 -> 3/3 = 1 Box debited -> 0 pending
+        var pendingZero = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculatePurchaseInvoicePendingReceiptQty(
+            invoiceQty: 1m,
+            invoiceConversionFactor: 3m,
+            receivedAndMappedQty: 0m,
+            submittedDebitNotes: new[] { (-1m, 1m), (-1m, 1m), (-1m, 1m) },
+            qtyPrecision: 4);
+        pendingZero.ShouldBe(0m);
+
+        // 12 Nos billed (factor = 1/12), 5 Nos debited -> exact 7 Nos remaining (not 6.96 from rounded stock_qty)
+        var pendingExact = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.CalculatePurchaseInvoicePendingReceiptQty(
+            invoiceQty: 12m,
+            invoiceConversionFactor: 1m / 12m,
+            receivedAndMappedQty: 0m,
+            submittedDebitNotes: new[] { (-5m, 1m / 12m) },
+            qtyPrecision: 4);
+        pendingExact.ShouldBe(7m);
+
+        // 2. ERPNext 072fe92f40: SO unreserved stock qty rounds at stock_qty precision before positivity check
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .CalculateSalesOrderUnreservedStockQty(10m, 5m, 4.99999m, stockQtyPrecision: 4)
+            .ShouldBe(0m); // 0.00001 rounds to 0 at precision 4
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .CalculateSalesOrderUnreservedStockQty(10m, 5m, 3m, stockQtyPrecision: 4)
+            .ShouldBe(2m);
+
+        // 3. ERPNext 41d5d3c132 + 2ec98826fc: repost skips cancelled vouchers and stops at Stock Reconciliation or unchanged balance
+        var cancelledAction = MyERP.Inventory.DomainServices.StockEntryManager.EvaluateStockRepostEntryAction(
+            isVoucherCancelled: true, isStockReconciliation: false,
+            previousQtyAfterTx: 10m, newQtyAfterTx: 12m, previousStockValue: 100m, newStockValue: 120m);
+        cancelledAction.ShouldBe((true, false));
+
+        var recoAction = MyERP.Inventory.DomainServices.StockEntryManager.EvaluateStockRepostEntryAction(
+            isVoucherCancelled: false, isStockReconciliation: true,
+            previousQtyAfterTx: 10m, newQtyAfterTx: 12m, previousStockValue: 100m, newStockValue: 120m);
+        recoAction.ShouldBe((false, true));
+
+        var unchangedAction = MyERP.Inventory.DomainServices.StockEntryManager.EvaluateStockRepostEntryAction(
+            isVoucherCancelled: false, isStockReconciliation: false,
+            previousQtyAfterTx: 10m, newQtyAfterTx: 10m, previousStockValue: 100m, newStockValue: 100m);
+        unchangedAction.ShouldBe((false, true));
+
+        var changedAction = MyERP.Inventory.DomainServices.StockEntryManager.EvaluateStockRepostEntryAction(
+            isVoucherCancelled: false, isStockReconciliation: false,
+            previousQtyAfterTx: 10m, newQtyAfterTx: 10m, previousStockValue: 100m, newStockValue: 105m);
+        changedAction.ShouldBe((false, false));
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

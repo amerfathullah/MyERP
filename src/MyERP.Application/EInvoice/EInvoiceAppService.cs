@@ -815,6 +815,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
+            DiscountAmount = invoice.DiscountAmount,
             Lines = consolidatedLines,
             TaxBreakdown = InvoiceDocumentBuilder.BuildTaxBreakdown(consolidatedLines),
         };
@@ -831,14 +832,26 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         var environment = TaxpayerValidationService.ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
         var accessToken = await ResolveAccessTokenAsync(environment);
 
+        var tenantId = LazyServiceProvider?.LazyGetService<Volo.Abp.MultiTenancy.ICurrentTenant>()?.Id;
         var submission = await _eInvoiceService.SubmitAsync(
             input.CompanyId, "SalesInvoice", input.SourceDocumentId,
-            xmlDocument, accessToken, environment, CurrentTenant.Id,
+            xmlDocument, accessToken, environment, tenantId,
             refreshTokenAsync: () => ForceRefreshAccessTokenAsync(environment));
 
         await UpdateSourceDocumentStatusAsync("SalesInvoice", input.SourceDocumentId, submission);
 
-        return ObjectMapper.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission);
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "EInvoiceSubmission", submission.Id,
+                "Submitted", submission.CompanyId,
+                submission.DocumentUuid ?? submission.Id.ToString(), "Draft", submission.Status, CurrentUser.Id,
+                $"Consolidated LHDN e-Invoice submitted. UUID: {submission.DocumentUuid}", tenantId));
+        }
+
+        return ObjectMapper?.Map<EInvoiceSubmission, EInvoiceSubmissionDto>(submission)
+            ?? new EInvoiceSubmissionDto { Id = submission.Id, Status = submission.Status, DocumentUuid = submission.DocumentUuid, LongId = submission.LongId };
     }
 
     [Authorize(MyERPPermissions.EInvoice.Submit)]

@@ -2539,4 +2539,38 @@ public class StockEntryManager : DomainService
             or StockEntryType.Manufacture
             or StockEntryType.MaterialConsumptionForManufacture;
     }
+
+    /// <summary>
+    /// Evaluates whether a stock ledger repost can skip or stop early at a subsequent entry:
+    /// skips vouchers cancelled during the repost (leaving their ledger alone), and stops reposting
+    /// at a non-cancelled Stock Reconciliation (which resets qty &amp; valuation) or once both
+    /// <c>QtyAfterTransaction</c> and <c>StockValue</c> match the previously stored ledger values.
+    /// Per ERPNext commits <c>41d5d3c132</c> and <c>2ec98826fc</c>.
+    /// </summary>
+    public static (bool SkipVoucher, bool StopRepost) EvaluateStockRepostEntryAction(
+        bool isVoucherCancelled,
+        bool isStockReconciliation,
+        decimal previousQtyAfterTx,
+        decimal newQtyAfterTx,
+        decimal previousStockValue,
+        decimal newStockValue,
+        int precision = 4)
+    {
+        if (isVoucherCancelled)
+        {
+            return (SkipVoucher: true, StopRepost: false);
+        }
+
+        if (isStockReconciliation)
+        {
+            return (SkipVoucher: false, StopRepost: true);
+        }
+
+        var unchanged = Math.Round(previousQtyAfterTx, precision, MidpointRounding.AwayFromZero)
+                == Math.Round(newQtyAfterTx, precision, MidpointRounding.AwayFromZero)
+            && Math.Round(previousStockValue, precision, MidpointRounding.AwayFromZero)
+                == Math.Round(newStockValue, precision, MidpointRounding.AwayFromZero);
+
+        return (SkipVoucher: false, StopRepost: unchanged);
+    }
 }

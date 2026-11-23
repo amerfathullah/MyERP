@@ -6663,7 +6663,17 @@
     "ExpensesAddedToStockAccount": "Expenses Added To Stock Account",
     "ExpensesAddedToStockContraAccount": "Expenses Added To Stock Contra Account",
     "MaxDiscount": "Max Discount (%)",
-    "MaxDiscountHelp": "Maximum allowed discount percentage (0–100) for selling transactions"
+    "MaxDiscountHelp": "Maximum allowed discount percentage (0–100) for selling transactions",
+    "MarkLeft": "Mark Left",
+    "TestLhdnTaxpayerLogin": "Test LHDN Taxpayer Login",
+    "Schedule": "Schedule",
+    "StartTransit": "Start Transit",
+    "ViewStock": "View Stock",
+    "SwapBoms": "Swap BOMs",
+    "ToggleComponents": "Toggle Components",
+    "HoldOrder": "Hold Order",
+    "ClearCart": "Clear Cart",
+    "ClearLocation": "Clear Location"
   }
 }
 
