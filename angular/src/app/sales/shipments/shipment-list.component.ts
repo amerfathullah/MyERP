@@ -84,7 +84,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (item.status === 0) {
-                          <button class="btn btn-outline-primary btn-sm" (click)="submit(item.id)" title="Book">
+                          <button class="btn btn-outline-primary btn-sm" (click)="submit(item.id)" [title]="'::Book' | abpLocalization">
                             <i class="fas fa-check"></i>
                           </button>
                         }

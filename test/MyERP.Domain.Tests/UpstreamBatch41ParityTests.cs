@@ -1704,6 +1704,60 @@ public class UpstreamBatch41ParityTests
             .ShouldBeTrue();
     }
 
+    [Fact]
+    public void UpstreamBatch12_BomParentPropagation_ComponentCostSplit_CopqOpenLogs_PiResetQty_Parity()
+    {
+        // 1. ERPNext 2dde60cc73 + 42a3a8342d: parent BOM propagation fires when EITHER TotalCost OR BaseTotalCost changes
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ShouldPropagateCostToParentBoms(true, 100m, 100m, 450m, 460m).ShouldBeTrue();  // base changed
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ShouldPropagateCostToParentBoms(true, 100m, 105m, 450m, 450m).ShouldBeTrue();  // total changed
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ShouldPropagateCostToParentBoms(true, 100m, 100m, 450m, 450m).ShouldBeFalse(); // unchanged
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ShouldPropagateCostToParentBoms(false, 100m, 105m, 450m, 460m).ShouldBeFalse(); // disabled
+
+        // 2. ERPNext 1bc6b681ff + 21589f031f + 6688a76b2e: cumulative rounding keeps component shares equal to exact amount
+        var shares = MyERP.Manufacturing.DomainServices.JobCardManager.SplitOperationCostByWorkstationComponents(
+            amount: 100m,
+            workstationComponents: new[]
+            {
+                ("Electricity", 1m),
+                ("Rent", 1m),
+                ("Wages", 1m),
+            },
+            precision: 2);
+        shares.Select(s => s.Amount).Sum().ShouldBe(100m); // 33.33 + 33.34 + 33.33 = 100.00 (no penny loss)
+        shares.Select(s => s.OperatingComponent).ShouldBe(new[] { "Electricity", "Rent", "Wages" });
+
+        // 3. ERPNext d507648396: Cost of Poor Quality date-range clipping skips open time logs (null FromTime or ToTime)
+        var t0 = new DateTime(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
+        var clippedMins = MyERP.Manufacturing.DomainServices.JobCardManager.CalculateClippedTimeLogMinutesInDateRange(
+            timeLogs: new[]
+            {
+                ((DateTime?)t0.AddHours(-1), (DateTime?)t0.AddHours(1)), // clipped to [t0, t0+1h] -> 60m
+                ((DateTime?)t0.AddHours(1), (DateTime?)null),           // open log -> skipped
+                ((DateTime?)null, (DateTime?)t0.AddHours(2)),           // invalid open log -> skipped
+            },
+            rangeStart: t0,
+            rangeEnd: t0.AddHours(4));
+        clippedMins.ShouldBe(60m);
+
+        // 4. ERPNext 3496853eae: turning off UpdateStock on PI clears received/rejected qty on unlinked rows only
+        var unlinkedRow = Guid.NewGuid();
+        var prLinkedRow = Guid.NewGuid();
+        var prDetailId = Guid.NewGuid();
+        var resetRows = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResetUnlinkedPurchaseInvoiceReceiptQuantities(
+            updateStock: false,
+            rows: new[]
+            {
+                (unlinkedRow, (Guid?)null, 10m, 2m),
+                (prLinkedRow, (Guid?)prDetailId, 8m, 1m),
+            });
+        resetRows.Single(r => r.RowId == unlinkedRow).ShouldBe((unlinkedRow, 0m, 0m));
+        resetRows.Single(r => r.RowId == prLinkedRow).ShouldBe((prLinkedRow, 8m, 1m));
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

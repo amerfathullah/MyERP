@@ -1,5 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
 
 /**
@@ -12,7 +13,7 @@ import { StockBalanceService } from '../../../proxy/inventory/stock-balance.serv
 @Component({
   selector: 'app-stock-availability',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (loading()) {
       <span class="badge bg-light text-muted"><i class="fa fa-spinner fa-spin"></i></span>
@@ -21,7 +22,7 @@ import { StockBalanceService } from '../../../proxy/inventory/stock-balance.serv
         <i class="fa fa-boxes-stacked me-1"></i>
         {{ availability()!.availableQty | number:'1.0-2' }}
         @if (requiredQty > 0 && (availability()?.availableQty ?? 0) < requiredQty) {
-          <i class="fa fa-exclamation-triangle ms-1" title="Insufficient stock"></i>
+          <i class="fa fa-exclamation-triangle ms-1" [title]="'::InsufficientStock' | abpLocalization"></i>
         }
       </span>
     }

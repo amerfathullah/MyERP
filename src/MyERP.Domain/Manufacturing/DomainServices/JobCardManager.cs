@@ -1374,6 +1374,76 @@ public class JobCardManager : DomainService
         Guid workOrderProductionItemId,
         Guid? jobCardFinishedGoodItemId)
         => !jobCardFinishedGoodItemId.HasValue || jobCardFinishedGoodItemId.Value == workOrderProductionItemId;
+
+    /// <summary>
+    /// Splits an operation-level operating cost <paramref name="amount"/> across workstation operating
+    /// components in table order using cumulative rounding so the component shares sum exactly to
+    /// <paramref name="amount"/> (returning empty when total component rate is zero).
+    /// Per ERPNext commits <c>1bc6b681ff</c>, <c>21589f031f</c>, and <c>6688a76b2e</c> (<c>_split_by_component_rate</c>).
+    /// </summary>
+    public static List<(string OperatingComponent, decimal Amount)> SplitOperationCostByWorkstationComponents(
+        decimal amount,
+        IEnumerable<(string OperatingComponent, decimal OperatingRate)>? workstationComponents,
+        int precision = 2)
+    {
+        var result = new List<(string OperatingComponent, decimal Amount)>();
+        if (amount == 0m || workstationComponents == null)
+        {
+            return result;
+        }
+
+        var components = workstationComponents.ToList();
+        var totalRate = components.Sum(c => c.OperatingRate);
+        if (totalRate <= 0m)
+        {
+            return result;
+        }
+
+        var allocated = 0m;
+        var cumulativeRate = 0m;
+        foreach (var comp in components)
+        {
+            cumulativeRate += comp.OperatingRate;
+            var cumulativeAmount = Math.Round((amount * cumulativeRate) / totalRate, precision, MidpointRounding.AwayFromZero);
+            var share = Math.Round(cumulativeAmount - allocated, precision, MidpointRounding.AwayFromZero);
+            allocated = cumulativeAmount;
+            result.Add((comp.OperatingComponent, share));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Clips completed Job Card time logs to <c>[rangeStart, rangeEnd]</c> for Cost of Poor Quality
+    /// reporting, skipping open time logs that lack either <c>FromTime</c> or <c>ToTime</c>.
+    /// Per ERPNext commit <c>d507648396</c> (<c>clip_to_date_range</c> in <c>cost_of_poor_quality_report.py</c>).
+    /// </summary>
+    public static decimal CalculateClippedTimeLogMinutesInDateRange(
+        IEnumerable<(DateTime? FromTime, DateTime? ToTime)>? timeLogs,
+        DateTime rangeStart,
+        DateTime rangeEnd)
+    {
+        if (timeLogs == null || rangeEnd <= rangeStart)
+        {
+            return 0m;
+        }
+
+        var totalMinutes = 0m;
+        foreach (var log in timeLogs)
+        {
+            if (!log.FromTime.HasValue || !log.ToTime.HasValue)
+                continue;
+
+            var start = log.FromTime.Value > rangeStart ? log.FromTime.Value : rangeStart;
+            var end = log.ToTime.Value < rangeEnd ? log.ToTime.Value : rangeEnd;
+            if (end > start)
+            {
+                totalMinutes += (decimal)(end - start).TotalMinutes;
+            }
+        }
+
+        return totalMinutes;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

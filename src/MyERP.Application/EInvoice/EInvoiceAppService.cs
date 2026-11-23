@@ -428,12 +428,12 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
     private async Task UpdateSourceDocumentStatusAsync(string docType, Guid docId, EInvoiceSubmission submission)
     {
-        var mappedStatus = submission.Status switch
+        var mappedStatus = (submission.Status?.Trim().ToUpperInvariant()) switch
         {
-            "Accepted" or "Pending" => Sales.EInvoiceStatus.Pending,
-            "Valid" => Sales.EInvoiceStatus.Valid,
-            "Rejected" => Sales.EInvoiceStatus.Rejected,
-            "Cancelled" => Sales.EInvoiceStatus.Cancelled,
+            "ACCEPTED" or "PENDING" => Sales.EInvoiceStatus.Pending,
+            "VALID" => Sales.EInvoiceStatus.Valid,
+            "REJECTED" => Sales.EInvoiceStatus.Rejected,
+            "CANCELLED" => Sales.EInvoiceStatus.Cancelled,
             _ => Sales.EInvoiceStatus.Invalid,
         };
 
@@ -637,12 +637,12 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             var invoice = await _salesInvoiceRepository.FindAsync(submission.SourceDocumentId);
             if (invoice == null) return;
 
-            invoice.EInvoiceStatus = submission.Status switch
+            invoice.EInvoiceStatus = (submission.Status?.Trim().ToUpperInvariant()) switch
             {
-                "Valid" => Sales.EInvoiceStatus.Valid,
-                "Cancelled" => Sales.EInvoiceStatus.Cancelled,
-                "Rejected" => Sales.EInvoiceStatus.Rejected,
-                "Invalid" => Sales.EInvoiceStatus.Invalid,
+                "VALID" => Sales.EInvoiceStatus.Valid,
+                "CANCELLED" => Sales.EInvoiceStatus.Cancelled,
+                "REJECTED" => Sales.EInvoiceStatus.Rejected,
+                "INVALID" => Sales.EInvoiceStatus.Invalid,
                 _ => invoice.EInvoiceStatus // preserve existing
             };
             if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))
@@ -658,12 +658,12 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             var invoice = await _purchaseInvoiceRepository.FindAsync(submission.SourceDocumentId);
             if (invoice == null) return;
 
-            invoice.EInvoiceStatus = submission.Status switch
+            invoice.EInvoiceStatus = (submission.Status?.Trim().ToUpperInvariant()) switch
             {
-                "Valid" => Sales.EInvoiceStatus.Valid,
-                "Cancelled" => Sales.EInvoiceStatus.Cancelled,
-                "Rejected" => Sales.EInvoiceStatus.Rejected,
-                "Invalid" => Sales.EInvoiceStatus.Invalid,
+                "VALID" => Sales.EInvoiceStatus.Valid,
+                "CANCELLED" => Sales.EInvoiceStatus.Cancelled,
+                "REJECTED" => Sales.EInvoiceStatus.Rejected,
+                "INVALID" => Sales.EInvoiceStatus.Invalid,
                 _ => invoice.EInvoiceStatus
             };
             if (!string.IsNullOrWhiteSpace(submission.DocumentUuid))

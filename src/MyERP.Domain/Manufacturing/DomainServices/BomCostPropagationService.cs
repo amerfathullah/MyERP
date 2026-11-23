@@ -443,4 +443,18 @@ public class BomCostPropagationService : DomainService
             ? fetchedExchangeRate.Value
             : storedPlcConversionRate;
     }
+
+    /// <summary>
+    /// Determines whether a child BOM cost update should propagate upward to parent BOMs:
+    /// propagates whenever <paramref name="updateParent"/> is true and EITHER <c>TotalCost</c>
+    /// or <c>BaseTotalCost</c> changed (catching foreign-currency exchange rate changes).
+    /// Per ERPNext commits <c>2dde60cc73</c> and <c>42a3a8342d</c> (<c>BOMCostingService</c>).
+    /// </summary>
+    public static bool ShouldPropagateCostToParentBoms(
+        bool updateParent,
+        decimal previousTotalCost,
+        decimal newTotalCost,
+        decimal previousBaseTotalCost,
+        decimal newBaseTotalCost)
+        => updateParent && (newTotalCost != previousTotalCost || newBaseTotalCost != previousBaseTotalCost);
 }

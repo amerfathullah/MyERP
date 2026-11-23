@@ -1135,4 +1135,29 @@ public class PurchaseReceiptManager : DomainService
 
         return Math.Round(fallbackOutgoingAmount, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Clears stale <c>ReceivedQty</c> and <c>RejectedQty</c> left over from <c>UpdateStock</c> once
+    /// <c>UpdateStock</c> is turned off on a Purchase Invoice, while preserving rows linked to an
+    /// existing Purchase Receipt item (<c>PurchaseReceiptItemId.HasValue</c>).
+    /// Per ERPNext commit <c>3496853eae</c> (<c>PurchaseInvoice.reset_receipt_qty</c>).
+    /// </summary>
+    public static List<(Guid RowId, decimal ReceivedQty, decimal RejectedQty)> ResetUnlinkedPurchaseInvoiceReceiptQuantities(
+        bool updateStock,
+        IEnumerable<(Guid RowId, Guid? PurchaseReceiptItemId, decimal ReceivedQty, decimal RejectedQty)>? rows)
+    {
+        var result = new List<(Guid RowId, decimal ReceivedQty, decimal RejectedQty)>();
+        if (rows == null)
+        {
+            return result;
+        }
+
+        foreach (var row in rows)
+        {
+            var shouldClear = !updateStock && (!row.PurchaseReceiptItemId.HasValue || row.PurchaseReceiptItemId.Value == Guid.Empty);
+            result.Add((row.RowId, shouldClear ? 0m : row.ReceivedQty, shouldClear ? 0m : row.RejectedQty));
+        }
+
+        return result;
+    }
 }

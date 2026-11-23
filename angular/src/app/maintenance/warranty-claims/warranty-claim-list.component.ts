@@ -119,7 +119,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   <td>
                     @if (c.status === 0) {
                       <button class="btn btn-outline-primary btn-sm me-1" (click)="startWork(c)"
-                        title="Start Work"><i class="fa fa-wrench"></i></button>
+                        [title]="'::StartWork' | abpLocalization"><i class="fa fa-wrench"></i></button>
                     }
                     @if (c.status === 0 || c.status === 1) {
                       <button class="btn btn-outline-success btn-sm me-1" (click)="close(c)"
