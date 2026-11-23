@@ -879,4 +879,67 @@ public class UpstreamBatch41ParityTests
             .ConvertBuyingItemPriceToStockUom(buyingPriceListRate: 120m, buyingUomConversionFactor: 12m)
             .ShouldBe(10m);
     }
+
+    [Fact]
+    public void UpstreamPRs_67357_67372_67398_68876_SubcontractingAndScheduling_Parity()
+    {
+        // 1. PR #67357: receipt takes only its proportional share of remaining SCO additional costs
+        var row1 = Guid.NewGuid();
+        var row2 = Guid.NewGuid();
+        var orderRows = new[]
+        {
+            (row1, 10m, 4m, 5m), // 6 pending * 5 = 30 pending cost; ordered cost = 50
+            (row2, 10m, 0m, 5m), // 10 pending * 5 = 50 pending cost; ordered cost = 50 (total = 100)
+        };
+        // Earlier receipt took 20 of 100 => remainingShare = 0.8. This receipt takes 4 of row1 (20 of 80 pending = 0.25)
+        // Expected share = 0.8 * 0.25 = 0.20
+        var share = MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateReceiptAdditionalCostShare(
+            orderRows,
+            additionalCostTakenByEarlierReceipts: 20m,
+            receiptQtyByOrderRowId: new System.Collections.Generic.Dictionary<Guid, decimal> { [row1] = 4m });
+        share.ShouldBe(0.2m);
+
+        // Zero total additional cost keeps 1.0 share
+        MyERP.Purchasing.DomainServices.SubcontractingManager.CalculateReceiptAdditionalCostShare(
+            new[] { (row1, 10m, 0m, 0m) },
+            additionalCostTakenByEarlierReceipts: 0m).ShouldBe(1m);
+
+        // 2. PR #67398: FG keeps share of BOM % co-products omitted or zero-qty on receipt
+        var (allocatedPct, fgAmount, fgRate) = MyERP.Purchasing.DomainServices.SubcontractingManager
+            .CalculateFinishedGoodShareAfterReceiptPercentageCoProducts(
+                fgGrossAmount: 1000m,
+                fgQty: 10m,
+                receiptPercentageRows: new[] { (2m, 20m), (0m, 10m) }); // 10% co-product has 0 net qty -> excluded
+        allocatedPct.ShouldBe(20m);
+        fgAmount.ShouldBe(800m);
+        fgRate.ShouldBe(80m);
+
+        // 3. PR #67372: pooled pending RM transfer across SCO rows sharing same material
+        var rmId = Guid.NewGuid();
+        var fg1 = Guid.NewGuid();
+        var fg2 = Guid.NewGuid();
+        var suppliedRows = new (Guid, Guid?, decimal, decimal)[]
+        {
+            (rmId, fg1, 10m, 14m), // over-supplied by 4
+            (rmId, fg2, 10m, 0m),  // needs 10, but order-wide pool only has 6 left
+        };
+        var bomPooled = MyERP.Purchasing.DomainServices.SubcontractingRmTransferService
+            .CalculatePooledPendingRmTransfers(suppliedRows, poolPerFinishedGood: false);
+        bomPooled.Count.ShouldBe(1);
+        bomPooled[0].FinishedGoodId.ShouldBe(fg2);
+        bomPooled[0].TransferQty.ShouldBe(6m);
+
+        var perFgPooled = MyERP.Purchasing.DomainServices.SubcontractingRmTransferService
+            .CalculatePooledPendingRmTransfers(suppliedRows, poolPerFinishedGood: true);
+        perFgPooled.Count.ShouldBe(1);
+        perFgPooled[0].TransferQty.ShouldBe(10m);
+
+        // 4. PR #68876: Production Plan schedules per-batch operation by batch_size, fixed time stays fixed
+        MyERP.Manufacturing.Entities.BomOperation.CalculateScheduledDurationMins(
+            timeInMins: 30m, qty: 15m, bomQty: 1m, isFixedTime: false,
+            createJobCardBasedOnBatchSize: true, batchSize: 5m).ShouldBe(90m);
+        MyERP.Manufacturing.Entities.BomOperation.CalculateScheduledDurationMins(
+            timeInMins: 30m, qty: 15m, bomQty: 1m, isFixedTime: true,
+            createJobCardBasedOnBatchSize: true, batchSize: 5m).ShouldBe(30m);
+    }
 }

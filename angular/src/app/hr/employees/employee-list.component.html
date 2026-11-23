@@ -60,11 +60,11 @@
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" [routerLink]="[row.id, 'edit']"
-                        title="Edit" aria-label="Edit">
+                        [title]="'::Edit' | abpLocalization" [attr.aria-label]="'::Edit' | abpLocalization">
                         <i class="fa fa-pencil"></i>
                       </button>
                       <button class="btn btn-outline-danger" (click)="delete(row.id)"
-                        title="Delete" aria-label="Delete">
+                        [title]="'::Delete' | abpLocalization" [attr.aria-label]="'::Delete' | abpLocalization">
                         <i class="fa fa-trash"></i>
                       </button>
                     </div>

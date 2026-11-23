@@ -56,8 +56,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                     <td><span class="badge" [class]="statusBadgeClass(r.status)">{{ statusLabel(r.status) }}</span></td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editRecord(r)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteRecord(r.id)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editRecord(r)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteRecord(r.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

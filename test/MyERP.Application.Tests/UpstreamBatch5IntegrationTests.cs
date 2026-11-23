@@ -4135,4 +4135,114 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             refreshedSi.QrCodeUrl.ShouldBe("https://preprod.myinvois.hasil.gov.my/UUID-B28-1/share/LONG-B28-1");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch29_LhdnConsolidationReminderJob_FiltersDisabledReturnsAndPending()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var consRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+
+            var asOfDate = new DateTime(2026, 6, 3, 0, 0, 0, DateTimeKind.Utc);
+            var prevMonthDate = new DateTime(2026, 5, 15, 0, 0, 0, DateTimeKind.Utc);
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "B29 LHDN Co")
+            {
+                EnableLhdnInvoice = true,
+            }, autoSave: true);
+            var disabledCo = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "B29 Disabled Co")
+            {
+                EnableLhdnInvoice = false,
+            }, autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B29-SVC", "Service", ItemType.Service), autoSave: true);
+            var b2cCust = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "Walk-In"), autoSave: true);
+
+            // 1 eligible B2C invoice (200)
+            var eligible = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B29-ELIG", prevMonthDate);
+            eligible.AddItem(item.Id, "Svc", 1m, 200m, 0m);
+            eligible.Submit();
+            eligible.Post();
+            await siRepo.InsertAsync(eligible, autoSave: true);
+
+            // Return / Credit Note (excluded)
+            var retInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B29-RET", prevMonthDate)
+            {
+                IsReturn = true,
+            };
+            retInv.AddItem(item.Id, "Svc", -1m, 50m, 0m);
+            retInv.Submit();
+            retInv.Post();
+            await siRepo.InsertAsync(retInv, autoSave: true);
+
+            // Consolidated parent invoice (excluded)
+            var consParent = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B29-CONS", prevMonthDate)
+            {
+                IsConsolidated = true,
+            };
+            consParent.AddItem(item.Id, "Svc", 1m, 500m, 0m);
+            consParent.Submit();
+            consParent.Post();
+            await siRepo.InsertAsync(consParent, autoSave: true);
+
+            // Already Pending LHDN validation (excluded)
+            var pendingInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B29-PEND", prevMonthDate)
+            {
+                EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Pending,
+            };
+            pendingInv.AddItem(item.Id, "Svc", 1m, 300m, 0m);
+            pendingInv.Submit();
+            pendingInv.Post();
+            await siRepo.InsertAsync(pendingInv, autoSave: true);
+
+            // Eligible invoice under disabled company (must send 0 emails)
+            var disabledCust = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), disabledCo.Id, "Walk-In 2"), autoSave: true);
+            var disabledItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), disabledCo.Id, "B29-D", "Svc", ItemType.Service), autoSave: true);
+            var disabledSi = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), disabledCo.Id, disabledCust.Id, "SI-B29-DIS", prevMonthDate);
+            disabledSi.AddItem(disabledItem.Id, "Svc", 1m, 100m, 0m);
+            disabledSi.Submit();
+            disabledSi.Post();
+            await siRepo.InsertAsync(disabledSi, autoSave: true);
+
+            var user = new Volo.Abp.Identity.IdentityUser(Guid.NewGuid(), "fin-b29", "fin@b29.test");
+            var userRepo = NSubstitute.Substitute.For<IRepository<Volo.Abp.Identity.IdentityUser, Guid>>();
+            NSubstitute.SubstituteExtensions.Returns(
+                userRepo.GetQueryableAsync(),
+                Task.FromResult(new[] { user }.AsQueryable()));
+
+            var sentBodies = new System.Collections.Generic.List<string>();
+            var emailSender = NSubstitute.Substitute.For<Volo.Abp.Emailing.IEmailSender>();
+            NSubstitute.SubstituteExtensions.Returns(
+                emailSender.SendAsync(
+                    NSubstitute.Arg.Any<string>(),
+                    NSubstitute.Arg.Any<string>(),
+                    NSubstitute.Arg.Do<string>(body => sentBodies.Add(body)),
+                    NSubstitute.Arg.Any<bool>(),
+                    NSubstitute.Arg.Any<Volo.Abp.Emailing.AdditionalEmailSendingArgs>()),
+                Task.CompletedTask);
+
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.BackgroundJobs.LhdnConsolidationReminderJob>.Instance;
+            var job = new MyERP.EInvoice.BackgroundJobs.LhdnConsolidationReminderJob(
+                siRepo, consRepo, companyRepo, userRepo, custRepo, emailSender, logger);
+
+            await job.ExecuteAsync(new MyERP.EInvoice.BackgroundJobs.LhdnConsolidationReminderJobArgs
+            {
+                CompanyId = disabledCo.Id,
+                AsOfDate = asOfDate,
+            });
+            sentBodies.Count.ShouldBe(0);
+
+            await job.ExecuteAsync(new MyERP.EInvoice.BackgroundJobs.LhdnConsolidationReminderJobArgs
+            {
+                CompanyId = company.Id,
+                AsOfDate = asOfDate,
+            });
+            sentBodies.Count.ShouldBe(1);
+            sentBodies[0].ShouldContain("Unconsolidated B2C Invoices:</strong> 1");
+            sentBodies[0].ShouldContain("MYR 200.00");
+        });
+    }
 }

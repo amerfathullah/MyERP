@@ -56,8 +56,8 @@ interface DesignationRow {
                     <td>{{ d.description }}</td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editDesignation(d)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteDesignation(d.id)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editDesignation(d)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteDesignation(d.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

@@ -63,15 +63,21 @@ public class LhdnConsolidationReminderJob : AsyncBackgroundJob<LhdnConsolidation
             args.CompanyId, prevMonthStart.ToString("MMMM yyyy"));
 
         var company = await _companyRepository.FindAsync(args.CompanyId);
-        if (company == null) return;
+        if (company == null || !company.EnableLhdnInvoice) return;
 
         var invQuery = await _invoiceRepository.GetQueryableAsync();
         var candidateInvoices = invQuery
             .Where(i => i.CompanyId == args.CompanyId &&
                         i.Status == DocumentStatus.Posted &&
-                        // Already submitted individually (e.g. correctly as a B2B invoice, or
-                        // manually) — nothing left to consolidate for this one.
+                        // Exclude returns/credit notes, debit notes, and already-consolidated parent/child invoices
+                        // (per LHDN consolidation rules and EInvoiceConsolidationService).
+                        !i.IsReturn &&
+                        !i.IsDebitNote &&
+                        !i.IsConsolidated &&
+                        !i.ConsolidatedSalesInvoiceId.HasValue &&
+                        // Already submitted individually or awaiting LHDN validation — nothing left to consolidate.
                         i.EInvoiceStatus != EInvoiceStatus.Valid &&
+                        i.EInvoiceStatus != EInvoiceStatus.Pending &&
                         i.IssueDate >= prevMonthStart &&
                         i.IssueDate <= prevMonthEnd)
             .ToList();

@@ -63,17 +63,70 @@ public class SubcontractingRmTransferService : DomainService
                 requirements);
         }
 
-        // Deduct already-transferred quantities
+        // Deduct already-transferred quantities using pooled pending caps (PR #67372)
+        var pooledPending = new Dictionary<Guid, decimal>();
+        foreach (var g in sco.SuppliedItems.GroupBy(s => s.ItemId))
+        {
+            pooledPending[g.Key] = g.Sum(s => s.RequiredQty - s.TransferredQty);
+        }
+
         foreach (var req in requirements)
         {
             var supplied = sco.SuppliedItems
                 .Where(s => s.ItemId == req.ItemId)
                 .Sum(s => s.TransferredQty);
             req.AlreadyTransferred = supplied;
-            req.PendingQty = Math.Max(0, req.RequiredQty - supplied);
+
+            var rowPending = req.RequiredQty - supplied;
+            if (pooledPending.TryGetValue(req.ItemId, out var poolRemaining))
+            {
+                req.PendingQty = Math.Max(0m, Math.Min(rowPending, poolRemaining));
+                pooledPending[req.ItemId] = Math.Max(0m, poolRemaining - req.PendingQty);
+            }
+            else
+            {
+                req.PendingQty = Math.Max(0m, rowPending);
+            }
         }
 
         return requirements;
+    }
+
+    /// <summary>
+    /// Computes raw material transfer quantities still pending across a Subcontracting Order,
+    /// pooling net pending qty (<c>RequiredQty - SuppliedQty</c>) either per <c>(RmItemId, FinishedGoodId)</c>
+    /// or order-wide per <c>RmItemId</c> (when backflushing based on BOM), so material already over-supplied
+    /// on one row reduces what is proposed for another row sharing that material.
+    /// Per ERPNext PR #67372 (<c>get_pending_qty_by_material</c>).
+    /// </summary>
+    public static List<(Guid RmItemId, Guid? FinishedGoodId, decimal TransferQty)> CalculatePooledPendingRmTransfers(
+        IEnumerable<(Guid RmItemId, Guid? FinishedGoodId, decimal RequiredQty, decimal SuppliedQty)> suppliedRows,
+        bool poolPerFinishedGood,
+        int precision = 4)
+    {
+        var rows = (suppliedRows ?? Array.Empty<(Guid, Guid?, decimal, decimal)>()).ToList();
+        var pool = new Dictionary<(Guid RmItemId, Guid? FgId), decimal>();
+
+        foreach (var row in rows)
+        {
+            var key = (row.RmItemId, poolPerFinishedGood ? row.FinishedGoodId : (Guid?)null);
+            pool[key] = pool.GetValueOrDefault(key, 0m) + (row.RequiredQty - row.SuppliedQty);
+        }
+
+        var mapped = new List<(Guid RmItemId, Guid? FinishedGoodId, decimal TransferQty)>();
+        foreach (var row in rows)
+        {
+            var key = (row.RmItemId, poolPerFinishedGood ? row.FinishedGoodId : (Guid?)null);
+            var rowRemaining = row.RequiredQty - row.SuppliedQty;
+            var qty = Math.Round(Math.Min(rowRemaining, pool.GetValueOrDefault(key, 0m)), precision, MidpointRounding.AwayFromZero);
+            if (qty <= 0m)
+                continue;
+
+            pool[key] -= qty;
+            mapped.Add((row.RmItemId, row.FinishedGoodId, qty));
+        }
+
+        return mapped;
     }
 
     /// <summary>

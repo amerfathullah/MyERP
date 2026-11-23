@@ -2088,6 +2088,84 @@ public class SubcontractingManager : DomainService
 
         return totals;
     }
+
+    /// <summary>
+    /// Computes the pro-rata share of a Subcontracting Order's additional costs that a Subcontracting Receipt takes:
+    /// what earlier submitted receipts left of them, in proportion to the qty this receipt takes of what is still pending.
+    /// Per ERPNext PR #67357 (<c>get_additional_cost_share</c>).
+    /// </summary>
+    public static decimal CalculateReceiptAdditionalCostShare(
+        IEnumerable<(Guid OrderRowId, decimal OrderedQty, decimal ReceivedQty, decimal AdditionalCostPerQty)> orderItems,
+        decimal additionalCostTakenByEarlierReceipts,
+        IReadOnlyDictionary<Guid, decimal>? receiptQtyByOrderRowId = null)
+    {
+        var rows = (orderItems ?? Array.Empty<(Guid, decimal, decimal, decimal)>()).ToList();
+        var totalCost = rows.Sum(r => r.OrderedQty * r.AdditionalCostPerQty);
+        if (totalCost == 0m)
+        {
+            // Costs that net to zero leave valuation unchanged, so keep their rows in full
+            return 1m;
+        }
+
+        var pendingCost = 0m;
+        var receivedCost = 0m;
+        var hasFilter = receiptQtyByOrderRowId != null && receiptQtyByOrderRowId.Count > 0;
+        foreach (var row in rows)
+        {
+            var pendingQty = Math.Max(row.OrderedQty - row.ReceivedQty, 0m);
+            pendingCost += pendingQty * row.AdditionalCostPerQty;
+
+            if (!hasFilter || receiptQtyByOrderRowId!.ContainsKey(row.OrderRowId))
+            {
+                var qtyToReceive = hasFilter && receiptQtyByOrderRowId!.TryGetValue(row.OrderRowId, out var explicitQty) && explicitQty > 0m
+                    ? explicitQty
+                    : pendingQty;
+                receivedCost += qtyToReceive * row.AdditionalCostPerQty;
+            }
+        }
+
+        if (pendingCost == 0m)
+        {
+            return 0m;
+        }
+
+        var remainingShare = Math.Max(1m - (additionalCostTakenByEarlierReceipts / totalCost), 0m);
+        return remainingShare * Math.Min(receivedCost / pendingCost, 1m);
+    }
+
+    /// <summary>
+    /// Allocates to the finished good row <c>(100 - allocatedPct) / 100</c> of its gross cost where
+    /// <c>allocatedPct</c> sums ONLY the percentage co-products actually present with positive net qty on the receipt
+    /// (giving the finished good the share of any BOM % co-products omitted or zero-qty on the receipt).
+    /// Per ERPNext PR #67398 (<c>calculate_percentage_secondary_rows</c>).
+    /// </summary>
+    public static (decimal AllocatedCoProductPercentage, decimal FinishedGoodAmount, decimal FinishedGoodRate)
+        CalculateFinishedGoodShareAfterReceiptPercentageCoProducts(
+            decimal fgGrossAmount,
+            decimal fgQty,
+            IEnumerable<(decimal NetQty, decimal CostAllocationPercentage)>? receiptPercentageRows,
+            int precision = 4)
+    {
+        var allocatedPct = 0m;
+        if (receiptPercentageRows != null)
+        {
+            foreach (var (netQty, pct) in receiptPercentageRows)
+            {
+                if (netQty > 0m && pct > 0m)
+                {
+                    allocatedPct += pct;
+                }
+            }
+        }
+
+        var fgSharePct = Math.Max(0m, 100m - allocatedPct);
+        var fgAmount = Math.Round(fgGrossAmount * (fgSharePct / 100m), precision, MidpointRounding.AwayFromZero);
+        var fgRate = fgQty != 0m
+            ? Math.Round(fgAmount / fgQty, precision, MidpointRounding.AwayFromZero)
+            : 0m;
+
+        return (allocatedPct, fgAmount, fgRate);
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

@@ -138,4 +138,38 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
         if (BatchSize <= 0) return 1;
         return (int)Math.Ceiling(woQty / BatchSize);
     }
+
+    /// <summary>
+    /// Computes scheduled operation duration in minutes for a Production Plan quantity,
+    /// scaling per batch when <paramref name="createJobCardBasedOnBatchSize"/> is enabled and
+    /// <paramref name="batchSize"/> is positive (instead of dividing by <paramref name="bomQty"/>).
+    /// Per ERPNext PR #68876 (<c>get_operation_duration</c> / <c>get_operation_time_per_unit</c>).
+    /// </summary>
+    public static decimal CalculateScheduledDurationMins(
+        decimal timeInMins,
+        decimal qty,
+        decimal bomQty,
+        bool isFixedTime,
+        bool createJobCardBasedOnBatchSize,
+        decimal batchSize,
+        int precision = 4)
+    {
+        if (isFixedTime)
+        {
+            return Math.Round(timeInMins, precision, MidpointRounding.AwayFromZero);
+        }
+
+        decimal timePerUnit;
+        if (createJobCardBasedOnBatchSize && batchSize > 0m)
+        {
+            timePerUnit = timeInMins / batchSize;
+        }
+        else
+        {
+            var divisor = bomQty > 0m ? bomQty : 1m;
+            timePerUnit = timeInMins / divisor;
+        }
+
+        return Math.Round(timePerUnit * qty, precision, MidpointRounding.AwayFromZero);
+    }
 }
