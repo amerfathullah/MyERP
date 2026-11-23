@@ -1147,7 +1147,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                         TaxAmount = pi.TaxAmount,
                         Status = pi.EInvoiceStatus.ToString(),
                         DocumentUuid = pi.LhdnUuid,
-                        QrCodeUrl = sub != null ? sub.QrCodeUrl : null,
+                        QrCodeUrl = !string.IsNullOrEmpty(pi.QrCodeUrl) ? pi.QrCodeUrl : (sub != null ? sub.QrCodeUrl : null),
                         SubmittedAt = pi.LhdnSubmittedAt ?? (sub != null ? sub.SubmittedAt : null)
                     };
 
@@ -1269,7 +1269,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 var catCode = ResolveCategoryCode(null, si.TaxAmount, isSales: true);
                 if (!salesCatMap.ContainsKey(catCode)) catCode = "E";
 
-                var amt = Math.Abs(si.GrandTotal);
+                // Use NetTotal (tax-exclusive base) matching itemized rows instead of GrandTotal
+                var baseAmt = si.NetTotal != 0m ? si.NetTotal : (si.GrandTotal - si.TaxAmount);
+                var amt = Math.Abs(baseAmt);
                 var vat = Math.Abs(si.TaxAmount);
 
                 if (si.IsReturn)
@@ -1321,7 +1323,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 var catCode = ResolveCategoryCode(null, pi.TaxAmount, isSales: false);
                 if (!purchaseCatMap.ContainsKey(catCode)) catCode = "E";
 
-                var amt = Math.Abs(pi.GrandTotal);
+                // Use NetTotal (tax-exclusive base) matching itemized rows instead of GrandTotal
+                var baseAmt = pi.NetTotal != 0m ? pi.NetTotal : (pi.GrandTotal - pi.TaxAmount);
+                var amt = Math.Abs(baseAmt);
                 var vat = Math.Abs(pi.TaxAmount);
 
                 if (pi.IsReturn)

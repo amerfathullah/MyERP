@@ -1894,6 +1894,82 @@ public class StockReservationManager : DomainService
 
         return ("Partially Reserved", stillHolds);
     }
+
+    /// <summary>
+    /// Matches a Stock Reservation Entry against target voucher or voucher-row IDs
+    /// (supporting Sales Order line / Packed Item row-level matching as well as header matching).
+    /// Per ERPNext PR #63784 (<c>is_reserved_for_voucher</c>).
+    /// </summary>
+    public static bool IsReservationForVoucherOrRow(
+        Guid? sreVoucherId,
+        Guid? sreVoucherDetailId,
+        IReadOnlySet<Guid>? targetVoucherOrRowIds)
+    {
+        if (targetVoucherOrRowIds == null || targetVoucherOrRowIds.Count == 0)
+        {
+            return false;
+        }
+
+        return (sreVoucherId.HasValue && targetVoucherOrRowIds.Contains(sreVoucherId.Value))
+            || (sreVoucherDetailId.HasValue && targetVoucherOrRowIds.Contains(sreVoucherDetailId.Value));
+    }
+
+    /// <summary>
+    /// Picks serial numbers prioritizing those reserved for the target Sales Order row first,
+    /// then filling any remaining quantity from unreserved available stock while skipping ignored
+    /// and already-reserved serials.
+    /// Per ERPNext PR #63784 (<c>get_available_serial_nos</c> / <c>get_reserved_serial_nos_in_stock</c>).
+    /// </summary>
+    public static List<string> PickSerialNosPrioritizingSalesOrderRow(
+        int requiredQty,
+        IEnumerable<string>? reservedForSoRowSerials,
+        IEnumerable<string>? unreservedAvailableSerials,
+        IEnumerable<string>? ignoreSerials = null)
+    {
+        if (requiredQty <= 0)
+        {
+            return new List<string>();
+        }
+
+        var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (ignoreSerials != null)
+        {
+            foreach (var sn in ignoreSerials)
+            {
+                if (!string.IsNullOrWhiteSpace(sn))
+                    skip.Add(sn.Trim());
+            }
+        }
+
+        var picked = new List<string>();
+        if (reservedForSoRowSerials != null)
+        {
+            foreach (var sn in reservedForSoRowSerials)
+            {
+                if (string.IsNullOrWhiteSpace(sn)) continue;
+                var trimmed = sn.Trim();
+                if (!skip.Add(trimmed)) continue;
+                picked.Add(trimmed);
+                if (picked.Count >= requiredQty)
+                    return picked;
+            }
+        }
+
+        if (unreservedAvailableSerials != null)
+        {
+            foreach (var sn in unreservedAvailableSerials)
+            {
+                if (string.IsNullOrWhiteSpace(sn)) continue;
+                var trimmed = sn.Trim();
+                if (!skip.Add(trimmed)) continue;
+                picked.Add(trimmed);
+                if (picked.Count >= requiredQty)
+                    break;
+            }
+        }
+
+        return picked;
+    }
 }
 
 public class ReservationConsumption

@@ -33,7 +33,7 @@
         </div>
         <div class="col-md-1">
           @if (entries().length > 0) {
-            <button class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()" title="Export CSV">
+            <button class="btn btn-outline-secondary btn-sm w-100" (click)="exportCsv()" [title]="'::Export' | abpLocalization">
               <i class="fa fa-download"></i>
             </button>
           }

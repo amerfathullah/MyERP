@@ -63,14 +63,14 @@ import type { VehicleDto } from '../../proxy/assets/models';
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (!v.isDisabled) {
-                          <button class="btn btn-outline-warning" title="Disable" (click)="disable(v)"><i class="fa fa-ban"></i></button>
+                          <button class="btn btn-outline-warning" [title]="'::Disable' | abpLocalization" (click)="disable(v)"><i class="fa fa-ban"></i></button>
                         } @else {
-                          <button class="btn btn-outline-success" title="Enable" (click)="enable(v)"><i class="fa fa-check"></i></button>
+                          <button class="btn btn-outline-success" [title]="'::Active' | abpLocalization" (click)="enable(v)"><i class="fa fa-check"></i></button>
                         }
-                        <a class="btn btn-outline-primary" [routerLink]="['/assets/vehicles', v.id, 'edit']">
+                        <a class="btn btn-outline-primary" [routerLink]="['/assets/vehicles', v.id, 'edit']" [title]="'::Edit' | abpLocalization">
                           <i class="fa fa-edit"></i>
                         </a>
-                        <button class="btn btn-outline-danger" (click)="delete(v)">
+                        <button class="btn btn-outline-danger" (click)="delete(v)" [title]="'::Delete' | abpLocalization">
                           <i class="fa fa-trash"></i>
                         </button>
                       </div>

@@ -68,15 +68,15 @@ import type { AssetValueAdjustmentDto } from '../../proxy/assets/models';
                     <td>
                       <div class="btn-group btn-group-sm">
                         @if (adj.status === 0) {
-                          <button class="btn btn-outline-success" title="Submit" (click)="submitAdj(adj)">
+                          <button class="btn btn-outline-success" [title]="'::Submit' | abpLocalization" (click)="submitAdj(adj)">
                             <i class="fa fa-check"></i>
                           </button>
-                          <button class="btn btn-outline-danger" title="Delete" (click)="deleteAdj(adj)">
+                          <button class="btn btn-outline-danger" [title]="'::Delete' | abpLocalization" (click)="deleteAdj(adj)">
                             <i class="fa fa-trash"></i>
                           </button>
                         }
                         @if (adj.status === 1) {
-                          <button class="btn btn-outline-warning" title="Cancel" (click)="cancelAdj(adj)">
+                          <button class="btn btn-outline-warning" [title]="'::Cancel' | abpLocalization" (click)="cancelAdj(adj)">
                             <i class="fa fa-times"></i>
                           </button>
                         }

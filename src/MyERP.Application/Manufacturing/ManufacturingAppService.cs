@@ -283,6 +283,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             });
         }
 
+        // Per ERPNext PR #67335: snapshot existing operation workstation/rate pairs before replacing so changing
+        // WorkstationId or WorkstationTypeId without updating WorkstationHourRate refetches the new hour rate.
+        var previousOpsBySeq = bom.Operations
+            .GroupBy(o => (o.SequenceId, o.OperationId))
+            .ToDictionary(g => g.Key, g => g.First());
+
         bom.Operations.Clear();
         bom.WithOperations = input.WithOperations || input.Operations.Count > 0;
         foreach (var op in input.Operations.OrderBy(o => o.SequenceId))
@@ -301,6 +307,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 TargetWarehouseId = op.TargetWarehouseId ?? input.TargetWarehouseId,
             };
             var hourRate = op.WorkstationHourRate;
+            if (previousOpsBySeq.TryGetValue((op.SequenceId, op.OperationId), out var prevOp))
+            {
+                var workstationChanged = prevOp.WorkstationId != op.WorkstationId
+                    || prevOp.WorkstationTypeId != op.WorkstationTypeId;
+                var prevImpliedRate = prevOp.TimeInMins > 0m
+                    ? Math.Round(prevOp.OperatingCost * 60m / prevOp.TimeInMins, 4)
+                    : 0m;
+                if (workstationChanged && hourRate > 0m && Math.Abs(hourRate - prevImpliedRate) <= 0.01m)
+                {
+                    hourRate = 0m;
+                }
+            }
             if (hourRate <= 0)
             {
                 if (op.WorkstationId.HasValue)

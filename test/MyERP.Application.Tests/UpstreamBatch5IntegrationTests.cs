@@ -4245,4 +4245,116 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             sentBodies[0].ShouldContain("MYR 200.00");
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch30_BomHourRateRefetch_And_LhdnReportsParity()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var wsRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.Workstation, Guid>>();
+            var opRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.Operation, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<MyERP.Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var piRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var subRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+            var consRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var logRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+            var mfgService = GetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+            var mockLhdn = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+            var mockSettings = NSubstitute.Substitute.For<Volo.Abp.Settings.ISettingProvider>();
+            var eInvoiceService = new MyERP.EInvoice.EInvoiceAppService(
+                new MyERP.EInvoice.Services.EInvoiceService(mockLhdn, subRepo, logRepo),
+                new MyERP.EInvoice.Services.InvoiceDocumentBuilder(),
+                new MyERP.EInvoice.Services.InvoiceDocumentSigner(),
+                new MyERP.EInvoice.Services.EInvoiceValidationService(companyRepo, custRepo, suppRepo, siRepo, piRepo),
+                new MyERP.EInvoice.Services.EInvoiceConsolidationService(siRepo, consRepo, custRepo, GetRequiredService<Volo.Abp.Guids.IGuidGenerator>()),
+                new MyERP.EInvoice.Services.TaxpayerValidationService(mockLhdn, mockSettings),
+                subRepo, consRepo, logRepo, siRepo, piRepo, custRepo, suppRepo, companyRepo, mockSettings, itemRepo)
+            {
+                LazyServiceProvider = GetRequiredService<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>(),
+            };
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch30 Co"), autoSave: true);
+            var fg = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B30-FG", "FG", ItemType.Goods), autoSave: true);
+            var rm = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B30-RM", "RM", ItemType.Goods), autoSave: true);
+            var op = await opRepo.InsertAsync(new MyERP.Manufacturing.Entities.Operation(Guid.NewGuid(), "B30 Cut"), autoSave: true);
+
+            var ws1 = new MyERP.Manufacturing.Entities.Workstation(Guid.NewGuid(), company.Id, "B30 WS1");
+            ws1.AddCost("Labor", 60m);
+            await wsRepo.InsertAsync(ws1, autoSave: true);
+
+            var ws2 = new MyERP.Manufacturing.Entities.Workstation(Guid.NewGuid(), company.Id, "B30 WS2");
+            ws2.AddCost("Labor", 120m);
+            await wsRepo.InsertAsync(ws2, autoSave: true);
+
+            // 1. PR #67335: changing BOM operation WorkstationId with stale WorkstationHourRate refetches new workstation's rate
+            var bom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-B30-1", fg.Id);
+            bom.AddItem(new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), bom.Id, rm.Id, "RM", 1m, 10m));
+            var bomOp = new MyERP.Manufacturing.Entities.BomOperation(Guid.NewGuid(), bom.Id, op.Id, 1, 60m, ws1.Id);
+            bomOp.CalculateCost(60m);
+            bom.AddOperation(bomOp);
+            await bomRepo.InsertAsync(bom, autoSave: true);
+
+            var updated = await mfgService.UpdateBomAsync(bom.Id, new MyERP.Manufacturing.CreateBomDto
+            {
+                CompanyId = company.Id,
+                ItemId = fg.Id,
+                Quantity = 1m,
+                Uom = "Unit",
+                WithOperations = true,
+                Items = new() { new MyERP.Manufacturing.CreateBomItemDto { ItemId = rm.Id, ItemName = "RM", Quantity = 1m, Rate = 10m } },
+                Operations = new()
+                {
+                    new MyERP.Manufacturing.CreateBomOperationDto
+                    {
+                        OperationId = op.Id,
+                        SequenceId = 1,
+                        TimeInMins = 60m,
+                        WorkstationId = ws2.Id,
+                        WorkstationHourRate = 60m, // stale rate from ws1
+                    }
+                }
+            });
+            updated.OperatingCost.ShouldBe(120m);
+
+            // 2. MyInvois: Purchase status report returns pi.QrCodeUrl directly even without LhdnSubmissionId
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B30 Supp"), autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B30 Cust"), autoSave: true);
+
+            var pi = new MyERP.Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-B30-1", DateTime.Today)
+            {
+                EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Valid,
+                LhdnUuid = "UUID-PI-B30",
+                QrCodeUrl = "https://preprod.myinvois.hasil.gov.my/UUID-PI-B30/share/LONG-PI",
+            };
+            pi.AddItem(rm.Id, "RM", 1m, 100m, 10m);
+            pi.Submit();
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            var purchaseStatus = await eInvoiceService.GetPurchaseStatusReportAsync(new MyERP.EInvoice.LhdnStatusReportRequestDto
+            {
+                CompanyId = company.Id,
+            });
+            purchaseStatus.ShouldContain(r => r.InvoiceId == pi.Id && r.QrCodeUrl == pi.QrCodeUrl);
+
+            // 3. MyInvois: VAT report uses tax-exclusive NetTotal (100) rather than GrandTotal (110) when no item TaxCategoryId is set
+            var si = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-B30-1", DateTime.Today);
+            si.AddItem(fg.Id, "FG", 1m, 100m, 10m);
+            si.Submit();
+            await siRepo.InsertAsync(si, autoSave: true);
+
+            var vatReport = await eInvoiceService.GetVatReportAsync(new MyERP.EInvoice.LhdnVatReportRequestDto
+            {
+                CompanyId = company.Id,
+            });
+            vatReport.TotalSalesAmount.ShouldBe(100m);
+            vatReport.TotalSalesVat.ShouldBe(10m);
+            vatReport.TotalPurchaseAmount.ShouldBe(100m);
+            vatReport.TotalPurchaseVat.ShouldBe(10m);
+        });
+    }
 }

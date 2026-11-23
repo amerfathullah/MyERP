@@ -274,4 +274,79 @@ public class MasterProductionScheduleService : DomainService
 
         return results;
     }
+
+    /// <summary>
+    /// Lets MPS demand across each forecast period <c>[PeriodStart, PeriodEnd)</c> consume that period's
+    /// sales forecast (even on days outside the report window), ordering periods that end first so overlapping
+    /// periods consume as much demand as possible, and dropping fully consumed forecast rows.
+    /// Per ERPNext PR #67498 (<c>consume_forecast</c> in <c>material_requirements_planning_report.py</c>).
+    /// </summary>
+    public static List<(string ItemCode, DateTime PeriodStart, DateTime PeriodEnd, decimal RemainingForecastQty)>
+        ConsumeForecastFromMpsDemand(
+            IEnumerable<(string ItemCode, DateTime PeriodStart, DateTime PeriodEnd, decimal ForecastQty)>? forecastRows,
+            IEnumerable<(string ItemCode, DateTime DeliveryDate, decimal PlannedQty)>? mpsDemandRows,
+            int precision = 4)
+    {
+        if (forecastRows == null)
+        {
+            return new List<(string, DateTime, DateTime, decimal)>();
+        }
+
+        var demandByItem = new Dictionary<string, List<(DateTime Date, decimal Qty)>>(StringComparer.OrdinalIgnoreCase);
+        if (mpsDemandRows != null)
+        {
+            foreach (var row in mpsDemandRows)
+            {
+                if (!demandByItem.TryGetValue(row.ItemCode, out var list))
+                {
+                    list = new List<(DateTime, decimal)>();
+                    demandByItem[row.ItemCode] = list;
+                }
+                list.Add((row.DeliveryDate.Date, row.PlannedQty));
+            }
+        }
+
+        var orderedForecasts = forecastRows
+            .Select((r, idx) => (Row: r, Index: idx))
+            .OrderBy(x => x.Row.PeriodEnd)
+            .ThenBy(x => x.Row.PeriodStart)
+            .ThenBy(x => x.Index)
+            .ToList();
+
+        var remaining = new List<(string ItemCode, DateTime PeriodStart, DateTime PeriodEnd, decimal RemainingForecastQty)>();
+        foreach (var entry in orderedForecasts)
+        {
+            var r = entry.Row;
+            var remForecast = r.ForecastQty;
+            if (demandByItem.TryGetValue(r.ItemCode, out var demands))
+            {
+                for (var i = 0; i < demands.Count && remForecast > 0m; i++)
+                {
+                    var d = demands[i];
+                    if (d.Date >= r.PeriodStart.Date && d.Date < r.PeriodEnd.Date && d.Qty > 0m)
+                    {
+                        var consumed = Math.Min(remForecast, d.Qty);
+                        remForecast -= consumed;
+                        demands[i] = (d.Date, d.Qty - consumed);
+                    }
+                }
+            }
+
+            var rounded = Math.Round(remForecast, precision, MidpointRounding.AwayFromZero);
+            if (rounded > 0m)
+            {
+                remaining.Add((r.ItemCode, r.PeriodStart, r.PeriodEnd, rounded));
+            }
+        }
+
+        return remaining;
+    }
+
+    /// <summary>
+    /// Combines MPS planned demand with remaining unconsumed forecast (and optional ad-hoc qty)
+    /// per ERPNext PR #67498: uses addition (<c>planned + remainingForecast</c>) rather than <c>max</c>
+    /// because overlapping forecast has already been consumed by <see cref="ConsumeForecastFromMpsDemand"/>.
+    /// </summary>
+    public static decimal CalculateCombinedMrpDemand(decimal mpsPlannedQty, decimal remainingForecastQty, decimal adhocQty = 0m)
+        => mpsPlannedQty + remainingForecastQty + adhocQty;
 }

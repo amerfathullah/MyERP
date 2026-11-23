@@ -118,10 +118,10 @@
           <span class="text-muted ms-2">{{ r.fromDate | date:'mediumDate' }} – {{ r.toDate | date:'mediumDate' }}</span>
         </div>
         <div class="btn-group btn-group-sm">
-          <button class="btn btn-outline-secondary" (click)="exportCsv()" title="Export CSV">
+          <button class="btn btn-outline-secondary" (click)="exportCsv()" [title]="'::Export' | abpLocalization">
             <i class="fas fa-file-csv me-1"></i>CSV
           </button>
-          <button class="btn btn-outline-secondary" (click)="printReport()" title="Print">
+          <button class="btn btn-outline-secondary" (click)="printReport()" [title]="'::Print' | abpLocalization">
             <i class="fas fa-print me-1"></i>{{ '::Print' | abpLocalization }}
           </button>
         </div>

@@ -942,4 +942,48 @@ public class UpstreamBatch41ParityTests
             timeInMins: 30m, qty: 15m, bomQty: 1m, isFixedTime: true,
             createJobCardBasedOnBatchSize: true, batchSize: 5m).ShouldBe(30m);
     }
+
+    [Fact]
+    public void UpstreamPRs_67498_63784_MrpForecastConsumptionAndReservedSerials_Parity()
+    {
+        // 1. PR #67498: MPS demand across entire forecast period consumes forecast, earlier-ending periods first
+        var forecasts = new[]
+        {
+            ("FG-1", new DateTime(2026, 5, 1), new DateTime(2026, 6, 1), 100m),
+            ("FG-1", new DateTime(2026, 5, 1), new DateTime(2026, 5, 15), 40m), // ends earlier -> consumes first
+        };
+        var mpsDemands = new[]
+        {
+            ("FG-1", new DateTime(2026, 5, 10), 60m), // 40 goes to [May 1, May 15), remaining 20 goes to [May 1, Jun 1)
+            ("FG-1", new DateTime(2026, 5, 25), 30m), // 30 goes to [May 1, Jun 1) -> leaves 50
+        };
+        var remaining = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .ConsumeForecastFromMpsDemand(forecasts, mpsDemands);
+        remaining.Count.ShouldBe(1);
+        remaining[0].PeriodEnd.ShouldBe(new DateTime(2026, 6, 1));
+        remaining[0].RemainingForecastQty.ShouldBe(50m);
+
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .CalculateCombinedMrpDemand(mpsPlannedQty: 30m, remainingForecastQty: 50m, adhocQty: 5m)
+            .ShouldBe(85m);
+
+        // 2. PR #63784: pick serial numbers reserved for target SO row first, then fill from unreserved stock
+        var picked = MyERP.Inventory.DomainServices.StockReservationManager.PickSerialNosPrioritizingSalesOrderRow(
+            requiredQty: 3,
+            reservedForSoRowSerials: new[] { "SR-RES-1", "SR-RES-2" },
+            unreservedAvailableSerials: new[] { "SR-FREE-1", "SR-RES-1", "SR-FREE-2" },
+            ignoreSerials: new[] { "SR-RES-2" });
+        picked.ShouldBe(new[] { "SR-RES-1", "SR-FREE-1", "SR-FREE-2" });
+
+        // Voucher OR row/packed-item detail matching
+        var soId = Guid.NewGuid();
+        var soRowId = Guid.NewGuid();
+        var targets = new System.Collections.Generic.HashSet<Guid> { soRowId };
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .IsReservationForVoucherOrRow(soId, soRowId, targets)
+            .ShouldBeTrue();
+        MyERP.Inventory.DomainServices.StockReservationManager
+            .IsReservationForVoucherOrRow(soId, Guid.NewGuid(), targets)
+            .ShouldBeFalse();
+    }
 }
