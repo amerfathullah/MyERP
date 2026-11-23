@@ -1,9 +1,12 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Volo.Abp.DependencyInjection;
 
@@ -66,14 +69,63 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         return doc.RootElement.GetProperty("access_token").GetString()!;
     }
 
+    /// <summary>
+    /// Builds the LHDN MyInvois <c>/api/v1.0/documentsubmissions</c> JSON envelope wrapping Base64 XML,
+    /// lowercase SHA-256 hex digest, and invoice code number per myinvois <c>original.py</c> lines 377-395.
+    /// </summary>
+    public static string BuildSubmissionPayloadJson(string xmlDocument, string? codeNumber = null)
+    {
+        var xmlBytes = Encoding.UTF8.GetBytes(xmlDocument ?? string.Empty);
+        var sha256Hex = Convert.ToHexString(SHA256.HashData(xmlBytes)).ToLowerInvariant();
+        var encodedXml = Convert.ToBase64String(xmlBytes);
+        var resolvedCodeNumber = !string.IsNullOrWhiteSpace(codeNumber)
+            ? codeNumber.Trim()
+            : (TryExtractInvoiceCodeNumber(xmlDocument) ?? sha256Hex[..16]);
+
+        return JsonSerializer.Serialize(new
+        {
+            documents = new[]
+            {
+                new
+                {
+                    format = "XML",
+                    documentHash = sha256Hex,
+                    codeNumber = resolvedCodeNumber,
+                    document = encodedXml
+                }
+            }
+        });
+    }
+
+    private static string? TryExtractInvoiceCodeNumber(string? xmlDocument)
+    {
+        if (string.IsNullOrWhiteSpace(xmlDocument))
+        {
+            return null;
+        }
+
+        try
+        {
+            var root = XDocument.Parse(xmlDocument).Root;
+            var idElem = root?.Elements().FirstOrDefault(e => e.Name.LocalName == "ID");
+            var val = idElem?.Value?.Trim();
+            return string.IsNullOrWhiteSpace(val) ? null : val;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<LhdnSubmissionResponse> SubmitDocumentAsync(string accessToken, string xmlDocument, LhdnEnvironment environment)
     {
         var client = _httpClientFactory.CreateClient("LhdnApi");
         var url = $"{GetBaseUrl(environment)}/api/v1.0/documentsubmissions";
 
+        var payloadJson = BuildSubmissionPayloadJson(xmlDocument);
         var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        request.Content = new StringContent(xmlDocument, Encoding.UTF8, "application/xml");
+        request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
 
         var response = await client.SendAsync(request);
         var rawJson = await response.Content.ReadAsStringAsync();

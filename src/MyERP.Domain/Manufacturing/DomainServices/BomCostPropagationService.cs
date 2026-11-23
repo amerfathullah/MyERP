@@ -412,4 +412,35 @@ public class BomCostPropagationService : DomainService
         }
         return count;
     }
+
+    /// <summary>
+    /// Resolves a BOM's buying price-list conversion rate (<c>plc_conversion_rate</c>):
+    /// returns <c>1</c> when price list currency equals company currency, returns <paramref name="bomConversionRate"/>
+    /// when price list currency equals BOM currency, and otherwise uses <paramref name="fetchedExchangeRate"/>
+    /// while preserving <paramref name="storedPlcConversionRate"/> if no exchange rate is found.
+    /// Per ERPNext commits <c>324bc5ffa6</c>, <c>9ff6216212</c>, <c>ead69ffe56</c>, and <c>4768171999</c>
+    /// (<c>BOM.set_plc_conversion_rate</c>).
+    /// </summary>
+    public static decimal ResolveBomPriceListConversionRate(
+        string? priceListCurrency,
+        string? companyCurrency,
+        string? bomCurrency,
+        decimal bomConversionRate,
+        decimal? fetchedExchangeRate,
+        decimal storedPlcConversionRate)
+    {
+        if (string.Equals(priceListCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return 1m;
+        }
+
+        if (string.Equals(priceListCurrency, bomCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return bomConversionRate;
+        }
+
+        return fetchedExchangeRate.HasValue && fetchedExchangeRate.Value > 0m
+            ? fetchedExchangeRate.Value
+            : storedPlcConversionRate;
+    }
 }

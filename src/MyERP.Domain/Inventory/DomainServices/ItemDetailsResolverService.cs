@@ -708,6 +708,34 @@ public class ItemDetailsResolverService : DomainService
         var isOutgoing = isInternalCustomer && !isReturn;
         return isOutgoing ? -stockQty : stockQty;
     }
+
+    /// <summary>
+    /// Resolves the effective UOM conversion factor, stock-precision rounded lookup quantity, and
+    /// row-UOM valuation rate for a standalone Purchase Debit Note with <c>update_stock</c> enabled:
+    /// falls back to the item's UOM conversion factor when the row factor is missing/zero and rounds
+    /// the FIFO lookup quantity to stock-qty precision to match the stock ledger posting.
+    /// Per ERPNext commits <c>f2588c879a</c>, <c>9ef6e8bef4</c>, and <c>023c44198d</c> (<c>buying_controller.py</c>).
+    /// </summary>
+    public static (decimal ConversionFactor, decimal LookupStockQty, decimal RowUomRate)
+        ResolveStandaloneDebitNoteValuation(
+            decimal rowQty,
+            decimal rowConversionFactor,
+            decimal? itemUomConversionFactor,
+            Func<decimal, decimal> lookupStockValuationRate,
+            int stockQtyPrecision = 4,
+            int ratePrecision = 4)
+    {
+        var factor = rowConversionFactor > 0m
+            ? rowConversionFactor
+            : (itemUomConversionFactor.HasValue && itemUomConversionFactor.Value > 0m
+                ? itemUomConversionFactor.Value
+                : 1m);
+
+        var lookupStockQty = Math.Round(rowQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        var stockValuationRate = lookupStockValuationRate(lookupStockQty);
+        var rowRate = ConvertStockValuationRateToRowUom(stockValuationRate, factor, ratePrecision);
+        return (factor, lookupStockQty, rowRate);
+    }
 }
 
 // --- Supporting types ---

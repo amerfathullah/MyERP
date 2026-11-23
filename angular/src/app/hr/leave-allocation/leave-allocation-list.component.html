@@ -84,7 +84,7 @@
                   </td>
                   <td class="text-end">
                     <button class="btn btn-outline-danger btn-sm" (click)="deleteAllocation(item.id!)"
-                            [disabled]="(item.leavesUsed ?? 0) > 0" title="Delete">
+                            [disabled]="(item.leavesUsed ?? 0) > 0" [title]="'::Delete' | abpLocalization">
                       <i class="fa fa-trash"></i>
                     </button>
                   </td>

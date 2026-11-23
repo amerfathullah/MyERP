@@ -2200,6 +2200,182 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the finished good's cost share on a Subcontracting Receipt <em>return</em> from the
+    /// returned receipt's original secondary rows: reserves ONLY the percentages of original rows with
+    /// non-zero qty and <see cref="Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost"/>
+    /// (excluding <c>ValuationRate</c> and <c>Manual</c> rows), so a return reverses at the original
+    /// receipt's share (<c>100 - allocatedPct</c>) rather than the BOM's static share.
+    /// Per ERPNext commits <c>e2d286d688</c> and <c>61bb973b59</c> (<c>get_returned_allocated_per</c>).
+    /// </summary>
+    public static (decimal AllocatedCoProductPercentage, decimal FinishedGoodAmount, decimal FinishedGoodRate)
+        CalculateReturnedFinishedGoodShareFromReceiptRows(
+            decimal fgReturnGrossAmount,
+            decimal fgReturnQty,
+            IEnumerable<(decimal OriginalQty, Manufacturing.SecondaryItemValuationType ValuationType, decimal CostAllocationPercentage)>? originalReceiptSecondaryRows,
+            int precision = 4)
+    {
+        var allocatedPct = 0m;
+        if (originalReceiptSecondaryRows != null)
+        {
+            foreach (var row in originalReceiptSecondaryRows)
+            {
+                if (row.OriginalQty != 0m
+                    && row.ValuationType == Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost
+                    && row.CostAllocationPercentage > 0m)
+                {
+                    allocatedPct += row.CostAllocationPercentage;
+                }
+            }
+        }
+
+        var fgSharePct = Math.Max(0m, 100m - allocatedPct);
+        var fgAmount = Math.Round(fgReturnGrossAmount * (fgSharePct / 100m), precision, MidpointRounding.AwayFromZero);
+        var fgRate = fgReturnQty != 0m
+            ? Math.Round(fgAmount / fgReturnQty, precision, MidpointRounding.AwayFromZero)
+            : 0m;
+
+        return (allocatedPct, fgAmount, fgRate);
+    }
+
+    /// <summary>
+    /// Maps each Subcontracting Inward Order finished-good row to the Difference Account
+    /// (<c>ExpenseAccountId</c>) used by its submitted <c>SubcontractingDelivery</c> entries when all
+    /// deliveries for that row used one consistent account; returns no default if deliveries used
+    /// multiple distinct accounts or none.
+    /// Per ERPNext commits <c>acdd0590d1</c> and <c>bace342ab3</c> (<c>get_delivery_accounts</c>).
+    /// </summary>
+    public static Dictionary<Guid, Guid> ResolveSubcontractingReturnDifferenceAccounts(
+        IEnumerable<(Guid ScioDetailId, Guid? ExpenseAccountId)>? submittedDeliveryRows)
+    {
+        var result = new Dictionary<Guid, Guid>();
+        if (submittedDeliveryRows == null)
+        {
+            return result;
+        }
+
+        var accountsByRow = new Dictionary<Guid, HashSet<Guid?>>();
+        foreach (var row in submittedDeliveryRows)
+        {
+            if (!accountsByRow.TryGetValue(row.ScioDetailId, out var set))
+            {
+                set = new HashSet<Guid?>();
+                accountsByRow[row.ScioDetailId] = set;
+            }
+            set.Add(row.ExpenseAccountId);
+        }
+
+        foreach (var (scioDetailId, used) in accountsByRow)
+        {
+            if (used.Count == 1)
+            {
+                var single = used.First();
+                if (single.HasValue && single.Value != Guid.Empty)
+                {
+                    result[scioDetailId] = single.Value;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Preserves an explicitly chosen Difference Account on a <c>SubcontractingDelivery</c> or
+    /// <c>SubcontractingReturn</c> Stock Entry row, falling back to the delivery default (for returns)
+    /// and then the company default expense account only when the row has no explicit account.
+    /// Per ERPNext commit <c>5b56de6ee4</c> (<c>stock_entry.py</c> / <c>stock_entry_detail.py</c>).
+    /// </summary>
+    public static Guid? ResolveSubcontractingEntryExpenseAccount(
+        Guid? explicitExpenseAccountId,
+        Guid? deliveryDefaultAccountId,
+        Guid? companyDefaultExpenseAccountId)
+    {
+        if (explicitExpenseAccountId.HasValue && explicitExpenseAccountId.Value != Guid.Empty)
+        {
+            return explicitExpenseAccountId;
+        }
+
+        if (deliveryDefaultAccountId.HasValue && deliveryDefaultAccountId.Value != Guid.Empty)
+        {
+            return deliveryDefaultAccountId;
+        }
+
+        return companyDefaultExpenseAccountId;
+    }
+
+    /// <summary>
+    /// Allocates subcontracting raw-material consumption across Subcontracting Order supplied-item rows:
+    /// each row's positive net sent quantity absorbs its own finished good's consumption first, and then
+    /// absorbs any consumption of the same RM item on the same order that exceeded what another finished
+    /// good's rows were sent (<c>consumed_beyond_sent</c>).
+    /// Per ERPNext commit <c>3fd104156f</c> (<c>get_consumed_qty_beyond_sent</c> in <c>subcontracting_controller.py</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> AllocateSubcontractingRmConsumptionAcrossOrderRows(
+        IEnumerable<(Guid OrderRowId, Guid OrderId, Guid MainItemId, Guid RmItemId, decimal NetSentQty)>? orderRows,
+        IReadOnlyDictionary<(Guid RmItemId, Guid MainItemId, Guid OrderId), decimal>? itemwiseConsumedQty,
+        int precision = 4)
+    {
+        var allocated = new Dictionary<Guid, decimal>();
+        if (orderRows == null)
+        {
+            return allocated;
+        }
+
+        var rows = orderRows.ToList();
+        var sentFor = new Dictionary<(Guid RmItemId, Guid MainItemId, Guid OrderId), decimal>();
+        foreach (var row in rows)
+        {
+            var key = (row.RmItemId, row.MainItemId, row.OrderId);
+            sentFor[key] = sentFor.GetValueOrDefault(key, 0m) + Math.Max(row.NetSentQty, 0m);
+        }
+
+        var ownRemaining = new Dictionary<(Guid RmItemId, Guid MainItemId, Guid OrderId), decimal>();
+        var beyondSentRemaining = new Dictionary<(Guid RmItemId, Guid OrderId), decimal>();
+        if (itemwiseConsumedQty != null)
+        {
+            foreach (var (key, consumed) in itemwiseConsumedQty)
+            {
+                ownRemaining[key] = consumed;
+                var sent = sentFor.GetValueOrDefault(key, 0m);
+                var overflow = Math.Max(consumed - sent, 0m);
+                if (overflow > 0m)
+                {
+                    var orderKey = (key.RmItemId, key.OrderId);
+                    beyondSentRemaining[orderKey] = beyondSentRemaining.GetValueOrDefault(orderKey, 0m) + overflow;
+                }
+            }
+        }
+
+        foreach (var row in rows)
+        {
+            var qtyLeft = Math.Max(row.NetSentQty, 0m);
+            var rowConsumed = 0m;
+
+            var ownKey = (row.RmItemId, row.MainItemId, row.OrderId);
+            if (qtyLeft > 0m && ownRemaining.TryGetValue(ownKey, out var ownAvail) && ownAvail > 0m)
+            {
+                var take = Math.Min(ownAvail, qtyLeft);
+                ownRemaining[ownKey] = ownAvail - take;
+                qtyLeft -= take;
+                rowConsumed += take;
+            }
+
+            var overflowKey = (row.RmItemId, row.OrderId);
+            if (qtyLeft > 0m && beyondSentRemaining.TryGetValue(overflowKey, out var overflowAvail) && overflowAvail > 0m)
+            {
+                var take = Math.Min(overflowAvail, qtyLeft);
+                beyondSentRemaining[overflowKey] = overflowAvail - take;
+                qtyLeft -= take;
+                rowConsumed += take;
+            }
+
+            allocated[row.OrderRowId] = Math.Round(rowConsumed, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return allocated;
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

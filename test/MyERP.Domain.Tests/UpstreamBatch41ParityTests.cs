@@ -1191,4 +1191,151 @@ public class UpstreamBatch41ParityTests
             .ResolveInternalTransactionRateQueryQty(stockQty: 5m, isInternalCustomer: true, isReturn: true)
             .ShouldBe(5m);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch7_LhdnJsonEnvelope_Subcontracting_BomPlc_StandaloneDebitNote_Parity()
+    {
+        // 1. MyInvois original.py: LhdnApiClient wraps XML in LHDN JSON submission envelope with SHA-256 hex & Base64
+        const string sampleXml = "<Invoice xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\"><cbc:ID>SI-2026-0099</cbc:ID></Invoice>";
+        var payloadJson = MyERP.EInvoice.Services.LhdnApiClient.BuildSubmissionPayloadJson(sampleXml);
+        using (var parsed = System.Text.Json.JsonDocument.Parse(payloadJson))
+        {
+            var doc0 = parsed.RootElement.GetProperty("documents")[0];
+            doc0.GetProperty("format").GetString().ShouldBe("XML");
+            doc0.GetProperty("codeNumber").GetString().ShouldBe("SI-2026-0099");
+            var expectedBytes = System.Text.Encoding.UTF8.GetBytes(sampleXml);
+            doc0.GetProperty("documentHash").GetString().ShouldBe(
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(expectedBytes)).ToLowerInvariant());
+            doc0.GetProperty("document").GetString().ShouldBe(Convert.ToBase64String(expectedBytes));
+        }
+
+        // Verify SubmitDocumentAsync actually sends application/json envelope over HTTP
+        string? capturedMediaType = null;
+        string? capturedBody = null;
+        var handler = new CaptureHttpHandler(req =>
+        {
+            capturedMediaType = req.Content?.Headers.ContentType?.MediaType;
+            capturedBody = req.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Accepted)
+            {
+                Content = new System.Net.Http.StringContent(
+                    """{"submissionUid":"SUB-7","acceptedDocuments":[{"uuid":"UUID-7","longId":"LONG-7"}]}""",
+                    System.Text.Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        var factory = NSubstitute.Substitute.For<System.Net.Http.IHttpClientFactory>();
+        NSubstitute.SubstituteExtensions.Returns(factory.CreateClient("LhdnApi"), new System.Net.Http.HttpClient(handler));
+        var client = new MyERP.EInvoice.Services.LhdnApiClient(
+            factory,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.Services.LhdnApiClient>.Instance);
+        var submitRes = await client.SubmitDocumentAsync("tok", sampleXml, MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        submitRes.IsSuccess.ShouldBeTrue();
+        capturedMediaType.ShouldBe("application/json");
+        capturedBody.ShouldNotBeNull();
+        capturedBody!.ShouldContain("\"codeNumber\":\"SI-2026-0099\"");
+
+        // 2. ERPNext e2d286d688 + 61bb973b59: Subcontracting Receipt return reserves only non-zero % co-product rows
+        var retShare = MyERP.Purchasing.DomainServices.SubcontractingManager
+            .CalculateReturnedFinishedGoodShareFromReceiptRows(
+                fgReturnGrossAmount: -1000m,
+                fgReturnQty: -10m,
+                originalReceiptSecondaryRows: new[]
+                {
+                    (2m, MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, 20m),
+                    (3m, MyERP.Manufacturing.SecondaryItemValuationType.ValuationRate, 15m), // ignored
+                    (1m, MyERP.Manufacturing.SecondaryItemValuationType.Manual, 10m),        // ignored
+                    (0m, MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, 25m), // zero qty ignored
+                });
+        retShare.AllocatedCoProductPercentage.ShouldBe(20m);
+        retShare.FinishedGoodAmount.ShouldBe(-800m);
+        retShare.FinishedGoodRate.ShouldBe(80m);
+
+        // 3. ERPNext 5b56de6ee4 + acdd0590d1 + bace342ab3: SCIO delivery/return Difference Account resolution
+        var scioRow1 = Guid.NewGuid();
+        var scioRow2 = Guid.NewGuid();
+        var accA = Guid.NewGuid();
+        var accB = Guid.NewGuid();
+        var companyDefaultAcc = Guid.NewGuid();
+        var deliveryDefaults = MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveSubcontractingReturnDifferenceAccounts(new[]
+            {
+                (scioRow1, (Guid?)accA),
+                (scioRow1, (Guid?)accA), // consistent single account -> defaults to accA
+                (scioRow2, (Guid?)accA),
+                (scioRow2, (Guid?)accB), // mixed accounts -> no default
+            });
+        deliveryDefaults.ShouldContainKeyAndValue(scioRow1, accA);
+        deliveryDefaults.ShouldNotContainKey(scioRow2);
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveSubcontractingEntryExpenseAccount(accB, accA, companyDefaultAcc)
+            .ShouldBe(accB); // explicit account preserved
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveSubcontractingEntryExpenseAccount(null, accA, companyDefaultAcc)
+            .ShouldBe(accA);
+
+        // 4. ERPNext 3fd104156f: RM consumption beyond what was sent for one FG counts on other rows of the same SCO
+        var scoId = Guid.NewGuid();
+        var rmId = Guid.NewGuid();
+        var fg1 = Guid.NewGuid();
+        var fg2 = Guid.NewGuid();
+        var rowFg1 = Guid.NewGuid();
+        var rowFg2 = Guid.NewGuid();
+        var consumedAlloc = MyERP.Purchasing.DomainServices.SubcontractingManager
+            .AllocateSubcontractingRmConsumptionAcrossOrderRows(
+                orderRows: new[]
+                {
+                    (rowFg1, scoId, fg1, rmId, 5m),
+                    (rowFg2, scoId, fg2, rmId, 5m),
+                },
+                itemwiseConsumedQty: new System.Collections.Generic.Dictionary<(Guid, Guid, Guid), decimal>
+                {
+                    [(rmId, fg1, scoId)] = 8m, // 5 on rowFg1 + 3 overflow absorbed by rowFg2
+                });
+        consumedAlloc[rowFg1].ShouldBe(5m);
+        consumedAlloc[rowFg2].ShouldBe(3m);
+
+        // 5. ERPNext 324bc5ffa6 + 9ff6216212 + ead69ffe56 + 4768171999: BOM price-list conversion rate
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ResolveBomPriceListConversionRate("MYR", "MYR", "USD", 4.5m, 4.4m, 4.2m)
+            .ShouldBe(1m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ResolveBomPriceListConversionRate("USD", "MYR", "USD", 4.5m, 4.4m, 4.2m)
+            .ShouldBe(4.5m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ResolveBomPriceListConversionRate("EUR", "MYR", "USD", 4.5m, 5.1m, 4.9m)
+            .ShouldBe(5.1m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService
+            .ResolveBomPriceListConversionRate("EUR", "MYR", "USD", 4.5m, null, 4.9m)
+            .ShouldBe(4.9m); // keeps stored rate when lookup finds nothing
+
+        // 6. ERPNext f2588c879a + 9ef6e8bef4 + 023c44198d: standalone debit note fallback conversion factor & qty precision
+        decimal seenLookupQty = 0m;
+        var dnVal = MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ResolveStandaloneDebitNoteValuation(
+                rowQty: -1.33336m,
+                rowConversionFactor: 0m,         // missing on row -> fallback to item UOM factor 12
+                itemUomConversionFactor: 12m,
+                lookupStockValuationRate: q =>
+                {
+                    seenLookupQty = q;
+                    return 5m; // stock UOM rate
+                },
+                stockQtyPrecision: 4,
+                ratePrecision: 4);
+        dnVal.ConversionFactor.ShouldBe(12m);
+        seenLookupQty.ShouldBe(-16.0003m);
+        dnVal.LookupStockQty.ShouldBe(-16.0003m);
+        dnVal.RowUomRate.ShouldBe(60m);
+    }
+
+    private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
+    {
+        private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;
+        public CaptureHttpHandler(Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> fn) => _fn = fn;
+        protected override System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request,
+            System.Threading.CancellationToken cancellationToken)
+            => System.Threading.Tasks.Task.FromResult(_fn(request));
+    }
 }

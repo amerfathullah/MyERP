@@ -60,8 +60,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                     <td><span class="badge" [class]="a.status === 0 ? 'bg-success' : 'bg-secondary'">{{ a.status === 0 ? ('::Active' | abpLocalization) : ('::Inactive' | abpLocalization) }}</span></td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editAssignment(a)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteAssignment(a.id)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editAssignment(a)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteAssignment(a.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

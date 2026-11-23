@@ -62,10 +62,10 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                     </td>
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
-                        <a [routerLink]="[item.id, 'edit']" class="btn btn-outline-primary" title="Edit">
+                        <a [routerLink]="[item.id, 'edit']" class="btn btn-outline-primary" [title]="'MyERP::Edit' | abpLocalization">
                           <i class="bi bi-pencil"></i>
                         </a>
-                        <button class="btn btn-outline-danger" (click)="delete(item.id)" title="Delete">
+                        <button class="btn btn-outline-danger" (click)="delete(item.id)" [title]="'MyERP::Delete' | abpLocalization">
                           <i class="bi bi-trash"></i>
                         </button>
                       </div>
