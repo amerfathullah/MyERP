@@ -66,6 +66,25 @@ public class InvoiceDocumentBuilder : ITransientDependency
             invoice.Add(new XElement(Cac + "BillingReference", invoiceDocRef));
         }
 
+        // Additional Document References (Customs Form 1/2/9, FTA, Incoterms — per myinvois createxml.py add_additional_document_reference)
+        if (data.AdditionalDocumentReferences != null)
+        {
+            foreach (var docRef in data.AdditionalDocumentReferences)
+            {
+                var refElem = new XElement(Cac + "AdditionalDocumentReference",
+                    new XElement(Cbc + "ID", docRef.Id ?? ""));
+                if (!string.IsNullOrWhiteSpace(docRef.DocumentType))
+                {
+                    refElem.Add(new XElement(Cbc + "DocumentType", docRef.DocumentType));
+                }
+                if (!string.IsNullOrWhiteSpace(docRef.DocumentDescription))
+                {
+                    refElem.Add(new XElement(Cbc + "DocumentDescription", docRef.DocumentDescription));
+                }
+                invoice.Add(refElem);
+            }
+        }
+
         // Supplier (AccountingSupplierParty)
         invoice.Add(BuildSupplierParty(data.Supplier));
 
@@ -82,6 +101,13 @@ public class InvoiceDocumentBuilder : ITransientDependency
         if (data.Payment != null)
         {
             invoice.Add(BuildPaymentMeans(data.Payment));
+        }
+
+        // Payment Terms (per myinvois createxml.py payment_data)
+        if (!string.IsNullOrWhiteSpace(data.PaymentTermsNote))
+        {
+            invoice.Add(new XElement(Cac + "PaymentTerms",
+                new XElement(Cbc + "Note", data.PaymentTermsNote)));
         }
 
         // Document-level Allowance/Charge (discount)
@@ -675,6 +701,8 @@ public class EInvoiceDocumentData
     public EInvoicePaymentData? Payment { get; set; }
     public string? BillingReferenceNumber { get; set; }
     public string? BillingReferenceUuid { get; set; }
+    public List<EInvoiceAdditionalDocumentReference>? AdditionalDocumentReferences { get; set; }
+    public string? PaymentTermsNote { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? DiscountReason { get; set; }
     public decimal NetTotal { get; set; }
@@ -723,6 +751,14 @@ public class EInvoicePaymentData
     /// <summary>LHDN payment mode: 01=Cash, 02=Cheque, 03=Transfer, 04=Card, 05=eWallet, 06=Digital Banking, 07=Others.</summary>
     public string PaymentModeCode { get; set; } = "01";
     public string? PayeeFinancialAccountId { get; set; }
+}
+
+/// <summary>Additional document reference (Customs Form 1/2/9, FTA, Incoterms) per myinvois createxml.py.</summary>
+public class EInvoiceAdditionalDocumentReference
+{
+    public string Id { get; set; } = string.Empty;
+    public string? DocumentType { get; set; }
+    public string? DocumentDescription { get; set; }
 }
 
 public class EInvoiceLineData

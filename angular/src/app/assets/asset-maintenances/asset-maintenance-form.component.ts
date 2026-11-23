@@ -44,7 +44,7 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
               </div>
               <div class="col-md-6">
                 <label class="form-label">{{ '::MaintenanceManager' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="maintenanceManagerName" placeholder="Manager Name" />
+                <input type="text" class="form-control" formControlName="maintenanceManagerName" [placeholder]="'::Placeholder:ManagerName' | abpLocalization" />
               </div>
             </div>
 
@@ -84,7 +84,7 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
                   @for (taskGroup of taskControls; track $index) {
                     <tr [formGroupName]="$index">
                       <td>
-                        <input type="text" class="form-control form-control-sm" formControlName="maintenanceTask" placeholder="Task name" />
+                        <input type="text" class="form-control form-control-sm" formControlName="maintenanceTask" [placeholder]="'::Placeholder:TaskName' | abpLocalization" />
                       </td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="periodicity">
@@ -100,7 +100,7 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
                         <input type="date" class="form-control form-control-sm" formControlName="endDate" />
                       </td>
                       <td>
-                        <input type="text" class="form-control form-control-sm" formControlName="assignToName" placeholder="Assignee" />
+                        <input type="text" class="form-control form-control-sm" formControlName="assignToName" [placeholder]="'::Assignee' | abpLocalization" />
                       </td>
                       <td class="text-center">
                         <input type="checkbox" class="form-check-input" formControlName="certificateRequired" />

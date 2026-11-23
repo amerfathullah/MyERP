@@ -2021,6 +2021,92 @@ public class UpstreamBatch41ParityTests
             .ShouldBeFalse();
     }
 
+    [Fact]
+    public void UpstreamBatch16_AdditionalDocRef_PaymentTerms_PoScoClose_ReturnUom_MpsLead_Parity()
+    {
+        // 1. MyInvois: AdditionalDocumentReference (Customs/Incoterms) & PaymentTerms emitted when supplied
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-2026-0016",
+            IssueDate = new DateTime(2026, 7, 16, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Supplier Sdn Bhd", Tin = "C1111111111", Address = "Jalan 1", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buyer Sdn Bhd", Tin = "C2222222222", Address = "Jalan 2", City = "KL", State = "14", CountryCode = "MYS" },
+            AdditionalDocumentReferences = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceAdditionalDocumentReference>
+            {
+                new() { Id = "CF1-998877", DocumentType = "CustomsImportForm", DocumentDescription = "Import Form 1" },
+                new() { Id = "CIF", DocumentType = "Incoterms" }
+            },
+            PaymentTermsNote = "Payment method is Bank Transfer",
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item B", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var addRefs = xml.Root!.Elements(cac + "AdditionalDocumentReference").ToList();
+        addRefs.Count.ShouldBe(2);
+        addRefs[0].Element(cbc + "ID")!.Value.ShouldBe("CF1-998877");
+        addRefs[0].Element(cbc + "DocumentType")!.Value.ShouldBe("CustomsImportForm");
+        addRefs[0].Element(cbc + "DocumentDescription")!.Value.ShouldBe("Import Form 1");
+        addRefs[1].Element(cbc + "ID")!.Value.ShouldBe("CIF");
+        xml.Root!.Element(cac + "PaymentTerms")!.Element(cbc + "Note")!.Value.ShouldBe("Payment method is Bank Transfer");
+
+        // 2. ERPNext 0a1e80e7da: Refuse closing PO row still on an open Subcontracting Order
+        var poRowId = Guid.NewGuid();
+        var poCloseEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.PurchaseOrderManager.ValidatePurchaseOrderItemsNotOnOpenSubcontractingOrder(
+                isSubcontracted: true,
+                itemsToClose: new[] { (1, poRowId, "SVC-ITEM") },
+                openSubcontractingOrderByPoItemId: new System.Collections.Generic.Dictionary<Guid, string> { [poRowId] = "SCO-2026-0001" }));
+        poCloseEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        poCloseEx.Data["detail"]!.ToString()!.ShouldContain("SCO-2026-0001");
+
+        Should.NotThrow(() =>
+            MyERP.Purchasing.DomainServices.PurchaseOrderManager.ValidatePurchaseOrderItemsNotOnOpenSubcontractingOrder(
+                isSubcontracted: false,
+                itemsToClose: new[] { (1, poRowId, "SVC-ITEM") },
+                openSubcontractingOrderByPoItemId: new System.Collections.Generic.Dictionary<Guid, string> { [poRowId] = "SCO-2026-0001" }));
+
+        // 3. ERPNext 4b0cbc8ec1 & 7f085027e1: Refuse submitting or re-opening SCO with unreceived row on closed PO row
+        var scoEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingOrderPurchaseOrderRowsOpen(
+                purchaseOrderNumber: "PO-2026-0001",
+                scoItems: new[] { (1, poRowId, 10m, 4m) },
+                poItemsById: new System.Collections.Generic.Dictionary<Guid, (string, bool)> { [poRowId] = ("SVC-ITEM", true) }));
+        scoEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        scoEx.Data["detail"]!.ToString()!.ShouldContain("PO-2026-0001");
+
+        // Fully received SCO row over closed PO row is allowed
+        Should.NotThrow(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingOrderPurchaseOrderRowsOpen(
+                purchaseOrderNumber: "PO-2026-0001",
+                scoItems: new[] { (1, poRowId, 10m, 10m) },
+                poItemsById: new System.Collections.Generic.Dictionary<Guid, (string, bool)> { [poRowId] = ("SVC-ITEM", true) }));
+
+        // 4. ERPNext 2812f1bf12: Stock UOM return row counts at factor 1 even if stale conversion_factor != 1
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager
+            .CalculateReturnWarehouseCheckStockQty(qty: -5m, uom: "Nos", stockUom: "Nos", conversionFactor: 12m)
+            .ShouldBe(5m);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager
+            .CalculateReturnWarehouseCheckStockQty(qty: -5m, uom: "Box", stockUom: "Nos", conversionFactor: 12m)
+            .ShouldBe(60m);
+
+        // 5. ERPNext 3d452749fa & 4fe3d19743: MPS cumulative lead time uses purchase lead days for purchased items and own+buffer+max(child) for BOM items
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .CalculateMpsCumulativeLeadTimeDays(hasBom: false, purchaseLeadDays: 7m, manufacturingLeadDays: 2m, bufferTimeDays: 1m)
+            .ShouldBe(7m);
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .CalculateMpsCumulativeLeadTimeDays(hasBom: true, purchaseLeadDays: 99m, manufacturingLeadDays: 1.5m, bufferTimeDays: 0.5m, componentCumulativeLeadDays: new[] { 4m, 7m })
+            .ShouldBe(9m);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

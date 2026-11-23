@@ -711,6 +711,32 @@ public class PurchaseOrderManager : DomainService
     {
         return isStockItem || isActiveProductBundle || (fgItemId.HasValue && fgItemId.Value != Guid.Empty);
     }
+
+    /// <summary>
+    /// Refuses to close any subcontracted Purchase Order row that still appears on an open
+    /// (submitted, not Closed/Completed, with remaining qty to receive) Subcontracting Order.
+    /// Per ERPNext commit <c>0a1e80e7da</c> (<c>purchase_order/services/subcontracting.py</c>).
+    /// </summary>
+    public static void ValidatePurchaseOrderItemsNotOnOpenSubcontractingOrder(
+        bool isSubcontracted,
+        IEnumerable<(int RowIdx, Guid PurchaseOrderItemId, string ItemCode)>? itemsToClose,
+        IReadOnlyDictionary<Guid, string>? openSubcontractingOrderByPoItemId)
+    {
+        if (!isSubcontracted || itemsToClose == null || openSubcontractingOrderByPoItemId == null)
+        {
+            return;
+        }
+
+        foreach (var item in itemsToClose)
+        {
+            if (openSubcontractingOrderByPoItemId.TryGetValue(item.PurchaseOrderItemId, out var scoNumber)
+                && !string.IsNullOrWhiteSpace(scoNumber))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{item.RowIdx}: {item.ItemCode} is on the open Subcontracting Order {scoNumber}. Close it before closing the row.");
+            }
+        }
+    }
 }
 
 /// <summary>Summary of overdue items in a Purchase Order.</summary>

@@ -407,4 +407,32 @@ public class MasterProductionScheduleService : DomainService
 
         return buckets;
     }
+
+    /// <summary>
+    /// Computes cumulative lead time (in days) for an item in a Master Production Schedule:
+    /// - Purchased items (<paramref name="hasBom"/> = false) use <paramref name="purchaseLeadDays"/>
+    ///   (resolved from supplier lead times / item lead time days) directly.
+    /// - Manufactured items (<paramref name="hasBom"/> = true) add <paramref name="manufacturingLeadDays"/>
+    ///   plus <paramref name="bufferTimeDays"/> to the longest child component cumulative lead time.
+    /// Per ERPNext commits <c>3d452749fa</c> and <c>4fe3d19743</c> (<c>master_production_schedule.py</c>).
+    /// </summary>
+    public static decimal CalculateMpsCumulativeLeadTimeDays(
+        bool hasBom,
+        decimal purchaseLeadDays,
+        decimal manufacturingLeadDays,
+        decimal bufferTimeDays,
+        IEnumerable<decimal>? componentCumulativeLeadDays = null)
+    {
+        if (!hasBom)
+        {
+            return purchaseLeadDays > 0m ? purchaseLeadDays : 0m;
+        }
+
+        var ownTime = manufacturingLeadDays + bufferTimeDays;
+        var longestComponent = componentCumulativeLeadDays != null && componentCumulativeLeadDays.Any()
+            ? componentCumulativeLeadDays.Max()
+            : 0m;
+
+        return ownTime + longestComponent;
+    }
 }

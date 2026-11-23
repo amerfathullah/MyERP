@@ -2418,6 +2418,33 @@ public class SubcontractingManager : DomainService
         var allocatedSecondaryPct = receiptPercentageSecondaryAllocations?.Sum() ?? 0m;
         return 100m - allocatedSecondaryPct;
     }
+
+    /// <summary>
+    /// Refuses submitting or re-opening a Subcontracting Order when any row with remaining qty to receive
+    /// (<c>ReceivedQty &lt; Qty</c>) references a closed Purchase Order item row.
+    /// Per ERPNext commits <c>4b0cbc8ec1</c> and <c>7f085027e1</c> (<c>subcontracting_order.py</c>).
+    /// </summary>
+    public static void ValidateSubcontractingOrderPurchaseOrderRowsOpen(
+        string purchaseOrderNumber,
+        IEnumerable<(int RowIdx, Guid PurchaseOrderItemId, decimal Qty, decimal ReceivedQty)>? scoItems,
+        IReadOnlyDictionary<Guid, (string ItemCode, bool IsClosed)>? poItemsById)
+    {
+        if (scoItems == null || poItemsById == null)
+        {
+            return;
+        }
+
+        foreach (var item in scoItems)
+        {
+            if (item.ReceivedQty < item.Qty
+                && poItemsById.TryGetValue(item.PurchaseOrderItemId, out var poItem)
+                && poItem.IsClosed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{item.RowIdx}: Item {poItem.ItemCode} is closed in Purchase Order {purchaseOrderNumber} and cannot be processed further.");
+            }
+        }
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

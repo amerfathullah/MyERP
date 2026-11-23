@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { OpportunityLostReasonService } from '../../proxy/crm/opportunity-lost-reason.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -11,7 +12,7 @@ import type { CompanyDto } from '../../proxy/core/models';
 @Component({
   selector: 'app-opportunity-lost-reason-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -37,7 +38,7 @@ import type { CompanyDto } from '../../proxy/core/models';
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" formControlName="description" rows="3" maxlength="500" placeholder="Additional details or guidelines for using this reason..."></textarea>
+            <textarea class="form-control" formControlName="description" rows="3" maxlength="500" [placeholder]="'::Placeholder:LostReasonDetails' | abpLocalization"></textarea>
           </div>
 
           <div class="mb-3">

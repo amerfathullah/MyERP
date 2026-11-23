@@ -72,7 +72,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
 
                 <div class="mb-3">
                   <label class="form-label">{{ '::ActionsPerformed' | abpLocalization }}</label>
-                  <textarea class="form-control" rows="3" formControlName="actionsPerformed" placeholder="Details of work done"></textarea>
+                  <textarea class="form-control" rows="3" formControlName="actionsPerformed" [placeholder]="'::Placeholder:DetailsOfWorkDone' | abpLocalization"></textarea>
                 </div>
 
                 <div class="row mb-3">
@@ -84,7 +84,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">{{ '::CertificateDetails' | abpLocalization }}</label>
-                    <input type="text" class="form-control" formControlName="certificateDetails" placeholder="Certificate reference" />
+                    <input type="text" class="form-control" formControlName="certificateDetails" [placeholder]="'::Placeholder:CertificateReference' | abpLocalization" />
                   </div>
                 </div>
 

@@ -1191,4 +1191,25 @@ public class PurchaseReceiptManager : DomainService
         var pending = invoiceQty - receivedAndMappedQty - returnedInRowUom;
         return Math.Max(Math.Round(pending, qtyPrecision, MidpointRounding.AwayFromZero), 0m);
     }
+
+    /// <summary>
+    /// Computes the absolute stock quantity checked against available warehouse stock during
+    /// <c>validate_return_warehouse_stock</c>: forces conversion factor to <c>1</c> whenever the return
+    /// row's transaction UOM equals its stock UOM (before <c>validate</c> resets a stale factor).
+    /// Per ERPNext commit <c>2812f1bf12</c> (<c>sales_and_purchase_return.py</c>).
+    /// </summary>
+    public static decimal CalculateReturnWarehouseCheckStockQty(
+        decimal qty,
+        string? uom,
+        string? stockUom,
+        decimal conversionFactor,
+        int stockQtyPrecision = 4)
+    {
+        var isStockUom = !string.IsNullOrWhiteSpace(uom)
+            && !string.IsNullOrWhiteSpace(stockUom)
+            && string.Equals(uom.Trim(), stockUom.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        var effectiveFactor = isStockUom ? 1m : (conversionFactor > 0m ? conversionFactor : 1m);
+        return Math.Abs(Math.Round(qty * effectiveFactor, stockQtyPrecision, MidpointRounding.AwayFromZero));
+    }
 }

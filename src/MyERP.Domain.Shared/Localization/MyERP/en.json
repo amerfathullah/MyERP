@@ -6690,7 +6690,16 @@
     "Placeholder:AccessKeyOrToken": "Access key or token",
     "Placeholder:FilterByUuidOrNumber": "Filter by UUID or number...",
     "Placeholder:MyInvoisClientId": "MyInvois Client ID",
-    "Placeholder:Base64PfxCertificate": "Paste base64-encoded PFX certificate here..."
+    "Placeholder:Base64PfxCertificate": "Paste base64-encoded PFX certificate here...",
+    "Placeholder:EnterAssetNotes": "Enter asset notes...",
+    "Placeholder:DetailsOfWorkDone": "Details of work done",
+    "Placeholder:CertificateReference": "Certificate reference",
+    "Placeholder:ManagerName": "Manager Name",
+    "Placeholder:TaskName": "Task name",
+    "Placeholder:LostReasonDetails": "Additional details or guidelines for using this reason...",
+    "Placeholder:OpportunityTypeDetails": "Optional details for this opportunity type",
+    "Placeholder:FilterByTypeName": "Filter by type name...",
+    "Placeholder:ChequeTransferRef": "Cheque/Transfer Ref"
   }
 }
 

@@ -48,7 +48,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ '::ReferenceNumber' | abpLocalization }}</label>
-              <input type="text" class="form-control" [(ngModel)]="paymentReference" placeholder="Cheque/Transfer Ref">
+              <input type="text" class="form-control" [(ngModel)]="paymentReference" [placeholder]="'::Placeholder:ChequeTransferRef' | abpLocalization">
             </div>
           </div>
           <div class="d-flex justify-content-between align-items-center">
