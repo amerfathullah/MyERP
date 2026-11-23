@@ -2306,4 +2306,90 @@ public class StockEntryManager : DomainService
 
         return Math.Round(total, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Proposes the pending Finished Good quantity still to consume for a Material Consumption for Manufacture
+    /// entry when backflushing based on BOM: takes the minimum FG qty covered by remaining materials,
+    /// capped at what is left to produce, and floors at <paramref name="precision"/> so the proposal never
+    /// asks for more material than remains.
+    /// Per ERPNext PR #67348 (<c>get_pending_consumption_qty_based_on_bom</c>).
+    /// </summary>
+    public static decimal CalculatePendingConsumptionQtyBasedOnBom(
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        bool skipTransfer,
+        IEnumerable<(Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty, bool IncludeInManufacturing)>? requiredItems,
+        int precision = 4)
+    {
+        if (workOrderQty <= 0m || requiredItems == null)
+        {
+            return 0m;
+        }
+
+        var materials = new Dictionary<Guid, (decimal LeftQty, decimal RequiredQty)>();
+        foreach (var row in requiredItems)
+        {
+            if (!row.IncludeInManufacturing || row.RequiredQty <= 0m)
+                continue;
+
+            var basis = skipTransfer ? row.RequiredQty : row.TransferredQty;
+            var left = basis - row.ConsumedQty;
+            var prev = materials.GetValueOrDefault(row.ItemId);
+            materials[row.ItemId] = (prev.LeftQty + left, prev.RequiredQty + row.RequiredQty);
+        }
+
+        if (materials.Count == 0)
+        {
+            return 0m;
+        }
+
+        var leftForQty = materials.Values.Min(m => m.LeftQty * workOrderQty / m.RequiredQty);
+        var pendingToProduce = workOrderQty - producedQty - processLossQty;
+        var candidate = Math.Min(leftForQty, pendingToProduce);
+
+        // Floor at precision after 9-decimal pre-round so proposal never exceeds remaining material
+        var step = (decimal)Math.Pow(10, precision);
+        var floored = Math.Floor(Math.Round(candidate * step, 9, MidpointRounding.AwayFromZero)) / step;
+        return Math.Max(floored, 0m);
+    }
+
+    /// <summary>
+    /// Proposes the pending Finished Good quantity still to consume for a Material Consumption for Manufacture
+    /// entry when backflushing based on Material Transferred for Manufacture.
+    /// Per ERPNext PR #67348 (<c>get_pending_consumption_qty_based_on_transfer</c>).
+    /// </summary>
+    public static decimal CalculatePendingConsumptionQtyBasedOnTransfer(
+        decimal materialTransferredQty,
+        decimal producedQty,
+        decimal processLossQty,
+        IEnumerable<(Guid ItemId, decimal TransferredQty, decimal ConsumedQty)>? requiredItems,
+        IReadOnlyDictionary<Guid, decimal>? coveredFgQtyByItemId,
+        int precision = 4)
+    {
+        var pendingToProduce = materialTransferredQty - producedQty - processLossQty;
+        if (pendingToProduce <= 0m || requiredItems == null)
+        {
+            return 0m;
+        }
+
+        var maxPending = 0m;
+        foreach (var row in requiredItems)
+        {
+            if (Math.Round(row.TransferredQty - row.ConsumedQty, precision, MidpointRounding.AwayFromZero) <= 0m)
+                continue;
+
+            var covered = coveredFgQtyByItemId != null
+                ? coveredFgQtyByItemId.GetValueOrDefault(row.ItemId, 0m)
+                : 0m;
+            var uncovered = Math.Max(Math.Round(materialTransferredQty - covered, precision, MidpointRounding.AwayFromZero), 0m);
+            var itemPending = uncovered > 0m ? uncovered : pendingToProduce;
+            if (itemPending > maxPending)
+            {
+                maxPending = itemPending;
+            }
+        }
+
+        return Math.Max(Math.Round(Math.Min(maxPending, pendingToProduce), precision, MidpointRounding.AwayFromZero), 0m);
+    }
 }

@@ -90,8 +90,8 @@ interface TaxWithholdingCategoryRow {
                     <td>{{ c.accounts.length }}</td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editCategory(c)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteCategory(c.id)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editCategory(c)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteCategory(c.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

@@ -53,12 +53,20 @@ public class EInvoiceConsolidationService : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationNoValidInvoices, "No valid Sales Invoices found.");
 
         // Per LHDN MyInvois consolidation rules (consolidate_invoice.py):
-        // reject Cancelled, Return/Credit/Debit Note, already-submitted LHDN invoices, and mixed currencies.
+        // reject Cancelled, already-consolidated parent/child invoices, Return/Credit/Debit Notes,
+        // already-submitted LHDN invoices, and mixed currencies.
         var cancelled = invoices.Where(i => i.Status == Core.DocumentStatus.Cancelled).ToList();
         if (cancelled.Count > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Cannot consolidate cancelled invoices: {string.Join(", ", cancelled.Select(i => i.InvoiceNumber))}");
+        }
+
+        var alreadyConsolidatedInvoices = invoices.Where(i => i.IsConsolidated || i.ConsolidatedSalesInvoiceId.HasValue).ToList();
+        if (alreadyConsolidatedInvoices.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationAlreadyConsolidated,
+                $"Some invoices are already consolidated: {string.Join(", ", alreadyConsolidatedInvoices.Select(i => i.InvoiceNumber))}");
         }
 
         var alreadySubmitted = invoices

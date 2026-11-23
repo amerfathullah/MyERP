@@ -115,11 +115,11 @@ interface TaxRow {
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editTemplate(t)" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editTemplate(t)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
                         <button class="btn btn-outline-secondary" (click)="toggleEnabled(t)" [title]="t.isEnabled ? 'Disable' : 'Enable'">
                           <i class="fas" [class.fa-toggle-on]="t.isEnabled" [class.fa-toggle-off]="!t.isEnabled"></i>
                         </button>
-                        <button class="btn btn-outline-danger" (click)="deleteTemplate(t.id)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteTemplate(t.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

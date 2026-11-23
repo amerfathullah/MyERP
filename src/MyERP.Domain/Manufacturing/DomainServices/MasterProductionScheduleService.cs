@@ -349,4 +349,62 @@ public class MasterProductionScheduleService : DomainService
     /// </summary>
     public static decimal CalculateCombinedMrpDemand(decimal mpsPlannedQty, decimal remainingForecastQty, decimal adhocQty = 0m)
         => mpsPlannedQty + remainingForecastQty + adhocQty;
+
+    /// <summary>
+    /// Resolves the half-open forecast period <c>[StartDate, EndDate)</c> starting from the forecast row's own
+    /// <paramref name="deliveryDate"/> (so monthly forecasts spread from their own date rather than snapping to the 1st of the month).
+    /// Per ERPNext PR #67489 (<c>get_forecast_period</c>).
+    /// </summary>
+    public static (DateTime StartDate, DateTime EndDate) GetForecastPeriod(DateTime deliveryDate, string? frequency)
+    {
+        var start = deliveryDate.Date;
+        if (string.Equals(frequency, "Monthly", StringComparison.OrdinalIgnoreCase))
+        {
+            return (start, start.AddMonths(1));
+        }
+
+        if (string.Equals(frequency, "Weekly", StringComparison.OrdinalIgnoreCase))
+        {
+            return (start, start.AddDays(7));
+        }
+
+        return (start, start.AddDays(1));
+    }
+
+    /// <summary>
+    /// Spreads forecast rows evenly across daily buckets in each row's own <see cref="GetForecastPeriod"/>
+    /// and filters the resulting daily buckets to <c>[fromDate, toDate]</c> when supplied.
+    /// Per ERPNext PR #67489 (<c>convert_to_daily_bucket_data</c>).
+    /// </summary>
+    public static List<(string ItemCode, DateTime DeliveryDate, decimal DailyQty)> SpreadForecastToDailyBuckets(
+        IEnumerable<(string ItemCode, DateTime DeliveryDate, string? Frequency, decimal Qty)>? forecastRows,
+        DateTime? fromDate = null,
+        DateTime? toDate = null)
+    {
+        var buckets = new List<(string ItemCode, DateTime DeliveryDate, decimal DailyQty)>();
+        if (forecastRows == null)
+        {
+            return buckets;
+        }
+
+        foreach (var row in forecastRows)
+        {
+            var (start, end) = GetForecastPeriod(row.DeliveryDate, row.Frequency);
+            var days = Math.Max(1, (int)(end - start).TotalDays);
+            var dailyQty = row.Qty / days;
+
+            for (var i = 0; i < days; i++)
+            {
+                var date = start.AddDays(i);
+                if (fromDate.HasValue && date < fromDate.Value.Date)
+                    continue;
+                if (toDate.HasValue && date > toDate.Value.Date)
+                    continue;
+
+                buckets.Add((row.ItemCode, date, dailyQty));
+            }
+        }
+
+        return buckets;
+    }
 }

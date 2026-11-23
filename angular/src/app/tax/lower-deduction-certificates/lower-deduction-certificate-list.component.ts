@@ -63,8 +63,8 @@ import type { LowerDeductionCertificateDto } from '../../proxy/tax/models';
                     <td>{{ c.validFrom | date:'dd/MM/yyyy' }} - {{ c.validUpto | date:'dd/MM/yyyy' }}</td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editCertificate(c)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteCertificate(c.id!)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editCertificate(c)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteCertificate(c.id!)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

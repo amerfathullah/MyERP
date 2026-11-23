@@ -677,6 +677,22 @@ public class ItemDetailsResolverService : DomainService
         var factor = buyingUomConversionFactor > 0m ? buyingUomConversionFactor : 1m;
         return Math.Round(buyingPriceListRate / factor, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Converts a stock-UOM valuation rate to a buying transaction row's UOM rate for standalone debit notes
+    /// with <c>update_stock</c> enabled per ERPNext PR #68802 (<c>valuation_rate * conversion_factor</c>).
+    /// </summary>
+    public static decimal ConvertStockValuationRateToRowUom(
+        decimal stockValuationRate,
+        decimal rowConversionFactor,
+        int precision = 4)
+    {
+        if (stockValuationRate <= 0m)
+            return 0m;
+
+        var factor = rowConversionFactor > 0m ? rowConversionFactor : 1m;
+        return Math.Round(stockValuationRate * factor, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 // --- Supporting types ---

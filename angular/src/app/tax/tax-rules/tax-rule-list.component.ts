@@ -82,8 +82,8 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editRule(r)" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger" (click)="deleteRule(r.id!)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-primary" (click)="editRule(r)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteRule(r.id!)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

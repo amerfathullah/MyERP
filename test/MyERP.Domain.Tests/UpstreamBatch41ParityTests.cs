@@ -1048,4 +1048,78 @@ public class UpstreamBatch41ParityTests
             });
         withinCost.ShouldBe(135m);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamPRs_67348_67489_68802_And_ConsolidationDoubleMergeGuard_Parity()
+    {
+        // 1. PR #67348: pending consumption qty based on BOM (floors at precision so proposal never exceeds remaining)
+        var rm1 = Guid.NewGuid();
+        var rm2 = Guid.NewGuid();
+        var bomConsumptionQty = MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingConsumptionQtyBasedOnBom(
+            workOrderQty: 10m,
+            producedQty: 2m,
+            processLossQty: 0m,
+            skipTransfer: false,
+            requiredItems: new[]
+            {
+                (rm1, 30m, 20m, 10m, true), // left=10 -> covers 10 * 10 / 30 = 3.333333... -> floored to 3.3333
+                (rm2, 10m, 10m, 2m, true),  // left=8 -> covers 8
+            },
+            precision: 4);
+        bomConsumptionQty.ShouldBe(3.3333m);
+
+        // PR #67348: pending consumption qty based on transfer
+        var transferConsumptionQty = MyERP.Inventory.DomainServices.StockEntryManager.CalculatePendingConsumptionQtyBasedOnTransfer(
+            materialTransferredQty: 10m,
+            producedQty: 3m,
+            processLossQty: 1m,
+            requiredItems: new[] { (rm1, 10m, 4m), (rm2, 10m, 10m) },
+            coveredFgQtyByItemId: new System.Collections.Generic.Dictionary<Guid, decimal> { [rm1] = 6m });
+        transferConsumptionQty.ShouldBe(4m); // min(10 - 6, 10 - 3 - 1) = 4
+
+        // 2. PR #67489: monthly forecast spreads from its own delivery date [May 15, Jun 15), not May 1
+        var (start, end) = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .GetForecastPeriod(new DateTime(2026, 5, 15), "Monthly");
+        start.ShouldBe(new DateTime(2026, 5, 15));
+        end.ShouldBe(new DateTime(2026, 6, 15));
+
+        var dailyBuckets = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService.SpreadForecastToDailyBuckets(
+            new[] { ("FG-1", new DateTime(2026, 5, 15), (string?)"Monthly", 310m) },
+            fromDate: new DateTime(2026, 6, 1),
+            toDate: new DateTime(2026, 6, 10));
+        dailyBuckets.Count.ShouldBe(10); // June 1..10 at 10/day
+        dailyBuckets[0].DailyQty.ShouldBe(10m);
+
+        // 3. PR #68802: standalone debit note stock valuation rate converts to row UOM
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ConvertStockValuationRateToRowUom(stockValuationRate: 15m, rowConversionFactor: 12m)
+            .ShouldBe(180m);
+
+        // 4. MyInvois: EInvoiceConsolidationService blocks re-consolidating an IsConsolidated parent invoice
+        var companyId = Guid.NewGuid();
+        var custId = Guid.NewGuid();
+        var ok1 = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, custId, "SI-OK-32", DateTime.Today);
+        ok1.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        var alreadyCons = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, custId, "SI-CONS-32", DateTime.Today)
+        {
+            IsConsolidated = true,
+        };
+        alreadyCons.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+
+        var siRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+        var consRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+        var custRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+        var guidGen = NSubstitute.Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        NSubstitute.SubstituteExtensions.Returns(
+            siRepo.WithDetailsAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<MyERP.Sales.Entities.SalesInvoice, object>>[]>()),
+            System.Threading.Tasks.Task.FromResult(new[] { ok1, alreadyCons }.AsQueryable()));
+        NSubstitute.SubstituteExtensions.Returns(
+            custRepo.GetQueryableAsync(),
+            System.Threading.Tasks.Task.FromResult(new MyERP.Sales.Entities.Customer[0].AsQueryable()));
+
+        var svc = new MyERP.EInvoice.Services.EInvoiceConsolidationService(siRepo, consRepo, custRepo, guidGen);
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            svc.ConsolidateInvoicesAsync(new() { ok1.Id, alreadyCons.Id }, companyId));
+        ex.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.EInvoiceConsolidationAlreadyConsolidated);
+    }
 }
