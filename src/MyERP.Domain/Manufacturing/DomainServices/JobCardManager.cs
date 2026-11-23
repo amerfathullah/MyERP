@@ -1306,6 +1306,33 @@ public class JobCardManager : DomainService
 
         return currentHourRate;
     }
+
+    /// <summary>
+    /// Determines whether a non-stock BOM item row's cost should be charged on a Job Card's operation output entry:
+    /// rows bound to an operation belong only to that operation's Job Card, while unassigned rows go only to the
+    /// final Job Card producing the Work Order's main <paramref name="workOrderProductionItemId"/>.
+    /// Per ERPNext PR #67462 (<c>_is_job_card_row</c> in <c>operations_cost.py</c>).
+    /// </summary>
+    public static bool IsNonStockBomRowAttributedToJobCard(
+        Guid? rowOperationId,
+        Guid? rowOperationRowId,
+        Guid jobCardOperationId,
+        Guid? jobCardOperationRowId,
+        Guid? jobCardFinishedGoodId,
+        Guid workOrderProductionItemId)
+    {
+        if (rowOperationRowId.HasValue)
+        {
+            return jobCardOperationRowId.HasValue && rowOperationRowId.Value == jobCardOperationRowId.Value;
+        }
+
+        if (rowOperationId.HasValue)
+        {
+            return rowOperationId.Value == jobCardOperationId;
+        }
+
+        return jobCardFinishedGoodId.HasValue && jobCardFinishedGoodId.Value == workOrderProductionItemId;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

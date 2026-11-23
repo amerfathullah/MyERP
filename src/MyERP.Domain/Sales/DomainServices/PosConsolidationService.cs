@@ -114,25 +114,55 @@ public class PosConsolidationService : DomainService
     }
 
     /// <summary>
-    /// Orders invoices so selling entries come BEFORE their returns.
-    /// Per gotcha #399: if a return's ReturnAgainstId is in the same pool,
-    /// the selling invoice must precede it to avoid serial ownership conflicts.
+    /// Orders invoices chronologically so returns stay after earlier sales AND before later sales
+    /// that can consume the returned stock (with same-timestamp sales ordered before returns).
+    /// Per ERPNext PR #65784 (<c>split_invoices</c>) and gotcha #399.
     /// </summary>
     private List<SalesInvoice> OrderForConsolidation(List<SalesInvoice> invoices)
     {
-        var sellingFirst = new List<SalesInvoice>();
-        var returns = new List<SalesInvoice>();
+        return invoices
+            .OrderBy(inv => inv.IssueDate)
+            .ThenBy(inv => inv.CreationTime)
+            .ThenBy(inv => inv.IsReturn ? 1 : 0)
+            .ThenBy(inv => inv.InvoiceNumber, StringComparer.Ordinal)
+            .ToList();
+    }
 
-        foreach (var inv in invoices)
+    /// <summary>
+    /// Splits POS invoices into contiguous chronological batches grouped by <c>IsReturn</c>
+    /// so returns execute after earlier sales and before later sales that consume returned stock
+    /// per ERPNext PR #65784 (<c>split_invoices</c> in <c>pos_invoice_merge_log.py</c>).
+    /// </summary>
+    public static List<List<SalesInvoice>> SplitChronologicalReturnBatches(IEnumerable<SalesInvoice>? invoices)
+    {
+        var batches = new List<List<SalesInvoice>>();
+        if (invoices == null)
         {
-            if (inv.IsReturn)
-                returns.Add(inv);
-            else
-                sellingFirst.Add(inv);
+            return batches;
         }
 
-        sellingFirst.AddRange(returns);
-        return sellingFirst;
+        var ordered = invoices
+            .OrderBy(inv => inv.IssueDate)
+            .ThenBy(inv => inv.CreationTime)
+            .ThenBy(inv => inv.IsReturn ? 1 : 0)
+            .ThenBy(inv => inv.InvoiceNumber, StringComparer.Ordinal)
+            .ToList();
+
+        List<SalesInvoice>? current = null;
+        bool? currentIsReturn = null;
+        foreach (var inv in ordered)
+        {
+            if (current == null || currentIsReturn != inv.IsReturn)
+            {
+                current = new List<SalesInvoice>();
+                batches.Add(current);
+                currentIsReturn = inv.IsReturn;
+            }
+
+            current.Add(inv);
+        }
+
+        return batches;
     }
 
     /// <summary>

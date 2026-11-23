@@ -2257,4 +2257,53 @@ public class StockEntryManager : DomainService
 
         return Math.Max(Math.Round(qty, precision, MidpointRounding.AwayFromZero), 0m);
     }
+
+    /// <summary>
+    /// Computes the total secondary-item cost already taken within a nested sub-assembly BOM
+    /// (both its own Manual/ValuationRate secondary items AND its proportional share of inner
+    /// sub-assembly secondary items) so an outer sub-assembly percentage co-product is valued net
+    /// of inner co-products.
+    /// Per ERPNext PR #68832 (<c>get_secondary_items_cost_within</c>).
+    /// </summary>
+    public static decimal CalculateNestedSubAssemblySecondaryCostWithin(
+        Guid subBomId,
+        decimal subAssembliesMade,
+        decimal fgCompletedQty,
+        IReadOnlyDictionary<Guid, decimal>? qtyWithinSubBomBySecondaryId,
+        IReadOnlyDictionary<Guid, decimal>? qtyPerFinishedGoodBySecondaryId,
+        IEnumerable<(Guid? BomSecondaryItemId, Guid? ParentBomId, bool IsCostedOutOfFinishedItem, decimal BasicAmount)>? entryItems,
+        int precision = 4)
+    {
+        if (entryItems == null)
+        {
+            return 0m;
+        }
+
+        var total = 0m;
+        foreach (var d in entryItems)
+        {
+            if (d.BomSecondaryItemId.HasValue
+                && qtyWithinSubBomBySecondaryId != null
+                && qtyWithinSubBomBySecondaryId.TryGetValue(d.BomSecondaryItemId.Value, out var qtyWithin)
+                && qtyWithin > 0m)
+            {
+                var qtyPerFg = qtyPerFinishedGoodBySecondaryId != null
+                    ? qtyPerFinishedGoodBySecondaryId.GetValueOrDefault(d.BomSecondaryItemId.Value, 0m)
+                    : 0m;
+                var totalQty = qtyPerFg * fgCompletedQty;
+                if (totalQty > 0m)
+                {
+                    total += d.BasicAmount * qtyWithin * subAssembliesMade / totalQty;
+                }
+            }
+            else if (d.BomSecondaryItemId.HasValue
+                && d.IsCostedOutOfFinishedItem
+                && d.ParentBomId == subBomId)
+            {
+                total += d.BasicAmount;
+            }
+        }
+
+        return Math.Round(total, precision, MidpointRounding.AwayFromZero);
+    }
 }

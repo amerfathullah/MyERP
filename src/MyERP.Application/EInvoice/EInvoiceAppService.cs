@@ -1442,9 +1442,14 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             salesQuery = salesQuery.Where(x => x.IssueDate < toDateExclusive);
         }
 
-        // Only submitted sales invoices not submitted to LHDN directly
-        salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted &&
-                                           x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted);
+        // Only submitted or posted B2C sales invoices not submitted to LHDN directly,
+        // excluding returns/credit notes, debit notes, consolidated parent invoices, and already-merged POS invoices.
+        salesQuery = salesQuery.Where(x => (x.Status == Core.DocumentStatus.Submitted || x.Status == Core.DocumentStatus.Posted) &&
+                                           x.EInvoiceStatus == Sales.EInvoiceStatus.NotSubmitted &&
+                                           !x.IsReturn &&
+                                           !x.IsDebitNote &&
+                                           !x.IsConsolidated &&
+                                           !x.ConsolidatedSalesInvoiceId.HasValue);
 
         var alreadyConsolidatedIds = consolQuery.Select(c => c.OriginalInvoiceId);
         salesQuery = salesQuery.Where(x => !alreadyConsolidatedIds.Contains(x.Id));

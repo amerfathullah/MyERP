@@ -4357,4 +4357,72 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             vatReport.TotalPurchaseVat.ShouldBe(10m);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch31_LhdnConsolidationCandidates_IncludesPostedAndExcludesReturnsAndConsolidated()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var piRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var subRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+            var consRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var logRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch31 Co"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B31-SVC", "Svc", ItemType.Service), autoSave: true);
+            var b2cCust = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "Walk-In B31"), autoSave: true);
+
+            // Eligible Posted B2C invoice (previously missed because only Submitted was queried!)
+            var postedB2c = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B31-POSTED", DateTime.Today);
+            postedB2c.AddItem(item.Id, "Svc", 1m, 150m, 0m);
+            postedB2c.Submit();
+            postedB2c.Post();
+            await siRepo.InsertAsync(postedB2c, autoSave: true);
+
+            // Excluded: Return / Credit Note
+            var retB2c = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B31-RET", DateTime.Today)
+            {
+                IsReturn = true,
+            };
+            retB2c.AddItem(item.Id, "Svc", -1m, 50m, 0m);
+            retB2c.Submit();
+            retB2c.Post();
+            await siRepo.InsertAsync(retB2c, autoSave: true);
+
+            // Excluded: Consolidated parent invoice
+            var consParent = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, b2cCust.Id, "SI-B31-CONS", DateTime.Today)
+            {
+                IsConsolidated = true,
+            };
+            consParent.AddItem(item.Id, "Svc", 1m, 400m, 0m);
+            consParent.Submit();
+            consParent.Post();
+            await siRepo.InsertAsync(consParent, autoSave: true);
+
+            var mockLhdn = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+            var mockSettings = NSubstitute.Substitute.For<Volo.Abp.Settings.ISettingProvider>();
+            var eInvoiceService = new MyERP.EInvoice.EInvoiceAppService(
+                new MyERP.EInvoice.Services.EInvoiceService(mockLhdn, subRepo, logRepo),
+                new MyERP.EInvoice.Services.InvoiceDocumentBuilder(),
+                new MyERP.EInvoice.Services.InvoiceDocumentSigner(),
+                new MyERP.EInvoice.Services.EInvoiceValidationService(companyRepo, custRepo, suppRepo, siRepo, piRepo),
+                new MyERP.EInvoice.Services.EInvoiceConsolidationService(siRepo, consRepo, custRepo, GetRequiredService<Volo.Abp.Guids.IGuidGenerator>()),
+                new MyERP.EInvoice.Services.TaxpayerValidationService(mockLhdn, mockSettings),
+                subRepo, consRepo, logRepo, siRepo, piRepo, custRepo, suppRepo, companyRepo, mockSettings, itemRepo)
+            {
+                LazyServiceProvider = GetRequiredService<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>(),
+            };
+
+            var candidates = await eInvoiceService.GetConsolidationCandidatesAsync(new MyERP.EInvoice.GetConsolidationCandidatesInputDto
+            {
+                CompanyId = company.Id,
+            });
+            candidates.Select(c => c.InvoiceId).ShouldBe(new[] { postedB2c.Id });
+        });
+    }
 }

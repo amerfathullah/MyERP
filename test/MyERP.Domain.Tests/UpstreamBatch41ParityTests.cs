@@ -986,4 +986,66 @@ public class UpstreamBatch41ParityTests
             .IsReservationForVoucherOrRow(soId, Guid.NewGuid(), targets)
             .ShouldBeFalse();
     }
+
+    [Fact]
+    public void UpstreamPRs_65784_67462_68832_PosReturnStock_JobCardNonStock_NestedSubBom_Parity()
+    {
+        // 1. PR #65784: POS closing splits chronologically by IsReturn so returns precede later sales
+        var companyId = Guid.NewGuid();
+        var custId = Guid.NewGuid();
+        var sale1 = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, custId, "POS-1", new DateTime(2026, 6, 1, 9, 0, 0));
+        var ret1 = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, custId, "POS-RET-1", new DateTime(2026, 6, 1, 10, 0, 0)) { IsReturn = true };
+        var sale2 = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), companyId, custId, "POS-2", new DateTime(2026, 6, 1, 11, 0, 0));
+
+        var batches = MyERP.Sales.DomainServices.PosConsolidationService.SplitChronologicalReturnBatches(
+            new[] { sale2, ret1, sale1 });
+        batches.Count.ShouldBe(3);
+        batches[0].Single().InvoiceNumber.ShouldBe("POS-1");
+        batches[1].Single().InvoiceNumber.ShouldBe("POS-RET-1");
+        batches[2].Single().InvoiceNumber.ShouldBe("POS-2");
+
+        // 2. PR #67462: Job Card output entry only charges its own operation's non-stock items; unassigned goes to final FG card
+        var op1 = Guid.NewGuid();
+        var op2 = Guid.NewGuid();
+        var fgItem = Guid.NewGuid();
+        var semiFgItem = Guid.NewGuid();
+
+        MyERP.Manufacturing.DomainServices.JobCardManager.IsNonStockBomRowAttributedToJobCard(
+            rowOperationId: op1, rowOperationRowId: null,
+            jobCardOperationId: op1, jobCardOperationRowId: null,
+            jobCardFinishedGoodId: semiFgItem, workOrderProductionItemId: fgItem).ShouldBeTrue();
+
+        MyERP.Manufacturing.DomainServices.JobCardManager.IsNonStockBomRowAttributedToJobCard(
+            rowOperationId: op2, rowOperationRowId: null,
+            jobCardOperationId: op1, jobCardOperationRowId: null,
+            jobCardFinishedGoodId: semiFgItem, workOrderProductionItemId: fgItem).ShouldBeFalse();
+
+        // Unassigned non-stock row goes only to final FG Job Card, NOT intermediate semi-FG card
+        MyERP.Manufacturing.DomainServices.JobCardManager.IsNonStockBomRowAttributedToJobCard(
+            rowOperationId: null, rowOperationRowId: null,
+            jobCardOperationId: op1, jobCardOperationRowId: null,
+            jobCardFinishedGoodId: semiFgItem, workOrderProductionItemId: fgItem).ShouldBeFalse();
+
+        MyERP.Manufacturing.DomainServices.JobCardManager.IsNonStockBomRowAttributedToJobCard(
+            rowOperationId: null, rowOperationRowId: null,
+            jobCardOperationId: op2, jobCardOperationRowId: null,
+            jobCardFinishedGoodId: fgItem, workOrderProductionItemId: fgItem).ShouldBeTrue();
+
+        // 3. PR #68832: Nested sub-assembly secondary cost deducts own-cost rows + proportional share of inner sub-assembly secondary items
+        var outerSubBomId = Guid.NewGuid();
+        var innerSecId = Guid.NewGuid();
+        var ownSecId = Guid.NewGuid();
+        var withinCost = MyERP.Inventory.DomainServices.StockEntryManager.CalculateNestedSubAssemblySecondaryCostWithin(
+            subBomId: outerSubBomId,
+            subAssembliesMade: 2m,
+            fgCompletedQty: 1m,
+            qtyWithinSubBomBySecondaryId: new System.Collections.Generic.Dictionary<Guid, decimal> { [innerSecId] = 1m },
+            qtyPerFinishedGoodBySecondaryId: new System.Collections.Generic.Dictionary<Guid, decimal> { [innerSecId] = 4m },
+            entryItems: new (Guid?, Guid?, bool, decimal)[]
+            {
+                (innerSecId, Guid.NewGuid(), false, 200m), // 200 * 1 * 2 / (4 * 1) = 100
+                (ownSecId, outerSubBomId, true, 35m),      // own-cost row of outerSubBom = 35
+            });
+        withinCost.ShouldBe(135m);
+    }
 }

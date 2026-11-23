@@ -73,10 +73,10 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
                     </td>
                     <td class="text-end">
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-success" (click)="approve(req)" title="Approve">
+                        <button class="btn btn-outline-success" (click)="approve(req)" [title]="'MyERP::Approve' | abpLocalization">
                           <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Approve' | abpLocalization }}
                         </button>
-                        <button class="btn btn-outline-danger" (click)="reject(req)" title="Reject">
+                        <button class="btn btn-outline-danger" (click)="reject(req)" [title]="'MyERP::Reject' | abpLocalization">
                           <i class="bi bi-x-lg me-1"></i>{{ 'MyERP::Reject' | abpLocalization }}
                         </button>
                       </div>
