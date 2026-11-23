@@ -87,7 +87,7 @@ interface ProformaInvoice {
                       <td>
                         @if (p.status === 1) {
                           <button class="btn btn-sm btn-outline-danger" (click)="cancel(p.id!)"
-                            title="Cancel"><i class="fas fa-times"></i></button>
+                            [title]="'::Cancel' | abpLocalization"><i class="fas fa-times"></i></button>
                         }
                       </td>
                     </tr>

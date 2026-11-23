@@ -693,6 +693,21 @@ public class ItemDetailsResolverService : DomainService
         var factor = rowConversionFactor > 0m ? rowConversionFactor : 1m;
         return Math.Round(stockValuationRate * factor, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves the signed stock quantity passed to incoming-rate lookup for inter-company transactions:
+    /// non-return internal customer deliveries are outgoing stock (<c>-stockQty</c>), whereas returns
+    /// and internal purchases use positive <c>+stockQty</c>.
+    /// Per ERPNext PR #67379 (<c>transaction_base.py</c> / <c>transaction.js</c>).
+    /// </summary>
+    public static decimal ResolveInternalTransactionRateQueryQty(
+        decimal stockQty,
+        bool isInternalCustomer,
+        bool isReturn)
+    {
+        var isOutgoing = isInternalCustomer && !isReturn;
+        return isOutgoing ? -stockQty : stockQty;
+    }
 }
 
 // --- Supporting types ---

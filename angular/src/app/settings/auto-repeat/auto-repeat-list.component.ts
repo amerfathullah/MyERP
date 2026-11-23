@@ -136,17 +136,17 @@ import type { AutoRepeatDto, CreateAutoRepeatDto } from '../../proxy/core/models
                       <td class="text-end">
                         @if (item.isEnabled) {
                           <button class="btn btn-sm btn-outline-warning me-1" (click)="disable(item)"
-                            title="Disable">
+                            [title]="'::Disable' | abpLocalization">
                             <i class="fa fa-pause"></i>
                           </button>
                         } @else {
                           <button class="btn btn-sm btn-outline-success me-1" (click)="enable(item)"
-                            title="Enable">
+                            [title]="'::Active' | abpLocalization">
                             <i class="fa fa-play"></i>
                           </button>
                         }
                         <button class="btn btn-sm btn-outline-danger" (click)="delete(item)"
-                          title="Delete">
+                          [title]="'::Delete' | abpLocalization">
                           <i class="fa fa-trash"></i>
                         </button>
                       </td>

@@ -600,4 +600,82 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             precision,
             MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes available finished-good quantity for disassembly or alternative-item conversion,
+    /// subtracting BOTH <paramref name="disassembledQty"/> and <paramref name="convertedFgQty"/>
+    /// from <paramref name="producedQty"/> so disassembled and converted units mutually reduce available qty.
+    /// Per ERPNext PR #67345 (<c>get_available_fg_qty</c>).
+    /// </summary>
+    public static decimal CalculateAvailableFgQtyForDisassemblyOrConversion(
+        decimal producedQty,
+        decimal disassembledQty,
+        decimal convertedFgQty,
+        int precision = 4)
+    {
+        return Math.Max(
+            Math.Round(producedQty - disassembledQty - convertedFgQty, precision, MidpointRounding.AwayFromZero),
+            0m);
+    }
+
+    /// <summary>
+    /// Computes Work Order <c>material_transferred_for_manufacturing</c> when Pick List transfers
+    /// (with <c>fg_completed_qty == 0</c>) coexist with direct Stock Entry transfers (<c>fg_completed_qty &gt; 0</c>):
+    /// takes <c>max(min(minFraction, 1) * woQty, sumFgCompletedQty)</c> when Pick List transfers exist.
+    /// Per ERPNext PR #67344 (<c>required_items.py</c>).
+    /// </summary>
+    public static decimal CalculateMaterialTransferredQtyWithPickList(
+        decimal woQty,
+        decimal sumFgCompletedQty,
+        bool hasTransferWithoutForQuantity,
+        IEnumerable<(Guid ItemId, decimal RequiredQty, decimal TransferredQty)>? requiredItems,
+        int precision = 4)
+    {
+        if (sumFgCompletedQty > 0m && !hasTransferWithoutForQuantity)
+        {
+            return Math.Round(sumFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        var requiredByItem = new Dictionary<Guid, decimal>();
+        var transferredByItem = new Dictionary<Guid, decimal>();
+        if (requiredItems != null)
+        {
+            foreach (var row in requiredItems)
+            {
+                if (row.RequiredQty <= 0m) continue;
+                requiredByItem[row.ItemId] = requiredByItem.GetValueOrDefault(row.ItemId, 0m) + row.RequiredQty;
+                transferredByItem[row.ItemId] = transferredByItem.GetValueOrDefault(row.ItemId, 0m) + row.TransferredQty;
+            }
+        }
+
+        if (requiredByItem.Count == 0)
+        {
+            return Math.Round(sumFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        var minFraction = requiredByItem.Min(kv => transferredByItem.GetValueOrDefault(kv.Key, 0m) / kv.Value);
+        minFraction = Math.Min(Math.Max(minFraction, 0m), 1m);
+        var transferred = Math.Max(minFraction * woQty, sumFgCompletedQty);
+        return Math.Round(transferred, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Computes the remaining unreserved quantity of a Work Order required item, excluding stock already
+    /// taken over by a Subcontracting Order (<paramref name="subcontractedQty"/>) and stock already
+    /// reserved, consumed, or transferred to WIP.
+    /// Per ERPNext PR #68805 (<c>get_work_order_unreserved_qty</c>).
+    /// </summary>
+    public static decimal CalculateWorkOrderUnreservedQty(
+        decimal requiredQty,
+        decimal subcontractedQty,
+        decimal stockReservedQty,
+        decimal consumedQty,
+        decimal transferredQty,
+        int precision = 4)
+    {
+        var coveredQty = Math.Max(stockReservedQty + consumedQty, transferredQty);
+        return Math.Max(
+            Math.Round(requiredQty - subcontractedQty - coveredQty, precision, MidpointRounding.AwayFromZero),
+            0m);
+    }
 }

@@ -130,6 +130,46 @@ public class SubcontractingRmTransferService : DomainService
     }
 
     /// <summary>
+    /// Splits a subcontractor raw material return across the order rows its material was originally sent on,
+    /// assigning up to each row's remaining supplied qty and placing any overflow on the last matching row.
+    /// Per ERPNext PR #68828 (<c>add_return_items</c> in <c>subcontracting_controller.py</c>).
+    /// </summary>
+    public static List<(Guid OrderRowId, decimal ReturnQty)> SplitReturnQtyAcrossOrderRows(
+        decimal returnQty,
+        IEnumerable<(Guid OrderRowId, decimal AvailableQtyLeft)>? orderRows,
+        int precision = 4)
+    {
+        var result = new List<(Guid OrderRowId, decimal ReturnQty)>();
+        if (returnQty <= 0m || orderRows == null)
+        {
+            return result;
+        }
+
+        var rows = orderRows.ToList();
+        if (rows.Count == 0)
+        {
+            return result;
+        }
+
+        var remaining = returnQty;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var (orderRowId, availableLeft) = rows[i];
+            var rawAlloc = i == rows.Count - 1
+                ? remaining
+                : Math.Min(remaining, Math.Max(availableLeft, 0m));
+            var alloc = Math.Round(rawAlloc, precision, MidpointRounding.AwayFromZero);
+            if (alloc <= 0m)
+                continue;
+
+            remaining -= alloc;
+            result.Add((orderRowId, alloc));
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Recursively explodes BOM items into raw material requirements.
     /// Explodes phantom BOM rows by their stock qty per ERPNext PR #59445 (commit fd8e6230f3).
     /// </summary>

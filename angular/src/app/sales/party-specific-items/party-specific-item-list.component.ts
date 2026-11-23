@@ -70,7 +70,7 @@ interface LookupOption {
                     <td>{{ r.basedOnValueName || r.basedOnValueId }}</td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" (click)="deleteRule(r.id!)" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-outline-danger" (click)="deleteRule(r.id!)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
                       </div>
                     </td>
                   </tr>

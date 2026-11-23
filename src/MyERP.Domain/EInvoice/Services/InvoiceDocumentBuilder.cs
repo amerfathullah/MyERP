@@ -257,7 +257,8 @@ public class InvoiceDocumentBuilder : ITransientDependency
             TaxType.Service => "02",
             TaxType.Exempt => "E",
             TaxType.ZeroRated or TaxType.OutOfScope => "06",
-            _ => taxAmount > 0 ? "01" : "06",
+            // Support Credit Notes (negative taxAmount) as well as positive taxAmount
+            _ => taxAmount != 0m ? "01" : "06",
         };
     }
 
@@ -270,7 +271,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         return lines
             .GroupBy(l => new
             {
-                Category = string.IsNullOrWhiteSpace(l.TaxCategoryCode) ? (l.TaxAmount > 0 ? "01" : "06") : l.TaxCategoryCode!,
+                Category = string.IsNullOrWhiteSpace(l.TaxCategoryCode) ? (l.TaxAmount != 0m ? "01" : "06") : l.TaxCategoryCode!,
                 Rate = l.TaxRate ?? 0m,
                 Reason = l.TaxExemptionReason,
             })

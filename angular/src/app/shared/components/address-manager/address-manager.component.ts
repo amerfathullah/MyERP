@@ -71,10 +71,10 @@ interface AddressDto {
                         </span>
                       </div>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" (click)="editAddress(addr)" title="Edit">
+                        <button class="btn btn-outline-secondary" (click)="editAddress(addr)" [title]="'::Edit' | abpLocalization">
                           <i class="fas fa-pencil-alt"></i>
                         </button>
-                        <button class="btn btn-outline-danger" (click)="deleteAddress(addr.id)" title="Delete">
+                        <button class="btn btn-outline-danger" (click)="deleteAddress(addr.id)" [title]="'::Delete' | abpLocalization">
                           <i class="fas fa-trash"></i>
                         </button>
                       </div>

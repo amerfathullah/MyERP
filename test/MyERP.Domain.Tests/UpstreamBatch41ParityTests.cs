@@ -1122,4 +1122,73 @@ public class UpstreamBatch41ParityTests
             svc.ConsolidateInvoicesAsync(new() { ok1.Id, alreadyCons.Id }, companyId));
         ex.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.EInvoiceConsolidationAlreadyConsolidated);
     }
+
+    [Fact]
+    public void UpstreamPRs_67500_68828_67344_67345_68805_67379_And_MyInvoisCreditNoteTax_Parity()
+    {
+        // 1. MyInvois: Credit Note with negative taxAmount maps to "01" (not "06" Not Applicable)
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder
+            .MapTaxTypeToLhdnCategoryCode(null, -6m)
+            .ShouldBe("01");
+        var cnBreakdown = MyERP.EInvoice.Services.InvoiceDocumentBuilder.BuildTaxBreakdown(new[]
+        {
+            new MyERP.EInvoice.Services.EInvoiceLineData
+            {
+                Description = "Return",
+                Quantity = -1m,
+                UnitPrice = 100m,
+                TaxAmount = -6m,
+                TaxRate = 6m,
+            }
+        });
+        cnBreakdown.Single().TaxCategoryCode.ShouldBe("01");
+
+        // 2. PR #67500: SCIO cumulative return/delivery validation catches split lines exceeding max allowed
+        var scioRowId = Guid.NewGuid();
+        var scioEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateCumulativeInwardOrderQuantities(
+                rows: new[]
+                {
+                    (1, scioRowId, "RM-A", 4m),
+                    (2, scioRowId, "RM-A", 3m), // cumulative 7 > max 6
+                },
+                maxAllowedByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioRowId] = 6m }));
+        scioEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        scioEx.Data["detail"]!.ToString()!.ShouldContain("Row #2");
+
+        // 3. PR #68828: split SCO RM return across order rows up to each row's remaining qty
+        var r1 = Guid.NewGuid();
+        var r2 = Guid.NewGuid();
+        var splitReturns = MyERP.Purchasing.DomainServices.SubcontractingRmTransferService
+            .SplitReturnQtyAcrossOrderRows(9m, new[] { (r1, 4m), (r2, 6m) });
+        splitReturns.ShouldBe(new[] { (r1, 4m), (r2, 5m) });
+
+        // 4. PR #67345: available FG qty subtracts BOTH disassembledQty and convertedFgQty
+        MyERP.Manufacturing.Entities.WorkOrder
+            .CalculateAvailableFgQtyForDisassemblyOrConversion(producedQty: 10m, disassembledQty: 3m, convertedFgQty: 2m)
+            .ShouldBe(5m);
+
+        // 5. PR #67344: Work Order material transferred counts Pick List transfers alongside direct transfers
+        var itemA = Guid.NewGuid();
+        var itemB = Guid.NewGuid();
+        MyERP.Manufacturing.Entities.WorkOrder.CalculateMaterialTransferredQtyWithPickList(
+            woQty: 10m,
+            sumFgCompletedQty: 4m,
+            hasTransferWithoutForQuantity: true,
+            requiredItems: new[] { (itemA, 10m, 8m), (itemB, 20m, 14m) }) // min fraction = 14/20 = 0.7 -> 7 > 4
+            .ShouldBe(7m);
+
+        // 6. PR #68805: Work Order unreserved qty excludes subcontracted qty
+        MyERP.Manufacturing.Entities.WorkOrder.CalculateWorkOrderUnreservedQty(
+            requiredQty: 10m, subcontractedQty: 4m, stockReservedQty: 2m, consumedQty: 1m, transferredQty: 0m)
+            .ShouldBe(3m); // 10 - 4 - max(2+1, 0) = 3
+
+        // 7. PR #67379: inter-company outgoing delivery queries negative stock qty, return/purchase queries positive
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ResolveInternalTransactionRateQueryQty(stockQty: 5m, isInternalCustomer: true, isReturn: false)
+            .ShouldBe(-5m);
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ResolveInternalTransactionRateQueryQty(stockQty: 5m, isInternalCustomer: true, isReturn: true)
+            .ShouldBe(5m);
+    }
 }

@@ -2166,6 +2166,40 @@ public class SubcontractingManager : DomainService
 
         return (allocatedPct, fgAmount, fgRate);
     }
+
+    /// <summary>
+    /// Validates cumulative transfer quantities per Subcontracting Inward Order row across all Stock Entry lines
+    /// so splitting a return or delivery across multiple lines referencing the same SCIO row cannot bypass
+    /// the row's maximum allowed quantity.
+    /// Per ERPNext PR #67500 (<c>subcontracting_inward_controller.py</c>).
+    /// </summary>
+    public static void ValidateCumulativeInwardOrderQuantities(
+        IEnumerable<(int RowNumber, Guid ScioDetailId, string ItemName, decimal TransferQty)>? rows,
+        IReadOnlyDictionary<Guid, decimal>? maxAllowedByScioDetailId,
+        int precision = 4)
+    {
+        if (rows == null || maxAllowedByScioDetailId == null)
+        {
+            return;
+        }
+
+        var cumulativeByRow = new Dictionary<Guid, decimal>();
+        foreach (var row in rows)
+        {
+            var running = cumulativeByRow.GetValueOrDefault(row.ScioDetailId, 0m) + row.TransferQty;
+            cumulativeByRow[row.ScioDetailId] = running;
+
+            if (maxAllowedByScioDetailId.TryGetValue(row.ScioDetailId, out var maxAllowed)
+                && Math.Round(running, precision, MidpointRounding.AwayFromZero)
+                    > Math.Round(maxAllowed, precision, MidpointRounding.AwayFromZero))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowNumber", row.RowNumber)
+                    .WithData("scioDetailId", row.ScioDetailId)
+                    .WithData("detail", $"Row #{row.RowNumber}: Cumulative quantity ({running}) for Item '{row.ItemName}' exceeds allowed quantity ({maxAllowed}).");
+            }
+        }
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(
