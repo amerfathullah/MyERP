@@ -297,6 +297,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
     public async Task<SubcontractingInwardOrderDto> CancelAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+        var previousStatus = entity.Status.ToString();
         entity.Cancel();
         await _repository.UpdateAsync(entity);
 
@@ -306,7 +307,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
                 GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
                 "Cancelled", entity.CompanyId,
-                entity.OrderNumber, "Submitted", "Cancelled", CurrentUser?.Id,
+                entity.OrderNumber, previousStatus, "Cancelled", CurrentUser?.Id,
                 $"Subcontracting inward order '{entity.OrderNumber}' cancelled", CurrentTenant?.Id));
         }
 
@@ -317,6 +318,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
     public async Task<SubcontractingInwardOrderDto> CloseAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+        var previousStatus = entity.Status.ToString();
         entity.Close();
         await _repository.UpdateAsync(entity);
 
@@ -326,7 +328,7 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
                 GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
                 "Closed", entity.CompanyId,
-                entity.OrderNumber, "Submitted", "Closed", CurrentUser?.Id,
+                entity.OrderNumber, previousStatus, "Closed", CurrentUser?.Id,
                 $"Subcontracting inward order '{entity.OrderNumber}' closed", CurrentTenant?.Id));
         }
 

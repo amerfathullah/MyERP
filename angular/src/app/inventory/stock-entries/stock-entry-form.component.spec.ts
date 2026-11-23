@@ -315,5 +315,15 @@ describe('ERPNext PR #60751: recalculate stock entry row amounts when qty change
     expect(dupRow.sourceWarehouseId).toBe('wh-dup-s');
     expect(dupRow.targetWarehouseId).toBe('wh-dup-t');
   });
+
+  it('keeps user-typed positive rate on Material Receipt when UOM/qty changes (PR #67385: f96bb188cb)', () => {
+    const shouldPreserve = (entryType: string | null | undefined, basicRate: number, manual: boolean) =>
+      manual || (entryType === 'MaterialReceipt' && Number(basicRate) > 0);
+
+    expect(shouldPreserve('MaterialReceipt', 42.5, false)).toBe(true);
+    expect(shouldPreserve('MaterialReceipt', 0, false)).toBe(false);
+    expect(shouldPreserve('MaterialTransfer', 42.5, false)).toBe(false);
+    expect(shouldPreserve('MaterialTransfer', 42.5, true)).toBe(true);
+  });
 });
 

@@ -158,10 +158,25 @@ public class ProductionPlanMaterialPlanningService : DomainService
         }
         if (roundUpWholeUom)
         {
-            purchaseInUom = Math.Ceiling(purchaseInUom);
+            purchaseInUom = CeilWholeUnit(purchaseInUom);
         }
 
         return (transferStockQty, purchaseInUom);
+    }
+
+    /// <summary>
+    /// Rounds a quantity up to the next whole unit when <paramref name="mustBeWholeNumber"/> is true,
+    /// pre-rounding to 9 decimal places so floating-point / repeating-decimal noise (e.g. 0.07 * 100 or
+    /// 1 / 3 * 3) never adds a spurious extra unit per ERPNext PR #68803 and PR #67414.
+    /// </summary>
+    public static decimal CeilWholeUnit(decimal qty, bool mustBeWholeNumber = true)
+    {
+        if (!mustBeWholeNumber)
+        {
+            return qty;
+        }
+
+        return Math.Ceiling(Math.Round(qty, 9, MidpointRounding.AwayFromZero));
     }
 
     /// <summary>
@@ -256,7 +271,7 @@ public class ProductionPlanMaterialPlanningService : DomainService
             }
 
             purchaseQty = roundUpWholeUom
-                ? Math.Ceiling(purchaseQty)
+                ? CeilWholeUnit(purchaseQty)
                 : Math.Round(purchaseQty, precision);
 
             splitRows.Add(new RawMaterialPlanRow

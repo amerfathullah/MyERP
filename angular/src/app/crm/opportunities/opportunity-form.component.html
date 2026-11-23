@@ -105,7 +105,7 @@
                   <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" min="0" step="0.01" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
                   <td>
-                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" title="Remove">
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)" [title]="'::Remove' | abpLocalization">
                       <i class="fa fa-trash"></i>
                     </button>
                   </td>

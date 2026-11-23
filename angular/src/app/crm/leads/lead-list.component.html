@@ -71,13 +71,13 @@
                 <td><app-status-badge [status]="lead.status?.toString() ?? 'New'" /></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" [routerLink]="[lead.id]" title="View">
+                    <button class="btn btn-outline-primary" [routerLink]="[lead.id]" [title]="'::View' | abpLocalization">
                       <i class="fa fa-eye"></i>
                     </button>
-                    <button class="btn btn-outline-primary" [routerLink]="[lead.id, 'edit']" title="Edit">
+                    <button class="btn btn-outline-primary" [routerLink]="[lead.id, 'edit']" [title]="'::Edit' | abpLocalization">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-outline-danger" (click)="delete(lead.id)" title="Delete">
+                    <button class="btn btn-outline-danger" (click)="delete(lead.id)" [title]="'::Delete' | abpLocalization">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>

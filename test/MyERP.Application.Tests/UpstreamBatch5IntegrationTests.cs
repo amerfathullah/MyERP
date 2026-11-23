@@ -4023,4 +4023,116 @@ public abstract class UpstreamBatch5IntegrationTests<TStartupModule> : MyERPAppl
             reopenScoEx.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
         });
     }
+
+    [Fact]
+    public async Task UpstreamBatch28_SalesOrderCloseScio_And_LhdnPendingSyncPropagation()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var custRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var suppRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var scioRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingInwardOrder, Guid>>();
+            var siRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
+            var subRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+            var logRepo = GetRequiredService<IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+            var piRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var soService = GetRequiredService<MyERP.Sales.ISalesOrderAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Batch28 Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "B28 WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "B28-FG", "B28 FG", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit",
+            }, autoSave: true);
+            var customer = await custRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "B28 Cust"), autoSave: true);
+            var supplier = await suppRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), company.Id, "B28 Supp"), autoSave: true);
+
+            // 1. PR #67504: closing SO closes submitted open SCIO, skips Draft SCIO without crashing, and Reopen leaves closed SCIO closed
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-B28-1", DateTime.Today);
+            so.AddItem(item.Id, item.ItemName, 5m, 100m, 0m);
+            so.Items[0].WarehouseId = wh.Id;
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var openScio = new MyERP.Purchasing.Entities.SubcontractingInwardOrder(Guid.NewGuid(), company.Id, "SCIO-B28-OPEN", DateTime.Today, supplier.Id)
+            {
+                SalesOrderId = so.Id,
+            };
+            openScio.AddItem(new MyERP.Purchasing.Entities.SubcontractingInwardOrderItem(Guid.NewGuid(), openScio.Id, item.Id, 5m, 50m));
+            openScio.Submit();
+            await scioRepo.InsertAsync(openScio, autoSave: true);
+
+            var draftScio = new MyERP.Purchasing.Entities.SubcontractingInwardOrder(Guid.NewGuid(), company.Id, "SCIO-B28-DRAFT", DateTime.Today, supplier.Id)
+            {
+                SalesOrderId = so.Id,
+            };
+            draftScio.AddItem(new MyERP.Purchasing.Entities.SubcontractingInwardOrderItem(Guid.NewGuid(), draftScio.Id, item.Id, 5m, 50m));
+            await scioRepo.InsertAsync(draftScio, autoSave: true);
+
+            await soService.CloseAsync(so.Id);
+            (await scioRepo.GetAsync(openScio.Id)).Status.ShouldBe(MyERP.Purchasing.SubcontractingInwardOrderStatus.Closed);
+            (await scioRepo.GetAsync(draftScio.Id)).Status.ShouldBe(MyERP.Purchasing.SubcontractingInwardOrderStatus.Draft);
+
+            await soService.ReopenAsync(so.Id);
+            (await scioRepo.GetAsync(openScio.Id)).Status.ShouldBe(MyERP.Purchasing.SubcontractingInwardOrderStatus.Closed);
+
+            // 2. MyInvois: LhdnPendingStatusSyncJob polls Accepted submissions and propagates Valid status + LongId + QR to SalesInvoice
+            var si = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), company.Id, customer.Id, "SI-B28-LHDN", DateTime.Today)
+            {
+                EInvoiceStatus = MyERP.Sales.EInvoiceStatus.Pending,
+                IsSubmitToLhdn = true,
+            };
+            si.AddItem(item.Id, item.ItemName, 1m, 100m, 0m);
+            si.Submit();
+            await siRepo.InsertAsync(si, autoSave: true);
+
+            var submission = new MyERP.EInvoice.Entities.EInvoiceSubmission(Guid.NewGuid(), company.Id, "SalesInvoice", si.Id)
+            {
+                SubmissionUid = "SUB-B28-1",
+                DocumentUuid = "UUID-B28-1",
+                Status = "Accepted",
+                SubmittedAt = DateTime.UtcNow,
+            };
+            await subRepo.InsertAsync(submission, autoSave: true);
+
+            var mockLhdn = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+            NSubstitute.SubstituteExtensions.Returns(
+                mockLhdn.GetAccessTokenAsync("cid", "csec", MyERP.EInvoice.LhdnEnvironment.Sandbox),
+                Task.FromResult("tok-b28"));
+            NSubstitute.SubstituteExtensions.Returns(
+                mockLhdn.GetDocumentStatusAsync("tok-b28", "SUB-B28-1", MyERP.EInvoice.LhdnEnvironment.Sandbox),
+                Task.FromResult(new MyERP.EInvoice.Services.LhdnStatusResponse
+                {
+                    IsSuccess = true,
+                    StatusCode = 200,
+                    Status = "Valid",
+                    DocumentUuid = "UUID-B28-1",
+                    LongId = "LONG-B28-1",
+                    QrCodeUrl = "https://preprod.myinvois.hasil.gov.my/UUID-B28-1/share/LONG-B28-1",
+                }));
+
+            var mockSettings = NSubstitute.Substitute.For<Volo.Abp.Settings.ISettingProvider>();
+            NSubstitute.SubstituteExtensions.Returns(mockSettings.GetOrNullAsync("EInvoice.ClientId"), Task.FromResult<string?>("cid"));
+            NSubstitute.SubstituteExtensions.Returns(mockSettings.GetOrNullAsync("EInvoice.ClientSecret"), Task.FromResult<string?>("csec"));
+            NSubstitute.SubstituteExtensions.Returns(mockSettings.GetOrNullAsync("EInvoice.Environment"), Task.FromResult<string?>("PreProd"));
+
+            var eInvoiceSvc = new MyERP.EInvoice.Services.EInvoiceService(mockLhdn, subRepo, logRepo);
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.BackgroundJobs.LhdnPendingStatusSyncJob>.Instance;
+            var syncJob = new MyERP.EInvoice.BackgroundJobs.LhdnPendingStatusSyncJob(
+                subRepo, eInvoiceSvc, mockLhdn, mockSettings, logger, siRepo, piRepo);
+
+            await syncJob.ExecuteAsync(new MyERP.EInvoice.BackgroundJobs.LhdnPendingStatusSyncJobArgs { CompanyId = company.Id });
+
+            var refreshedSi = await siRepo.GetAsync(si.Id);
+            refreshedSi.EInvoiceStatus.ShouldBe(MyERP.Sales.EInvoiceStatus.Valid);
+            refreshedSi.LhdnUuid.ShouldBe("UUID-B28-1");
+            refreshedSi.LhdnLongId.ShouldBe("LONG-B28-1");
+            refreshedSi.QrCodeUrl.ShouldBe("https://preprod.myinvois.hasil.gov.my/UUID-B28-1/share/LONG-B28-1");
+        });
+    }
 }

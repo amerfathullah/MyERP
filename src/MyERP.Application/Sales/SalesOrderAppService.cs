@@ -1104,13 +1104,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
-        // Per DO-NOT: "Close Sales Order without cascading status to linked Subcontracting Inward Orders"
+        // Per ERPNext PR #67504 & DO-NOT: closing Sales Order closes linked submitted open Subcontracting Inward Orders
+        // (skipping Draft/Completed/Closed/Cancelled so Draft SCIOs cannot throw InvalidStatusTransition).
         var scioRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.SubcontractingInwardOrder, Guid>>();
         var scioQuery = await scioRepo.GetQueryableAsync();
         var linkedScioList = scioQuery
             .Where(s => s.SalesOrderId == id &&
+                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Draft &&
                         s.Status != Purchasing.SubcontractingInwardOrderStatus.Cancelled &&
-                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Closed)
+                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Closed &&
+                        s.Status != Purchasing.SubcontractingInwardOrderStatus.Completed)
             .ToList();
         foreach (var scio in linkedScioList)
         {

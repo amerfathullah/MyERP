@@ -123,12 +123,16 @@ public class ItemDetailsResolverService : DomainService
         }
         else
         {
-            // Per ERPNext: last_purchase_rate from actual purchase transactions
+            // Per ERPNext PR #67428: last_purchase_rate from SLE is per stock UOM; convert fallback rate
+            // to the row's buying UOM via result.ConversionFactor.
             result.LastPurchaseRate = await GetLastPurchaseRateAsync(item.Id, context.CompanyId);
+            var rowUomLastPurchaseRate = result.LastPurchaseRate > 0
+                ? ConvertLastPurchaseRateToRowUom(result.LastPurchaseRate, 1m, result.ConversionFactor)
+                : 0m;
 
             result.Rate = priceFromItemPrice
                 ?? item.StandardBuyingPrice
-                ?? (result.LastPurchaseRate > 0 ? result.LastPurchaseRate : 0);
+                ?? rowUomLastPurchaseRate;
         }
 
         // STEP 7b: Material Request rate override — per ERPNext: MR forces rate=0
@@ -636,6 +640,42 @@ public class ItemDetailsResolverService : DomainService
         {
             return 0; // Graceful fallback if SLE not available
         }
+    }
+
+    /// <summary>
+    /// Converts a last-purchase rate from its source purchase UOM (<paramref name="lastPurchaseConversionFactor"/>)
+    /// to the target buying row UOM (<paramref name="rowConversionFactor"/>) per ERPNext PR #67428 (<c>get_last_purchase_details</c>):
+    /// <c>rate * (rowConversionFactor / lastPurchaseConversionFactor)</c>.
+    /// </summary>
+    public static decimal ConvertLastPurchaseRateToRowUom(
+        decimal lastPurchaseRateInSourceUom,
+        decimal lastPurchaseConversionFactor,
+        decimal rowConversionFactor,
+        int precision = 4)
+    {
+        if (lastPurchaseRateInSourceUom <= 0m)
+            return 0m;
+
+        var srcFactor = lastPurchaseConversionFactor > 0m ? lastPurchaseConversionFactor : 1m;
+        var dstFactor = rowConversionFactor > 0m ? rowConversionFactor : 1m;
+        var uomFactor = dstFactor / srcFactor;
+        return Math.Round(lastPurchaseRateInSourceUom * uomFactor, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Converts a buying Item Price (quoted per its own UOM) to stock UOM valuation rate
+    /// for Stock Reconciliation per ERPNext PR #67443 (<c>price_list_rate / conversion_factor</c>).
+    /// </summary>
+    public static decimal ConvertBuyingItemPriceToStockUom(
+        decimal buyingPriceListRate,
+        decimal buyingUomConversionFactor,
+        int precision = 4)
+    {
+        if (buyingPriceListRate <= 0m)
+            return 0m;
+
+        var factor = buyingUomConversionFactor > 0m ? buyingUomConversionFactor : 1m;
+        return Math.Round(buyingPriceListRate / factor, precision, MidpointRounding.AwayFromZero);
     }
 }
 

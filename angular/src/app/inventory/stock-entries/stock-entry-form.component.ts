@@ -399,10 +399,19 @@ export class StockEntryFormComponent implements OnInit {
   }
 
   onItemSelected(index: number, item: ItemDto | null): void {
+    const row = this.items.at(index);
+    if (!row) return;
+
+    // Per ERPNext PR #67385: clear previous item's basicRate and manual override flag when item changes
+    row.patchValue({
+      basicRate: 0,
+      setBasicRateManually: false,
+    }, { emitEvent: false });
+
     if (item?.id) {
       const basicRate = item.standardBuyingPrice ?? 0;
       const uom = item.uom ?? 'Unit';
-      this.items.at(index).patchValue({
+      row.patchValue({
         itemName: item.itemName ?? item.itemCode,
         uom,
         stockUom: uom,
@@ -410,14 +419,28 @@ export class StockEntryFormComponent implements OnInit {
       });
       this.calculateRowAmount(index);
       this.fetchStockAndRateForItem(index, item.id);
+    } else {
+      this.calculateRowAmount(index);
     }
   }
 
   /**
-   * Per ERPNext PR #60751 / commit 44b0443ef8:
-   * Recalculates stock entry row amounts and transfer_qty when qty changes.
-   * If source warehouse is set and rate not manually set, refetches basic rate.
-   * Otherwise keeps entered rate and recalculates transfer_qty and amount.
+   * Per ERPNext PR #67385 (commit f96bb188cb): on Material Receipt, preserve a user-typed positive basicRate
+   * when UOM/qty/batch changes instead of overwriting it from stock valuation lookup.
+   */
+  shouldPreserveBasicRateOnRowChange(
+    entryType: string | null | undefined,
+    basicRate: number,
+    setBasicRateManually: boolean,
+  ): boolean {
+    const hasReceiptRate = entryType === 'MaterialReceipt' && Number(basicRate) > 0;
+    return setBasicRateManually || hasReceiptRate;
+  }
+
+  /**
+   * Per ERPNext PR #60751 & PR #67385:
+   * Recalculates stock entry row amounts and transfer_qty when qty or conversion factor changes.
+   * Preserves manual rate or positive Material Receipt rate; otherwise refetches basic rate if source warehouse set.
    */
   onRowQtyOrConversionChanged(index: number): void {
     const row = this.items.at(index);
@@ -431,8 +454,15 @@ export class StockEntryFormComponent implements OnInit {
     const sourceWarehouse = row.get('sourceWarehouseId')?.value || this.form.get('sourceWarehouse')?.value;
     const itemId = row.get('itemId')?.value;
     const setBasicRateManually = !!row.get('setBasicRateManually')?.value;
+    const basicRate = Number(row.get('basicRate')?.value ?? 0);
+    const entryType = this.form.get('entryType')?.value;
 
-    if (sourceWarehouse && itemId && !setBasicRateManually) {
+    if (this.shouldPreserveBasicRateOnRowChange(entryType, basicRate, setBasicRateManually)) {
+      this.calculateRowAmount(index);
+      return;
+    }
+
+    if (sourceWarehouse && itemId) {
       this.fetchStockAndRateForItem(index, itemId);
     } else {
       this.calculateRowAmount(index);

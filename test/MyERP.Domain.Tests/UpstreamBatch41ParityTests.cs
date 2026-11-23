@@ -851,4 +851,32 @@ public class UpstreamBatch41ParityTests
         cancelled.Status.ShouldBe("Cancelled");
         cancelled.Reason.ShouldBe("Duplicate");
     }
+
+    [Fact]
+    public void UpstreamPRs_68803_67414_67428_67443_WholeUnitCeilAndUomRate_Parity()
+    {
+        // 1. PR #68803 & #67414: pre-round to 9 decimals before ceiling so float/decimal noise never adds an extra unit
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CeilWholeUnit(7.0000000001m, mustBeWholeNumber: true)
+            .ShouldBe(7m);
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CeilWholeUnit(7.001m, mustBeWholeNumber: true)
+            .ShouldBe(8m);
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CeilWholeUnit(7.25m, mustBeWholeNumber: false)
+            .ShouldBe(7.25m);
+
+        // 2. PR #67428: last purchase rate fallback converts from source purchase UOM to target row UOM
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ConvertLastPurchaseRateToRowUom(lastPurchaseRateInSourceUom: 100m, lastPurchaseConversionFactor: 10m, rowConversionFactor: 2m)
+            .ShouldBe(20m);
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ConvertLastPurchaseRateToRowUom(lastPurchaseRateInSourceUom: 12.5m, lastPurchaseConversionFactor: 1m, rowConversionFactor: 12m)
+            .ShouldBe(150m);
+
+        // 3. PR #67443: buying Item Price in non-stock UOM converts to stock UOM valuation rate
+        MyERP.Inventory.DomainServices.ItemDetailsResolverService
+            .ConvertBuyingItemPriceToStockUom(buyingPriceListRate: 120m, buyingUomConversionFactor: 12m)
+            .ShouldBe(10m);
+    }
 }

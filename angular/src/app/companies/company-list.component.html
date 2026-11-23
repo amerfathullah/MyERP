@@ -72,7 +72,7 @@
                       <i class="fa fa-wrench"></i>
                     </button>
                     <button class="btn btn-outline-primary" [routerLink]="[company.id, 'edit']"
-                    title="Edit" aria-label="Edit">
+                    [title]="'::Edit' | abpLocalization" [attr.aria-label]="'::Edit' | abpLocalization">
                     <i class="fa fa-pencil"></i>
                     </button>
                     </div>
