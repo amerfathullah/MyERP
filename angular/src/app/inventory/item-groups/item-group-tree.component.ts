@@ -113,7 +113,7 @@ export interface ItemGroupNode {
                 <!-- Actions -->
                 <div class="btn-group btn-group-sm">
                   @if (node.isGroup) {
-                    <button class="btn btn-outline-primary" title="Add child"
+                    <button class="btn btn-outline-primary" [title]="'MyERP::AddChild' | abpLocalization"
                       (click)="addChildTo(node)">
                       <i class="bi bi-plus"></i>
                     </button>

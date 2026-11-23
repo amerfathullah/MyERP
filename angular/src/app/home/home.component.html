@@ -480,7 +480,7 @@
                         }
                       </td>
                       <td class="text-end">
-                        <a [routerLink]="['/accounting/reports/statement-of-accounts']" [queryParams]="{customerId: d.customerId}" class="btn btn-sm btn-outline-secondary" title="View Statement">
+                        <a [routerLink]="['/accounting/reports/statement-of-accounts']" [queryParams]="{customerId: d.customerId}" class="btn btn-sm btn-outline-secondary" [title]="'::ViewStatement' | abpLocalization">
                           <i class="fa fa-file-lines"></i>
                         </a>
                       </td>

@@ -77,7 +77,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                     <td class="text-end">
                       @if (!book.isDefault) {
                         <button class="btn btn-outline-primary btn-sm me-1" (click)="setDefault(book.id!)"
-                          title="Set as Default">
+                          [title]="'::SetAsDefault' | abpLocalization">
                           <i class="fa fa-star"></i>
                         </button>
                       }

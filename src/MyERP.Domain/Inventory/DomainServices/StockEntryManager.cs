@@ -2512,4 +2512,31 @@ public class StockEntryManager : DomainService
             ? 0m
             : finalQty;
     }
+
+    /// <summary>
+    /// Determines whether submitting a Stock Entry against a <c>Closed</c> Work Order must be rejected:
+    /// refuses <see cref="StockEntryType.Manufacture"/>, <see cref="StockEntryType.MaterialConsumptionForManufacture"/>
+    /// (even when flagged as return), and non-return <see cref="StockEntryType.MaterialTransferForManufacture"/>;
+    /// permits ONLY return-flagged <see cref="StockEntryType.MaterialTransferForManufacture"/>.
+    /// Per ERPNext commit <c>7faed55958</c> (<c>BaseStockEntry</c> in <c>stock_entry_base.py</c>).
+    /// </summary>
+    public static bool ShouldRejectStockEntryAgainstClosedWorkOrder(
+        bool isWorkOrderClosed,
+        StockEntryType entryType,
+        bool isReturn)
+    {
+        if (!isWorkOrderClosed)
+        {
+            return false;
+        }
+
+        if (entryType == StockEntryType.MaterialTransferForManufacture && isReturn)
+        {
+            return false;
+        }
+
+        return entryType is StockEntryType.MaterialTransferForManufacture
+            or StockEntryType.Manufacture
+            or StockEntryType.MaterialConsumptionForManufacture;
+    }
 }

@@ -95,7 +95,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                         </button>
                       }
                       @if (item.status === 'Submitted' && !item.isFullyTransferred) {
-                        <button class="btn btn-outline-primary btn-sm" (click)="createDn(item.id)" title="Create Delivery Note">
+                        <button class="btn btn-outline-primary btn-sm" (click)="createDn(item.id)" [title]="'::CreateDeliveryNote' | abpLocalization">
                           <i class="fa fa-truck"></i>
                         </button>
                       }

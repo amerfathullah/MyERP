@@ -92,7 +92,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
                 <span class="flex-grow-1" [class.fw-medium]="node.isGroup">{{ node.name }}</span>
                 <div class="btn-group btn-group-sm opacity-75">
                   @if (node.isGroup) {
-                    <button class="btn btn-outline-primary" (click)="addChildTo(node)" title="Add child">
+                    <button class="btn btn-outline-primary" (click)="addChildTo(node)" [title]="'::AddChild' | abpLocalization">
                       <i class="bi bi-plus"></i>
                     </button>
                   }

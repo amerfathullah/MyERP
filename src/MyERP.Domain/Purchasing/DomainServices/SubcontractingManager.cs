@@ -2376,6 +2376,26 @@ public class SubcontractingManager : DomainService
 
         return allocated;
     }
+
+    /// <summary>
+    /// Computes the Subcontracting Inward Order conversion ratio (<c>soStockQty / soFgItemQty</c>)
+    /// from its linked Sales Order row ONLY when BOTH <paramref name="salesOrderStockQty"/> and
+    /// <paramref name="salesOrderFgItemQty"/> are non-zero, keeping <paramref name="existingRatio"/>
+    /// when the Sales Order row quantity is zero so save/submit never divides by zero.
+    /// Per ERPNext commit <c>a36fc2fd7a</c> (<c>subcontracting_inward_order.py</c>).
+    /// </summary>
+    public static decimal ResolveInwardOrderSalesConversionFactor(
+        decimal existingRatio,
+        decimal salesOrderStockQty,
+        decimal salesOrderFgItemQty)
+    {
+        if (salesOrderStockQty != 0m && salesOrderFgItemQty != 0m)
+        {
+            return salesOrderStockQty / salesOrderFgItemQty;
+        }
+
+        return existingRatio;
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

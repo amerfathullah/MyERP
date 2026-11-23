@@ -1362,6 +1362,18 @@ public class JobCardManager : DomainService
 
         return totalsByOp.Count > 0 ? totalsByOp.Min() : 0m;
     }
+
+    /// <summary>
+    /// Determines whether Work-Order-level corrective or additional operating cost should be booked
+    /// on a Manufacture Stock Entry: skips Job Card entries that produce a semi-finished good
+    /// (<c>jobCardFinishedGoodId != workOrderProductionItemId</c>) so corrective cost is booked on
+    /// the finished-good entry only.
+    /// Per ERPNext commit <c>a96f709df4</c> (<c>makes_semi_finished_good</c> in <c>operations_cost.py</c>).
+    /// </summary>
+    public static bool ShouldBookWorkOrderLevelOperatingCostOnEntry(
+        Guid workOrderProductionItemId,
+        Guid? jobCardFinishedGoodItemId)
+        => !jobCardFinishedGoodItemId.HasValue || jobCardFinishedGoodItemId.Value == workOrderProductionItemId;
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>

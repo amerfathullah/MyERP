@@ -771,6 +771,50 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return (SkipSubitem: false, ShouldExplode: explode);
     }
+
+    /// <summary>
+    /// Resolves the set of Sales Order Item IDs that a Production Plan actually allocates planned qty to
+    /// (combining direct plan rows and in-order allocated combined references rounded to <paramref name="precision"/>)
+    /// so closed Sales Order rows receiving zero planned qty do not block plan submission.
+    /// Per ERPNext commits <c>d6c1294e97</c> and <c>0b4b095b8d</c> (<c>validate_closed_sales_order_items</c>).
+    /// </summary>
+    public static HashSet<Guid> ResolvePlannedSalesOrderRowsForClosureCheck(
+        IEnumerable<(Guid? DirectSalesOrderItemId, Guid PlanRowKey, decimal PlannedQty)>? planRows,
+        IEnumerable<(Guid ItemReferenceKey, Guid SalesOrderItemId, decimal ReferenceQty)>? combinedReferences,
+        int precision = 4)
+    {
+        var soItemIds = new HashSet<Guid>();
+        var remainingByRefKey = new Dictionary<Guid, decimal>();
+
+        if (planRows != null)
+        {
+            foreach (var row in planRows)
+            {
+                if (row.DirectSalesOrderItemId.HasValue && row.DirectSalesOrderItemId.Value != Guid.Empty)
+                {
+                    soItemIds.Add(row.DirectSalesOrderItemId.Value);
+                }
+                remainingByRefKey[row.PlanRowKey] = remainingByRefKey.GetValueOrDefault(row.PlanRowKey, 0m) + row.PlannedQty;
+            }
+        }
+
+        if (combinedReferences != null)
+        {
+            foreach (var r in combinedReferences)
+            {
+                var avail = remainingByRefKey.GetValueOrDefault(r.ItemReferenceKey, 0m);
+                var alloc = Math.Min(Math.Max(avail, 0m), Math.Max(r.ReferenceQty, 0m));
+                remainingByRefKey[r.ItemReferenceKey] = avail - alloc;
+
+                if (Math.Round(alloc, precision, MidpointRounding.AwayFromZero) > 0m)
+                {
+                    soItemIds.Add(r.SalesOrderItemId);
+                }
+            }
+        }
+
+        return soItemIds;
+    }
 }
 
 public sealed record FetchedSalesOrderPlanRow(

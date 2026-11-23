@@ -1627,6 +1627,83 @@ public class UpstreamBatch41ParityTests
         whenSubExcluded.ShouldExplode.ShouldBeFalse();
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch11_LhdnCaseInsensitiveStatus_SemiFgCost_PpClosure_ScioRatio_ClosedWoConsumption_Parity()
+    {
+        // 1. MyInvois get_status.py: case-insensitive Valid/Cancelled status matching in EInvoiceService.RefreshStatusAsync
+        var subId = Guid.NewGuid();
+        var sub = new MyERP.EInvoice.Entities.EInvoiceSubmission(subId, Guid.NewGuid(), "SalesInvoice", Guid.NewGuid())
+        {
+            SubmissionUid = "SUB-11",
+            Status = "Pending"
+        };
+
+        var subRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+        NSubstitute.SubstituteExtensions.Returns(subRepo.GetAsync(subId), sub);
+        var logRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+        var apiClient = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+        NSubstitute.SubstituteExtensions.Returns(
+            apiClient.GetDocumentStatusAsync("tok", "SUB-11", MyERP.EInvoice.LhdnEnvironment.Sandbox),
+            new MyERP.EInvoice.Services.LhdnStatusResponse
+            {
+                IsSuccess = true,
+                StatusCode = 200,
+                Status = " valid ",
+                DocumentUuid = "UUID-11",
+                LongId = "LONG-11"
+            });
+
+        var einvSvc = new MyERP.EInvoice.Services.EInvoiceService(apiClient, subRepo, logRepo);
+        var refreshed = await einvSvc.RefreshStatusAsync(subId, "tok", MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        refreshed.Status.ShouldBe("valid");
+        refreshed.ValidatedAt.ShouldNotBeNull();
+        refreshed.QrCodeUrl.ShouldBe("https://preprod.myinvois.hasil.gov.my/UUID-11/share/LONG-11");
+
+        // 2. ERPNext a96f709df4: WO-level operating/corrective cost booked on FG entry only, not semi-FG Job Card
+        var fgId = Guid.NewGuid();
+        var semiId = Guid.NewGuid();
+        MyERP.Manufacturing.DomainServices.JobCardManager
+            .ShouldBookWorkOrderLevelOperatingCostOnEntry(fgId, semiId).ShouldBeFalse();
+        MyERP.Manufacturing.DomainServices.JobCardManager
+            .ShouldBookWorkOrderLevelOperatingCostOnEntry(fgId, fgId).ShouldBeTrue();
+        MyERP.Manufacturing.DomainServices.JobCardManager
+            .ShouldBookWorkOrderLevelOperatingCostOnEntry(fgId, null).ShouldBeTrue();
+
+        // 3. ERPNext d6c1294e97 + 0b4b095b8d: Production Plan checks only SO rows receiving positive allocated qty
+        var refKey = Guid.NewGuid();
+        var openSoRow = Guid.NewGuid();
+        var closedZeroAllocSoRow = Guid.NewGuid();
+        var checkedSoRows = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .ResolvePlannedSalesOrderRowsForClosureCheck(
+                planRows: new[] { ((Guid?)null, refKey, 5m) },
+                combinedReferences: new[]
+                {
+                    (refKey, openSoRow, 5m),            // gets all 5
+                    (refKey, closedZeroAllocSoRow, 3m), // gets 0 -> excluded from closed-row check
+                });
+        checkedSoRows.ShouldContain(openSoRow);
+        checkedSoRows.ShouldNotContain(closedZeroAllocSoRow);
+
+        // 4. ERPNext a36fc2fd7a: SCIO keeps existing conversion ratio when Sales Order row qty is zero
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveInwardOrderSalesConversionFactor(existingRatio: 2.5m, salesOrderStockQty: 0m, salesOrderFgItemQty: 10m)
+            .ShouldBe(2.5m);
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ResolveInwardOrderSalesConversionFactor(existingRatio: 2.5m, salesOrderStockQty: 20m, salesOrderFgItemQty: 5m)
+            .ShouldBe(4m);
+
+        // 5. ERPNext 7faed55958: Closed Work Order rejects return-flagged MaterialConsumptionForManufacture, allows only return transfer
+        MyERP.Inventory.DomainServices.StockEntryManager
+            .ShouldRejectStockEntryAgainstClosedWorkOrder(true, MyERP.Inventory.StockEntryType.MaterialConsumptionForManufacture, isReturn: true)
+            .ShouldBeTrue();
+        MyERP.Inventory.DomainServices.StockEntryManager
+            .ShouldRejectStockEntryAgainstClosedWorkOrder(true, MyERP.Inventory.StockEntryType.MaterialTransferForManufacture, isReturn: true)
+            .ShouldBeFalse();
+        MyERP.Inventory.DomainServices.StockEntryManager
+            .ShouldRejectStockEntryAgainstClosedWorkOrder(true, MyERP.Inventory.StockEntryType.MaterialTransferForManufacture, isReturn: false)
+            .ShouldBeTrue();
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

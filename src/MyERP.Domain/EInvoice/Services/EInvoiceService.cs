@@ -139,9 +139,10 @@ public class EInvoiceService : DomainService
                 .WithData("reason", response.ErrorMessage ?? $"Failed to retrieve LHDN status (HTTP {response.StatusCode}).");
         }
 
-        // Update all fields from LHDN response
+        // Update all fields from LHDN response (per myinvois get_status.py: case-insensitive status match)
         var previousStatus = submission.Status;
-        submission.Status = response.Status;
+        var normalizedStatus = string.IsNullOrWhiteSpace(response.Status) ? "Unknown" : response.Status.Trim();
+        submission.Status = normalizedStatus;
         if (response.DocumentUuid != null) submission.DocumentUuid = response.DocumentUuid;
         if (response.LongId != null) submission.LongId = response.LongId;
         if (response.QrCodeUrl != null)
@@ -154,13 +155,21 @@ public class EInvoiceService : DomainService
                 environment, submission.DocumentUuid, submission.LongId);
         }
 
-        // Per myinvois: mark validated timestamp when LHDN confirms "Valid"
-        if (response.Status == "Valid" && submission.ValidatedAt == null)
+        // Per myinvois get_status.py line 92: mark validated timestamp when LHDN confirms "Valid" (case-insensitive)
+        if (string.Equals(normalizedStatus, "Valid", StringComparison.OrdinalIgnoreCase) && submission.ValidatedAt == null)
             submission.ValidatedAt = DateTime.UtcNow;
 
-        // Per myinvois: detect cancellation by LHDN (counter-party reject)
-        if (response.Status == "Cancelled" && previousStatus != "Cancelled")
+        // Per myinvois: detect cancellation by LHDN (counter-party reject, case-insensitive)
+        if (string.Equals(normalizedStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(previousStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
             submission.CancelledAt = DateTime.UtcNow;
+
+        if ((string.Equals(normalizedStatus, "Invalid", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalizedStatus, "Rejected", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrWhiteSpace(response.ErrorMessage))
+        {
+            submission.Reason = response.ErrorMessage;
+        }
 
         await _submissionRepository.UpdateAsync(submission);
         return submission;
