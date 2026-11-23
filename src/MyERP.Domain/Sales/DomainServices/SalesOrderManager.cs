@@ -172,4 +172,53 @@ public class SalesOrderManager : DomainService
 
         return false;
     }
+
+    /// <summary>
+    /// Resolves the Purchase Order <c>ScheduleDate</c> when mapped from a Sales Order row (or Product Bundle row):
+    /// falls back to <paramref name="today"/> when the Sales Order's <paramref name="salesOrderDeliveryDate"/>
+    /// is null or already in the past (<c>max(deliveryDate ?? today, today)</c>).
+    /// Per ERPNext commit <c>3a7d1a09b6</c> (<c>sales_order/mapper.py</c>).
+    /// </summary>
+    public static DateTime ResolvePurchaseOrderScheduleDateFromSalesOrder(
+        DateTime? salesOrderDeliveryDate,
+        DateTime today)
+    {
+        var todayDate = today.Date;
+        var candidate = (salesOrderDeliveryDate ?? todayDate).Date;
+        return candidate < todayDate ? todayDate : candidate;
+    }
+
+    /// <summary>
+    /// Validates that a Blanket Order matches the target document's order type and party:
+    /// <c>SalesOrder</c> and <c>Quotation</c> both require a <c>Selling</c> Blanket Order for the same customer,
+    /// while <c>PurchaseOrder</c> requires a <c>Purchasing</c> Blanket Order for the same supplier.
+    /// Returns whether quantity-limit validation should also run (false for <c>Quotation</c>).
+    /// Per ERPNext commit <c>138a0e0c0a</c> (<c>blanket_order.py</c> / <c>quotation.py</c>).
+    /// </summary>
+    public static bool ValidateBlanketOrderMatchesDocument(
+        string documentType,
+        string blanketOrderType,
+        Guid blanketOrderPartyId,
+        Guid documentPartyId)
+    {
+        var isSellingDoc = string.Equals(documentType, "SalesOrder", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(documentType, "Sales Order", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(documentType, "Quotation", StringComparison.OrdinalIgnoreCase);
+
+        var expectedBoType = isSellingDoc ? "Selling" : "Purchasing";
+        if (!string.Equals(blanketOrderType, expectedBoType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Blanket Order of type '{blanketOrderType}' cannot be used on a '{documentType}'.");
+        }
+
+        if (blanketOrderPartyId != documentPartyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Blanket Order party ({blanketOrderPartyId}) does not match document party ({documentPartyId}).");
+        }
+
+        var isQuotation = string.Equals(documentType, "Quotation", StringComparison.OrdinalIgnoreCase);
+        return !isQuotation;
+    }
 }

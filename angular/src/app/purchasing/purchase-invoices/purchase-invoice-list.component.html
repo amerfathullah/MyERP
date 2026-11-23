@@ -179,7 +179,7 @@
                         @default { <span class="text-muted">—</span> }
                       }
                       @if (inv.isReadyForPayment) {
-                        <i class="fa fa-money-bill-wave text-success ms-1" title="Ready for Payment"></i>
+                        <i class="fa fa-money-bill-wave text-success ms-1" [title]="'::ReadyForPayment' | abpLocalization"></i>
                       }
                     } @else {
                       <span class="text-muted">—</span>

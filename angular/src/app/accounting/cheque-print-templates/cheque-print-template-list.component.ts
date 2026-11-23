@@ -81,7 +81,7 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
               @if (isLoadingPreview()) {
                 <div class="text-center py-4"><i class="fa fa-spinner fa-spin"></i></div>
               } @else if (previewHtml()) {
-                <iframe sandbox="" [srcdoc]="previewHtml()" class="w-100 border rounded bg-white" style="min-height: 280px;" title="Cheque Layout Preview"></iframe>
+                <iframe sandbox="" [srcdoc]="previewHtml()" class="w-100 border rounded bg-white" style="min-height: 280px;" [title]="'::ChequeLayoutPreview' | abpLocalization"></iframe>
               }
             </div>
           </div>

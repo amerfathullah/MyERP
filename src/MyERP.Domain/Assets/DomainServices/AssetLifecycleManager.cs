@@ -418,4 +418,24 @@ public class AssetLifecycleManager : DomainService
 
         return newAsset;
     }
+
+    /// <summary>
+    /// Recomputes an Asset's expected salvage value (<c>ExpectedValueAfterUsefulLife</c>) from
+    /// <paramref name="salvageValuePercentage"/> whenever <paramref name="netPurchaseAmount"/> changes;
+    /// preserves <paramref name="currentSalvageValue"/> when no percentage is configured.
+    /// Per ERPNext commit <c>1211552f18</c>.
+    /// </summary>
+    public static decimal RecomputeSalvageValueFromPercentage(
+        decimal netPurchaseAmount,
+        decimal salvageValuePercentage,
+        decimal currentSalvageValue,
+        int precision = 2)
+    {
+        if (salvageValuePercentage <= 0m)
+        {
+            return currentSalvageValue;
+        }
+
+        return Math.Round(netPurchaseAmount * (salvageValuePercentage / 100m), precision, MidpointRounding.AwayFromZero);
+    }
 }

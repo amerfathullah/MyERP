@@ -1,11 +1,12 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { LocalizationPipe } from '@abp/ng.core';
 import { HierarchyTreeComponent } from '../../shared/components/hierarchy-tree/hierarchy-tree.component';
 
 @Component({
   selector: 'app-customer-group-tree',
   standalone: true,
-  imports: [HierarchyTreeComponent],
+  imports: [HierarchyTreeComponent, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
-  template: `<app-hierarchy-tree type="CustomerGroup" title="Customer Groups" iconClass="bi bi-people" />`,
+  template: `<app-hierarchy-tree type="CustomerGroup" [title]="'::CustomerGroups' | abpLocalization" iconClass="bi bi-people" />`,
 })
 export class CustomerGroupTreeComponent {}

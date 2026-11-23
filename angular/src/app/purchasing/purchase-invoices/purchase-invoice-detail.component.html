@@ -420,7 +420,7 @@
                     <td>
                       {{ entry.taxCategory || '—' }}
                       @if (entry.hasLDC) {
-                        <span class="badge bg-info ms-1" title="Lower Deduction Certificate">LDC {{ entry.ldcRate }}%</span>
+                        <span class="badge bg-info ms-1" [title]="'::LowerDeductionCertificate' | abpLocalization">LDC {{ entry.ldcRate }}%</span>
                       }
                     </td>
                     <td class="text-end font-monospace">{{ entry.withholdingRate | number:'1.1-1' }}%</td>

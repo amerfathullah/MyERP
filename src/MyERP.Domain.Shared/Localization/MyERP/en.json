@@ -6673,7 +6673,10 @@
     "ToggleComponents": "Toggle Components",
     "HoldOrder": "Hold Order",
     "ClearCart": "Clear Cart",
-    "ClearLocation": "Clear Location"
+    "ClearLocation": "Clear Location",
+    "ChequeLayoutPreview": "Cheque Layout Preview",
+    "LowerDeductionCertificate": "Lower Deduction Certificate",
+    "ReadyForPayment": "Ready for Payment"
   }
 }
 

@@ -333,6 +333,14 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XAttribute("schemeID", "SST"), supplier.SstRegistration)));
         }
 
+        if (!string.IsNullOrEmpty(supplier.TourismTaxNumber))
+        {
+            party.Element(Cac + "Party")!.Add(
+                new XElement(Cac + "PartyIdentification",
+                    new XElement(Cbc + "ID",
+                        new XAttribute("schemeID", "TTX"), supplier.TourismTaxNumber)));
+        }
+
         // MSIC business activity code (per LHDN mandatory for supplier; supports "CODE: Description" format from MyInvois)
         var (msicCode, msicDesc) = ParseMsicCodeAndDescription(supplier.MsicCode, supplier.MsicDescription);
         if (!string.IsNullOrEmpty(msicCode))

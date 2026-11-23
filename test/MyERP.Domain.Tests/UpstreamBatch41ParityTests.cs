@@ -1810,6 +1810,85 @@ public class UpstreamBatch41ParityTests
         changedAction.ShouldBe((false, false));
     }
 
+    [Fact]
+    public void UpstreamBatch14_SupplierTtx_PickListMatch_OverduePoDate_BlanketOrderQuotation_SalvageRecompute_Parity()
+    {
+        // 1. MyInvois purchase_invoice.py: BuildSupplierParty emits schemeID="TTX" when TourismTaxNumber is set
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-TTX-01",
+            IssueDate = new DateTime(2026, 7, 5, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Hotel Resort Sdn Bhd",
+                Tin = "C9999",
+                SstRegistration = "W10-1234",
+                TourismTaxNumber = "TTX-8888",
+                CountryCode = "MYS",
+                State = "14",
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Guest", Tin = "EI00000000020", CountryCode = "MYS", State = "14" },
+            NetTotal = 200m,
+            TaxAmount = 0m,
+            GrandTotal = 200m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Room Stay", Quantity = 1m, UnitPrice = 200m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        var supplierParty = xml.Root!.Element(cac + "AccountingSupplierParty")!.Element(cac + "Party")!;
+        supplierParty.Elements(cac + "PartyIdentification")
+            .First(x => x.Element(cbc + "ID")!.Attribute("schemeID")!.Value == "TTX")
+            .Element(cbc + "ID")!.Value.ShouldBe("TTX-8888");
+
+        // 2. ERPNext ca335b6613: Delivery row delivering wrong item against Pick List row is rejected
+        var plRowId = Guid.NewGuid();
+        var pickedItemId = Guid.NewGuid();
+        var wrongItemId = Guid.NewGuid();
+        var plEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.DeliveryNoteManager.ValidateDeliveryItemsMatchPickListItems(
+                deliveryRows: new[] { (1, wrongItemId, (Guid?)plRowId) },
+                pickedItemIdByPickListItemId: new System.Collections.Generic.Dictionary<Guid, Guid> { [plRowId] = pickedItemId }));
+        plEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.ValidationFailed);
+        plEx.Data["detail"]!.ToString()!.ShouldContain("Row #1");
+
+        // 3. ERPNext 3a7d1a09b6: Overdue Sales Order delivery date falls back to today for mapped PO schedule date
+        var today = new DateTime(2026, 7, 10);
+        MyERP.Sales.DomainServices.SalesOrderManager
+            .ResolvePurchaseOrderScheduleDateFromSalesOrder(new DateTime(2026, 7, 1), today)
+            .ShouldBe(today);
+        MyERP.Sales.DomainServices.SalesOrderManager
+            .ResolvePurchaseOrderScheduleDateFromSalesOrder(new DateTime(2026, 7, 20), today)
+            .ShouldBe(new DateTime(2026, 7, 20));
+
+        // 4. ERPNext 138a0e0c0a: Quotation accepts only Selling Blanket Order of same customer (and skips qty-limit check)
+        var custA = Guid.NewGuid();
+        var custB = Guid.NewGuid();
+        MyERP.Sales.DomainServices.SalesOrderManager
+            .ValidateBlanketOrderMatchesDocument("Quotation", "Selling", custA, custA)
+            .ShouldBeFalse(); // skip qty limit on Quotation
+        MyERP.Sales.DomainServices.SalesOrderManager
+            .ValidateBlanketOrderMatchesDocument("SalesOrder", "Selling", custA, custA)
+            .ShouldBeTrue();  // enforce qty limit on SalesOrder
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.SalesOrderManager.ValidateBlanketOrderMatchesDocument("Quotation", "Purchasing", custA, custA));
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.SalesOrderManager.ValidateBlanketOrderMatchesDocument("Quotation", "Selling", custA, custB));
+
+        // 5. ERPNext 1211552f18: Asset salvage value recomputed from percentage when net purchase amount changes
+        MyERP.Assets.DomainServices.AssetLifecycleManager
+            .RecomputeSalvageValueFromPercentage(netPurchaseAmount: 15000m, salvageValuePercentage: 10m, currentSalvageValue: 1000m)
+            .ShouldBe(1500m);
+        MyERP.Assets.DomainServices.AssetLifecycleManager
+            .RecomputeSalvageValueFromPercentage(netPurchaseAmount: 15000m, salvageValuePercentage: 0m, currentSalvageValue: 1000m)
+            .ShouldBe(1000m);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;
