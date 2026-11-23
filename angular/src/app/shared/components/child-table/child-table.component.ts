@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormGroup } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export interface ColumnDef {
   field: string;
@@ -14,7 +15,8 @@ export interface ColumnDef {
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule],
+    ReactiveFormsModule,
+    LocalizationPipe],
   templateUrl: './child-table.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./child-table.component.scss'],

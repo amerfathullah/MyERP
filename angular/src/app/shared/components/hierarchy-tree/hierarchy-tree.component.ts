@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { HierarchyMasterDataService } from '../../../proxy/core/hierarchy-master-data.service';
 import type { HierarchyNodeDto, CreateHierarchyNodeDto } from '../../../proxy/core/models';
 import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme.shared';
@@ -19,7 +20,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
 @Component({
   selector: 'app-hierarchy-tree',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -95,7 +96,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
                       <i class="bi bi-plus"></i>
                     </button>
                   }
-                  <button class="btn btn-outline-danger" (click)="deleteNode(node)" title="Delete">
+                  <button class="btn btn-outline-danger" (click)="deleteNode(node)" [title]="'::Delete' | abpLocalization">
                     <i class="bi bi-trash"></i>
                   </button>
                 </div>

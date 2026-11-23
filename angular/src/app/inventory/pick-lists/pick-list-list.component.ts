@@ -90,7 +90,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                     </td>
                     <td class="text-end">
                       @if (item.status === 'Draft') {
-                        <button class="btn btn-outline-success btn-sm me-1" (click)="submitItem(item.id)" title="Submit">
+                        <button class="btn btn-outline-success btn-sm me-1" (click)="submitItem(item.id)" [title]="'::Submit' | abpLocalization">
                           <i class="fa fa-paper-plane"></i>
                         </button>
                       }

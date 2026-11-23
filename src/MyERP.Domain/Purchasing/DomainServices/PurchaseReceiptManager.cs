@@ -1105,4 +1105,34 @@ public class PurchaseReceiptManager : DomainService
 
         return null;
     }
+
+    /// <summary>
+    /// Computes the Stock Received But Not Billed debit/outgoing amount for a Purchase Receipt return
+    /// from a rejected warehouse: when the original receipt had accepted quantity (<paramref name="originalAcceptedQty"/> &gt; 0)
+    /// and is not an internal transfer, debits at the receipt's net rate (<c>stockQty * baseNetRate / conversionFactor</c>)
+    /// without valuation charges and immune to later batch revaluation or standard-rate changes.
+    /// Per ERPNext commits <c>097411fb47</c> and <c>3837f7b46a</c> (<c>PurchaseReceiptGLComposer</c>).
+    /// </summary>
+    public static decimal ResolveRejectedWarehouseReturnDebitAmount(
+        bool isReturn,
+        bool returnQtyFromRejectedWarehouse,
+        bool isInternalTransfer,
+        decimal originalAcceptedQty,
+        decimal returnStockQty,
+        decimal baseNetRate,
+        decimal conversionFactor,
+        decimal fallbackOutgoingAmount,
+        int precision = 2)
+    {
+        if (isReturn
+            && returnQtyFromRejectedWarehouse
+            && !isInternalTransfer
+            && originalAcceptedQty > 0m)
+        {
+            var factor = conversionFactor > 0m ? conversionFactor : 1m;
+            return Math.Round((returnStockQty * baseNetRate) / factor, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return Math.Round(fallbackOutgoingAmount, precision, MidpointRounding.AwayFromZero);
+    }
 }

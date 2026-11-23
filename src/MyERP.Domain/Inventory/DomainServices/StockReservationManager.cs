@@ -2091,6 +2091,79 @@ public class StockReservationManager : DomainService
         var allowed = requiredQty - effectiveSubcontracted - fulfilled;
         return Math.Max(Math.Round(allowed, precision, MidpointRounding.AwayFromZero), 0m);
     }
+
+    /// <summary>
+    /// Releases unused customer-material reservation quantity from Work Order reservations when a
+    /// customer material return exceeds what the Subcontracting Inward Order still holds:
+    /// never releases below <c>UsedQty</c> (<c>delivered + transferred + consumed</c>) and returns
+    /// only the quantities actually released (preserving each reservation's <c>VoucherQty</c>).
+    /// Per ERPNext commits <c>a442d94273</c> and <c>e00d5c12b7</c> (<c>release_unused_inward_reservations</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> ReleaseUnusedInwardWorkOrderReservations(
+        IEnumerable<(Guid ReservationId, Guid FromScioDetailId, decimal ReservedQty, decimal UsedQty)>? reservations,
+        IReadOnlyDictionary<Guid, decimal>? shortQtyByScioDetailId,
+        int precision = 4)
+    {
+        var releasedBySre = new Dictionary<Guid, decimal>();
+        if (reservations == null || shortQtyByScioDetailId == null)
+        {
+            return releasedBySre;
+        }
+
+        var remainingShort = new Dictionary<Guid, decimal>(shortQtyByScioDetailId);
+        foreach (var sre in reservations)
+        {
+            if (!remainingShort.TryGetValue(sre.FromScioDetailId, out var needed) || needed <= 0m)
+                continue;
+
+            var releasable = Math.Max(sre.ReservedQty - sre.UsedQty, 0m);
+            var releaseQty = Math.Round(Math.Min(needed, releasable), precision, MidpointRounding.AwayFromZero);
+            if (releaseQty <= 0m)
+                continue;
+
+            releasedBySre[sre.ReservationId] = releaseQty;
+            remainingShort[sre.FromScioDetailId] = needed - releaseQty;
+        }
+
+        return releasedBySre;
+    }
+
+    /// <summary>
+    /// Restores Work Order reservations up to <c>min(VoucherQty - ReservedQty, FreeInwardQty, ReturnedQty)</c>
+    /// per inward order row when a customer material return is cancelled.
+    /// Per ERPNext commit <c>d6d9be7765</c> (<c>restore_inward_reservations</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> RestoreInwardWorkOrderReservationsOnReturnCancel(
+        IEnumerable<(Guid ReservationId, Guid FromScioDetailId, decimal VoucherQty, decimal ReservedQty)>? reservations,
+        IReadOnlyDictionary<Guid, decimal>? freeInwardQtyByScioDetailId,
+        IReadOnlyDictionary<Guid, decimal>? returnQtyByScioDetailId,
+        int precision = 4)
+    {
+        var restoredBySre = new Dictionary<Guid, decimal>();
+        if (reservations == null || freeInwardQtyByScioDetailId == null || returnQtyByScioDetailId == null)
+        {
+            return restoredBySre;
+        }
+
+        var freePool = new Dictionary<Guid, decimal>(freeInwardQtyByScioDetailId);
+        var retPool = new Dictionary<Guid, decimal>(returnQtyByScioDetailId);
+
+        foreach (var sre in reservations)
+        {
+            var gap = Math.Max(sre.VoucherQty - sre.ReservedQty, 0m);
+            var free = freePool.GetValueOrDefault(sre.FromScioDetailId, 0m);
+            var ret = retPool.GetValueOrDefault(sre.FromScioDetailId, 0m);
+            var restoreQty = Math.Round(Math.Min(gap, Math.Min(free, ret)), precision, MidpointRounding.AwayFromZero);
+            if (restoreQty <= 0m)
+                continue;
+
+            restoredBySre[sre.ReservationId] = restoreQty;
+            freePool[sre.FromScioDetailId] = free - restoreQty;
+            retPool[sre.FromScioDetailId] = ret - restoreQty;
+        }
+
+        return restoredBySre;
+    }
 }
 
 public class ReservationConsumption

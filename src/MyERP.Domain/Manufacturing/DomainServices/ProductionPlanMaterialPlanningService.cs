@@ -727,6 +727,50 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Determines whether a Production Plan BOM sub-item should be exploded into its raw materials
+    /// rather than requested directly: matches planned and requested sub-assemblies by <c>(ItemId, LineBomId)</c>,
+    /// skips sub-assemblies already marked as <c>Material Request</c> or <c>Subcontract</c> when
+    /// <paramref name="includeSubcontractedItems"/> is false, and explodes planned <c>In House</c> or
+    /// <c>Subcontract</c> sub-assemblies regardless of item request type.
+    /// Per ERPNext commits <c>1449380676</c>, <c>c3437b2eba</c>, and <c>07c5dfcab8</c> (<c>bom_explosion.py</c>).
+    /// </summary>
+    public static (bool SkipSubitem, bool ShouldExplode) EvaluatePlannedSubAssemblyExplosion(
+        Guid itemId,
+        Guid? lineBomId,
+        decimal qty,
+        bool isPhantomItem,
+        bool includeExplodedItems,
+        bool includeSubcontractedItems,
+        bool defaultShouldExplode,
+        IReadOnlySet<(Guid ItemId, Guid? BomId)>? requestedSubAssemblies,
+        IReadOnlyDictionary<(Guid ItemId, Guid? BomId), string>? plannedSubAssemblyTypes)
+    {
+        var key = (itemId, lineBomId);
+        if (requestedSubAssemblies != null && requestedSubAssemblies.Contains(key))
+        {
+            return (SkipSubitem: true, ShouldExplode: false);
+        }
+
+        string? plannedType = null;
+        if (plannedSubAssemblyTypes != null)
+        {
+            plannedSubAssemblyTypes.TryGetValue(key, out plannedType);
+        }
+
+        if (string.Equals(plannedType, "Subcontract", StringComparison.OrdinalIgnoreCase) && !includeSubcontractedItems)
+        {
+            return (SkipSubitem: true, ShouldExplode: false);
+        }
+
+        var explodable = isPhantomItem || (includeExplodedItems && lineBomId.HasValue);
+        var explode = explodable
+            && (!string.IsNullOrEmpty(plannedType) || defaultShouldExplode)
+            && qty > 0m;
+
+        return (SkipSubitem: false, ShouldExplode: explode);
+    }
 }
 
 public sealed record FetchedSalesOrderPlanRow(

@@ -118,7 +118,7 @@ export interface ItemGroupNode {
                       <i class="bi bi-plus"></i>
                     </button>
                   }
-                  <button class="btn btn-outline-secondary" title="Edit"
+                  <button class="btn btn-outline-secondary" [title]="'MyERP::Edit' | abpLocalization"
                     (click)="editGroup(node)">
                     <i class="bi bi-pencil"></i>
                   </button>

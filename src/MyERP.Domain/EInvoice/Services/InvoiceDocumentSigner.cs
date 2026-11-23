@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
@@ -25,15 +27,16 @@ public class InvoiceDocumentSigner : ITransientDependency
         var privateKey = cert.GetRSAPrivateKey()
             ?? throw new InvalidOperationException("PFX does not contain an RSA private key.");
 
-        // Step 1: Compute document hash (SHA-256 of canonical XML)
-        var documentHash = ComputeXmlHash(invoiceXml);
+        // Step 1: Compute canonical XML bytes and SHA-256 document hash
+        var canonicalBytes = GetCanonicalXmlBytes(invoiceXml);
+        var documentHash = SHA256.HashData(canonicalBytes);
 
         // Step 2: Build SignedProperties and compute its hash
         var signedPropertiesXml = BuildSignedProperties(cert);
         var signedPropertiesHash = ComputeSha256(signedPropertiesXml);
 
-        // Step 3: Sign the document hash with RSA-SHA256
-        var signatureValue = SignData(privateKey, documentHash);
+        // Step 3: Sign canonical XML bytes once with RSA-SHA256 (per myinvois original.py sign_data)
+        var signatureValue = SignData(privateKey, canonicalBytes);
 
         // Step 4: Build UBLExtension with full ds:Signature block
         var signatureExtension = BuildUblExtension(
@@ -48,9 +51,25 @@ public class InvoiceDocumentSigner : ITransientDependency
     /// </summary>
     public byte[] ComputeXmlHash(string xml)
     {
-        // Normalize whitespace for canonical form
+        return SHA256.HashData(GetCanonicalXmlBytes(xml));
+    }
+
+    private static byte[] GetCanonicalXmlBytes(string xml)
+    {
         var canonicalXml = xml.Replace("\r\n", "\n").Trim();
-        return SHA256.HashData(Encoding.UTF8.GetBytes(canonicalXml));
+        return Encoding.UTF8.GetBytes(canonicalXml);
+    }
+
+    /// <summary>
+    /// Converts the certificate's serial number to a base-10 decimal integer string as required
+    /// by XMLDSig <c>ds:X509SerialNumber</c> (<c>xs:integer</c>) and LHDN MyInvois XAdES v1.1.
+    /// </summary>
+    public static string GetDecimalSerialNumber(X509Certificate2 cert)
+    {
+        // .NET GetSerialNumber() returns little-endian unsigned bytes
+        var serialBytes = cert.GetSerialNumber();
+        return new BigInteger(serialBytes, isUnsigned: true, isBigEndian: false)
+            .ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -69,7 +88,7 @@ public class InvoiceDocumentSigner : ITransientDependency
         var signingTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
         var certDigest = Convert.ToBase64String(SHA256.HashData(cert.RawData));
         var issuerName = cert.IssuerName.Name;
-        var serialNumber = cert.SerialNumber;
+        var serialNumber = GetDecimalSerialNumber(cert);
 
         return $@"<xades:SignedProperties Id=""id-xades-signed-props"">
   <xades:SignedSignatureProperties>
@@ -103,14 +122,26 @@ public class InvoiceDocumentSigner : ITransientDependency
         var certB64 = Convert.ToBase64String(cert.RawData);
 
         return $@"<ext:UBLExtension>
+  <ext:ExtensionURI>urn:oasis:names:specification:ubl:dsig:enveloped:xades</ext:ExtensionURI>
   <ext:ExtensionContent>
     <sig:UBLDocumentSignatures>
       <sac:SignatureInformation>
+        <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
+        <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
         <ds:Signature Id=""signature"">
           <ds:SignedInfo>
             <ds:CanonicalizationMethod Algorithm=""http://www.w3.org/2006/12/xml-c14n11""/>
             <ds:SignatureMethod Algorithm=""http://www.w3.org/2001/04/xmldsig-more#rsa-sha256""/>
             <ds:Reference Id=""id-doc-signed-data"" URI="""">
+              <ds:Transforms>
+                <ds:Transform Algorithm=""http://www.w3.org/TR/1999/REC-xpath-19991116"">
+                  <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
+                </ds:Transform>
+                <ds:Transform Algorithm=""http://www.w3.org/TR/1999/REC-xpath-19991116"">
+                  <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
+                </ds:Transform>
+                <ds:Transform Algorithm=""http://www.w3.org/2006/12/xml-c14n11""/>
+              </ds:Transforms>
               <ds:DigestMethod Algorithm=""http://www.w3.org/2001/04/xmlenc#sha256""/>
               <ds:DigestValue>{docHashB64}</ds:DigestValue>
             </ds:Reference>
@@ -143,7 +174,7 @@ public class InvoiceDocumentSigner : ITransientDependency
     private static string InjectSignature(string invoiceXml, string signatureExtension)
     {
         // Insert UBLExtensions block after the opening Invoice tag
-        var extensionsBlock = $@"<ext:UBLExtensions xmlns:ext=""urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"" xmlns:sig=""urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"" xmlns:sac=""urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"" xmlns:ds=""http://www.w3.org/2000/09/xmldsig#"" xmlns:xades=""http://uri.etsi.org/01903/v1.3.2#"">
+        var extensionsBlock = $@"<ext:UBLExtensions xmlns:ext=""urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"" xmlns:sig=""urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"" xmlns:sac=""urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"" xmlns:sbc=""urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2"" xmlns:ds=""http://www.w3.org/2000/09/xmldsig#"" xmlns:xades=""http://uri.etsi.org/01903/v1.3.2#"">
   {signatureExtension}
 </ext:UBLExtensions>";
 

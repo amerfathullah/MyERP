@@ -30,7 +30,7 @@
             </td>
           }
           <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRow(i)" title="Remove">
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRow(i)" [title]="'::Remove' | abpLocalization">
               <i class="fa fa-trash"></i>
             </button>
           </td>

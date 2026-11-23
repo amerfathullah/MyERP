@@ -1531,6 +1531,102 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(52.125m);
     }
 
+    [Fact]
+    public void UpstreamBatch10_XAdesSigner_InwardReservationReleaseRestore_RejectedReturnGL_PlannedSubAssembly_Parity()
+    {
+        // 1. MyInvois XAdES v1.1 signer: single-hashed RSA-SHA256 signature, base-10 decimal serial, UBL ExtensionURI & Transforms
+        using (var rsa = System.Security.Cryptography.RSA.Create(2048))
+        {
+            var req = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+                "CN=MyERP Test Signer", rsa, System.Security.Cryptography.HashAlgorithmName.SHA256,
+                System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(30));
+            var pfx = cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx, "test-pw");
+
+            var signer = new MyERP.EInvoice.Services.InvoiceDocumentSigner();
+            const string rawXml = "<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\" xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\"><cbc:ID>SI-SIGN-01</cbc:ID></Invoice>";
+            var signedXml = signer.Sign(rawXml, pfx, "test-pw");
+
+            signedXml.ShouldContain("urn:oasis:names:specification:ubl:dsig:enveloped:xades");
+            signedXml.ShouldContain("<sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>");
+            signedXml.ShouldContain("not(//ancestor-or-self::ext:UBLExtensions)");
+
+            var parsed = System.Xml.Linq.XDocument.Parse(signedXml);
+            System.Xml.Linq.XNamespace ds = "http://www.w3.org/2000/09/xmldsig#";
+            var serialText = parsed.Descendants(ds + "X509SerialNumber").Single().Value;
+            serialText.All(char.IsDigit).ShouldBeTrue(); // base-10 decimal integer, never hex
+            serialText.ShouldBe(MyERP.EInvoice.Services.InvoiceDocumentSigner.GetDecimalSerialNumber(cert));
+
+            var sigB64 = parsed.Descendants(ds + "SignatureValue").Single().Value;
+            var sigBytes = Convert.FromBase64String(sigB64);
+            var canonicalBytes = System.Text.Encoding.UTF8.GetBytes(rawXml);
+            rsa.VerifyData(
+                canonicalBytes,
+                sigBytes,
+                System.Security.Cryptography.HashAlgorithmName.SHA256,
+                System.Security.Cryptography.RSASignaturePadding.Pkcs1).ShouldBeTrue();
+        }
+
+        // 2. ERPNext a442d94273 + e00d5c12b7 + d6d9be7765: release never dips below UsedQty; cancel restores up to VoucherQty
+        var scioRow = Guid.NewGuid();
+        var woSre = Guid.NewGuid();
+        var released = MyERP.Inventory.DomainServices.StockReservationManager.ReleaseUnusedInwardWorkOrderReservations(
+            reservations: new[] { (woSre, scioRow, 10m, 7m) }, // 7 already used -> max releasable = 3
+            shortQtyByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioRow] = 5m });
+        released[woSre].ShouldBe(3m);
+
+        var restored = MyERP.Inventory.DomainServices.StockReservationManager.RestoreInwardWorkOrderReservationsOnReturnCancel(
+            reservations: new[] { (woSre, scioRow, 10m, 7m) }, // VoucherQty=10, ReservedQty=7 -> gap=3
+            freeInwardQtyByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioRow] = 5m },
+            returnQtyByScioDetailId: new System.Collections.Generic.Dictionary<Guid, decimal> { [scioRow] = 2m });
+        restored[woSre].ShouldBe(2m); // capped by returnQty=2
+
+        // 3. ERPNext 097411fb47 + 3837f7b46a: rejected warehouse return debits at receipt net rate when original had accepted qty
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveRejectedWarehouseReturnDebitAmount(
+            isReturn: true,
+            returnQtyFromRejectedWarehouse: true,
+            isInternalTransfer: false,
+            originalAcceptedQty: 5m,
+            returnStockQty: -4m,
+            baseNetRate: 120m,
+            conversionFactor: 2m, // stock unit net rate = 60 -> -4 * 60 = -240
+            fallbackOutgoingAmount: -275m)
+            .ShouldBe(-240m);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ResolveRejectedWarehouseReturnDebitAmount(
+            isReturn: true,
+            returnQtyFromRejectedWarehouse: true,
+            isInternalTransfer: false,
+            originalAcceptedQty: 0m, // fully rejected receipt -> fallback
+            returnStockQty: -4m,
+            baseNetRate: 120m,
+            conversionFactor: 2m,
+            fallbackOutgoingAmount: -275m)
+            .ShouldBe(-275m);
+
+        // 4. ERPNext 1449380676 + c3437b2eba + 07c5dfcab8: Production Plan explodes planned Subcontract sub-assembly when subcontracting enabled
+        var subItem = Guid.NewGuid();
+        var subBom = Guid.NewGuid();
+        var plannedTypes = new System.Collections.Generic.Dictionary<(Guid, Guid?), string>
+        {
+            [(subItem, subBom)] = "Subcontract"
+        };
+        var whenSubIncluded = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .EvaluatePlannedSubAssemblyExplosion(
+                subItem, subBom, qty: 2m, isPhantomItem: false,
+                includeExplodedItems: true, includeSubcontractedItems: true, defaultShouldExplode: false,
+                requestedSubAssemblies: null, plannedSubAssemblyTypes: plannedTypes);
+        whenSubIncluded.SkipSubitem.ShouldBeFalse();
+        whenSubIncluded.ShouldExplode.ShouldBeTrue();
+
+        var whenSubExcluded = MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .EvaluatePlannedSubAssemblyExplosion(
+                subItem, subBom, qty: 2m, isPhantomItem: false,
+                includeExplodedItems: true, includeSubcontractedItems: false, defaultShouldExplode: true,
+                requestedSubAssemblies: null, plannedSubAssemblyTypes: plannedTypes);
+        whenSubExcluded.SkipSubitem.ShouldBeTrue();
+        whenSubExcluded.ShouldExplode.ShouldBeFalse();
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;
