@@ -2440,6 +2440,78 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Picks up to <paramref name="requestedQty"/> serial numbers for a Sales Order row (or its Packed Item
+    /// rows) per ERPNext PR #63784 (<c>serial_batch_bundle.py: get_available_serial_nos</c> &amp;
+    /// <c>is_reserved_for_voucher</c>):
+    /// - Matches reserved serials against the specific <paramref name="allowedVoucherDetailIds"/> (SO item +
+    ///   packed item rows) rather than the entire Sales Order header.
+    /// - Takes available reserved serials in stock first (excluding <paramref name="ignoreSerialNos"/>), then
+    ///   fills any remaining <c>pendingQty</c> from unreserved in-stock serials (excluding both
+    ///   <paramref name="ignoreSerialNos"/> and all reserved serials).
+    /// </summary>
+    public static List<string> PickReservedAndUnreservedSerialNos(
+        int requestedQty,
+        IReadOnlySet<Guid> allowedVoucherDetailIds,
+        IReadOnlyList<(string SerialNo, Guid? VoucherDetailId)> allReservedSerials,
+        IReadOnlyList<string> inStockSerialsInOrder,
+        IReadOnlyCollection<string>? ignoreSerialNos = null)
+    {
+        if (requestedQty <= 0 || inStockSerialsInOrder == null || inStockSerialsInOrder.Count == 0)
+            return new List<string>();
+
+        var ignore = new HashSet<string>(
+            (ignoreSerialNos ?? Array.Empty<string>()).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var reservedForThisRow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var reservedForAnyRow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (allReservedSerials != null)
+        {
+            foreach (var (sn, detailId) in allReservedSerials)
+            {
+                if (string.IsNullOrWhiteSpace(sn))
+                    continue;
+                var trimmed = sn.Trim();
+                reservedForAnyRow.Add(trimmed);
+                if (detailId.HasValue && allowedVoucherDetailIds.Contains(detailId.Value))
+                {
+                    reservedForThisRow.Add(trimmed);
+                }
+            }
+        }
+
+        var picked = new List<string>(requestedQty);
+        var pickedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Reserved serials for this specific SO row / packed item row that are in stock and not ignored
+        foreach (var sn in inStockSerialsInOrder)
+        {
+            if (picked.Count >= requestedQty)
+                break;
+            var trimmed = sn.Trim();
+            if (ignore.Contains(trimmed) || !reservedForThisRow.Contains(trimmed))
+                continue;
+            if (pickedSet.Add(trimmed))
+                picked.Add(trimmed);
+        }
+
+        // 2. Remainder from unreserved stock (skip ignore + any reserved serials)
+        foreach (var sn in inStockSerialsInOrder)
+        {
+            if (picked.Count >= requestedQty)
+                break;
+            var trimmed = sn.Trim();
+            if (ignore.Contains(trimmed) || reservedForAnyRow.Contains(trimmed))
+                continue;
+            if (pickedSet.Add(trimmed))
+                picked.Add(trimmed);
+        }
+
+        return picked;
+    }
+
+    /// <summary>
     /// Computes the maximum allowed reservation quantity for a Work Order material row
     /// per ERPNext PR #68805 (<c>StockReservationEntry.validate_qty_to_be_reserved</c>):
     /// counts the row's <paramref name="subcontractedQty"/> as already delivered only when submitting

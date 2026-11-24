@@ -1664,7 +1664,86 @@ public class PurchaseReceiptManager : DomainService
 
         return matched;
     }
+
+    /// <summary>
+    /// Refuses a Purchase Receipt / stock-updating Purchase Invoice return from a warehouse the original
+    /// receipt row did not stock unless that warehouse holds enough quantity of the item at the exact
+    /// receipt return rate per ERPNext PR #67530 (<c>sales_and_purchase_return.py: validate_return_warehouse_stock</c>).
+    /// Non-moved rows sharing the same <c>(ItemId, WarehouseId, Rate)</c> consume the warehouse's stock first,
+    /// and moved rows are validated last.
+    /// </summary>
+    public static void ValidateReturnWarehouseStockAtReceiptRate(
+        string returnAgainstDocType,
+        string returnAgainstDocName,
+        IReadOnlyList<PurchaseReturnMovedWarehouseRow> returnRows,
+        Func<Guid, Guid, decimal, decimal> getQtyHeldAtRate,
+        int stockQtyPrecision = 4,
+        int ratePrecision = 4)
+    {
+        if (returnRows == null || returnRows.Count == 0)
+            return;
+
+        var movedSet = returnRows
+            .Where(r => r.IsMovedWarehouse)
+            .Select(r => (r.ItemId, r.WarehouseId))
+            .ToHashSet();
+
+        if (movedSet.Count == 0)
+            return;
+
+        // Non-moved rows sharing a moved row's (item, warehouse) go first; moved rows last
+        var ordered = returnRows
+            .Where(r => movedSet.Contains((r.ItemId, r.WarehouseId)))
+            .OrderBy(r => r.IsMovedWarehouse ? 1 : 0)
+            .ThenBy(r => r.RowIdx)
+            .ToList();
+
+        var qtyLeft = new Dictionary<(Guid ItemId, Guid WarehouseId, decimal Rate), decimal>();
+
+        foreach (var row in ordered)
+        {
+            var rate = Math.Round(row.ReceiptReturnRate, ratePrecision, MidpointRounding.AwayFromZero);
+            var key = (row.ItemId, row.WarehouseId, rate);
+            if (!qtyLeft.ContainsKey(key))
+            {
+                qtyLeft[key] = getQtyHeldAtRate(row.ItemId, row.WarehouseId, rate);
+            }
+
+            var factor = string.Equals(row.Uom, row.StockUom, StringComparison.OrdinalIgnoreCase)
+                ? 1m
+                : (row.ConversionFactor > 0m ? row.ConversionFactor : 1m);
+            var returnStockQty = Math.Abs(Math.Round(row.Qty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero));
+            qtyLeft[key] -= returnStockQty;
+
+            if (row.IsMovedWarehouse && Math.Round(qtyLeft[key], stockQtyPrecision, MidpointRounding.AwayFromZero) < 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("itemCode", row.ItemCode)
+                    .WithData("warehouse", row.WarehouseName)
+                    .WithData("originalWarehouse", row.OriginalReceiptWarehouseName)
+                    .WithData("rate", rate)
+                    .WithData(
+                        "detail",
+                        $"Row #{row.RowIdx}: {row.WarehouseName} does not hold enough of item {row.ItemCode} at the rate of {rate}, at which {returnAgainstDocType} {returnAgainstDocName} received it. Move the goods back to {row.OriginalReceiptWarehouseName} and return them from there.");
+            }
+        }
+    }
 }
+
+public sealed record PurchaseReturnMovedWarehouseRow(
+    int RowIdx,
+    Guid ItemId,
+    string ItemCode,
+    Guid WarehouseId,
+    string WarehouseName,
+    string OriginalReceiptWarehouseName,
+    bool IsMovedWarehouse,
+    decimal Qty,
+    string Uom,
+    string StockUom,
+    decimal ConversionFactor,
+    decimal ReceiptReturnRate);
 
 public readonly record struct PurchaseReceiptReturnLegRow(
     Guid RowId,

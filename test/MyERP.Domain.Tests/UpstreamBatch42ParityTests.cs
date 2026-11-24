@@ -18,8 +18,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #67503, #67758, #68311, #68732, #69286, #69293,
-/// #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #67383, #67503, #67530, #67758, #68311, #68732,
+/// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -617,5 +617,84 @@ public class UpstreamBatch42ParityTests
 
         definitions.ShouldContainKey(MyERPSettings.Stock.AutoRepostIncorrectValuationEntries);
         definitions[MyERPSettings.Stock.AutoRepostIncorrectValuationEntries].DefaultValue.ShouldBe("false");
+    }
+
+    [Fact]
+    public void Pr67383_ManufactureSecondaryItemBasis_DeductsManuallyRatedFinishedGoodsDownToZero()
+    {
+        // Basis 1000, costed-out 100 -> 900; automatic FG exists, manual FG takes 300 -> remaining basis 600
+        StockEntryManager.CalculateSecondaryItemAllocationBasis(
+            secondaryItemsCostBasis: 1000m,
+            costedOutItemsCost: 100m,
+            automaticFinishedItemsQty: 5m,
+            manuallyRatedFinishedItemsCost: 300m).ShouldBe(600m);
+
+        // Manual FG exceeds remaining basis -> clamped at 0
+        StockEntryManager.CalculateSecondaryItemAllocationBasis(
+            secondaryItemsCostBasis: 500m,
+            costedOutItemsCost: 100m,
+            automaticFinishedItemsQty: 5m,
+            manuallyRatedFinishedItemsCost: 600m).ShouldBe(0m);
+
+        // No automatic finished goods -> manual FG cost is NOT deducted from secondary basis
+        StockEntryManager.CalculateSecondaryItemAllocationBasis(
+            secondaryItemsCostBasis: 1000m,
+            costedOutItemsCost: 100m,
+            automaticFinishedItemsQty: 0m,
+            manuallyRatedFinishedItemsCost: 300m).ShouldBe(900m);
+    }
+
+    [Fact]
+    public void Pr67530_PurchaseReturnMovedWarehouse_RefusesWhenWarehouseLacksStockAtReceiptRate()
+    {
+        var itemId = Guid.NewGuid();
+        var whB = Guid.NewGuid();
+
+        var rows = new[]
+        {
+            // Non-moved row in WH-B takes 3 at rate 100
+            new PurchaseReturnMovedWarehouseRow(1, itemId, "ITEM-A", whB, "WH-B", "WH-B", IsMovedWarehouse: false, Qty: -3m, Uom: "Nos", StockUom: "Nos", ConversionFactor: 1m, ReceiptReturnRate: 100m),
+            // Moved row returning from WH-B (originally stocked in WH-A) takes 4 at rate 100 (total 7 > held 5)
+            new PurchaseReturnMovedWarehouseRow(2, itemId, "ITEM-A", whB, "WH-B", "WH-A", IsMovedWarehouse: true, Qty: -4m, Uom: "Nos", StockUom: "Nos", ConversionFactor: 1m, ReceiptReturnRate: 100m),
+        };
+
+        var ex = Should.Throw<BusinessException>(() =>
+            PurchaseReceiptManager.ValidateReturnWarehouseStockAtReceiptRate(
+                "Purchase Receipt", "PR-001", rows,
+                (_, _, rate) => rate == 100m ? 5m : 0m));
+
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("WH-B");
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Move the goods back to WH-A");
+
+        // Enough stock held at exact receipt rate (7 >= 7) -> allowed
+        Should.NotThrow(() =>
+            PurchaseReceiptManager.ValidateReturnWarehouseStockAtReceiptRate(
+                "Purchase Receipt", "PR-001", rows,
+                (_, _, rate) => rate == 100m ? 7m : 0m));
+    }
+
+    [Fact]
+    public void Pr63784_ReservedSerialsPerSalesOrderRow_PicksRowReservedThenUnreservedStock()
+    {
+        var soRow1 = Guid.NewGuid();
+        var soRow2 = Guid.NewGuid();
+        var packedRow1 = Guid.NewGuid();
+
+        var reserved = new (string SerialNo, Guid? VoucherDetailId)[]
+        {
+            ("SN-R1", soRow1),
+            ("SN-P1", packedRow1),
+            ("SN-OTHER", soRow2),
+        };
+        var inStock = new[] { "SN-FREE-1", "SN-OTHER", "SN-R1", "SN-P1", "SN-FREE-2" };
+
+        // Request 3 for soRow1 (+ its packedRow1): takes SN-R1 and SN-P1 first, then fills 1 from unreserved SN-FREE-1 (never touches SN-OTHER)
+        var picked = StockReservationManager.PickReservedAndUnreservedSerialNos(
+            requestedQty: 3,
+            allowedVoucherDetailIds: new HashSet<Guid> { soRow1, packedRow1 },
+            allReservedSerials: reserved,
+            inStockSerialsInOrder: inStock);
+
+        picked.ShouldBe(new[] { "SN-R1", "SN-P1", "SN-FREE-1" });
     }
 }

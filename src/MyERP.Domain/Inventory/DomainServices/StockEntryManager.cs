@@ -3163,6 +3163,28 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the cost allocation basis for percentage-allocated secondary items in a Manufacture Stock Entry
+    /// per ERPNext PR #67383 (<c>stock_entry.py: set_basic_rate_for_finished_goods</c>):
+    /// deducts costed-out items first, and when automatic finished goods exist and the remaining basis is positive,
+    /// subtracts manually rated finished goods' total value (clamped at <c>0</c>) so manual finished goods take
+    /// their value before automatic finished goods and secondary items split the remainder.
+    /// </summary>
+    public static decimal CalculateSecondaryItemAllocationBasis(
+        decimal secondaryItemsCostBasis,
+        decimal costedOutItemsCost,
+        decimal automaticFinishedItemsQty,
+        decimal manuallyRatedFinishedItemsCost)
+    {
+        var allocationBasis = secondaryItemsCostBasis - costedOutItemsCost;
+        if (automaticFinishedItemsQty > 0m && allocationBasis > 0m)
+        {
+            allocationBasis = Math.Max(allocationBasis - manuallyRatedFinishedItemsCost, 0m);
+        }
+
+        return allocationBasis;
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

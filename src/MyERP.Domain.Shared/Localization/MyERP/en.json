@@ -7209,7 +7209,26 @@
     "PosInvoice": "POS Invoice",
     "Support": "Support",
     "Maintenance": "Maintenance",
-    "Closing": "Closing"
+    "Closing": "Closing",
+    "ValuationAndStockControl": "Valuation & Stock Control",
+    "OverDeliveryReceiptAllowance": "Over Delivery/Receipt Allowance (%)",
+    "PickSerialBatchBasedOn": "Pick Serial/Batch Based On",
+    "FifoOldestFirst": "FIFO (Oldest First)",
+    "LifoNewestFirst": "LIFO (Newest First)",
+    "ExpiryEarliestExpiry": "Expiry (Earliest Expiry)",
+    "ItemNamingBy": "Item Naming By",
+    "StockFrozenUpToDays": "Stock Frozen Up To (Days)",
+    "FeatureToggles": "Feature Toggles",
+    "AutoInsertPriceListRate": "Auto Insert Price List Rate",
+    "EnableStockReservation": "Enable Stock Reservation",
+    "AutoRepostIncorrectValuationEntries": "Auto Repost Incorrect Valuation Entries",
+    "AutoRepostIncorrectValuationEntriesHint": "Audit stock ledger entries weekly and queue reposts for incorrect valuations.",
+    "ActionIfQiNotSubmitted": "Action if QI Not Submitted",
+    "ActionIfQiRejected": "Action if QI Rejected",
+    "StopBlockSubmission": "Stop (Block Submission)",
+    "WarnAllowWithWarning": "Warn (Allow with Warning)",
+    "RoleAllowedForFrozenEntries": "Role Allowed for Frozen Entries",
+    "RoleAllowedForFrozenEntriesHint": "Users in this role can still transact with frozen customers and suppliers."
   }
 }
 

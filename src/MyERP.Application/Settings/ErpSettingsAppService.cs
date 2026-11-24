@@ -132,6 +132,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Stock.AutoMapRawMaterialsToFinishedGoods,
             MyERPSettings.Stock.AllowUomWithConversionRateDefinedInItem,
             MyERPSettings.Stock.AutoCreateSerialAndBatchBundleForOutward,
+            MyERPSettings.Stock.AutoRepostIncorrectValuationEntries,
         ],
         "Selling" => [
             MyERPSettings.Selling.DefaultPriceList,

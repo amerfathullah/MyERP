@@ -20,54 +20,54 @@ import { ToasterService } from '@abp/ng.theme.shared';
           <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
         } @else {
           <form (ngSubmit)="save()">
-            <h6 class="text-muted mb-3">Valuation & Stock Control</h6>
+            <h6 class="text-muted mb-3">{{ 'MyERP::ValuationAndStockControl' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">Default Valuation Method</label>
+                <label class="form-label">{{ 'MyERP::DefaultValuationMethod' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Stock.DefaultValuationMethod']" name="valMethod">
                   <option value="FIFO">FIFO</option>
-                  <option value="Moving Average">Moving Average</option>
+                  <option value="Moving Average">{{ 'MyERP::MovingAverage' | abpLocalization }}</option>
                   <option value="LIFO">LIFO</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Over Delivery/Receipt Allowance (%)</label>
+                <label class="form-label">{{ 'MyERP::OverDeliveryReceiptAllowance' | abpLocalization }}</label>
                 <input type="number" class="form-control" min="0" max="100" step="0.1"
                   [(ngModel)]="settings['MyERP.Stock.OverDeliveryReceiptAllowance']" name="overAllowance" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Pick Serial/Batch Based On</label>
+                <label class="form-label">{{ 'MyERP::PickSerialBatchBasedOn' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Stock.PickSerialBatchBasedOn']" name="pickBasis">
-                  <option value="FIFO">FIFO (Oldest First)</option>
-                  <option value="LIFO">LIFO (Newest First)</option>
-                  <option value="Expiry">Expiry (Earliest Expiry)</option>
+                  <option value="FIFO">{{ 'MyERP::FifoOldestFirst' | abpLocalization }}</option>
+                  <option value="LIFO">{{ 'MyERP::LifoNewestFirst' | abpLocalization }}</option>
+                  <option value="Expiry">{{ 'MyERP::ExpiryEarliestExpiry' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
 
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">Item Naming By</label>
+                <label class="form-label">{{ 'MyERP::ItemNamingBy' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Stock.ItemNamingBy']" name="itemNaming">
-                  <option value="Item Code">Item Code</option>
-                  <option value="Naming Series">Naming Series</option>
+                  <option value="Item Code">{{ 'MyERP::ItemCode' | abpLocalization }}</option>
+                  <option value="Naming Series">{{ 'MyERP::NamingSeries' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Stock Frozen Up To (Days)</label>
+                <label class="form-label">{{ 'MyERP::StockFrozenUpToDays' | abpLocalization }}</label>
                 <input type="number" class="form-control" min="0"
                   [(ngModel)]="settings['MyERP.Stock.StockFrozenUpToDays']" name="frozenDays" />
               </div>
             </div>
 
-            <h6 class="text-muted mb-3 mt-4">Feature Toggles</h6>
+            <h6 class="text-muted mb-3 mt-4">{{ 'MyERP::FeatureToggles' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
                 <div class="form-check form-switch">
                   <input type="checkbox" class="form-check-input" id="allowNeg"
                     [ngModel]="settings['MyERP.Stock.AllowNegativeStock'] === 'true'"
                     (ngModelChange)="settings['MyERP.Stock.AllowNegativeStock'] = $event ? 'true' : 'false'" name="allowNeg" />
-                  <label class="form-check-label" for="allowNeg">Allow Negative Stock</label>
+                  <label class="form-check-label" for="allowNeg">{{ 'MyERP::AllowNegativeStock' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -75,7 +75,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="autoInsert"
                     [ngModel]="settings['MyERP.Stock.AutoInsertPriceListRate'] === 'true'"
                     (ngModelChange)="settings['MyERP.Stock.AutoInsertPriceListRate'] = $event ? 'true' : 'false'" name="autoInsert" />
-                  <label class="form-check-label" for="autoInsert">Auto Insert Price List Rate</label>
+                  <label class="form-check-label" for="autoInsert">{{ 'MyERP::AutoInsertPriceListRate' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -83,7 +83,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="enableReserv"
                     [ngModel]="settings['MyERP.Stock.EnableStockReservation'] === 'true'"
                     (ngModelChange)="settings['MyERP.Stock.EnableStockReservation'] = $event ? 'true' : 'false'" name="enableReserv" />
-                  <label class="form-check-label" for="enableReserv">Enable Stock Reservation</label>
+                  <label class="form-check-label" for="enableReserv">{{ 'MyERP::EnableStockReservation' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4 mt-3">
@@ -94,22 +94,31 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <label class="form-check-label" for="allowUomConv">{{ 'MyERP::AllowUomWithConversionRateDefinedInItem' | abpLocalization }}</label>
                 </div>
               </div>
+              <div class="col-md-8 mt-3">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="autoRepostAudit"
+                    [ngModel]="settings['MyERP.Stock.AutoRepostIncorrectValuationEntries'] === 'true'"
+                    (ngModelChange)="settings['MyERP.Stock.AutoRepostIncorrectValuationEntries'] = $event ? 'true' : 'false'" name="autoRepostAudit" />
+                  <label class="form-check-label" for="autoRepostAudit">{{ 'MyERP::AutoRepostIncorrectValuationEntries' | abpLocalization }}</label>
+                </div>
+                <small class="text-muted">{{ 'MyERP::AutoRepostIncorrectValuationEntriesHint' | abpLocalization }}</small>
+              </div>
             </div>
 
-            <h6 class="text-muted mb-3 mt-4">Quality Inspection</h6>
+            <h6 class="text-muted mb-3 mt-4">{{ 'MyERP::QualityInspection' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">Action if QI Not Submitted</label>
+                <label class="form-label">{{ 'MyERP::ActionIfQiNotSubmitted' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Stock.ActionIfQINotSubmitted']" name="qiAction">
-                  <option value="Stop">Stop (Block Submission)</option>
-                  <option value="Warn">Warn (Allow with Warning)</option>
+                  <option value="Stop">{{ 'MyERP::StopBlockSubmission' | abpLocalization }}</option>
+                  <option value="Warn">{{ 'MyERP::WarnAllowWithWarning' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Action if QI Rejected</label>
+                <label class="form-label">{{ 'MyERP::ActionIfQiRejected' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Stock.ActionIfQIRejected']" name="qiReject">
-                  <option value="Stop">Stop (Block Submission)</option>
-                  <option value="Warn">Warn (Allow with Warning)</option>
+                  <option value="Stop">{{ 'MyERP::StopBlockSubmission' | abpLocalization }}</option>
+                  <option value="Warn">{{ 'MyERP::WarnAllowWithWarning' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
