@@ -4113,6 +4113,76 @@ public class UpstreamBatch41ParityTests
         cancelRes.UpdatedProducedQtyByRowId.ShouldBeEmpty();
     }
 
+    [Fact]
+    public void UpstreamBatch39_ClosedSoPlanSubmit_SecondaryCancelSum_ReturnBatchCap_ExactScheduleSpan_Parity()
+    {
+        // 1. ERPNext PR #68034: Production Plan refuses submit when referenced SO row or SO is closed (direct or allocated combined ref)
+        var openSoRow = Guid.NewGuid();
+        var closedSoRow = Guid.NewGuid();
+        var soRows = new[]
+        {
+            new SalesOrderRowClosureInfo(openSoRow, "SO-001", 1, "FG-A", IsRowClosed: false, IsOrderClosed: false),
+            new SalesOrderRowClosureInfo(closedSoRow, "SO-002", 2, "FG-B", IsRowClosed: true, IsOrderClosed: false),
+        };
+        // Zero allocated qty on closed combined ref is ignored
+        Should.NotThrow(() => ProductionPlanMaterialPlanningService.ValidateNoClosedSalesOrderRowsForPlanSubmit(
+            directSalesOrderItemIds: new[] { openSoRow },
+            combinedReferenceAllocations: new[] { (closedSoRow, 0m) },
+            salesOrderRows: soRows));
+        // Positive allocated qty on closed combined ref throws
+        var closedEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            ProductionPlanMaterialPlanningService.ValidateNoClosedSalesOrderRowsForPlanSubmit(
+                directSalesOrderItemIds: Array.Empty<Guid>(),
+                combinedReferenceAllocations: new[] { (closedSoRow, 5m) },
+                salesOrderRows: soRows));
+        (closedEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #2 (FG-B) of Sales Order SO-002 is closed, so it cannot be planned.");
+
+        // 2. ERPNext PR #68038: Manufacture cancel sums all rows of same secondary (Item, Warehouse) before comparing delivered qty
+        var secItem = Guid.NewGuid();
+        var wh = Guid.NewGuid();
+        var totals = new Dictionary<(Guid, Guid), (decimal ProducedQty, decimal DeliveredQty)>
+        {
+            [(secItem, wh)] = (ProducedQty: 10m, DeliveredQty: 5m),
+        };
+        // Two split rows of 3 each (6 total): individually 10-3=7 >= 5, but combined 10-6=4 < 5 -> throws!
+        var secCancelEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateInwardSecondaryItemsOnManufactureCancel(
+                new[] { (secItem, "BYP-1", wh, 3m), (secItem, "BYP-1", wh, 3m) },
+                totals));
+        (secCancelEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("BYP-1");
+        // Two split rows of 2.5 each (5 total): 10-5=5 >= 5 -> passes
+        Should.NotThrow(() => SubcontractingManager.ValidateInwardSecondaryItemsOnManufactureCancel(
+            new[] { (secItem, "BYP-1", wh, 2.5m), (secItem, "BYP-1", wh, 2.5m) },
+            totals));
+
+        // 3. ERPNext PR #68030: Subcontracting Return cannot return more of a batch than delivered minus earlier returns
+        var scioDetail = Guid.NewGuid();
+        var openBatches = new Dictionary<(Guid, string), decimal> { [(scioDetail, "BATCH-01")] = 4m };
+        Should.NotThrow(() => SubcontractingManager.ValidateSubcontractingReturnBatchQtyWithinDelivered(
+            "SCIO-001", openBatches, new[] { (1, scioDetail, "BATCH-01", 2m), (2, scioDetail, "BATCH-01", 2m) }));
+        var batchEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateSubcontractingReturnBatchQtyWithinDelivered(
+                "SCIO-001", openBatches, new[] { (1, scioDetail, "BATCH-01", 3m), (2, scioDetail, "BATCH-01", 2m) }));
+        (batchEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #2: Only 1 of Batch BATCH-01 delivered against Subcontracting Inward Order SCIO-001 is left to return.");
+
+        // 4. ERPNext PR #68063: Exact TimeSpan segment consumption avoids zero-length blocks when booked load has seconds
+        var s1Start = new DateTime(2026, 11, 24, 9, 0, 20);
+        var s1End = new DateTime(2026, 11, 24, 9, 20, 0);   // 19m 40s
+        var s2Start = new DateTime(2026, 11, 24, 10, 0, 0);
+        var s2End = new DateTime(2026, 11, 24, 10, 30, 0);  // 30m
+        var (blocks, rem) = WorkstationSchedulingService.ConsumeFreeSegmentsExactDuration(
+            new[] { (s1Start, s1End), (s2Start, s2End) },
+            TimeSpan.FromMinutes(20),
+            forward: true);
+        rem.ShouldBe(TimeSpan.Zero);
+        blocks.Count.ShouldBe(2);
+        blocks.All(b => b.End > b.Start).ShouldBeTrue();
+        (blocks[0].End - blocks[0].Start + (blocks[1].End - blocks[1].Start)).ShouldBe(TimeSpan.FromMinutes(20));
+        blocks[1].ShouldBe((s2Start, s2Start.AddSeconds(20)));
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

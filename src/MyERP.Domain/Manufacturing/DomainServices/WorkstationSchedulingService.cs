@@ -507,6 +507,53 @@ public class WorkstationSchedulingService : DomainService
 
         return trimmed;
     }
+
+    /// <summary>
+    /// Consumes free workstation time segments using exact <see cref="TimeSpan"/> arithmetic per ERPNext PR #68063
+    /// (<c>SchedulingEngine.consume_window</c> &amp; <c>cut_segment</c>) so booked loads containing non-zero seconds
+    /// never suffer float-minute rounding drift or emit zero-length (<c>Start == End</c>) schedule blocks.
+    /// </summary>
+    public static (List<(DateTime Start, DateTime End)> Blocks, TimeSpan Remaining) ConsumeFreeSegmentsExactDuration(
+        IEnumerable<(DateTime Start, DateTime End)> freeSegments,
+        TimeSpan remainingDuration,
+        bool forward = true)
+    {
+        var blocks = new List<(DateTime Start, DateTime End)>();
+        var remaining = remainingDuration;
+        if (remaining <= TimeSpan.Zero)
+            return (blocks, TimeSpan.Zero);
+
+        var ordered = forward ? freeSegments : freeSegments.Reverse();
+        foreach (var (segStart, segEnd) in ordered)
+        {
+            var segLen = segEnd - segStart;
+            if (segLen <= TimeSpan.Zero)
+                continue;
+
+            var take = remaining < segLen ? remaining : segLen;
+            if (take <= TimeSpan.Zero)
+                continue;
+
+            var block = forward
+                ? (segStart, segStart + take)
+                : (segEnd - take, segEnd);
+            blocks.Add(block);
+            remaining -= take;
+
+            if (remaining <= TimeSpan.Zero)
+            {
+                remaining = TimeSpan.Zero;
+                break;
+            }
+        }
+
+        if (!forward)
+        {
+            blocks.Sort((a, b) => a.Start.CompareTo(b.Start));
+        }
+
+        return (blocks, remaining);
+    }
 }
 
 /// <summary>Result of job card scheduling.</summary>

@@ -7017,7 +7017,16 @@
     "GracePeriodDays": "Grace Period (Days)",
     "GracePeriodHelp": "Number of days after invoice due date before marking as unpaid or canceling.",
     "CancelSubscriptionAfterGracePeriod": "Cancel Subscription After Grace Period",
-    "ProrateChargesForPartialPeriods": "Prorate Charges for Partial Periods"
+    "ProrateChargesForPartialPeriods": "Prorate Charges for Partial Periods",
+    "DefaultCreditLimit": "Default Credit Limit",
+    "GroupFolder": "Group (Folder)",
+    "NoCustomerGroupsConfigured": "No customer groups configured yet.",
+    "NoSupplierGroupsConfigured": "No supplier groups configured yet.",
+    "ParentTerritory": "Parent Territory",
+    "GroupRegion": "Group (Region)",
+    "LeafTerritory": "Leaf Territory",
+    "NoTerritoriesConfigured": "No territories configured yet.",
+    "NoTermsAndConditionsDefined": "No terms & conditions defined yet."
   }
 }
 

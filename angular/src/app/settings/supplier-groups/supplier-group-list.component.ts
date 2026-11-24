@@ -2,28 +2,29 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { SupplierGroupService } from '../../proxy/core/supplier-group.service';
 import { SupplierGroupDto } from '../../proxy/core/models';
 
 @Component({
   selector: 'app-supplier-group-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Supplier Groups</h5>
-        <a routerLink="/settings/supplier-groups/new" class="btn btn-primary btn-sm">New Supplier Group</a>
+        <h5 class="card-title mb-0">{{ '::SupplierGroups' | abpLocalization }}</h5>
+        <a routerLink="/settings/supplier-groups/new" class="btn btn-primary btn-sm">{{ '::NewSupplierGroup' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Parent Group</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::ParentGroup' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -36,20 +37,20 @@ import { SupplierGroupDto } from '../../proxy/core/models';
                 </td>
                 <td>
                   @if (item.isGroup) {
-                    <span class="badge bg-primary">Group (Folder)</span>
+                    <span class="badge bg-primary">{{ '::GroupFolder' | abpLocalization }}</span>
                   } @else {
-                    <span class="badge bg-secondary">Leaf</span>
+                    <span class="badge bg-secondary">{{ '::Leaf' | abpLocalization }}</span>
                   }
                 </td>
                 <td>{{ item.parentName || '—' }}</td>
                 <td class="text-end">
-                  <a [routerLink]="['/settings/supplier-groups', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/settings/supplier-groups', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No supplier groups configured yet.</td>
+                <td colspan="4" class="text-center text-muted py-4">{{ '::NoSupplierGroupsConfigured' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -83,7 +84,7 @@ export class SupplierGroupListComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.load();
         },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

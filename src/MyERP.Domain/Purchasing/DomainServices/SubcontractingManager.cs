@@ -3012,6 +3012,80 @@ public class SubcontractingManager : DomainService
 
         return new InwardSecondaryItemReconciliationResult(updated, deleted, created);
     }
+
+    /// <summary>
+    /// Validates on Manufacture cancel against a Subcontracting Inward Order that cancelling ALL rows
+    /// of each secondary <c>(ItemId, WarehouseId)</c> together does not drop <c>ProducedQty</c> below
+    /// <c>DeliveredQty</c> per ERPNext PR #68038 (<c>SubcontractingInwardController</c>).
+    /// </summary>
+    public static void ValidateInwardSecondaryItemsOnManufactureCancel(
+        IEnumerable<(Guid ItemId, string ItemCode, Guid WarehouseId, decimal TransferQty)> cancellingSecondaryRows,
+        IReadOnlyDictionary<(Guid ItemId, Guid WarehouseId), (decimal ProducedQty, decimal DeliveredQty)> scioSecondaryTotals,
+        int transferQtyPrecision = 4)
+    {
+        var totalByKey = new Dictionary<(Guid ItemId, Guid WarehouseId), (string ItemCode, decimal TotalQty)>();
+        foreach (var row in cancellingSecondaryRows)
+        {
+            var key = (row.ItemId, row.WarehouseId);
+            if (totalByKey.TryGetValue(key, out var existing))
+            {
+                totalByKey[key] = (existing.ItemCode, existing.TotalQty + row.TransferQty);
+            }
+            else
+            {
+                totalByKey[key] = (row.ItemCode, row.TransferQty);
+            }
+        }
+
+        foreach (var (key, info) in totalByKey)
+        {
+            if (!scioSecondaryTotals.TryGetValue(key, out var totals))
+                continue;
+
+            var delivered = Math.Round(totals.DeliveredQty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+            var remainingProduced = Math.Round(totals.ProducedQty - info.TotalQty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+            if (delivered > remainingProduced)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("itemCode", info.ItemCode)
+                    .WithData("detail", $"Cannot cancel Manufacture entry for secondary item {info.ItemCode}: delivered qty ({delivered}) exceeds remaining produced qty ({remainingProduced}).");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Refuses a Subcontracting Return entry that returns more of a finished-good batch against an
+    /// inward order row than was delivered (minus earlier returns) per ERPNext PR #68030
+    /// (<c>SubcontractingInwardController.validate_subcontracting_return_batch_qty</c>).
+    /// </summary>
+    public static void ValidateSubcontractingReturnBatchQtyWithinDelivered(
+        string subcontractingInwardOrderName,
+        IReadOnlyDictionary<(Guid ScioDetailId, string BatchNo), decimal> unreturnedDeliveredBatchQty,
+        IEnumerable<(int RowIdx, Guid ScioDetailId, string BatchNo, decimal Qty)> returnBatchRows,
+        int transferQtyPrecision = 4)
+    {
+        var openQty = new Dictionary<(Guid ScioDetailId, string BatchNo), decimal>(unreturnedDeliveredBatchQty);
+        foreach (var row in returnBatchRows)
+        {
+            if (string.IsNullOrWhiteSpace(row.BatchNo))
+                continue;
+
+            var key = (row.ScioDetailId, row.BatchNo);
+            openQty.TryGetValue(key, out var available);
+            var allowedQty = Math.Round(available, transferQtyPrecision, MidpointRounding.AwayFromZero);
+            var requestedQty = Math.Round(row.Qty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+            openQty[key] = allowedQty - row.Qty;
+
+            if (requestedQty > allowedQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("batchNo", row.BatchNo)
+                    .WithData("allowedQty", allowedQty)
+                    .WithData("detail", $"Row #{row.RowIdx}: Only {allowedQty} of Batch {row.BatchNo} delivered against Subcontracting Inward Order {subcontractingInwardOrderName} is left to return.");
+            }
+        }
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

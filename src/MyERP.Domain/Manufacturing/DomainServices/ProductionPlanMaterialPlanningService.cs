@@ -846,7 +846,54 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return committed;
     }
+
+    /// <summary>
+    /// Refuses to submit a Production Plan that references any closed Sales Order or closed
+    /// Sales Order row (either directly on <c>po_items</c> or via positive allocated combined
+    /// <c>prod_plan_references</c>) per ERPNext PR #68034
+    /// (<c>ProductionPlan.validate_closed_sales_order_items</c>).
+    /// </summary>
+    public static void ValidateNoClosedSalesOrderRowsForPlanSubmit(
+        IEnumerable<Guid> directSalesOrderItemIds,
+        IEnumerable<(Guid SalesOrderItemId, decimal AllocatedQty)> combinedReferenceAllocations,
+        IEnumerable<SalesOrderRowClosureInfo> salesOrderRows,
+        int qtyPrecision = 4)
+    {
+        var referencedIds = new HashSet<Guid>(directSalesOrderItemIds.Where(id => id != Guid.Empty));
+        foreach (var (soItemId, allocatedQty) in combinedReferenceAllocations)
+        {
+            if (soItemId != Guid.Empty && Math.Round(allocatedQty, qtyPrecision, MidpointRounding.AwayFromZero) > 0m)
+            {
+                referencedIds.Add(soItemId);
+            }
+        }
+
+        if (referencedIds.Count == 0)
+            return;
+
+        var firstClosed = salesOrderRows
+            .Where(r => referencedIds.Contains(r.SalesOrderItemId) && (r.IsRowClosed || r.IsOrderClosed))
+            .OrderBy(r => r.SalesOrderNumber, StringComparer.Ordinal)
+            .ThenBy(r => r.RowIdx)
+            .FirstOrDefault();
+
+        if (firstClosed != null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("salesOrder", firstClosed.SalesOrderNumber)
+                .WithData("rowIdx", firstClosed.RowIdx)
+                .WithData("detail", $"Row #{firstClosed.RowIdx} ({firstClosed.ItemCode}) of Sales Order {firstClosed.SalesOrderNumber} is closed, so it cannot be planned.");
+        }
+    }
 }
+
+public sealed record SalesOrderRowClosureInfo(
+    Guid SalesOrderItemId,
+    string SalesOrderNumber,
+    int RowIdx,
+    string ItemCode,
+    bool IsRowClosed,
+    bool IsOrderClosed);
 
 public sealed record FetchedSalesOrderPlanRow(
     Guid SalesOrderId,
