@@ -2827,6 +2827,39 @@ public class StockEntryManager : DomainService
             .ThenBy(nestedSecondaryRowCount)
             .ToList();
     }
+
+    /// <summary>
+    /// Resolves the Difference / Expense Account on a Stock Entry row per ERPNext PR #67509 (<c>stock_entry.py</c>):
+    /// preserves an explicit Difference Account already set on the row (including on Subcontracting Delivery
+    /// and Subcontracting Return rows), and when unset defaults Subcontracting Delivery / Subcontracting Return
+    /// to <paramref name="companyDefaultExpenseAccountId"/> and Material Issue to item -&gt; item group -&gt; company.
+    /// </summary>
+    public static Guid? ResolveStockEntryDifferenceAccount(
+        Guid? existingRowExpenseAccountId,
+        string? purpose,
+        Guid? itemDefaultExpenseAccountId,
+        Guid? itemGroupDefaultExpenseAccountId,
+        Guid? companyDefaultExpenseAccountId)
+    {
+        if (existingRowExpenseAccountId.HasValue && existingRowExpenseAccountId.Value != Guid.Empty)
+            return existingRowExpenseAccountId;
+
+        if (string.Equals(purpose, "Subcontracting Delivery", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(purpose, "SubcontractingDelivery", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(purpose, "Subcontracting Return", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(purpose, "SubcontractingReturn", StringComparison.OrdinalIgnoreCase))
+        {
+            return companyDefaultExpenseAccountId;
+        }
+
+        if (string.Equals(purpose, "Material Issue", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(purpose, "MaterialIssue", StringComparison.OrdinalIgnoreCase))
+        {
+            return itemDefaultExpenseAccountId ?? itemGroupDefaultExpenseAccountId ?? companyDefaultExpenseAccountId;
+        }
+
+        return companyDefaultExpenseAccountId;
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

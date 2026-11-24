@@ -6879,7 +6879,18 @@
     "CredentialsSaved": "Credentials saved",
     "CertificateUploaded": "Certificate uploaded",
     "UploadFailed": "Upload failed",
-    "LookupFailed": "Lookup failed"
+    "LookupFailed": "Lookup failed",
+    "BatchSubmitToLhdnMyInvois": "Batch Submit to LHDN MyInvois",
+    "PurchaseInvoiceSelfBilled": "Purchase Invoice (Self-Billed)",
+    "DocumentsLoadedSelected": "{0} documents loaded — {1} selected",
+    "DocumentNo": "Document #",
+    "SubmitDocumentsToLhdn": "Submit {0} Document(s) to LHDN",
+    "SubmissionResults": "Submission Results",
+    "Uuid": "UUID",
+    "FailedToLoadInvoices": "Failed to load invoices",
+    "BatchSubmitFailed": "Batch submit failed",
+    "DocumentsSubmittedSuccessfully": "{0} document(s) submitted successfully",
+    "DocumentsFailed": "{0} document(s) failed"
   }
 }
 

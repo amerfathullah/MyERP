@@ -541,4 +541,29 @@ public class BomCostPropagationService : DomainService
 
         return currentHourRate;
     }
+
+    /// <summary>
+    /// Resolves <c>plc_conversion_rate</c> for a BOM's buying Price List per ERPNext PR #67333 (<c>bom.py</c>):
+    /// - Returns <c>1</c> when the price list currency matches the company currency.
+    /// - Uses <paramref name="bomConversionRate"/> when the price list currency matches the BOM currency.
+    /// - Otherwise (third currency) queries <paramref name="getBuyingExchangeRate"/>, keeping
+    ///   <paramref name="storedPlcConversionRate"/> when no exchange rate is found.
+    /// </summary>
+    public static decimal ResolveBomPriceListConversionRate(
+        string priceListCurrency,
+        string companyCurrency,
+        string bomCurrency,
+        decimal bomConversionRate,
+        decimal storedPlcConversionRate,
+        Func<string, string, decimal>? getBuyingExchangeRate = null)
+    {
+        if (string.Equals(priceListCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            return 1m;
+
+        if (string.Equals(priceListCurrency, bomCurrency, StringComparison.OrdinalIgnoreCase))
+            return bomConversionRate;
+
+        var fetched = getBuyingExchangeRate != null ? getBuyingExchangeRate(priceListCurrency, companyCurrency) : 0m;
+        return fetched > 0m ? fetched : storedPlcConversionRate;
+    }
 }

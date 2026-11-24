@@ -815,6 +815,37 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return soItemIds;
     }
+
+    /// <summary>
+    /// Computes the committed quantity counted for a Work Order against its Production Plan row
+    /// per ERPNext PR #67481 (<c>production_plan/services/work_order_quantities.py: _get_committed_qty</c>):
+    /// accounts for planned process loss, ensures excess loss does not erase already-produced goods,
+    /// and when <paramref name="isClosed"/> is true caps the committed count at the Work Order's
+    /// actually made quantity (<c>producedQty / (1 - lossPercentage / 100)</c>) so unmade qty is freed
+    /// to be ordered again without ever raising the committed count.
+    /// </summary>
+    public static decimal CalculateProductionPlanCommittedWorkOrderQty(
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        decimal plannedLossPercentage,
+        bool creditProducedQty = false,
+        bool isClosed = false)
+    {
+        var lossPct = plannedLossPercentage > 0m && plannedLossPercentage < 100m ? plannedLossPercentage : 0m;
+        var lossFactor = 1m - lossPct / 100m;
+
+        var goodQty = workOrderQty - Math.Max(processLossQty, workOrderQty * lossPct / 100m);
+        var effectiveProduced = creditProducedQty ? producedQty / lossFactor : producedQty;
+        var committed = Math.Max(0m, Math.Max(effectiveProduced, goodQty / lossFactor));
+
+        if (isClosed)
+        {
+            return Math.Min(committed, producedQty / lossFactor);
+        }
+
+        return committed;
+    }
 }
 
 public sealed record FetchedSalesOrderPlanRow(

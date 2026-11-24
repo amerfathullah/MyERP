@@ -3606,6 +3606,58 @@ public class UpstreamBatch41ParityTests
         (await client2.GetDocumentStatusAsync("tok", "SUB-PROG", MyERP.EInvoice.LhdnEnvironment.Sandbox)).Status.ShouldBe("InProgress");
     }
 
+    [Fact]
+    public void UpstreamBatch32_PlanClosedWoCommitted_SrUnroundedBuyingPrice_BomPlcFx_SubcontractDiffAcc_Parity()
+    {
+        // 1. ERPNext PR #67481: Closed Work Order counts only its made qty (adjusted for planned loss) in Production Plan
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateProductionPlanCommittedWorkOrderQty(
+                workOrderQty: 10m, producedQty: 4m, processLossQty: 0m, plannedLossPercentage: 0m, isClosed: false)
+            .ShouldBe(10m);
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateProductionPlanCommittedWorkOrderQty(
+                workOrderQty: 10m, producedQty: 4m, processLossQty: 0m, plannedLossPercentage: 0m, isClosed: true)
+            .ShouldBe(4m);
+        // With 20% planned loss and 4 produced (closed), committed = min(10, 4 / 0.8) = 5
+        MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .CalculateProductionPlanCommittedWorkOrderQty(
+                workOrderQty: 10m, producedQty: 4m, processLossQty: 1m, plannedLossPercentage: 20m, isClosed: true)
+            .ShouldBe(5m);
+
+        // 2. ERPNext PR #67443: Buying Item Price converted to stock UOM stays unrounded (RM 1 per Box of 1,000 Nos = 0.001)
+        MyERP.Inventory.Entities.StockReconciliation
+            .ConvertBuyingItemPriceToStockUomRate(priceListRate: 1m, priceUomConversionFactor: 1000m)
+            .ShouldBe(0.001m);
+        MyERP.Inventory.Entities.StockReconciliation
+            .ConvertBuyingItemPriceToStockUomRate(priceListRate: 1200m, priceUomConversionFactor: 12m)
+            .ShouldBe(100m);
+
+        // 3. ERPNext PR #67333: BOM plc_conversion_rate = 1 for company currency, bomConversionRate for BOM currency,
+        // fetched rate for third currency (or stored fallback when lookup returns 0)
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveBomPriceListConversionRate(
+            "MYR", "MYR", "USD", bomConversionRate: 4.5m, storedPlcConversionRate: 4.2m).ShouldBe(1m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveBomPriceListConversionRate(
+            "USD", "MYR", "USD", bomConversionRate: 4.5m, storedPlcConversionRate: 4.2m).ShouldBe(4.5m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveBomPriceListConversionRate(
+            "EUR", "MYR", "USD", bomConversionRate: 4.5m, storedPlcConversionRate: 4.8m,
+            getBuyingExchangeRate: (_, _) => 4.95m).ShouldBe(4.95m);
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveBomPriceListConversionRate(
+            "EUR", "MYR", "USD", bomConversionRate: 4.5m, storedPlcConversionRate: 4.8m,
+            getBuyingExchangeRate: (_, _) => 0m).ShouldBe(4.8m);
+
+        // 4. ERPNext PR #67509: Keep explicit Difference Account on Subcontracting Delivery row; default unset to company expense
+        var customDiff = Guid.NewGuid();
+        var itemExp = Guid.NewGuid();
+        var groupExp = Guid.NewGuid();
+        var companyExp = Guid.NewGuid();
+        StockEntryManager.ResolveStockEntryDifferenceAccount(
+            customDiff, "Subcontracting Delivery", itemExp, groupExp, companyExp).ShouldBe(customDiff);
+        StockEntryManager.ResolveStockEntryDifferenceAccount(
+            null, "Subcontracting Delivery", itemExp, groupExp, companyExp).ShouldBe(companyExp);
+        StockEntryManager.ResolveStockEntryDifferenceAccount(
+            null, "Material Issue", itemExp, groupExp, companyExp).ShouldBe(itemExp);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

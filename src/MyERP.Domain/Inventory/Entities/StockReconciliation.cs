@@ -80,4 +80,21 @@ public class StockReconciliation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         DifferenceAmount = _items.Sum(i => i.DifferenceAmount);
     }
+
+    /// <summary>
+    /// Converts a buying Item Price rate to the item's Stock UOM for Stock Reconciliation valuation
+    /// per ERPNext PR #67443 (<c>stock_reconciliation.py</c>):
+    /// divides <paramref name="priceListRate"/> by <paramref name="priceUomConversionFactor"/> when positive,
+    /// keeping the result UNROUNDED so sub-cent unit rates (e.g. 1 per Box of 1,000 Nos = 0.001) are not
+    /// rounded down to zero.
+    /// </summary>
+    public static decimal ConvertBuyingItemPriceToStockUomRate(
+        decimal priceListRate,
+        decimal? priceUomConversionFactor)
+    {
+        if (priceUomConversionFactor.HasValue && priceUomConversionFactor.Value > 0m)
+            return priceListRate / priceUomConversionFactor.Value;
+
+        return priceListRate;
+    }
 }

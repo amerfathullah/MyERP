@@ -20,41 +20,41 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
     <abp-page [title]="'::BatchSubmitEInvoice' | abpLocalization">
       <div class="card mb-4">
         <div class="card-header">
-          <h6 class="mb-0"><i class="fa fa-paper-plane me-2"></i>Batch Submit to LHDN MyInvois</h6>
+          <h6 class="mb-0"><i class="fa fa-paper-plane me-2"></i>{{ '::BatchSubmitToLhdnMyInvois' | abpLocalization }}</h6>
         </div>
         <div class="card-body">
           <div class="row g-3 mb-4">
             <div class="col-md-4">
-              <label class="form-label">Document Type</label>
+              <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="docType">
-                <option value="SalesInvoice">Sales Invoice</option>
-                <option value="CreditNote">Credit Note</option>
-                <option value="DebitNote">Debit Note</option>
-                <option value="PurchaseInvoice">Purchase Invoice (Self-Billed)</option>
+                <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+                <option value="CreditNote">{{ '::CreditNote' | abpLocalization }}</option>
+                <option value="DebitNote">{{ '::DebitNote' | abpLocalization }}</option>
+                <option value="PurchaseInvoice">{{ '::PurchaseInvoiceSelfBilled' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">From Date</label>
+              <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="fromDate" />
             </div>
             <div class="col-md-3">
-              <label class="form-label">To Date</label>
+              <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="toDate" />
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" (click)="loadInvoices()" [disabled]="loadingInvoices()">
                 @if (loadingInvoices()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-                Load
+                {{ '::Load' | abpLocalization }}
               </button>
             </div>
           </div>
 
           @if (invoices().length > 0) {
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="small text-muted">{{ invoices().length }} documents loaded — {{ selected().length }} selected</span>
+              <span class="small text-muted">{{ '::DocumentsLoadedSelected' | abpLocalization : ('' + invoices().length) : ('' + selected().length) }}</span>
               <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary btn-sm" (click)="selectAll()">Select All</button>
-                <button class="btn btn-outline-secondary btn-sm" (click)="clearAll()">Clear</button>
+                <button class="btn btn-outline-secondary btn-sm" (click)="selectAll()">{{ '::SelectAll' | abpLocalization }}</button>
+                <button class="btn btn-outline-secondary btn-sm" (click)="clearAll()">{{ '::Clear' | abpLocalization }}</button>
               </div>
             </div>
 
@@ -64,11 +64,11 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                   <th style="width:40px">
                     <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($event)" />
                   </th>
-                  <th>Document #</th>
-                  <th>{{ docType === 'PurchaseInvoice' ? 'Supplier' : 'Customer' }}</th>
-                  <th class="text-end">Amount</th>
-                  <th>Date</th>
-                  <th>e-Invoice Status</th>
+                  <th>{{ '::DocumentNo' | abpLocalization }}</th>
+                  <th>{{ (docType === 'PurchaseInvoice' ? '::Supplier' : '::Customer') | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th>{{ '::Date' | abpLocalization }}</th>
+                  <th>{{ '::EInvoiceStatus' | abpLocalization }}</th>
                 </tr></thead>
                 <tbody>
                   @for (inv of invoices(); track inv.id) {
@@ -85,7 +85,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                         @if (inv.eInvoiceStatus) {
                           <span class="badge" [class]="eiBadge(inv.eInvoiceStatus)">{{ inv.eInvoiceStatus }}</span>
                         } @else {
-                          <span class="badge bg-light text-dark border">Not Submitted</span>
+                          <span class="badge bg-light text-dark border">{{ '::NotSubmitted' | abpLocalization }}</span>
                         }
                       </td>
                     </tr>
@@ -96,7 +96,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
 
             <button class="btn btn-primary" (click)="submitBatch()" [disabled]="selected().length === 0 || submitting()">
               @if (submitting()) { <i class="fa fa-spinner fa-spin me-1"></i> }
-              Submit {{ selected().length }} Document(s) to LHDN
+              {{ '::SubmitDocumentsToLhdn' | abpLocalization : ('' + selected().length) }}
             </button>
           }
         </div>
@@ -107,23 +107,23 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
         <div class="card">
           <div class="card-header">
             <h6 class="mb-0">
-              Submission Results:
+              {{ '::SubmissionResults' | abpLocalization }}:
               <span class="badge bg-success ms-2">{{ results()!.succeededCount }} OK</span>
               @if ((results()!.failedCount ?? 0) > 0) {
-                <span class="badge bg-danger ms-1">{{ results()!.failedCount }} Failed</span>
+                <span class="badge bg-danger ms-1">{{ results()!.failedCount }} {{ '::Failed' | abpLocalization }}</span>
               }
               @if ((results()!.skippedCount ?? 0) > 0) {
-                <span class="badge bg-warning text-dark ms-1">{{ results()!.skippedCount }} Skipped</span>
+                <span class="badge bg-warning text-dark ms-1">{{ results()!.skippedCount }} {{ '::Skipped' | abpLocalization }}</span>
               }
             </h6>
           </div>
           <div class="card-body p-0">
             <table class="table table-sm mb-0">
               <thead><tr>
-                <th>Document</th>
-                <th>Result</th>
-                <th>UUID</th>
-                <th>Details</th>
+                <th>{{ '::Document' | abpLocalization }}</th>
+                <th>{{ '::Result' | abpLocalization }}</th>
+                <th>{{ '::Uuid' | abpLocalization }}</th>
+                <th>{{ '::Details' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (r of results()!.results ?? []; track r.documentId) {
@@ -131,7 +131,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
                     <td>{{ r.documentNumber || r.documentId }}</td>
                     <td>
                       <span class="badge" [class.bg-success]="r.success" [class.bg-danger]="!r.success">
-                        {{ r.success ? 'Success' : 'Failed' }}
+                        {{ (r.success ? '::Success' : '::Failed') | abpLocalization }}
                       </span>
                     </td>
                     <td class="font-monospace small">{{ r.lhdnUuid || '—' }}</td>
@@ -145,7 +145,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
       }
 
       <div class="mt-3">
-        <a class="btn btn-secondary" routerLink="/einvoice">← Back to Submissions</a>
+        <a class="btn btn-secondary" routerLink="/einvoice">← {{ '::BackToSubmissions' | abpLocalization }}</a>
       </div>
     </abp-page>
   `,
@@ -201,7 +201,7 @@ export class EInvoiceBatchSubmitComponent {
         },
         error: (err: any) => {
           this.loadingInvoices.set(false);
-          this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load invoices');
+          this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::FailedToLoadInvoices');
         },
       });
       return;
@@ -221,7 +221,7 @@ export class EInvoiceBatchSubmitComponent {
       },
       error: (err: any) => {
         this.loadingInvoices.set(false);
-        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load invoices');
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || '::FailedToLoadInvoices');
       },
     });
   }
@@ -260,7 +260,7 @@ export class EInvoiceBatchSubmitComponent {
 
   submitBatch(): void {
     const cid = this.companyContext.currentCompanyId();
-    if (!cid) { this.toaster.error('Select a company first'); return; }
+    if (!cid) { this.toaster.error('::SelectCompanyFirst'); return; }
     this.submitting.set(true);
     this.results.set(null);
     const sourceDocumentType = this.docType === 'PurchaseInvoice' ? 'PurchaseInvoice' : 'SalesInvoice';
@@ -273,14 +273,14 @@ export class EInvoiceBatchSubmitComponent {
         this.results.set(r);
         this.submitting.set(false);
         if ((r.succeededCount ?? 0) > 0) {
-          this.toaster.success(`${r.succeededCount} document(s) submitted successfully`);
+          this.toaster.success({ key: '::DocumentsSubmittedSuccessfully', defaultValue: `${r.succeededCount} document(s) submitted successfully` }, undefined, { messageLocalizationParams: [String(r.succeededCount)] });
         }
         if ((r.failedCount ?? 0) > 0) {
-          this.toaster.error(`${r.failedCount} document(s) failed`);
+          this.toaster.error({ key: '::DocumentsFailed', defaultValue: `${r.failedCount} document(s) failed` }, undefined, { messageLocalizationParams: [String(r.failedCount)] });
         }
       },
       error: (err: any) => {
-        this.toaster.error(err?.error?.error?.message ?? 'Batch submit failed');
+        this.toaster.error(err?.error?.error?.message ?? '::BatchSubmitFailed');
         this.submitting.set(false);
       },
     });
