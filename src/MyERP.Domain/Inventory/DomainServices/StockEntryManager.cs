@@ -2860,6 +2860,36 @@ public class StockEntryManager : DomainService
 
         return companyDefaultExpenseAccountId;
     }
+
+    /// <summary>
+    /// Validates that a Stock Entry's summed <c>TransferQty</c> (stock UOM) for a BOM component
+    /// matches the BOM's required stock qty (ceiled when Stock UOM requires whole numbers) at
+    /// <paramref name="transferQtyPrecision"/> per ERPNext PR #67414 (<c>_check_bom_component_qty</c>).
+    /// </summary>
+    public static void ValidateBomComponentTransferQty(
+        decimal bomUnitQty,
+        decimal fgCompletedQty,
+        bool mustBeWholeNumber,
+        IEnumerable<decimal> matchedRowTransferQtys,
+        string itemCode,
+        int transferQtyPrecision = 3)
+    {
+        var list = matchedRowTransferQtys?.ToList();
+        if (list == null || list.Count == 0)
+            return;
+
+        var expectedQty = CeilQtyIfUomMustBeWholeNumber(bomUnitQty * fgCompletedQty, mustBeWholeNumber);
+        var actualStockQty = list.Sum();
+
+        var roundedExpected = Math.Round(expectedQty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+        var roundedActual = Math.Round(actualStockQty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+
+        if (roundedExpected != roundedActual)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {itemCode}: transfer qty {roundedActual} does not match BOM required qty {roundedExpected}.");
+        }
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

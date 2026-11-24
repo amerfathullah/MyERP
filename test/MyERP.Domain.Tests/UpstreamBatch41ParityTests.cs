@@ -3658,6 +3658,45 @@ public class UpstreamBatch41ParityTests
             null, "Material Issue", itemExp, groupExp, companyExp).ShouldBe(itemExp);
     }
 
+    [Fact]
+    public void UpstreamBatch33_ForecastPeriodMpsToDate_SoInwardCloseOnly_BomComponentTransferQty_Parity()
+    {
+        // 1. ERPNext PR #67489: Monthly forecast spans [date, add_months(date, 1)) and MPS ToDate covers last full period
+        var (mStart, mEnd) = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .GetForecastPeriodWindow(new DateTime(2026, 11, 15), "Monthly");
+        mStart.ShouldBe(new DateTime(2026, 11, 15));
+        mEnd.ShouldBe(new DateTime(2026, 12, 15));
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .CalculateMpsToDateCoveringLastForecast(new DateTime(2026, 11, 15), "Monthly")
+            .ShouldBe(new DateTime(2026, 12, 14));
+
+        var (wStart, wEnd) = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .GetForecastPeriodWindow(new DateTime(2026, 11, 15), "Weekly");
+        wStart.ShouldBe(new DateTime(2026, 11, 15));
+        wEnd.ShouldBe(new DateTime(2026, 11, 22));
+        MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .CalculateMpsToDateCoveringLastForecast(new DateTime(2026, 11, 15), "Weekly")
+            .ShouldBe(new DateTime(2026, 11, 21));
+
+        // 2. ERPNext PR #67504: Only Closed cascades to Subcontracting Inward Orders; On Hold / Reopen leave them untouched
+        MyERP.Sales.DomainServices.SalesOrderManager.ShouldCloseLinkedSubcontractingInwardOrders("Closed").ShouldBeTrue();
+        MyERP.Sales.DomainServices.SalesOrderManager.ShouldCloseLinkedSubcontractingInwardOrders("On Hold").ShouldBeFalse();
+        MyERP.Sales.DomainServices.SalesOrderManager.ShouldCloseLinkedSubcontractingInwardOrders("To Deliver and Bill").ShouldBeFalse();
+
+        // 3. ERPNext PR #67414: BOM component check compares stock-UOM TransferQty against ceiled whole-number BOM qty at transfer precision
+        // BOM unit qty 0.4 * 3 FG = 1.2 -> whole-number UOM ceils to 2.0 stock units; Box row with transfer_qty = 2.0 passes
+        Should.NotThrow(() =>
+            StockEntryManager.ValidateBomComponentTransferQty(
+                bomUnitQty: 0.4m, fgCompletedQty: 3m, mustBeWholeNumber: true,
+                matchedRowTransferQtys: new[] { 2m }, itemCode: "RM-NOS"));
+
+        // Mismatched transfer qty (e.g. 50 from Box conversion factor when BOM requires 2) throws
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateBomComponentTransferQty(
+                bomUnitQty: 0.4m, fgCompletedQty: 3m, mustBeWholeNumber: true,
+                matchedRowTransferQtys: new[] { 50m }, itemCode: "RM-NOS"));
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

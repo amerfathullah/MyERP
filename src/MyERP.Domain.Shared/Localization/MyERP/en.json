@@ -6890,7 +6890,15 @@
     "FailedToLoadInvoices": "Failed to load invoices",
     "BatchSubmitFailed": "Batch submit failed",
     "DocumentsSubmittedSuccessfully": "{0} document(s) submitted successfully",
-    "DocumentsFailed": "{0} document(s) failed"
+    "DocumentsFailed": "{0} document(s) failed",
+    "BatchSubmit": "Batch Submit",
+    "FilterByStatus": "Filter by status",
+    "NoEInvoiceSubmissionsFound": "No e-invoice submissions found.",
+    "Qr": "QR",
+    "CancellationNotAllowedAfter72Hours": "Cancellation not allowed after 72 hours of submission",
+    "FailedToLoadEInvoices": "Failed to load e-invoices",
+    "StatusRefreshed": "Status refreshed",
+    "FailedToRefreshStatus": "Failed to refresh status"
   }
 }
 

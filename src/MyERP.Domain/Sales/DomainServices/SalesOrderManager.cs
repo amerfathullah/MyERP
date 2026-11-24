@@ -221,4 +221,15 @@ public class SalesOrderManager : DomainService
         var isQuotation = string.Equals(documentType, "Quotation", StringComparison.OrdinalIgnoreCase);
         return !isQuotation;
     }
+
+    /// <summary>
+    /// Determines whether a Sales Order status change should cascade to linked Subcontracting Inward Orders
+    /// per ERPNext PR #67504 (<c>sales_order/services/status.py</c>):
+    /// only closing the Sales Order (<c>"Closed"</c>) closes its inward orders; putting on hold or reopening
+    /// leaves inward orders unchanged because users may have closed them intentionally.
+    /// </summary>
+    public static bool ShouldCloseLinkedSubcontractingInwardOrders(string? targetStatus)
+    {
+        return string.Equals(targetStatus?.Trim(), "Closed", StringComparison.OrdinalIgnoreCase);
+    }
 }

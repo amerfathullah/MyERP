@@ -23,25 +23,25 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
         <div class="col-6 col-md-3">
           <div class="card border-0 bg-body-tertiary text-center p-3">
             <div class="fs-2 fw-bold text-primary">{{ totalCount() }}</div>
-            <div class="small text-muted">Total</div>
+            <div class="small text-muted">{{ '::Total' | abpLocalization }}</div>
           </div>
         </div>
         <div class="col-6 col-md-3">
           <div class="card border-0 bg-body-tertiary text-center p-3">
             <div class="fs-2 fw-bold text-success">{{ validCount() }}</div>
-            <div class="small text-muted">Valid</div>
+            <div class="small text-muted">{{ '::Valid' | abpLocalization }}</div>
           </div>
         </div>
         <div class="col-6 col-md-3">
           <div class="card border-0 bg-body-tertiary text-center p-3">
             <div class="fs-2 fw-bold text-danger">{{ invalidCount() }}</div>
-            <div class="small text-muted">Invalid</div>
+            <div class="small text-muted">{{ '::Invalid' | abpLocalization }}</div>
           </div>
         </div>
         <div class="col-6 col-md-3">
           <div class="card border-0 bg-body-tertiary text-center p-3">
             <div class="fs-2 fw-bold text-secondary">{{ cancelledCount() }}</div>
-            <div class="small text-muted">Cancelled</div>
+            <div class="small text-muted">{{ '::Cancelled' | abpLocalization }}</div>
           </div>
         </div>
       </div>
@@ -51,10 +51,10 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
           <h5 class="mb-0">{{ '::EInvoiceSubmissions' | abpLocalization }}</h5>
           <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary btn-sm" routerLink="/einvoice/settings">
-              <i class="fa fa-cog me-1"></i>Settings
+              <i class="fa fa-cog me-1"></i>{{ '::Settings' | abpLocalization }}
             </a>
             <a class="btn btn-primary btn-sm" routerLink="/einvoice/batch-submit">
-              <i class="fa fa-paper-plane me-1"></i>Batch Submit
+              <i class="fa fa-paper-plane me-1"></i>{{ '::BatchSubmit' | abpLocalization }}
             </a>
           </div>
         </div>
@@ -62,13 +62,13 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
         <!-- Filter bar -->
         <div class="card-body border-bottom py-2">
           <div class="d-flex gap-2 flex-wrap align-items-center">
-            <label class="small text-muted mb-0">Filter by status:</label>
+            <label class="small text-muted mb-0">{{ '::FilterByStatus' | abpLocalization }}:</label>
             @for (s of statuses; track s) {
               <button class="btn btn-sm"
                 [class.btn-secondary]="filterStatus() !== s"
                 [class.btn-primary]="filterStatus() === s"
                 (click)="setFilter(s)">
-                {{ s || 'All' }}
+                {{ s || ('::All' | abpLocalization) }}
               </button>
             }
           </div>
@@ -80,17 +80,17 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
           } @else if (filtered().length === 0) {
             <div class="text-center py-5">
               <i class="fa fa-file-invoice fa-3x text-muted mb-3 d-block"></i>
-              <p class="text-muted">No e-invoice submissions found.</p>
+              <p class="text-muted">{{ '::NoEInvoiceSubmissionsFound' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover mb-0">
               <thead class="table-light"><tr>
-                <th>Document</th>
-                <th>Type</th>
-                <th>Submitted</th>
-                <th>UUID</th>
-                <th>Status</th>
-                <th>QR</th>
+                <th>{{ '::Document' | abpLocalization }}</th>
+                <th>{{ '::Type' | abpLocalization }}</th>
+                <th>{{ '::Submitted' | abpLocalization }}</th>
+                <th>{{ '::Uuid' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::Qr' | abpLocalization }}</th>
                 <th></th>
               </tr></thead>
               <tbody>
@@ -125,7 +125,7 @@ import type { EInvoiceSubmissionDto } from '../proxy/einvoice/models';
                           <button
                             class="btn btn-outline-danger"
                             [disabled]="isCancellationWindowExpired(inv)"
-                            [title]="isCancellationWindowExpired(inv) ? 'Cancellation not allowed after 72 hours of submission' : ('::CancelEInvoice' | abpLocalization)"
+                            [title]="(isCancellationWindowExpired(inv) ? '::CancellationNotAllowedAfter72Hours' : '::CancelEInvoice') | abpLocalization"
                             (click)="openCancelModal(inv)">
                             <i class="fa fa-times"></i>
                           </button>
@@ -226,7 +226,7 @@ export class EInvoiceListComponent implements OnInit {
       next: r => { this.items.set(r.items ?? []); this.totalCount.set(r.totalCount); this.isLoading.set(false); },
       error: (err: any) => {
         this.isLoading.set(false);
-        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || 'Failed to load e-invoices');
+        this.toaster.error(err?.error?.error?.data?.detail || err?.error?.error?.message || this.l.instant('::FailedToLoadEInvoices'));
       },
     });
   }
@@ -237,9 +237,9 @@ export class EInvoiceListComponent implements OnInit {
     this.service.getStatus(inv.id!).subscribe({
       next: updated => {
         this.items.update(list => list.map(i => i.id === updated.id ? updated : i));
-        this.toaster.success('Status refreshed');
+        this.toaster.success(this.l.instant('::StatusRefreshed'));
       },
-      error: () => this.toaster.error('Failed to refresh status'),
+      error: () => this.toaster.error(this.l.instant('::FailedToRefreshStatus')),
     });
   }
 
@@ -278,7 +278,7 @@ export class EInvoiceListComponent implements OnInit {
       },
       error: (err: any) => {
         this.isCancelling.set(false);
-        this.toaster.error(err?.error?.error?.message ?? 'Cancel failed');
+        this.toaster.error(err?.error?.error?.message ?? this.l.instant('::CancelFailed'));
       },
     });
   }

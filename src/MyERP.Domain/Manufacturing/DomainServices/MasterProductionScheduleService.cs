@@ -496,6 +496,36 @@ public class MasterProductionScheduleService : DomainService
         return remainingForecasts;
     }
 
+    /// <summary>
+    /// Computes the half-open period window <c>[StartDate, ExclusiveEndDate)</c> for a Sales Forecast row
+    /// starting from its own <paramref name="deliveryDate"/> per ERPNext PR #67489
+    /// (<c>sales_forecast.py: get_forecast_period</c>):
+    /// 1 calendar month for <c>"Monthly"</c>, 7 days otherwise.
+    /// </summary>
+    public static (DateTime StartDate, DateTime ExclusiveEndDate) GetForecastPeriodWindow(
+        DateTime deliveryDate,
+        string? frequency)
+    {
+        var start = deliveryDate.Date;
+        var exclusiveEnd = string.Equals(frequency, "Monthly", StringComparison.OrdinalIgnoreCase)
+            ? start.AddMonths(1)
+            : start.AddDays(7);
+        return (start, exclusiveEnd);
+    }
+
+    /// <summary>
+    /// Computes the inclusive MPS <c>ToDate</c> that covers the full last forecast period
+    /// per ERPNext PR #67489 (<c>master_production_schedule.py: set_to_date</c>):
+    /// <c>ExclusiveEndDate.AddDays(-1)</c>.
+    /// </summary>
+    public static DateTime CalculateMpsToDateCoveringLastForecast(
+        DateTime lastForecastDeliveryDate,
+        string? frequency)
+    {
+        var (_, exclusiveEnd) = GetForecastPeriodWindow(lastForecastDeliveryDate, frequency);
+        return exclusiveEnd.AddDays(-1);
+    }
+
     private sealed class DemandBucket
     {
         public DateTime Date { get; }
