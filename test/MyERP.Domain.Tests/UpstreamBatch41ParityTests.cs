@@ -2666,6 +2666,87 @@ public class UpstreamBatch41ParityTests
         (cancelOwnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Row #2");
     }
 
+    [Fact]
+    public void UpstreamBatch21_BomSecondaryLoss_BatchOp_InterCompanyLcv_BundleVal_LhdnIcv_Parity()
+    {
+        // 1. ERPNext PR #67332: BOM secondary process loss capped at row qty, ValuationRate cost net of loss, SCR fallback rate
+        var secCap = new BomSecondaryItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), SecondaryItemType.ByProduct, 0.006m)
+        {
+            ProcessLossPercentage = 99m
+        };
+        // 0.006 * 0.99 = 0.00594 -> rounds to 0.01 at precision 2 -> MUST cap at 0.006
+        secCap.GetCappedProcessLossQty(precision: 2).ShouldBe(0.006m);
+
+        var (lossQty, cost) = BomCostPropagationService.CalculateValuationRateSecondaryCost(
+            unitRate: 100m, stockQty: 10m, processLossPercentage: 20m, lossQtyPrecision: 4, costPrecision: 2);
+        lossQty.ShouldBe(2m);
+        cost.ShouldBe(800m); // 100 * (10 - 2)
+
+        BomCostPropagationService.CalculateScrFallbackSecondaryRate(baseCost: 800m, stockQty: 10m, processLossQty: 2m)
+            .ShouldBe(100m); // 800 / (10 - 2), not 800 / 10
+
+        // 2. ERPNext PR #67331: Batch operation costing & Work Order time per unit
+        BomCostPropagationService.ResolveSetCostBasedOnBomQty(fixedTime: true, operationCreateJobCardBasedOnBatchSize: true, currentFlag: true)
+            .ShouldBeFalse();
+        BomCostPropagationService.ResolveSetCostBasedOnBomQty(fixedTime: false, operationCreateJobCardBasedOnBatchSize: true, currentFlag: false)
+            .ShouldBeTrue();
+        WorkOrderManager.CalculateOperationTimePerUnit(
+            timeInMins: 30m, qty: 10m, units: 2m, exploded: false,
+            operationBatchSizeFlag: false, setCostBasedOnBomQty: true, batchSize: 5m)
+            .ShouldBe(12m); // 30 * 2 / 5
+
+        // 3. ERPNext PR #67439: Landed cost stays off transit outward leg & rejected warehouse leg
+        var acceptedWh = Guid.NewGuid();
+        var rejectedWh = Guid.NewGuid();
+        var transitWh = Guid.NewGuid();
+        PurchaseReceiptManager.CalculateInterCompanyIncomingRate(100m, sleActualQty: -10m, transitWh, rejectedWh, landedCostVoucherAmount: 50m)
+            .ShouldBe(100m); // transit outward leg -> no LCV
+        PurchaseReceiptManager.CalculateInterCompanyIncomingRate(100m, sleActualQty: 2m, rejectedWh, rejectedWh, landedCostVoucherAmount: 50m)
+            .ShouldBe(100m); // rejected leg -> no LCV
+        PurchaseReceiptManager.CalculateInterCompanyIncomingRate(100m, sleActualQty: 10m, acceptedWh, rejectedWh, landedCostVoucherAmount: 50m)
+            .ShouldBe(105m); // accepted leg -> +5/unit
+        PurchaseReceiptManager.CalculateInternalReceiptValuationRate(100m, landedCostVoucherAmount: 50m, acceptedStockQty: 10m)
+            .ShouldBe(105m);
+
+        // 4. ERPNext PR #67434: Product Bundle rows checked against valuation rate when editableBundleItemRates == false
+        ProductBundleDecompositionService.ShouldValidateRowAgainstValuationRate(
+            isStockItem: false, isInternalCustomer: false, editableBundleItemRates: false, hasBundleVersion: true)
+            .ShouldBeTrue();
+        ProductBundleDecompositionService.ShouldValidateRowAgainstValuationRate(
+            isStockItem: false, isInternalCustomer: false, editableBundleItemRates: true, hasBundleVersion: true)
+            .ShouldBeFalse();
+        ProductBundleDecompositionService.ShouldValidateRowAgainstValuationRate(
+            isStockItem: false, isInternalCustomer: true, editableBundleItemRates: false, hasBundleVersion: true)
+            .ShouldBeFalse();
+        ProductBundleDecompositionService.CalculateProductBundleValuationRate(new[] { (25m, 2m), (10m, 3m) })
+            .ShouldBe(80m);
+
+        // 5. MyInvois createxml.py: ICV code extraction and standard invoice BillingReference emission
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ExtractIcvCode("SI-2026-00042").ShouldBe("00042");
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-2026-00042",
+            IssueDate = new DateTime(2026, 8, 21, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            EmitIcvBillingReference = true,
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Sup", Tin = "C1111111111", Address = "A", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buy", Tin = "C2222222222", Address = "B", City = "KL", State = "14", CountryCode = "MYS" },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        xml.Root!.Element(cac + "BillingReference")!.Element(cac + "InvoiceDocumentReference")!.Element(cbc + "ID")!.Value
+            .ShouldBe("00042");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

@@ -61,8 +61,15 @@ public class BomSecondaryItem : Entity<Guid>, IMultiTenant
     /// </summary>
     public decimal ProcessLossPercentage { get; set; }
 
-    /// <summary>Process loss quantity for this secondary item (resets to 0 when ProcessLossPercentage is cleared, PR #67407).</summary>
-    public decimal ProcessLossQty => Math.Round(Quantity * (ProcessLossPercentage / 100m), 4, MidpointRounding.AwayFromZero);
+    /// <summary>
+    /// Process loss quantity for this secondary item, capped at <see cref="Quantity"/> so rounding
+    /// cannot take it above the row's quantity (resets to 0 when ProcessLossPercentage is cleared).
+    /// Per ERPNext PR #67407 &amp; PR #67332 (<c>get_secondary_process_loss_qty</c>).
+    /// </summary>
+    public decimal ProcessLossQty => GetCappedProcessLossQty(4);
+
+    public decimal GetCappedProcessLossQty(int precision = 4) =>
+        Math.Min(Math.Round(Quantity * (ProcessLossPercentage / 100m), precision, MidpointRounding.AwayFromZero), Quantity);
 
     /// <summary>Effective quantity after process loss deduction.</summary>
     public decimal EffectiveQuantity =>

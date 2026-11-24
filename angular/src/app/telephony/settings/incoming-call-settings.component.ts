@@ -31,19 +31,19 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
 
             <div class="col-md-6 mb-3">
               <label class="form-label">Greeting Message</label>
-              <input type="text" class="form-control" formControlName="greetingMessage" placeholder="Welcome message played to caller">
+              <input type="text" class="form-control" formControlName="greetingMessage" [placeholder]="'::Placeholder:GreetingMessage' | abpLocalization">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Agent Busy Message</label>
-              <input type="text" class="form-control" formControlName="agentBusyMessage" placeholder="Played when all agents are on call">
+              <input type="text" class="form-control" formControlName="agentBusyMessage" [placeholder]="'::Placeholder:AgentBusyMessage' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
               <label class="form-label">Agent Unavailable Message</label>
-              <input type="text" class="form-control" formControlName="agentUnavailableMessage" placeholder="Played when outside operating hours">
+              <input type="text" class="form-control" formControlName="agentUnavailableMessage" [placeholder]="'::Placeholder:AgentUnavailableMessage' | abpLocalization">
             </div>
           </div>
 

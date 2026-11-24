@@ -6748,7 +6748,16 @@
     "Placeholder:ParameterGroupExample": "e.g. Visual, Dimensional, Chemical",
     "Placeholder:ParcelTemplateExample": "e.g. Small Box, Medium Carton, Large Crate",
     "Placeholder:PlantFloorExample": "e.g. Assembly Floor 1, Welding Bay",
-    "Placeholder:TaskTypeExample": "e.g. Development, Bugfix, QA"
+    "Placeholder:TaskTypeExample": "e.g. Development, Bugfix, QA",
+    "Placeholder:WithholdingGroupExample": "e.g. Individual, Company, Non-Resident Contractor...",
+    "Placeholder:WithholdingGroupNotes": "Optional notes regarding this withholding group",
+    "Placeholder:FilterByGroupNameOrDescription": "Filter by group name or description...",
+    "Placeholder:GreetingMessage": "Welcome message played to caller",
+    "Placeholder:AgentBusyMessage": "Played when all agents are on call",
+    "Placeholder:AgentUnavailableMessage": "Played when outside operating hours",
+    "Placeholder:CallTypeExample": "e.g. Sales Inquiry, Support, Follow-up",
+    "Placeholder:FilterByCallTypeName": "Filter by call type name...",
+    "Placeholder:FilterByTitleUrlOrDescription": "Filter by title, url, or description..."
   }
 }
 

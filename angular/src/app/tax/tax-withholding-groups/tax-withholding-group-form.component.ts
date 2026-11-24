@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { TaxWithholdingGroupService } from '../../proxy/tax/tax-withholding-group.service';
 
 @Component({
   selector: 'app-tax-withholding-group-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -19,12 +20,12 @@ import { TaxWithholdingGroupService } from '../../proxy/tax/tax-withholding-grou
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Group Name *</label>
-            <input type="text" class="form-control" formControlName="groupName" placeholder="e.g. Individual, Company, Non-Resident Contractor...">
+            <input type="text" class="form-control" formControlName="groupName" [placeholder]="'::Placeholder:WithholdingGroupExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Optional notes regarding this withholding group"></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:WithholdingGroupNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">

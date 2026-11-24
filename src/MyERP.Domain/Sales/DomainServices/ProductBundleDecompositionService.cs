@@ -453,6 +453,39 @@ public class ProductBundleDecompositionService : DomainService
 
         return Math.Round(totalComponentAmount / parentRowQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Determines whether a selling row should be checked against its valuation/incoming rate
+    /// per ERPNext PR #67434 (<c>SellingController.validate_selling_price</c>):
+    /// non-stock Product Bundle rows are checked whenever <paramref name="editableBundleItemRates"/> is false
+    /// and a bundle version is resolved (unless the customer is an internal customer).
+    /// </summary>
+    public static bool ShouldValidateRowAgainstValuationRate(
+        bool isStockItem,
+        bool isInternalCustomer,
+        bool editableBundleItemRates,
+        bool hasBundleVersion)
+    {
+        if (isInternalCustomer)
+            return false;
+
+        var isBundleChecked = !editableBundleItemRates && !isStockItem && hasBundleVersion;
+        return isStockItem || isBundleChecked;
+    }
+
+    /// <summary>
+    /// Computes a Product Bundle's valuation rate from its components' valuation rates weighted by
+    /// each component's stock qty per bundle unit (<c>get_component_stock_qty_per_unit</c>).
+    /// Per ERPNext PR #67434 (<c>get_item_details.py: set_valuation_rate</c>).
+    /// </summary>
+    public static decimal CalculateProductBundleValuationRate(
+        IEnumerable<(decimal ComponentValuationRate, decimal ComponentStockQtyPerUnit)>? components)
+    {
+        if (components == null)
+            return 0m;
+
+        return components.Sum(c => c.ComponentValuationRate * c.ComponentStockQtyPerUnit);
+    }
 }
 
 public record PickedComponentSlice(Guid WarehouseId, decimal Qty, Guid? BatchId = null);

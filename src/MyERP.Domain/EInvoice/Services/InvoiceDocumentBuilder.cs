@@ -51,7 +51,8 @@ public class InvoiceDocumentBuilder : ITransientDependency
             invoice.Add(periodElem);
         }
 
-        // Billing Reference (for credit/debit notes referencing original invoice)
+        // Billing Reference (credit/debit/refund notes, or ICV code for standard invoices per myinvois createxml.py)
+        var normalizedDocType = NormalizeDocumentTypeCode(data.DocumentTypeCode);
         if (!string.IsNullOrEmpty(data.BillingReferenceNumber) || !string.IsNullOrEmpty(data.BillingReferenceUuid))
         {
             var invoiceDocRef = new XElement(Cac + "InvoiceDocumentReference");
@@ -64,6 +65,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 invoiceDocRef.Add(new XElement(Cbc + "UUID", data.BillingReferenceUuid));
             }
             invoice.Add(new XElement(Cac + "BillingReference", invoiceDocRef));
+        }
+        else if (data.EmitIcvBillingReference && normalizedDocType is "01" or "11")
+        {
+            invoice.Add(new XElement(Cac + "BillingReference",
+                new XElement(Cac + "InvoiceDocumentReference",
+                    new XElement(Cbc + "ID", ExtractIcvCode(data.InvoiceNumber)))));
         }
 
         // Additional Document References (Customs Form 1/2/9, FTA, Incoterms — per myinvois createxml.py add_additional_document_reference)
@@ -157,6 +164,26 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
 
         return invoice.ToString(SaveOptions.DisableFormatting);
+    }
+
+    /// <summary>
+    /// Extracts the numeric Invoice Counter Value (ICV) from an invoice number (e.g. <c>"SI-2026-00042"</c> -> <c>"00042"</c>)
+    /// per myinvois <c>createxml.py</c> / <c>purchase_invoice.py: get_icv_code()</c>.
+    /// </summary>
+    public static string ExtractIcvCode(string? invoiceNumber)
+    {
+        if (string.IsNullOrWhiteSpace(invoiceNumber))
+            return string.Empty;
+
+        var trimmed = invoiceNumber.Trim();
+        var i = trimmed.Length - 1;
+        while (i >= 0 && char.IsDigit(trimmed[i]))
+        {
+            i--;
+        }
+
+        var trailingDigits = trimmed[(i + 1)..];
+        return trailingDigits.Length > 0 ? trailingDigits : trimmed;
     }
 
     /// <summary>
@@ -774,6 +801,7 @@ public class EInvoiceDocumentData
     public EInvoicePaymentData? Payment { get; set; }
     public string? BillingReferenceNumber { get; set; }
     public string? BillingReferenceUuid { get; set; }
+    public bool EmitIcvBillingReference { get; set; }
     public List<EInvoiceAdditionalDocumentReference>? AdditionalDocumentReferences { get; set; }
     public string? PaymentTermsNote { get; set; }
     public EInvoicePrepaidPaymentData? PrepaidPayment { get; set; }

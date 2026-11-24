@@ -457,4 +457,54 @@ public class BomCostPropagationService : DomainService
         decimal previousBaseTotalCost,
         decimal newBaseTotalCost)
         => updateParent && (newTotalCost != previousTotalCost || newBaseTotalCost != previousBaseTotalCost);
+
+    /// <summary>
+    /// Computes the capped process loss quantity and net-of-loss cost for a <c>ValuationRate</c>
+    /// BOM secondary item row per ERPNext PR #67332 (<c>costing.py: get_secondary_process_loss_qty</c>).
+    /// </summary>
+    public static (decimal ProcessLossQty, decimal Cost) CalculateValuationRateSecondaryCost(
+        decimal unitRate,
+        decimal stockQty,
+        decimal processLossPercentage,
+        int lossQtyPrecision = 4,
+        int costPrecision = 2)
+    {
+        var lossQty = Math.Min(
+            Math.Round(stockQty * processLossPercentage / 100m, lossQtyPrecision, MidpointRounding.AwayFromZero),
+            stockQty);
+        var producedQty = stockQty - lossQty;
+        var cost = Math.Round(unitRate * producedQty, costPrecision, MidpointRounding.AwayFromZero);
+        return (lossQty, cost);
+    }
+
+    /// <summary>
+    /// Computes fallback Valuation Rate for a Subcontracting Receipt secondary item from its BOM row's
+    /// <c>BaseCost</c> divided by net produced qty (<c>stockQty - processLossQty</c>) when no stock rate exists.
+    /// Per ERPNext PR #67332 (<c>subcontracting_receipt.py</c>).
+    /// </summary>
+    public static decimal CalculateScrFallbackSecondaryRate(
+        decimal baseCost,
+        decimal stockQty,
+        decimal processLossQty)
+    {
+        var producedQty = stockQty - processLossQty;
+        return producedQty > 0m ? baseCost / producedQty : 0m;
+    }
+
+    /// <summary>
+    /// Resolves <c>set_cost_based_on_bom_qty</c> for a BOM Operation row per ERPNext PR #67331
+    /// (<c>costing.py: set_cost_based_on_bom_qty</c>):
+    /// fixed-time operations are never per-batch (<c>false</c>); operations with
+    /// <c>create_job_card_based_on_batch_size</c> enabled are always per-batch (<c>true</c>);
+    /// otherwise preserves <paramref name="currentFlag"/>.
+    /// </summary>
+    public static bool ResolveSetCostBasedOnBomQty(
+        bool fixedTime,
+        bool operationCreateJobCardBasedOnBatchSize,
+        bool currentFlag)
+    {
+        if (fixedTime) return false;
+        if (operationCreateJobCardBasedOnBatchSize) return true;
+        return currentFlag;
+    }
 }

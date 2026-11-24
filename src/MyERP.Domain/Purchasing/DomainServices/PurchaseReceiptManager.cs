@@ -1212,4 +1212,42 @@ public class PurchaseReceiptManager : DomainService
         var effectiveFactor = isStockUom ? 1m : (conversionFactor > 0m ? conversionFactor : 1m);
         return Math.Abs(Math.Round(qty * effectiveFactor, stockQtyPrecision, MidpointRounding.AwayFromZero));
     }
+
+    /// <summary>
+    /// Computes incoming rate for an inter-company transfer SLE per ERPNext PR #67439
+    /// (<c>stock_ledger.py: get_incoming_rate_for_inter_company_transfer</c>):
+    /// adds landed cost per unit ONLY to the accepted inward leg, never to the outward transit leg
+    /// (<paramref name="sleActualQty"/> &lt; 0) or the rejected warehouse leg.
+    /// </summary>
+    public static decimal CalculateInterCompanyIncomingRate(
+        decimal baseOutgoingRate,
+        decimal sleActualQty,
+        Guid sleWarehouseId,
+        Guid? rejectedWarehouseId,
+        decimal landedCostVoucherAmount)
+    {
+        if (sleActualQty < 0m
+            || (rejectedWarehouseId.HasValue && sleWarehouseId == rejectedWarehouseId.Value))
+        {
+            return baseOutgoingRate;
+        }
+
+        var absQty = Math.Abs(sleActualQty);
+        var lcvRate = absQty > 0m ? landedCostVoucherAmount / absQty : 0m;
+        return baseOutgoingRate + lcvRate;
+    }
+
+    /// <summary>
+    /// Computes the valuation rate of accepted stock on an internal receipt during reposting:
+    /// transit outgoing rate plus landed cost spread over accepted stock qty.
+    /// Per ERPNext PR #67439 (<c>stock_ledger.py: get_internal_receipt_valuation_rate</c>).
+    /// </summary>
+    public static decimal CalculateInternalReceiptValuationRate(
+        decimal transitOutgoingRate,
+        decimal landedCostVoucherAmount,
+        decimal acceptedStockQty)
+    {
+        var lcvRate = acceptedStockQty > 0m ? landedCostVoucherAmount / acceptedStockQty : 0m;
+        return transitOutgoingRate + lcvRate;
+    }
 }

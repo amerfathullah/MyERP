@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { VideoService } from '../../proxy/utilities/video.service';
 import { VideoDto } from '../../proxy/utilities/models';
 import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
@@ -10,7 +11,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
 @Component({
   selector: 'app-video-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -24,7 +25,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm" placeholder="Filter by title, url, or description..." [(ngModel)]="filter" (ngModelChange)="load()">
+            <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:FilterByTitleUrlOrDescription' | abpLocalization" [(ngModel)]="filter" (ngModelChange)="load()">
           </div>
           <div class="col-md-3">
             <select class="form-select form-select-sm" [(ngModel)]="selectedProvider" (ngModelChange)="load()">

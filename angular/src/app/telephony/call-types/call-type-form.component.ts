@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { TelephonyCallTypeService } from '../../proxy/telephony/telephony-call-type.service';
 
 @Component({
   selector: 'app-call-type-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -19,7 +20,7 @@ import { TelephonyCallTypeService } from '../../proxy/telephony/telephony-call-t
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Call Type Name *</label>
-            <input type="text" class="form-control" formControlName="callTypeName" placeholder="e.g. Sales Inquiry, Support, Follow-up">
+            <input type="text" class="form-control" formControlName="callTypeName" [placeholder]="'::Placeholder:CallTypeExample' | abpLocalization">
           </div>
 
           <div class="form-check form-switch mb-4">

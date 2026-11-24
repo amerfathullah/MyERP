@@ -1055,6 +1055,35 @@ public class WorkOrderManager : DomainService
         var scaled = Math.Round(raw * step, 9, MidpointRounding.AwayFromZero);
         return Math.Max(Math.Floor(scaled) / step, 0m);
     }
+
+    /// <summary>
+    /// Computes planned operation time per unit for a Work Order operation per ERPNext PR #67331
+    /// (<c>work_order/services/operations.py: get_operation_time_per_unit</c>):
+    /// treats the operation as per-batch when EITHER the Operation master has
+    /// <c>create_job_card_based_on_batch_size</c> OR the BOM row has <c>set_cost_based_on_bom_qty</c>.
+    /// </summary>
+    public static decimal CalculateOperationTimePerUnit(
+        decimal timeInMins,
+        decimal qty,
+        decimal units,
+        bool exploded,
+        bool operationBatchSizeFlag,
+        bool setCostBasedOnBomQty,
+        decimal batchSize)
+    {
+        var isPerBatch = operationBatchSizeFlag || setCostBasedOnBomQty;
+        if (isPerBatch && batchSize > 0m)
+        {
+            return timeInMins * units / batchSize;
+        }
+
+        if (exploded)
+        {
+            return timeInMins * qty;
+        }
+
+        return qty > 0m ? timeInMins / qty : 0m;
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(
