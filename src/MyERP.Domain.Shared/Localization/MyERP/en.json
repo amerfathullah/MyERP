@@ -7304,7 +7304,24 @@
     "SettingsOverviewPurchasingDesc": "Supplier scorecards and procurement settings.",
     "SettingsOverviewHrPayrollDesc": "Leave types, salary components, holiday lists.",
     "SettingsOverviewTaxDesc": "Tax categories, templates, and SST configuration.",
-    "SettingsOverviewAutomationDesc": "Rules, templates, logs, and approvals."
+    "SettingsOverviewAutomationDesc": "Rules, templates, logs, and approvals.",
+    "Threshold": "Threshold",
+    "ApprovingRole": "Approving Role",
+    "NoAuthorizationRulesConfigured": "No authorization rules configured. Transactions will not require approval thresholds.",
+    "UserSpecific": "User-specific",
+    "Global": "Global",
+    "Any": "Any",
+    "Body": "Body",
+    "NoEmailTemplatesYet": "No email templates yet. Create templates for automated notifications.",
+    "AllChannels": "All Channels",
+    "InApp": "In-App",
+    "Push": "Push",
+    "AllStatus": "All Status",
+    "Sent": "Sent",
+    "PermanentlyFailed": "Permanently Failed",
+    "FailedLower": "failed",
+    "NoNotificationLogsFound": "No notification logs found.",
+    "Channel": "Channel"
   }
 }
 

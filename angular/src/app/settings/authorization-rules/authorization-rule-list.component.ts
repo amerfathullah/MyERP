@@ -25,17 +25,17 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && rules.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-shield-halved fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">No authorization rules configured. Transactions will not require approval thresholds.</p>
+          <p class="text-muted">{{ '::NoAuthorizationRulesConfigured' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
               <th>{{ '::TransactionType' | abpLocalization }}</th>
-              <th>Based On</th>
-              <th>Threshold</th>
-              <th>Approving Role</th>
-              <th>Scope</th>
+              <th>{{ '::BasedOn' | abpLocalization }}</th>
+              <th>{{ '::Threshold' | abpLocalization }}</th>
+              <th>{{ '::ApprovingRole' | abpLocalization }}</th>
+              <th>{{ '::Scope' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (r of rules; track r.id) {
@@ -45,9 +45,9 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td class="fw-bold">{{ r.basedOn?.includes('Discount') ? r.thresholdValue + '%' : ('RM ' + r.thresholdValue) }}</td>
                   <td>{{ r.approvingRole ?? '—' }}</td>
                   <td>
-                    @if (r.systemUserId) { <span class="badge bg-info">User-specific</span> }
-                    @else if (r.systemRole) { <span class="badge bg-warning text-dark">Role: {{ r.systemRole }}</span> }
-                    @else { <span class="badge bg-light text-dark">Global</span> }
+                    @if (r.systemUserId) { <span class="badge bg-info">{{ '::UserSpecific' | abpLocalization }}</span> }
+                    @else if (r.systemRole) { <span class="badge bg-warning text-dark">{{ '::Role' | abpLocalization }}: {{ r.systemRole }}</span> }
+                    @else { <span class="badge bg-light text-dark">{{ '::Global' | abpLocalization }}</span> }
                   </td>
                 </tr>
               }

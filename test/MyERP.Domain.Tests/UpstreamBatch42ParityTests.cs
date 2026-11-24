@@ -20,7 +20,7 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67462, #67503, #67530,
-/// #67758, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68529, #68732,
+/// #67699, #67758, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -933,5 +933,61 @@ public class UpstreamBatch42ParityTests
         var existing = new List<Guid> { so1 };
         ProductionPlanMaterialPlanningService.ReplaceProductionPlanSalesOrders(existing, Array.Empty<Guid>());
         existing.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Pr67699_StockReconciliationSelectedBundle_KeepsExplicitZeroRateOnlyWhenAllowed()
+    {
+        // Explicit 0 with allowZeroValuationRate = true -> keeps 0
+        MyERP.Inventory.Entities.StockReconciliation.ResolveSelectedBundleValuationRate(
+            valuationRate: 0m, currentValuationRate: 45m, allowZeroValuationRate: true).ShouldBe(0m);
+
+        // 0 without allowZeroValuationRate -> falls back to currentValuationRate (45)
+        MyERP.Inventory.Entities.StockReconciliation.ResolveSelectedBundleValuationRate(
+            valuationRate: 0m, currentValuationRate: 45m, allowZeroValuationRate: false).ShouldBe(45m);
+
+        // Null valuationRate even with allowZeroValuationRate -> falls back to currentValuationRate
+        MyERP.Inventory.Entities.StockReconciliation.ResolveSelectedBundleValuationRate(
+            valuationRate: null, currentValuationRate: 45m, allowZeroValuationRate: true).ShouldBe(45m);
+
+        // Explicit positive rate -> preserved
+        MyERP.Inventory.Entities.StockReconciliation.ResolveSelectedBundleValuationRate(
+            valuationRate: 52.5m, currentValuationRate: 45m, allowZeroValuationRate: false).ShouldBe(52.5m);
+    }
+
+    [Fact]
+    public void Pr68371_Pr68578_Pr68473_AccountLookupCompanyDefaultAndEventsPermissionGuards_Parity()
+    {
+        var allowedCo = Guid.NewGuid();
+        var deniedCo = Guid.NewGuid();
+        var allowedMop = Guid.NewGuid();
+        var deniedMop = Guid.NewGuid();
+
+        // PR #68371: bank/cash account lookup checks both Company and Mode of Payment
+        TransactionValidationService.ValidateCompanyAndModeOfPaymentAccess(
+            allowedCo, allowedMop, new[] { allowedCo }, new[] { allowedMop });
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateCompanyAndModeOfPaymentAccess(
+                deniedCo, allowedMop, new[] { allowedCo }, new[] { allowedMop }));
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateCompanyAndModeOfPaymentAccess(
+                allowedCo, deniedMop, new[] { allowedCo }, new[] { allowedMop }));
+
+        // PR #68578: get_company_default enforces Company read permission + missing-default guard
+        TransactionValidationService.ResolveCompanyDefaultWithPermissionCheck(
+            allowedCo, "default_cash_account", "Cash - MY", new[] { allowedCo }).ShouldBe("Cash - MY");
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ResolveCompanyDefaultWithPermissionCheck(
+                deniedCo, "default_cash_account", "Cash - MY", new[] { allowedCo }));
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ResolveCompanyDefaultWithPermissionCheck(
+                allowedCo, "default_cash_account", null, new[] { allowedCo }, ignoreValidation: false));
+        TransactionValidationService.ResolveCompanyDefaultWithPermissionCheck(
+            allowedCo, "default_cash_account", null, new[] { allowedCo }, ignoreValidation: true).ShouldBeNull();
+
+        // PR #68473: Sales Order calendar events require Sales Order read permission
+        TransactionValidationService.ValidateSalesOrderEventsReadPermission(true);
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateSalesOrderEventsReadPermission(false));
     }
 }

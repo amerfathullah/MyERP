@@ -16,30 +16,30 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
       <!-- Create/Edit Form -->
       @if (editMode) {
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ editing ? 'Edit Template' : 'New Template' }}</h6>
+          <h6 class="card-title">{{ (editing ? '::EditTemplate' : '::NewTemplate') | abpLocalization }}</h6>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">{{ '::Name' | abpLocalization }}</label>
               <input type="text" class="form-control" [(ngModel)]="formData.name" [disabled]="!!editing">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Document Type</label>
+              <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="formData.documentType">
-                <option value="">Any</option>
-                <option value="SalesInvoice">Sales Invoice</option>
-                <option value="PurchaseInvoice">Purchase Invoice</option>
-                <option value="SalesOrder">Sales Order</option>
-                <option value="DeliveryNote">Delivery Note</option>
-                <option value="PaymentEntry">Payment Entry</option>
-                <option value="Dunning">Dunning</option>
+                <option value="">{{ '::Any' | abpLocalization }}</option>
+                <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+                <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+                <option value="SalesOrder">{{ '::SalesOrder' | abpLocalization }}</option>
+                <option value="DeliveryNote">{{ '::DeliveryNote' | abpLocalization }}</option>
+                <option value="PaymentEntry">{{ '::PaymentEntry' | abpLocalization }}</option>
+                <option value="Dunning">{{ '::Dunning' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Subject</label>
+              <label class="form-label">{{ '::Subject' | abpLocalization }}</label>
               <input type="text" class="form-control" [(ngModel)]="formData.subject" [placeholder]="'::Placeholder:EmailSubjectVariableHint' | abpLocalization">
             </div>
             <div class="col-12">
-              <label class="form-label">Body</label>
+              <label class="form-label">{{ '::Body' | abpLocalization }}</label>
               <textarea class="form-control" [(ngModel)]="formData.body" rows="8" [placeholder]="'::Placeholder:EmailBodyHtmlHint' | abpLocalization"></textarea>
             </div>
           </div>
@@ -48,7 +48,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
               <i class="fa fa-save me-1"></i>{{ '::Save' | abpLocalization }}
             </button>
             <button class="btn btn-outline-info btn-sm" (click)="previewTemplate()" [disabled]="!editing">
-              <i class="fa fa-eye me-1"></i>Preview
+              <i class="fa fa-eye me-1"></i>{{ '::Preview' | abpLocalization }}
             </button>
             <button class="btn btn-outline-secondary btn-sm" (click)="cancelEdit()">{{ '::Cancel' | abpLocalization }}</button>
           </div>
@@ -57,8 +57,8 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
 
       @if (previewHtml) {
         <div class="card mb-3 border-info"><div class="card-body">
-          <h6 class="card-title text-info"><i class="fa fa-eye me-1"></i>Preview</h6>
-          <p class="fw-bold">Subject: {{ previewSubject }}</p>
+          <h6 class="card-title text-info"><i class="fa fa-eye me-1"></i>{{ '::Preview' | abpLocalization }}</h6>
+          <p class="fw-bold">{{ '::Subject' | abpLocalization }}: {{ previewSubject }}</p>
           <hr>
           <div [innerHTML]="previewHtml"></div>
         </div></div>
@@ -67,7 +67,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
       @if (!editMode) {
         <div class="d-flex justify-content-end mb-3">
           <button class="btn btn-primary btn-sm" (click)="startCreate()">
-            <i class="fa fa-plus me-1"></i>New Template
+            <i class="fa fa-plus me-1"></i>{{ '::NewTemplate' | abpLocalization }}
           </button>
         </div>
       }
@@ -78,15 +78,15 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
       @if (!isLoading && templates.length === 0 && !editMode) {
         <div class="text-center py-5">
           <i class="fa fa-envelope-open-text fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">No email templates yet. Create templates for automated notifications.</p>
+          <p class="text-muted">{{ '::NoEmailTemplatesYet' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading && templates.length > 0) {
         <div class="card"><div class="card-body">
           <table class="table table-hover mb-0">
             <thead><tr>
               <th>{{ '::Name' | abpLocalization }}</th>
-              <th>Subject</th>
-              <th>Document Type</th>
+              <th>{{ '::Subject' | abpLocalization }}</th>
+              <th>{{ '::DocumentType' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -94,7 +94,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
                 <tr>
                   <td class="fw-medium">{{ t.name }}</td>
                   <td class="text-truncate" style="max-width:300px">{{ t.subject }}</td>
-                  <td><span class="badge bg-light text-dark">{{ t.documentType ?? 'Any' }}</span></td>
+                  <td><span class="badge bg-light text-dark">{{ t.documentType || ('::Any' | abpLocalization) }}</span></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                       <button class="btn btn-outline-primary" (click)="startEdit(t)"><i class="fa fa-edit"></i></button>

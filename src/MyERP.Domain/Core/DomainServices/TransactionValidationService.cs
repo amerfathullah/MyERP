@@ -209,6 +209,80 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Enforces <c>Company</c> and <c>Mode of Payment</c> select permissions for bank/cash account lookup
+    /// per ERPNext PR #68371 (<c>sales_invoice.py: get_bank_cash_account</c> /
+    /// <c>journal_entry.py: get_default_bank_cash_account</c>).
+    /// </summary>
+    public static void ValidateCompanyAndModeOfPaymentAccess(
+        Guid companyId,
+        Guid? modeOfPaymentId,
+        IReadOnlyCollection<Guid>? permittedCompanyIds,
+        IReadOnlyCollection<Guid>? permittedModeOfPaymentIds)
+    {
+        if (companyId == Guid.Empty
+            || (permittedCompanyIds != null && permittedCompanyIds.Count > 0 && !permittedCompanyIds.Contains(companyId)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("companyId", companyId)
+                .WithData("detail", "Not Permitted to access Company.");
+        }
+
+        if (modeOfPaymentId.HasValue
+            && modeOfPaymentId.Value != Guid.Empty
+            && permittedModeOfPaymentIds != null
+            && permittedModeOfPaymentIds.Count > 0
+            && !permittedModeOfPaymentIds.Contains(modeOfPaymentId.Value))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("modeOfPaymentId", modeOfPaymentId.Value)
+                .WithData("detail", "Not Permitted to access Mode of Payment.");
+        }
+    }
+
+    /// <summary>
+    /// Enforces <c>Company</c> read permission before returning a company default field
+    /// per ERPNext PR #68578 (<c>accounts/utils.py: get_company_default</c>),
+    /// and throws when the requested default is missing unless <paramref name="ignoreValidation"/> is true.
+    /// </summary>
+    public static string? ResolveCompanyDefaultWithPermissionCheck(
+        Guid companyId,
+        string fieldName,
+        string? defaultValue,
+        IReadOnlyCollection<Guid>? permittedCompanyIds,
+        bool ignoreValidation = false)
+    {
+        if (companyId == Guid.Empty
+            || (permittedCompanyIds != null && permittedCompanyIds.Count > 0 && !permittedCompanyIds.Contains(companyId)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("companyId", companyId)
+                .WithData("detail", "Not Permitted to read Company.");
+        }
+
+        if (!ignoreValidation && string.IsNullOrWhiteSpace(defaultValue))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("fieldName", fieldName)
+                .WithData("detail", $"Please set default {fieldName} in Company.");
+        }
+
+        return defaultValue;
+    }
+
+    /// <summary>
+    /// Requires read permission on <c>Sales Order</c> before listing Sales Order calendar events
+    /// per ERPNext PR #68473 (<c>sales_order.py: get_events</c>).
+    /// </summary>
+    public static void ValidateSalesOrderEventsReadPermission(bool hasSalesOrderReadPermission)
+    {
+        if (!hasSalesOrderReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not Permitted to read Sales Order.");
+        }
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

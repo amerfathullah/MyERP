@@ -97,4 +97,25 @@ public class StockReconciliation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return priceListRate;
     }
+
+    /// <summary>
+    /// Resolves the valuation rate for a Stock Reconciliation row with a selected Serial and Batch Bundle
+    /// per ERPNext PR #67699 (<c>stock_reconciliation.py</c>):
+    /// keeps an explicit <c>0</c> valuation rate ONLY when <paramref name="allowZeroValuationRate"/> is true;
+    /// otherwise when <paramref name="valuationRate"/> is unset or <c>0</c>, falls back to
+    /// <paramref name="currentValuationRate"/>.
+    /// </summary>
+    public static decimal ResolveSelectedBundleValuationRate(
+        decimal? valuationRate,
+        decimal currentValuationRate,
+        bool allowZeroValuationRate)
+    {
+        var keepZeroRate = valuationRate.HasValue && valuationRate.Value == 0m && allowZeroValuationRate;
+        if ((!valuationRate.HasValue || valuationRate.Value == 0m) && !keepZeroRate)
+        {
+            return currentValuationRate;
+        }
+
+        return valuationRate!.Value;
+    }
 }

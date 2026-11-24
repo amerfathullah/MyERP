@@ -16,24 +16,24 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       <div class="row mb-3 g-2">
         <div class="col-md-3">
           <select class="form-select form-select-sm" [(ngModel)]="channelFilter" (change)="loadData()">
-            <option value="">All Channels</option>
-            <option value="Email">Email</option>
-            <option value="InApp">In-App</option>
-            <option value="Push">Push</option>
+            <option value="">{{ '::AllChannels' | abpLocalization }}</option>
+            <option value="Email">{{ '::Email' | abpLocalization }}</option>
+            <option value="InApp">{{ '::InApp' | abpLocalization }}</option>
+            <option value="Push">{{ '::Push' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-md-3">
           <select class="form-select form-select-sm" [(ngModel)]="statusFilter" (change)="loadData()">
-            <option value="">All Status</option>
-            <option value="Queued">Queued</option>
-            <option value="Sent">Sent</option>
-            <option value="Failed">Failed</option>
-            <option value="PermanentlyFailed">Permanently Failed</option>
+            <option value="">{{ '::AllStatus' | abpLocalization }}</option>
+            <option value="Queued">{{ '::Queued' | abpLocalization }}</option>
+            <option value="Sent">{{ '::Sent' | abpLocalization }}</option>
+            <option value="Failed">{{ '::Failed' | abpLocalization }}</option>
+            <option value="PermanentlyFailed">{{ '::PermanentlyFailed' | abpLocalization }}</option>
           </select>
         </div>
         @if (failedCount > 0) {
           <div class="col-md-6 text-end">
-            <span class="badge bg-danger fs-6"><i class="fa fa-exclamation-triangle me-1"></i>{{ failedCount }} failed</span>
+            <span class="badge bg-danger fs-6"><i class="fa fa-exclamation-triangle me-1"></i>{{ failedCount }} {{ '::FailedLower' | abpLocalization }}</span>
           </div>
         }
       </div>
@@ -43,18 +43,18 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
       @if (!isLoading && logs.length === 0) {
         <div class="text-center py-5">
           <i class="fa fa-bell-slash fa-3x text-muted mb-3 d-block"></i>
-          <p class="text-muted">No notification logs found.</p>
+          <p class="text-muted">{{ '::NoNotificationLogsFound' | abpLocalization }}</p>
         </div>
       } @else if (!isLoading) {
         <div class="card"><div class="card-body">
           <table class="table table-hover table-sm mb-0">
             <thead><tr>
               <th>{{ '::Date' | abpLocalization }}</th>
-              <th>Recipient</th>
-              <th>Subject</th>
-              <th>Channel</th>
+              <th>{{ '::Recipient' | abpLocalization }}</th>
+              <th>{{ '::Subject' | abpLocalization }}</th>
+              <th>{{ '::Channel' | abpLocalization }}</th>
               <th>{{ '::Status' | abpLocalization }}</th>
-              <th>Document</th>
+              <th>{{ '::Document' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (log of logs; track log.id) {
