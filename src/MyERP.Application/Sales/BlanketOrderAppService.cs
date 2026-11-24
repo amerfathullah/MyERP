@@ -90,6 +90,14 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
             query = query.Where(bo => bo.Currency == currency);
         }
 
+        // Per ERPNext PR #67986 (queries.get_blanket_orders): filter by typed text against OrderNumber
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            var filterLower = input.Filter.Trim().ToLowerInvariant();
+            query = query.Where(bo => bo.OrderNumber != null
+                && bo.OrderNumber.ToLower().Contains(filterLower));
+        }
+
         var candidates = query.OrderByDescending(b => b.CreationTime).ToList();
         if (input.ItemId.HasValue && input.ItemId.Value != Guid.Empty)
         {
@@ -99,7 +107,18 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
                 .ToList();
         }
 
-        return candidates.Select(x => ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(x)).ToList();
+        // Per ERPNext PR #67986: apply limit_start / limit_page_length pagination when requested
+        IEnumerable<BlanketOrder> paged = candidates;
+        if (input.SkipCount > 0)
+        {
+            paged = paged.Skip(input.SkipCount);
+        }
+        if (input.MaxResultCount.HasValue && input.MaxResultCount.Value > 0)
+        {
+            paged = paged.Take(input.MaxResultCount.Value);
+        }
+
+        return paged.Select(x => ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(x)).ToList();
     }
 
     public async Task<BlanketOrderDto> GetAsync(Guid id)

@@ -1000,7 +1000,99 @@ public class ProductionPlanMaterialPlanningService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Filters Sales Order rows eligible for Production Plan picker, Production Plan item loading,
+    /// and MRP report demand per ERPNext PR #68065 (<c>mapper.py: sales_order_query</c>),
+    /// PR #67977 (<c>planning_queries.py</c> / <c>sales_order_planning.py</c>),
+    /// and PR #67984 (<c>material_requirements_planning_report.py</c>):
+    /// requires submitted order in the target company, excludes Closed/Stopped/Completed/Cancelled orders,
+    /// excludes individually closed Sales Order rows (<c>IsRowClosed == true</c>), and requires
+    /// pending unplanned quantity (<c>StockQty &gt; ProductionPlanQty</c>).
+    /// </summary>
+    public static List<OpenSalesOrderPlanCandidate> FilterOpenSalesOrderRowsForProductionPlan(
+        Guid planCompanyId,
+        IEnumerable<OpenSalesOrderPlanCandidate>? candidates)
+    {
+        if (candidates == null)
+        {
+            return new List<OpenSalesOrderPlanCandidate>();
+        }
+
+        return candidates
+            .Where(c => c.CompanyId == planCompanyId
+                && c.IsSubmitted
+                && !c.IsRowClosed
+                && !string.Equals(c.OrderStatus, "Closed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(c.OrderStatus, "Stopped", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(c.OrderStatus, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(c.OrderStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)
+                && c.StockQty > c.ProductionPlanQty)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Filters Packed Item rows eligible for Production Plan by joining strictly on
+    /// <c>ParentSalesOrderItemId</c> (matching ERPNext PR #67977 <c>pi.parent_detail_docname == so_item.name</c>
+    /// instead of matching by <c>parent_item</c> code), excluding packed rows whose parent Sales Order row
+    /// is closed, and requiring positive pending qty and an active BOM.
+    /// </summary>
+    public static List<OpenPackedItemPlanCandidate> FilterOpenPackedItemsForProductionPlan(
+        IReadOnlyDictionary<Guid, bool> salesOrderRowClosedById,
+        IEnumerable<OpenPackedItemPlanCandidate>? packedItems)
+    {
+        if (salesOrderRowClosedById == null || packedItems == null)
+        {
+            return new List<OpenPackedItemPlanCandidate>();
+        }
+
+        return packedItems
+            .Where(pi => pi.ParentSalesOrderItemId != Guid.Empty
+                && salesOrderRowClosedById.TryGetValue(pi.ParentSalesOrderItemId, out var isClosed)
+                && !isClosed
+                && pi.PendingQty > 0m
+                && pi.HasBom)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Replaces a Production Plan's Sales Orders table unconditionally before appending fetched orders
+    /// per ERPNext PR #67978 (<c>sales_order_planning.py</c>): when <c>Get Sales Orders</c> finds none,
+    /// clears stale rows from an earlier fetch instead of retaining them.
+    /// </summary>
+    public static List<TRow> ReplaceProductionPlanSalesOrders<TRow>(
+        ICollection<TRow> existingSalesOrders,
+        IEnumerable<TRow>? fetchedSalesOrders)
+    {
+        existingSalesOrders.Clear();
+        if (fetchedSalesOrders != null)
+        {
+            foreach (var row in fetchedSalesOrders)
+            {
+                existingSalesOrders.Add(row);
+            }
+        }
+
+        return existingSalesOrders.ToList();
+    }
 }
+
+public sealed record OpenSalesOrderPlanCandidate(
+    Guid SalesOrderId,
+    Guid SalesOrderItemId,
+    Guid CompanyId,
+    bool IsSubmitted,
+    string OrderStatus,
+    bool IsRowClosed,
+    decimal StockQty,
+    decimal ProductionPlanQty);
+
+public sealed record OpenPackedItemPlanCandidate(
+    Guid PackedItemId,
+    Guid ParentSalesOrderItemId,
+    Guid ComponentItemId,
+    decimal PendingQty,
+    bool HasBom);
 
 public sealed record SalesOrderRowClosureInfo(
     Guid SalesOrderItemId,

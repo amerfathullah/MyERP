@@ -393,4 +393,80 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             forNoParty.ShouldBeEmpty();
         });
     }
+
+    [Fact]
+    public async Task GetActiveForPartyAsync_FiltersByTypedOrderNumberAndPaginates_Pr67986()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "BO Search Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "BO Search Customer"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-SRCH-ITEM", "BO Search Item", ItemType.Goods), autoSave: true);
+
+            var boApp = GetRequiredService<IBlanketOrderAppService>();
+            var bo1 = await boApp.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 10m, Rate = 10m }]
+            });
+            await boApp.SubmitAsync(bo1.Id);
+
+            var bo2 = await boApp.CreateAsync(new CreateBlanketOrderDto
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 20m, Rate = 12m }]
+            });
+            await boApp.SubmitAsync(bo2.Id);
+
+            // Typed text filter matches only the targeted Blanket Order number
+            var filtered = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today,
+                Filter = bo2.OrderNumber,
+            });
+            filtered.Count.ShouldBe(1);
+            filtered[0].Id.ShouldBe(bo2.Id);
+
+            // Pagination returns at most MaxResultCount starting at SkipCount
+            var page1 = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today,
+                SkipCount = 0,
+                MaxResultCount = 1,
+            });
+            page1.Count.ShouldBe(1);
+
+            var page2 = await boApp.GetActiveForPartyAsync(new GetActiveBlanketOrdersInput
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                ItemId = item.Id,
+                TransactionDate = DateTime.Today,
+                SkipCount = 1,
+                MaxResultCount = 1,
+            });
+            page2.Count.ShouldBe(1);
+            page2[0].Id.ShouldNotBe(page1[0].Id);
+        });
+    }
 }

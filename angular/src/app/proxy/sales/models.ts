@@ -1280,6 +1280,9 @@ export interface GetActiveBlanketOrdersInput {
   itemId?: string | null;
   transactionDate?: string | null;
   currency?: string | null;
+  filter?: string | null;
+  skipCount?: number;
+  maxResultCount?: number | null;
 }
 
 export interface GetCustomerListDto extends PagedAndSortedResultRequestDto {

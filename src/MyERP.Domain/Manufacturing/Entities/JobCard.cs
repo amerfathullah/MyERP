@@ -205,6 +205,28 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var openLogs = _timeLogs.Where(tl => tl.ToTime == default).ToList();
         if (openLogs.Count > 0)
         {
+            // Per ERPNext PR #67892 (job_card.py: make_time_log -> save runs validate_time_logs):
+            // enforce From/To order and reject overlaps against already-closed time logs before mutating.
+            var closedLogs = _timeLogs.Where(tl => tl.ToTime != default).ToList();
+            foreach (var row in openLogs)
+            {
+                if (toTime < row.FromTime)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("fromTime", row.FromTime)
+                        .WithData("toTime", toTime)
+                        .WithData("detail", "To Time cannot be before From Time in Job Card time log.");
+                }
+
+                if (closedLogs.Any(existing => row.FromTime < existing.ToTime && existing.FromTime < toTime))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("fromTime", row.FromTime)
+                        .WithData("toTime", toTime)
+                        .WithData("detail", "Time log overlaps with an existing time log on this Job Card.");
+                }
+            }
+
             var cycleLog = GetCycleTimeLog(closing: true);
             foreach (var row in openLogs)
             {

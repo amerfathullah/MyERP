@@ -7284,7 +7284,27 @@
     "TinLookupSearchHelp": "Search LHDN database for taxpayer TIN by ID type and value.",
     "BusinessRegistrationBrn": "Business Registration (BRN)",
     "MyKadNric": "MyKad (NRIC)",
-    "SearchButton": "Search"
+    "SearchButton": "Search",
+    "ExchangeRates": "Exchange Rates",
+    "Accounting": "Accounting",
+    "Manufacturing": "Manufacturing",
+    "SalesAndPricing": "Sales & Pricing",
+    "InventoryAndStock": "Inventory & Stock",
+    "StandardCosts": "Standard Costs",
+    "Purchasing": "Purchasing",
+    "HrAndPayroll": "HR & Payroll",
+    "SstTaxSummary": "SST Tax Summary",
+    "AutomationAndSecurity": "Automation & Security",
+    "EInvoiceLhdn": "E-Invoice (LHDN)",
+    "SettingsOverviewCompanyDesc": "Company defaults, accounts, and frozen dates.",
+    "SettingsOverviewAccountingDesc": "Payment terms, budgets, and accounting periods.",
+    "SettingsOverviewManufacturingDesc": "Production, scheduling, and capacity settings.",
+    "SettingsOverviewSalesPricingDesc": "Pricing rules, shipping, loyalty, and commissions.",
+    "SettingsOverviewInventoryDesc": "Item attributes, batches, UOMs, and stock control.",
+    "SettingsOverviewPurchasingDesc": "Supplier scorecards and procurement settings.",
+    "SettingsOverviewHrPayrollDesc": "Leave types, salary components, holiday lists.",
+    "SettingsOverviewTaxDesc": "Tax categories, templates, and SST configuration.",
+    "SettingsOverviewAutomationDesc": "Rules, templates, logs, and approvals."
   }
 }
 

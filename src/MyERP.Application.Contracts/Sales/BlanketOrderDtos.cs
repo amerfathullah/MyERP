@@ -70,4 +70,10 @@ public class GetActiveBlanketOrdersInput
     public Guid? ItemId { get; set; }
     public DateTime? TransactionDate { get; set; }
     public string? Currency { get; set; }
+    /// <summary>Optional search text matching Blanket Order number (ERPNext PR #67986).</summary>
+    public string? Filter { get; set; }
+    /// <summary>Optional pagination offset (ERPNext PR #67986: limit_start).</summary>
+    public int SkipCount { get; set; }
+    /// <summary>Optional pagination page size (ERPNext PR #67986: limit_page_length).</summary>
+    public int? MaxResultCount { get; set; }
 }

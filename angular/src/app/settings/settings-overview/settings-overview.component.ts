@@ -12,16 +12,16 @@ import { LocalizationPipe } from '@abp/ng.core';
   template: `
     <abp-page [title]="'::Settings' | abpLocalization">
       <div class="row g-3">
-        @for (section of sections; track section.title) {
+        @for (section of sections; track section.titleKey) {
           <div class="col-md-4">
             <div class="card h-100">
               <div class="card-body">
-                <h6 class="card-title"><i class="fa {{ section.icon }} me-2 text-primary"></i>{{ section.title }}</h6>
-                <p class="text-muted small mb-3">{{ section.description }}</p>
+                <h6 class="card-title"><i class="fa {{ section.icon }} me-2 text-primary"></i>{{ section.titleKey | abpLocalization }}</h6>
+                <p class="text-muted small mb-3">{{ section.descriptionKey | abpLocalization }}</p>
                 <div class="d-grid gap-1">
-                  @for (link of section.links; track link.label) {
+                  @for (link of section.links; track link.path) {
                     <a [routerLink]="link.path" class="btn btn-sm btn-outline-secondary text-start">
-                      <i class="fa {{ link.icon }} me-2"></i>{{ link.label }}
+                      <i class="fa {{ link.icon }} me-2"></i>{{ link.labelKey | abpLocalization }}
                     </a>
                   }
                 </div>
@@ -36,84 +36,84 @@ import { LocalizationPipe } from '@abp/ng.core';
 export class SettingsOverviewComponent {
   sections = [
     {
-      title: 'Company', icon: 'fa-building', description: 'Company defaults, accounts, and frozen dates.',
+      titleKey: '::Company', icon: 'fa-building', descriptionKey: '::SettingsOverviewCompanyDesc',
       links: [
-        { path: '/settings/company', label: 'Company Settings', icon: 'fa-sliders' },
-        { path: '/settings/accounts', label: 'Accounts Settings', icon: 'fa-calculator' },
-        { path: '/settings/selling', label: 'Selling Settings', icon: 'fa-chart-line' },
-        { path: '/settings/buying', label: 'Buying Settings', icon: 'fa-cart-shopping' },
-        { path: '/settings/stock', label: 'Stock Settings', icon: 'fa-boxes-stacked' },
-        { path: '/accounting/fiscal-years', label: 'Fiscal Years', icon: 'fa-calendar-days' },
-        { path: '/accounting/currency-exchange', label: 'Exchange Rates', icon: 'fa-exchange-alt' },
-        { path: '/accounting/period-closing', label: 'Period Closing', icon: 'fa-lock' },
+        { path: '/settings/company', labelKey: '::CompanySettings', icon: 'fa-sliders' },
+        { path: '/settings/accounts', labelKey: '::AccountsSettings', icon: 'fa-calculator' },
+        { path: '/settings/selling', labelKey: '::SellingSettings', icon: 'fa-chart-line' },
+        { path: '/settings/buying', labelKey: '::BuyingSettings', icon: 'fa-cart-shopping' },
+        { path: '/settings/stock', labelKey: '::StockSettings', icon: 'fa-boxes-stacked' },
+        { path: '/accounting/fiscal-years', labelKey: '::FiscalYears', icon: 'fa-calendar-days' },
+        { path: '/accounting/currency-exchange', labelKey: '::ExchangeRates', icon: 'fa-exchange-alt' },
+        { path: '/accounting/period-closing', labelKey: '::PeriodClosing', icon: 'fa-lock' },
       ]
     },
     {
-      title: 'Accounting', icon: 'fa-calculator', description: 'Payment terms, budgets, and accounting periods.',
+      titleKey: '::Accounting', icon: 'fa-calculator', descriptionKey: '::SettingsOverviewAccountingDesc',
       links: [
-        { path: '/accounting/opening-balance', label: 'Opening Balance', icon: 'fa-scale-balanced' },
-        { path: '/accounting/bank-transaction-rules', label: 'Bank Transaction Rules', icon: 'fa-robot' },
-        { path: '/accounting/invoice-discounting', label: 'Invoice Discounting', icon: 'fa-percent' },
-        { path: '/accounting/exchange-rate-revaluation', label: 'Exchange Rate Revaluation', icon: 'fa-scale-unbalanced' },
-        { path: '/accounting/finance-books', label: 'Finance Books', icon: 'fa-book-bookmark' },
+        { path: '/accounting/opening-balance', labelKey: '::OpeningBalance', icon: 'fa-scale-balanced' },
+        { path: '/accounting/bank-transaction-rules', labelKey: '::BankTransactionRules', icon: 'fa-robot' },
+        { path: '/accounting/invoice-discounting', labelKey: '::InvoiceDiscounting', icon: 'fa-percent' },
+        { path: '/accounting/exchange-rate-revaluation', labelKey: '::ExchangeRateRevaluation', icon: 'fa-scale-unbalanced' },
+        { path: '/accounting/finance-books', labelKey: '::FinanceBooks', icon: 'fa-book-bookmark' },
       ]
     },
     {
-      title: 'Manufacturing', icon: 'fa-industry', description: 'Production, scheduling, and capacity settings.',
+      titleKey: '::Manufacturing', icon: 'fa-industry', descriptionKey: '::SettingsOverviewManufacturingDesc',
       links: [
-        { path: '/manufacturing/settings', label: 'Manufacturing Settings', icon: 'fa-sliders' },
-        { path: '/manufacturing/workstations', label: 'Workstations', icon: 'fa-desktop' },
+        { path: '/manufacturing/settings', labelKey: '::ManufacturingSettings', icon: 'fa-sliders' },
+        { path: '/manufacturing/workstations', labelKey: '::Workstations', icon: 'fa-desktop' },
       ]
     },
     {
-      title: 'Sales & Pricing', icon: 'fa-tags', description: 'Pricing rules, shipping, loyalty, and commissions.',
+      titleKey: '::SalesAndPricing', icon: 'fa-tags', descriptionKey: '::SettingsOverviewSalesPricingDesc',
       links: [
-        { path: '/sales/pricing-rules', label: 'Pricing Rules', icon: 'fa-percent' },
-        { path: '/sales/shipping-rules', label: 'Shipping Rules', icon: 'fa-truck-fast' },
-        { path: '/sales/loyalty-programs', label: 'Loyalty Programs', icon: 'fa-gift' },
-        { path: '/sales/sales-persons', label: 'Sales Persons', icon: 'fa-user-tie' },
+        { path: '/sales/pricing-rules', labelKey: '::PricingRules', icon: 'fa-percent' },
+        { path: '/sales/shipping-rules', labelKey: '::ShippingRules', icon: 'fa-truck-fast' },
+        { path: '/sales/loyalty-programs', labelKey: '::LoyaltyPrograms', icon: 'fa-gift' },
+        { path: '/sales/sales-persons', labelKey: '::SalesPersons', icon: 'fa-user-tie' },
       ]
     },
     {
-      title: 'Inventory & Stock', icon: 'fa-boxes-stacked', description: 'Item attributes, batches, UOMs, and stock control.',
+      titleKey: '::InventoryAndStock', icon: 'fa-boxes-stacked', descriptionKey: '::SettingsOverviewInventoryDesc',
       links: [
-        { path: '/inventory/item-attributes', label: 'Item Attributes', icon: 'fa-palette' },
-        { path: '/inventory/batches', label: 'Batches', icon: 'fa-layer-group' },
-        { path: '/inventory/serial-numbers', label: 'Serial Numbers', icon: 'fa-barcode' },
-        { path: '/inventory/standard-costs', label: 'Standard Costs', icon: 'fa-tag' },
-        { path: '/inventory/stock-closing', label: 'Stock Closing', icon: 'fa-box-archive' },
+        { path: '/inventory/item-attributes', labelKey: '::ItemAttributes', icon: 'fa-palette' },
+        { path: '/inventory/batches', labelKey: '::Batches', icon: 'fa-layer-group' },
+        { path: '/inventory/serial-numbers', labelKey: '::SerialNumbers', icon: 'fa-barcode' },
+        { path: '/inventory/standard-costs', labelKey: '::StandardCosts', icon: 'fa-tag' },
+        { path: '/inventory/stock-closing', labelKey: '::StockClosing', icon: 'fa-box-archive' },
       ]
     },
     {
-      title: 'Purchasing', icon: 'fa-cart-shopping', description: 'Supplier scorecards and procurement settings.',
+      titleKey: '::Purchasing', icon: 'fa-cart-shopping', descriptionKey: '::SettingsOverviewPurchasingDesc',
       links: [
-        { path: '/purchasing/scorecards', label: 'Supplier Scorecards', icon: 'fa-star-half-stroke' },
+        { path: '/purchasing/scorecards', labelKey: '::SupplierScorecards', icon: 'fa-star-half-stroke' },
       ]
     },
     {
-      title: 'HR & Payroll', icon: 'fa-users', description: 'Leave types, salary components, holiday lists.',
+      titleKey: '::HrAndPayroll', icon: 'fa-users', descriptionKey: '::SettingsOverviewHrPayrollDesc',
       links: [
-        { path: '/hr/leave-allocations', label: 'Leave Allocations', icon: 'fa-calendar-check' },
-        { path: '/hr/holiday-lists', label: 'Holiday Lists', icon: 'fa-umbrella-beach' },
-        { path: '/hr/salary-structures', label: 'Salary Structures', icon: 'fa-money-bill-wave' },
-        { path: '/hr/loans', label: 'Loans', icon: 'fa-hand-holding-dollar' },
+        { path: '/hr/leave-allocations', labelKey: '::LeaveAllocations', icon: 'fa-calendar-check' },
+        { path: '/hr/holiday-lists', labelKey: '::HolidayLists', icon: 'fa-umbrella-beach' },
+        { path: '/hr/salary-structures', labelKey: '::SalaryStructures', icon: 'fa-money-bill-wave' },
+        { path: '/hr/loans', labelKey: '::Loans', icon: 'fa-hand-holding-dollar' },
       ]
     },
     {
-      title: 'Tax', icon: 'fa-receipt', description: 'Tax categories, templates, and SST configuration.',
+      titleKey: '::Tax', icon: 'fa-receipt', descriptionKey: '::SettingsOverviewTaxDesc',
       links: [
-        { path: '/tax/categories', label: 'Tax Categories', icon: 'fa-percent' },
-        { path: '/tax/summary', label: 'SST Tax Summary', icon: 'fa-file-invoice-dollar' },
+        { path: '/tax/categories', labelKey: '::TaxCategories', icon: 'fa-percent' },
+        { path: '/tax/summary', labelKey: '::SstTaxSummary', icon: 'fa-file-invoice-dollar' },
       ]
     },
     {
-      title: 'Automation & Security', icon: 'fa-robot', description: 'Rules, templates, logs, and approvals.',
+      titleKey: '::AutomationAndSecurity', icon: 'fa-robot', descriptionKey: '::SettingsOverviewAutomationDesc',
       links: [
-        { path: '/settings/authorization-rules', label: 'Authorization Rules', icon: 'fa-shield-halved' },
-        { path: '/settings/email-templates', label: 'Email Templates', icon: 'fa-envelope' },
-        { path: '/settings/notification-logs', label: 'Notification Logs', icon: 'fa-bell' },
-        { path: '/automation', label: 'Automation Rules', icon: 'fa-robot' },
-        { path: '/settings/einvoice', label: 'E-Invoice (LHDN)', icon: 'fa-file-shield' },
+        { path: '/settings/authorization-rules', labelKey: '::AuthorizationRules', icon: 'fa-shield-halved' },
+        { path: '/settings/email-templates', labelKey: '::EmailTemplates', icon: 'fa-envelope' },
+        { path: '/settings/notification-logs', labelKey: '::NotificationLogs', icon: 'fa-bell' },
+        { path: '/automation', labelKey: '::AutomationRules', icon: 'fa-robot' },
+        { path: '/settings/einvoice', labelKey: '::EInvoiceLhdn', icon: 'fa-file-shield' },
       ]
     },
   ];

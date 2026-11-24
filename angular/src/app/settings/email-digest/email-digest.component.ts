@@ -84,7 +84,7 @@ import type { EmailDigestSendResultDto } from '../../proxy/core/models';
               <div class="alert alert-info mt-3 mb-0">
                 {{ 'MyERP::DigestSentSummary' | abpLocalization }}:
                 {{ lastResult()!.recipientCount }} {{ 'MyERP::Recipients' | abpLocalization }},
-                {{ lastResult()!.openSalesOrderCount }} SO, {{ lastResult()!.overdueInvoiceCount }} {{ 'MyERP::OverdueInvoices' | abpLocalization }},
+                {{ lastResult()!.openSalesOrderCount }} {{ 'MyERP::OpenSalesOrders' | abpLocalization }}, {{ lastResult()!.overdueInvoiceCount }} {{ 'MyERP::OverdueInvoices' | abpLocalization }},
                 {{ lastResult()!.lowStockItemCount }} {{ 'MyERP::LowStockItems' | abpLocalization }}.
               </div>
             }

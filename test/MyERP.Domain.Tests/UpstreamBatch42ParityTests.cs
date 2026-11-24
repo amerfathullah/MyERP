@@ -20,7 +20,8 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67462, #67503, #67530,
-/// #67758, #68172, #68311, #68529, #68732, #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// #67758, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68529, #68732,
+/// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -864,5 +865,73 @@ public class UpstreamBatch42ParityTests
             currentApplyTds: false, taxWithholdingCategory: "TDS-10", taxWithholdingGroup: null, forValidate: true);
         apply3.ShouldBeFalse();
         onload3.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Pr67892_JobCardCompleteTimeLogs_ValidatesFromToOrderAndRejectsOverlaps()
+    {
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 1);
+        jc.StartTimeLog(new DateTime(2026, 5, 1, 10, 0, 0));
+
+        // Closing earlier than FromTime must throw
+        var exOrder = Should.Throw<BusinessException>(() =>
+            jc.CompleteTimeLogs(new DateTime(2026, 5, 1, 9, 30, 0), 2m));
+        exOrder.Data["detail"]!.ToString()!.ShouldContain("To Time cannot be before From Time");
+
+        // Valid close succeeds
+        jc.CompleteTimeLogs(new DateTime(2026, 5, 1, 11, 0, 0), 5m);
+        jc.CompletedQty.ShouldBe(5m);
+
+        // Starting a log that overlaps [10:00, 11:00] and trying to close it must throw
+        jc.StartTimeLog(new DateTime(2026, 5, 1, 10, 30, 0));
+        var exOverlap = Should.Throw<BusinessException>(() =>
+            jc.CompleteTimeLogs(new DateTime(2026, 5, 1, 11, 30, 0), 3m));
+        exOverlap.Data["detail"]!.ToString()!.ShouldContain("overlaps");
+    }
+
+    [Fact]
+    public void Pr67977_Pr67978_Pr67984_Pr68065_ProductionPlanExcludesClosedSalesOrderRowsAndClearsEmptyFetch()
+    {
+        var companyId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
+        var so1 = Guid.NewGuid();
+        var openRowId = Guid.NewGuid();
+        var closedRowId = Guid.NewGuid();
+
+        var candidates = new[]
+        {
+            new OpenSalesOrderPlanCandidate(so1, openRowId, companyId, true, "To Deliver and Bill", false, 10m, 4m),
+            new OpenSalesOrderPlanCandidate(so1, closedRowId, companyId, true, "To Deliver and Bill", true, 10m, 0m),
+            new OpenSalesOrderPlanCandidate(Guid.NewGuid(), Guid.NewGuid(), companyId, true, "Closed", false, 10m, 0m),
+            new OpenSalesOrderPlanCandidate(Guid.NewGuid(), Guid.NewGuid(), companyId, true, "Stopped", false, 10m, 0m),
+            new OpenSalesOrderPlanCandidate(Guid.NewGuid(), Guid.NewGuid(), otherCompanyId, true, "To Deliver and Bill", false, 10m, 0m),
+            new OpenSalesOrderPlanCandidate(Guid.NewGuid(), Guid.NewGuid(), companyId, true, "To Deliver and Bill", false, 10m, 10m),
+        };
+
+        var openRows = ProductionPlanMaterialPlanningService.FilterOpenSalesOrderRowsForProductionPlan(companyId, candidates);
+        openRows.Count.ShouldBe(1);
+        openRows[0].SalesOrderItemId.ShouldBe(openRowId);
+
+        // Packed items match strictly by ParentSalesOrderItemId and skip closed parent rows (PR #67977)
+        var closureMap = new Dictionary<Guid, bool>
+        {
+            [openRowId] = false,
+            [closedRowId] = true,
+        };
+        var packed = new[]
+        {
+            new OpenPackedItemPlanCandidate(Guid.NewGuid(), openRowId, Guid.NewGuid(), 5m, true),
+            new OpenPackedItemPlanCandidate(Guid.NewGuid(), closedRowId, Guid.NewGuid(), 5m, true),
+            new OpenPackedItemPlanCandidate(Guid.NewGuid(), openRowId, Guid.NewGuid(), 0m, true),
+            new OpenPackedItemPlanCandidate(Guid.NewGuid(), openRowId, Guid.NewGuid(), 5m, false),
+        };
+        var openPacked = ProductionPlanMaterialPlanningService.FilterOpenPackedItemsForProductionPlan(closureMap, packed);
+        openPacked.Count.ShouldBe(1);
+        openPacked[0].ParentSalesOrderItemId.ShouldBe(openRowId);
+
+        // Empty Get Sales Orders clears stale rows (PR #67978)
+        var existing = new List<Guid> { so1 };
+        ProductionPlanMaterialPlanningService.ReplaceProductionPlanSalesOrders(existing, Array.Empty<Guid>());
+        existing.ShouldBeEmpty();
     }
 }
