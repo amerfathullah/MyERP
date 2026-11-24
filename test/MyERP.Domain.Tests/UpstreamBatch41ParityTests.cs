@@ -4007,6 +4007,112 @@ public class UpstreamBatch41ParityTests
             MyERP.EInvoice.Services.TaxpayerValidationService.ValidateTaxpayerSearchInputs(null, null, " "));
     }
 
+    [Fact]
+    public void UpstreamBatch38_JobCardRescaleInPlace_ItemTaxDescription_RejectedReturnCredit_InwardSecondaryCollapse_Parity()
+    {
+        // 1. ERPNext PR #68098: Job Card items rescale in place, clamping to transferred qty and retaining moved unmatched rows
+        var rowA = Guid.NewGuid();
+        var rowB = Guid.NewGuid();
+        var rowC = Guid.NewGuid();
+        var itemA = Guid.NewGuid();
+        var itemB = Guid.NewGuid();
+        var itemC = Guid.NewGuid();
+        var itemD = Guid.NewGuid();
+
+        var rescaled = JobCardManager.RescaleJobCardRequiredItemsInPlace(
+            new[]
+            {
+                new JobCardExistingItemRow(rowA, itemA, RequiredQty: 10m, TransferredQty: 6m, ConsumedQty: 0m),
+                new JobCardExistingItemRow(rowB, itemB, RequiredQty: 5m, TransferredQty: 0m, ConsumedQty: 0m),
+                new JobCardExistingItemRow(rowC, itemC, RequiredQty: 4m, TransferredQty: 2m, ConsumedQty: 0m),
+            },
+            new[]
+            {
+                (itemA, 4m), // below transferred 6 -> clamped to 6
+                (itemD, 3m), // new item appended
+            });
+
+        rescaled.Count.ShouldBe(3);
+        rescaled.Single(r => r.ItemId == itemA).ShouldBe(new JobCardRescaledItemRow(rowA, itemA, 6m, 6m, 0m));
+        rescaled.Single(r => r.ItemId == itemD).ShouldBe(new JobCardRescaledItemRow(null, itemD, 3m, 0m, 0m));
+        rescaled.Single(r => r.ItemId == itemC).RowId.ShouldBe(rowC); // moved row preserved
+        rescaled.Any(r => r.ItemId == itemB).ShouldBeFalse(); // unmoved stale row dropped
+
+        // 2. ERPNext PR #68588: Missing tax row added from Item Tax Template gets account name as Description
+        var existingAcc = Guid.NewGuid();
+        var sstAcc = Guid.NewGuid();
+        var addedTaxes = MyERP.Tax.DomainServices.TransactionTaxRecalculationService.BuildMissingItemTaxTemplateRows(
+            addTaxesFromItemTaxTemplate: true,
+            existingTaxAccountIds: new[] { existingAcc },
+            itemTaxTemplateHeads: new[]
+            {
+                (existingAcc, (string?)"Existing Tax"),
+                (sstAcc, (string?)"Sales Tax 6%"),
+                (sstAcc, (string?)"Sales Tax 6%"),
+            });
+        addedTaxes.Count.ShouldBe(1);
+        addedTaxes[0].TaxAccountId.ShouldBe(sstAcc);
+        addedTaxes[0].ChargeType.ShouldBe("On Net Total");
+        addedTaxes[0].Rate.ShouldBe(0m);
+        addedTaxes[0].Description.ShouldBe("Sales Tax 6%");
+
+        // 3. ERPNext PR #68080: Non-internal return from rejected warehouse takes back SRBNB at net rate without charges
+        var origPrItem = Guid.NewGuid();
+        PurchaseReceiptManager.CalculateRejectedWarehouseReturnCreditAmount(
+            isReturn: true, returnQtyFromRejectedWarehouse: true, isInternalTransfer: false,
+            originalPurchaseReceiptItemId: origPrItem, originalReceiptAcceptedQty: 10m,
+            stockQty: -4m, baseNetRate: 50m, conversionFactor: 2m)
+            .ShouldBe(-100m);
+        // Zero accepted qty on original receipt or internal transfer -> rule does not apply
+        PurchaseReceiptManager.CalculateRejectedWarehouseReturnCreditAmount(
+            isReturn: true, returnQtyFromRejectedWarehouse: true, isInternalTransfer: false,
+            originalPurchaseReceiptItemId: origPrItem, originalReceiptAcceptedQty: 0m,
+            stockQty: -4m, baseNetRate: 50m, conversionFactor: 2m)
+            .ShouldBeNull();
+        PurchaseReceiptManager.CalculateRejectedWarehouseReturnCreditAmount(
+            isReturn: true, returnQtyFromRejectedWarehouse: true, isInternalTransfer: true,
+            originalPurchaseReceiptItemId: origPrItem, originalReceiptAcceptedQty: 10m,
+            stockQty: -4m, baseNetRate: 50m, conversionFactor: 2m)
+            .ShouldBeNull();
+
+        // 4. ERPNext PR #68067: Inward secondary items collapse into one row per (Item, Warehouse) and skip untouched rows
+        var wh1 = Guid.NewGuid();
+        var wh2 = Guid.NewGuid();
+        var secExistingId = Guid.NewGuid();
+        var secUntouchedId = Guid.NewGuid();
+        var itemNew = Guid.NewGuid();
+
+        var submitRes = SubcontractingManager.ReconcileInwardSecondaryItemsPerItemAndWarehouse(
+            isCancel: false,
+            existingSecondaryRows: new[]
+            {
+                (secExistingId, itemA, wh1, 3m),
+                (secUntouchedId, itemB, wh2, 5m),
+            },
+            incomingSecondaryRows: new[]
+            {
+                (itemA, wh1, 2m),
+                (itemNew, wh1, 1.5m),
+                (itemNew, wh1, 2.5m),
+            });
+        submitRes.UpdatedProducedQtyByRowId.Keys.ShouldBe(new[] { secExistingId });
+        submitRes.UpdatedProducedQtyByRowId[secExistingId].ShouldBe(5m);
+        submitRes.NewRowsToCreate.ShouldBe(new[] { (itemNew, wh1, 4m) });
+        submitRes.RowIdsToDelete.ShouldBeEmpty();
+
+        // Cancel removing full produced qty deletes matched row while leaving untouched row alone
+        var cancelRes = SubcontractingManager.ReconcileInwardSecondaryItemsPerItemAndWarehouse(
+            isCancel: true,
+            existingSecondaryRows: new[]
+            {
+                (secExistingId, itemA, wh1, 2m),
+                (secUntouchedId, itemB, wh2, 5m),
+            },
+            incomingSecondaryRows: new[] { (itemA, wh1, 2m) });
+        cancelRes.RowIdsToDelete.ShouldBe(new[] { secExistingId });
+        cancelRes.UpdatedProducedQtyByRowId.ShouldBeEmpty();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

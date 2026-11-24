@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ActivityCostService } from '../../proxy/projects/activity-cost.service';
 import { ActivityTypeService } from '../../proxy/projects/activity-type.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
@@ -12,29 +13,29 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
 @Component({
   selector: 'app-activity-cost-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Activity Cost</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditActivityCost' : '::NewActivityCost') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Employee *</label>
+              <label class="form-label">{{ '::Employee' | abpLocalization }} *</label>
               <select class="form-select" formControlName="employeeId">
-                <option value="">— Select Employee —</option>
+                <option value="">— {{ '::SelectEmployee' | abpLocalization }} —</option>
                 @for (e of employees(); track e.id) {
                   <option [value]="e.id">{{ e.employeeId ? e.employeeId + ' - ' : '' }}{{ e.fullName }}</option>
                 }
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Activity Type *</label>
+              <label class="form-label">{{ '::ActivityType' | abpLocalization }} *</label>
               <select class="form-select" formControlName="activityTypeId">
-                <option value="">— Select Activity Type —</option>
+                <option value="">— {{ '::SelectActivityType' | abpLocalization }} —</option>
                 @for (a of activityTypes(); track a.id) {
                   <option [value]="a.id">{{ a.name }}</option>
                 }
@@ -44,18 +45,18 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
 
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Billing Rate (/hour) *</label>
+              <label class="form-label">{{ '::BillingRatePerHour' | abpLocalization }} *</label>
               <input type="number" step="0.01" class="form-control" formControlName="billingRate" placeholder="0.00">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Costing Rate (/hour) *</label>
+              <label class="form-label">{{ '::CostingRatePerHour' | abpLocalization }} *</label>
               <input type="number" step="0.01" class="form-control" formControlName="costingRate" placeholder="0.00">
             </div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/projects/activity-costs" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/projects/activity-costs" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -115,7 +116,7 @@ export class ActivityCostFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/projects/activity-costs']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

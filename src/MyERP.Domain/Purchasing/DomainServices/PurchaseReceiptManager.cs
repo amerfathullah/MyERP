@@ -1458,6 +1458,38 @@ public class PurchaseReceiptManager : DomainService
 
         return Math.Max(stockQty, -postedLeft);
     }
+
+    /// <summary>
+    /// Computes the outgoing / Stock Received But Not Billed reversal amount for a non-internal return
+    /// from a Rejected Warehouse against a Purchase Receipt row that also had accepted qty per ERPNext PR #68080
+    /// (<c>PurchaseReceiptGLComposer</c>):
+    /// a receipt with accepted qty credited its rejected stock at net rate without charges, so returning
+    /// from the rejected warehouse reverses <c>stockQty * baseNetRate / conversionFactor</c>.
+    /// Returns <c>null</c> when the special rule does not apply.
+    /// </summary>
+    public static decimal? CalculateRejectedWarehouseReturnCreditAmount(
+        bool isReturn,
+        bool returnQtyFromRejectedWarehouse,
+        bool isInternalTransfer,
+        Guid? originalPurchaseReceiptItemId,
+        decimal originalReceiptAcceptedQty,
+        decimal stockQty,
+        decimal baseNetRate,
+        decimal conversionFactor)
+    {
+        if (!isReturn
+            || !returnQtyFromRejectedWarehouse
+            || isInternalTransfer
+            || !originalPurchaseReceiptItemId.HasValue
+            || originalPurchaseReceiptItemId.Value == Guid.Empty
+            || originalReceiptAcceptedQty == 0m)
+        {
+            return null;
+        }
+
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return stockQty * baseNetRate / factor;
+    }
 }
 
 public readonly record struct PurchaseReceiptReturnLegRow(

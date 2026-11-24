@@ -128,7 +128,48 @@ public class TransactionTaxRecalculationService : DomainService
             BaseGrandTotal = grandTotal * exchangeRate,
         };
     }
+
+    /// <summary>
+    /// Builds missing document-level <c>On Net Total</c> 0%-rate tax rows implied by Item Tax Templates
+    /// per ERPNext PR #68588 (<c>TransactionBase.add_taxes_from_item_tax_template</c>):
+    /// sets <c>Description</c> from the tax account's <c>AccountName</c> so auto-added tax rows never
+    /// fail description validation on save/submit.
+    /// </summary>
+    public static List<AutoAddedItemTaxRow> BuildMissingItemTaxTemplateRows(
+        bool addTaxesFromItemTaxTemplate,
+        IEnumerable<Guid>? existingTaxAccountIds,
+        IEnumerable<(Guid TaxAccountId, string? AccountName)>? itemTaxTemplateHeads)
+    {
+        var added = new List<AutoAddedItemTaxRow>();
+        if (!addTaxesFromItemTaxTemplate || itemTaxTemplateHeads == null)
+            return added;
+
+        var seen = new HashSet<Guid>(existingTaxAccountIds ?? Array.Empty<Guid>());
+        foreach (var (taxAccountId, accountName) in itemTaxTemplateHeads)
+        {
+            if (taxAccountId == Guid.Empty || !seen.Add(taxAccountId))
+                continue;
+
+            var description = !string.IsNullOrWhiteSpace(accountName)
+                ? accountName.Trim()
+                : taxAccountId.ToString();
+
+            added.Add(new AutoAddedItemTaxRow(
+                TaxAccountId: taxAccountId,
+                ChargeType: "On Net Total",
+                Rate: 0m,
+                Description: description));
+        }
+
+        return added;
+    }
 }
+
+public readonly record struct AutoAddedItemTaxRow(
+    Guid TaxAccountId,
+    string ChargeType,
+    decimal Rate,
+    string Description);
 
 // --- Supporting types ---
 

@@ -1578,7 +1578,77 @@ public class JobCardManager : DomainService
 
         return jobCardFinishedGoodId == workOrderProductionItemId;
     }
+
+    /// <summary>
+    /// Rescales Job Card required items in place when <c>ForQuantity</c> changes per ERPNext PR #68098
+    /// (<c>JobCard.reset_required_items</c> &amp; <c>set_required_item</c>):
+    /// - Updates matched existing rows in place, clamping <c>RequiredQty</c> to at least <c>TransferredQty</c>.
+    /// - Appends newly required items not yet on the Job Card.
+    /// - Drops unmatched existing rows ONLY when both <c>TransferredQty</c> and <c>ConsumedQty</c> are 0,
+    ///   preserving any row against which material has already moved.
+    /// </summary>
+    public static List<JobCardRescaledItemRow> RescaleJobCardRequiredItemsInPlace(
+        IEnumerable<JobCardExistingItemRow> existingRows,
+        IEnumerable<(Guid ItemId, decimal ComputedRequiredQty)> targetRequiredItems)
+    {
+        var unmatched = existingRows.ToList();
+        var result = new List<JobCardRescaledItemRow>();
+
+        foreach (var target in targetRequiredItems)
+        {
+            var matchIdx = unmatched.FindIndex(r => r.ItemId == target.ItemId);
+            if (matchIdx >= 0)
+            {
+                var matched = unmatched[matchIdx];
+                unmatched.RemoveAt(matchIdx);
+                result.Add(new JobCardRescaledItemRow(
+                    matched.RowId,
+                    matched.ItemId,
+                    Math.Max(target.ComputedRequiredQty, matched.TransferredQty),
+                    matched.TransferredQty,
+                    matched.ConsumedQty));
+            }
+            else
+            {
+                result.Add(new JobCardRescaledItemRow(
+                    null,
+                    target.ItemId,
+                    target.ComputedRequiredQty,
+                    0m,
+                    0m));
+            }
+        }
+
+        foreach (var leftover in unmatched)
+        {
+            if (leftover.TransferredQty > 0m || leftover.ConsumedQty > 0m)
+            {
+                result.Add(new JobCardRescaledItemRow(
+                    leftover.RowId,
+                    leftover.ItemId,
+                    leftover.RequiredQty,
+                    leftover.TransferredQty,
+                    leftover.ConsumedQty));
+            }
+        }
+
+        return result;
+    }
 }
+
+public readonly record struct JobCardExistingItemRow(
+    Guid RowId,
+    Guid ItemId,
+    decimal RequiredQty,
+    decimal TransferredQty,
+    decimal ConsumedQty);
+
+public readonly record struct JobCardRescaledItemRow(
+    Guid? RowId,
+    Guid ItemId,
+    decimal RequiredQty,
+    decimal TransferredQty,
+    decimal ConsumedQty);
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>
 public record JobCardTimeLogRange(DateTime FromTime, DateTime ToTime, Guid? JobCardId = null);

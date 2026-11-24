@@ -7004,7 +7004,20 @@
     "NoDetailRecordsLogged": "No detail records logged.",
     "RetryInitiated": "Retry initiated",
     "RetryFailed": "Retry failed",
-    "Retried": "Retried"
+    "Retried": "Retried",
+    "MemberCount": "Member Count",
+    "NoEmployeeGroupsConfigured": "No employee groups configured yet.",
+    "SelectActivityType": "Select Activity Type",
+    "BillingRatePerHour": "Billing Rate (/hour)",
+    "CostingRatePerHour": "Costing Rate (/hour)",
+    "BillingRatePerHr": "Billing Rate (/hr)",
+    "CostingRatePerHr": "Costing Rate (/hr)",
+    "NoActivityCostsConfigured": "No activity costs configured yet.",
+    "BackToSubscriptions": "Back to Subscriptions",
+    "GracePeriodDays": "Grace Period (Days)",
+    "GracePeriodHelp": "Number of days after invoice due date before marking as unpaid or canceling.",
+    "CancelSubscriptionAfterGracePeriod": "Cancel Subscription After Grace Period",
+    "ProrateChargesForPartialPeriods": "Prorate Charges for Partial Periods"
   }
 }
 

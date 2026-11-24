@@ -2950,7 +2950,74 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Reconciles Subcontracting Inward Order secondary item rows per <c>(ItemId, WarehouseId)</c> on
+    /// Manufacture submit/cancel per ERPNext PR #68067 (<c>SubcontractingInwardController</c>):
+    /// - Aggregates transfer quantities per <c>(ItemId, WarehouseId)</c> rounded to <paramref name="producedQtyPrecision"/>.
+    /// - Updates ONLY existing rows matching keys in the transfer batch, deleting rows on cancel when
+    ///   <c>ProducedQty - |delta| == 0</c>.
+    /// - Emits a single consolidated new row per unseen <c>(ItemId, WarehouseId)</c> with the summed produced qty.
+    /// </summary>
+    public static InwardSecondaryItemReconciliationResult ReconcileInwardSecondaryItemsPerItemAndWarehouse(
+        bool isCancel,
+        IEnumerable<(Guid RowId, Guid ItemId, Guid WarehouseId, decimal ProducedQty)> existingSecondaryRows,
+        IEnumerable<(Guid ItemId, Guid WarehouseId, decimal TransferQty)> incomingSecondaryRows,
+        int producedQtyPrecision = 4)
+    {
+        var deltaByKey = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+        foreach (var row in incomingSecondaryRows)
+        {
+            var key = (row.ItemId, row.WarehouseId);
+            deltaByKey.TryGetValue(key, out var existing);
+            deltaByKey[key] = existing + (isCancel ? -row.TransferQty : row.TransferQty);
+        }
+
+        var roundedDeltaByKey = deltaByKey.ToDictionary(
+            kv => kv.Key,
+            kv => Math.Round(kv.Value, producedQtyPrecision, MidpointRounding.AwayFromZero));
+
+        var updated = new Dictionary<Guid, decimal>();
+        var deleted = new List<Guid>();
+        var existingKeys = new HashSet<(Guid ItemId, Guid WarehouseId)>();
+
+        foreach (var existing in existingSecondaryRows)
+        {
+            var key = (existing.ItemId, existing.WarehouseId);
+            existingKeys.Add(key);
+            if (!roundedDeltaByKey.TryGetValue(key, out var delta))
+                continue;
+
+            if (isCancel && Math.Round(existing.ProducedQty - Math.Abs(delta), producedQtyPrecision, MidpointRounding.AwayFromZero) == 0m)
+            {
+                deleted.Add(existing.RowId);
+            }
+            else
+            {
+                updated[existing.RowId] = Math.Round(existing.ProducedQty + delta, producedQtyPrecision, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        var created = new List<(Guid ItemId, Guid WarehouseId, decimal ProducedQty)>();
+        if (!isCancel)
+        {
+            foreach (var (key, qty) in roundedDeltaByKey)
+            {
+                if (!existingKeys.Contains(key) && qty > 0m)
+                {
+                    created.Add((key.ItemId, key.WarehouseId, qty));
+                }
+            }
+        }
+
+        return new InwardSecondaryItemReconciliationResult(updated, deleted, created);
+    }
 }
+
+public sealed record InwardSecondaryItemReconciliationResult(
+    IReadOnlyDictionary<Guid, decimal> UpdatedProducedQtyByRowId,
+    IReadOnlyList<Guid> RowIdsToDelete,
+    IReadOnlyList<(Guid ItemId, Guid WarehouseId, decimal ProducedQty)> NewRowsToCreate);
 
 public sealed record SubcontractingSecondaryRowInput(
     Guid RowId,
