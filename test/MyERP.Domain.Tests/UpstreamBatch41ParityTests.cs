@@ -4183,6 +4183,77 @@ public class UpstreamBatch41ParityTests
         blocks[1].ShouldBe((s2Start, s2Start.AddSeconds(20)));
     }
 
+    [Fact]
+    public void UpstreamBatch40_InwardFgRatio_DoNotExplodeBomLine_MpsEmptyFetchClear_Parity()
+    {
+        // 1. ERPNext PR #68025: Subcontracting Inward Order takes finished good conversion factor (stock_qty / fg_item_qty) from SO row
+        var soItem1 = Guid.NewGuid();
+        var soItemZero = Guid.NewGuid();
+        var scioItem1 = Guid.NewGuid();
+        var scioItemZero = Guid.NewGuid();
+        var factors = SubcontractingManager.ResolveInwardOrderSubcontractingConversionFactors(
+            salesOrderRows: new[]
+            {
+                (soItem1, StockQty: 25m, FgItemQty: 5m),
+                (soItemZero, StockQty: 10m, FgItemQty: 0m),
+            },
+            inwardOrderRows: new[]
+            {
+                (scioItem1, (Guid?)soItem1),
+                (scioItemZero, (Guid?)soItemZero),
+            });
+        factors.Count.ShouldBe(1);
+        factors[scioItem1].ShouldBe(5m);
+
+        // 2. ERPNext PR #67981: Do Not Explode BOM line never inherits item's DefaultBom and is requested as-is
+        var defaultBom = Guid.NewGuid();
+        var (dneBom, dneExplode) = ProductionPlanMaterialPlanningService.ResolveBomExplosionSubitemChildBomAndMode(
+            lineBomId: null,
+            defaultBomId: defaultBom,
+            doNotExplode: true,
+            isPhantomItem: false,
+            isSubcontractedItem: false,
+            includeExplodedItems: true,
+            includeSubcontractedItems: false,
+            qty: 5m);
+        dneBom.ShouldBeNull();
+        dneExplode.ShouldBeFalse();
+
+        // Normal BOM line without DoNotExplode inherits DefaultBom and explodes unless subcontracted & includeSubcontractedItems == false
+        var (normalBom, normalExplode) = ProductionPlanMaterialPlanningService.ResolveBomExplosionSubitemChildBomAndMode(
+            lineBomId: null,
+            defaultBomId: defaultBom,
+            doNotExplode: false,
+            isPhantomItem: false,
+            isSubcontractedItem: false,
+            includeExplodedItems: true,
+            includeSubcontractedItems: false,
+            qty: 5m);
+        normalBom.ShouldBe(defaultBom);
+        normalExplode.ShouldBeTrue();
+
+        var (subBom, subExplode) = ProductionPlanMaterialPlanningService.ResolveBomExplosionSubitemChildBomAndMode(
+            lineBomId: null,
+            defaultBomId: defaultBom,
+            doNotExplode: false,
+            isPhantomItem: false,
+            isSubcontractedItem: true,
+            includeExplodedItems: true,
+            includeSubcontractedItems: false,
+            qty: 5m);
+        subBom.ShouldBe(defaultBom);
+        subExplode.ShouldBeFalse();
+
+        // 3. ERPNext PR #68022: Empty MPS fetch clears stale Sales Orders / Material Requests instead of keeping old rows
+        var existingSalesOrders = new List<string> { "SO-OLD-1", "SO-OLD-2" };
+        var cleared = MasterProductionScheduleService.ReplaceMpsFetchedChildRows(existingSalesOrders, Array.Empty<string>());
+        cleared.ShouldBeEmpty();
+        existingSalesOrders.ShouldBeEmpty();
+
+        var replaced = MasterProductionScheduleService.ReplaceMpsFetchedChildRows(existingSalesOrders, new[] { "SO-NEW-1" });
+        replaced.ShouldBe(new[] { "SO-NEW-1" });
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

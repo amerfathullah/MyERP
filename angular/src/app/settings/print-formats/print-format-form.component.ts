@@ -3,48 +3,49 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PrintFormatService } from '../../proxy/settings/print-format.service';
 
 @Component({
   selector: 'app-print-format-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title">{{ isEdit ? 'Edit' : 'New' }} Print Format</h5>
+        <h5 class="card-title">{{ (isEdit ? '::EditPrintFormat' : '::NewPrintFormat') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Name *</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="name">
           </div>
           <div class="mb-3">
-            <label class="form-label">Document Type *</label>
+            <label class="form-label">{{ '::DocumentType' | abpLocalization }} *</label>
             <select class="form-select" formControlName="documentType">
-              <option value="SalesInvoice">Sales Invoice</option>
-              <option value="PurchaseOrder">Purchase Order</option>
-              <option value="DeliveryNote">Delivery Note</option>
-              <option value="PaymentEntry">Payment Entry</option>
+              <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+              <option value="PurchaseOrder">{{ '::PurchaseOrder' | abpLocalization }}</option>
+              <option value="DeliveryNote">{{ '::DeliveryNote' | abpLocalization }}</option>
+              <option value="PaymentEntry">{{ '::PaymentEntry' | abpLocalization }}</option>
             </select>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" formControlName="isDefault" id="isDefault">
-            <label class="form-check-label" for="isDefault">Is Default</label>
+            <label class="form-check-label" for="isDefault">{{ '::IsDefault' | abpLocalization }}</label>
           </div>
           <div class="mb-3">
-            <label class="form-label">HTML Template *</label>
+            <label class="form-label">{{ '::HtmlTemplate' | abpLocalization }} *</label>
             <textarea class="form-control" formControlName="htmlTemplate" rows="10"></textarea>
-            <small class="form-text text-muted">Use Razor/Liquid syntax or pure HTML placeholders.</small>
+            <small class="form-text text-muted">{{ '::HtmlTemplateHelp' | abpLocalization }}</small>
           </div>
           <div class="mb-3">
-            <label class="form-label">CSS Styles</label>
+            <label class="form-label">{{ '::CssStyles' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="cssStyles" rows="5"></textarea>
           </div>
-          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-          <a routerLink="/settings/print-formats" class="btn btn-secondary ms-2">Cancel</a>
+          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+          <a routerLink="/settings/print-formats" class="btn btn-secondary ms-2">{{ '::Cancel' | abpLocalization }}</a>
         </form>
       </div>
     </div>

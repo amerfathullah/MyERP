@@ -3086,6 +3086,38 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Resolves <c>SubcontractingConversionFactor</c> (<c>stock_qty / fg_item_qty</c>) for each
+    /// Subcontracting Inward Order item from its linked Sales Order row per ERPNext PR #68025
+    /// (<c>SubcontractingInwardOrder.set_subcontracting_conversion_factor</c>):
+    /// ignores Sales Order rows with zero/non-positive <c>StockQty</c> or <c>FgItemQty</c>.
+    /// </summary>
+    public static Dictionary<Guid, decimal> ResolveInwardOrderSubcontractingConversionFactors(
+        IEnumerable<(Guid SalesOrderItemId, decimal StockQty, decimal FgItemQty)> salesOrderRows,
+        IEnumerable<(Guid ScioItemId, Guid? SalesOrderItemId)> inwardOrderRows)
+    {
+        var factorBySoItem = new Dictionary<Guid, decimal>();
+        foreach (var so in salesOrderRows)
+        {
+            if (so.SalesOrderItemId != Guid.Empty && so.StockQty > 0m && so.FgItemQty > 0m)
+            {
+                factorBySoItem[so.SalesOrderItemId] = so.StockQty / so.FgItemQty;
+            }
+        }
+
+        var result = new Dictionary<Guid, decimal>();
+        foreach (var scio in inwardOrderRows)
+        {
+            if (scio.SalesOrderItemId.HasValue
+                && factorBySoItem.TryGetValue(scio.SalesOrderItemId.Value, out var factor))
+            {
+                result[scio.ScioItemId] = factor;
+            }
+        }
+
+        return result;
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

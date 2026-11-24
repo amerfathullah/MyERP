@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { LetterHeadService } from '../../proxy/core/letter-head.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -11,54 +12,54 @@ import type { CompanyDto } from '../../proxy/core/models';
 @Component({
   selector: 'app-letter-head-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Letter Head</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditLetterHead' : '::NewLetterHead') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Company *</label>
+            <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
             <select class="form-select" formControlName="companyId">
-              <option value="">— Select Company —</option>
+              <option value="">— {{ '::SelectCompany' | abpLocalization }} —</option>
               @for (c of companies(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Name *</label>
+            <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="letterHeadName" maxlength="140">
           </div>
           <div class="mb-3">
-            <label class="form-label">For</label>
+            <label class="form-label">{{ '::For' | abpLocalization }}</label>
             <select class="form-select" formControlName="letterHeadFor">
-              <option [ngValue]="0">DocType (transactions)</option>
-              <option [ngValue]="1">Report</option>
+              <option [ngValue]="0">{{ '::DocTypeTransactions' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::Report' | abpLocalization }}</option>
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Header Content</label>
+            <label class="form-label">{{ '::HeaderContent' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="headerContent" rows="5"></textarea>
-            <small class="form-text text-muted">HTML or image URL for the document header.</small>
+            <small class="form-text text-muted">{{ '::HeaderContentHelp' | abpLocalization }}</small>
           </div>
           <div class="mb-3">
-            <label class="form-label">Footer Content</label>
+            <label class="form-label">{{ '::FooterContent' | abpLocalization }}</label>
             <textarea class="form-control" formControlName="footerContent" rows="5"></textarea>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" formControlName="isDefault" id="isDefault">
-            <label class="form-check-label" for="isDefault">Default for this category</label>
+            <label class="form-check-label" for="isDefault">{{ '::DefaultForThisCategory' | abpLocalization }}</label>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" formControlName="isDisabled" id="isDisabled">
-            <label class="form-check-label" for="isDisabled">Disabled</label>
+            <label class="form-check-label" for="isDisabled">{{ '::Disabled' | abpLocalization }}</label>
           </div>
-          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-          <a routerLink="/settings/letter-heads" class="btn btn-secondary ms-2">Cancel</a>
+          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+          <a routerLink="/settings/letter-heads" class="btn btn-secondary ms-2">{{ '::Cancel' | abpLocalization }}</a>
         </form>
       </div>
     </div>
@@ -118,7 +119,7 @@ export class LetterHeadFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/settings/letter-heads']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

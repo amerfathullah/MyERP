@@ -885,6 +885,35 @@ public class ProductionPlanMaterialPlanningService : DomainService
                 .WithData("detail", $"Row #{firstClosed.RowIdx} ({firstClosed.ItemCode}) of Sales Order {firstClosed.SalesOrderNumber} is closed, so it cannot be planned.");
         }
     }
+
+    /// <summary>
+    /// Resolves the effective child BOM and explosion decision for a BOM sub-item row in Production Plan
+    /// per ERPNext PR #67981 (<c>production_plan/services/bom_explosion.py: _process_subitem</c>):
+    /// - A <paramref name="doNotExplode"/> line never inherits the item's <paramref name="defaultBomId"/>.
+    /// - Explodes ONLY when (<paramref name="isPhantomItem"/> or (<paramref name="includeExplodedItems"/> and childBom != null)),
+    ///   allowed by <paramref name="includeSubcontractedItems"/> (subcontracted items skip explosion when false), and <paramref name="qty"/> &gt; 0.
+    /// - Otherwise requests the line as-is (<c>ShouldExplode = false</c>).
+    /// </summary>
+    public static (Guid? EffectiveChildBomId, bool ShouldExplode) ResolveBomExplosionSubitemChildBomAndMode(
+        Guid? lineBomId,
+        Guid? defaultBomId,
+        bool doNotExplode,
+        bool isPhantomItem,
+        bool isSubcontractedItem,
+        bool includeExplodedItems,
+        bool includeSubcontractedItems,
+        decimal qty)
+    {
+        var childBom = lineBomId.HasValue && lineBomId.Value != Guid.Empty
+            ? lineBomId
+            : (doNotExplode ? null : (defaultBomId.HasValue && defaultBomId.Value != Guid.Empty ? defaultBomId : null));
+
+        var explodable = isPhantomItem || (includeExplodedItems && childBom.HasValue);
+        var allowSubcontracted = !isSubcontractedItem || includeSubcontractedItems;
+        var shouldExplode = explodable && allowSubcontracted && qty > 0m;
+
+        return (childBom, shouldExplode);
+    }
 }
 
 public sealed record SalesOrderRowClosureInfo(

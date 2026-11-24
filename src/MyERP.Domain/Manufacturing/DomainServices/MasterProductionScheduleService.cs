@@ -526,6 +526,28 @@ public class MasterProductionScheduleService : DomainService
         return exclusiveEnd.AddDays(-1);
     }
 
+    /// <summary>
+    /// Replaces a Master Production Schedule's fetched Sales Orders or Material Requests collection
+    /// unconditionally before appending newly fetched rows per ERPNext PR #68022
+    /// (<c>master_production_schedule.py</c>): when a fetch returns no matching rows, stale rows
+    /// from an earlier fetch are cleared instead of preserved.
+    /// </summary>
+    public static List<TRow> ReplaceMpsFetchedChildRows<TRow>(
+        ICollection<TRow> existingRows,
+        IEnumerable<TRow>? fetchedRows)
+    {
+        existingRows.Clear();
+        if (fetchedRows != null)
+        {
+            foreach (var row in fetchedRows)
+            {
+                existingRows.Add(row);
+            }
+        }
+
+        return existingRows.ToList();
+    }
+
     private sealed class DemandBucket
     {
         public DateTime Date { get; }

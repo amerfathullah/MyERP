@@ -7026,7 +7026,24 @@
     "GroupRegion": "Group (Region)",
     "LeafTerritory": "Leaf Territory",
     "NoTerritoriesConfigured": "No territories configured yet.",
-    "NoTermsAndConditionsDefined": "No terms & conditions defined yet."
+    "NoTermsAndConditionsDefined": "No terms & conditions defined yet.",
+    "LetterHeads": "Letter Heads",
+    "NewLetterHead": "New Letter Head",
+    "EditLetterHead": "Edit Letter Head",
+    "For": "For",
+    "DocTypeTransactions": "DocType (transactions)",
+    "Report": "Report",
+    "HeaderContent": "Header Content",
+    "HeaderContentHelp": "HTML or image URL for the document header.",
+    "FooterContent": "Footer Content",
+    "DefaultForThisCategory": "Default for this category",
+    "SetDefault": "Set Default",
+    "PrintFormats": "Print Formats",
+    "NewPrintFormat": "New Print Format",
+    "EditPrintFormat": "Edit Print Format",
+    "HtmlTemplate": "HTML Template",
+    "HtmlTemplateHelp": "Use Razor/Liquid syntax or pure HTML placeholders.",
+    "CssStyles": "CSS Styles"
   }
 }
 

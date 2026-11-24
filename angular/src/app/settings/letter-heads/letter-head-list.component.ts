@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { LetterHeadService } from '../../proxy/core/letter-head.service';
 import { LetterHeadDto } from '../../proxy/core/models';
 import { LetterHeadFor } from '../../proxy/core/letter-head-for.enum';
@@ -9,22 +10,22 @@ import { LetterHeadFor } from '../../proxy/core/letter-head-for.enum';
 @Component({
   selector: 'app-letter-head-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Letter Heads</h5>
-        <a routerLink="/settings/letter-heads/new" class="btn btn-primary btn-sm">New Letter Head</a>
+        <h5 class="card-title mb-0">{{ '::LetterHeads' | abpLocalization }}</h5>
+        <a routerLink="/settings/letter-heads/new" class="btn btn-primary btn-sm">{{ '::NewLetterHead' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <table class="table table-bordered">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>For</th>
-              <th>Default</th>
-              <th>Disabled</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th>{{ '::For' | abpLocalization }}</th>
+              <th>{{ '::Default' | abpLocalization }}</th>
+              <th>{{ '::Disabled' | abpLocalization }}</th>
               <th></th>
             </tr>
           </thead>
@@ -32,18 +33,18 @@ import { LetterHeadFor } from '../../proxy/core/letter-head-for.enum';
             @for (letterHead of letterHeads; track letterHead.id) {
               <tr>
                 <td><a [routerLink]="['/settings/letter-heads', letterHead.id]">{{ letterHead.letterHeadName }}</a></td>
-                <td>{{ letterHead.letterHeadFor === forDocType ? 'DocType' : 'Report' }}</td>
+                <td>{{ (letterHead.letterHeadFor === forDocType ? '::DocType' : '::Report') | abpLocalization }}</td>
                 <td>
                   <span class="badge" [ngClass]="letterHead.isDefault ? 'bg-success' : 'bg-secondary'">
-                    {{ letterHead.isDefault ? 'Yes' : 'No' }}
+                    {{ (letterHead.isDefault ? '::Yes' : '::No') | abpLocalization }}
                   </span>
                 </td>
                 <td>
-                  @if (letterHead.isDisabled) { <span class="badge bg-warning text-dark">Disabled</span> }
+                  @if (letterHead.isDisabled) { <span class="badge bg-warning text-dark">{{ '::Disabled' | abpLocalization }}</span> }
                 </td>
                 <td>
                   @if (!letterHead.isDefault) {
-                    <button class="btn btn-sm btn-outline-success" (click)="setDefault(letterHead)">Set Default</button>
+                    <button class="btn btn-sm btn-outline-success" (click)="setDefault(letterHead)">{{ '::SetDefault' | abpLocalization }}</button>
                   }
                 </td>
               </tr>
@@ -77,7 +78,7 @@ export class LetterHeadListComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.service.setDefault(letterHead.id!).subscribe({
         next: () => { this.toaster.success('::SuccessfullySaved'); this.load(); },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }
