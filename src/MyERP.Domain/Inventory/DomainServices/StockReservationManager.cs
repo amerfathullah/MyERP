@@ -2362,6 +2362,43 @@ public class StockReservationManager : DomainService
         var allowed = Math.Min(availableQty, remainingDemand);
         return Math.Max(0m, Math.Round(allowed, precision, MidpointRounding.AwayFromZero));
     }
+
+    /// <summary>
+    /// Enforces ERPNext commit <c>43c3dc5428</c> (<c>StockReservationEntry.validate_before_update_after_submit</c>):
+    /// once a reservation has delivered, consumed, or transferred stock (rounded at <paramref name="reservedQtyPrecision"/>),
+    /// reject the update only when its Serial and Batch Reservation rows actually changed; a save leaving
+    /// <c>sb_entries</c> unchanged must pass.
+    /// </summary>
+    public static void ValidateUsedReservationSerialBatchUnchanged(
+        decimal deliveredQty,
+        decimal consumedQty,
+        decimal transferredQty,
+        IEnumerable<(string? SerialNo, Guid? BatchId, decimal Qty)>? previousEntries,
+        IEnumerable<(string? SerialNo, Guid? BatchId, decimal Qty)>? updatedEntries,
+        int reservedQtyPrecision = 3)
+    {
+        var usedQty = Math.Round(deliveredQty + consumedQty + transferredQty, reservedQtyPrecision, MidpointRounding.AwayFromZero);
+        if (usedQty <= 0m)
+        {
+            return;
+        }
+
+        var prev = (previousEntries ?? Array.Empty<(string?, Guid?, decimal)>()).ToList();
+        var next = (updatedEntries ?? Array.Empty<(string?, Guid?, decimal)>()).ToList();
+
+        var unchanged = prev.Count == next.Count && prev.Zip(next).All(pair =>
+            string.Equals(pair.First.SerialNo ?? string.Empty, pair.Second.SerialNo ?? string.Empty, StringComparison.Ordinal)
+            && pair.First.BatchId == pair.Second.BatchId
+            && Math.Round(pair.First.Qty, reservedQtyPrecision, MidpointRounding.AwayFromZero)
+                == Math.Round(pair.Second.Qty, reservedQtyPrecision, MidpointRounding.AwayFromZero));
+
+        if (!unchanged)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.UsedReservationSerialBatchImmutable)
+                .WithData("usedQty", usedQty)
+                .WithData("reason", "Serial and Batch Reservation cannot be updated as the Stock Reservation Entry has already been delivered, consumed or transferred.");
+        }
+    }
 }
 
 public class ReservationConsumption

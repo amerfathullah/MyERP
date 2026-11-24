@@ -3697,6 +3697,98 @@ public class UpstreamBatch41ParityTests
                 matchedRowTransferQtys: new[] { 50m }, itemCode: "RM-NOS"));
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch34_UsedSreGuard_InternalReceiptLandedCost_WoPickListTransfer_LhdnFallbacks_Parity()
+    {
+        // 1. ERPNext 43c3dc5428: Used SRE permits save when serial/batch rows unchanged; throws when changed
+        var batchA = Guid.NewGuid();
+        var batchB = Guid.NewGuid();
+        var existingRows = new (string?, Guid?, decimal)[] { ("SN-01", batchA, 2m) };
+        var sameRows = new (string?, Guid?, decimal)[] { ("SN-01", batchA, 2m) };
+        var changedRows = new (string?, Guid?, decimal)[] { ("SN-01", batchB, 2m) };
+
+        Should.NotThrow(() => StockReservationManager.ValidateUsedReservationSerialBatchUnchanged(
+            deliveredQty: 1m, consumedQty: 0m, transferredQty: 0m, existingRows, sameRows));
+        Should.NotThrow(() => StockReservationManager.ValidateUsedReservationSerialBatchUnchanged(
+            deliveredQty: 0m, consumedQty: 0m, transferredQty: 0m, existingRows, changedRows));
+        var sreEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockReservationManager.ValidateUsedReservationSerialBatchUnchanged(
+                deliveredQty: 0m, consumedQty: 1m, transferredQty: 0m, existingRows, changedRows));
+        sreEx.Code.ShouldBe(MyERPDomainErrorCodes.UsedReservationSerialBatchImmutable);
+
+        // 2. ERPNext bf98686d91 & e535e968f5: Internal receipt spreads landed cost over accepted stock qty only;
+        // transit outgoing leg (qty < 0) and rejected warehouse leg keep plain transit rate
+        var acceptedWh = Guid.NewGuid();
+        var rejectedWh = Guid.NewGuid();
+        StockValuationService.CalculateInternalReceiptValuationRate(
+            transitOutgoingRate: 100m, totalLandedCostAmount: 60m, acceptedStockQty: 3m,
+            sleActualQty: 3m, sleWarehouseId: acceptedWh, rejectedWarehouseId: rejectedWh).ShouldBe(120m);
+        StockValuationService.CalculateInternalReceiptValuationRate(
+            transitOutgoingRate: 100m, totalLandedCostAmount: 60m, acceptedStockQty: 3m,
+            sleActualQty: -5m, sleWarehouseId: acceptedWh, rejectedWarehouseId: rejectedWh).ShouldBe(100m);
+        StockValuationService.CalculateInternalReceiptValuationRate(
+            transitOutgoingRate: 100m, totalLandedCostAmount: 60m, acceptedStockQty: 3m,
+            sleActualQty: 2m, sleWarehouseId: rejectedWh, rejectedWarehouseId: rejectedWh).ShouldBe(100m);
+
+        // 3. ERPNext PR #67344: Work Order material_transferred_for_manufacturing counts Pick List transfers alongside direct transfers
+        var item1 = Guid.NewGuid();
+        var item2 = Guid.NewGuid();
+        // Direct transfer (2) + Pick List transfer (3) = 5 out of 10 required -> 5 FG units transferred
+        MyERP.Manufacturing.DomainServices.WorkOrderManager.CalculateMaterialTransferredForManufacturing(
+            workOrderQty: 10m, sumDirectFgCompletedQty: 2m, hasPickListTransferWithoutForQty: true,
+            requiredItems: new[] { (item1, 10m, 5m), (item2, 20m, 10m) }).ShouldBe(5m);
+        // Only direct excess transfer (12 > 10) without Pick List transfer preserves 12
+        MyERP.Manufacturing.DomainServices.WorkOrderManager.CalculateMaterialTransferredForManufacturing(
+            workOrderQty: 10m, sumDirectFgCompletedQty: 12m, hasPickListTransferWithoutForQty: false,
+            requiredItems: new[] { (item1, 10m, 12m) }).ShouldBe(12m);
+        // Job card transfer mode returns null (skip)
+        MyERP.Manufacturing.DomainServices.WorkOrderManager.CalculateMaterialTransferredForManufacturing(
+            workOrderQty: 10m, sumDirectFgCompletedQty: 2m, hasPickListTransferWithoutForQty: true,
+            requiredItems: new[] { (item1, 10m, 5m) }, hasOperationsWithJobCardTransfer: true).ShouldBeNull();
+
+        // 4. MyInvois search_taxpayer.py:78 & cancel_doc.py:94: null/empty top-level tin falls back to data.tin; blank cancel reason uses default
+        string? capturedCancelBody = null;
+        var handler = new CaptureHttpHandler(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+            {
+                return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new System.Net.Http.StringContent(
+                        "{\"tin\":null,\"data\":{\"tin\":\"C25845632020\",\"name\":\"ACME SDN BHD\"}}",
+                        System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+
+            capturedCancelBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new System.Net.Http.StringContent("{\"status\":\"cancelled\"}", System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+
+        var factory = new StubHttpClientFactory(handler);
+        var client = new MyERP.EInvoice.Services.LhdnApiClient(
+            factory,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.Services.LhdnApiClient>.Instance);
+
+        var searchRes = await client.SearchTaxpayerAsync("tok", "BRN", "202001012345", MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        searchRes.IsFound.ShouldBeTrue();
+        searchRes.Tin.ShouldBe("C25845632020");
+        searchRes.TaxpayerName.ShouldBe("ACME SDN BHD");
+
+        var cancelRes = await client.CancelDocumentAsync("tok", "UUID-123", "   ", MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        cancelRes.IsSuccess.ShouldBeTrue();
+        (capturedCancelBody ?? string.Empty).ShouldContain("Cancelled from ERP system by user");
+    }
+
+    private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
+    {
+        private readonly System.Net.Http.HttpMessageHandler _handler;
+        public StubHttpClientFactory(System.Net.Http.HttpMessageHandler handler) => _handler = handler;
+        public System.Net.Http.HttpClient CreateClient(string name) => new(_handler, disposeHandler: false);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

@@ -259,7 +259,9 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         var client = _httpClientFactory.CreateClient("LhdnApi");
         var url = $"{GetBaseUrl(environment)}/api/v1.0/documents/state/{documentUuid}/state";
 
-        var payload = JsonSerializer.Serialize(new { status = "cancelled", reason });
+        // Per myinvois cancel_doc.py:94 — default reason when blank
+        var effectiveReason = string.IsNullOrWhiteSpace(reason) ? "Cancelled from ERP system by user" : reason;
+        var payload = JsonSerializer.Serialize(new { status = "cancelled", reason = effectiveReason });
         var request = new HttpRequestMessage(HttpMethod.Put, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -321,17 +323,25 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
             using var doc = JsonDocument.Parse(rawJson);
             var root = doc.RootElement;
 
-            // Per Gotcha #3957 / myinvois search_taxpayer.py: tries data.tin then data.data.tin
+            // Per Gotcha #3957 / myinvois search_taxpayer.py:78 — data.get("tin") or data.get("data", {}).get("tin")
             string? tinVal = null;
-            if (root.TryGetProperty("tin", out var tinProp))
+            if (root.TryGetProperty("tin", out var tinProp) && tinProp.ValueKind == JsonValueKind.String)
                 tinVal = tinProp.GetString();
-            else if (root.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("tin", out var dataTinProp))
+            if (string.IsNullOrWhiteSpace(tinVal)
+                && root.TryGetProperty("data", out var dataProp)
+                && dataProp.ValueKind == JsonValueKind.Object
+                && dataProp.TryGetProperty("tin", out var dataTinProp)
+                && dataTinProp.ValueKind == JsonValueKind.String)
                 tinVal = dataTinProp.GetString();
 
             string? nameVal = null;
-            if (root.TryGetProperty("name", out var nameProp))
+            if (root.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == JsonValueKind.String)
                 nameVal = nameProp.GetString();
-            else if (root.TryGetProperty("data", out var dataNameProp) && dataNameProp.TryGetProperty("name", out var dataNameVal))
+            if (string.IsNullOrWhiteSpace(nameVal)
+                && root.TryGetProperty("data", out var dataNameProp)
+                && dataNameProp.ValueKind == JsonValueKind.Object
+                && dataNameProp.TryGetProperty("name", out var dataNameVal)
+                && dataNameVal.ValueKind == JsonValueKind.String)
                 nameVal = dataNameVal.GetString();
 
             if (string.IsNullOrWhiteSpace(tinVal))

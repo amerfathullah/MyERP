@@ -15,31 +15,31 @@ import { ChequeSize } from '../../proxy/accounting/cheque-size.enum';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Cheque Print Template</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditChequePrintTemplate' : '::NewChequePrintTemplate') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <!-- Left Column: Form Settings -->
             <div class="col-lg-6">
-              <h6 class="text-primary border-bottom pb-2 mb-3">Primary Settings (Dimensions in cm)</h6>
+              <h6 class="text-primary border-bottom pb-2 mb-3">{{ '::PrimarySettingsDimensionsCm' | abpLocalization }}</h6>
 
               <div class="mb-3">
-                <label class="form-label">Bank Name *</label>
+                <label class="form-label">{{ '::BankName' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="bankName" [placeholder]="'::Placeholder:ChequeBankNameExample' | abpLocalization">
               </div>
 
               <div class="row">
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Cheque Size</label>
+                  <label class="form-label">{{ '::ChequeSize' | abpLocalization }}</label>
                   <select class="form-select" formControlName="chequeSize">
-                    <option [ngValue]="0">Regular</option>
-                    <option [ngValue]="1">A4</option>
+                    <option [ngValue]="0">{{ '::Regular' | abpLocalization }}</option>
+                    <option [ngValue]="1">{{ '::A4' | abpLocalization }}</option>
                   </select>
                 </div>
                 @if (form.get('chequeSize')?.value === 1) {
                   <div class="col-md-6 mb-3">
-                    <label class="form-label">Top Edge Offset (cm)</label>
+                    <label class="form-label">{{ '::TopEdgeOffsetCm' | abpLocalization }}</label>
                     <input type="number" step="0.1" class="form-control" formControlName="startingPositionFromTopEdge">
                   </div>
                 }
@@ -47,120 +47,120 @@ import { ChequeSize } from '../../proxy/accounting/cheque-size.enum';
 
               <div class="row">
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Cheque Width (cm)</label>
+                  <label class="form-label">{{ '::ChequeWidthCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control" formControlName="chequeWidth">
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Cheque Height (cm)</label>
+                  <label class="form-label">{{ '::ChequeHeightCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control" formControlName="chequeHeight">
                 </div>
               </div>
 
-              <h6 class="text-primary border-bottom pb-2 my-3">Account Payee Badge</h6>
+              <h6 class="text-primary border-bottom pb-2 my-3">{{ '::AccountPayeeBadge' | abpLocalization }}</h6>
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="isAccountPayable" formControlName="isAccountPayable">
-                <label class="form-check-label" for="isAccountPayable">Is Account Payable Only</label>
+                <label class="form-check-label" for="isAccountPayable">{{ '::IsAccountPayableOnly' | abpLocalization }}</label>
               </div>
               @if (form.get('isAccountPayable')?.value) {
                 <div class="row">
                   <div class="col-md-4 mb-2">
-                    <label class="form-label small">Top (cm)</label>
+                    <label class="form-label small">{{ '::TopCm' | abpLocalization }}</label>
                     <input type="number" step="0.1" class="form-control form-control-sm" formControlName="accPayDistFromTopEdge">
                   </div>
                   <div class="col-md-4 mb-2">
-                    <label class="form-label small">Left (cm)</label>
+                    <label class="form-label small">{{ '::LeftCm' | abpLocalization }}</label>
                     <input type="number" step="0.1" class="form-control form-control-sm" formControlName="accPayDistFromLeftEdge">
                   </div>
                   <div class="col-md-4 mb-2">
-                    <label class="form-label small">Message</label>
+                    <label class="form-label small">{{ '::Message' | abpLocalization }}</label>
                     <input type="text" class="form-control form-control-sm" formControlName="messageToShow">
                   </div>
                 </div>
               }
 
-              <h6 class="text-primary border-bottom pb-2 my-3">Date & Payee Positioning</h6>
+              <h6 class="text-primary border-bottom pb-2 my-3">{{ '::DateAndPayeePositioning' | abpLocalization }}</h6>
               <div class="row">
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Date Top (cm)</label>
+                  <label class="form-label small">{{ '::DateTopCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="dateDistFromTopEdge">
                 </div>
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Date Left (cm)</label>
+                  <label class="form-label small">{{ '::DateLeftCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="dateDistFromLeftEdge">
                 </div>
               </div>
               <div class="row">
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Payee Name Top (cm)</label>
+                  <label class="form-label small">{{ '::PayeeNameTopCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="payerNameFromTopEdge">
                 </div>
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Payee Name Left (cm)</label>
+                  <label class="form-label small">{{ '::PayeeNameLeftCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="payerNameFromLeftEdge">
                 </div>
               </div>
 
-              <h6 class="text-primary border-bottom pb-2 my-3">Amount Positioning</h6>
+              <h6 class="text-primary border-bottom pb-2 my-3">{{ '::AmountPositioning' | abpLocalization }}</h6>
               <div class="row">
                 <div class="col-md-3 mb-2">
-                  <label class="form-label small">Words Top</label>
+                  <label class="form-label small">{{ '::WordsTop' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInWordsFromTopEdge">
                 </div>
                 <div class="col-md-3 mb-2">
-                  <label class="form-label small">Words Left</label>
+                  <label class="form-label small">{{ '::WordsLeft' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInWordsFromLeftEdge">
                 </div>
                 <div class="col-md-3 mb-2">
-                  <label class="form-label small">Words Width</label>
+                  <label class="form-label small">{{ '::WordsWidth' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInWordWidth">
                 </div>
                 <div class="col-md-3 mb-2">
-                  <label class="form-label small">Line Spacing</label>
+                  <label class="form-label small">{{ '::LineSpacing' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInWordsLineSpacing">
                 </div>
               </div>
               <div class="row">
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Figures Top (cm)</label>
+                  <label class="form-label small">{{ '::FiguresTopCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInFiguresFromTopEdge">
                 </div>
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Figures Left (cm)</label>
+                  <label class="form-label small">{{ '::FiguresLeftCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="amtInFiguresFromLeftEdge">
                 </div>
               </div>
 
-              <h6 class="text-primary border-bottom pb-2 my-3">Account No & Signatory Positioning</h6>
+              <h6 class="text-primary border-bottom pb-2 my-3">{{ '::AccountNoAndSignatoryPositioning' | abpLocalization }}</h6>
               <div class="row">
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Account No Top (cm)</label>
+                  <label class="form-label small">{{ '::AccountNoTopCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="accNoDistFromTopEdge">
                 </div>
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Account No Left (cm)</label>
+                  <label class="form-label small">{{ '::AccountNoLeftCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="accNoDistFromLeftEdge">
                 </div>
               </div>
               <div class="row mb-3">
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Signatory Top (cm)</label>
+                  <label class="form-label small">{{ '::SignatoryTopCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="signatoryFromTopEdge">
                 </div>
                 <div class="col-md-6 mb-2">
-                  <label class="form-label small">Signatory Left (cm)</label>
+                  <label class="form-label small">{{ '::SignatoryLeftCm' | abpLocalization }}</label>
                   <input type="number" step="0.1" class="form-control form-control-sm" formControlName="signatoryFromLeftEdge">
                 </div>
               </div>
 
               <div class="d-flex gap-2 mt-4">
-                <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-                <a routerLink="/accounting/cheque-print-templates" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+                <a routerLink="/accounting/cheque-print-templates" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
               </div>
             </div>
 
             <!-- Right Column: Interactive Live Preview -->
             <div class="col-lg-6">
-              <h6 class="text-secondary border-bottom pb-2 mb-3">Live Cheque Layout Preview</h6>
+              <h6 class="text-secondary border-bottom pb-2 mb-3">{{ '::LiveChequeLayoutPreview' | abpLocalization }}</h6>
               <div class="overflow-auto border p-2 bg-light rounded" style="max-height: 600px;">
                 <div [style.width.cm]="form.value.chequeWidth || 20"
                      [style.height.cm]="form.value.chequeHeight || 9"
@@ -224,7 +224,7 @@ import { ChequeSize } from '../../proxy/accounting/cheque-size.enum';
                 </div>
               </div>
               <small class="text-muted d-block mt-2">
-                Dimensions and locations scale dynamically in cm based on inputs above.
+                {{ '::ChequePreviewScaleHint' | abpLocalization }}
               </small>
             </div>
           </div>
@@ -295,7 +295,7 @@ export class ChequePrintTemplateFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/accounting/cheque-print-templates']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

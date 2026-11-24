@@ -700,6 +700,9 @@ public static class MyERPDomainErrorCodes
 
     // Batch Warehouse Permissions (ERPNext PR #64314)
     public const string WarehouseAccessRestricted = "MyERP:05104";
+
+    // Stock Reservation Serial/Batch Guard (ERPNext commit 43c3dc5428)
+    public const string UsedReservationSerialBatchImmutable = "MyERP:05105";
 }
 
 

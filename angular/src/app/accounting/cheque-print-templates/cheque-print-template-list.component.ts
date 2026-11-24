@@ -16,8 +16,8 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Cheque Print Templates</h5>
-        <a routerLink="/accounting/cheque-print-templates/new" class="btn btn-primary btn-sm">New Template</a>
+        <h5 class="card-title mb-0">{{ '::ChequePrintTemplates' | abpLocalization }}</h5>
+        <a routerLink="/accounting/cheque-print-templates/new" class="btn btn-primary btn-sm">{{ '::NewTemplate' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -29,11 +29,11 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Bank Name</th>
-              <th>Cheque Size</th>
-              <th>Dimensions (W × H cm)</th>
-              <th>Acc. Payee Badge</th>
-              <th class="text-end" style="width: 240px;">Actions</th>
+              <th>{{ '::BankName' | abpLocalization }}</th>
+              <th>{{ '::ChequeSize' | abpLocalization }}</th>
+              <th>{{ '::DimensionsCm' | abpLocalization }}</th>
+              <th>{{ '::AccPayeeBadge' | abpLocalization }}</th>
+              <th class="text-end" style="width: 240px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -44,26 +44,26 @@ import { ChequePrintTemplateDto } from '../../proxy/accounting/models';
                     {{ item.bankName }}
                   </a>
                 </td>
-                <td>{{ item.chequeSize === 1 ? 'A4' : 'Regular' }}</td>
+                <td>{{ (item.chequeSize === 1 ? '::A4' : '::Regular') | abpLocalization }}</td>
                 <td>{{ item.chequeWidth }} × {{ item.chequeHeight }} cm</td>
                 <td>
                   @if (item.isAccountPayable) {
                     <span class="badge bg-info text-dark">{{ item.messageToShow || 'Acc. Payee' }}</span>
                   } @else {
-                    <span class="badge bg-secondary">No</span>
+                    <span class="badge bg-secondary">{{ '::No' | abpLocalization }}</span>
                   }
                 </td>
                 <td class="text-end">
                   <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="preview(item)">
                     <i class="fa fa-eye me-1"></i>{{ '::Preview' | abpLocalization }}
                   </button>
-                  <a [routerLink]="['/accounting/cheque-print-templates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/accounting/cheque-print-templates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No cheque print templates found.</td>
+                <td colspan="5" class="text-center text-muted py-4">{{ '::NoChequePrintTemplatesFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -149,7 +149,7 @@ export class ChequePrintTemplateListComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.load();
         },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

@@ -1194,6 +1194,68 @@ public class WorkOrderManager : DomainService
         var floored = Math.Floor(Math.Round(raw * step, 9, MidpointRounding.AwayFromZero)) / step;
         return Math.Max(floored, 0m);
     }
+
+    /// <summary>
+    /// Computes a Work Order's <c>material_transferred_for_manufacturing</c> when Pick List transfers
+    /// (with <c>fg_completed_qty == 0</c>) coexist with direct Stock Entry transfers
+    /// per ERPNext PR #67344 (<c>work_order/services/required_items.py</c>):
+    /// - Returns <c>null</c> when operations transfer material against Job Cards (caller leaves field unchanged).
+    /// - Preserves <paramref name="sumDirectFgCompletedQty"/> when only direct transfers exist (no Pick List transfers).
+    /// - Otherwise combines both by taking <c>max(min(minItemFraction, 1) * workOrderQty, sumDirectFgCompletedQty)</c>.
+    /// </summary>
+    public static decimal? CalculateMaterialTransferredForManufacturing(
+        decimal workOrderQty,
+        decimal sumDirectFgCompletedQty,
+        bool hasPickListTransferWithoutForQty,
+        IReadOnlyList<(Guid ItemId, decimal RequiredQty, decimal TransferredQty)> requiredItems,
+        bool hasOperationsWithJobCardTransfer = false,
+        int precision = 3)
+    {
+        if (hasOperationsWithJobCardTransfer)
+        {
+            return null;
+        }
+
+        if (sumDirectFgCompletedQty > 0m && !hasPickListTransferWithoutForQty)
+        {
+            return Math.Round(sumDirectFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        if (workOrderQty <= 0m || requiredItems == null || requiredItems.Count == 0)
+        {
+            return Math.Round(Math.Max(sumDirectFgCompletedQty, 0m), precision, MidpointRounding.AwayFromZero);
+        }
+
+        var totalsByItem = new Dictionary<Guid, (decimal Required, decimal Transferred)>();
+        foreach (var row in requiredItems)
+        {
+            if (row.RequiredQty <= 0m)
+            {
+                continue;
+            }
+
+            var prev = totalsByItem.TryGetValue(row.ItemId, out var existing) ? existing : (Required: 0m, Transferred: 0m);
+            totalsByItem[row.ItemId] = (prev.Required + row.RequiredQty, prev.Transferred + row.TransferredQty);
+        }
+
+        if (totalsByItem.Count == 0)
+        {
+            return Math.Round(Math.Max(sumDirectFgCompletedQty, 0m), precision, MidpointRounding.AwayFromZero);
+        }
+
+        var minFraction = totalsByItem.Values.Min(t => t.Transferred / t.Required);
+        if (minFraction > 1m)
+        {
+            minFraction = 1m;
+        }
+        else if (minFraction < 0m)
+        {
+            minFraction = 0m;
+        }
+
+        var combined = Math.Max(minFraction * workOrderQty, sumDirectFgCompletedQty);
+        return Math.Round(combined, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

@@ -15,8 +15,8 @@ import { BankDto } from '../../proxy/accounting/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Banks</h5>
-        <a routerLink="/accounting/banks/new" class="btn btn-primary btn-sm">New Bank</a>
+        <h5 class="card-title mb-0">{{ '::Banks' | abpLocalization }}</h5>
+        <a routerLink="/accounting/banks/new" class="btn btn-primary btn-sm">{{ '::NewBank' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,11 +28,11 @@ import { BankDto } from '../../proxy/accounting/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Bank Name</th>
-              <th>SWIFT / BIC</th>
-              <th>Website</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th>{{ '::BankName' | abpLocalization }}</th>
+              <th>{{ '::SwiftBic' | abpLocalization }}</th>
+              <th>{{ '::Website' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -53,17 +53,17 @@ import { BankDto } from '../../proxy/accounting/models';
                 </td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/accounting/banks', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/accounting/banks', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No banks found.</td>
+                <td colspan="5" class="text-center text-muted py-4">{{ '::NoBanksFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -98,7 +98,7 @@ export class BankListComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.load();
         },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

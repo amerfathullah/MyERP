@@ -1198,6 +1198,35 @@ public class StockValuationService : DomainService
         var newBalanceValue = newBalanceQty * standardRate;
         return (standardRate, newBalanceQty, Math.Max(0, newBalanceValue));
     }
+
+    /// <summary>
+    /// Computes the incoming valuation rate for an inter-company / internal receipt SLE
+    /// per ERPNext commits <c>bf98686d91</c> and <c>e535e968f5</c> (<c>stock_ledger.py</c>):
+    /// keeps landed cost off both the outgoing transit leg (<paramref name="sleActualQty"/> &lt; 0)
+    /// and the rejected warehouse leg (<paramref name="sleWarehouseId"/> == <paramref name="rejectedWarehouseId"/>),
+    /// and spreads landed cost over the accepted stock quantity only (<paramref name="acceptedStockQty"/>).
+    /// </summary>
+    public static decimal CalculateInternalReceiptValuationRate(
+        decimal transitOutgoingRate,
+        decimal totalLandedCostAmount,
+        decimal acceptedStockQty,
+        decimal sleActualQty,
+        Guid sleWarehouseId,
+        Guid? rejectedWarehouseId = null,
+        int ratePrecision = 4)
+    {
+        if (sleActualQty < 0m
+            || (rejectedWarehouseId.HasValue && rejectedWarehouseId.Value != Guid.Empty && sleWarehouseId == rejectedWarehouseId.Value))
+        {
+            return Math.Round(transitOutgoingRate, ratePrecision, MidpointRounding.AwayFromZero);
+        }
+
+        var landedCostRate = acceptedStockQty > 0m && totalLandedCostAmount != 0m
+            ? totalLandedCostAmount / acceptedStockQty
+            : 0m;
+
+        return Math.Round(transitOutgoingRate + landedCostRate, ratePrecision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public record StockBalance(decimal Quantity, decimal Value)

@@ -14,34 +14,34 @@ import { BankService } from '../../proxy/accounting/bank.service';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Bank</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditBank' : '::NewBank') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Bank Name *</label>
+            <label class="form-label">{{ '::BankName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="bankName" [placeholder]="'::Placeholder:BankNameExample' | abpLocalization">
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">SWIFT / BIC Code</label>
+              <label class="form-label">{{ '::SwiftBicCode' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="swiftNumber" [placeholder]="'::Placeholder:SwiftCodeExample' | abpLocalization">
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">Website</label>
+              <label class="form-label">{{ '::Website' | abpLocalization }}</label>
               <input type="url" class="form-control" formControlName="website" [placeholder]="'::Placeholder:BankWebsiteExample' | abpLocalization">
             </div>
           </div>
 
           <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-            <label class="form-check-label" for="isActive">Active</label>
+            <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/accounting/banks" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/accounting/banks" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -89,7 +89,7 @@ export class BankFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/accounting/banks']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }
