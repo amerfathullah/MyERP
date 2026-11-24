@@ -7195,7 +7195,14 @@
     "CreatePurchaseReceipt": "Create Purchase Receipt",
     "CreateLandedCostVoucher": "Create Landed Cost Voucher",
     "ResubmitToLhdn": "Resubmit to LHDN",
-    "CheckSupplierTin": "Check Supplier TIN"
+    "CheckSupplierTin": "Check Supplier TIN",
+    "CheckCustomerTin": "Check Customer TIN",
+    "InstallationNote": "Installation Note",
+    "MakeInvoice": "Make Invoice",
+    "ConvertToSO": "Convert to SO",
+    "ReturnRejectedQty": "Return Rejected Qty",
+    "TransferMaterials": "Transfer Materials",
+    "CreateWorkOrder": "Create Work Order"
   }
 }
 

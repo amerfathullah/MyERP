@@ -84,18 +84,18 @@ export class DeliveryNoteDetailComponent implements OnInit {
     const actions: WorkflowAction[] = [];
     switch (this.deliveryNote.status) {
       case 'Draft':
-        actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
-        actions.push({ name: 'packing_slip', label: 'Packing Slip', icon: 'box', color: 'info' });
+        actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
+        actions.push({ name: 'packing_slip', label: '::PackingSlip', icon: 'box', color: 'info' });
         break;
       case 'Submitted':
-        actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
-        actions.push({ name: 'installation_note', label: 'Installation Note', icon: 'screwdriver-wrench', color: 'info' });
-        actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
-        actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'envelope', color: 'secondary' });
-        actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+        actions.push({ name: 'invoice', label: '::MakeInvoice', icon: 'file-invoice', color: 'info' });
+        actions.push({ name: 'installation_note', label: '::InstallationNote', icon: 'screwdriver-wrench', color: 'info' });
+        actions.push({ name: 'return', label: '::CreateReturn', icon: 'rotate-left', color: 'warning' });
+        actions.push({ name: 'sendEmail', label: '::SendEmail', icon: 'envelope', color: 'secondary' });
+        actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
         break;
       case 'Cancelled':
-        actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+        actions.push({ name: 'amend', label: '::Amend', icon: 'file-circle-plus', color: 'success' });
         break;
     }
     return actions;

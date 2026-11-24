@@ -507,13 +507,13 @@ export class SubcontractingDetailComponent implements OnInit {
   getActions(): WorkflowAction[] {
     const s = this.order()?.status;
     const actions: WorkflowAction[] = [];
-    if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
-    if (s === 1 || s === 2) actions.push({ name: 'transferMaterials', label: 'Transfer Materials', icon: 'fa-truck-arrow-right', color: 'btn-outline-success' });
-    if (s === 1 || s === 2) actions.push({ name: 'receiveFinishedGoods', label: 'Receive Finished Goods', icon: 'fa-box-open', color: 'btn-outline-success' });
-    if (this.hasHeldStockReservation) actions.push({ name: 'unreserveStock', label: 'Unreserve Stock', icon: 'fa-ban', color: 'btn-outline-warning' });
-    if (s === 1 || s === 2) actions.push({ name: 'close', label: 'Close', icon: 'fa-lock', color: 'btn-outline-dark' });
-    if (s === 4) actions.push({ name: 'reopen', label: 'Reopen', icon: 'fa-lock-open', color: 'btn-outline-warning' });
-    if (s !== 0 && s !== 5) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
+    if (s === 0) actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
+    if (s === 1 || s === 2) actions.push({ name: 'transferMaterials', label: '::TransferMaterials', icon: 'truck-arrow-right', color: 'success' });
+    if (s === 1 || s === 2) actions.push({ name: 'receiveFinishedGoods', label: '::ReceiveFinishedGoods', icon: 'box-open', color: 'success' });
+    if (this.hasHeldStockReservation) actions.push({ name: 'unreserveStock', label: '::UnreserveStock', icon: 'ban', color: 'warning' });
+    if (s === 1 || s === 2) actions.push({ name: 'close', label: '::Close', icon: 'lock', color: 'dark' });
+    if (s === 4) actions.push({ name: 'reopen', label: '::Reopen', icon: 'lock-open', color: 'warning' });
+    if (s !== 0 && s !== 5) actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     return actions;
   }
 

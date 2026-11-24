@@ -57,27 +57,27 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     if (!this.receipt) return [];
     const actions: WorkflowAction[] = [];
     if (this.receipt.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.receipt.status === 'Submitted') {
-      actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
+      actions.push({ name: 'invoice', label: '::MakeInvoice', icon: 'file-invoice', color: 'info' });
       if (!this.receipt.isReturn) {
-        actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
+        actions.push({ name: 'return', label: '::CreateReturn', icon: 'rotate-left', color: 'warning' });
         const hasRejectedLeft = this.receipt.hasRejectedQtyToReturn !== undefined
           ? this.receipt.hasRejectedQtyToReturn
           : (this.receipt.items ?? []).some(i => (i.rejectedQty ?? 0) > 0);
         if (hasRejectedLeft) {
-          actions.push({ name: 'returnRejected', label: 'Return Rejected Qty', icon: 'rotate-left', color: 'danger' });
+          actions.push({ name: 'returnRejected', label: '::ReturnRejectedQty', icon: 'rotate-left', color: 'danger' });
         }
       }
-      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'close', label: '::Close', icon: 'lock', color: 'warning' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     if (this.receipt.status === 'Closed') {
-      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
+      actions.push({ name: 'reopen', label: '::Reopen', icon: 'lock-open', color: 'primary' });
     }
     if (this.receipt.status === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+      actions.push({ name: 'amend', label: '::Amend', icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }

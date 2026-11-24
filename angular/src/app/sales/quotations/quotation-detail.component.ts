@@ -68,24 +68,24 @@ export class QuotationDetailComponent implements OnInit {
     if (!this.quotation) return [];
     const actions: WorkflowAction[] = [];
     if (this.quotation.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.quotation.status === 'Submitted') {
       const isOrdered = this.quotation.orderStatus === 'Ordered' || (this.quotation.perOrdered ?? 0) >= 100 || !!this.quotation.convertedToSalesOrderId;
       const isPartiallyOrdered = this.quotation.orderStatus === 'Partially Ordered' || (this.quotation.perOrdered ?? 0) > 0;
       if (!isOrdered) {
-        actions.push({ name: 'convert', label: 'Convert to SO', icon: 'arrow-right-arrow-left', color: 'success' });
-        actions.push({ name: 'convertToInvoice', label: this.l.instant('::ConvertToInvoice'), icon: 'file-invoice-dollar', color: 'info' });
+        actions.push({ name: 'convert', label: '::ConvertToSO', icon: 'arrow-right-arrow-left', color: 'success' });
+        actions.push({ name: 'convertToInvoice', label: '::ConvertToInvoice', icon: 'file-invoice-dollar', color: 'info' });
       }
-      actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
+      actions.push({ name: 'sendEmail', label: '::SendEmail', icon: 'envelope', color: 'secondary' });
       if (!isOrdered && !isPartiallyOrdered) {
-        actions.push({ name: 'revise', label: this.l.instant('::Revise'), icon: 'code-branch', color: 'primary' });
-        actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumbs-down', color: 'warning' });
+        actions.push({ name: 'revise', label: '::Revise', icon: 'code-branch', color: 'primary' });
+        actions.push({ name: 'lost', label: '::MarkLost', icon: 'thumbs-down', color: 'warning' });
       }
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     if (this.quotation.status === 'Cancelled' || this.quotation.status === 'Rejected') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+      actions.push({ name: 'amend', label: '::Amend', icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }

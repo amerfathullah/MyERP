@@ -135,46 +135,46 @@ export class SalesInvoiceDetailComponent implements OnInit {
     switch (this.invoice.status) {
       case 'Draft':
         if (canSubmitSI) {
-          actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
+          actions.push({ name: 'submit', label: '::Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
         }
         break;
       case 'Submitted':
-        actions.push({ name: 'post', label: 'Post', icon: 'fa fa-check-double', btnClass: 'btn-success' });
+        actions.push({ name: 'post', label: '::Post', icon: 'fa fa-check-double', btnClass: 'btn-success' });
         break;
       case 'Posted':
-        actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
+        actions.push({ name: 'payment', label: '::MakePayment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
         // Per ERPNext: SI→DN enables goods delivery from an already-posted invoice (service→goods flow)
         if (!(this.invoice as any).updateStock && !(this.invoice as any).isReturn && canCreateDeliveryNote) {
-          actions.push({ name: 'createDN', label: 'Create Delivery Note', icon: 'fa fa-truck', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'createDN', label: '::CreateDeliveryNote', icon: 'fa fa-truck', btnClass: 'btn-outline-info' });
         }
         // Per ERPNext #59367: Return / Credit Note respects Sales Invoice create permission
         const outstanding = (this.invoice as any).outstandingAmount ?? 0;
         const grandTotal = this.invoice.grandTotal ?? 0;
         if (canCreateSalesInvoice && !(this.invoice as any).isReturn && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
-          actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
+          actions.push({ name: 'return', label: '::CreateReturn', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
         }
         if (canCreateSalesInvoice && !(this.invoice as any).isReturn && !(this.invoice as any).isDebitNote && !(this.invoice as any).consolidatedSalesInvoiceId) {
-          actions.push({ name: 'debitNote', label: 'Create Debit Note', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'debitNote', label: '::CreateDebitNote', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-info' });
         }
         // Per ERPNext #59367: Dunning if payment is overdue and can create Dunning
         if (!(this.invoice as any).updateStock && canCreateDunning && this.hasOverduePayment()) {
-          actions.push({ name: 'dunning', label: 'Dunning', icon: 'fa fa-bell', btnClass: 'btn-outline-warning' });
+          actions.push({ name: 'dunning', label: '::Dunning', icon: 'fa fa-bell', btnClass: 'btn-outline-warning' });
         }
         // Per ERPNext #59367: Maintenance Schedule if posted and can create Maintenance Schedule
         if (canCreateMaintenanceSchedule) {
-          actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'maintenanceSchedule', label: '::MaintenanceSchedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
         }
         // Per ERPNext PR #66937: show while uninvoiced pending qty remains and not made from counterpart PI
         const canCreateIcPi = this.invoice.canCreateInterCompanyPurchaseInvoice
           ?? (this.invoice.isInternalCustomer && !this.invoice.interCompanyPurchaseInvoiceId && !(this.invoice as any).isReturn);
         if (canCreateIcPi && canCreatePurchaseInvoice) {
-          actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'createPurchaseInvoice', label: '::MakePurchaseInvoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
         }
         if (outstanding > 0) {
-          actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
+          actions.push({ name: 'writeOff', label: '::WriteOff', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
         }
         if (canCancelSI) {
-          actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
+          actions.push({ name: 'cancel', label: '::Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
         }
         // Per MyInvois commit 0e3fc83 & 37d716d: allow submit/resubmit for NotSubmitted, Invalid, Rejected, or Failed (unless already consolidated)
         const canSubmitLhdn = !this.invoice.eInvoiceStatus
@@ -186,25 +186,25 @@ export class SalesInvoiceDetailComponent implements OnInit {
           const isResubmit = this.invoice.eInvoiceStatus === 'Invalid'
             || this.invoice.eInvoiceStatus === 'Rejected'
             || this.invoice.eInvoiceStatus === 'Failed';
-          actions.push({ name: 'submitLhdn', label: isResubmit ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
+          actions.push({ name: 'submitLhdn', label: isResubmit ? '::ResubmitToLhdn' : '::SubmitToLhdn', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
         // Per MyInvois public/js/sales.js (custom_check_customer_tin): allow on-demand LHDN TIN lookup from Sales Invoice
         if (this.invoice.customerId) {
-          actions.push({ name: 'checkCustomerTin', label: 'Check Customer TIN', icon: 'fa fa-id-card', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'checkCustomerTin', label: '::CheckCustomerTin', icon: 'fa fa-id-card', btnClass: 'btn-outline-info' });
         }
         if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
-          actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', btnClass: 'btn-outline-info' });
+          actions.push({ name: 'refreshLhdn', label: '::RefreshStatus', icon: 'fa fa-rotate', btnClass: 'btn-outline-info' });
 
         }
         if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
-          actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
+          actions.push({ name: 'cancelLhdn', label: '::CancelEInvoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
         }
-        actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'fa fa-envelope', btnClass: 'btn-outline-secondary' });
-        actions.push({ name: 'setRecurring', label: 'Set Recurring', icon: 'fa fa-repeat', btnClass: 'btn-outline-info' });
+        actions.push({ name: 'sendEmail', label: '::SendEmail', icon: 'fa fa-envelope', btnClass: 'btn-outline-secondary' });
+        actions.push({ name: 'setRecurring', label: '::SetRecurring', icon: 'fa fa-repeat', btnClass: 'btn-outline-info' });
         break;
       case 'Cancelled':
         if (canCreateSalesInvoice) {
-          actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
+          actions.push({ name: 'amend', label: '::Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
         }
         break;
     }

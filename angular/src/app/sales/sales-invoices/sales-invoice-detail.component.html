@@ -16,7 +16,7 @@
       @for (action of workflowActions; track action.name) {
         <button class="btn btn-sm" [ngClass]="action.btnClass" (click)="onWorkflowAction(action.name)">
           <i class="me-1" [ngClass]="action.icon"></i>
-          {{ action.label }}
+          {{ action.label | abpLocalization }}
         </button>
       }
       <button class="btn btn-outline-primary btn-sm" (click)="edit()" [disabled]="invoice.status !== 'Draft' || !canEdit()">

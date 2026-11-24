@@ -16,8 +16,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #68311, #69299, #69301, #69312, #69314,
-/// #69315, #69322, #69324, #69327, #69337, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #63403, #68311, #69286, #69293, #69299, #69301,
+/// #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -419,5 +419,112 @@ public class UpstreamBatch42ParityTests
         var ex = Should.Throw<BusinessException>(() =>
             TransactionValidationService.ResolvePermittedCompaniesForReport(compB, permitted));
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("You do not have permission to access Company");
+    }
+
+    [Fact]
+    public void Pr63403_StockLedgerAudit_FindsFirstIncorrectSle_AndSkipsPendingOrDuplicateReposts()
+    {
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var itemB = Guid.NewGuid();
+        var t1 = new DateTime(2026, 11, 1, 9, 0, 0);
+        var t2 = new DateTime(2026, 11, 2, 9, 0, 0);
+
+        // Pending reposts: accounting-only transaction repost is NOT skipped; stock repost IS skipped
+        var inPending = StockLedgerAuditService.GetItemWarehousesInPendingRepost(new[]
+        {
+            new PendingRepostSnapshot(itemId, whId, IsSubmitted: true, IsQueuedOrInProgress: true, IsTransactionBased: true, RepostOnlyAccountingLedgers: true),
+            new PendingRepostSnapshot(itemB, whId, IsSubmitted: true, IsQueuedOrInProgress: true, IsTransactionBased: false, RepostOnlyAccountingLedgers: false),
+        });
+        inPending.ShouldNotContain((itemId, whId));
+        inPending.ShouldContain((itemB, whId));
+
+        // SLE 1 consistent with opening (qty 10 + 5 = 15, val 100 + 50 = 150, rate 10)
+        // SLE 2 has corrupted stock_value (150 - 30 = 120 expected, stored 110)
+        var sle1 = new StockLedgerAuditEntry(Guid.NewGuid(), itemId, whId, t1, ActualQty: 5m, QtyAfterTransaction: 15m, ValuationRate: 10m, StockValue: 150m, StockValueDifference: 50m);
+        var sle2 = new StockLedgerAuditEntry(Guid.NewGuid(), itemId, whId, t2, ActualQty: -3m, QtyAfterTransaction: 12m, ValuationRate: 10m, StockValue: 110m, StockValueDifference: -30m);
+
+        var firstBad = StockLedgerAuditService.FindFirstIncorrectSle(new[] { sle1, sle2 }, openingQty: 10m, openingStockValue: 100m);
+        firstBad.ShouldNotBeNull();
+        firstBad.EntryId.ShouldBe(sle2.EntryId);
+
+        // Should queue repost unless already queued by scheduler at same (item, warehouse, posting_datetime)
+        StockLedgerAuditService.ShouldCreateSchedulerRepost(firstBad, inPending, existingSchedulerReposts: null).ShouldBeTrue();
+        var existing = new HashSet<(Guid, Guid, DateTime)> { (itemId, whId, t2) };
+        StockLedgerAuditService.ShouldCreateSchedulerRepost(firstBad, inPending, existing).ShouldBeFalse();
+
+        // Clean sequence returns null
+        var sle2Clean = sle2 with { StockValue = 120m };
+        StockLedgerAuditService.FindFirstIncorrectSle(new[] { sle1, sle2Clean }, openingQty: 10m, openingStockValue: 100m).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Pr69286_DeliveryNoteReturnBilling_SkipsAlreadyUpdatedReturns()
+    {
+        var ret1 = Guid.NewGuid();
+        var ret2 = Guid.NewGuid();
+        var ret3 = Guid.NewGuid();
+        var alreadyUpdated = new HashSet<Guid> { ret1, ret3 };
+
+        var pending = DeliveryNoteManager.GetPendingReturnDeliveryNotesToUpdateBilling(
+            new[] { ret1, ret2, ret3, ret2 },
+            alreadyUpdated);
+
+        pending.ShouldBe(new[] { ret2 });
+    }
+
+    [Fact]
+    public void Pr69316_SubcontractingSerialField_ValidatesRowFieldAndDeduplicatesSupplierPool()
+    {
+        // Dedup preserves insertion order on outward transfer and removes returned serials in linear time
+        var atSupplier = SubcontractingManager.UpdateSerialNosAtSupplier(
+            existingAtSupplier: new[] { "SN-001", "SN-002" },
+            serialNos: new[] { "SN-002", "SN-003", "SN-001" },
+            isReturn: false);
+        atSupplier.ShouldBe(new[] { "SN-001", "SN-002", "SN-003" });
+
+        var afterReturn = SubcontractingManager.UpdateSerialNosAtSupplier(
+            existingAtSupplier: atSupplier,
+            serialNos: new[] { "SN-002" },
+            isReturn: true);
+        afterReturn.ShouldBe(new[] { "SN-001", "SN-003" });
+
+        // Consumed validation checks BOTH bundle serials and row serial_no field
+        Should.NotThrow(() =>
+            SubcontractingManager.ValidateConsumedSerialNosAgainstSupplierPool(
+                "Subcontracting Order", "SCO-001", afterReturn,
+                bundleSerialNos: new[] { "SN-001" },
+                rowFieldSerialNos: new[] { "SN-003" }));
+
+        var ex = Should.Throw<BusinessException>(() =>
+            SubcontractingManager.ValidateConsumedSerialNosAgainstSupplierPool(
+                "Subcontracting Order", "SCO-001", afterReturn,
+                bundleSerialNos: new[] { "SN-001" },
+                rowFieldSerialNos: new[] { "SN-002" }));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("SN-002");
+    }
+
+    [Fact]
+    public void Pr69293_BomSecondaryItemValuationCost_ConvertsCompanyRateToBomCurrency()
+    {
+        // Company currency valuation rate 45 MYR, BOM currency USD (conversionRate = 4.5), stockQty 10, processLoss 2 -> produced 8
+        // cost = (45 / 4.5) * 8 = 80 USD, baseCost = 80 * 4.5 = 360 MYR
+        var (cost, baseCost) = BomCostPropagationService.CalculateSecondaryItemCostFromValuationRate(
+            companyCurrencyValuationRate: 45m,
+            stockQty: 10m,
+            processLossQty: 2m,
+            bomConversionRate: 4.5m);
+
+        cost.ShouldBe(80m);
+        baseCost.ShouldBe(360m);
+
+        // Process loss exceeding stockQty caps producedQty to 0
+        var (zeroCost, zeroBase) = BomCostPropagationService.CalculateSecondaryItemCostFromValuationRate(
+            companyCurrencyValuationRate: 45m,
+            stockQty: 5m,
+            processLossQty: 8m,
+            bomConversionRate: 4.5m);
+        zeroCost.ShouldBe(0m);
+        zeroBase.ShouldBe(0m);
     }
 }

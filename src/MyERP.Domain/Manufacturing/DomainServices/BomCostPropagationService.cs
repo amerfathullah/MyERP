@@ -523,6 +523,26 @@ public class BomCostPropagationService : DomainService
     }
 
     /// <summary>
+    /// Computes BOM secondary item <c>(Cost, BaseCost)</c> from a company-currency valuation rate
+    /// per ERPNext PR #69293 (<c>bom.js: fetch_secondary_item_cost</c> / <c>bom.py: get_secondary_item_valuation_rate</c>):
+    /// caps <paramref name="processLossQty"/> at <paramref name="stockQty"/>, converts the company-currency
+    /// valuation rate into BOM currency using <paramref name="bomConversionRate"/>, and multiplies by net produced qty.
+    /// </summary>
+    public static (decimal Cost, decimal BaseCost) CalculateSecondaryItemCostFromValuationRate(
+        decimal companyCurrencyValuationRate,
+        decimal stockQty,
+        decimal processLossQty,
+        decimal bomConversionRate = 1m)
+    {
+        var conversionRate = bomConversionRate > 0m ? bomConversionRate : 1m;
+        var cappedLoss = Math.Min(Math.Max(processLossQty, 0m), Math.Max(stockQty, 0m));
+        var producedQty = Math.Max(stockQty, 0m) - cappedLoss;
+        var cost = (companyCurrencyValuationRate / conversionRate) * producedQty;
+        var baseCost = cost * conversionRate;
+        return (cost, baseCost);
+    }
+
+    /// <summary>
     /// Resolves the updated <c>HourRate</c> on a BOM Operation row when the row's workstation/type
     /// or parent BOM's exchange conversion rate changes per ERPNext PR #67335
     /// (<c>bom/services/costing.py: _reset_row_hour_rate</c>):

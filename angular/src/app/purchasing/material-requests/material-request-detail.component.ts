@@ -51,26 +51,26 @@ export class MaterialRequestDetailComponent implements OnInit {
     const s = this.entity.status;
     const actions: WorkflowAction[] = [];
     if (s === 0) { // Draft
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (s === 1) { // Submitted
       // Purchase or Subcontracting with remaining un-ordered qty (ERPNext PR #47012 / commit 5a524854de)
       if ((this.entity.requestType === 0 || (this.entity.requestType as number) === 5) && (this.entity.perOrdered ?? 0) < 100) {
-        actions.push({ name: 'convertToPO', label: 'Create Purchase Order', icon: 'file-invoice', color: 'success' });
-        actions.push({ name: 'createRFQ', label: 'Create RFQ', icon: 'file-lines', color: 'primary' });
-        actions.push({ name: 'splitBySupplier', label: 'Split by Supplier', icon: 'code-branch', color: 'secondary' });
+        actions.push({ name: 'convertToPO', label: '::CreatePurchaseOrder', icon: 'file-invoice', color: 'success' });
+        actions.push({ name: 'createRFQ', label: '::CreateRFQ', icon: 'file-lines', color: 'primary' });
+        actions.push({ name: 'splitBySupplier', label: '::SplitBySupplier', icon: 'code-branch', color: 'secondary' });
       }
       if (this.entity.requestType === 1 || this.entity.requestType === 2) { // Transfer/Issue
-        actions.push({ name: 'createSE', label: 'Create Stock Entry', icon: 'truck', color: 'info' });
+        actions.push({ name: 'createSE', label: '::CreateStockEntry', icon: 'truck', color: 'info' });
       }
       if (this.entity.requestType === 3 && (this.entity.perOrdered ?? 0) < 100) { // Manufacture (ERPNext PR #59584)
-        actions.push({ name: 'createWO', label: 'Create Work Order', icon: 'cogs', color: 'primary' });
+        actions.push({ name: 'createWO', label: '::CreateWorkOrder', icon: 'cogs', color: 'primary' });
       }
-      actions.push({ name: 'stop', label: 'Stop', icon: 'stop-circle', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'stop', label: '::Stop', icon: 'stop-circle', color: 'warning' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     if (s === 14) { // Stopped / Closed
-      actions.push({ name: 'reopen', label: 'Re-open', icon: 'redo', color: 'primary' });
+      actions.push({ name: 'reopen', label: '::Reopen', icon: 'redo', color: 'primary' });
     }
     return actions;
   }

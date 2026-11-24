@@ -1837,6 +1837,59 @@ public class SubcontractingManager : DomainService
     }
 
     /// <summary>
+    /// Validates consumed serial numbers from BOTH bundle entries and the row's <c>serial_no</c> field
+    /// against the supplier's serial pool per ERPNext PR #69316 (<c>__validate_serial_no</c>).
+    /// </summary>
+    public static void ValidateConsumedSerialNosAgainstSupplierPool(
+        string orderDocType,
+        string orderNumber,
+        IEnumerable<string>? availableSerialNosAtSupplier,
+        IEnumerable<string>? bundleSerialNos,
+        IEnumerable<string>? rowFieldSerialNos)
+    {
+        var combined = (bundleSerialNos ?? Enumerable.Empty<string>())
+            .Concat(rowFieldSerialNos ?? Enumerable.Empty<string>());
+        ValidateConsumedSerialNosAgainstSupplierPool(orderDocType, orderNumber, availableSerialNosAtSupplier, combined);
+    }
+
+    /// <summary>
+    /// Updates the ordered list of serial numbers currently held at a subcontractor per ERPNext PR #69316
+    /// (<c>update_serial_nos_at_supplier</c>):
+    /// - On outward transfer (<paramref name="isReturn"/> == false), appends and deduplicates in insertion
+    ///   order because a voucher's bundles can repeat serials from rows that use the <c>serial_no</c> field.
+    /// - On return (<paramref name="isReturn"/> == true), removes each returned serial in linear time.
+    /// </summary>
+    public static List<string> UpdateSerialNosAtSupplier(
+        IEnumerable<string>? existingAtSupplier,
+        IEnumerable<string>? serialNos,
+        bool isReturn)
+    {
+        var current = (existingAtSupplier ?? Enumerable.Empty<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .ToList();
+        var incoming = (serialNos ?? Enumerable.Empty<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .ToList();
+
+        if (!isReturn)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var merged = new List<string>(current.Count + incoming.Count);
+            foreach (var sn in current.Concat(incoming))
+            {
+                if (seen.Add(sn))
+                    merged.Add(sn);
+            }
+            return merged;
+        }
+
+        var returned = new HashSet<string>(incoming, StringComparer.OrdinalIgnoreCase);
+        return current.Where(sn => !returned.Contains(sn)).ToList();
+    }
+
+    /// <summary>
     /// Allocates consumed raw material (and alternative item) quantities onto Subcontracting Order
     /// supplied item rows based on what items were actually sent on each row, ignoring negative net
     /// sent quantities caused by component returns booked on one row per ERPNext PR #67373 (commit 173f26d7ce).

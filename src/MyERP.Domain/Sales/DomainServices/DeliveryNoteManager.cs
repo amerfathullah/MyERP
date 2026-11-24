@@ -759,6 +759,33 @@ public class DeliveryNoteManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Filters submitted return Delivery Notes linked to a Delivery Note, skipping any returns
+    /// already updated in the current pass per ERPNext PR #69286
+    /// (<c>billing_status.py: update_billing_percentage_of_returns</c>).
+    /// </summary>
+    public static List<Guid> GetPendingReturnDeliveryNotesToUpdateBilling(
+        IEnumerable<Guid>? submittedReturnDeliveryNoteIds,
+        IReadOnlySet<Guid>? alreadyUpdatedDeliveryNoteIds)
+    {
+        if (submittedReturnDeliveryNoteIds == null)
+            return new List<Guid>();
+
+        var result = new List<Guid>();
+        var seen = new HashSet<Guid>();
+        foreach (var id in submittedReturnDeliveryNoteIds)
+        {
+            if (id == Guid.Empty)
+                continue;
+            if (alreadyUpdatedDeliveryNoteIds != null && alreadyUpdatedDeliveryNoteIds.Contains(id))
+                continue;
+            if (seen.Add(id))
+                result.Add(id);
+        }
+
+        return result;
+    }
 }
 
 public sealed record ReturnDocumentRowSnapshot(
