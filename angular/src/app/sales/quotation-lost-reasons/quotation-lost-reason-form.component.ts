@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-reason.service';
 
 @Component({
   selector: 'app-quotation-lost-reason-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -20,7 +21,7 @@ import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-rea
           <div class="row mb-3">
             <div class="col-md-8">
               <label class="form-label">Reason *</label>
-              <input type="text" class="form-control" formControlName="reason" placeholder="e.g. Price too high, Competitor won, Requirement changed">
+              <input type="text" class="form-control" formControlName="reason" [placeholder]="'::Placeholder:QuotationLostReasonExample' | abpLocalization">
             </div>
             <div class="col-md-4 d-flex align-items-center mt-4">
               <div class="form-check form-switch">
@@ -32,7 +33,7 @@ import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-rea
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Optional description..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">

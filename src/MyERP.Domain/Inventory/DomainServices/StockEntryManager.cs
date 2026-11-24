@@ -2760,6 +2760,36 @@ public class StockEntryManager : DomainService
 
         return (takenSerials, takenBatches);
     }
+
+    /// <summary>
+    /// Computes the basic rate of a percentage-allocated co-product after deducting BOTH costed-out
+    /// secondary items AND manually rated finished goods from the allocation basis (floored at 0)
+    /// when automatic finished goods exist.
+    /// Per ERPNext PR #67383 (<c>stock_entry.py</c>).
+    /// </summary>
+    public static decimal CalculateCoProductRateAfterManualFinishedGoods(
+        decimal secondaryItemsCostBasis,
+        decimal costedOutItemsCost,
+        decimal manuallyRatedFinishedItemsCost,
+        decimal finishedItemsQty,
+        decimal costAllocationPercentage,
+        decimal secondaryItemsQty,
+        int precision = 4)
+    {
+        if (secondaryItemsQty <= 0m)
+            return 0m;
+
+        var allocationBasis = secondaryItemsCostBasis - costedOutItemsCost;
+        if (finishedItemsQty > 0m && allocationBasis > 0m)
+        {
+            allocationBasis = Math.Max(allocationBasis - manuallyRatedFinishedItemsCost, 0m);
+        }
+
+        return Math.Round(
+            allocationBasis * (costAllocationPercentage / 100m) / secondaryItemsQty,
+            precision,
+            MidpointRounding.AwayFromZero);
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

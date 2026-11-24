@@ -43,7 +43,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               <input
                 type="text"
                 class="form-control form-control-sm"
-                placeholder="Filter by customer name, code or territory..."
+                [placeholder]="'::Placeholder:FilterByCustomerNameCodeTerritory' | abpLocalization"
                 [(ngModel)]="customerSearch"
               />
             </div>

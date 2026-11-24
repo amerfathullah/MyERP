@@ -1250,4 +1250,81 @@ public class PurchaseReceiptManager : DomainService
         var lcvRate = acceptedStockQty > 0m ? landedCostVoucherAmount / acceptedStockQty : 0m;
         return transitOutgoingRate + lcvRate;
     }
+
+    /// <summary>
+    /// Validates that when a purchase return moves a FIFO/LIFO non-serial/non-batch item out of a
+    /// warehouse DIFFERENT from its original receipt row's accepted/rejected warehouses, the return
+    /// warehouse holds enough stock in its FIFO/LIFO queue at the exact receipt rate.
+    /// Processes non-moved (same-warehouse) return rows first so they take the receipt lot first.
+    /// Per ERPNext PR #67530 (<c>sales_and_purchase_return.py</c>).
+    /// </summary>
+    public static void ValidateReturnWarehouseHoldsFifoLifoReceiptStock(
+        IEnumerable<(
+            int RowIdx,
+            string ItemCode,
+            Guid ReturnWarehouseId,
+            string ReturnWarehouseName,
+            decimal Qty,
+            string? Uom,
+            string? StockUom,
+            decimal ConversionFactor,
+            decimal ReceiptRate,
+            IReadOnlyCollection<Guid> OriginalReceiptWarehouseIds,
+            string PrimaryOriginalWarehouseName,
+            bool IsFifoOrLifoNonTrackedStock)>? returnRows,
+        IReadOnlyDictionary<(string ItemCode, Guid WarehouseId, decimal Rate), decimal>? queueQtyByKey,
+        string returnAgainstNumber,
+        int stockQtyPrecision = 4)
+    {
+        if (returnRows == null)
+            return;
+
+        var rows = returnRows.Where(r => r.Qty < 0m && r.IsFifoOrLifoNonTrackedStock).ToList();
+        if (rows.Count == 0)
+            return;
+
+        var movedRowIndices = rows
+            .Where(r => r.OriginalReceiptWarehouseIds != null
+                && r.OriginalReceiptWarehouseIds.Count > 0
+                && !r.OriginalReceiptWarehouseIds.Contains(r.ReturnWarehouseId))
+            .Select(r => r.RowIdx)
+            .ToHashSet();
+
+        if (movedRowIndices.Count == 0)
+            return;
+
+        var movedTargets = rows
+            .Where(r => movedRowIndices.Contains(r.RowIdx))
+            .Select(r => (r.ItemCode, r.ReturnWarehouseId))
+            .ToHashSet();
+
+        // Same-warehouse rows take the receipt lot first, moved rows last (PR #67530)
+        var ordered = rows
+            .Where(r => movedTargets.Contains((r.ItemCode, r.ReturnWarehouseId)))
+            .OrderBy(r => movedRowIndices.Contains(r.RowIdx) ? 1 : 0)
+            .ThenBy(r => r.RowIdx)
+            .ToList();
+
+        var qtyLeft = new Dictionary<(string ItemCode, Guid WarehouseId, decimal Rate), decimal>();
+        foreach (var row in ordered)
+        {
+            var key = (row.ItemCode, row.ReturnWarehouseId, row.ReceiptRate);
+            if (!qtyLeft.ContainsKey(key))
+            {
+                qtyLeft[key] = queueQtyByKey != null ? queueQtyByKey.GetValueOrDefault(key, 0m) : 0m;
+            }
+
+            var returnStockQty = CalculateReturnWarehouseCheckStockQty(
+                row.Qty, row.Uom, row.StockUom, row.ConversionFactor, stockQtyPrecision);
+            qtyLeft[key] -= returnStockQty;
+
+            if (movedRowIndices.Contains(row.RowIdx)
+                && Math.Round(qtyLeft[key], stockQtyPrecision, MidpointRounding.AwayFromZero) < 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail",
+                        $"Row #{row.RowIdx}: {row.ReturnWarehouseName} does not hold enough of item {row.ItemCode} at the rate of {row.ReceiptRate}, at which {returnAgainstNumber} received it. Move the goods back to {row.PrimaryOriginalWarehouseName} and return them from there.");
+            }
+        }
+    }
 }

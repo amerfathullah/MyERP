@@ -77,4 +77,66 @@ public class StockRepostGuardService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Determines whether a candidate Stock Ledger Entry occurs strictly later than a voucher in
+    /// <c>(PostingDate, CreationTime)</c> order per ERPNext PR #68732 (<c>future_sle_exists</c>):
+    /// same-timestamp entries created BEFORE the voucher's first SLE are NOT later and do not require reposting.
+    /// </summary>
+    public static bool IsLaterStockLedgerEntry(
+        DateTime candidatePostingDate,
+        DateTime candidateCreationTime,
+        DateTime voucherPostingDate,
+        DateTime? voucherFirstSleCreationTime)
+    {
+        if (candidatePostingDate > voucherPostingDate)
+            return true;
+
+        if (candidatePostingDate == voucherPostingDate
+            && voucherFirstSleCreationTime.HasValue
+            && candidateCreationTime > voucherFirstSleCreationTime.Value)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether any active (non-cancelled) future Stock Ledger Entry exists for another voucher
+    /// on the given <paramref name="itemWarehouses"/> after <paramref name="postingDate"/> (tie-broken by
+    /// the voucher's earliest SLE <c>CreationTime</c>, including cancelled SLEs).
+    /// Per ERPNext PR #68732 (<c>stock_controller.py: future_sle_exists</c>).
+    /// </summary>
+    public async Task<bool> HasFutureStockLedgerEntriesAsync(
+        string voucherType,
+        Guid voucherId,
+        DateTime postingDate,
+        System.Collections.Generic.IEnumerable<(Guid ItemId, Guid WarehouseId)> itemWarehouses)
+    {
+        var sleRepo = _sleRepository ?? LazyServiceProvider?.LazyGetService<IRepository<StockLedgerEntry, Guid>>();
+        if (sleRepo == null)
+            return false;
+
+        var targets = itemWarehouses?.ToHashSet();
+        if (targets == null || targets.Count == 0)
+            return false;
+
+        var sleQuery = await sleRepo.GetQueryableAsync();
+        var voucherFirstCreation = sleQuery
+            .Where(s => s.VoucherType == voucherType && s.VoucherId == voucherId)
+            .OrderBy(s => s.CreationTime)
+            .Select(s => (DateTime?)s.CreationTime)
+            .FirstOrDefault();
+
+        var candidates = sleQuery
+            .Where(s => !s.IsCancelled
+                && s.VoucherId != voucherId
+                && s.PostingDate >= postingDate)
+            .ToList();
+
+        return candidates.Any(s =>
+            targets.Contains((s.ItemId, s.WarehouseId))
+            && IsLaterStockLedgerEntry(s.PostingDate, s.CreationTime, postingDate, voucherFirstCreation));
+    }
 }

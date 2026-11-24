@@ -2857,6 +2857,75 @@ public class UpstreamBatch41ParityTests
         xml.Root.Element(cac + "AccountingCustomerParty")!.Element(cac + "Party")!.Element(cac + "Contact").ShouldBeNull(); // N/A contact omitted
     }
 
+    [Fact]
+    public void UpstreamBatch23_FutureSleSameTime_CoProductManualFg_ReturnQueueGuard_LhdnVersion_Parity()
+    {
+        // 1. ERPNext PR #68732: Same-time SLE created BEFORE voucher does not trigger repost; created AFTER does
+        var tPost = new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc);
+        var tCreate1 = new DateTime(2026, 8, 23, 12, 0, 1, DateTimeKind.Utc);
+        var tCreate2 = new DateTime(2026, 8, 23, 12, 0, 2, DateTimeKind.Utc);
+        var tCreate3 = new DateTime(2026, 8, 23, 12, 0, 3, DateTimeKind.Utc);
+
+        StockRepostGuardService.IsLaterStockLedgerEntry(tPost, tCreate1, tPost, tCreate2).ShouldBeFalse();
+        StockRepostGuardService.IsLaterStockLedgerEntry(tPost, tCreate3, tPost, tCreate2).ShouldBeTrue();
+        StockRepostGuardService.IsLaterStockLedgerEntry(tPost.AddSeconds(1), tCreate1, tPost, tCreate2).ShouldBeTrue();
+        StockRepostGuardService.IsLaterStockLedgerEntry(tPost, tCreate3, tPost, null).ShouldBeFalse();
+
+        // 2. ERPNext PR #67383: Co-product percentage split deducts manually rated FG cost first (floored at 0)
+        StockEntryManager.CalculateCoProductRateAfterManualFinishedGoods(
+            secondaryItemsCostBasis: 1000m,
+            costedOutItemsCost: 100m,
+            manuallyRatedFinishedItemsCost: 300m,
+            finishedItemsQty: 5m,
+            costAllocationPercentage: 25m,
+            secondaryItemsQty: 5m)
+            .ShouldBe(30m); // (1000 - 100 - 300) * 25% / 5 = 30
+
+        StockEntryManager.CalculateCoProductRateAfterManualFinishedGoods(
+            secondaryItemsCostBasis: 200m,
+            costedOutItemsCost: 0m,
+            manuallyRatedFinishedItemsCost: 500m,
+            finishedItemsQty: 2m,
+            costAllocationPercentage: 50m,
+            secondaryItemsQty: 1m)
+            .ShouldBe(0m); // floored at 0
+
+        // 3. ERPNext PR #67530: FIFO/LIFO return from non-receipt warehouse verifies rate-matched queue qty (same-wh rows take first)
+        var whReceipt = Guid.NewGuid();
+        var whOther = Guid.NewGuid();
+        var queue = new Dictionary<(string, Guid, decimal), decimal>
+        {
+            [("FIFO-1", whOther, 50m)] = 5m
+        };
+
+        // Returning 5 from whOther succeeds when whOther holds 5 at rate 50
+        Should.NotThrow(() =>
+            PurchaseReceiptManager.ValidateReturnWarehouseHoldsFifoLifoReceiptStock(
+                returnRows: new[]
+                {
+                    (1, "FIFO-1", whOther, "Other WH", -5m, (string?)"Nos", (string?)"Nos", 1m, 50m, (IReadOnlyCollection<Guid>)new[] { whReceipt }, "Main WH", true)
+                },
+                queueQtyByKey: queue,
+                returnAgainstNumber: "PR-2026-0001"));
+
+        // Same-wh row returning 3 from whOther takes first, leaving only 2 for moved row returning 4 -> throws
+        var fifoEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            PurchaseReceiptManager.ValidateReturnWarehouseHoldsFifoLifoReceiptStock(
+                returnRows: new[]
+                {
+                    (1, "FIFO-1", whOther, "Other WH", -4m, (string?)"Nos", (string?)"Nos", 1m, 50m, (IReadOnlyCollection<Guid>)new[] { whReceipt }, "Main WH", true),
+                    (2, "FIFO-1", whOther, "Other WH", -3m, (string?)"Nos", (string?)"Nos", 1m, 50m, (IReadOnlyCollection<Guid>)new[] { whOther }, "Other WH", true),
+                },
+                queueQtyByKey: queue,
+                returnAgainstNumber: "PR-2026-0001"));
+        (fifoEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Move the goods back to Main WH");
+
+        // 4. MyInvois createxml.py: ResolveDocumentVersion requires certificate for 1.1, otherwise falls back to 1.0
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveDocumentVersion(hasCertificateFile: true, configuredVersion: "1.1").ShouldBe("1.1");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveDocumentVersion(hasCertificateFile: false, configuredVersion: "1.1").ShouldBe("1.0");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveDocumentVersion(hasCertificateFile: true, configuredVersion: "1.0").ShouldBe("1.0");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

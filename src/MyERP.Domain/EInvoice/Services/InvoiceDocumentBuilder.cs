@@ -167,6 +167,17 @@ public class InvoiceDocumentBuilder : ITransientDependency
     }
 
     /// <summary>
+    /// Resolves LHDN UBL <c>listVersionID</c> (<c>"1.1"</c> only when a signing certificate is configured
+    /// AND version is <c>"1.1"</c>, otherwise <c>"1.0"</c>) per myinvois <c>createxml.py: get_invoice_type_code()</c>.
+    /// </summary>
+    public static string ResolveDocumentVersion(bool hasCertificateFile, string? configuredVersion)
+    {
+        return hasCertificateFile && string.Equals(configuredVersion?.Trim(), "1.1", StringComparison.Ordinal)
+            ? "1.1"
+            : "1.0";
+    }
+
+    /// <summary>
     /// Checks whether a party contact/identifier value is blank or an N/A placeholder (<c>"NA"</c>, <c>"N/A"</c>).
     /// Per myinvois <c>createxml.py: is_na()</c>.
     /// </summary>

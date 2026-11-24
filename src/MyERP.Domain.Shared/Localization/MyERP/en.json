@@ -6765,7 +6765,16 @@
     "Placeholder:TerritoryExample": "e.g. Malaysia, Southeast Asia, Selangor, Kuala Lumpur",
     "Placeholder:SalesManagerRoleExample": "e.g. Sales Manager",
     "Placeholder:ProformaPrintFormatExample": "e.g. Standard Proforma Invoice",
-    "Placeholder:ProformaEmailTemplateExample": "e.g. Proforma Invoice Notification"
+    "Placeholder:ProformaEmailTemplateExample": "e.g. Proforma Invoice Notification",
+    "Placeholder:ScorecardVariableLabelExample": "e.g. Total Ordered Quantity",
+    "Placeholder:ScorecardParamNameExample": "e.g. total_ordered_qty",
+    "Placeholder:ScorecardPathExample": "e.g. doc.total_ordered_qty",
+    "Placeholder:FilterByLabelOrParam": "Filter by label or param...",
+    "Placeholder:QuotationLostReasonExample": "e.g. Price too high, Competitor won, Requirement changed",
+    "Placeholder:FilterByReason": "Filter by reason...",
+    "Placeholder:SearchCodeNameWarehouse": "Search code, name, warehouse...",
+    "Placeholder:SearchItemCodeOrName": "Search item code or name...",
+    "Placeholder:FilterByCustomerNameCodeTerritory": "Filter by customer name, code or territory..."
   }
 }
 
