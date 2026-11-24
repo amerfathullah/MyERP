@@ -1322,6 +1322,46 @@ public class WorkOrderManager : DomainService
         var maxEnd = cardTimes.Max(c => c.PlannedEndTime);
         return (minStart, maxEnd);
     }
+
+    /// <summary>
+    /// Determines whether the Work Order "Finish" action should be shown per ERPNext PR #65928
+    /// (<c>work_order.js</c>):
+    /// - When <paramref name="skipTransfer"/> is false: requires positive
+    ///   <paramref name="materialTransferredForManufacturing"/> AND
+    ///   <c>Round(materialTransferredForManufacturing - producedQty - processLossQty, qtyPrecision) &gt; 0</c>.
+    /// - When <paramref name="skipTransfer"/> is true: checks
+    ///   <c>Round(quantity * (1 + overproductionPercentage / 100) - producedQty - processLossQty, qtyPrecision) &gt; 0</c>.
+    /// </summary>
+    public static bool ShouldShowFinishButton(
+        decimal quantity,
+        decimal materialTransferredForManufacturing,
+        decimal producedQty,
+        decimal processLossQty,
+        bool skipTransfer,
+        decimal overproductionPercentage = 0m,
+        int qtyPrecision = 4)
+    {
+        if (!skipTransfer)
+        {
+            if (materialTransferredForManufacturing <= 0m)
+            {
+                return false;
+            }
+
+            var remaining = Math.Round(
+                materialTransferredForManufacturing - producedQty - processLossQty,
+                qtyPrecision,
+                MidpointRounding.AwayFromZero);
+            return remaining > 0m;
+        }
+
+        var maxAllowed = quantity * (1m + Math.Max(0m, overproductionPercentage) / 100m);
+        var remainingWithoutTransfer = Math.Round(
+            maxAllowed - producedQty - processLossQty,
+            qtyPrecision,
+            MidpointRounding.AwayFromZero);
+        return remainingWithoutTransfer > 0m;
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

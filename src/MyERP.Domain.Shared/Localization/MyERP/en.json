@@ -7136,7 +7136,15 @@
     "ForCompanyPrefix": "For",
     "AcceptedByCustomer": "Accepted By (Customer)",
     "NameSignatureDateStamp": "Name / Signature / Date / Company Stamp",
-    "ThankYouProposal": "Thank you for considering our proposal. We look forward to serving you."
+    "ThankYouProposal": "Thank you for considering our proposal. We look forward to serving you.",
+    "OrderNumberShort": "Order #",
+    "YourPoNumberShort": "Your PO #",
+    "DeliverTo": "Deliver To",
+    "Shipping": "Shipping",
+    "AuthorizedSignatureSeller": "Authorized Signature (Seller)",
+    "PleaseSignAndReturnOrder": "Please sign and return to confirm your order.",
+    "Detail": "Detail",
+    "Breadcrumb": "Breadcrumb"
   }
 }
 

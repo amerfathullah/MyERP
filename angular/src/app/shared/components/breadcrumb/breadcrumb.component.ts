@@ -1,27 +1,29 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule, ActivatedRoute, NavigationEnd } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
+import { LocalizationPipe } from '@abp/ng.core';
 import { filter, map } from 'rxjs';
 
 interface Breadcrumb {
   label: string;
+  labelKey?: string;
   url: string;
 }
 
 @Component({
   selector: 'app-breadcrumb',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   template: `
     @if (breadcrumbs.length > 1) {
-      <nav aria-label="breadcrumb" class="mb-3">
+      <nav [attr.aria-label]="'::Breadcrumb' | abpLocalization" class="mb-3">
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a routerLink="/"><i class="fa fa-home"></i></a></li>
           @for (bc of breadcrumbs; track bc.url; let last = $last) {
             @if (last) {
-              <li class="breadcrumb-item active" aria-current="page">{{ bc.label }}</li>
+              <li class="breadcrumb-item active" aria-current="page">{{ bc.labelKey ? (bc.labelKey | abpLocalization) : bc.label }}</li>
             } @else {
-              <li class="breadcrumb-item"><a [routerLink]="bc.url">{{ bc.label }}</a></li>
+              <li class="breadcrumb-item"><a [routerLink]="bc.url">{{ bc.labelKey ? (bc.labelKey | abpLocalization) : bc.label }}</a></li>
             }
           }
         </ol>
@@ -52,7 +54,7 @@ export class BreadcrumbComponent {
       path += '/' + segment;
       // Skip UUID-like segments in display
       if (segment.length === 36 && segment.includes('-')) {
-        crumbs.push({ label: 'Detail', url: path });
+        crumbs.push({ label: 'Detail', labelKey: '::Detail', url: path });
       } else {
         const label = this.formatLabel(segment);
         crumbs.push({ label, url: path });

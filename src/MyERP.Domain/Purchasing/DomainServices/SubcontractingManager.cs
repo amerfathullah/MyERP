@@ -3118,6 +3118,71 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Filters Subcontracting Receipt finished-good rows eligible to generate secondary items
+    /// per ERPNext PR #66257 (<c>SubcontractingReceipt.get_secondary_items</c>):
+    /// a row must have a BOM AND must not be a rejected return row (rejected goods yield no secondary items).
+    /// </summary>
+    public static IReadOnlyList<Guid> FilterFinishedGoodRowsEligibleForSecondaryItems(
+        IEnumerable<(Guid RowId, Guid? BomId)>? receiptRows,
+        IReadOnlySet<Guid>? rejectedReturnRowIds)
+    {
+        var eligible = new List<Guid>();
+        if (receiptRows == null)
+        {
+            return eligible;
+        }
+
+        foreach (var row in receiptRows)
+        {
+            if (!row.BomId.HasValue || row.BomId.Value == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (rejectedReturnRowIds != null && rejectedReturnRowIds.Contains(row.RowId))
+            {
+                continue;
+            }
+
+            eligible.Add(row.RowId);
+        }
+
+        return eligible;
+    }
+
+    /// <summary>
+    /// Validates that every non-null warehouse referenced on a Subcontracting document's header or child tables
+    /// (including supplier warehouse and reserve warehouses populated from Job Cards) belongs to
+    /// <paramref name="documentCompanyId"/> per ERPNext PR #65933 (<c>SubcontractingController.validate_company_of_warehouses</c>).
+    /// </summary>
+    public static void ValidateSubcontractingWarehousesBelongToCompany(
+        Guid documentCompanyId,
+        IEnumerable<(Guid WarehouseId, string WarehouseName, Guid WarehouseCompanyId)>? referencedWarehouses)
+    {
+        if (referencedWarehouses == null)
+        {
+            return;
+        }
+
+        foreach (var wh in referencedWarehouses)
+        {
+            if (wh.WarehouseId == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (wh.WarehouseCompanyId != documentCompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("warehouseId", wh.WarehouseId)
+                    .WithData("warehouseName", wh.WarehouseName)
+                    .WithData("companyId", documentCompanyId)
+                    .WithData("detail", $"Warehouse {wh.WarehouseName} does not belong to the document company.");
+            }
+        }
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

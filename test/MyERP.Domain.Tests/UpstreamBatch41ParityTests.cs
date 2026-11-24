@@ -4686,6 +4686,71 @@ public class UpstreamBatch41ParityTests
         lookupCalls.ShouldBe(1);
     }
 
+    [Fact]
+    public void UpstreamBatch47_ScrSecondary_SubcontractWh_SeRefParents_WoFinish_Parity()
+    {
+        // 1. ERPNext PR #66257: Subcontracting Receipt secondary items skip rows without BOM and rejected return rows
+        var acceptedRow = Guid.NewGuid();
+        var rejectedReturnRow = Guid.NewGuid();
+        var noBomRow = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+        var eligible = MyERP.Purchasing.DomainServices.SubcontractingManager.FilterFinishedGoodRowsEligibleForSecondaryItems(
+            receiptRows: new[]
+            {
+                (acceptedRow, (Guid?)bomId),
+                (rejectedReturnRow, (Guid?)bomId),
+                (noBomRow, (Guid?)null),
+            },
+            rejectedReturnRowIds: new System.Collections.Generic.HashSet<Guid> { rejectedReturnRow });
+        eligible.ShouldBe(new[] { acceptedRow });
+
+        // 2. ERPNext PR #65933: Subcontracting header & child warehouses must belong to document company
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        Should.NotThrow(() => MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingWarehousesBelongToCompany(
+            compA,
+            new[] { (Guid.NewGuid(), "WH-A", compA), (Guid.NewGuid(), "SUP-WH-A", compA) }));
+        Should.Throw<Volo.Abp.BusinessException>(() => MyERP.Purchasing.DomainServices.SubcontractingManager.ValidateSubcontractingWarehousesBelongToCompany(
+            compA,
+            new[] { (Guid.NewGuid(), "WH-A", compA), (Guid.NewGuid(), "WH-OTHER", compB) }))
+            .Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        // 3. ERPNext PR #65952: Stock Entry referenced documents belong to company; row links match header parent
+        Should.NotThrow(() => StockEntryManager.ValidateReferencedDocumentsCompany(
+            compA,
+            new[] { ("Work Order", "WO-001", compA), ("Pick List", "PL-001", compA) }));
+        Should.Throw<Volo.Abp.BusinessException>(() => StockEntryManager.ValidateReferencedDocumentsCompany(
+            compA,
+            new[] { ("Work Order", "WO-002", compB) }))
+            .Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        var plA = Guid.NewGuid();
+        var plB = Guid.NewGuid();
+        Should.NotThrow(() => StockEntryManager.ValidateRowReferenceParents(
+            "Pick List Item", plA, new[] { (Guid.NewGuid(), plA) }));
+        Should.Throw<Volo.Abp.BusinessException>(() => StockEntryManager.ValidateRowReferenceParents(
+            "Pick List Item", plA, new[] { (Guid.NewGuid(), plB) }))
+            .Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        // 4. ERPNext PR #65928: Work Order Finish button accounts for processLossQty and overproduction allowance
+        // Transferred 10, produced 8, process loss 2 -> remaining 0 -> hide Finish
+        WorkOrderManager.ShouldShowFinishButton(
+            quantity: 10m, materialTransferredForManufacturing: 10m, producedQty: 8m, processLossQty: 2m, skipTransfer: false)
+            .ShouldBeFalse();
+        // Transferred 10, produced 7, process loss 2 -> remaining 1 -> show Finish
+        WorkOrderManager.ShouldShowFinishButton(
+            quantity: 10m, materialTransferredForManufacturing: 10m, producedQty: 7m, processLossQty: 2m, skipTransfer: false)
+            .ShouldBeTrue();
+        // Skip transfer with 10% overproduction: qty 10 -> max 11; produced 10 -> remaining 1 -> show Finish
+        WorkOrderManager.ShouldShowFinishButton(
+            quantity: 10m, materialTransferredForManufacturing: 0m, producedQty: 10m, processLossQty: 0m, skipTransfer: true, overproductionPercentage: 10m)
+            .ShouldBeTrue();
+        // Skip transfer with 0% overproduction: produced 8 + loss 2 == 10 -> hide Finish
+        WorkOrderManager.ShouldShowFinishButton(
+            quantity: 10m, materialTransferredForManufacturing: 0m, producedQty: 8m, processLossQty: 2m, skipTransfer: true, overproductionPercentage: 0m)
+            .ShouldBeFalse();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

@@ -1070,6 +1070,66 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates that every document referenced by a Stock Entry (e.g. Work Order, Pick List, Job Card,
+    /// Purchase Order, Subcontracting Order) belongs to <paramref name="stockEntryCompanyId"/>
+    /// per ERPNext PR #65952 (<c>StockEntry.validate_reference_companies</c>).
+    /// </summary>
+    public static void ValidateReferencedDocumentsCompany(
+        Guid stockEntryCompanyId,
+        IEnumerable<(string DocType, string DocumentName, Guid DocumentCompanyId)>? referencedDocuments)
+    {
+        if (referencedDocuments == null)
+        {
+            return;
+        }
+
+        foreach (var doc in referencedDocuments)
+        {
+            if (doc.DocumentCompanyId != stockEntryCompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("docType", doc.DocType)
+                    .WithData("documentName", doc.DocumentName)
+                    .WithData("companyId", stockEntryCompanyId)
+                    .WithData("detail", $"{doc.DocType} {doc.DocumentName} does not belong to the Stock Entry company.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates that Stock Entry item row links (<c>PickListItem</c> / <c>JobCardItem</c>) belong to
+    /// the Stock Entry's own header <paramref name="headerParentId"/> rather than another document
+    /// per ERPNext PR #65952 (<c>StockEntry.validate_row_reference_parents</c>).
+    /// </summary>
+    public static void ValidateRowReferenceParents(
+        string childDocType,
+        Guid? headerParentId,
+        IEnumerable<(Guid ChildRowId, Guid ActualParentId)>? linkedChildRows)
+    {
+        if (linkedChildRows == null)
+        {
+            return;
+        }
+
+        var expectedParent = headerParentId ?? Guid.Empty;
+        foreach (var row in linkedChildRows)
+        {
+            if (row.ChildRowId == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (row.ActualParentId != expectedParent)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("childDocType", childDocType)
+                    .WithData("childRowId", row.ChildRowId)
+                    .WithData("detail", $"{childDocType} {row.ChildRowId} does not belong to the linked parent document.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates scale factor for Disassemble items against source entry.
     /// Per PR #57710: quantities are aggregated in stock UOM (using StockQty) to avoid
     /// cross-UOM mismatches when the same item appears across manufacture entries in different UOMs.
