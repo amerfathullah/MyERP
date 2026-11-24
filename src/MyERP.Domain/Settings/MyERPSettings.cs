@@ -39,6 +39,11 @@ public static class MyERPSettings
         public const string AllowUomWithConversionRateDefinedInItem = G + ".AllowUomWithConversionRateDefinedInItem";
         public const string AutoCreateSerialAndBatchBundleForOutward = G + ".AutoCreateSerialAndBatchBundleForOutward";
         public const string DisableSerialNoAndBatchSelector = G + ".DisableSerialNoAndBatchSelector";
+        /// <summary>
+        /// Weekly stock ledger audit that auto-queues Repost Item Valuation for incorrect SLEs.
+        /// Kept off by default per ERPNext PR #63403 (commit 58ddc0ac13).
+        /// </summary>
+        public const string AutoRepostIncorrectValuationEntries = G + ".AutoRepostIncorrectValuationEntries";
     }
 
     // ═══════════════════════════════════════════════════

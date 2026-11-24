@@ -191,6 +191,24 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Enforces uniform portal document refusal per ERPNext PR #67758
+    /// (<c>material_request_info.py: get_permitted_doc</c>):
+    /// throws the exact same <c>Not Permitted</c> error whether the document is missing,
+    /// has an invalid/blank identifier, or is unreadable by the caller, preventing name enumeration.
+    /// </summary>
+    public static void ValidatePortalDocumentAccess(
+        string? documentName,
+        bool documentExists,
+        bool hasReadOrWebsitePermission)
+    {
+        if (string.IsNullOrWhiteSpace(documentName) || !documentExists || !hasReadOrWebsitePermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not Permitted");
+        }
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

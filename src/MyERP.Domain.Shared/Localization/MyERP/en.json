@@ -7206,7 +7206,10 @@
     "VoucherType:Reversal": "Reversal",
     "Liability": "Liability",
     "Order": "Order",
-    "PosInvoice": "POS Invoice"
+    "PosInvoice": "POS Invoice",
+    "Support": "Support",
+    "Maintenance": "Maintenance",
+    "Closing": "Closing"
   }
 }
 

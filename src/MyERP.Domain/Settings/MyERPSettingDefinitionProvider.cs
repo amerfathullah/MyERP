@@ -26,7 +26,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Stock.AutoMapRawMaterialsToFinishedGoods, "false"),
             new SettingDefinition(MyERPSettings.Stock.AllowUomWithConversionRateDefinedInItem, "false"),
             new SettingDefinition(MyERPSettings.Stock.AutoCreateSerialAndBatchBundleForOutward, "false"),
-            new SettingDefinition(MyERPSettings.Stock.DisableSerialNoAndBatchSelector, "false", isVisibleToClients: true)
+            new SettingDefinition(MyERPSettings.Stock.DisableSerialNoAndBatchSelector, "false", isVisibleToClients: true),
+            new SettingDefinition(MyERPSettings.Stock.AutoRepostIncorrectValuationEntries, "false")
         );
 
         // ═══════════ Selling Settings ═══════════

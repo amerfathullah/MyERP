@@ -2364,6 +2364,82 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Returns true when a row carries a Serial and Batch Bundle whose absolute total quantity differs
+    /// from the row's absolute transfer quantity per ERPNext PR #67503 (<c>stock_entry_sabb.py: is_bundle_resized</c>).
+    /// </summary>
+    public static bool IsBundleResized(bool hasBundle, decimal rowTransferQty, decimal bundleTotalQty, int precision = 4)
+    {
+        if (!hasBundle)
+            return false;
+
+        return Math.Round(Math.Abs(rowTransferQty), precision, MidpointRounding.AwayFromZero)
+            != Math.Round(Math.Abs(bundleTotalQty), precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Allocates serial numbers and batch quantities up to <paramref name="qty"/> from mutable reserved
+    /// entries in order per ERPNext PR #67503 (<c>stock_entry_sabb.py: take_reserved_entries</c>):
+    /// respects optional <paramref name="filterSerialNos"/> and <paramref name="filterBatchNo"/>,
+    /// prevents duplicate serial selection, and deducts taken quantities from each entry's <c>Available</c>.
+    /// </summary>
+    public static (List<string> TakenSerialNos, Dictionary<string, decimal> TakenBatches) TakeReservedSerialBatchEntries(
+        IList<ReservedSerialBatchPoolEntry>? entries,
+        decimal qty,
+        IReadOnlyCollection<string>? filterSerialNos = null,
+        string? filterBatchNo = null,
+        int precision = 4)
+    {
+        var takenSerialNos = new List<string>();
+        var takenSerialSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var takenBatches = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (entries == null || Math.Round(qty, precision, MidpointRounding.AwayFromZero) <= 0m)
+        {
+            return (takenSerialNos, takenBatches);
+        }
+
+        var serialFilter = filterSerialNos != null && filterSerialNos.Count > 0
+            ? new HashSet<string>(filterSerialNos, StringComparer.OrdinalIgnoreCase)
+            : null;
+        var hasBatchFilter = !string.IsNullOrWhiteSpace(filterBatchNo);
+
+        var remaining = qty;
+        foreach (var entry in entries)
+        {
+            if (Math.Round(remaining, precision, MidpointRounding.AwayFromZero) <= 0m)
+                break;
+
+            if (Math.Round(entry.Available, precision, MidpointRounding.AwayFromZero) <= 0m)
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(entry.SerialNo) && takenSerialSet.Contains(entry.SerialNo))
+                continue;
+
+            if (serialFilter != null && (string.IsNullOrWhiteSpace(entry.SerialNo) || !serialFilter.Contains(entry.SerialNo)))
+                continue;
+
+            if (hasBatchFilter && !string.Equals(entry.BatchNo, filterBatchNo, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var takeQty = Math.Min(entry.Available, remaining);
+            entry.Available -= takeQty;
+            remaining -= takeQty;
+
+            if (!string.IsNullOrWhiteSpace(entry.SerialNo))
+            {
+                takenSerialNos.Add(entry.SerialNo);
+                takenSerialSet.Add(entry.SerialNo);
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.BatchNo))
+            {
+                takenBatches[entry.BatchNo] = takenBatches.GetValueOrDefault(entry.BatchNo, 0m) + takeQty;
+            }
+        }
+
+        return (takenSerialNos, takenBatches);
+    }
+
+    /// <summary>
     /// Computes the maximum allowed reservation quantity for a Work Order material row
     /// per ERPNext PR #68805 (<c>StockReservationEntry.validate_qty_to_be_reserved</c>):
     /// counts the row's <paramref name="subcontractedQty"/> as already delivered only when submitting
@@ -2689,4 +2765,11 @@ public class MaterialTransferAllocation
     public Guid? BatchId { get; set; }
     public decimal Quantity { get; set; }
     public Guid? StockReservationEntryId { get; set; }
+}
+
+public class ReservedSerialBatchPoolEntry
+{
+    public string? SerialNo { get; set; }
+    public string? BatchNo { get; set; }
+    public decimal Available { get; set; }
 }

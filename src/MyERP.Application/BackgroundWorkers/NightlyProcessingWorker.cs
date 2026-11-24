@@ -3,9 +3,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyERP.Core.Entities;
+using MyERP.Settings;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 using Volo.Abp.Threading;
 
 namespace MyERP.BackgroundWorkers;
@@ -448,6 +450,21 @@ public class NightlyProcessingWorker : AsyncPeriodicBackgroundWorkerBase
                     CompanyId = company.Id,
                     TenantId = company.TenantId,
                 });
+
+                // Weekly stock ledger audit (opt-in, off by default per ERPNext PR #63403)
+                if (DateTime.UtcNow.DayOfWeek == DayOfWeek.Sunday)
+                {
+                    var settingProvider = workerContext.ServiceProvider.GetService<ISettingProvider>();
+                    if (settingProvider != null && await settingProvider.GetAsync<bool>(MyERPSettings.Stock.AutoRepostIncorrectValuationEntries))
+                    {
+                        await jobManager.EnqueueAsync(new Inventory.BackgroundJobs.StockLedgerAuditJobArgs
+                        {
+                            CompanyId = company.Id,
+                            TenantId = company.TenantId,
+                            AsOfDate = DateTime.UtcNow.Date,
+                        });
+                    }
+                }
 
                 // Enqueue monthly stock balance closing snapshots
                 // Per ERPNext: stock_closing_entry.process

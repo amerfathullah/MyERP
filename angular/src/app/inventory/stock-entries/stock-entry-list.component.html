@@ -33,11 +33,11 @@
         <div class="col-auto">
           <select class="form-select form-select-sm" style="width: 180px;" (change)="onTypeChange($any($event.target).value)">
             <option value="">{{ '::AllTypes' | abpLocalization }}</option>
-            <option value="MaterialReceipt">Material Receipt</option>
-            <option value="MaterialIssue">Material Issue</option>
-            <option value="MaterialTransfer">Material Transfer</option>
-            <option value="Manufacture">Manufacture</option>
-            <option value="Repack">Repack</option>
+            <option value="MaterialReceipt">{{ '::MaterialReceipt' | abpLocalization }}</option>
+            <option value="MaterialIssue">{{ '::MaterialIssue' | abpLocalization }}</option>
+            <option value="MaterialTransfer">{{ '::MaterialTransfer' | abpLocalization }}</option>
+            <option value="Manufacture">{{ '::Manufacture' | abpLocalization }}</option>
+            <option value="Repack">{{ '::Repack' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-auto">

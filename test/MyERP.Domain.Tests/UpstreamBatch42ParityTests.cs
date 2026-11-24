@@ -8,16 +8,18 @@ using MyERP.Manufacturing.Entities;
 using MyERP.Projects.Entities;
 using MyERP.Purchasing.DomainServices;
 using MyERP.Sales.DomainServices;
+using MyERP.Settings;
 using MyERP.Tax.DomainServices;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Settings;
 using Xunit;
 
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #68311, #68732, #69286, #69293, #69299, #69301,
-/// #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #63403, #67503, #67758, #68311, #68732, #69286, #69293,
+/// #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -556,5 +558,64 @@ public class UpstreamBatch42ParityTests
         };
         StockLedgerAuditService.HasFutureStockLedgerEntry(itemId, whId, "StockEntry", targetVoucher, samePostingTime, withLaterSameTimestamp)
             .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr67503_SubcontractingInward_TakeReservedSerialBatchEntries_AndIsBundleResized()
+    {
+        StockReservationManager.IsBundleResized(hasBundle: false, rowTransferQty: 5m, bundleTotalQty: 3m).ShouldBeFalse();
+        StockReservationManager.IsBundleResized(hasBundle: true, rowTransferQty: 5m, bundleTotalQty: -5m).ShouldBeFalse();
+        StockReservationManager.IsBundleResized(hasBundle: true, rowTransferQty: 5m, bundleTotalQty: 3m).ShouldBeTrue();
+
+        var pool = new List<ReservedSerialBatchPoolEntry>
+        {
+            new() { SerialNo = "SN-1", BatchNo = "B-1", Available = 1m },
+            new() { SerialNo = "SN-2", BatchNo = "B-1", Available = 1m },
+            new() { SerialNo = "SN-3", BatchNo = "B-2", Available = 1m },
+            new() { SerialNo = null, BatchNo = "B-2", Available = 4m },
+        };
+
+        // First row takes 2 from B-1 (SN-1, SN-2)
+        var (serials1, batches1) = StockReservationManager.TakeReservedSerialBatchEntries(pool, qty: 2m, filterBatchNo: "B-1");
+        serials1.ShouldBe(new[] { "SN-1", "SN-2" });
+        batches1["B-1"].ShouldBe(2m);
+        pool[0].Available.ShouldBe(0m);
+        pool[1].Available.ShouldBe(0m);
+
+        // Second row takes 3 across remaining B-2 entries (SN-3 + 2 from batch pool)
+        var (serials2, batches2) = StockReservationManager.TakeReservedSerialBatchEntries(pool, qty: 3m);
+        serials2.ShouldBe(new[] { "SN-3" });
+        batches2["B-2"].ShouldBe(3m);
+        pool[2].Available.ShouldBe(0m);
+        pool[3].Available.ShouldBe(2m);
+    }
+
+    [Fact]
+    public void Pr67758_PortalDocumentAccess_RefusesMissingAndUnauthorizedIdentically()
+    {
+        var missingEx = Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidatePortalDocumentAccess("MR-999", documentExists: false, hasReadOrWebsitePermission: false));
+        var forbiddenEx = Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidatePortalDocumentAccess("MR-001", documentExists: true, hasReadOrWebsitePermission: false));
+        var blankEx = Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidatePortalDocumentAccess("", documentExists: true, hasReadOrWebsitePermission: true));
+
+        (missingEx.Data["detail"]?.ToString() ?? string.Empty).ShouldBe("Not Permitted");
+        (forbiddenEx.Data["detail"]?.ToString() ?? string.Empty).ShouldBe("Not Permitted");
+        (blankEx.Data["detail"]?.ToString() ?? string.Empty).ShouldBe("Not Permitted");
+
+        Should.NotThrow(() =>
+            TransactionValidationService.ValidatePortalDocumentAccess("MR-001", documentExists: true, hasReadOrWebsitePermission: true));
+    }
+
+    [Fact]
+    public void Pr63403_AutoRepostIncorrectValuationEntriesSetting_DefaultsToFalse()
+    {
+        var definitions = new Dictionary<string, SettingDefinition>();
+        var context = new SettingDefinitionContext(definitions);
+        new MyERPSettingDefinitionProvider().Define(context);
+
+        definitions.ShouldContainKey(MyERPSettings.Stock.AutoRepostIncorrectValuationEntries);
+        definitions[MyERPSettings.Stock.AutoRepostIncorrectValuationEntries].DefaultValue.ShouldBe("false");
     }
 }

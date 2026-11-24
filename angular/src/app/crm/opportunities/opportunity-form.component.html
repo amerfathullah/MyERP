@@ -17,19 +17,19 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Type' | abpLocalization }}</label>
             <select class="form-select" formControlName="opportunityType">
-              <option [ngValue]="0">Sales</option>
-              <option [ngValue]="1">Support</option>
-              <option [ngValue]="2">Maintenance</option>
+              <option [ngValue]="0">{{ '::Sales' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::Support' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::Maintenance' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::CRM:Stage' | abpLocalization }}</label>
             <select class="form-select" formControlName="salesStage">
-              <option value="Prospecting">Prospecting</option>
-              <option value="Qualification">Qualification</option>
-              <option value="Proposal">Proposal</option>
-              <option value="Negotiation">Negotiation</option>
-              <option value="Closing">Closing</option>
+              <option value="Prospecting">{{ '::Prospecting' | abpLocalization }}</option>
+              <option value="Qualification">{{ '::Qualification' | abpLocalization }}</option>
+              <option value="Proposal">{{ '::Proposal' | abpLocalization }}</option>
+              <option value="Negotiation">{{ '::Negotiation' | abpLocalization }}</option>
+              <option value="Closing">{{ '::Closing' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-12 col-md-4 mb-3">
