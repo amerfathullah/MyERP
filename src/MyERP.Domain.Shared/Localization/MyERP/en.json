@@ -7056,7 +7056,11 @@
     "SupplierSpecificLeadTimes": "Supplier-Specific Lead Times",
     "PurchaseDays": "Purchase (Days)",
     "BufferDays": "Buffer (Days)",
-    "NoSupplierOverridesConfigured": "No supplier overrides configured."
+    "NoSupplierOverridesConfigured": "No supplier overrides configured.",
+    "PageNotFoundMessage": "The page you are looking for does not exist.",
+    "BackToDashboard": "Back to Dashboard",
+    "ShowingRangeOfTotal": "Showing {0}–{1} of {2}",
+    "Pagination": "Pagination"
   }
 }
 

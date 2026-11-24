@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export interface PageEvent {
   pageIndex: number;
@@ -9,13 +10,13 @@ export interface PageEvent {
 @Component({
   selector: 'app-pagination',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (totalCount > pageSize) {
-      <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pagination">
+      <nav class="d-flex justify-content-between align-items-center mt-3" [attr.aria-label]="'::Pagination' | abpLocalization">
         <small class="text-muted">
-          Showing {{ startItem }}–{{ endItem }} of {{ totalCount }}
+          {{ '::ShowingRangeOfTotal' | abpLocalization:startItem.toString():endItem.toString():totalCount.toString() }}
         </small>
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item" [class.disabled]="currentPage === 0">

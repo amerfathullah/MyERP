@@ -1490,6 +1490,63 @@ public class PurchaseReceiptManager : DomainService
         var factor = conversionFactor > 0m ? conversionFactor : 1m;
         return stockQty * baseNetRate / factor;
     }
+
+    /// <summary>
+    /// Identifies which Purchase Receipt rows were received at their linked Purchase Invoice's net rate
+    /// (so exchange-rate difference GL entries apply and reverse on return) per ERPNext PR #67798
+    /// (<c>purchase_receipt/services/gl_composer.py: get_rows_at_invoice_rate</c>):
+    /// - For normal receipts: matches rows where <c>row.NetRate == invoiceItemNetRate</c>.
+    /// - For return receipts: follows each return row's original Purchase Receipt row
+    ///   (<c>originalReceiptRow.NetRate == invoiceItemNetRate</c>) so returning a receipt made from a
+    ///   foreign-currency invoice reverses the exchange-rate difference even when the return rate differs.
+    /// </summary>
+    public static HashSet<Guid> ResolveRowsReceivedAtPurchaseInvoiceNetRate(
+        bool isReturn,
+        IEnumerable<(Guid RowId, Guid? PurchaseInvoiceItemId, Guid? OriginalPurchaseReceiptItemId, decimal NetRate)> currentRows,
+        IReadOnlyDictionary<Guid, decimal> invoiceItemNetRateById,
+        IEnumerable<(Guid OriginalReceiptItemId, Guid? PurchaseInvoiceItemId, decimal NetRate)>? originalReceiptRows = null)
+    {
+        var matched = new HashSet<Guid>();
+        if (!isReturn)
+        {
+            foreach (var row in currentRows)
+            {
+                if (row.PurchaseInvoiceItemId.HasValue
+                    && invoiceItemNetRateById.TryGetValue(row.PurchaseInvoiceItemId.Value, out var invoiceRate)
+                    && row.NetRate == invoiceRate)
+                {
+                    matched.Add(row.RowId);
+                }
+            }
+
+            return matched;
+        }
+
+        var originalMatchedIds = new HashSet<Guid>();
+        if (originalReceiptRows != null)
+        {
+            foreach (var orig in originalReceiptRows)
+            {
+                if (orig.PurchaseInvoiceItemId.HasValue
+                    && invoiceItemNetRateById.TryGetValue(orig.PurchaseInvoiceItemId.Value, out var invoiceRate)
+                    && orig.NetRate == invoiceRate)
+                {
+                    originalMatchedIds.Add(orig.OriginalReceiptItemId);
+                }
+            }
+        }
+
+        foreach (var row in currentRows)
+        {
+            if (row.OriginalPurchaseReceiptItemId.HasValue
+                && originalMatchedIds.Contains(row.OriginalPurchaseReceiptItemId.Value))
+            {
+                matched.Add(row.RowId);
+            }
+        }
+
+        return matched;
+    }
 }
 
 public readonly record struct PurchaseReceiptReturnLegRow(

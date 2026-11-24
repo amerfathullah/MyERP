@@ -616,4 +616,31 @@ public class DeliveryNoteManager : DomainService
 
         return qty;
     }
+
+    /// <summary>
+    /// Refuses any Delivery Note or update-stock Sales Invoice row referencing a Pick List item row
+    /// whose item does not match the item actually picked on that Pick List row per ERPNext PR #67802
+    /// (<c>SellingController.validate_against_pick_list_items</c>).
+    /// </summary>
+    public static void ValidateDeliveryRowsMatchPickedItems(
+        IEnumerable<(int RowIdx, Guid? PickListItemId, string? PickListName, string ItemCode)> deliveryRows,
+        IReadOnlyDictionary<Guid, string> pickedItemCodeByPickListItemId)
+    {
+        foreach (var row in deliveryRows)
+        {
+            if (!row.PickListItemId.HasValue || row.PickListItemId.Value == Guid.Empty)
+                continue;
+
+            if (pickedItemCodeByPickListItemId.TryGetValue(row.PickListItemId.Value, out var pickedItemCode)
+                && !string.IsNullOrWhiteSpace(pickedItemCode)
+                && !string.Equals(row.ItemCode, pickedItemCode, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("itemCode", row.ItemCode)
+                    .WithData("pickedItemCode", pickedItemCode)
+                    .WithData("detail", $"Row #{row.RowIdx}: Item {row.ItemCode} is not the item {pickedItemCode} picked in {row.PickListName}.");
+            }
+        }
+    }
 }

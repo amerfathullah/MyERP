@@ -4293,6 +4293,69 @@ public class UpstreamBatch41ParityTests
         StockValuationService.ShouldRepostGleForStockVoucher(MyERP.Core.DocumentStatus.Cancelled).ShouldBeFalse();
     }
 
+    [Fact]
+    public void UpstreamBatch42_PickListItemMatch_PrReturnFxRate_DeliveredPickReserve_UnreservedResidue_Parity()
+    {
+        // 1. ERPNext PR #67802: Refuse delivery row whose item differs from item picked on its Pick List row
+        var plItem = Guid.NewGuid();
+        var pickedMap = new Dictionary<Guid, string> { [plItem] = "ITEM-A" };
+        Should.NotThrow(() => DeliveryNoteManager.ValidateDeliveryRowsMatchPickedItems(
+            new[] { (1, (Guid?)plItem, (string?)"PL-001", "ITEM-A") },
+            pickedMap));
+        var pickEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            DeliveryNoteManager.ValidateDeliveryRowsMatchPickedItems(
+                new[] { (1, (Guid?)plItem, (string?)"PL-001", "ITEM-B") },
+                pickedMap));
+        (pickEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: Item ITEM-B is not the item ITEM-A picked in PL-001.");
+
+        // 2. ERPNext PR #67798: Return of Purchase Receipt made from Purchase Invoice follows original receipt row's invoice-rate match
+        var piRow = Guid.NewGuid();
+        var origPrRow = Guid.NewGuid();
+        var retPrRow = Guid.NewGuid();
+        var invoiceRates = new Dictionary<Guid, decimal> { [piRow] = 100m };
+        var matchedReturnRows = PurchaseReceiptManager.ResolveRowsReceivedAtPurchaseInvoiceNetRate(
+            isReturn: true,
+            currentRows: new[] { (retPrRow, (Guid?)piRow, (Guid?)origPrRow, NetRate: 95m) },
+            invoiceItemNetRateById: invoiceRates,
+            originalReceiptRows: new[] { (origPrRow, (Guid?)piRow, NetRate: 100m) });
+        matchedReturnRows.ShouldContain(retPrRow);
+
+        // If original receipt row was NOT at invoice net rate, return row is excluded
+        var unmatchedReturnRows = PurchaseReceiptManager.ResolveRowsReceivedAtPurchaseInvoiceNetRate(
+            isReturn: true,
+            currentRows: new[] { (retPrRow, (Guid?)piRow, (Guid?)origPrRow, NetRate: 100m) },
+            invoiceItemNetRateById: invoiceRates,
+            originalReceiptRows: new[] { (origPrRow, (Guid?)piRow, NetRate: 90m) });
+        unmatchedReturnRows.ShouldBeEmpty();
+
+        // 3. ERPNext PR #67791: Allow SO reservation when picked stock is already delivered; block only when undelivered picked qty > 0
+        var soItem = Guid.NewGuid();
+        Should.NotThrow(() => StockReservationManager.ValidateNoUndeliveredPickedQtyBeforeSalesOrderReserve(
+            fromVoucherType: null, rowIdx: 1, salesOrderItemId: soItem, itemCode: "ITEM-A",
+            submittedPickListRows: new[] { (soItem, PickedQty: 5m, DeliveredQty: 5m) }));
+        var pickResEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockReservationManager.ValidateNoUndeliveredPickedQtyBeforeSalesOrderReserve(
+                fromVoucherType: null, rowIdx: 1, salesOrderItemId: soItem, itemCode: "ITEM-A",
+                submittedPickListRows: new[] { (soItem, PickedQty: 5m, DeliveredQty: 3m) }));
+        (pickResEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: Item ITEM-A has been picked, please reserve stock from the Pick List.");
+        // Reserving from Pick List itself is allowed
+        Should.NotThrow(() => StockReservationManager.ValidateNoUndeliveredPickedQtyBeforeSalesOrderReserve(
+            fromVoucherType: "Pick List", rowIdx: 1, salesOrderItemId: soItem, itemCode: "ITEM-A",
+            submittedPickListRows: new[] { (soItem, PickedQty: 5m, DeliveredQty: 3m) }));
+
+        // 4. ERPNext PR #67709: Ignore sub-precision conversion-factor residue in SO unreserved qty & partial reservation check
+        StockReservationManager.CalculateSalesOrderRowUnreservedQty(
+            stockQty: 10.00001m, deliveredQty: 3m, conversionFactor: 3.333333333m,
+            existingReservedQty: 0m, stockQtyPrecision: 4).ShouldBe(0m);
+        StockReservationManager.CalculateSalesOrderRowUnreservedQty(
+            stockQty: 10m, deliveredQty: 2m, conversionFactor: 3m,
+            existingReservedQty: 1m, stockQtyPrecision: 4).ShouldBe(3m);
+        StockReservationManager.IsPartialSalesOrderReservation(3.00001m, 3m, stockQtyPrecision: 4).ShouldBeFalse();
+        StockReservationManager.IsPartialSalesOrderReservation(3.01m, 3m, stockQtyPrecision: 4).ShouldBeTrue();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

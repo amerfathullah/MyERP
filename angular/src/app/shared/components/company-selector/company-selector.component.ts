@@ -1,16 +1,17 @@
 import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CompanyContextService, CompanyOption } from '../../services/company-context.service';
 
 @Component({
   selector: 'app-company-selector',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="dropdown d-inline-block">
       <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="true">
-        <i class="fa fa-building me-1"></i>{{ ctx.currentCompanyName() || 'Select Company' }}
+        <i class="fa fa-building me-1"></i>{{ ctx.currentCompanyName() || ('::SelectCompany' | abpLocalization) }}
       </button>
       <ul class="dropdown-menu dropdown-menu-end">
         @for (c of ctx.companies(); track c.id) {

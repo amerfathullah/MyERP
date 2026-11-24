@@ -2516,6 +2516,68 @@ public class StockReservationManager : DomainService
 
         return plan;
     }
+
+    /// <summary>
+    /// Refuses direct Sales Order stock reservation (when <paramref name="fromVoucherType"/> is not <c>"Pick List"</c>)
+    /// ONLY when submitted Pick Lists still hold undelivered picked qty (<c>Sum(pickedQty - deliveredQty) &gt; 0</c>)
+    /// for the Sales Order item per ERPNext PR #67791 (<c>get_undelivered_picked_qty_details</c>):
+    /// once picked stock has already been delivered, remaining Sales Order qty can be reserved directly.
+    /// </summary>
+    public static void ValidateNoUndeliveredPickedQtyBeforeSalesOrderReserve(
+        string? fromVoucherType,
+        int rowIdx,
+        Guid salesOrderItemId,
+        string itemCode,
+        IEnumerable<(Guid SalesOrderItemId, decimal PickedQty, decimal DeliveredQty)> submittedPickListRows,
+        int pickedQtyPrecision = 4)
+    {
+        if (string.Equals(fromVoucherType, "Pick List", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fromVoucherType, "PickList", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var undeliveredPicked = submittedPickListRows
+            .Where(r => r.SalesOrderItemId == salesOrderItemId && r.PickedQty > r.DeliveredQty)
+            .Sum(r => r.PickedQty - r.DeliveredQty);
+
+        if (Math.Round(undeliveredPicked, pickedQtyPrecision, MidpointRounding.AwayFromZero) > 0m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("rowIdx", rowIdx)
+                .WithData("itemCode", itemCode)
+                .WithData("detail", $"Row #{rowIdx}: Item {itemCode} has been picked, please reserve stock from the Pick List.");
+        }
+    }
+
+    /// <summary>
+    /// Computes a Sales Order row's unreserved stock qty ignoring sub-precision conversion-factor
+    /// residue per ERPNext PR #67709 (<c>sales_order/services/reservation.py: get_unreserved_qty</c>):
+    /// returns <c>0</c> whenever <c>Round(unreservedQty, stockQtyPrecision) &lt;= 0</c>.
+    /// </summary>
+    public static decimal CalculateSalesOrderRowUnreservedQty(
+        decimal stockQty,
+        decimal deliveredQty,
+        decimal conversionFactor,
+        decimal existingReservedQty,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var unreserved = stockQty - deliveredQty * factor - existingReservedQty;
+        return Math.Round(unreserved, stockQtyPrecision, MidpointRounding.AwayFromZero) > 0m
+            ? unreserved
+            : 0m;
+    }
+
+    /// <summary>
+    /// Determines whether reserving <paramref name="qtyToReserve"/> against <paramref name="unreservedQty"/>
+    /// is a partial reservation, ignoring sub-precision residue per ERPNext PR #67709.
+    /// </summary>
+    public static bool IsPartialSalesOrderReservation(
+        decimal unreservedQty,
+        decimal qtyToReserve,
+        int stockQtyPrecision = 4)
+        => Math.Round(unreservedQty - qtyToReserve, stockQtyPrecision, MidpointRounding.AwayFromZero) > 0m;
 }
 
 public readonly record struct InwardWorkOrderReservationRow(

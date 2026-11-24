@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export interface DateRange {
   from: string;
@@ -9,13 +10,13 @@ export interface DateRange {
 @Component({
   selector: 'app-date-presets',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="btn-group btn-group-sm">
-      <button type="button" class="btn btn-outline-secondary" (click)="setThisMonth()">This Month</button>
-      <button type="button" class="btn btn-outline-secondary" (click)="setLastMonth()">Last Month</button>
-      <button type="button" class="btn btn-outline-secondary" (click)="setThisQuarter()">This Quarter</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="setThisMonth()">{{ '::ThisMonth' | abpLocalization }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="setLastMonth()">{{ '::LastMonth' | abpLocalization }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="setThisQuarter()">{{ '::ThisQuarter' | abpLocalization }}</button>
       <button type="button" class="btn btn-outline-secondary" (click)="clearDates()">
         <i class="fa fa-times"></i>
       </button>
