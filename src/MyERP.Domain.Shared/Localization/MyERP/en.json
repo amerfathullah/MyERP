@@ -6774,7 +6774,18 @@
     "Placeholder:FilterByReason": "Filter by reason...",
     "Placeholder:SearchCodeNameWarehouse": "Search code, name, warehouse...",
     "Placeholder:SearchItemCodeOrName": "Search item code or name...",
-    "Placeholder:FilterByCustomerNameCodeTerritory": "Filter by customer name, code or territory..."
+    "Placeholder:FilterByCustomerNameCodeTerritory": "Filter by customer name, code or territory...",
+    "Placeholder:UniqueCallId": "Unique provider Call ID",
+    "Placeholder:OptionalCustomerGuid": "Optional customer GUID",
+    "Placeholder:OptionalEmployeeGuid": "Optional employee GUID",
+    "Placeholder:TelephonyMediumExample": "e.g. Twilio, Exotel",
+    "Placeholder:CallNotes": "Notes from the call...",
+    "Placeholder:FilterCallLogs": "Filter by Call ID, From, To...",
+    "Placeholder:EnterApiKey": "Enter API Key...",
+    "Placeholder:VideoTitleExample": "e.g. ERP Introduction",
+    "Placeholder:YoutubeVideoIdExample": "e.g. dQw4w9WgXcQ",
+    "Placeholder:VideoDurationExample": "e.g. 300",
+    "Placeholder:VideoNotes": "Video summary and notes..."
   }
 }
 

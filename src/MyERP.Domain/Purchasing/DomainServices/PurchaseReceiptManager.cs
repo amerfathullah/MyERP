@@ -1327,4 +1327,59 @@ public class PurchaseReceiptManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Determines whether an internal receipt row keeps the Outward serial/batch package of its
+    /// in-transit warehouse per ERPNext PR #68787 (<c>BuyingController.keeps_transit_package</c>):
+    /// - Inter-company receipts have no in-transit warehouse, so they ALWAYS build an Inward package of the accepted warehouse.
+    /// - Same-company internal transfer rows keep the transit package ONLY when rejecting nothing (<paramref name="hasRejectedStock"/> == false).
+    /// </summary>
+    public static bool KeepsTransitPackage(
+        bool isSameCompanyInternalTransfer,
+        bool isInterCompanyReceipt,
+        bool hasRejectedStock)
+    {
+        if (isInterCompanyReceipt || !isSameCompanyInternalTransfer)
+            return false;
+
+        return !hasRejectedStock;
+    }
+
+    /// <summary>
+    /// Resolves how a receipt row's rejected Serial &amp; Batch Bundle should be updated when qty or
+    /// rejected warehouse changes per ERPNext PR #68787 (<c>BuyingController.set_rejected_package</c>):
+    /// - Zero rejected qty -> Remove existing bundle.
+    /// - Existing bundle already in target rejected warehouse -> Resize in place.
+    /// - Target rejected warehouse changed (or no existing bundle) -> RecreateAtNewWarehouse (moving selected rejected batches).
+    /// - Target rejected warehouse cleared -> Remove.
+    /// </summary>
+    public static RejectedPackageAction ResolveRejectedPackageAction(
+        decimal rejectedStockQty,
+        Guid? existingRejectedBundleId,
+        Guid? existingRejectedBundleWarehouseId,
+        Guid? currentRejectedWarehouseId)
+    {
+        if (rejectedStockQty <= 0m)
+            return RejectedPackageAction.Remove;
+
+        if (existingRejectedBundleId.HasValue
+            && existingRejectedBundleId.Value != Guid.Empty
+            && existingRejectedBundleWarehouseId == currentRejectedWarehouseId
+            && currentRejectedWarehouseId.HasValue)
+        {
+            return RejectedPackageAction.Resize;
+        }
+
+        if (currentRejectedWarehouseId.HasValue && currentRejectedWarehouseId.Value != Guid.Empty)
+            return RejectedPackageAction.RecreateAtNewWarehouse;
+
+        return RejectedPackageAction.Remove;
+    }
+}
+
+public enum RejectedPackageAction
+{
+    Remove = 0,
+    Resize = 1,
+    RecreateAtNewWarehouse = 2
 }

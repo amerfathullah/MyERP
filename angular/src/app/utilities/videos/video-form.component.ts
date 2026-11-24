@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { VideoService } from '../../proxy/utilities/video.service';
 import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
 
 @Component({
   selector: 'app-video-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -21,7 +22,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Title *</label>
-              <input type="text" class="form-control" formControlName="title" placeholder="e.g. ERP Introduction">
+              <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:VideoTitleExample' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
@@ -42,7 +43,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
 
             <div class="col-md-4 mb-3">
               <label class="form-label">YouTube Video ID</label>
-              <input type="text" class="form-control" formControlName="youtubeVideoId" placeholder="e.g. dQw4w9WgXcQ">
+              <input type="text" class="form-control" formControlName="youtubeVideoId" [placeholder]="'::Placeholder:YoutubeVideoIdExample' | abpLocalization">
             </div>
           </div>
 
@@ -54,7 +55,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
 
             <div class="col-md-4 mb-3">
               <label class="form-label">Duration (seconds)</label>
-              <input type="number" class="form-control" formControlName="durationSeconds" placeholder="e.g. 300">
+              <input type="number" class="form-control" formControlName="durationSeconds" [placeholder]="'::Placeholder:VideoDurationExample' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
@@ -65,7 +66,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Video summary and notes..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:VideoNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">

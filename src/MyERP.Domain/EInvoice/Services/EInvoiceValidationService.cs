@@ -414,4 +414,39 @@ public class EInvoiceValidationService : ITransientDependency
                 .WithData("reason", string.Join("; ", errors));
         }
     }
+
+    /// <summary>
+    /// Validates mandatory buyer identification, address, state code, phone, and email fields
+    /// for non-consolidated LHDN e-Invoices per myinvois <c>createxml.py: customer_data()</c>.
+    /// Consolidated e-Invoices skip strict buyer checks because LHDN requires <c>"NA"</c> placeholders.
+    /// </summary>
+    public static List<string> ValidateBuyerAddressAndContactForLhdn(
+        string? buyerIdValue,
+        string? addressLine1,
+        string? stateCode,
+        string? phone,
+        string? email,
+        bool isConsolidated)
+    {
+        var errors = new List<string>();
+        if (isConsolidated)
+            return errors;
+
+        if (string.IsNullOrWhiteSpace(buyerIdValue))
+            errors.Add("Customer Registration/Identification Number is missing.");
+
+        if (string.IsNullOrWhiteSpace(addressLine1))
+            errors.Add("Customer address must have Address Line 1 filled.");
+
+        if (string.IsNullOrWhiteSpace(stateCode))
+            errors.Add("Customer address must have a State Code filled.");
+
+        if (InvoiceDocumentBuilder.IsNotApplicable(phone))
+            errors.Add("Customer address must have a phone number filled.");
+
+        if (InvoiceDocumentBuilder.IsNotApplicable(email) || !InvoiceDocumentBuilder.IsValidEmail(email))
+            errors.Add("Customer address must have a valid email address filled.");
+
+        return errors;
+    }
 }

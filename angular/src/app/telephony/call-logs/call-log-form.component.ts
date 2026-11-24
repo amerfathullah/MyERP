@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CallLogService } from '../../proxy/telephony/call-log.service';
 import { TelephonyCallTypeService } from '../../proxy/telephony/telephony-call-type.service';
 import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
@@ -10,7 +11,7 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
 @Component({
   selector: 'app-call-log-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -22,7 +23,7 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label">Call ID *</label>
-              <input type="text" class="form-control" formControlName="callId" [readonly]="isEdit" placeholder="Unique provider Call ID">
+              <input type="text" class="form-control" formControlName="callId" [readonly]="isEdit" [placeholder]="'::Placeholder:UniqueCallId' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
@@ -85,23 +86,23 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label">Customer ID</label>
-              <input type="text" class="form-control" formControlName="customerId" placeholder="Optional customer GUID">
+              <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:OptionalCustomerGuid' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
               <label class="form-label">Received By Employee ID</label>
-              <input type="text" class="form-control" formControlName="callReceivedByEmployeeId" placeholder="Optional employee GUID">
+              <input type="text" class="form-control" formControlName="callReceivedByEmployeeId" [placeholder]="'::Placeholder:OptionalEmployeeGuid' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
               <label class="form-label">Medium</label>
-              <input type="text" class="form-control" formControlName="medium" placeholder="e.g. Twilio, Exotel">
+              <input type="text" class="form-control" formControlName="medium" [placeholder]="'::Placeholder:TelephonyMediumExample' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-4">
             <label class="form-label">Call Summary / Notes</label>
-            <textarea class="form-control" rows="4" formControlName="summary" placeholder="Notes from the call..."></textarea>
+            <textarea class="form-control" rows="4" formControlName="summary" [placeholder]="'::Placeholder:CallNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">

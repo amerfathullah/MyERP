@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { VideoSettingsService } from '../../proxy/utilities/video-settings.service';
 
 @Component({
   selector: 'app-video-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -26,7 +27,7 @@ import { VideoSettingsService } from '../../proxy/utilities/video-settings.servi
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">YouTube Data API Key</label>
-              <input type="password" class="form-control" formControlName="apiKey" placeholder="Enter API Key...">
+              <input type="password" class="form-control" formControlName="apiKey" [placeholder]="'::Placeholder:EnterApiKey' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">

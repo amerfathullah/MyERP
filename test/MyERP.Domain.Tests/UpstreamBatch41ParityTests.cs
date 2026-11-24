@@ -2926,6 +2926,74 @@ public class UpstreamBatch41ParityTests
         MyERP.EInvoice.Services.InvoiceDocumentBuilder.ResolveDocumentVersion(hasCertificateFile: true, configuredVersion: "1.0").ShouldBe("1.0");
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch24_PaymentLedgerPreview_IcBatchPkg_ScoReturnSre_LhdnBuyer_Parity()
+    {
+        // 1. ERPNext PR #68176: Payment Ledger view/preview visibility & voucher PLE query excluding delinked unless requested
+        MyERP.Accounting.DomainServices.PaymentLedgerService.ShouldShowPaymentLedgerForVoucher("PaymentEntry", hasParty: false, hasReceivableOrPayableAccount: false).ShouldBeFalse();
+        MyERP.Accounting.DomainServices.PaymentLedgerService.ShouldShowPaymentLedgerForVoucher("PaymentEntry", hasParty: true, hasReceivableOrPayableAccount: false).ShouldBeTrue();
+        MyERP.Accounting.DomainServices.PaymentLedgerService.ShouldShowPaymentLedgerForVoucher("JournalEntry", hasParty: false, hasReceivableOrPayableAccount: false).ShouldBeFalse();
+        MyERP.Accounting.DomainServices.PaymentLedgerService.ShouldShowPaymentLedgerForVoucher("JournalEntry", hasParty: false, hasReceivableOrPayableAccount: true).ShouldBeTrue();
+        MyERP.Accounting.DomainServices.PaymentLedgerService.ShouldShowPaymentLedgerForVoucher("SalesInvoice", hasParty: false, hasReceivableOrPayableAccount: false).ShouldBeTrue();
+
+        var voucherId = Guid.NewGuid();
+        var activePle = new MyERP.Accounting.Entities.PaymentLedgerEntry(
+            Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, Guid.NewGuid(), "Customer", Guid.NewGuid(),
+            "SalesInvoice", voucherId, "SalesInvoice", voucherId, 100m, 100m, "MYR");
+        var delinkedPle = new MyERP.Accounting.Entities.PaymentLedgerEntry(
+            Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, Guid.NewGuid(), "Customer", Guid.NewGuid(),
+            "SalesInvoice", voucherId, "SalesInvoice", voucherId, -100m, -100m, "MYR")
+        {
+            Delinked = true
+        };
+        var pleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.PaymentLedgerEntry, Guid>>();
+        NSubstitute.SubstituteExtensions.Returns(pleRepo.GetQueryableAsync(), System.Threading.Tasks.Task.FromResult(new[] { activePle, delinkedPle }.AsQueryable()));
+        var pleSvc = new MyERP.Accounting.DomainServices.PaymentLedgerService(pleRepo);
+        (await pleSvc.GetVoucherPaymentLedgerEntriesAsync("SalesInvoice", voucherId, showCancelledEntries: false)).Count.ShouldBe(1);
+        (await pleSvc.GetVoucherPaymentLedgerEntriesAsync("SalesInvoice", voucherId, showCancelledEntries: true)).Count.ShouldBe(2);
+
+        // 2. ERPNext PR #68787: Inter-company receipt never keeps transit package; rejected bundle moves on warehouse change
+        PurchaseReceiptManager.KeepsTransitPackage(isSameCompanyInternalTransfer: true, isInterCompanyReceipt: false, hasRejectedStock: false).ShouldBeTrue();
+        PurchaseReceiptManager.KeepsTransitPackage(isSameCompanyInternalTransfer: true, isInterCompanyReceipt: false, hasRejectedStock: true).ShouldBeFalse();
+        PurchaseReceiptManager.KeepsTransitPackage(isSameCompanyInternalTransfer: false, isInterCompanyReceipt: true, hasRejectedStock: false).ShouldBeFalse();
+
+        var rejWh1 = Guid.NewGuid();
+        var rejWh2 = Guid.NewGuid();
+        var existingBundle = Guid.NewGuid();
+        PurchaseReceiptManager.ResolveRejectedPackageAction(0m, existingBundle, rejWh1, rejWh1).ShouldBe(RejectedPackageAction.Remove);
+        PurchaseReceiptManager.ResolveRejectedPackageAction(5m, existingBundle, rejWh1, rejWh1).ShouldBe(RejectedPackageAction.Resize);
+        PurchaseReceiptManager.ResolveRejectedPackageAction(5m, existingBundle, rejWh1, rejWh2).ShouldBe(RejectedPackageAction.RecreateAtNewWarehouse);
+
+        // 3. ERPNext PR #67522: SCO return of components uses full open qty (deducting delivered+transferred+consumed) & replays supplier WH on cancel
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SubcontractingOrder", Guid.NewGuid(), 10m)
+        {
+            TransferredQty = 3m,
+            ConsumedQty = 4m
+        };
+        StockReservationManager.GetReservationOpenQty(sre).ShouldBe(3m);
+
+        var scoId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var srcWh = Guid.NewGuid();
+        var supWh = Guid.NewGuid();
+        var submitScope = StockReservationManager.ResolveSubcontractingReservationReplayScope(
+            isComponentsReturn: true, isCancel: false, scoId, rmItemId, srcWh, supWh);
+        submitScope.FilterByVoucherDetail.ShouldBeTrue();
+        submitScope.TargetWarehouseId.ShouldBe(srcWh);
+        var cancelScope = StockReservationManager.ResolveSubcontractingReservationReplayScope(
+            isComponentsReturn: true, isCancel: true, scoId, rmItemId, srcWh, supWh);
+        cancelScope.FilterByVoucherDetail.ShouldBeFalse();
+        cancelScope.ReplayGroupKey.ShouldBe((scoId, rmItemId, srcWh));
+
+        // 4. MyInvois createxml.py: Buyer address/contact validator enforces fields on B2B and skips on Consolidated
+        MyERP.EInvoice.Services.EInvoiceValidationService
+            .ValidateBuyerAddressAndContactForLhdn(null, null, null, "NA", "bad-email", isConsolidated: true)
+            .ShouldBeEmpty();
+        var buyerErrors = MyERP.EInvoice.Services.EInvoiceValidationService
+            .ValidateBuyerAddressAndContactForLhdn(null, "123 Jalan", null, "NA", "bad-email", isConsolidated: false);
+        buyerErrors.Count.ShouldBe(4);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

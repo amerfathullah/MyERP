@@ -243,6 +243,53 @@ public class PaymentLedgerService : DomainService
             await _pleRepository.UpdateManyAsync(entries);
         }
     }
+
+    /// <summary>
+    /// Determines whether the Payment Ledger view/preview button should be shown for a voucher
+    /// per ERPNext PR #68176 (<c>payment_entry.js</c>, <c>journal_entry.js</c>, <c>sales_invoice.js</c>,
+    /// <c>purchase_invoice.js</c>, <c>invoice_discounting.js</c>):
+    /// - Payment Entry: only when a party is set (internal transfers have no party and hit no PLE).
+    /// - Journal Entry: only when at least one row uses a Receivable or Payable account.
+    /// - Sales Invoice, Purchase Invoice, Invoice Discounting: always shown.
+    /// </summary>
+    public static bool ShouldShowPaymentLedgerForVoucher(
+        string? voucherType,
+        bool hasParty,
+        bool hasReceivableOrPayableAccount)
+    {
+        if (string.IsNullOrWhiteSpace(voucherType))
+            return false;
+
+        var normalized = voucherType.Replace(" ", string.Empty).Trim();
+        if (string.Equals(normalized, "PaymentEntry", StringComparison.OrdinalIgnoreCase))
+            return hasParty;
+        if (string.Equals(normalized, "JournalEntry", StringComparison.OrdinalIgnoreCase))
+            return hasReceivableOrPayableAccount;
+
+        return string.Equals(normalized, "SalesInvoice", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "InvoiceDiscounting", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Returns Payment Ledger Entries for a voucher ordered by creation time, excluding delinked
+    /// entries unless <paramref name="showCancelledEntries"/> is true.
+    /// Per ERPNext PR #68176 (<c>ledger_preview.py: get_pl_entries_for_preview</c> &amp; <c>payment_ledger.py</c>).
+    /// </summary>
+    public async Task<List<PaymentLedgerEntry>> GetVoucherPaymentLedgerEntriesAsync(
+        string voucherType,
+        Guid voucherId,
+        bool showCancelledEntries = false)
+    {
+        var query = await _pleRepository.GetQueryableAsync();
+        query = query.Where(p => p.VoucherType == voucherType && p.VoucherId == voucherId);
+        if (!showCancelledEntries)
+        {
+            query = query.Where(p => !p.Delinked);
+        }
+
+        return query.OrderBy(p => p.CreationTime).ToList();
+    }
 }
 
 /// <summary>Summary of outstanding amount for a voucher.</summary>

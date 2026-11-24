@@ -2290,6 +2290,53 @@ public class StockReservationManager : DomainService
 
         return (bins, mrItemIds);
     }
+
+    /// <summary>
+    /// Computes the remaining open (unfulfilled) quantity of a Stock Reservation Entry across ALL
+    /// fulfillment channels (<c>DeliveredQty + TransferredQty + ConsumedQty</c>), rounded to stock precision.
+    /// Per ERPNext PR #67522 (<c>get_reservation_open_qty</c> in <c>stock_controller.py</c>).
+    /// </summary>
+    public static decimal GetReservationOpenQty(StockReservationEntry sre, int precision = 4)
+    {
+        var open = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
+        return Math.Max(0m, Math.Round(open, precision, MidpointRounding.AwayFromZero));
+    }
+
+    /// <summary>
+    /// Resolves how Subcontracting Order component-return and receipt reservation replay groups and
+    /// filters supplier-warehouse reservations per ERPNext PR #67522 (<c>stock_controller.py</c>):
+    /// - Return of Components on submit: scopes to supplier warehouse (<paramref name="sourceWarehouseId"/>)
+    ///   and <paramref name="scoRmDetailId"/>, grouping under <c>(SubcontractingOrderId, ItemId, SourceWarehouseId)</c>.
+    /// - Return of Components on cancel: replays BOTH returns and receipts across ALL supplier-warehouse
+    ///   reservations of <c>(ItemId, SourceWarehouseId)</c> (so <c>FilterByVoucherDetail</c> is false).
+    /// </summary>
+    public static (
+        bool UsesSupplierWarehouseReservations,
+        bool FilterByVoucherDetail,
+        Guid TargetWarehouseId,
+        (Guid OrderId, Guid ItemId, Guid WarehouseId) ReplayGroupKey) ResolveSubcontractingReservationReplayScope(
+        bool isComponentsReturn,
+        bool isCancel,
+        Guid subcontractingOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        Guid supplierWarehouseId)
+    {
+        if (isComponentsReturn)
+        {
+            return (
+                UsesSupplierWarehouseReservations: true,
+                FilterByVoucherDetail: !isCancel,
+                TargetWarehouseId: sourceWarehouseId,
+                ReplayGroupKey: (subcontractingOrderId, itemId, sourceWarehouseId));
+        }
+
+        return (
+            UsesSupplierWarehouseReservations: true,
+            FilterByVoucherDetail: false,
+            TargetWarehouseId: supplierWarehouseId,
+            ReplayGroupKey: (subcontractingOrderId, itemId, supplierWarehouseId));
+    }
 }
 
 public class ReservationConsumption
