@@ -4827,6 +4827,61 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(-0.0005m);
     }
 
+    [Fact]
+    public void UpstreamBatch49_TransitBatchRate_RejectedReturnAmt_PickBundleSerial_PosChangeReturn_Parity()
+    {
+        // 1. ERPNext PR #66258: Rejected transit batch material valued per stock UOM (salesIncomingRate / conversionFactor)
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager
+            .CalculateRejectedTransitBatchRatePerStockUom(salesIncomingRate: 120m, conversionFactor: 12m)
+            .ShouldBe(10m);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager
+            .CalculateRejectedTransitBatchRatePerStockUom(salesIncomingRate: 50m, conversionFactor: 0m)
+            .ShouldBe(50m);
+
+        // 2. ERPNext PR #66263: Fully rejected return invoice row (qty=0, rejectedQty=-5) bills 0, not -rate
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateReturnOrDebitNoteRowAmount(
+            qty: 0m, rejectedQty: -5m, rate: 100m, isReturn: true, isDebitNote: false, isPurchaseReceipt: false)
+            .ShouldBe(0m);
+        // True rate-adjustment return (qty=0, rejectedQty=0) bills -rate
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateReturnOrDebitNoteRowAmount(
+            qty: 0m, rejectedQty: 0m, rate: 100m, isReturn: true, isDebitNote: false, isPurchaseReceipt: false)
+            .ShouldBe(-100m);
+        // Debit note with qty=0 bills +rate
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateReturnOrDebitNoteRowAmount(
+            qty: 0m, rejectedQty: 0m, rate: 75m, isReturn: false, isDebitNote: true, isPurchaseReceipt: false)
+            .ShouldBe(75m);
+
+        // 3. ERPNext PR #65492: Pick List bundle location delivered qty credits matched serials first, then unpicked serial qty
+        var locA = Guid.NewGuid();
+        var locB = Guid.NewGuid();
+        var dist = MyERP.Inventory.DomainServices.PickListManager.DistributeBundleLocationDeliveredQty(
+            locations: new[]
+            {
+                (locA, 2m, (System.Collections.Generic.IReadOnlyList<string>?)new[] { "SN-1", "SN-2" }),
+                (locB, 2m, (System.Collections.Generic.IReadOnlyList<string>?)new[] { "SN-3", "SN-4" }),
+            },
+            totalDeliveredQty: 3m,
+            deliveredSerialNos: new[] { "sn-3", "SN-UNPICKED-1", "SN-UNPICKED-2" });
+        // locB matches sn-3 (1), remaining 2 allocated sequentially: locA gets 2 (cap 2), locB keeps 1
+        dist[locA].ShouldBe(2m);
+        dist[locB].ShouldBe(1m);
+
+        // 4. ERPNext PR #65348: POS return excludes change amount already handed back to customer
+        var (returnPaid, returnPayments) = MyERP.Sales.Entities.SalesInvoice.CalculatePosReturnPaymentRefunds(
+            sourcePaidAmount: 100m,
+            sourceChangeAmount: 20m,
+            conversionRate: 1m,
+            sourcePayments: new[]
+            {
+                (1, 60m, 20m), // cash with 20 change -> refund -40
+                (2, 40m, 0m),  // card -> refund -40
+            });
+        returnPaid.ShouldBe(-80m);
+        returnPayments.Count.ShouldBe(2);
+        returnPayments[0].ShouldBe((1, -40m, -40m));
+        returnPayments[1].ShouldBe((2, -40m, -40m));
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

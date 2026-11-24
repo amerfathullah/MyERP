@@ -903,4 +903,35 @@ public class PurchaseInvoiceManager : DomainService
         var baseAmount = amount * fxRate;
         return (pendingQty, stockQty, amount, baseAmount);
     }
+
+    /// <summary>
+    /// Computes row <c>Amount</c> for a return or debit-note row per ERPNext PR #66263
+    /// (<c>taxes_and_totals.py</c>):
+    /// - A return row with BOTH <c>qty == 0</c> and <c>rejectedQty == 0</c> (and not a Purchase Receipt)
+    ///   is a rate adjustment return (<c>-rate</c>).
+    /// - A fully rejected return row (<c>qty == 0</c>, <c>rejectedQty != 0</c>) moves its rejected qty
+    ///   and bills <c>0</c> (matching the original invoice), NOT <c>-rate</c>.
+    /// - A debit note with <c>qty == 0</c> bills <c>+rate</c>; otherwise <c>qty * rate</c>.
+    /// </summary>
+    public static decimal CalculateReturnOrDebitNoteRowAmount(
+        decimal qty,
+        decimal rejectedQty,
+        decimal rate,
+        bool isReturn,
+        bool isDebitNote,
+        bool isPurchaseReceipt,
+        int precision = 2)
+    {
+        if (qty == 0m && rejectedQty == 0m && isReturn && !isPurchaseReceipt)
+        {
+            return Math.Round(-1m * rate, precision, MidpointRounding.AwayFromZero);
+        }
+
+        if (qty == 0m && isDebitNote)
+        {
+            return Math.Round(rate, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return Math.Round(qty * rate, precision, MidpointRounding.AwayFromZero);
+    }
 }

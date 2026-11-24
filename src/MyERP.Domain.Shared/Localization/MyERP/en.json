@@ -7145,7 +7145,11 @@
     "PleaseSignAndReturnOrder": "Please sign and return to confirm your order.",
     "Detail": "Detail",
     "Breadcrumb": "Breadcrumb",
-    "Consolidated": "Consolidated"
+    "Consolidated": "Consolidated",
+    "Unfulfilled": "Unfulfilled",
+    "PartiallyFulfilled": "Partially Fulfilled",
+    "Lapsed": "Lapsed",
+    "ReturnIssued": "Return Issued"
   }
 }
 

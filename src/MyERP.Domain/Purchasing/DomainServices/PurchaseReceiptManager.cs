@@ -1052,6 +1052,20 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
+    /// Computes the per-stock-UOM transit valuation rate for rejected in-transit batch material
+    /// per ERPNext PR #66258 (<c>SerialandBatchBundle.get_transit_rate</c>):
+    /// <paramref name="salesIncomingRate"/> is denominated per purchase UOM whereas bundle entries hold
+    /// stock UOM quantities, so it divides by <paramref name="conversionFactor"/> (defaulting to <c>1</c>).
+    /// </summary>
+    public static decimal CalculateRejectedTransitBatchRatePerStockUom(
+        decimal salesIncomingRate,
+        decimal conversionFactor)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return salesIncomingRate / factor;
+    }
+
+    /// <summary>
     /// Resolves the credit/outgoing amount taken back from <c>Stock Received But Not Billed</c> when returning
     /// stock from a rejected warehouse on a non-internal Purchase Receipt return
     /// per ERPNext commits 39a75b170e, 097411fb47, and 3837f7b46a (<c>purchase_receipt/services/gl_composer.py</c>):

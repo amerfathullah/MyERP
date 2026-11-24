@@ -904,6 +904,69 @@ public class PickListManager : DomainService
 
         return filtered;
     }
+
+    /// <summary>
+    /// Distributes delivered quantity for a Product Bundle across Pick List location rows
+    /// per ERPNext PR #65492 (<c>PickList._get_bundle_location_delivered_qty</c>):
+    /// first each row takes the count of its own picked serial numbers that were delivered (case-insensitive),
+    /// then any remaining delivered quantity (including unpicked/substituted serial numbers) is allocated
+    /// sequentially by remaining picked capacity.
+    /// </summary>
+    public static Dictionary<Guid, decimal> DistributeBundleLocationDeliveredQty(
+        IReadOnlyList<(Guid LocationId, decimal PickedQty, IReadOnlyList<string>? PickedSerialNos)>? locations,
+        decimal totalDeliveredQty,
+        IReadOnlyCollection<string>? deliveredSerialNos,
+        int precision = 4)
+    {
+        var qtyByLocation = new Dictionary<Guid, decimal>();
+        if (locations == null || locations.Count == 0)
+        {
+            return qtyByLocation;
+        }
+
+        var deliveredSet = new HashSet<string>(
+            (deliveredSerialNos ?? Array.Empty<string>())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        decimal matchedTotal = 0m;
+        foreach (var loc in locations)
+        {
+            var matched = 0m;
+            if (loc.PickedSerialNos != null && deliveredSet.Count > 0)
+            {
+                var uniquePicked = new HashSet<string>(
+                    loc.PickedSerialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+                    StringComparer.OrdinalIgnoreCase);
+                matched = uniquePicked.Count(sn => deliveredSet.Contains(sn));
+            }
+
+            qtyByLocation[loc.LocationId] = matched;
+            matchedTotal += matched;
+        }
+
+        var remaining = Math.Max(totalDeliveredQty - matchedTotal, 0m);
+        foreach (var loc in locations)
+        {
+            if (remaining <= 0m)
+            {
+                break;
+            }
+
+            var capacity = Math.Max(0m, loc.PickedQty - qtyByLocation[loc.LocationId]);
+            var add = Math.Min(capacity, remaining);
+            qtyByLocation[loc.LocationId] = Math.Round(qtyByLocation[loc.LocationId] + add, precision, MidpointRounding.AwayFromZero);
+            remaining -= add;
+        }
+
+        foreach (var loc in locations)
+        {
+            qtyByLocation[loc.LocationId] = Math.Round(qtyByLocation[loc.LocationId], precision, MidpointRounding.AwayFromZero);
+        }
+
+        return qtyByLocation;
+    }
 }
 
 public class AllocatedLocationItem

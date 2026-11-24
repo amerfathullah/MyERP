@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'Pending' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled' | 'Ordered' | 'PartiallyOrdered' | 'PartiallyReceived' | 'Partial' | 'Open' | 'Lost' | 'Converted' | 'Quotation' | 'ToPay';
 
@@ -71,7 +72,7 @@ export function getDocumentStatusLabel(status?: number | string | null, submitte
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   templateUrl: './status-badge.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./status-badge.component.scss'],
@@ -79,11 +80,23 @@ export function getDocumentStatusLabel(status?: number | string | null, submitte
 export class StatusBadgeComponent {
   @Input({ required: true }) status!: string | number | null | undefined;
 
-  get config(): StatusConfig {
+  private get normalizedKey(): string {
+    if (typeof this.status === 'number') {
+      return getDocumentStatusLabel(this.status);
+    }
     const raw = typeof this.status === 'string'
       ? this.status
       : (this.status !== null && this.status !== undefined ? String(this.status) : 'Draft');
-    const key = (raw ? raw.replace(/\s+/g, '') : 'Draft') as DocumentStatus;
-    return STATUS_MAP[key] ?? STATUS_MAP[raw as DocumentStatus] ?? STATUS_MAP['Draft'];
+    return raw ? raw.replace(/\s+/g, '') : 'Draft';
+  }
+
+  get config(): StatusConfig {
+    const key = this.normalizedKey as DocumentStatus;
+    return STATUS_MAP[key] ?? STATUS_MAP[String(this.status) as DocumentStatus] ?? STATUS_MAP['Draft'];
+  }
+
+  get labelKey(): string | null {
+    const key = this.normalizedKey as DocumentStatus;
+    return key in STATUS_MAP ? `::${key}` : null;
   }
 }

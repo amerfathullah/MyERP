@@ -663,6 +663,37 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         CommissionRate = commissionRate;
     }
 
+    /// <summary>
+    /// Computes POS return <c>PaidAmount</c> and per-payment-row refund amounts excluding
+    /// <paramref name="sourceChangeAmount"/> (change was already handed back to the customer on the
+    /// original invoice and must not be refunded again)
+    /// per ERPNext PR #65348 (<c>sales_and_purchase_return.py: make_return_doc</c>).
+    /// </summary>
+    public static (decimal ReturnPaidAmount, IReadOnlyList<(int RowIdx, decimal RefundAmount, decimal RefundBaseAmount)> ReturnPayments)
+        CalculatePosReturnPaymentRefunds(
+            decimal sourcePaidAmount,
+            decimal sourceChangeAmount,
+            decimal conversionRate,
+            IEnumerable<(int RowIdx, decimal Amount, decimal ChangeAllocated)>? sourcePayments,
+            int precision = 2)
+    {
+        var fxRate = conversionRate > 0m ? conversionRate : 1m;
+        var returnPaidAmount = Math.Round(sourceChangeAmount - sourcePaidAmount, precision, MidpointRounding.AwayFromZero);
+
+        var refunds = new List<(int RowIdx, decimal RefundAmount, decimal RefundBaseAmount)>();
+        if (sourcePayments != null)
+        {
+            foreach (var row in sourcePayments)
+            {
+                var netPaid = Math.Round(row.Amount - row.ChangeAllocated, precision, MidpointRounding.AwayFromZero);
+                var netBasePaid = Math.Round(netPaid * fxRate, precision, MidpointRounding.AwayFromZero);
+                refunds.Add((row.RowIdx, -netPaid, -netBasePaid));
+            }
+        }
+
+        return (returnPaidAmount, refunds);
+    }
+
     private void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.LineTotal);
