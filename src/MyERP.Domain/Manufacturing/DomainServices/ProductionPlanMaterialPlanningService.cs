@@ -914,6 +914,40 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return (childBom, shouldExplode);
     }
+
+    /// <summary>
+    /// Validates that every warehouse referenced on a Production Plan header (<c>ForWarehouse</c>,
+    /// <c>SubAssemblyWarehouse</c>) or child tables (<c>po_items.warehouse</c>,
+    /// <c>sub_assembly_items.fg_warehouse</c>, <c>mr_items.warehouse</c>, <c>mr_items.from_warehouse</c>)
+    /// belongs to <paramref name="planCompanyId"/>
+    /// per ERPNext PR #65926 (<c>ProductionPlan.validate_warehouse_belongs_to_company</c>).
+    /// </summary>
+    public static void ValidateProductionPlanWarehousesBelongToCompany(
+        Guid planCompanyId,
+        IEnumerable<(Guid WarehouseId, string WarehouseName, Guid WarehouseCompanyId)>? referencedWarehouses)
+    {
+        if (referencedWarehouses == null)
+        {
+            return;
+        }
+
+        foreach (var wh in referencedWarehouses)
+        {
+            if (wh.WarehouseId == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (wh.WarehouseCompanyId != planCompanyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("warehouseId", wh.WarehouseId)
+                    .WithData("warehouseName", wh.WarehouseName)
+                    .WithData("companyId", planCompanyId)
+                    .WithData("detail", $"Warehouse {wh.WarehouseName} does not belong to the Production Plan company.");
+            }
+        }
+    }
 }
 
 public sealed record SalesOrderRowClosureInfo(

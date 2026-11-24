@@ -162,11 +162,11 @@ public class UpstreamParityBatch20261026Part5Tests
             riv.ValidateRecalculateValuationRate(isUpdateStock: null, isTransferStockEntry: true));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString()!.ShouldContain("no row that has both a Source and Target Warehouse");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Purchase Receipt or a Purchase Invoice with Update Stock");
     }
 
     [Fact]
-    public void RepostItemValuation_ValidateRecalculateValuationRate_AllowsNonTransferStockEntry()
+    public void RepostItemValuation_ValidateRecalculateValuationRate_RejectsNonTransferStockEntry()
     {
         var riv = new RepostItemValuation(
             Guid.NewGuid(), Guid.NewGuid(), RepostMethod.Transaction, DateTime.UtcNow)
@@ -176,7 +176,11 @@ public class UpstreamParityBatch20261026Part5Tests
             RecalculateValuationRate = true,
         };
 
-        // Should not throw
-        riv.ValidateRecalculateValuationRate(isUpdateStock: null, isTransferStockEntry: false);
+        // Per ERPNext PR #64289 (commit be45c4e072): refuse Recalculate Valuation Rate on any Stock Entry
+        var ex = Should.Throw<BusinessException>(() =>
+            riv.ValidateRecalculateValuationRate(isUpdateStock: null, isTransferStockEntry: false));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Purchase Receipt or a Purchase Invoice with Update Stock");
     }
 }

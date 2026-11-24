@@ -4751,6 +4751,82 @@ public class UpstreamBatch41ParityTests
             .ShouldBeFalse();
     }
 
+    [Fact]
+    public void UpstreamBatch48_RepostNoSe_PlanWh_PrRejectedCharge_ScrBomDiff_Parity()
+    {
+        // 1. ERPNext PR #64289: Refuse RecalculateValuationRate on any Stock Entry (even non-transfer)
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var rivSe = new MyERP.Inventory.Entities.RepostItemValuation(
+            Guid.NewGuid(), compA, MyERP.Inventory.Entities.RepostMethod.Transaction, DateTime.UtcNow)
+        {
+            VoucherType = "Stock Entry",
+            VoucherId = Guid.NewGuid(),
+            RecalculateValuationRate = true
+        };
+        Should.Throw<Volo.Abp.BusinessException>(() => rivSe.ValidateRecalculateValuationRate(isTransferStockEntry: false))
+            .Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        var rivPr = new MyERP.Inventory.Entities.RepostItemValuation(
+            Guid.NewGuid(), compA, MyERP.Inventory.Entities.RepostMethod.Transaction, DateTime.UtcNow)
+        {
+            VoucherType = "Purchase Receipt",
+            VoucherId = Guid.NewGuid(),
+            RecalculateValuationRate = true
+        };
+        Should.NotThrow(() => rivPr.ValidateRecalculateValuationRate());
+
+        // 2. ERPNext PR #65926: Production Plan header and row warehouses must belong to plan company
+        Should.NotThrow(() => MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .ValidateProductionPlanWarehousesBelongToCompany(
+                compA,
+                new[] { (Guid.NewGuid(), "FG-WH-A", compA), (Guid.NewGuid(), "RM-WH-A", compA) }));
+        Should.Throw<Volo.Abp.BusinessException>(() => MyERP.Manufacturing.DomainServices.ProductionPlanMaterialPlanningService
+            .ValidateProductionPlanWarehousesBelongToCompany(
+                compA,
+                new[] { (Guid.NewGuid(), "FG-WH-A", compA), (Guid.NewGuid(), "RM-WH-B", compB) }))
+            .Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        // 3. ERPNext PR #65147: Valuation charge spreads over rejected_qty only on non-internal PR when setting enabled
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.GetValuationChargeableQty(
+            qty: 0m, rejectedQty: 5m, isPurchaseReceipt: true, isInternalTransfer: false, setValuationRateForRejectedMaterials: true)
+            .ShouldBe(5m);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.GetValuationChargeableQty(
+            qty: 0m, rejectedQty: 5m, isPurchaseReceipt: true, isInternalTransfer: true, setValuationRateForRejectedMaterials: true)
+            .ShouldBe(0m);
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.GetValuationChargeableQty(
+            qty: 0m, rejectedQty: 5m, isPurchaseReceipt: true, isInternalTransfer: false, setValuationRateForRejectedMaterials: false)
+            .ShouldBe(0m);
+
+        var distributed = MyERP.Purchasing.DomainServices.PurchaseReceiptManager.DistributeValuationChargeAcrossRows(
+            items: new[] { (1, 0m, 0m, 2m), (2, 0m, 0m, 3m) },
+            totalCharge: 100m,
+            isPurchaseReceipt: true,
+            isInternalTransfer: false,
+            setValuationRateForRejectedMaterials: true,
+            precision: 2);
+        distributed[1].ShouldBe(40m);
+        distributed[2].ShouldBe(60m);
+
+        // Internal transfer with zero accepted qty distributes nothing
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.DistributeValuationChargeAcrossRows(
+            items: new[] { (1, 0m, 0m, 2m) },
+            totalCharge: 100m,
+            isPurchaseReceipt: true,
+            isInternalTransfer: true,
+            setValuationRateForRejectedMaterials: true)
+            .ShouldBeEmpty();
+
+        // 4. ERPNext PR #65729: Subcontracting Receipt BOM qty diff rounds once on (consumed - required)
+        // 1.00004 - 1.00006 = -0.00002 -> rounds to 0 at precision 4 (whereas separate rounding gave 1.0000 - 1.0001 = -0.0001)
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .CalculateSubcontractingReceiptBomQtyDiff(1.00004m, 1.00006m, precision: 4)
+            .ShouldBe(0m);
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .CalculateSubcontractingReceiptBomQtyDiff(1.0000m, 1.0005m, precision: 4)
+            .ShouldBe(-0.0005m);
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

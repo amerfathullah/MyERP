@@ -186,7 +186,7 @@ public class UpstreamParityBatch20261025Tests
         // 3. Transaction based on Purchase Invoice with Update Stock allowed
         rivPiNoStock.ValidateRecalculateValuationRate(isUpdateStock: true);
 
-        // 4. Transaction based on Stock Entry rejects material transfers
+        // 4. Transaction based on Stock Entry rejects both transfer and non-transfer Stock Entries (ERPNext PR #64289)
         var rivSeTransfer = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.Transaction, postingDate)
         {
             RecalculateValuationRate = true,
@@ -196,8 +196,9 @@ public class UpstreamParityBatch20261025Tests
         var ex3 = Assert.Throws<BusinessException>(() => rivSeTransfer.ValidateRecalculateValuationRate(isTransferStockEntry: true));
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex3.Code);
 
-        // 5. Transaction based on non-transfer Stock Entry allowed
-        rivSeTransfer.ValidateRecalculateValuationRate(isTransferStockEntry: false);
+        // 5. Transaction based on non-transfer Stock Entry also refused per ERPNext PR #64289
+        var ex4 = Assert.Throws<BusinessException>(() => rivSeTransfer.ValidateRecalculateValuationRate(isTransferStockEntry: false));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex4.Code);
 
         // 6. Transaction based on Purchase Receipt allowed
         var rivPr = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.Transaction, postingDate)

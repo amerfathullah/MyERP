@@ -179,23 +179,15 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
             if (isUpdateStock != true)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Invoice with Update Stock.");
+                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt or a Purchase Invoice with Update Stock.");
             }
             return;
         }
 
-        if (string.Equals(VoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase))
-        {
-            if (isTransferStockEntry == true)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry with no row that has both a Source and Target Warehouse.");
-            }
-            return;
-        }
-
+        // Per ERPNext PR #64289 (commit be45c4e072): refuse Recalculate Valuation Rate on any Stock Entry
+        // (only Purchase Receipt or Purchase Invoice with Update Stock is allowed).
         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-            .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry with no row that has both a Source and Target Warehouse.");
+            .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt or a Purchase Invoice with Update Stock.");
     }
 
     public void ValidateUpdateStock(bool? isUpdateStock = null)

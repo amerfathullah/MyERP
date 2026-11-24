@@ -3183,6 +3183,20 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the rounded raw-material consumed vs required BOM quantity difference once
+    /// (<c>Round(consumedQty - requiredQty, precision)</c>) rather than subtracting two separately
+    /// rounded values per ERPNext PR #65729 (<c>SubcontractingReceipt.validate_consumed_qty</c>),
+    /// avoiding false shortage errors on fractional quantities.
+    /// </summary>
+    public static decimal CalculateSubcontractingReceiptBomQtyDiff(
+        decimal consumedQty,
+        decimal requiredQty,
+        int precision = 4)
+    {
+        return Math.Round(consumedQty - requiredQty, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

@@ -7144,7 +7144,8 @@
     "AuthorizedSignatureSeller": "Authorized Signature (Seller)",
     "PleaseSignAndReturnOrder": "Please sign and return to confirm your order.",
     "Detail": "Detail",
-    "Breadcrumb": "Breadcrumb"
+    "Breadcrumb": "Breadcrumb",
+    "Consolidated": "Consolidated"
   }
 }
 

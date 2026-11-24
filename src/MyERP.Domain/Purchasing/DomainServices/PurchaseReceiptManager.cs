@@ -984,6 +984,74 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
+    /// Returns the quantity over which a valuation charge spreads when no row has a net amount
+    /// per ERPNext PR #65147 (<c>BuyingController.get_chargeable_qty</c>):
+    /// a non-internal Purchase Receipt row with zero accepted qty carries the charge on its
+    /// <paramref name="rejectedQty"/> only when <paramref name="setValuationRateForRejectedMaterials"/> is enabled;
+    /// internal transfers and non-receipt documents never spread valuation charges over rejected-only rows.
+    /// </summary>
+    public static decimal GetValuationChargeableQty(
+        decimal qty,
+        decimal rejectedQty,
+        bool isPurchaseReceipt,
+        bool isInternalTransfer,
+        bool setValuationRateForRejectedMaterials)
+    {
+        if (qty != 0m || !isPurchaseReceipt || isInternalTransfer)
+        {
+            return qty;
+        }
+
+        return setValuationRateForRejectedMaterials ? rejectedQty : 0m;
+    }
+
+    /// <summary>
+    /// Distributes a document-level valuation charge across rows proportional to <c>BaseNetAmount</c> when
+    /// total net amount is non-zero, or proportional to <see cref="GetValuationChargeableQty"/> otherwise,
+    /// assigning the rounding residual to the last row per ERPNext PR #65147 (<c>buying_controller.py</c>).
+    /// </summary>
+    public static Dictionary<int, decimal> DistributeValuationChargeAcrossRows(
+        IReadOnlyList<(int RowIdx, decimal BaseNetAmount, decimal Qty, decimal RejectedQty)>? items,
+        decimal totalCharge,
+        bool isPurchaseReceipt,
+        bool isInternalTransfer,
+        bool setValuationRateForRejectedMaterials,
+        int precision = 2)
+    {
+        var result = new Dictionary<int, decimal>();
+        if (items == null || items.Count == 0 || totalCharge == 0m)
+        {
+            return result;
+        }
+
+        var totalAmount = items.Sum(d => d.BaseNetAmount);
+        var chargeableQtys = items
+            .Select(d => GetValuationChargeableQty(d.Qty, d.RejectedQty, isPurchaseReceipt, isInternalTransfer, setValuationRateForRejectedMaterials))
+            .ToList();
+        var totalQty = chargeableQtys.Sum();
+
+        if (totalAmount == 0m && totalQty == 0m)
+        {
+            return result;
+        }
+
+        var remaining = totalCharge;
+        for (var i = 0; i < items.Count - 1; i++)
+        {
+            var proportion = totalAmount != 0m
+                ? items[i].BaseNetAmount / totalAmount
+                : chargeableQtys[i] / totalQty;
+            var charge = Math.Round(proportion * totalCharge, precision, MidpointRounding.AwayFromZero);
+            result[items[i].RowIdx] = result.GetValueOrDefault(items[i].RowIdx) + charge;
+            remaining -= charge;
+        }
+
+        var last = items[^1];
+        result[last.RowIdx] = result.GetValueOrDefault(last.RowIdx) + Math.Round(remaining, precision, MidpointRounding.AwayFromZero);
+        return result;
+    }
+
+    /// <summary>
     /// Resolves the credit/outgoing amount taken back from <c>Stock Received But Not Billed</c> when returning
     /// stock from a rejected warehouse on a non-internal Purchase Receipt return
     /// per ERPNext commits 39a75b170e, 097411fb47, and 3837f7b46a (<c>purchase_receipt/services/gl_composer.py</c>):
