@@ -36,28 +36,28 @@ interface CcNode {
           <div class="border rounded p-3 mb-3 bg-light">
             <div class="row g-2">
               <div class="col-md-4">
-                <label class="form-label">Name *</label>
+                <label class="form-label">{{ 'MyERP::Name' | abpLocalization }} *</label>
                 <input class="form-control form-control-sm" [(ngModel)]="formName" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">Parent</label>
+                <label class="form-label">{{ 'MyERP::Parent' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="formParentId">
-                  <option [ngValue]="null">— Root —</option>
+                  <option [ngValue]="null">{{ 'MyERP::Root' | abpLocalization }}</option>
                   @for (g of groups(); track g.id) {
                     <option [value]="g.id">{{ g.name }}</option>
                   }
                 </select>
               </div>
               <div class="col-md-2">
-                <label class="form-label">Group</label>
+                <label class="form-label">{{ 'MyERP::Group' | abpLocalization }}</label>
                 <div class="form-check mt-1">
                   <input type="checkbox" class="form-check-input" [(ngModel)]="formIsGroup" id="ccGrp" />
-                  <label class="form-check-label" for="ccGrp">Yes</label>
+                  <label class="form-check-label" for="ccGrp">{{ 'MyERP::Yes' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-3 d-flex align-items-end gap-2">
-                <button class="btn btn-primary btn-sm" (click)="save()" [disabled]="!formName">Save</button>
-                <button class="btn btn-secondary btn-sm" (click)="showForm = false">Cancel</button>
+                <button class="btn btn-primary btn-sm" (click)="save()" [disabled]="!formName">{{ 'MyERP::Save' | abpLocalization }}</button>
+                <button class="btn btn-secondary btn-sm" (click)="showForm = false">{{ 'MyERP::Cancel' | abpLocalization }}</button>
               </div>
             </div>
           </div>
@@ -89,7 +89,7 @@ interface CcNode {
                     <span class="badge bg-light text-dark border ms-2">{{ node.costCenterNumber }}</span>
                   }
                   @if (!node.isActive) {
-                    <span class="badge bg-secondary ms-2">Disabled</span>
+                    <span class="badge bg-secondary ms-2">{{ 'MyERP::Disabled' | abpLocalization }}</span>
                   }
                 </span>
                 @if (node.isGroup) {
@@ -99,7 +99,7 @@ interface CcNode {
                 }
               </div>
             } @empty {
-              <div class="text-center text-muted py-4">No cost centers defined.</div>
+              <div class="text-center text-muted py-4">{{ 'MyERP::NoCostCentersDefined' | abpLocalization }}</div>
             }
           </div>
         }

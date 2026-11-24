@@ -3367,6 +3367,34 @@ public class SubcontractingManager : DomainService
 
         return "Material Transferred";
     }
+
+    /// <summary>
+    /// Determines whether the Subcontracting Delivery action remains available on a Subcontracting Inward Order
+    /// per ERPNext PR #67485 (<c>subcontracting_inward_order.py</c> / <c>subcontracting_inward_order.js</c>):
+    /// available whenever <paramref name="perProduced"/> &gt; 0 and either <paramref name="perDelivered"/> &lt; 100
+    /// OR <paramref name="allowDeliveryOfOverproducedQty"/> is enabled and at least one item row has
+    /// <c>ProducedQty &gt; DeliveredQty</c>.
+    /// </summary>
+    public static bool CanCreateSubcontractingDeliveryForInwardOrder(
+        decimal perProduced,
+        decimal perDelivered,
+        bool allowDeliveryOfOverproducedQty,
+        IEnumerable<(decimal ProducedQty, decimal DeliveredQty)>? items)
+    {
+        if (perProduced <= 0m)
+        {
+            return false;
+        }
+
+        if (perDelivered < 100m)
+        {
+            return true;
+        }
+
+        return allowDeliveryOfOverproducedQty
+            && items != null
+            && items.Any(i => i.ProducedQty > i.DeliveredQty);
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

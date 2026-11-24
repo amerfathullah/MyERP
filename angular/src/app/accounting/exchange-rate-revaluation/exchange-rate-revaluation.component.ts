@@ -23,12 +23,12 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
             <input type="date" class="form-control" [(ngModel)]="postingDate" />
           </div>
           <div class="col-md-4">
-            <label class="form-label">Rounding Loss Allowance</label>
+            <label class="form-label">{{ '::RoundingLossAllowance' | abpLocalization }}</label>
             <input type="number" class="form-control" [(ngModel)]="roundingAllowance" step="0.01" min="0" max="0.99" />
           </div>
           <div class="col-md-4 d-flex align-items-end">
             <button class="btn btn-primary btn-sm" (click)="getEligibleAccounts()" [disabled]="isLoading">
-              <i class="fa fa-search me-1"></i>Get Eligible Accounts
+              <i class="fa fa-search me-1"></i>{{ '::GetEligibleAccounts' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -38,15 +38,15 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
 
       @if (eligibleAccounts.length > 0) {
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">Eligible Accounts ({{ eligibleAccounts.length }})</h6>
+          <h6 class="card-title">{{ '::EligibleAccounts' | abpLocalization }} ({{ eligibleAccounts.length }})</h6>
           <table class="table table-sm mb-3">
             <thead><tr>
-              <th>Account</th>
-              <th>Currency</th>
-              <th class="text-end">Balance (Account Currency)</th>
-              <th class="text-end">Current Rate</th>
-              <th class="text-end">New Rate</th>
-              <th class="text-end">Gain/Loss</th>
+              <th>{{ '::Account' | abpLocalization }}</th>
+              <th>{{ '::Currency' | abpLocalization }}</th>
+              <th class="text-end">{{ '::BalanceInAccountCurrency' | abpLocalization }}</th>
+              <th class="text-end">{{ '::CurrentRate' | abpLocalization }}</th>
+              <th class="text-end">{{ '::NewRate' | abpLocalization }}</th>
+              <th class="text-end">{{ '::GainLoss' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (acc of eligibleAccounts; track acc.accountId) {
@@ -63,25 +63,25 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
               }
             </tbody>
             <tfoot><tr>
-              <td colspan="5" class="text-end fw-bold">Total Gain/Loss:</td>
+              <td colspan="5" class="text-end fw-bold">{{ '::TotalGainLoss' | abpLocalization }}:</td>
               <td class="text-end fw-bold" [class.text-success]="totalGainLoss > 0" [class.text-danger]="totalGainLoss < 0">
                 {{ totalGainLoss | number:'1.2-2' }}
               </td>
             </tr></tfoot>
           </table>
           <button class="btn btn-success btn-sm" (click)="createRevaluation()" [disabled]="isCreating">
-            <i class="fa fa-check me-1"></i>Create Revaluation Entry
+            <i class="fa fa-check me-1"></i>{{ '::CreateRevaluationEntry' | abpLocalization }}
           </button>
         </div></div>
       }
 
       @if (revaluations.length > 0) {
         <div class="card"><div class="card-body">
-          <h6 class="card-title">Previous Revaluations</h6>
+          <h6 class="card-title">{{ '::PreviousRevaluations' | abpLocalization }}</h6>
           <table class="table table-sm mb-0">
             <thead><tr>
               <th>{{ '::PostingDate' | abpLocalization }}</th>
-              <th class="text-end">Total Gain/Loss</th>
+              <th class="text-end">{{ '::TotalGainLoss' | abpLocalization }}</th>
               <th>{{ '::Status' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
@@ -93,9 +93,9 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
                     {{ r.totalGainLoss | number:'1.2-2' }}
                   </td>
                   <td>
-                    @if (r.status === 1) { <span class="badge bg-success">Submitted</span> }
-                    @else if (r.status === 2) { <span class="badge bg-secondary">Cancelled</span> }
-                    @else { <span class="badge bg-warning text-dark">Draft</span> }
+                    @if (r.status === 1) { <span class="badge bg-success">{{ '::Submitted' | abpLocalization }}</span> }
+                    @else if (r.status === 2) { <span class="badge bg-secondary">{{ '::Cancelled' | abpLocalization }}</span> }
+                    @else { <span class="badge bg-warning text-dark">{{ '::Draft' | abpLocalization }}</span> }
                   </td>
                   <td>
                     @if (r.status === 1) {

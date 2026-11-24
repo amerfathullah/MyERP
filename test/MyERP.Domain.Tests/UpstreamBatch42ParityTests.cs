@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67462, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67462, #67468, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1241,5 +1241,42 @@ public class UpstreamBatch42ParityTests
         trusted.EffectiveIsConsolidated.ShouldBeTrue();
         trusted.BypassCustomerBlockCheck.ShouldBeTrue();
         trusted.BypassModeOfPaymentEnabledCheck.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr67485_Pr67468_Pr66966_ScioOverproducedDeliveryJobCardCancelAndTransitRejected_Parity()
+    {
+        // PR #67485: SCIO at 100% delivered still allows Subcontracting Delivery when overproduced goods remain
+        var items = new[] { (ProducedQty: 12m, DeliveredQty: 10m) };
+        SubcontractingManager.CanCreateSubcontractingDeliveryForInwardOrder(
+            perProduced: 100m, perDelivered: 100m, allowDeliveryOfOverproducedQty: true, items).ShouldBeTrue();
+        SubcontractingManager.CanCreateSubcontractingDeliveryForInwardOrder(
+            perProduced: 100m, perDelivered: 100m, allowDeliveryOfOverproducedQty: false, items).ShouldBeFalse();
+        SubcontractingManager.CanCreateSubcontractingDeliveryForInwardOrder(
+            perProduced: 0m, perDelivered: 0m, allowDeliveryOfOverproducedQty: true, items).ShouldBeFalse();
+
+        // PR #67468: Job Card cancel ignores handed-over pendingQty; remainingCompleted (4) < WO produced (6) throws
+        Should.Throw<BusinessException>(() =>
+            JobCardManager.ValidateProducedQuantityOnJobCardCancel(
+                remainingCompletedQty: 4m, remainingProcessLossQty: 0m, workOrderQty: 10m, operationQty: 10m, workOrderProducedQty: 6m));
+        JobCardManager.ValidateProducedQuantityOnJobCardCancel(
+            remainingCompletedQty: 6m, remainingProcessLossQty: 0m, workOrderQty: 10m, operationQty: 10m, workOrderProducedQty: 6m);
+
+        // PR #66966: Rejected material staying in the in-transit warehouse does NOT get separate rejected booking
+        var transitWh = Guid.NewGuid();
+        var rejWh = Guid.NewGuid();
+        PurchaseReceiptManager.HasBookedRejectedMaterial(5m, true, transitWh, transitWh).ShouldBeFalse();
+        PurchaseReceiptManager.HasBookedRejectedMaterial(5m, true, transitWh, rejWh).ShouldBeTrue();
+
+        // PR #66966: SumStockValueDifferenceForRowInWarehouse sums all active SLEs for the row in the warehouse
+        var prId = Guid.NewGuid();
+        var rowId = Guid.NewGuid();
+        var sles = new[]
+        {
+            (prId, rowId, transitWh, false, -800m),
+            (prId, rowId, transitWh, false, -200m),
+            (prId, rowId, transitWh, true, -999m), // cancelled ignored
+        };
+        PurchaseReceiptManager.SumStockValueDifferenceForRowInWarehouse(prId, rowId, transitWh, sles).ShouldBe(-1000m);
     }
 }

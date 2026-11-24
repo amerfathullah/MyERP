@@ -7343,7 +7343,15 @@
     "ApplicableForSelling": "Applicable for Selling",
     "ApplicableForBuying": "Applicable for Buying",
     "DaysLower": "days",
-    "TermsLower": "terms"
+    "TermsLower": "terms",
+    "Withdrawal": "Withdrawal",
+    "Deposit": "Deposit",
+    "DescriptionContains": "Description Contains",
+    "EvaluateAllUnmatched": "Evaluate All Unmatched",
+    "Parent": "Parent",
+    "Root": "— Root —",
+    "NoCostCentersDefined": "No cost centers defined.",
+    "BalanceInAccountCurrency": "Balance (Account Currency)"
   }
 }
 

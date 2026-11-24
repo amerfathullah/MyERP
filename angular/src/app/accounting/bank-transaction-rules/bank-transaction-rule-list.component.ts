@@ -42,31 +42,31 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
             <div class="col-md-3">
               <label class="form-label">{{ '::TransactionType' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newRule.transactionType">
-                <option [ngValue]="0">Any</option>
-                <option [ngValue]="1">Withdrawal</option>
-                <option [ngValue]="2">Deposit</option>
+                <option [ngValue]="0">{{ '::Any' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Withdrawal' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Deposit' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label">Min Amount</label>
+              <label class="form-label">{{ '::MinAmount' | abpLocalization }}</label>
               <input type="number" class="form-control form-control-sm" [(ngModel)]="newRule.minAmount" />
             </div>
             <div class="col-md-2">
-              <label class="form-label">Max Amount</label>
+              <label class="form-label">{{ '::MaxAmount' | abpLocalization }}</label>
               <input type="number" class="form-control form-control-sm" [(ngModel)]="newRule.maxAmount" />
             </div>
           </div>
           <div class="row g-3 mt-1">
             <div class="col-md-4">
-              <label class="form-label">Description Contains</label>
+              <label class="form-label">{{ '::DescriptionContains' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="newRule.descriptionContains" [placeholder]="'::Placeholder:MatchTextInDescription' | abpLocalization" />
             </div>
             <div class="col-md-3">
-              <label class="form-label">Classify As</label>
+              <label class="form-label">{{ '::ClassifyAs' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="newRule.classifyAs">
-                <option [ngValue]="0">Bank Entry</option>
-                <option [ngValue]="1">Payment Entry</option>
-                <option [ngValue]="2">Transfer</option>
+                <option [ngValue]="0">{{ '::BankEntry' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::PaymentEntry' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Transfer' | abpLocalization }}</option>
               </select>
             </div>
           </div>
@@ -99,11 +99,11 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
                 <tr>
                   <td class="text-center"><span class="badge bg-secondary">{{ rule.priority }}</span></td>
                   <td>{{ rule.name }}</td>
-                  <td>{{ ['Any', 'Withdrawal', 'Deposit'][rule.transactionType ?? 0] }}</td>
-                  <td>{{ ['Bank Entry', 'Payment Entry', 'Transfer'][rule.classifyAs ?? 0] }}</td>
+                  <td>{{ (['::Any', '::Withdrawal', '::Deposit'][rule.transactionType ?? 0]) | abpLocalization }}</td>
+                  <td>{{ (['::BankEntry', '::PaymentEntry', '::Transfer'][rule.classifyAs ?? 0]) | abpLocalization }}</td>
                   <td>
-                    @if (rule.isEnabled) { <span class="badge bg-success">Active</span> }
-                    @else { <span class="badge bg-secondary">Disabled</span> }
+                    @if (rule.isEnabled) { <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span> }
+                    @else { <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span> }
                   </td>
                   <td>
                     <button class="btn btn-sm" [class]="rule.isEnabled ? 'btn-outline-warning' : 'btn-outline-success'"
@@ -119,7 +119,7 @@ import { BankTransactionRuleService } from '../../proxy/accounting/bank-transact
 
         <div class="mt-3 d-flex justify-content-between align-items-center">
           <button class="btn btn-sm btn-outline-primary" (click)="evaluateRules()">
-            <i class="fa fa-bolt me-1"></i>Evaluate All Unmatched
+            <i class="fa fa-bolt me-1"></i>{{ '::EvaluateAllUnmatched' | abpLocalization }}
           </button>
           <app-pagination [totalCount]="totalCount" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="onPageChange($event)" />
         </div>

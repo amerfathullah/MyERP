@@ -1729,6 +1729,55 @@ public class PurchaseReceiptManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Determines whether rejected material on a Purchase Receipt row gets its own booked stock/GL entry
+    /// per ERPNext PR #66966 (<c>gl_composer.py: has_booked_rejected_material</c>):
+    /// returns <c>true</c> only when <paramref name="rejectedQty"/> != 0, rejected material valuation is enabled,
+    /// AND the rejected material actually leaves the in-transit <paramref name="fromWarehouseId"/>
+    /// (i.e. <paramref name="rejectedWarehouseId"/> != <paramref name="fromWarehouseId"/>).
+    /// </summary>
+    public static bool HasBookedRejectedMaterial(
+        decimal rejectedQty,
+        bool isRejectedMaterialValued,
+        Guid? fromWarehouseId,
+        Guid? rejectedWarehouseId)
+    {
+        if (rejectedQty == 0m || !isRejectedMaterialValued)
+        {
+            return false;
+        }
+
+        return !(fromWarehouseId.HasValue
+            && fromWarehouseId.Value != Guid.Empty
+            && rejectedWarehouseId.HasValue
+            && rejectedWarehouseId.Value == fromWarehouseId.Value);
+    }
+
+    /// <summary>
+    /// Sums <c>StockValueDifference</c> across all active (non-cancelled) Stock Ledger Entries for a
+    /// Purchase Receipt row in a warehouse per ERPNext PR #66966 (<c>purchase_receipt.py: get_stock_value_difference</c>):
+    /// a row whose rejected material stays in the in-transit warehouse can post two SLEs in that warehouse,
+    /// so all active SLEs for the row/warehouse must be summed rather than reading only the first row.
+    /// </summary>
+    public static decimal SumStockValueDifferenceForRowInWarehouse(
+        Guid voucherId,
+        Guid voucherDetailId,
+        Guid warehouseId,
+        IEnumerable<(Guid VoucherId, Guid VoucherDetailId, Guid WarehouseId, bool IsCancelled, decimal StockValueDifference)>? ledgerEntries)
+    {
+        if (ledgerEntries == null)
+        {
+            return 0m;
+        }
+
+        return ledgerEntries
+            .Where(e => !e.IsCancelled
+                && e.VoucherId == voucherId
+                && e.VoucherDetailId == voucherDetailId
+                && e.WarehouseId == warehouseId)
+            .Sum(e => e.StockValueDifference);
+    }
 }
 
 public sealed record PurchaseReturnMovedWarehouseRow(

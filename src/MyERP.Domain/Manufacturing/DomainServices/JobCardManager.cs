@@ -1661,6 +1661,42 @@ public class JobCardManager : DomainService
 
         return jobCardFinishedGoodItemId.HasValue && jobCardFinishedGoodItemId.Value == workOrderProductionItemId;
     }
+
+    /// <summary>
+    /// Validates Work Order produced quantity when cancelling a Job Card per ERPNext PR #67468
+    /// (<c>job_card.py: validate_produced_quantity</c>):
+    /// computes the remaining operation output strictly from <c>(remainingCompletedQty + remainingProcessLossQty)</c>
+    /// WITHOUT adding <c>pendingQty</c> (which is handed off to another card, not completed by remaining cards),
+    /// and throws when <paramref name="workOrderProducedQty"/> exceeds the remaining operation output.
+    /// </summary>
+    public static void ValidateProducedQuantityOnJobCardCancel(
+        decimal remainingCompletedQty,
+        decimal remainingProcessLossQty,
+        decimal workOrderQty,
+        decimal operationQty,
+        decimal workOrderProducedQty,
+        int producedQtyPrecision = 4)
+    {
+        if (operationQty <= 0m)
+        {
+            return;
+        }
+
+        var operationTotal = Math.Round(
+            ((remainingCompletedQty + remainingProcessLossQty) * workOrderQty) / operationQty,
+            producedQtyPrecision,
+            MidpointRounding.AwayFromZero);
+
+        if (Math.Round(workOrderProducedQty, producedQtyPrecision, MidpointRounding.AwayFromZero) > operationTotal)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("workOrderProducedQty", workOrderProducedQty)
+                .WithData("operationTotal", operationTotal)
+                .WithData(
+                    "detail",
+                    $"Cannot cancel Job Card because Work Order produced quantity ({workOrderProducedQty}) exceeds remaining operation completed quantity ({operationTotal}).");
+        }
+    }
 }
 
 public readonly record struct JobCardExistingItemRow(
