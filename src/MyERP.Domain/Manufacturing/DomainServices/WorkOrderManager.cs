@@ -1256,6 +1256,30 @@ public class WorkOrderManager : DomainService
         var combined = Math.Max(minFraction * workOrderQty, sumDirectFgCompletedQty);
         return Math.Round(combined, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes the full planned time span <c>(MinStart, MaxEnd)</c> for a Work Order operation across
+    /// multiple batch Job Cards per ERPNext PR #67470 (<c>work_order/services/operations.py: set_batch_operation_time</c>):
+    /// batch cards may be scheduled out of chronological order, so the operation spans from the earliest card start
+    /// to the latest card end rather than adopting only the last card's window.
+    /// </summary>
+    public static (DateTime PlannedStartTime, DateTime PlannedEndTime)? CalculateBatchOperationSpan(
+        IReadOnlyList<(DateTime PlannedStartTime, DateTime PlannedEndTime)>? cardTimes)
+    {
+        if (cardTimes == null || cardTimes.Count == 0)
+        {
+            return null;
+        }
+
+        if (cardTimes.Count == 1)
+        {
+            return cardTimes[0];
+        }
+
+        var minStart = cardTimes.Min(c => c.PlannedStartTime);
+        var maxEnd = cardTimes.Max(c => c.PlannedEndTime);
+        return (minStart, maxEnd);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

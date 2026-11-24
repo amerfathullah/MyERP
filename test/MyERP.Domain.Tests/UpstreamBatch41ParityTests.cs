@@ -3782,6 +3782,43 @@ public class UpstreamBatch41ParityTests
         (capturedCancelBody ?? string.Empty).ShouldContain("Cancelled from ERP system by user");
     }
 
+    [Fact]
+    public void UpstreamBatch35_NonStockUomGrossProfit_SubcontractingReturnSupplierLimit_BatchOperationSpan_Parity()
+    {
+        // 1. ERPNext PR #67427: Sales Order / Quotation row gross profit uses rate * conversion_rate / conversion_factor
+        // Box of 10 sold at USD 50 (FX 4.5 -> 225/box = 22.5/Nos), valuation 15/Nos, 2 boxes (20 Nos) -> (22.5 - 15) * 20 = 150
+        MyERP.Sales.DomainServices.SalesOrderManager.CalculateRowGrossProfit(
+            documentType: "Sales Order", itemRate: 50m, conversionRate: 4.5m,
+            conversionFactor: 10m, valuationRate: 15m, stockQty: 20m).ShouldBe(150m);
+        MyERP.Sales.DomainServices.SalesOrderManager.CalculateRowGrossProfit(
+            documentType: "Quotation", itemRate: 20m, conversionRate: 1m,
+            conversionFactor: 2m, valuationRate: 8m, stockQty: 6m).ShouldBe(12m);
+        // Non-SO/Quotation returns 0
+        MyERP.Sales.DomainServices.SalesOrderManager.CalculateRowGrossProfit(
+            documentType: "Sales Invoice", itemRate: 50m, conversionRate: 1m,
+            conversionFactor: 1m, valuationRate: 10m, stockQty: 5m).ShouldBe(0m);
+
+        // 2. ERPNext PR #67368: Return of Components against SCO refuses cumulative qty > available at supplier
+        var atSupplier = new Dictionary<string, decimal> { ["RM-STEEL"] = 10m };
+        Should.NotThrow(() => SubcontractingManager.ValidateReturnedQtyWithinSubcontractingOrder(
+            "SCO-0001", atSupplier, new[] { (1, "RM-STEEL", 4m), (2, "RM-STEEL", 6m) }));
+        var scoEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateReturnedQtyWithinSubcontractingOrder(
+                "SCO-0001", atSupplier, new[] { (1, "RM-STEEL", 4m), (2, "RM-STEEL", 7m) }));
+        (scoEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Row #2: Only 10 of Item RM-STEEL can be returned against Subcontracting Order SCO-0001");
+
+        // 3. ERPNext PR #67470: Batch Job Cards scheduled out of order span [min(start), max(end)]
+        var t1 = new DateTime(2026, 11, 24, 14, 0, 0);
+        var t2 = new DateTime(2026, 11, 24, 16, 0, 0);
+        var t3 = new DateTime(2026, 11, 24, 8, 0, 0);
+        var t4 = new DateTime(2026, 11, 24, 10, 0, 0);
+        var span = MyERP.Manufacturing.DomainServices.WorkOrderManager.CalculateBatchOperationSpan(
+            new[] { (t1, t2), (t3, t4) });
+        span.ShouldNotBeNull();
+        span.Value.PlannedStartTime.ShouldBe(t3);
+        span.Value.PlannedEndTime.ShouldBe(t2);
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

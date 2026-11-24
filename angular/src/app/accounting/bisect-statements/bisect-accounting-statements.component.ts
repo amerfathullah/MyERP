@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BisectAccountingStatementsService } from '../../proxy/accounting/bisect-accounting-statements.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { BisectAlgorithm } from '../../proxy/accounting/bisect-algorithm.enum';
@@ -10,21 +11,21 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
 @Component({
   selector: 'app-bisect-accounting-statements',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card mb-4">
       <div class="card-header bg-light">
-        <h5 class="card-title mb-0">Bisect Accounting Statements</h5>
-        <small class="text-muted">Diagnose and locate P&L vs Balance Sheet statement discrepancies using binary search.</small>
+        <h5 class="card-title mb-0">{{ '::BisectAccountingStatements' | abpLocalization }}</h5>
+        <small class="text-muted">{{ '::BisectDescription' | abpLocalization }}</small>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="buildTree()">
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">Company</label>
+              <label class="form-label">{{ '::Company' | abpLocalization }}</label>
               <select class="form-select form-select-sm" formControlName="companyId">
-                <option value="" disabled>Select Company</option>
+                <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
                 @for (c of companies; track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
@@ -32,20 +33,20 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
             </div>
 
             <div class="col-md-3">
-              <label class="form-label">From Date</label>
+              <label class="form-label">{{ '::FromDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" formControlName="fromDate">
             </div>
 
             <div class="col-md-3">
-              <label class="form-label">To Date</label>
+              <label class="form-label">{{ '::ToDate' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" formControlName="toDate">
             </div>
 
             <div class="col-md-2">
-              <label class="form-label">Algorithm</label>
+              <label class="form-label">{{ '::BisectAlgorithm' | abpLocalization }}</label>
               <select class="form-select form-select-sm" formControlName="algorithm">
-                <option [ngValue]="BisectAlgorithm.BFS">BFS (Breadth-First)</option>
-                <option [ngValue]="BisectAlgorithm.DFS">DFS (Depth-First)</option>
+                <option [ngValue]="BisectAlgorithm.BFS">{{ '::BfsBreadthFirst' | abpLocalization }}</option>
+                <option [ngValue]="BisectAlgorithm.DFS">{{ '::DfsDepthFirst' | abpLocalization }}</option>
               </select>
             </div>
 
@@ -54,7 +55,7 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
                 @if (loading) {
                   <i class="fa fa-spin fa-spinner"></i>
                 } @else {
-                  <i class="fa fa-sitemap me-1"></i>Run
+                  <i class="fa fa-sitemap me-1"></i>{{ '::Run' | abpLocalization }}
                 }
               </button>
             </div>
@@ -66,16 +67,16 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
     @if (currentDoc) {
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0">Current Sub-Period Diagnostic</h6>
+          <h6 class="card-title mb-0">{{ '::CurrentSubPeriodDiagnostic' | abpLocalization }}</h6>
           <div class="btn-group btn-group-sm">
             <button type="button" class="btn btn-outline-secondary" (click)="moveUp()" [disabled]="!hasParent">
-              <i class="fa fa-arrow-up me-1"></i>Move Up (Parent)
+              <i class="fa fa-arrow-up me-1"></i>{{ '::MoveUpParent' | abpLocalization }}
             </button>
             <button type="button" class="btn btn-outline-primary" (click)="bisectLeft()" [disabled]="!hasLeft">
-              <i class="fa fa-arrow-left me-1"></i>Bisect Left (Earlier)
+              <i class="fa fa-arrow-left me-1"></i>{{ '::BisectLeftEarlier' | abpLocalization }}
             </button>
             <button type="button" class="btn btn-outline-primary" (click)="bisectRight()" [disabled]="!hasRight">
-              Bisect Right (Later)<i class="fa fa-arrow-right ms-1"></i>
+              {{ '::BisectRightLater' | abpLocalization }}<i class="fa fa-arrow-right ms-1"></i>
             </button>
           </div>
         </div>
@@ -83,7 +84,7 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
           <div class="row text-center mb-4">
             <div class="col-md-3">
               <div class="p-3 border rounded bg-light">
-                <div class="text-muted small">Current Period</div>
+                <div class="text-muted small">{{ '::CurrentPeriod' | abpLocalization }}</div>
                 <div class="fw-bold fs-6">
                   {{ currentDoc.currentFromDate | date:'yyyy-MM-dd' }} ~ {{ currentDoc.currentToDate | date:'yyyy-MM-dd' }}
                 </div>
@@ -91,19 +92,19 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
             </div>
             <div class="col-md-3">
               <div class="p-3 border rounded bg-light">
-                <div class="text-muted small">P&L Net Income</div>
+                <div class="text-muted small">{{ '::PlNetIncome' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-primary">{{ currentDoc.plSummary | number:'1.2-2' }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="p-3 border rounded bg-light">
-                <div class="text-muted small">B/S Net Equity Change</div>
+                <div class="text-muted small">{{ '::BsNetEquityChange' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-info">{{ currentDoc.bsSummary | number:'1.2-2' }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="p-3 border rounded" [ngClass]="currentDoc.difference > 0 ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
-                <div class="text-muted small">Difference (|P&L - B/S|)</div>
+                <div class="text-muted small">{{ '::DifferencePlBs' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ currentDoc.difference | number:'1.2-2' }}</div>
               </div>
             </div>
@@ -113,30 +114,30 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
             <div class="alert alert-warning d-flex align-items-center">
               <i class="fa fa-triangle-exclamation me-2 fs-4"></i>
               <div>
-                <strong>Discrepancy Detected in this interval!</strong>
-                Step Left or Right into sub-periods to isolate the date of the imbalanced transaction.
+                <strong>{{ '::DiscrepancyDetectedInterval' | abpLocalization }}</strong>
+                {{ '::DiscrepancyHint' | abpLocalization }}
               </div>
             </div>
           } @else {
             <div class="alert alert-success d-flex align-items-center">
               <i class="fa fa-check-circle me-2 fs-4"></i>
               <div>
-                <strong>Statements Balanced for this interval.</strong>
-                P&L Net Income matches Balance Sheet Equity Change perfectly.
+                <strong>{{ '::StatementsBalancedInterval' | abpLocalization }}</strong>
+                {{ '::StatementsBalancedHint' | abpLocalization }}
               </div>
             </div>
           }
 
-          <h6 class="mt-4 mb-2">Interval Hierarchy & Nodes</h6>
+          <h6 class="mt-4 mb-2">{{ '::IntervalHierarchyNodes' | abpLocalization }}</h6>
           <div class="table-responsive">
             <table class="table table-hover table-bordered table-sm align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>Period</th>
-                  <th class="text-end">P&L Income</th>
-                  <th class="text-end">B/S Equity</th>
-                  <th class="text-end">Difference</th>
-                  <th class="text-center">Status</th>
+                  <th>{{ '::Period' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PlIncome' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::BsEquity' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Difference' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -155,11 +156,11 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
                     </td>
                     <td class="text-center">
                       @if (n.id === currentDoc.currentNodeId) {
-                        <span class="badge bg-primary">Current</span>
+                        <span class="badge bg-primary">{{ '::Current' | abpLocalization }}</span>
                       } @else if (n.isGenerated) {
-                        <span class="badge bg-secondary">Calculated</span>
+                        <span class="badge bg-secondary">{{ '::Calculated' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-light text-dark">Pending</span>
+                        <span class="badge bg-light text-dark">{{ '::Pending' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
@@ -227,11 +228,11 @@ export class BisectAccountingStatementsComponent implements OnInit {
       next: (res) => {
         this.currentDoc = res;
         this.loading = false;
-        this.toaster.success('Tree generated successfully.');
+        this.toaster.success('::TreeGeneratedSuccessfully');
       },
       error: (err) => {
         this.loading = false;
-        this.toaster.error(err?.error?.error?.message ?? 'Failed to build tree');
+        this.toaster.error(err?.error?.error?.message ?? '::FailedToBuildTree');
       }
     });
   }

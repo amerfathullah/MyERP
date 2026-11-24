@@ -232,4 +232,33 @@ public class SalesOrderManager : DomainService
     {
         return string.Equals(targetStatus?.Trim(), "Closed", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Computes line-level <c>GrossProfit</c> for a Sales Order or Quotation row in any UOM
+    /// per ERPNext PR #67427 (<c>selling_controller.py: set_item_gross_profit</c>):
+    /// computes the stock-UOM selling rate directly from <c>rate * conversionRate / (conversionFactor || 1)</c>
+    /// rather than stale <c>stock_uom_rate</c>, then multiplies <c>(stockUomBaseRate - valuationRate) * stockQty</c>.
+    /// </summary>
+    public static decimal CalculateRowGrossProfit(
+        string? documentType,
+        decimal itemRate,
+        decimal conversionRate,
+        decimal conversionFactor,
+        decimal valuationRate,
+        decimal stockQty,
+        int precision = 2)
+    {
+        var isEligible = string.Equals(documentType, "Sales Order", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(documentType, "SalesOrder", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(documentType, "Quotation", StringComparison.OrdinalIgnoreCase);
+        if (!isEligible)
+        {
+            return 0m;
+        }
+
+        var effectiveFactor = conversionFactor != 0m ? conversionFactor : 1m;
+        var effectiveConvRate = conversionRate != 0m ? conversionRate : 1m;
+        var baseStockUomRate = itemRate * effectiveConvRate / effectiveFactor;
+        return Math.Round((baseStockUomRate - valuationRate) * stockQty, precision, MidpointRounding.AwayFromZero);
+    }
 }

@@ -17,26 +17,30 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
       <div class="card-header d-flex justify-content-between align-items-center">
         <div>
           <h5 class="card-title mb-0">
-            {{ isNew ? 'New Cashier Closing' : ('Cashier Closing: ' + (closing?.closingNumber || '')) }}
+            @if (isNew) {
+              {{ '::NewCashierClosing' | abpLocalization }}
+            } @else {
+              {{ '::CashierClosing' | abpLocalization }}: {{ closing?.closingNumber || '' }}
+            }
           </h5>
           @if (!isNew && closing) {
             <small class="text-muted">
-              By {{ closing.userName }} on {{ closing.date | date:'yyyy-MM-dd' }}
+              {{ closing.userName }} · {{ closing.date | date:'yyyy-MM-dd' }}
               <span class="badge ms-2" [ngClass]="closing.isSubmitted ? 'bg-success' : 'bg-warning text-dark'">
-                {{ closing.isSubmitted ? 'Submitted' : 'Draft' }}
+                {{ (closing.isSubmitted ? '::Submitted' : '::Draft') | abpLocalization }}
               </span>
             </small>
           }
         </div>
         <div class="d-flex gap-2">
-          <a routerLink="/accounting/cashier-closings" class="btn btn-outline-secondary btn-sm">Back</a>
+          <a routerLink="/accounting/cashier-closings" class="btn btn-outline-secondary btn-sm">{{ '::Back' | abpLocalization }}</a>
           @if (!isNew && closing && !closing.isSubmitted) {
             <button type="button" class="btn btn-success btn-sm" (click)="submit()">
-              <i class="fa fa-check me-1"></i>Submit
+              <i class="fa fa-check me-1"></i>{{ '::Submit' | abpLocalization }}
             </button>
           }
           @if (isNew || (closing && !closing.isSubmitted)) {
-            <button type="button" class="btn btn-primary btn-sm" (click)="save()">Save</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="save()">{{ '::Save' | abpLocalization }}</button>
           }
         </div>
       </div>
@@ -44,40 +48,40 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Shift Date</label>
+              <label class="form-label">{{ '::ShiftDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="date" [readonly]="isSubmitted">
             </div>
             <div class="col-md-4 mb-3">
-              <label class="form-label">From Time</label>
+              <label class="form-label">{{ '::FromTime' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="fromTime" [placeholder]="'::Placeholder:StartTimeSample' | abpLocalization" [readonly]="isSubmitted">
             </div>
             <div class="col-md-4 mb-3">
-              <label class="form-label">To Time</label>
+              <label class="form-label">{{ '::ToTime' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="toTime" [placeholder]="'::Placeholder:EndTimeSample' | abpLocalization" [readonly]="isSubmitted">
             </div>
 
             @if (!isSubmitted) {
               <div class="col-12 mb-3">
                 <button type="button" class="btn btn-outline-info btn-sm" (click)="fetchShiftTotals()">
-                  <i class="fa fa-calculator me-1"></i>Auto-Calculate Shift Totals
+                  <i class="fa fa-calculator me-1"></i>{{ '::AutoCalculateShiftTotals' | abpLocalization }}
                 </button>
               </div>
             }
 
             <div class="col-md-3 mb-3">
-              <label class="form-label">Custody (Opening Float)</label>
+              <label class="form-label">{{ '::CustodyOpeningFloat' | abpLocalization }}</label>
               <input type="number" step="0.01" class="form-control" formControlName="custody" [readonly]="isSubmitted" (input)="recalculateLocalNet()">
             </div>
             <div class="col-md-3 mb-3">
-              <label class="form-label">Expense</label>
+              <label class="form-label">{{ '::Expense' | abpLocalization }}</label>
               <input type="number" step="0.01" class="form-control" formControlName="expense" [readonly]="isSubmitted" (input)="recalculateLocalNet()">
             </div>
             <div class="col-md-3 mb-3">
-              <label class="form-label">Returns</label>
+              <label class="form-label">{{ '::Returns' | abpLocalization }}</label>
               <input type="number" step="0.01" class="form-control" formControlName="returns" [readonly]="isSubmitted" (input)="recalculateLocalNet()">
             </div>
             <div class="col-md-3 mb-3">
-              <label class="form-label">Outstanding Amount</label>
+              <label class="form-label">{{ '::OutstandingAmount' | abpLocalization }}</label>
               <input type="text" class="form-control" [value]="outstandingDisplay" readonly>
             </div>
           </div>
@@ -85,20 +89,20 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
           <!-- Payments Breakdown -->
           <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="fw-bold mb-0">Payments Collected</h6>
+              <h6 class="fw-bold mb-0">{{ '::PaymentsCollected' | abpLocalization }}</h6>
               @if (!isSubmitted) {
                 <button type="button" class="btn btn-outline-primary btn-sm" (click)="addPayment()">
-                  <i class="fa fa-plus me-1"></i>Add Payment
+                  <i class="fa fa-plus me-1"></i>{{ '::AddPayment' | abpLocalization }}
                 </button>
               }
             </div>
             <table class="table table-bordered table-sm align-middle">
               <thead class="table-light">
                 <tr>
-                  <th style="width:60%">Mode of Payment</th>
-                  <th style="width:30%" class="text-end">Amount</th>
+                  <th style="width:60%">{{ '::ModeOfPayment' | abpLocalization }}</th>
+                  <th style="width:30%" class="text-end">{{ '::Amount' | abpLocalization }}</th>
                   @if (!isSubmitted) {
-                    <th style="width:10%" class="text-center">Action</th>
+                    <th style="width:10%" class="text-center">{{ '::Action' | abpLocalization }}</th>
                   }
                 </tr>
               </thead>
@@ -121,7 +125,7 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
                   </tr>
                 } @empty {
                   <tr>
-                    <td [attr.colspan]="isSubmitted ? 2 : 3" class="text-center py-2 text-muted">No payments added.</td>
+                    <td [attr.colspan]="isSubmitted ? 2 : 3" class="text-center py-2 text-muted">{{ '::NoPaymentsAdded' | abpLocalization }}</td>
                   </tr>
                 }
               </tbody>
@@ -131,7 +135,7 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
           <!-- Net Amount Card -->
           <div class="card bg-light mt-3">
             <div class="card-body d-flex justify-content-between align-items-center">
-              <span class="fs-5 fw-bold">Net Shift Reconciliation Amount:</span>
+              <span class="fs-5 fw-bold">{{ '::NetShiftReconciliationAmount' | abpLocalization }}:</span>
               <span class="fs-4 fw-bold text-primary">{{ netAmountDisplay | number:'1.2-2' }}</span>
             </div>
           </div>
@@ -250,7 +254,7 @@ export class CashierClosingDetailComponent implements OnInit {
         });
       }
       this.recalculateLocalNet();
-      this.toaster.info('Shift totals updated.');
+      this.toaster.info('::ShiftTotalsUpdated');
     });
   }
 
@@ -261,7 +265,7 @@ export class CashierClosingDetailComponent implements OnInit {
           this.toaster.success('::SuccessfullySaved');
           this.router.navigate(['/accounting/cashier-closings', res.id]);
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     } else if (this.closingId) {
       this.service.update(this.closingId, this.form.value).subscribe({
@@ -269,7 +273,7 @@ export class CashierClosingDetailComponent implements OnInit {
           this.closing = res;
           this.toaster.success('::SuccessfullySaved');
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     }
   }
@@ -279,9 +283,9 @@ export class CashierClosingDetailComponent implements OnInit {
     this.service.submit(this.closingId).subscribe({
       next: (res) => {
         this.closing = res;
-        this.toaster.success('Cashier Closing submitted successfully.');
+        this.toaster.success('::CashierClosingSubmittedSuccessfully');
       },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

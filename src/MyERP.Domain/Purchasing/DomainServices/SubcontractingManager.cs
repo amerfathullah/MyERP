@@ -2908,6 +2908,48 @@ public class SubcontractingManager : DomainService
 
         return Math.Max(0m, 100m - allocatedPer);
     }
+
+    /// <summary>
+    /// Validates on a Return of Components Stock Entry against a Subcontracting Order that cumulative
+    /// returned stock quantity per raw-material item does not exceed what the order still has at the supplier
+    /// per ERPNext PR #67368 (<c>material_transfer.py: validate_returned_qty_within_subcontracting_order</c>).
+    /// </summary>
+    public static void ValidateReturnedQtyWithinSubcontractingOrder(
+        string subcontractingOrderName,
+        IReadOnlyDictionary<string, decimal>? qtyAtSupplierByItemCode,
+        IEnumerable<(int RowIdx, string ItemCode, decimal StockQty)>? returnRows,
+        int transferQtyPrecision = 3)
+    {
+        if (returnRows == null)
+        {
+            return;
+        }
+
+        var returnedByItem = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        foreach (var row in returnRows)
+        {
+            var rowStockQty = Math.Round(Math.Abs(row.StockQty), transferQtyPrecision, MidpointRounding.AwayFromZero);
+            var cumulative = Math.Round(
+                returnedByItem.GetValueOrDefault(row.ItemCode, 0m) + rowStockQty,
+                transferQtyPrecision,
+                MidpointRounding.AwayFromZero);
+            returnedByItem[row.ItemCode] = cumulative;
+
+            var allowedQty = Math.Round(
+                qtyAtSupplierByItemCode != null && qtyAtSupplierByItemCode.TryGetValue(row.ItemCode, out var qty) ? qty : 0m,
+                transferQtyPrecision,
+                MidpointRounding.AwayFromZero);
+
+            if (cumulative > allowedQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("itemCode", row.ItemCode)
+                    .WithData("allowedQty", allowedQty)
+                    .WithData("detail", $"Row #{row.RowIdx}: Only {allowedQty} of Item {row.ItemCode} can be returned against Subcontracting Order {subcontractingOrderName}");
+            }
+        }
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

@@ -14,9 +14,9 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Cashier Closings</h5>
+        <h5 class="card-title mb-0">{{ '::CashierClosings' | abpLocalization }}</h5>
         <a routerLink="/accounting/cashier-closings/new" class="btn btn-primary btn-sm">
-          <i class="fa fa-plus me-1"></i>New Cashier Closing
+          <i class="fa fa-plus me-1"></i>{{ '::NewCashierClosing' | abpLocalization }}
         </a>
       </div>
       <div class="card-body">
@@ -32,7 +32,7 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
             <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" (ngModelChange)="loadList()">
           </div>
           <div class="col-md-2">
-            <button class="btn btn-outline-secondary btn-sm w-100" (click)="resetFilters()">Reset</button>
+            <button class="btn btn-outline-secondary btn-sm w-100" (click)="resetFilters()">{{ '::Reset' | abpLocalization }}</button>
           </div>
         </div>
 
@@ -40,16 +40,16 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
           <table class="table table-hover table-bordered table-sm align-middle">
             <thead class="table-light">
               <tr>
-                <th>Closing #</th>
-                <th>User</th>
-                <th>Date</th>
-                <th>Shift Time</th>
-                <th class="text-end">Custody</th>
-                <th class="text-end">Expense</th>
-                <th class="text-end">Outstanding</th>
-                <th class="text-end">Net Amount</th>
-                <th class="text-center">Status</th>
-                <th class="text-center">Action</th>
+                <th>{{ '::ClosingNumber' | abpLocalization }}</th>
+                <th>{{ '::User' | abpLocalization }}</th>
+                <th>{{ '::Date' | abpLocalization }}</th>
+                <th>{{ '::ShiftTime' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Custody' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Expense' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
+                <th class="text-end">{{ '::NetAmount' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Action' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -67,7 +67,7 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
                   <td class="text-end fw-bold">{{ item.netAmount | number:'1.2-2' }}</td>
                   <td class="text-center">
                     <span class="badge" [ngClass]="item.isSubmitted ? 'bg-success' : 'bg-warning text-dark'">
-                      {{ item.isSubmitted ? 'Submitted' : 'Draft' }}
+                      {{ (item.isSubmitted ? '::Submitted' : '::Draft') | abpLocalization }}
                     </span>
                   </td>
                   <td class="text-center">
@@ -78,7 +78,7 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="10" class="text-center py-4 text-muted">No Cashier Closings found.</td>
+                  <td colspan="10" class="text-center py-4 text-muted">{{ '::NoCashierClosingsFound' | abpLocalization }}</td>
                 </tr>
               }
             </tbody>
