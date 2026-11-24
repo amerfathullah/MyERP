@@ -966,9 +966,15 @@ public class WorkOrderManager : DomainService
                 continue;
             }
 
-            foreach (var comp in positiveComponents)
+            var componentAmounts = SplitAmountByComponentRates(
+                op.ActualOperatingCost,
+                positiveComponents.Select(c => c.OperatingCost).ToList(),
+                precision);
+
+            for (var idx = 0; idx < positiveComponents.Count; idx++)
             {
-                var share = Math.Round(op.ActualOperatingCost * (comp.OperatingCost / totalComponentRate), precision, MidpointRounding.AwayFromZero);
+                var comp = positiveComponents[idx];
+                var share = componentAmounts[idx];
                 if (share > 0m)
                 {
                     entries.Add(new WorkOrderOperationCostEntry(
@@ -1001,6 +1007,42 @@ public class WorkOrderManager : DomainService
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// Splits an operation's operating cost across workstation components by rate, rounding on the
+    /// running cumulative total so component shares ALWAYS sum to the rounded total amount
+    /// per ERPNext PR #67807 (<c>bom/services/operations_cost.py: _split_by_component_rate</c>).
+    /// </summary>
+    public static List<decimal> SplitAmountByComponentRates(
+        decimal totalAmount,
+        IReadOnlyList<decimal> componentRates,
+        int precision = 2)
+    {
+        var shares = new List<decimal>(componentRates.Count);
+        var totalRate = componentRates.Sum();
+        if (totalRate <= 0m || componentRates.Count == 0)
+        {
+            for (var i = 0; i < componentRates.Count; i++)
+                shares.Add(0m);
+            return shares;
+        }
+
+        decimal allocated = 0m;
+        decimal cumulativeRate = 0m;
+        foreach (var rate in componentRates)
+        {
+            cumulativeRate += rate;
+            var cumulativeAmount = Math.Round(
+                totalAmount * cumulativeRate / totalRate,
+                precision,
+                MidpointRounding.AwayFromZero);
+            var share = Math.Round(cumulativeAmount - allocated, precision, MidpointRounding.AwayFromZero);
+            shares.Add(share);
+            allocated = cumulativeAmount;
+        }
+
+        return shares;
     }
 
     /// <summary>

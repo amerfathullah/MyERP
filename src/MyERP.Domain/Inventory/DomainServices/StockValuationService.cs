@@ -1227,6 +1227,26 @@ public class StockValuationService : DomainService
 
         return Math.Round(transitOutgoingRate + landedCostRate, ratePrecision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Determines whether a return Serial &amp; Batch Bundle row during <c>RepostItemValuation</c>
+    /// should fall back to an alternate serial/batch valuation rate per ERPNext PR #68364
+    /// (<c>serial_and_batch_bundle.py</c>):
+    /// falls back ONLY when <paramref name="lookedUpValuationRate"/> is <c>null</c> (missing),
+    /// preserving legitimate <c>0</c>-rate valuations instead of overwriting them.
+    /// </summary>
+    public static bool ShouldFallbackRepostReturnValuationRate(
+        bool throughRepostItemValuation,
+        decimal? lookedUpValuationRate)
+        => throughRepostItemValuation && !lookedUpValuationRate.HasValue;
+
+    /// <summary>
+    /// Determines whether <c>repost_gle_for_stock_vouchers</c> should repost GL entries for a stock voucher
+    /// per ERPNext PR #68364 (<c>accounts/utils.py</c>):
+    /// only <see cref="Core.DocumentStatus.Submitted"/> vouchers are reposted; Draft and Cancelled vouchers are skipped.
+    /// </summary>
+    public static bool ShouldRepostGleForStockVoucher(Core.DocumentStatus voucherStatus)
+        => voucherStatus == Core.DocumentStatus.Submitted;
 }
 
 public record StockBalance(decimal Quantity, decimal Value)

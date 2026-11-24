@@ -592,4 +592,28 @@ public class DeliveryNoteManager : DomainService
         var postedLeft = Math.Round(postedSum * sign, stockQtyPrecision, MidpointRounding.AwayFromZero);
         return (unrounded, postedLeft);
     }
+
+    /// <summary>
+    /// Resolves the quantity passed to incoming-rate lookup on a selling stock row per ERPNext PR #68364
+    /// (<c>SellingController.set_incoming_rate</c>):
+    /// - For <c>Packed Item</c> rows, uses <paramref name="qty"/> directly (already in stock UOM).
+    /// - For normal item rows, falls back <paramref name="stockQty"/> -&gt; <paramref name="actualQty"/> -&gt; <paramref name="qty"/>.
+    /// </summary>
+    public static decimal ResolveSellingIncomingRateLookupQty(
+        bool isPackedItem,
+        decimal qty,
+        decimal? stockQty,
+        decimal? actualQty = null)
+    {
+        if (isPackedItem)
+            return qty;
+
+        if (stockQty.HasValue && stockQty.Value != 0m)
+            return stockQty.Value;
+
+        if (actualQty.HasValue && actualQty.Value != 0m)
+            return actualQty.Value;
+
+        return qty;
+    }
 }

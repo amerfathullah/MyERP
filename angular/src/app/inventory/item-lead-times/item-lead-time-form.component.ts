@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ItemLeadTimeService } from '../../proxy/inventory/item-lead-time.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
@@ -10,20 +11,20 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 @Component({
   selector: 'app-item-lead-time-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Item Lead Time</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditItemLeadTime' : '::NewItemLeadTime') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Item *</label>
+              <label class="form-label">{{ '::Item' | abpLocalization }} *</label>
               <select class="form-select" formControlName="itemId">
-                <option [ngValue]="null">-- Select Item --</option>
+                <option [ngValue]="null">{{ '::SelectItem' | abpLocalization }}</option>
                 @for (item of itemsList; track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -31,70 +32,70 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             </div>
           </div>
 
-          <h6 class="border-bottom pb-2 mb-3 mt-4 text-primary">Manufacturing Lead Time</h6>
+          <h6 class="border-bottom pb-2 mb-3 mt-4 text-primary">{{ '::ManufacturingLeadTime' | abpLocalization }}</h6>
           <div class="row mb-3">
             <div class="col-md-3">
-              <label class="form-label">Shift Time (Hours) *</label>
+              <label class="form-label">{{ '::ShiftTimeHours' | abpLocalization }} *</label>
               <input type="number" class="form-control" formControlName="shiftTimeInHours" (input)="recalculate()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">No of Workstations *</label>
+              <label class="form-label">{{ '::NoOfWorkstations' | abpLocalization }} *</label>
               <input type="number" class="form-control" formControlName="noOfWorkstations" (input)="recalculate()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">No of Shifts *</label>
+              <label class="form-label">{{ '::NoOfShifts' | abpLocalization }} *</label>
               <input type="number" class="form-control" formControlName="noOfShifts" (input)="recalculate()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Total Workstation Time (Hours)</label>
+              <label class="form-label">{{ '::TotalWorkstationTimeHours' | abpLocalization }}</label>
               <input type="number" class="form-control" [value]="calcTotalWorkstationTime" readonly>
             </div>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-3">
-              <label class="form-label">Manufacturing Time (Mins) *</label>
+              <label class="form-label">{{ '::ManufacturingTimeMins' | abpLocalization }} *</label>
               <input type="number" class="form-control" formControlName="manufacturingTimeInMins" (input)="recalculate()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Daily Yield (%) *</label>
+              <label class="form-label">{{ '::DailyYieldPct' | abpLocalization }} *</label>
               <input type="number" step="0.1" class="form-control" formControlName="dailyYield" (input)="recalculate()">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Units Produced / Day</label>
+              <label class="form-label">{{ '::UnitsProducedPerDay' | abpLocalization }}</label>
               <input type="number" class="form-control" [value]="calcUnitsProduced" readonly>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Capacity / Day</label>
+              <label class="form-label">{{ '::CapacityPerDay' | abpLocalization }}</label>
               <input type="number" class="form-control fw-bold text-success" [value]="calcCapacityPerDay" readonly>
             </div>
           </div>
 
-          <h6 class="border-bottom pb-2 mb-3 mt-4 text-primary">Purchase Lead Time</h6>
+          <h6 class="border-bottom pb-2 mb-3 mt-4 text-primary">{{ '::PurchaseLeadTime' | abpLocalization }}</h6>
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Purchase Time (Days)</label>
+              <label class="form-label">{{ '::PurchaseTimeDays' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="purchaseTimeDays">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Buffer Time (Days)</label>
+              <label class="form-label">{{ '::BufferTimeDays' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="bufferTimeDays">
             </div>
           </div>
 
           <div class="d-flex justify-content-between align-items-center mb-2 mt-4">
-            <h6 class="text-primary mb-0">Supplier-Specific Lead Times</h6>
-            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="addSupplierRow()">+ Add Supplier</button>
+            <h6 class="text-primary mb-0">{{ '::SupplierSpecificLeadTimes' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="addSupplierRow()">+ {{ '::AddSupplier' | abpLocalization }}</button>
           </div>
 
           <table class="table table-bordered table-sm mb-4">
             <thead class="table-light">
               <tr>
-                <th>Supplier</th>
-                <th style="width: 150px;">Purchase (Days)</th>
-                <th style="width: 150px;">Buffer (Days)</th>
-                <th style="width: 100px;" class="text-center">Default</th>
-                <th style="width: 80px;" class="text-center">Action</th>
+                <th>{{ '::Supplier' | abpLocalization }}</th>
+                <th style="width: 150px;">{{ '::PurchaseDays' | abpLocalization }}</th>
+                <th style="width: 150px;">{{ '::BufferDays' | abpLocalization }}</th>
+                <th style="width: 100px;" class="text-center">{{ '::Default' | abpLocalization }}</th>
+                <th style="width: 80px;" class="text-center">{{ '::Action' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody formArrayName="suppliers">
@@ -102,7 +103,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
                 <tr [formGroupName]="i">
                   <td>
                     <select class="form-select form-select-sm" formControlName="supplierId">
-                      <option [ngValue]="null">-- Select Supplier --</option>
+                      <option [ngValue]="null">{{ '::SelectSupplier' | abpLocalization }}</option>
                       @for (s of suppliersList; track s.id) {
                         <option [value]="s.id">{{ s.name }}</option>
                       }
@@ -123,15 +124,15 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5" class="text-center text-muted py-2">No supplier overrides configured.</td>
+                  <td colspan="5" class="text-center text-muted py-2">{{ '::NoSupplierOverridesConfigured' | abpLocalization }}</td>
                 </tr>
               }
             </tbody>
           </table>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/inventory/item-lead-times" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/inventory/item-lead-times" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -258,7 +259,7 @@ export class ItemLeadTimeFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/inventory/item-lead-times']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

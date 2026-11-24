@@ -4254,6 +4254,45 @@ public class UpstreamBatch41ParityTests
         replaced.ShouldBe(new[] { "SO-NEW-1" });
     }
 
+    [Fact]
+    public void UpstreamBatch41_ComponentCostExactSum_PackedIncomingQty_RepostZeroRate_SubmittedGlOnly_Parity()
+    {
+        // 1. ERPNext PR #67807: Running-total rounding keeps component-wise operating cost equal to operation's actual cost
+        var shares = WorkOrderManager.SplitAmountByComponentRates(100m, new[] { 10m, 10m, 10m }, precision: 2);
+        shares.ShouldBe(new[] { 33.33m, 33.34m, 33.33m });
+        shares.Sum().ShouldBe(100m);
+
+        var opId = Guid.NewGuid();
+        var wsId = Guid.NewGuid();
+        var opCosts = WorkOrderManager.CalculateOperationOperatingCosts(
+            new[] { new WorkOrderOperationCostInput(opId, "Cut", wsId, null, ActualOperationTime: 60m, ActualOperatingCost: 100m) },
+            getWorkstationComponents: _ => new[]
+            {
+                ("Power", 10m, (Guid?)null),
+                ("Rent", 10m, (Guid?)null),
+                ("Wear", 10m, (Guid?)null),
+            },
+            getWorkstationTypeComponents: null,
+            precision: 2);
+        opCosts.Sum(c => c.Amount).ShouldBe(100m);
+
+        // 2. ERPNext PR #68364: Packed Item uses qty directly (not stock_qty/actual_qty) for incoming rate lookup
+        DeliveryNoteManager.ResolveSellingIncomingRateLookupQty(
+            isPackedItem: true, qty: 6m, stockQty: 12m, actualQty: 12m).ShouldBe(6m);
+        DeliveryNoteManager.ResolveSellingIncomingRateLookupQty(
+            isPackedItem: false, qty: 2m, stockQty: 20m, actualQty: null).ShouldBe(20m);
+
+        // 3. ERPNext PR #68364: Repost return valuation fallback triggers only when rate is null, never when 0
+        StockValuationService.ShouldFallbackRepostReturnValuationRate(true, null).ShouldBeTrue();
+        StockValuationService.ShouldFallbackRepostReturnValuationRate(true, 0m).ShouldBeFalse();
+        StockValuationService.ShouldFallbackRepostReturnValuationRate(false, null).ShouldBeFalse();
+
+        // 4. ERPNext PR #68364: GL reposting for stock vouchers runs only for Submitted vouchers
+        StockValuationService.ShouldRepostGleForStockVoucher(MyERP.Core.DocumentStatus.Submitted).ShouldBeTrue();
+        StockValuationService.ShouldRepostGleForStockVoucher(MyERP.Core.DocumentStatus.Draft).ShouldBeFalse();
+        StockValuationService.ShouldRepostGleForStockVoucher(MyERP.Core.DocumentStatus.Cancelled).ShouldBeFalse();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

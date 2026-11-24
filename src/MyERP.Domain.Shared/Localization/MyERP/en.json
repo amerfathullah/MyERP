@@ -7043,7 +7043,20 @@
     "EditPrintFormat": "Edit Print Format",
     "HtmlTemplate": "HTML Template",
     "HtmlTemplateHelp": "Use Razor/Liquid syntax or pure HTML placeholders.",
-    "CssStyles": "CSS Styles"
+    "CssStyles": "CSS Styles",
+    "DiscountOrRate": "Discount / Rate",
+    "Configuration": "Configuration",
+    "MaxAmount": "Max Amount",
+    "ManufacturingLeadTime": "Manufacturing Lead Time",
+    "ShiftTimeHours": "Shift Time (Hours)",
+    "TotalWorkstationTimeHours": "Total Workstation Time (Hours)",
+    "DailyYieldPct": "Daily Yield (%)",
+    "UnitsProducedPerDay": "Units Produced / Day",
+    "PurchaseLeadTime": "Purchase Lead Time",
+    "SupplierSpecificLeadTimes": "Supplier-Specific Lead Times",
+    "PurchaseDays": "Purchase (Days)",
+    "BufferDays": "Buffer (Days)",
+    "NoSupplierOverridesConfigured": "No supplier overrides configured."
   }
 }
 
