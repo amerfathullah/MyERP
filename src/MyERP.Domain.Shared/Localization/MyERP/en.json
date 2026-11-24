@@ -7173,7 +7173,19 @@
     "SearchUuidDocNumber": "Search UUID / Doc #",
     "ApplyFilters": "Apply Filters",
     "DocumentNumberShort": "Document #",
-    "Validated": "Validated"
+    "Validated": "Validated",
+    "AccessKeyIfRequired": "Access Key (if required)",
+    "AvailableTokens": "Available tokens",
+    "UseHttpProtocol": "Use HTTP Protocol",
+    "RequestParameters": "Request Parameters",
+    "Key": "Key",
+    "ResultKeysResponsePath": "Result Keys (Response Navigation Path)",
+    "AddResultKey": "Add Result Key",
+    "TestSuccessful": "Test Successful!",
+    "TestFailed": "Test Failed",
+    "ResolvedRateUsdToMyr": "Resolved Rate (USD to MYR)",
+    "OverproductionHint": "WO can produce up to this % extra",
+    "Bom": "BOM"
   }
 }
 

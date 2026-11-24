@@ -148,6 +148,31 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = PaymentRequestStatus.Initiated;
         }
     }
+
+    /// <summary>
+    /// Derives the optional <c>bank_amount</c> passed to Payment Entry creation from a Payment Request
+    /// per ERPNext PR #64512 (<c>payment_request.py</c>):
+    /// returns <c>null</c> unless the party account is in the reference document's company currency while
+    /// the Payment Request is in a different currency, in which case it converts
+    /// <paramref name="outstandingAmount"/> using the reference document's <paramref name="refDocumentConversionRate"/>.
+    /// </summary>
+    public static decimal? ResolvePaymentEntryBankAmount(
+        decimal outstandingAmount,
+        string partyAccountCurrency,
+        string refDocumentCompanyCurrency,
+        string requestCurrency,
+        decimal refDocumentConversionRate,
+        int precision = 2)
+    {
+        if (string.Equals(partyAccountCurrency, refDocumentCompanyCurrency, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(partyAccountCurrency, requestCurrency, StringComparison.OrdinalIgnoreCase)
+            && refDocumentConversionRate > 0m)
+        {
+            return Math.Round(outstandingAmount / refDocumentConversionRate, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return null;
+    }
 }
 
 public enum PaymentRequestStatus

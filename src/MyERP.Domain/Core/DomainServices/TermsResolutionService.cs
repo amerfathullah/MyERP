@@ -93,4 +93,55 @@ public class TermsResolutionService : DomainService
 
         return (termsId, currentTerms);
     }
+
+    /// <summary>
+    /// Returns <c>"selling"</c> or <c>"buying"</c> for documents that enforce side-specific
+    /// Terms and Conditions templates per ERPNext PR #65671 (<c>terms_and_conditions.py: get_terms_module</c>).
+    /// </summary>
+    public static string? GetTermsModule(string? docType)
+    {
+        if (string.IsNullOrWhiteSpace(docType))
+        {
+            return null;
+        }
+
+        return docType.Replace(" ", string.Empty).ToUpperInvariant() switch
+        {
+            "QUOTATION" or "SALESORDER" or "DELIVERYNOTE" or "SALESINVOICE" or "POSINVOICE" or "POSPROFILE" => "selling",
+            "SUPPLIERQUOTATION" or "PURCHASEORDER" or "PURCHASERECEIPT" or "PURCHASEINVOICE"
+                or "REQUESTFORQUOTATION" or "SUBCONTRACTINGORDER" or "SUBCONTRACTINGRECEIPT" => "buying",
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Clears a mapped Terms and Conditions template and rendered terms when the template is not
+    /// enabled for the target document's selling/buying side per ERPNext PR #65671
+    /// (<c>terms_and_conditions.py: clear_inapplicable_terms</c>).
+    /// </summary>
+    public static (Guid? TermsId, string? TermsText) ClearInapplicableMappedTerms(
+        string? targetDocType,
+        Guid? termsId,
+        string? termsText,
+        bool templateIsSelling,
+        bool templateIsBuying)
+    {
+        if (!termsId.HasValue || termsId.Value == Guid.Empty)
+        {
+            return (termsId, termsText);
+        }
+
+        var module = GetTermsModule(targetDocType);
+        if (module == "selling" && !templateIsSelling)
+        {
+            return (null, null);
+        }
+
+        if (module == "buying" && !templateIsBuying)
+        {
+            return (null, null);
+        }
+
+        return (termsId, termsText);
+    }
 }

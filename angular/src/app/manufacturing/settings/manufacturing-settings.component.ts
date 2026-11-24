@@ -22,78 +22,78 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <h6 class="card-title">{{ '::Production' | abpLocalization }}</h6>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Overproduction %</label>
+                <label class="form-label">{{ '::OverproductionPercent' | abpLocalization }}</label>
                 <input type="number" class="form-control" [(ngModel)]="settings.overproductionPercentage" name="overproduction" step="0.5" min="0">
-                <small class="text-muted">WO can produce up to this % extra</small>
+                <small class="text-muted">{{ '::OverproductionHint' | abpLocalization }}</small>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Extra Materials %</label>
+                <label class="form-label">{{ '::ExtraMaterialsPercent' | abpLocalization }}</label>
                 <input type="number" class="form-control" [(ngModel)]="settings.transferExtraMaterialsPercentage" name="extraMaterials" step="1" min="0">
               </div>
               <div class="col-md-4">
-                <label class="form-label">Backflush RM Based On</label>
+                <label class="form-label">{{ '::BackflushRmBasedOn' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings.backflushRawMaterialsBasedOn" name="backflush">
-                  <option value="BOM">BOM</option>
-                  <option value="Material Transferred for Manufacture">Material Transferred</option>
+                  <option value="BOM">{{ '::Bom' | abpLocalization }}</option>
+                  <option value="Material Transferred for Manufacture">{{ '::MaterialTransferred' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.materialConsumption" name="matConsumption" id="matC">
-                <label class="form-check-label" for="matC">Track Material Consumption</label></div>
+                <label class="form-check-label" for="matC">{{ '::TrackMaterialConsumption' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.makeSerialNoBatchFromWorkOrder" name="serialBatch" id="snBatch">
-                <label class="form-check-label" for="snBatch">Auto Serial/Batch from WO</label></div>
+                <label class="form-check-label" for="snBatch">{{ '::AutoSerialBatchFromWo' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.updateBomCostsAutomatically" name="autoCost" id="autoCost">
-                <label class="form-check-label" for="autoCost">Auto-Update BOM Costs</label></div>
+                <label class="form-check-label" for="autoCost">{{ '::AutoUpdateBomCosts' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.addCorrectiveOpCostInFGValuation" name="corrective" id="corr">
-                <label class="form-check-label" for="corr">Include Corrective Ops Cost</label></div>
+                <label class="form-check-label" for="corr">{{ '::IncludeCorrectiveOpsCost' | abpLocalization }}</label></div>
               </div>
             </div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
-            <h6 class="card-title">Scheduling & Capacity</h6>
+            <h6 class="card-title">{{ '::SchedulingAndCapacity' | abpLocalization }}</h6>
             <div class="row g-3">
               <div class="col-md-3">
-                <label class="form-label">Mins Between Ops</label>
+                <label class="form-label">{{ '::MinsBetweenOps' | abpLocalization }}</label>
                 <input type="number" class="form-control" [(ngModel)]="settings.minsBetweenOperations" name="minsBetween" min="0">
               </div>
               <div class="col-md-3">
-                <label class="form-label">Capacity Planning Days</label>
+                <label class="form-label">{{ '::CapacityPlanningDays' | abpLocalization }}</label>
                 <input type="number" class="form-control" [(ngModel)]="settings.capacityPlanningForDays" name="capDays" min="1">
               </div>
               <div class="col-md-3">
                 <div class="form-check mt-4"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.allowOvertime" name="overtime" id="ot">
-                <label class="form-check-label" for="ot">Allow Overtime</label></div>
+                <label class="form-check-label" for="ot">{{ '::AllowOvertime' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check mt-4"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.allowProductionOnHolidays" name="holidays" id="hol">
-                <label class="form-check-label" for="hol">Allow Holiday Production</label></div>
+                <label class="form-check-label" for="hol">{{ '::AllowHolidayProduction' | abpLocalization }}</label></div>
               </div>
             </div>
             <div class="row g-3 mt-2">
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.disableCapacityPlanning" name="disableCap" id="disCap">
-                <label class="form-check-label" for="disCap">Disable Capacity Planning</label></div>
+                <label class="form-check-label" for="disCap">{{ '::DisableCapacityPlanning' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.jobCardExcessTransfer" name="jcExcess" id="jcEx">
-                <label class="form-check-label" for="jcEx">Job Card Excess Transfer</label></div>
+                <label class="form-check-label" for="jcEx">{{ '::JobCardExcessTransfer' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.enforceTimeLogs" name="timeLogs" id="tl">
-                <label class="form-check-label" for="tl">Enforce Time Logs</label></div>
+                <label class="form-check-label" for="tl">{{ '::EnforceTimeLogs' | abpLocalization }}</label></div>
               </div>
               <div class="col-md-3">
                 <div class="form-check"><input type="checkbox" class="form-check-input" [(ngModel)]="settings.validateComponentsQuantitiesPerBom" name="validateComp" id="vc">
-                <label class="form-check-label" for="vc">Validate Component Qty per BOM</label></div>
+                <label class="form-check-label" for="vc">{{ '::ValidateComponentQtyPerBom' | abpLocalization }}</label></div>
               </div>
             </div>
           </div></div>

@@ -15,47 +15,47 @@ import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Currency Exchange Settings</h5>
+        <h5 class="card-title mb-0">{{ '::CurrencyExchangeSettings' | abpLocalization }}</h5>
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-outline-info btn-sm" (click)="testApi()">
-            <i class="fa fa-plug me-1"></i>Test Connection
+            <i class="fa fa-plug me-1"></i>{{ '::TestConnection' | abpLocalization }}
           </button>
-          <button type="button" class="btn btn-primary btn-sm" (click)="save()">Save Settings</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="save()">{{ '::SaveSettings' | abpLocalization }}</button>
         </div>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Service Provider</label>
+              <label class="form-label">{{ '::ServiceProvider' | abpLocalization }}</label>
               <select class="form-select" formControlName="serviceProvider" (change)="onProviderChange()">
                 <option value="frankfurter.dev">frankfurter.dev</option>
                 <option value="frankfurter.dev - v2">frankfurter.dev - v2</option>
                 <option value="exchangerate.host">exchangerate.host</option>
-                <option value="Custom">Custom</option>
+                <option value="Custom">{{ '::Custom' | abpLocalization }}</option>
               </select>
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Access Key (if required)</label>
+              <label class="form-label">{{ '::AccessKeyIfRequired' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="accessKey" [placeholder]="'::Placeholder:AccessKeyOrToken' | abpLocalization">
             </div>
 
             <div class="col-12 mb-3">
-              <label class="form-label">API Endpoint</label>
+              <label class="form-label">{{ '::ApiEndpoint' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="apiEndpoint"
                 placeholder="https://api.frankfurter.dev/v1/{transaction_date}">
-              <div class="form-text">Available tokens: <code>&#123;transaction_date&#125;</code>, <code>&#123;from_currency&#125;</code>, <code>&#123;to_currency&#125;</code></div>
+              <div class="form-text">{{ '::AvailableTokens' | abpLocalization }}: <code>&#123;transaction_date&#125;</code>, <code>&#123;from_currency&#125;</code>, <code>&#123;to_currency&#125;</code></div>
             </div>
 
             <div class="col-md-6 mb-3">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="useHttp" formControlName="useHttp">
-                <label class="form-check-label" for="useHttp">Use HTTP Protocol</label>
+                <label class="form-check-label" for="useHttp">{{ '::UseHttpProtocol' | abpLocalization }}</label>
               </div>
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="disabled" formControlName="disabled">
-                <label class="form-check-label" for="disabled">Disabled</label>
+                <label class="form-check-label" for="disabled">{{ '::Disabled' | abpLocalization }}</label>
               </div>
             </div>
           </div>
@@ -63,17 +63,17 @@ import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/
           <!-- Request Parameters Table -->
           <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="fw-bold mb-0">Request Parameters</h6>
+              <h6 class="fw-bold mb-0">{{ '::RequestParameters' | abpLocalization }}</h6>
               <button type="button" class="btn btn-outline-primary btn-sm" (click)="addParam()">
-                <i class="fa fa-plus me-1"></i>Add Parameter
+                <i class="fa fa-plus me-1"></i>{{ '::AddParameter' | abpLocalization }}
               </button>
             </div>
             <table class="table table-bordered table-sm align-middle">
               <thead>
                 <tr>
-                  <th style="width:40%">Key</th>
-                  <th style="width:50%">Value</th>
-                  <th style="width:10%" class="text-center">Action</th>
+                  <th style="width:40%">{{ '::Key' | abpLocalization }}</th>
+                  <th style="width:50%">{{ '::Value' | abpLocalization }}</th>
+                  <th style="width:10%" class="text-center">{{ '::Action' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody formArrayName="reqParams">
@@ -95,16 +95,16 @@ import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/
           <!-- Result Keys Table -->
           <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="fw-bold mb-0">Result Keys (Response Navigation Path)</h6>
+              <h6 class="fw-bold mb-0">{{ '::ResultKeysResponsePath' | abpLocalization }}</h6>
               <button type="button" class="btn btn-outline-primary btn-sm" (click)="addResultKey()">
-                <i class="fa fa-plus me-1"></i>Add Result Key
+                <i class="fa fa-plus me-1"></i>{{ '::AddResultKey' | abpLocalization }}
               </button>
             </div>
             <table class="table table-bordered table-sm align-middle">
               <thead>
                 <tr>
-                  <th style="width:90%">Key</th>
-                  <th style="width:10%" class="text-center">Action</th>
+                  <th style="width:90%">{{ '::Key' | abpLocalization }}</th>
+                  <th style="width:10%" class="text-center">{{ '::Action' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody formArrayName="resultKeys">
@@ -126,22 +126,22 @@ import type { TestCurrencyExchangeApiResponseDto } from '../../proxy/accounting/
           @if (testResult) {
             <div class="mt-4 alert" [ngClass]="testResult.success ? 'alert-success' : 'alert-danger'">
               <h6 class="alert-heading fw-bold">
-                {{ testResult.success ? 'Test Successful!' : 'Test Failed' }}
+                {{ (testResult.success ? '::TestSuccessful' : '::TestFailed') | abpLocalization }}
               </h6>
               @if (testResult.success) {
-                <p class="mb-1"><strong>Resolved Rate (USD to MYR):</strong> {{ testResult.exchangeRate }}</p>
-                <p class="mb-1"><strong>URL:</strong> <code>{{ testResult.resolvedUrl }}</code></p>
+                <p class="mb-1"><strong>{{ '::ResolvedRateUsdToMyr' | abpLocalization }}:</strong> {{ testResult.exchangeRate }}</p>
+                <p class="mb-1"><strong>{{ '::Url' | abpLocalization }}:</strong> <code>{{ testResult.resolvedUrl }}</code></p>
               } @else {
-                <p class="mb-1"><strong>Error:</strong> {{ testResult.errorMessage }}</p>
+                <p class="mb-1"><strong>{{ '::Error' | abpLocalization }}:</strong> {{ testResult.errorMessage }}</p>
                 @if (testResult.resolvedUrl) {
-                  <p class="mb-0"><strong>URL:</strong> <code>{{ testResult.resolvedUrl }}</code></p>
+                  <p class="mb-0"><strong>{{ '::Url' | abpLocalization }}:</strong> <code>{{ testResult.resolvedUrl }}</code></p>
                 }
               }
             </div>
           }
 
           <div class="mt-4 border-top pt-3">
-            <button type="submit" class="btn btn-primary">Save Settings</button>
+            <button type="submit" class="btn btn-primary">{{ '::SaveSettings' | abpLocalization }}</button>
           </div>
         </form>
       </div>

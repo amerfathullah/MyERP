@@ -4936,6 +4936,92 @@ public class UpstreamBatch41ParityTests
         scrReturnTables.ShouldBe(new[] { ("items", true), ("supplied_items", false) });
     }
 
+    [Fact]
+    public void UpstreamBatch51_MappedTermsSide_ScrSecondaryUom_PrBankCurrency_AdvanceUnlink_Parity()
+    {
+        // 1. ERPNext PR #65671: Clear mapped terms when template is inapplicable for target selling/buying side
+        var tcId = Guid.NewGuid();
+        var clearedOnBuying = MyERP.Core.DomainServices.TermsResolutionService.ClearInapplicableMappedTerms(
+            targetDocType: "Purchase Invoice",
+            termsId: tcId,
+            termsText: "Selling terms",
+            templateIsSelling: true,
+            templateIsBuying: false);
+        clearedOnBuying.ShouldBe(((Guid?)null, (string?)null));
+
+        var keptOnBoth = MyERP.Core.DomainServices.TermsResolutionService.ClearInapplicableMappedTerms(
+            targetDocType: "Purchase Invoice",
+            termsId: tcId,
+            termsText: "Shared terms",
+            templateIsSelling: true,
+            templateIsBuying: true);
+        keptOnBoth.ShouldBe(((Guid?)tcId, (string?)"Shared terms"));
+
+        var clearedOnSelling = MyERP.Core.DomainServices.TermsResolutionService.ClearInapplicableMappedTerms(
+            targetDocType: "Quotation",
+            termsId: tcId,
+            termsText: "Buying terms",
+            templateIsSelling: false,
+            templateIsBuying: true);
+        clearedOnSelling.ShouldBe(((Guid?)null, (string?)null));
+
+        // 2. ERPNext PR #65665: Skip Subcontracting Receipt secondary rows in whole-number UOM check
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ShouldValidateSubcontractingReceiptRowStockUomIsInteger(null, null)
+            .ShouldBeTrue();
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ShouldValidateSubcontractingReceiptRowStockUomIsInteger("By-Product", null)
+            .ShouldBeFalse();
+        MyERP.Purchasing.DomainServices.SubcontractingManager
+            .ShouldValidateSubcontractingReceiptRowStockUomIsInteger(null, MyERP.Manufacturing.SecondaryItemValuationType.ValuationRate)
+            .ShouldBeFalse();
+
+        // 3. ERPNext PR #64512: Payment Request bank_amount derived from ref doc rate only when party currency == company currency != request currency
+        MyERP.Accounting.Entities.PaymentRequest.ResolvePaymentEntryBankAmount(
+            outstandingAmount: 450m,
+            partyAccountCurrency: "MYR",
+            refDocumentCompanyCurrency: "MYR",
+            requestCurrency: "USD",
+            refDocumentConversionRate: 4.5m)
+            .ShouldBe(100m);
+        MyERP.Accounting.Entities.PaymentRequest.ResolvePaymentEntryBankAmount(
+            outstandingAmount: 450m,
+            partyAccountCurrency: "USD",
+            refDocumentCompanyCurrency: "MYR",
+            requestCurrency: "USD",
+            refDocumentConversionRate: 4.5m)
+            .ShouldBeNull();
+
+        // 4. ERPNext PR #65602: Unlinking an invoice restores Payment Request advance allocation back to order reference
+        var companyId = Guid.NewGuid();
+        var pe = new MyERP.Accounting.Entities.PaymentEntry(
+            Guid.NewGuid(), companyId, MyERP.Accounting.PaymentType.Receive, DateTime.UtcNow,
+            paidAmount: 500m, paidFromAccountId: Guid.NewGuid(), paidToAccountId: Guid.NewGuid());
+        var prId = Guid.NewGuid();
+        var soId = Guid.NewGuid();
+        var siId = Guid.NewGuid();
+        pe.References.Add(new MyERP.Accounting.Entities.PaymentEntryReference(
+            Guid.NewGuid(), pe.Id, "SalesOrder", soId, totalAmount: 500m, outstandingAmount: 0m, allocatedAmount: 200m)
+        {
+            PaymentRequestId = prId
+        });
+        pe.References.Add(new MyERP.Accounting.Entities.PaymentEntryReference(
+            Guid.NewGuid(), pe.Id, "SalesInvoice", siId, totalAmount: 300m, outstandingAmount: 0m, allocatedAmount: 300m)
+        {
+            PaymentRequestId = prId,
+            AdvanceVoucherType = "SalesOrder",
+            AdvanceVoucherId = soId
+        });
+
+        var restored = MyERP.Accounting.DomainServices.PaymentReconciliationEngine
+            .RestoreAdvanceAllocationOnInvoiceUnlink(pe, "SalesInvoice", siId, orderTotalAmount: 500m);
+        restored.ShouldBe(300m);
+        pe.References.Count.ShouldBe(1);
+        pe.References.Single().ReferenceType.ShouldBe("SalesOrder");
+        pe.References.Single().ReferenceId.ShouldBe(soId);
+        pe.References.Single().AllocatedAmount.ShouldBe(500m);
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

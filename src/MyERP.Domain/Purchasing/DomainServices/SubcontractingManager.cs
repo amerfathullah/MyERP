@@ -3197,6 +3197,19 @@ public class SubcontractingManager : DomainService
     {
         return Math.Round(consumedQty - requiredQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Returns whether a Subcontracting Receipt item row should be checked by whole-number stock UOM
+    /// validation per ERPNext PR #65665 (<c>subcontracting_receipt.py</c>):
+    /// secondary rows receive a read-only quantity from the BOM and cannot be rounded by the user,
+    /// so rows with <paramref name="secondaryItemType"/> or <paramref name="valuationType"/> set are skipped.
+    /// </summary>
+    public static bool ShouldValidateSubcontractingReceiptRowStockUomIsInteger(
+        string? secondaryItemType,
+        Manufacturing.SecondaryItemValuationType? valuationType)
+    {
+        return string.IsNullOrWhiteSpace(secondaryItemType) && !valuationType.HasValue;
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

@@ -551,6 +551,73 @@ public class PaymentReconciliationEngine : DomainService
                 .WithData("detail", "Invoice Limit must be a non-negative integer");
         }
     }
+
+    /// <summary>
+    /// Restores advance allocation from an unlinked invoice reference row back onto the originating
+    /// Sales/Purchase Order reference row on a submitted Payment Entry when that allocation originated
+    /// from a Payment Request advance per ERPNext PR #65602 (<c>accounts/utils.py: remove_ref_doc_link_from_pe</c>):
+    /// - Adds the unlinked invoice row's <c>AllocatedAmount</c> to an existing order reference row matching
+    ///   <c>(AdvanceVoucherType, AdvanceVoucherId, PaymentRequestId)</c>, or appends a restored order
+    ///   reference row if none remains.
+    /// - Removes the unlinked invoice reference row and returns the total restored advance amount.
+    /// </summary>
+    public static decimal RestoreAdvanceAllocationOnInvoiceUnlink(
+        PaymentEntry paymentEntry,
+        string unlinkedInvoiceType,
+        Guid unlinkedInvoiceId,
+        decimal orderTotalAmount = 0m)
+    {
+        if (paymentEntry == null || string.IsNullOrWhiteSpace(unlinkedInvoiceType) || unlinkedInvoiceId == Guid.Empty)
+        {
+            return 0m;
+        }
+
+        var matchingRows = paymentEntry.References
+            .Where(r => string.Equals(r.ReferenceType, unlinkedInvoiceType, StringComparison.OrdinalIgnoreCase)
+                && r.ReferenceId == unlinkedInvoiceId)
+            .ToList();
+
+        decimal totalRestored = 0m;
+        foreach (var row in matchingRows)
+        {
+            if (row.PaymentRequestId.HasValue
+                && !string.IsNullOrWhiteSpace(row.AdvanceVoucherType)
+                && row.AdvanceVoucherId.HasValue
+                && row.AllocatedAmount > 0m)
+            {
+                var existingOrderRef = paymentEntry.References.FirstOrDefault(r =>
+                    string.Equals(r.ReferenceType, row.AdvanceVoucherType, StringComparison.OrdinalIgnoreCase)
+                    && r.ReferenceId == row.AdvanceVoucherId.Value
+                    && r.PaymentRequestId == row.PaymentRequestId);
+
+                if (existingOrderRef != null)
+                {
+                    existingOrderRef.AllocatedAmount += row.AllocatedAmount;
+                }
+                else
+                {
+                    var restoredRef = new PaymentEntryReference(
+                        Guid.NewGuid(),
+                        paymentEntry.Id,
+                        row.AdvanceVoucherType,
+                        row.AdvanceVoucherId.Value,
+                        totalAmount: orderTotalAmount > 0m ? orderTotalAmount : row.AllocatedAmount,
+                        outstandingAmount: 0m,
+                        allocatedAmount: row.AllocatedAmount)
+                    {
+                        PaymentRequestId = row.PaymentRequestId
+                    };
+                    paymentEntry.References.Add(restoredRef);
+                }
+
+                totalRestored += row.AllocatedAmount;
+            }
+
+            paymentEntry.References.Remove(row);
+        }
+
+        return totalRestored;
+    }
 }
 
 /// <summary>An unreconciled payment available for allocation.</summary>
