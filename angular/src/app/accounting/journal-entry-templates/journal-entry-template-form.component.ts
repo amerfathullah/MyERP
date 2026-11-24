@@ -10,23 +10,23 @@ import { AccountService } from '../../proxy/accounting/account.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import type { AccountDto } from '../../proxy/accounting/models';
 
-const VOUCHER_TYPES: { value: number; label: string }[] = [
-  { value: 0, label: 'Journal Entry' },
-  { value: 1, label: 'Inter Company Journal Entry' },
-  { value: 2, label: 'Bank Entry' },
-  { value: 3, label: 'Cash Entry' },
-  { value: 4, label: 'Credit Card Entry' },
-  { value: 5, label: 'Debit Note' },
-  { value: 6, label: 'Credit Note' },
-  { value: 7, label: 'Contra Entry' },
-  { value: 8, label: 'Excise Entry' },
-  { value: 9, label: 'Write Off Entry' },
-  { value: 10, label: 'Opening Entry' },
-  { value: 11, label: 'Depreciation Entry' },
-  { value: 12, label: 'Exchange Rate Revaluation' },
-  { value: 13, label: 'Exchange Gain Or Loss' },
-  { value: 14, label: 'Deferred Revenue' },
-  { value: 15, label: 'Deferred Expense' },
+const VOUCHER_TYPES: { value: number; key: string }[] = [
+  { value: 0, key: 'JournalEntry' },
+  { value: 1, key: 'InterCompanyJournalEntry' },
+  { value: 2, key: 'BankEntry' },
+  { value: 3, key: 'CashEntry' },
+  { value: 4, key: 'CreditCardEntry' },
+  { value: 5, key: 'DebitNote' },
+  { value: 6, key: 'CreditNote' },
+  { value: 7, key: 'ContraEntry' },
+  { value: 8, key: 'ExciseEntry' },
+  { value: 9, key: 'WriteOffEntry' },
+  { value: 10, key: 'OpeningEntry' },
+  { value: 11, key: 'DepreciationEntry' },
+  { value: 12, key: 'ExchangeRateRevaluation' },
+  { value: 13, key: 'ExchangeGainOrLoss' },
+  { value: 14, key: 'DeferredRevenue' },
+  { value: 15, key: 'DeferredExpense' },
 ];
 
 @Component({
@@ -47,7 +47,7 @@ const VOUCHER_TYPES: { value: number; label: string }[] = [
               <div class="col-md-4">
                 <label class="form-label">{{ '::VoucherType' | abpLocalization }}</label>
                 <select class="form-select" formControlName="voucherType">
-                  @for (t of voucherTypes; track t.value) { <option [ngValue]="t.value">{{ t.label }}</option> }
+                  @for (t of voucherTypes; track t.value) { <option [ngValue]="t.value">{{ '::VoucherType:' + t.key | abpLocalization }}</option> }
                 </select>
               </div>
               <div class="col-md-2">

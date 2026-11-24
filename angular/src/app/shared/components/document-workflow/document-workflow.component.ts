@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 import { StatusBadgeComponent, DocumentStatus } from '../status-badge/status-badge.component';
 
 export interface WorkflowAction {
@@ -12,7 +13,7 @@ export interface WorkflowAction {
 @Component({
   selector: 'app-document-workflow',
   standalone: true,
-  imports: [CommonModule, StatusBadgeComponent],
+  imports: [CommonModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './document-workflow.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./document-workflow.component.scss'],

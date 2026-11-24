@@ -7,7 +7,7 @@
     <button class="btn btn-sm" [class]="'btn-outline-' + action.color"
       (click)="actionClicked.emit(action.name)">
       <i class="me-1" [ngClass]="'fa fa-' + action.icon"></i>
-      {{ action.label }}
+      {{ action.label | abpLocalization }}
     </button>
   }
 </div>

@@ -509,6 +509,20 @@ public class BomCostPropagationService : DomainService
     }
 
     /// <summary>
+    /// Derives whether a BOM Operation row is costed per batch without mutating the row's stored
+    /// <c>SetCostBasedOnBomQty</c> flag per ERPNext PR #69327 (<c>costing.py: is_costed_per_batch</c>):
+    /// never for fixed-time operations, always when either the BOM row flag or the Operation master's
+    /// <c>CreateJobCardBasedOnBatchSize</c> is enabled.
+    /// </summary>
+    public static bool IsCostedPerBatch(
+        bool fixedTime,
+        bool setCostBasedOnBomQty,
+        bool operationCreateJobCardBasedOnBatchSize)
+    {
+        return !fixedTime && (setCostBasedOnBomQty || operationCreateJobCardBasedOnBatchSize);
+    }
+
+    /// <summary>
     /// Resolves the updated <c>HourRate</c> on a BOM Operation row when the row's workstation/type
     /// or parent BOM's exchange conversion rate changes per ERPNext PR #67335
     /// (<c>bom/services/costing.py: _reset_row_hour_rate</c>):

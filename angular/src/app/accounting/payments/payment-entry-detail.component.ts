@@ -349,16 +349,16 @@ export class PaymentEntryDetailComponent implements OnInit {
     if (!e) return [];
     const actions: WorkflowAction[] = [];
     if (e.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (e.status === 'Submitted') {
-      actions.push({ name: 'post', label: 'Post', icon: 'check-double', color: 'success' });
+      actions.push({ name: 'post', label: '::Post', icon: 'check-double', color: 'success' });
     }
     if (e.status === 'Posted') {
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     if (e.status === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
+      actions.push({ name: 'amend', label: '::Amend', icon: 'file-circle-plus', color: 'success' });
     }
     return actions;
   }

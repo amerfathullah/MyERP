@@ -594,6 +594,122 @@ public class DeliveryNoteManager : DomainService
     }
 
     /// <summary>
+    /// Computes stock quantities taken by each row of a split return document against the same original row,
+    /// processing earlier rows of the current return in table order per ERPNext PR #69324
+    /// (<c>StockController.get_return_stock_qty</c>, <c>take_from_row_left_to_return</c>,
+    /// <c>get_row_left_to_return</c>, and <c>SellingController.posts_stock_ledger_entry</c>):
+    /// - On cancel, returns the exact posted SLE qty (0 if the row posted nothing).
+    /// - If the original row posted no SLE in the target warehouse(s), returns unconstrained rounded stock qty.
+    /// - Skips rows from non-stock-updating documents (<c>UpdateStock == false</c>).
+    /// - Earlier rows of this same return that post an SLE (<c>IsStockItem &amp;&amp; RoundedStockQty != 0</c>)
+    ///   deduct from <c>left</c>; rows that post nothing take 0 from <c>PostedLeftStockQty</c> while still
+    ///   advancing <c>UnroundedLeftToReturn</c>.
+    /// </summary>
+    public static List<decimal> CalculateSplitReturnStockQuantities(
+        Guid originalRowId,
+        IReadOnlyList<ReturnDocumentRowSnapshot> currentReturnRows,
+        IEnumerable<SubmittedOriginalOrPriorReturnRow> submittedOriginalAndPriorReturnRows,
+        IReadOnlyDictionary<Guid, decimal> postedSleActualQtyByRowId,
+        bool isStockReceipt,
+        Guid targetWarehouseId,
+        bool isCancelled = false,
+        IReadOnlyDictionary<Guid, decimal>? postedCurrentReturnSleQtyByRowId = null,
+        int stockQtyPrecision = 4)
+    {
+        var results = new List<decimal>(currentReturnRows.Count);
+        var sign = isStockReceipt ? 1m : -1m;
+
+        if (isCancelled)
+        {
+            foreach (var row in currentReturnRows)
+            {
+                var posted = postedCurrentReturnSleQtyByRowId != null
+                    && postedCurrentReturnSleQtyByRowId.TryGetValue(row.RowId, out var sle)
+                    ? sle * sign
+                    : 0m;
+                results.Add(posted);
+            }
+            return results;
+        }
+
+        var priorRows = submittedOriginalAndPriorReturnRows.ToList();
+        var warehouses = isStockReceipt
+            ? new HashSet<Guid> { targetWarehouseId }
+            : priorRows.Select(r => r.WarehouseId)
+                .Concat(currentReturnRows.Select(r => r.WarehouseId))
+                .ToHashSet();
+
+        var originalPosted = postedSleActualQtyByRowId.ContainsKey(originalRowId);
+        if (!originalPosted)
+        {
+            foreach (var row in currentReturnRows)
+            {
+                var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+                results.Add(Math.Round(row.Qty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero));
+            }
+            return results;
+        }
+
+        decimal unroundedLeft = 0m;
+        decimal postedSum = 0m;
+        foreach (var d in priorRows)
+        {
+            if (postedSleActualQtyByRowId.TryGetValue(d.RowId, out var sleQty))
+            {
+                postedSum += sleQty;
+            }
+
+            if (!d.UpdateStock)
+                continue;
+
+            var factor = d.ConversionFactor > 0m ? d.ConversionFactor : 1m;
+            if (warehouses.Contains(d.WarehouseId))
+                unroundedLeft += d.Qty * factor;
+            if (d.RejectedWarehouseId.HasValue && warehouses.Contains(d.RejectedWarehouseId.Value))
+                unroundedLeft += d.RejectedQty * factor;
+        }
+
+        var postedLeft = Math.Max(Math.Round(postedSum * sign, stockQtyPrecision, MidpointRounding.AwayFromZero), 0m);
+
+        foreach (var row in currentReturnRows)
+        {
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            var rawStockQty = Math.Round(row.Qty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+
+            if (!warehouses.Contains(row.WarehouseId))
+            {
+                results.Add(rawStockQty);
+                continue;
+            }
+
+            var postsSle = row.IsStockItem && rawStockQty != 0m;
+            if (!postsSle)
+            {
+                // Row posts nothing: takes 0 from posted stock left, but still advances unrounded qty.
+                unroundedLeft += row.Qty * factor;
+                results.Add(0m);
+                continue;
+            }
+
+            unroundedLeft += row.Qty * factor;
+            decimal taken;
+            if (Math.Round(unroundedLeft, stockQtyPrecision, MidpointRounding.AwayFromZero) <= 0m)
+            {
+                taken = -postedLeft;
+            }
+            else
+            {
+                taken = Math.Max(rawStockQty, -postedLeft);
+            }
+
+            postedLeft = Math.Round(postedLeft + taken, stockQtyPrecision, MidpointRounding.AwayFromZero);
+            results.Add(taken);
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Resolves the quantity passed to incoming-rate lookup on a selling stock row per ERPNext PR #68364
     /// (<c>SellingController.set_incoming_rate</c>):
     /// - For <c>Packed Item</c> rows, uses <paramref name="qty"/> directly (already in stock UOM).
@@ -644,3 +760,19 @@ public class DeliveryNoteManager : DomainService
         }
     }
 }
+
+public sealed record ReturnDocumentRowSnapshot(
+    Guid RowId,
+    decimal Qty,
+    decimal ConversionFactor,
+    Guid WarehouseId,
+    bool IsStockItem = true);
+
+public sealed record SubmittedOriginalOrPriorReturnRow(
+    Guid RowId,
+    decimal Qty,
+    decimal ConversionFactor,
+    Guid WarehouseId,
+    decimal RejectedQty = 0m,
+    Guid? RejectedWarehouseId = null,
+    bool UpdateStock = true);

@@ -4,6 +4,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { of } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
 import {
+  CONSOLIDATED_REPORT_TYPES,
   ConsolidatedFinancialStatementComponent,
   buildConsolidatedStatementCsvRows,
 } from './consolidated-financial-statement.component';
@@ -69,5 +70,13 @@ describe('ConsolidatedFinancialStatementComponent', () => {
     expect(csv[0]['Holdings (MYR)']).toBe('550.00');
     expect(csv[0]['US Sub (USD)']).toBe('100.00');
     expect(csv[0]['Total (MYR)']).toBe('550.00');
+  });
+
+  it('uses localization keys for consolidated report types', () => {
+    expect(CONSOLIDATED_REPORT_TYPES.map(t => t.labelKey)).toEqual([
+      '::BalanceSheet',
+      '::ProfitAndLossStatement',
+      '::CashFlow',
+    ]);
   });
 });

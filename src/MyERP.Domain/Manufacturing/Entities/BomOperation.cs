@@ -116,12 +116,17 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>
     /// Effective unrounded operating cost contributed to BOM total operating cost.
-    /// When SetCostBasedOnBomQty is enabled, scales unrounded CostPerUnit by bomQuantity
-    /// (ERPNext commits 22d504f5b6, e7be233789, f406f6e2b8).
+    /// When SetCostBasedOnBomQty is enabled (and not fixed time), scales unrounded CostPerUnit by bomQuantity
+    /// (ERPNext commits 22d504f5b6, e7be233789, f406f6e2b8, and PR #69327).
     /// </summary>
-    public decimal GetEffectiveOperatingCost(decimal bomQuantity)
+    public decimal GetEffectiveOperatingCost(decimal bomQuantity, bool operationCreateJobCardBasedOnBatchSize = false)
     {
-        if (SetCostBasedOnBomQty)
+        var isCostedPerBatch = DomainServices.BomCostPropagationService.IsCostedPerBatch(
+            FixedTime > 0m,
+            SetCostBasedOnBomQty,
+            operationCreateJobCardBasedOnBatchSize);
+
+        if (isCostedPerBatch)
         {
             return CostPerUnit * (bomQuantity > 0 ? bomQuantity : 1m);
         }

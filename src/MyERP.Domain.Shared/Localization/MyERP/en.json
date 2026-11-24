@@ -7185,7 +7185,10 @@
     "TestFailed": "Test Failed",
     "ResolvedRateUsdToMyr": "Resolved Rate (USD to MYR)",
     "OverproductionHint": "WO can produce up to this % extra",
-    "Bom": "BOM"
+    "Bom": "BOM",
+    "ProfitAndLossStatement": "Profit and Loss Statement",
+    "CashFlow": "Cash Flow",
+    "DefaultPerCompany": "Default (Per Company)"
   }
 }
 

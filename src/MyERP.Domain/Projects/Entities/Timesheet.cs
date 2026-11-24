@@ -41,6 +41,18 @@ public class Timesheet : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Note { get; set; }
 
+    /// <summary>
+    /// Transaction currency for this timesheet (ERPNext PR #68311).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? Currency { get; set; }
+
+    /// <summary>
+    /// Exchange rate from <see cref="Currency"/> to company currency (ERPNext PR #68311).
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal ExchangeRate { get; set; }
+
     private readonly List<TimesheetDetail> _details = new();
     public IReadOnlyList<TimesheetDetail> Details => _details.AsReadOnly();
 
@@ -96,6 +108,44 @@ public class Timesheet : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == TimesheetStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = TimesheetStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Sets <see cref="ExchangeRate"/> from <see cref="Currency"/> and <paramref name="companyCurrency"/>
+    /// per ERPNext PR #68311 (<c>Timesheet.set_exchange_rate</c>):
+    /// - A company-currency (or blank currency) timesheet always has rate <c>1</c>.
+    /// - A foreign-currency timesheet without a rate (<c>&lt;= 0</c>) fetches the current rate (fallback <c>1</c>).
+    /// - An explicitly set positive rate (<c>1</c> included) is preserved.
+    /// </summary>
+    public void SetExchangeRate(string? companyCurrency, Func<string, string, decimal>? getExchangeRate = null)
+    {
+        ExchangeRate = ResolveExchangeRate(Currency, companyCurrency, ExchangeRate, getExchangeRate);
+    }
+
+    /// <summary>
+    /// Pure helper for ERPNext PR #68311 (<c>Timesheet.set_exchange_rate</c>).
+    /// </summary>
+    public static decimal ResolveExchangeRate(
+        string? timesheetCurrency,
+        string? companyCurrency,
+        decimal currentExchangeRate,
+        Func<string, string, decimal>? getExchangeRate = null)
+    {
+        if (string.IsNullOrWhiteSpace(timesheetCurrency)
+            || string.Equals(timesheetCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return 1m;
+        }
+
+        if (currentExchangeRate > 0m)
+        {
+            return currentExchangeRate;
+        }
+
+        var fetched = (!string.IsNullOrWhiteSpace(companyCurrency) && getExchangeRate != null)
+            ? getExchangeRate(timesheetCurrency, companyCurrency)
+            : 0m;
+        return fetched > 0m ? fetched : 1m;
     }
 
     private void RecalculateTotals()

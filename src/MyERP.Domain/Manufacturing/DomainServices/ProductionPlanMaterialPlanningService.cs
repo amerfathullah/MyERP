@@ -450,6 +450,58 @@ public class ProductionPlanMaterialPlanningService : DomainService
     }
 
     /// <summary>
+    /// Computes open reserved output quantity of Work Orders linked to a Sales Order Item — either
+    /// directly via <c>WorkOrder.SalesOrderItemId</c> OR indirectly via
+    /// <c>WorkOrder.ProductionPlanItemId -&gt; ProductionPlanItem.SalesOrderItemId</c> — so Production Plan
+    /// pending-qty calculation counts planned Work Order output once rather than deducting it both in
+    /// <c>production_plan_qty</c> and <c>reserved_from_stock</c>.
+    /// Per ERPNext PR #69322 (<c>get_reserved_work_order_output_qty</c> in <c>planning_queries.py</c>).
+    /// </summary>
+    public static decimal CalculateReservedWorkOrderOutputQty(
+        Guid salesOrderItemId,
+        IEnumerable<WorkOrderOutputReservationSnapshot>? openStockEntryReservations)
+    {
+        if (salesOrderItemId == Guid.Empty || openStockEntryReservations == null)
+        {
+            return 0m;
+        }
+
+        return openStockEntryReservations
+            .Where(r => r.IsSubmitted
+                && r.VoucherDetailId == salesOrderItemId
+                && r.IsFromStockEntry
+                && (r.WorkOrderSalesOrderItemId == salesOrderItemId
+                    || r.ProductionPlanItemSalesOrderItemId == salesOrderItemId))
+            .Sum(r => Math.Max(0m, r.ReservedQty - r.DeliveredQty - r.TransferredQty - r.ConsumedQty));
+    }
+
+    /// <summary>
+    /// Computes pending quantity for a Sales Order Product Bundle Packed Item row in a Production Plan,
+    /// counting open Stock Reservation Entries on that specific Packed Item row once (overlapping
+    /// <c>workOrderQty</c> just like deliveries) and clamping to <c>&gt;= 0</c>.
+    /// Per ERPNext PR #69322 (<c>_so_packed_columns</c> and <c>get_reserved_packed_item_qty</c>).
+    /// </summary>
+    public static decimal CalculatePackedItemPendingQtyForProductionPlan(
+        decimal salesOrderItemQty,
+        decimal packedItemQty,
+        decimal salesOrderWorkOrderQty,
+        decimal salesOrderDeliveredQty,
+        decimal reservedPackedItemQty,
+        int precision = 4)
+    {
+        if (salesOrderItemQty <= 0m || packedItemQty <= 0m)
+        {
+            return 0m;
+        }
+
+        var perBundle = packedItemQty / salesOrderItemQty;
+        var workOrderQty = salesOrderWorkOrderQty * perBundle;
+        var deliveredOrReservedQty = (salesOrderDeliveredQty * perBundle) + Math.Max(0m, reservedPackedItemQty);
+        var pending = packedItemQty - Math.Max(workOrderQty, deliveredOrReservedQty);
+        return Math.Max(Math.Round(pending, precision, MidpointRounding.AwayFromZero), 0m);
+    }
+
+    /// <summary>
     /// Computes a Work Order's committed quantity against a Production Plan row, grossing up <paramref name="producedQty"/>
     /// by <c>1 - lossPercentage / 100</c> when <paramref name="creditProducedQty"/> is true so output above planned loss
     /// offsets another Work Order's excess process loss per ERPNext commit 273db39e00 (<c>work_order_quantities.py</c>),
@@ -976,3 +1028,14 @@ public sealed record CombinedSalesOrderPlanItem(
     Guid? SalesOrderItemId,
     Guid? ProductBundleItemId,
     IReadOnlyList<(Guid SalesOrderId, Guid SalesOrderItemId, Guid? ProductBundleItemId, decimal Qty)> SalesOrderLinks);
+
+public sealed record WorkOrderOutputReservationSnapshot(
+    Guid VoucherDetailId,
+    bool IsSubmitted,
+    bool IsFromStockEntry,
+    Guid? WorkOrderSalesOrderItemId,
+    Guid? ProductionPlanItemSalesOrderItemId,
+    decimal ReservedQty,
+    decimal DeliveredQty,
+    decimal TransferredQty,
+    decimal ConsumedQty);

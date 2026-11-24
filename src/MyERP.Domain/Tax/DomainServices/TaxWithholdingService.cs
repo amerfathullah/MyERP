@@ -280,7 +280,134 @@ public class TaxWithholdingService : DomainService
         return !string.IsNullOrWhiteSpace(supplierTaxWithholdingCategory)
             || !string.IsNullOrWhiteSpace(supplierTaxWithholdingGroup);
     }
+
+    /// <summary>
+    /// Reconciles Tax Withholding (TDS) rows on a Debit Note or Credit Note Journal Entry on save
+    /// per ERPNext PR #69351 (<c>JournalTaxWithholding.update_tax_rows</c> / <c>_remove_tds_rows</c>):
+    /// - When <paramref name="applyTds"/> is false, <paramref name="taxWithholdingCategory"/> is blank,
+    ///   <paramref name="voucherType"/> is not Debit Note / Credit Note, or no non-zero TDS amount is due,
+    ///   restores any previously withheld TDS row credit back to the party row and removes stale TDS rows.
+    /// - When TDS is due, resets existing TDS rows first, applies the current TDS amounts, and deducts
+    ///   them from the party row.
+    /// </summary>
+    public static List<JournalTdsRow> ReconcileJournalTdsRows(
+        bool applyTds,
+        string? taxWithholdingCategory,
+        string voucherType,
+        IReadOnlyList<JournalTdsRow> existingRows,
+        IReadOnlyDictionary<Guid, decimal>? calculatedTdsByAccount)
+    {
+        var rows = existingRows.Select(r => r with { }).ToList();
+        var partyRow = rows.FirstOrDefault(r => r.IsPartyRow);
+        var isEligibleVoucher = string.Equals(voucherType, "Debit Note", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(voucherType, "Credit Note", StringComparison.OrdinalIgnoreCase);
+
+        void ResetExistingTds()
+        {
+            if (partyRow == null) return;
+            var priorTdsTotal = rows.Where(r => r.IsTaxWithholdingRow).Sum(r => r.Credit);
+            if (priorTdsTotal == 0m) return;
+            var idx = rows.IndexOf(partyRow);
+            partyRow = partyRow.Credit > 0m
+                ? partyRow with { Credit = partyRow.Credit + priorTdsTotal }
+                : partyRow with { Debit = partyRow.Debit + priorTdsTotal };
+            rows[idx] = partyRow;
+        }
+
+        void RemoveAllTdsRows()
+        {
+            rows.RemoveAll(r => r.IsTaxWithholdingRow);
+        }
+
+        if (!applyTds || !isEligibleVoucher || string.IsNullOrWhiteSpace(taxWithholdingCategory))
+        {
+            if (partyRow != null && rows.Any(r => r.IsTaxWithholdingRow))
+            {
+                ResetExistingTds();
+                RemoveAllTdsRows();
+            }
+            return rows;
+        }
+
+        if (rows.Count(r => r.IsPartyRow) > 1)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot apply TDS against multiple parties in one entry");
+        }
+
+        ResetExistingTds();
+        RemoveAllTdsRows();
+
+        var dueEntries = (calculatedTdsByAccount ?? new Dictionary<Guid, decimal>())
+            .Where(kv => kv.Value != 0m)
+            .ToList();
+
+        if (dueEntries.Count == 0 || partyRow == null)
+        {
+            return rows;
+        }
+
+        foreach (var (accountId, taxAmount) in dueEntries)
+        {
+            rows.Add(new JournalTdsRow(accountId, Debit: 0m, Credit: taxAmount, IsPartyRow: false, IsTaxWithholdingRow: true));
+            var idx = rows.IndexOf(partyRow);
+            partyRow = partyRow.Credit > 0m
+                ? partyRow with { Credit = partyRow.Credit - taxAmount }
+                : partyRow with { Debit = partyRow.Debit - taxAmount };
+            rows[idx] = partyRow;
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Refuses cancelling a document that withheld tax for a different taxable document when a submitted
+    /// return against that taxable document already reversed the withheld tax for the same category.
+    /// Per ERPNext PR #69350 (<c>TaxWithholdingEntry._validate_no_return_reversed_tax</c>).
+    /// </summary>
+    public static void ValidateNoReturnReversedTaxOnCancel(
+        bool isTaxableDifferent,
+        decimal withholdingAmount,
+        string withholdingDoctype,
+        string withholdingName,
+        string taxableDoctype,
+        string taxableName,
+        string? taxWithholdingCategory,
+        IEnumerable<(string ReturnDocumentName, string? TaxWithholdingCategory, decimal WithholdingAmount, bool IsSubmitted)>? returnTaxEntries)
+    {
+        if (!isTaxableDifferent || withholdingAmount == 0m || returnTaxEntries == null)
+        {
+            return;
+        }
+
+        var reversedIn = returnTaxEntries
+            .Where(e => e.IsSubmitted
+                && e.WithholdingAmount != 0m
+                && string.Equals(e.TaxWithholdingCategory, taxWithholdingCategory, StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.ReturnDocumentName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (reversedIn.Count == 0)
+        {
+            return;
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData(
+                "detail",
+                $"Cannot cancel {withholdingDoctype} {withholdingName} because it withheld tax for {taxableDoctype} {taxableName}, and the return {string.Join(", ", reversedIn)} reversed that tax. Cancel the return first.");
+    }
 }
+
+/// <summary>Lightweight Journal Entry line snapshot for TDS reconciliation (PR #69351).</summary>
+public record JournalTdsRow(
+    Guid AccountId,
+    decimal Debit,
+    decimal Credit,
+    bool IsPartyRow,
+    bool IsTaxWithholdingRow);
 
 /// <summary>Result of a tax withholding calculation.</summary>
 public class TaxWithholdingResult

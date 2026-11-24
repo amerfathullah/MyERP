@@ -15,9 +15,9 @@ import { CompanyContextService } from '../../../shared/services/company-context.
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
 export const CONSOLIDATED_REPORT_TYPES = [
-  { value: 'BalanceSheet', label: 'Balance Sheet' },
-  { value: 'ProfitAndLoss', label: 'Profit and Loss Statement' },
-  { value: 'CashFlow', label: 'Cash Flow' },
+  { value: 'BalanceSheet', labelKey: '::BalanceSheet' },
+  { value: 'ProfitAndLoss', labelKey: '::ProfitAndLossStatement' },
+  { value: 'CashFlow', labelKey: '::CashFlow' },
 ] as const;
 
 export function buildConsolidatedStatementCsvRows(

@@ -132,7 +132,10 @@ public class SubcontractingRmTransferService : DomainService
     /// <summary>
     /// Splits a subcontractor raw material return across the order rows its material was originally sent on,
     /// assigning up to each row's remaining supplied qty and placing any overflow on the last matching row.
-    /// Per ERPNext PR #68828 (<c>add_return_items</c> in <c>subcontracting_controller.py</c>).
+    /// Skips sub-precision float remainders (<c>Round(returnQty, precision) &lt;= 0</c>) while splitting
+    /// the unrounded <paramref name="returnQty"/> across order rows so earlier rows never round up past
+    /// what the order has at the supplier.
+    /// Per ERPNext PR #68828 and PR #69315 (<c>add_return_items</c> in <c>subcontracting_controller.py</c>).
     /// </summary>
     public static List<(Guid OrderRowId, decimal ReturnQty)> SplitReturnQtyAcrossOrderRows(
         decimal returnQty,
@@ -140,7 +143,7 @@ public class SubcontractingRmTransferService : DomainService
         int precision = 4)
     {
         var result = new List<(Guid OrderRowId, decimal ReturnQty)>();
-        if (returnQty <= 0m || orderRows == null)
+        if (Math.Round(returnQty, precision, MidpointRounding.AwayFromZero) <= 0m || orderRows == null)
         {
             return result;
         }
