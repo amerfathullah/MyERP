@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #64998, #65791, #65961, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1404,5 +1404,60 @@ public class UpstreamBatch42ParityTests
         yearlyDates[0].ShouldBe(new DateTime(2024, 12, 31));
         yearlyDates[1].ShouldBe(new DateTime(2025, 12, 31));
         yearlyDates[2].ShouldBe(new DateTime(2026, 12, 31));
+    }
+
+    [Fact]
+    public void Pr64304_Pr65669_Pr66259_Pr66260_ScrReturnRmRates_SelectorMismatch_WoOverproductionPrompt_RejectedReturnUom_Parity()
+    {
+        // PR #64304: Returned SCR Supplied Item resolves incoming rates from original consumed bundle
+        var rmItemId = Guid.NewGuid();
+        var origFgRowId = Guid.NewGuid();
+        var retFgRowId = Guid.NewGuid();
+        var retSupRowId = Guid.NewGuid();
+        var origSupRowId = Guid.NewGuid();
+        var origBundleId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var (serialRates, batchRates) = SubcontractingManager.ResolveReturnedSuppliedItemBundleRates(
+            returnedSuppliedItemId: retSupRowId,
+            returnedSuppliedItems: new[] { (retSupRowId, retFgRowId, rmItemId, (Guid?)null) },
+            returnReceiptItems: new[] { (retFgRowId, (Guid?)origFgRowId) },
+            originalSuppliedItems: new[] { (origSupRowId, origFgRowId, rmItemId, (Guid?)origBundleId) },
+            originalBundleEntries: new[] { (origBundleId, (string?)"SN-RM-01", (Guid?)batchId, 42.5m) });
+        serialRates["SN-RM-01"].ShouldBe(42.5m);
+        batchRates[batchId].ShouldBe(42.5m);
+
+        // PR #65669: Selector quantity mismatch compares totalSelectedQty against itemTargetQty (6dp)
+        SerialBatchBundleValidationService.RequiresSelectorQuantityMismatchConfirmation(
+            totalSelectedQty: 10.0000004m, itemTargetQty: 10m).ShouldBeFalse();
+        SerialBatchBundleValidationService.RequiresSelectorQuantityMismatchConfirmation(
+            totalSelectedQty: 8m, itemTargetQty: 10m).ShouldBeTrue();
+
+        // PR #66259: Work Order prompt defaults to overproduction allowance when max == 0, omits allowance when explicit qty passed
+        var onlyAllowanceLeft = WorkOrderManager.ResolveManufacturePromptQuantities(
+            isManufacturePurpose: true, baseMaxQty: 0m, workOrderQty: 100m, overproductionPercentage: 10m);
+        onlyAllowanceLeft.AllowedQty.ShouldBe(10m);
+        onlyAllowanceLeft.DefaultQty.ShouldBe(10m);
+        onlyAllowanceLeft.DefaultFinishedGoodQty.ShouldBe(10m);
+
+        var explicitCap = WorkOrderManager.ResolveManufacturePromptQuantities(
+            isManufacturePurpose: true, baseMaxQty: 5m, workOrderQty: 100m, overproductionPercentage: 10m, hasExplicitCallerQty: true);
+        explicitCap.AllowedQty.ShouldBe(5m);
+        explicitCap.DefaultQty.ShouldBe(5m);
+
+        // PR #66260: Rejected return bundle converts rejectedQty by conversionFactor; returnFromRejectedWarehouse uses stockQty
+        var whMain = Guid.NewGuid();
+        var whRej = Guid.NewGuid();
+        var normalRejected = SerialBatchBundleValidationService.ResolveReturnRejectedBundleQtyAndWarehouse(
+            returnQtyFromRejectedWarehouse: false, stockQty: 0m, rejectedQty: -2m, conversionFactor: 12m,
+            warehouseId: whMain, rejectedWarehouseId: whRej);
+        normalRejected.BundleStockQty.ShouldBe(-24m);
+        normalRejected.WarehouseId.ShouldBe(whRej);
+
+        var fromRejectedWh = SerialBatchBundleValidationService.ResolveReturnRejectedBundleQtyAndWarehouse(
+            returnQtyFromRejectedWarehouse: true, stockQty: -36m, rejectedQty: 0m, conversionFactor: 12m,
+            warehouseId: whMain, rejectedWarehouseId: whRej);
+        fromRejectedWh.BundleStockQty.ShouldBe(-36m);
+        fromRejectedWh.WarehouseId.ShouldBe(whMain);
     }
 }

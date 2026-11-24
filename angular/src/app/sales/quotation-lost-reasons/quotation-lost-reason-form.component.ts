@@ -14,31 +14,31 @@ import { QuotationLostReasonService } from '../../proxy/sales/quotation-lost-rea
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Quotation Lost Reason</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditQuotationLostReason' : '::NewQuotationLostReason') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-8">
-              <label class="form-label">Reason *</label>
+              <label class="form-label">{{ '::Reason' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="reason" [placeholder]="'::Placeholder:QuotationLostReasonExample' | abpLocalization">
             </div>
             <div class="col-md-4 d-flex align-items-center mt-4">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-                <label class="form-check-label" for="isActive">Active</label>
+                <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/sales/quotation-lost-reasons" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/sales/quotation-lost-reasons" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -85,7 +85,7 @@ export class QuotationLostReasonFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/sales/quotation-lost-reasons']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

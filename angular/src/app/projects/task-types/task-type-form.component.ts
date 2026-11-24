@@ -14,29 +14,29 @@ import { TaskTypeService } from '../../proxy/projects/task-type.service';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Task Type</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditTaskType' : '::NewTaskType') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-8">
-              <label class="form-label">Name *</label>
+              <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:TaskTypeExample' | abpLocalization">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Weight *</label>
+              <label class="form-label">{{ '::Weight' | abpLocalization }} *</label>
               <input type="number" step="0.1" class="form-control" formControlName="weight" placeholder="1.0">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/projects/task-types" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/projects/task-types" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -83,7 +83,7 @@ export class TaskTypeFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/projects/task-types']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

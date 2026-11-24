@@ -19,22 +19,22 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Employee Group</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditEmployeeGroup' : '::NewEmployeeGroup') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Company *</label>
+              <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
               <select class="form-select" formControlName="companyId">
-                <option value="">— Select Company —</option>
+                <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
                 @for (c of companies(); track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Group Name *</label>
+              <label class="form-label">{{ '::GroupName' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="groupName" maxlength="140" [placeholder]="'::Placeholder:EmployeeGroupNameExample' | abpLocalization">
             </div>
           </div>
@@ -42,21 +42,21 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" formControlName="isDisabled" id="isDisabled">
-              <label class="form-check-label" for="isDisabled">Disabled</label>
+              <label class="form-check-label" for="isDisabled">{{ '::Disabled' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center bg-light">
-              <span class="fw-semibold">Group Members</span>
-              <button type="button" class="btn btn-sm btn-outline-primary" (click)="addMember()">+ Add Member</button>
+              <span class="fw-semibold">{{ '::GroupMembers' | abpLocalization }}</span>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="addMember()">+ {{ '::AddMember' | abpLocalization }}</button>
             </div>
             <div class="card-body p-0">
               <table class="table table-sm mb-0">
                 <thead>
                   <tr>
-                    <th>Employee *</th>
-                    <th>Designation</th>
+                    <th>{{ '::Employee' | abpLocalization }} *</th>
+                    <th>{{ '::Designation' | abpLocalization }}</th>
                     <th style="width: 50px;"></th>
                   </tr>
                 </thead>
@@ -65,7 +65,7 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
                     <tr [formGroupName]="$index">
                       <td>
                         <select class="form-select form-select-sm" formControlName="employeeId" (change)="onEmployeeChange($index)">
-                          <option value="">— Select Employee —</option>
+                          <option value="">— {{ '::SelectEmployee' | abpLocalization }} —</option>
                           @for (emp of employees(); track emp.id) {
                             <option [value]="emp.id">{{ emp.employeeId ? emp.employeeId + ' - ' : '' }}{{ emp.fullName }}</option>
                           }
@@ -80,7 +80,7 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
                     </tr>
                   } @empty {
                     <tr>
-                      <td colspan="3" class="text-center text-muted py-3">No members added yet.</td>
+                      <td colspan="3" class="text-center text-muted py-3">{{ '::NoMembersAddedYet' | abpLocalization }}</td>
                     </tr>
                   }
                 </tbody>
@@ -89,8 +89,8 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/hr/employee-groups" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/hr/employee-groups" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -197,7 +197,7 @@ export class EmployeeGroupFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/hr/employee-groups']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

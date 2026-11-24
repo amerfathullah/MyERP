@@ -3395,6 +3395,70 @@ public class SubcontractingManager : DomainService
             && items != null
             && items.Any(i => i.ProducedQty > i.DeliveredQty);
     }
+
+    /// <summary>
+    /// Resolves the incoming valuation rates for serial numbers and batches consumed on the original
+    /// Subcontracting Receipt for a returned supplied raw material row per ERPNext PR #64304
+    /// (<c>serial_and_batch_bundle.py: get_valuation_rate_for_returned_supplied_item</c>):
+    /// joins returned Supplied Item -&gt; return Receipt Item -&gt; original Receipt Item -&gt; original consumed
+    /// Supplied Item (same <c>RmItemId</c>) -&gt; consumed bundle entries so returned raw materials inherit the exact
+    /// original consumed rate instead of missing lookup.
+    /// </summary>
+    public static (Dictionary<string, decimal> SerialRates, Dictionary<Guid, decimal> BatchRates)
+        ResolveReturnedSuppliedItemBundleRates(
+            Guid returnedSuppliedItemId,
+            IEnumerable<(Guid SuppliedItemId, Guid ReceiptItemId, Guid RmItemId, Guid? BundleId)> returnedSuppliedItems,
+            IEnumerable<(Guid ReceiptItemId, Guid? OriginalReceiptItemId)> returnReceiptItems,
+            IEnumerable<(Guid SuppliedItemId, Guid ReceiptItemId, Guid RmItemId, Guid? BundleId)> originalSuppliedItems,
+            IEnumerable<(Guid BundleId, string? SerialNo, Guid? BatchId, decimal IncomingRate)> originalBundleEntries)
+    {
+        var serialRates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var batchRates = new Dictionary<Guid, decimal>();
+
+        var returnedRow = returnedSuppliedItems.FirstOrDefault(r => r.SuppliedItemId == returnedSuppliedItemId);
+        if (returnedRow.SuppliedItemId == Guid.Empty)
+        {
+            return (serialRates, batchRates);
+        }
+
+        var returnFgRow = returnReceiptItems.FirstOrDefault(i => i.ReceiptItemId == returnedRow.ReceiptItemId);
+        if (!returnFgRow.OriginalReceiptItemId.HasValue)
+        {
+            return (serialRates, batchRates);
+        }
+
+        var originalBundleIds = originalSuppliedItems
+            .Where(o => o.ReceiptItemId == returnFgRow.OriginalReceiptItemId.Value
+                && o.RmItemId == returnedRow.RmItemId
+                && o.BundleId.HasValue)
+            .Select(o => o.BundleId!.Value)
+            .ToHashSet();
+
+        if (originalBundleIds.Count == 0)
+        {
+            return (serialRates, batchRates);
+        }
+
+        foreach (var entry in originalBundleEntries)
+        {
+            if (!originalBundleIds.Contains(entry.BundleId))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.SerialNo))
+            {
+                serialRates[entry.SerialNo.Trim()] = entry.IncomingRate;
+            }
+
+            if (entry.BatchId.HasValue)
+            {
+                batchRates[entry.BatchId.Value] = entry.IncomingRate;
+            }
+        }
+
+        return (serialRates, batchRates);
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

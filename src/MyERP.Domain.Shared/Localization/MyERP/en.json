@@ -7378,7 +7378,10 @@
     "StagingWarehouse": "Staging Warehouse",
     "SelectProject": "Select project...",
     "NotesAndDetails": "Notes & Details",
-    "MarkAsSentPublished": "Mark as Sent / Published"
+    "MarkAsSentPublished": "Mark as Sent / Published",
+    "Weight": "Weight",
+    "GroupMembers": "Group Members",
+    "NoMembersAddedYet": "No members added yet."
   }
 }
 

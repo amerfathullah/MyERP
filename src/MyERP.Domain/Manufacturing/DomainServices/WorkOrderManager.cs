@@ -1455,6 +1455,38 @@ public class WorkOrderManager : DomainService
 
         return (false, 0m);
     }
+
+    /// <summary>
+    /// Resolves the allowed maximum, default input quantity, and default finished-good quantity for the Work Order
+    /// Stock Entry quantity prompt per ERPNext PR #66259 (<c>work_order.js: show_prompt_for_qty_input</c>):
+    /// - For <c>Manufacture</c>, subtracts <paramref name="processLossQty"/> from <paramref name="baseMaxQty"/> (floored at 0).
+    /// - Adds overproduction allowance only when <paramref name="hasExplicitCallerQty"/> is false (explicit caller qty is already capped).
+    /// - Uses <c>allowedQty</c> as <c>DefaultQty</c> when <c>max</c> is 0 and only overproduction allowance remains.
+    /// </summary>
+    public static (decimal AllowedQty, decimal DefaultQty, decimal DefaultFinishedGoodQty) ResolveManufacturePromptQuantities(
+        bool isManufacturePurpose,
+        decimal baseMaxQty,
+        decimal workOrderQty,
+        decimal overproductionPercentage,
+        decimal processLossQty = 0m,
+        decimal pendingOperationProcessLoss = 0m,
+        bool hasExplicitCallerQty = false,
+        int qtyPrecision = 4)
+    {
+        var max = baseMaxQty;
+        if (isManufacturePurpose)
+        {
+            max = Math.Round(Math.Max(max - processLossQty, 0m), qtyPrecision, MidpointRounding.AwayFromZero);
+        }
+
+        var allowance = hasExplicitCallerQty ? 0m : (workOrderQty * overproductionPercentage) / 100m;
+        var allowedQty = Math.Round(max + allowance, qtyPrecision, MidpointRounding.AwayFromZero);
+        var defaultQty = max > 0m ? max : allowedQty;
+        var pendingLoss = isManufacturePurpose ? pendingOperationProcessLoss : 0m;
+        var defaultFgQty = Math.Round(Math.Max(defaultQty - pendingLoss, 0m), qtyPrecision, MidpointRounding.AwayFromZero);
+
+        return (allowedQty, defaultQty, defaultFgQty);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

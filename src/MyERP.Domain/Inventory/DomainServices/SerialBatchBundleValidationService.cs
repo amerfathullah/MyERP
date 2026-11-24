@@ -1404,6 +1404,48 @@ public class SerialBatchBundleValidationService : DomainService
 
         return usedByBatchWarehouse;
     }
+
+    /// <summary>
+    /// Determines whether the Serial and Batch selector dialog must prompt for quantity-mismatch confirmation
+    /// per ERPNext PR #65669 (<c>serial_no_batch_selector.js</c>):
+    /// compares the total selected entry quantity against the item row's target quantity (<paramref name="itemTargetQty"/>),
+    /// NOT the dialog's transient <c>qty_to_fetch</c> input, rounded to 6 decimal places.
+    /// </summary>
+    public static bool RequiresSelectorQuantityMismatchConfirmation(
+        decimal totalSelectedQty,
+        decimal itemTargetQty)
+    {
+        return Math.Round(totalSelectedQty, 6, MidpointRounding.AwayFromZero)
+            != Math.Round(itemTargetQty, 6, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Resolves the stock-UOM bundle quantity and warehouse for a return row's rejected/return-from-rejected
+    /// Serial and Batch Bundle per ERPNext PR #66260 (<c>sales_and_purchase_return.py: get_return_bundle_qty</c>,
+    /// <c>serial_batch_bundle_service.py</c>):
+    /// - When <paramref name="returnQtyFromRejectedWarehouse"/> is true, uses <paramref name="stockQty"/> (not transaction <c>qty</c>)
+    ///   with the row's accepted/main warehouse.
+    /// - Otherwise converts <paramref name="rejectedQty"/> (transaction UOM) into stock UOM via <paramref name="conversionFactor"/>
+    ///   with <paramref name="rejectedWarehouseId"/>.
+    /// </summary>
+    public static (decimal BundleStockQty, Guid? WarehouseId) ResolveReturnRejectedBundleQtyAndWarehouse(
+        bool returnQtyFromRejectedWarehouse,
+        decimal stockQty,
+        decimal rejectedQty,
+        decimal conversionFactor,
+        Guid? warehouseId,
+        Guid? rejectedWarehouseId,
+        int stockQtyPrecision = 4)
+    {
+        if (returnQtyFromRejectedWarehouse)
+        {
+            return (stockQty, warehouseId);
+        }
+
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var rejectedStockQty = Math.Round(rejectedQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (rejectedStockQty, rejectedWarehouseId);
+    }
 }
 
 public readonly record struct DocumentBatchRowUsage(
