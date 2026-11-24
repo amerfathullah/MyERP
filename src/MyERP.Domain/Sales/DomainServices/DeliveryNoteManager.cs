@@ -786,6 +786,37 @@ public class DeliveryNoteManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Combines direct Delivery Note invoiced quantities with Sales Order-based FIFO-attributed
+    /// invoiced quantities per Delivery Note row per ERPNext PR #68232
+    /// (<c>billing_status.py: get_invoiced_qty_of_rows</c> / <c>get_settled_return_qty</c>),
+    /// so sales returns deducted on an invoice created from the Sales Order settle just like
+    /// returns deducted on an invoice created from the Delivery Note.
+    /// </summary>
+    public static Dictionary<Guid, decimal> ResolveInvoicedQtyByDeliveryNoteRow(
+        IReadOnlyDictionary<Guid, decimal>? directInvoicedQtyByDnRow,
+        IReadOnlyDictionary<Guid, decimal>? soAttributedInvoicedQtyByDnRow)
+    {
+        var merged = new Dictionary<Guid, decimal>();
+        if (directInvoicedQtyByDnRow != null)
+        {
+            foreach (var (dnRowId, qty) in directInvoicedQtyByDnRow)
+            {
+                merged[dnRowId] = qty;
+            }
+        }
+
+        if (soAttributedInvoicedQtyByDnRow != null)
+        {
+            foreach (var (dnRowId, qty) in soAttributedInvoicedQtyByDnRow)
+            {
+                merged[dnRowId] = qty;
+            }
+        }
+
+        return merged;
+    }
 }
 
 public sealed record ReturnDocumentRowSnapshot(

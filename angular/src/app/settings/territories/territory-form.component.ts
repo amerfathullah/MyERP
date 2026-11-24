@@ -21,19 +21,19 @@ import type { ItemGroupDto } from '../../proxy/inventory/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Territory</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditTerritory' : '::NewTerritory') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Territory Name *</label>
+            <label class="form-label">{{ '::TerritoryName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:TerritoryExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Parent Territory</label>
+            <label class="form-label">{{ '::ParentTerritory' | abpLocalization }}</label>
             <select class="form-select" formControlName="parentId">
-              <option [ngValue]="null">— None (Root Territory) —</option>
+              <option [ngValue]="null">{{ '::NoneRootTerritory' | abpLocalization }}</option>
               @for (g of territories(); track g.id) {
                 @if (g.id !== id) {
                   <option [value]="g.id">{{ g.name }}</option>
@@ -45,14 +45,14 @@ import type { ItemGroupDto } from '../../proxy/inventory/models';
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" formControlName="isGroup" id="isGroup">
-              <label class="form-check-label" for="isGroup">Is Group (Region node — contains other territories)</label>
+              <label class="form-check-label" for="isGroup">{{ '::IsGroupTerritoryHelp' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Territory Manager</label>
+            <label class="form-label">{{ '::TerritoryManager' | abpLocalization }}</label>
             <select class="form-select" formControlName="territoryManagerId">
-              <option [ngValue]="null">— Select Territory Manager —</option>
+              <option [ngValue]="null">{{ '::SelectTerritoryManager' | abpLocalization }}</option>
               @for (e of employees(); track e.id) {
                 <option [value]="e.id">{{ e.employeeId ? e.employeeId + ' - ' : '' }}{{ e.fullName }}</option>
               }
@@ -60,8 +60,8 @@ import type { ItemGroupDto } from '../../proxy/inventory/models';
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/settings/territories" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/settings/territories" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

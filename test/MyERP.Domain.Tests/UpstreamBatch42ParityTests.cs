@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67399, #67400, #67432, #67462, #67503, #67530,
-/// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68371, #68473, #68529, #68578, #68732,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #67344, #67364, #67379, #67383, #67399, #67400, #67432, #67462, #67503, #67530,
+/// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -1076,5 +1076,94 @@ public class UpstreamBatch42ParityTests
             validRows, r => r.SecondaryItemType, r => r.ValuationType);
         lcvEligible.Count.ShouldBe(2);
         lcvEligible.ShouldAllBe(r => r.RowId == fg1 || r.RowId == fg2);
+    }
+
+    [Fact]
+    public void Pr67364_SubcontractingOrderTransferStatus_RequiresEachRmItemFullySupplied()
+    {
+        var rmA = Guid.NewGuid();
+        var rmB = Guid.NewGuid();
+
+        // Nothing supplied -> Open
+        SubcontractingManager.ResolveSubcontractingTransferStatus(
+            new[] { (rmA, 10m, 0m), (rmB, 10m, 0m) }).ShouldBe("Open");
+
+        // RM A over-supplied (15/10), RM B short (5/10): total sum 20 >= 20, yet RM B is short -> Partial Material Transferred
+        SubcontractingManager.ResolveSubcontractingTransferStatus(
+            new[] { (rmA, 10m, 15m), (rmB, 10m, 5m) }).ShouldBe("Partial Material Transferred");
+
+        // Split rows for RM A sum to 10/10 and RM B is 10/10 -> Material Transferred
+        SubcontractingManager.ResolveSubcontractingTransferStatus(
+            new[] { (rmA, 6m, 4m), (rmA, 4m, 6m), (rmB, 10m, 10m) }).ShouldBe("Material Transferred");
+    }
+
+    [Fact]
+    public void Pr68348_RfqItemsAgainstMaterialRequest_ValidatesCompanyItemUomAllowsDuplicateMrItem()
+    {
+        var co1 = Guid.NewGuid();
+        var co2 = Guid.NewGuid();
+        var mr1 = Guid.NewGuid();
+        var mrItem1 = Guid.NewGuid();
+        var itemA = Guid.NewGuid();
+        var itemB = Guid.NewGuid();
+
+        var mrCompanies = new Dictionary<Guid, Guid> { [mr1] = co1 };
+        var mrItems = new Dictionary<Guid, (Guid ItemId, string Uom)> { [mrItem1] = (itemA, "Nos") };
+
+        // Duplicate RFQ rows referencing same MR Item with matching company/item/UOM pass
+        MaterialRequestManager.ValidateRfqItemsAgainstMaterialRequest(
+            co1,
+            new (int, Guid?, Guid?, Guid, string)[]
+            {
+                (1, mr1, mrItem1, itemA, "Nos"),
+                (2, mr1, mrItem1, itemA, "Nos"),
+            },
+            mrCompanies,
+            mrItems);
+
+        // Wrong company throws
+        Should.Throw<BusinessException>(() =>
+            MaterialRequestManager.ValidateRfqItemsAgainstMaterialRequest(
+                co2, new (int, Guid?, Guid?, Guid, string)[] { (1, mr1, mrItem1, itemA, "Nos") }, mrCompanies, mrItems));
+
+        // Wrong item throws
+        Should.Throw<BusinessException>(() =>
+            MaterialRequestManager.ValidateRfqItemsAgainstMaterialRequest(
+                co1, new (int, Guid?, Guid?, Guid, string)[] { (1, mr1, mrItem1, itemB, "Nos") }, mrCompanies, mrItems));
+
+        // Wrong UOM throws
+        Should.Throw<BusinessException>(() =>
+            MaterialRequestManager.ValidateRfqItemsAgainstMaterialRequest(
+                co1, new (int, Guid?, Guid?, Guid, string)[] { (1, mr1, mrItem1, itemA, "Box") }, mrCompanies, mrItems));
+    }
+
+    [Fact]
+    public void Pr64596_Pr68232_PartyGroupAdvanceOnlyAccountAndSoAttributedReturnSettlement_Parity()
+    {
+        var co1 = Guid.NewGuid();
+        var advAcc = Guid.NewGuid();
+
+        // PR #64596: Customer/Supplier Group row with only AdvanceAccountId is valid
+        TransactionValidationService.ValidatePartyGroupAccountRows(
+            new (Guid, Guid?, Guid?)[] { (co1, null, advAcc) });
+
+        // Row with neither AccountId nor AdvanceAccountId throws
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidatePartyGroupAccountRows(
+                new (Guid, Guid?, Guid?)[] { (co1, null, null) }));
+
+        // Duplicate company throws
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidatePartyGroupAccountRows(
+                new (Guid, Guid?, Guid?)[] { (co1, null, advAcc), (co1, Guid.NewGuid(), null) }));
+
+        // PR #68232: merged invoiced qty map includes both direct DN-invoiced and SO-attributed rows
+        var dnRow1 = Guid.NewGuid();
+        var dnRow2 = Guid.NewGuid();
+        var merged = DeliveryNoteManager.ResolveInvoicedQtyByDeliveryNoteRow(
+            new Dictionary<Guid, decimal> { [dnRow1] = 4m },
+            new Dictionary<Guid, decimal> { [dnRow2] = 6m });
+        merged[dnRow1].ShouldBe(4m);
+        merged[dnRow2].ShouldBe(6m);
     }
 }

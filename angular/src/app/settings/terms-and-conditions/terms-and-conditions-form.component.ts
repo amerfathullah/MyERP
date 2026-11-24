@@ -17,49 +17,49 @@ import type { CompanyDto } from '../../proxy/core/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Terms & Conditions</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditTermsAndConditions' : '::NewTermsAndConditions') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Company *</label>
+              <label class="form-label">{{ '::Company' | abpLocalization }} *</label>
               <select class="form-select" formControlName="companyId">
-                <option value="">— Select Company —</option>
+                <option value="">{{ '::SelectCompany' | abpLocalization }}</option>
                 @for (c of companies(); track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Title *</label>
+              <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="title" maxlength="140" [placeholder]="'::Placeholder:TermsTitleExample' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Terms Content</label>
+            <label class="form-label">{{ '::TermsContent' | abpLocalization }}</label>
             <textarea class="form-control font-monospace" formControlName="terms" rows="8" [placeholder]="'::Placeholder:TermsAndConditionsClauses' | abpLocalization"></textarea>
-            <small class="form-text text-muted">Legal terms, warranty conditions, payment timelines, and dispute clauses.</small>
+            <small class="form-text text-muted">{{ '::TermsContentHelp' | abpLocalization }}</small>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-4">
               <div class="form-check form-switch">
                 <input type="checkbox" class="form-check-input" formControlName="isSelling" id="isSelling">
-                <label class="form-check-label" for="isSelling">Applicable for Selling</label>
+                <label class="form-check-label" for="isSelling">{{ '::ApplicableForSelling' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-check form-switch">
                 <input type="checkbox" class="form-check-input" formControlName="isBuying" id="isBuying">
-                <label class="form-check-label" for="isBuying">Applicable for Buying</label>
+                <label class="form-check-label" for="isBuying">{{ '::ApplicableForBuying' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-check form-switch">
                 <input type="checkbox" class="form-check-input" formControlName="isDisabled" id="isDisabled">
-                <label class="form-check-label" for="isDisabled">Disabled</label>
+                <label class="form-check-label" for="isDisabled">{{ '::Disabled' | abpLocalization }}</label>
               </div>
             </div>
           </div>
@@ -67,13 +67,13 @@ import type { CompanyDto } from '../../proxy/core/models';
           <div class="mb-3">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" formControlName="copyAttachmentsToTransaction" id="copyAttachments">
-              <label class="form-check-label" for="copyAttachments">Copy Attachments to Transaction</label>
+              <label class="form-check-label" for="copyAttachments">{{ '::CopyAttachmentsToTransaction' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/settings/terms-and-conditions" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/settings/terms-and-conditions" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

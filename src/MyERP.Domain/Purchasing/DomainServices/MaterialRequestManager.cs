@@ -328,4 +328,54 @@ public class MaterialRequestManager : DomainService
             currentBuyingPriceList.Trim(),
             StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Validates Request for Quotation item rows against their source Material Request and Material Request Item
+    /// per ERPNext PR #68348 (<c>request_for_quotation.py: validate_with_previous_doc</c>):
+    /// verifies matching <c>CompanyId</c> on the Material Request and matching <c>(ItemId, Uom)</c> on the
+    /// Material Request Item while allowing multiple RFQ rows to reference the same MR Item row.
+    /// </summary>
+    public static void ValidateRfqItemsAgainstMaterialRequest(
+        Guid rfqCompanyId,
+        IEnumerable<(int RowIdx, Guid? MaterialRequestId, Guid? MaterialRequestItemId, Guid ItemId, string Uom)>? rfqItems,
+        IReadOnlyDictionary<Guid, Guid> mrCompanyById,
+        IReadOnlyDictionary<Guid, (Guid ItemId, string Uom)> mrItemDetailsById)
+    {
+        if (rfqItems == null)
+        {
+            return;
+        }
+
+        foreach (var row in rfqItems)
+        {
+            if (row.MaterialRequestId.HasValue
+                && row.MaterialRequestId.Value != Guid.Empty
+                && mrCompanyById.TryGetValue(row.MaterialRequestId.Value, out var mrCompanyId)
+                && mrCompanyId != rfqCompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("detail", $"Row #{row.RowIdx}: Company does not match linked Material Request.");
+            }
+
+            if (row.MaterialRequestItemId.HasValue
+                && row.MaterialRequestItemId.Value != Guid.Empty
+                && mrItemDetailsById.TryGetValue(row.MaterialRequestItemId.Value, out var mrItem))
+            {
+                if (mrItem.ItemId != row.ItemId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("rowIdx", row.RowIdx)
+                        .WithData("detail", $"Row #{row.RowIdx}: Item does not match linked Material Request Item.");
+                }
+
+                if (!string.Equals(mrItem.Uom?.Trim(), row.Uom?.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("rowIdx", row.RowIdx)
+                        .WithData("detail", $"Row #{row.RowIdx}: UOM '{row.Uom}' does not match linked Material Request Item UOM '{mrItem.Uom}'.");
+                }
+            }
+        }
+    }
 }

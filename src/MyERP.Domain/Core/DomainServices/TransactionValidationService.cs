@@ -283,6 +283,47 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Validates Customer Group / Supplier Group default party account rows per ERPNext PR #64596
+    /// (<c>customer_group.py: validate_party_account_rows</c>):
+    /// allows a row with ONLY an <c>AdvanceAccountId</c> (without requiring a Receivable/Payable <c>AccountId</c>),
+    /// rejects duplicate company rows, and rejects rows where neither <c>AccountId</c> nor <c>AdvanceAccountId</c> is set.
+    /// </summary>
+    public static void ValidatePartyGroupAccountRows(
+        IEnumerable<(Guid CompanyId, Guid? AccountId, Guid? AdvanceAccountId)>? accountRows)
+    {
+        if (accountRows == null)
+        {
+            return;
+        }
+
+        var seenCompanies = new HashSet<Guid>();
+        foreach (var row in accountRows)
+        {
+            if (row.CompanyId == Guid.Empty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Company is required on party account row.");
+            }
+
+            if (!seenCompanies.Add(row.CompanyId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("companyId", row.CompanyId)
+                    .WithData("detail", "Duplicate Company in party account rows.");
+            }
+
+            var hasRegular = row.AccountId.HasValue && row.AccountId.Value != Guid.Empty;
+            var hasAdvance = row.AdvanceAccountId.HasValue && row.AdvanceAccountId.Value != Guid.Empty;
+            if (!hasRegular && !hasAdvance)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("companyId", row.CompanyId)
+                    .WithData("detail", "Either Account or Advance Account must be specified for each Company.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

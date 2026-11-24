@@ -3321,6 +3321,52 @@ public class SubcontractingManager : DomainService
             .Where(r => getRowId(r) != removedFinishedGoodRowId && getReferenceRowId(r) != removedFinishedGoodRowId)
             .ToList();
     }
+
+    /// <summary>
+    /// Computes the raw-material transfer status for a submitted Subcontracting Order per ERPNext PR #67364
+    /// (<c>subcontracting_order.py: get_transfer_status</c>):
+    /// aggregates <c>RequiredQty</c> and <c>TotalSuppliedQty</c> per raw material item across rows,
+    /// returning <c>"Open"</c> when nothing was supplied, <c>"Partial Material Transferred"</c> if ANY
+    /// raw material item is short (even if another item was over-supplied), and <c>"Material Transferred"</c>
+    /// only once every raw material item is fully supplied.
+    /// </summary>
+    public static string ResolveSubcontractingTransferStatus(
+        IEnumerable<(Guid RmItemId, decimal RequiredQty, decimal TotalSuppliedQty)>? suppliedItems,
+        int qtyPrecision = 4)
+    {
+        if (suppliedItems == null)
+        {
+            return "Open";
+        }
+
+        var requiredByItem = new Dictionary<Guid, decimal>();
+        var suppliedByItem = new Dictionary<Guid, decimal>();
+        foreach (var row in suppliedItems)
+        {
+            requiredByItem.TryGetValue(row.RmItemId, out var prevReq);
+            requiredByItem[row.RmItemId] = prevReq + row.RequiredQty;
+
+            suppliedByItem.TryGetValue(row.RmItemId, out var prevSup);
+            suppliedByItem[row.RmItemId] = prevSup + row.TotalSuppliedQty;
+        }
+
+        if (!suppliedByItem.Values.Any(v => v > 0m))
+        {
+            return "Open";
+        }
+
+        foreach (var (rmItemId, reqQty) in requiredByItem)
+        {
+            suppliedByItem.TryGetValue(rmItemId, out var supQty);
+            if (Math.Round(supQty, qtyPrecision, MidpointRounding.AwayFromZero)
+                < Math.Round(reqQty, qtyPrecision, MidpointRounding.AwayFromZero))
+            {
+                return "Partial Material Transferred";
+            }
+        }
+
+        return "Material Transferred";
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

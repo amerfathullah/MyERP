@@ -7332,7 +7332,16 @@
     "PartyTypeName": "Party Type Name",
     "Receivable": "Receivable",
     "Payable": "Payable",
-    "NoPartyTypesConfigured": "No party types configured yet."
+    "NoPartyTypesConfigured": "No party types configured yet.",
+    "TerritoryName": "Territory Name",
+    "NoneRootTerritory": "— None (Root Territory) —",
+    "IsGroupTerritoryHelp": "Is Group (Region node — contains other territories)",
+    "TerritoryManager": "Territory Manager",
+    "SelectTerritoryManager": "— Select Territory Manager —",
+    "TermsContent": "Terms Content",
+    "TermsContentHelp": "Legal terms, warranty conditions, payment timelines, and dispute clauses.",
+    "ApplicableForSelling": "Applicable for Selling",
+    "ApplicableForBuying": "Applicable for Buying"
   }
 }
 
