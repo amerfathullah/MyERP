@@ -21,7 +21,7 @@ import { ShipmentParcelTemplateService } from '../../proxy/inventory/shipment-pa
           <div class="row mb-3">
             <div class="col-md-8">
               <label class="form-label">Parcel Template Name *</label>
-              <input type="text" class="form-control" formControlName="parcelTemplateName" placeholder="e.g. Small Box, Medium Carton, Large Crate">
+              <input type="text" class="form-control" formControlName="parcelTemplateName" [placeholder]="'::Placeholder:ParcelTemplateExample' | abpLocalization">
             </div>
             <div class="col-md-4 d-flex align-items-center mt-4">
               <div class="form-check form-switch">

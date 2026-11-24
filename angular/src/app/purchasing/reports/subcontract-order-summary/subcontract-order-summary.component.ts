@@ -61,7 +61,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               <input
                 type="text"
                 class="form-control form-control-sm"
-                placeholder="Search Subcontract Order / Supplier / Item"
+                [placeholder]="'::Placeholder:SearchSubcontractOrderSupplierItem' | abpLocalization"
                 [(ngModel)]="filterText"
               />
             </div>

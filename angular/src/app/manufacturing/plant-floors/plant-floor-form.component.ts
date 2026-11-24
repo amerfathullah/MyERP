@@ -25,7 +25,7 @@ import { WarehouseDto } from '../../proxy/inventory/models';
           <div class="row mb-3">
             <div class="col-md-6">
               <label class="form-label">Floor Name *</label>
-              <input type="text" class="form-control" formControlName="floorName" placeholder="e.g. Assembly Floor 1, Welding Bay">
+              <input type="text" class="form-control" formControlName="floorName" [placeholder]="'::Placeholder:PlantFloorExample' | abpLocalization">
             </div>
             <div class="col-md-6">
               <label class="form-label">Company *</label>

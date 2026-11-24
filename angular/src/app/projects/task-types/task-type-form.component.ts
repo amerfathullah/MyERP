@@ -21,7 +21,7 @@ import { TaskTypeService } from '../../proxy/projects/task-type.service';
           <div class="row mb-3">
             <div class="col-md-8">
               <label class="form-label">Name *</label>
-              <input type="text" class="form-control" formControlName="name" placeholder="e.g. Development, Bugfix, QA">
+              <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:TaskTypeExample' | abpLocalization">
             </div>
             <div class="col-md-4">
               <label class="form-label">Weight *</label>

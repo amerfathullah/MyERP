@@ -33,7 +33,7 @@ import type { CompanyDto } from '../../proxy/core/models';
 
           <div class="mb-3">
             <label class="form-label">Reason *</label>
-            <input type="text" class="form-control" formControlName="reason" maxlength="140" placeholder="e.g. Price Too High, Competitor Won, Project Cancelled">
+            <input type="text" class="form-control" formControlName="reason" maxlength="140" [placeholder]="'::Placeholder:LostReasonExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

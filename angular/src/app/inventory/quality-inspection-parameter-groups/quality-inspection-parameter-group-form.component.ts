@@ -21,7 +21,7 @@ import { QualityInspectionParameterGroupService } from '../../proxy/inventory/qu
           <div class="row mb-3">
             <div class="col-md-8">
               <label class="form-label">Group Name *</label>
-              <input type="text" class="form-control" formControlName="groupName" placeholder="e.g. Visual, Dimensional, Chemical">
+              <input type="text" class="form-control" formControlName="groupName" [placeholder]="'::Placeholder:ParameterGroupExample' | abpLocalization">
             </div>
             <div class="col-md-4 d-flex align-items-center mt-4">
               <div class="form-check form-switch">

@@ -504,4 +504,92 @@ public class DeliveryNoteManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the capped stock quantity a return row (delivery return or receipt return) moves,
+    /// signed as <paramref name="returnQty"/> (negative), per ERPNext PR #67207 (<c>StockController.get_return_stock_qty</c>):
+    /// - On cancel (<paramref name="isCancelled"/> == true), returns the exact posted return SLE quantity so reversal matches.
+    /// - Never moves more stock than the original row moved less its other submitted returns (across all warehouses
+    ///   for delivery returns, since a return may go to a different return warehouse).
+    /// - Once the return closes out the remaining unrounded quantity of the original row, moves all remaining posted stock.
+    /// </summary>
+    public static decimal CalculateCappedReturnStockQty(
+        decimal returnQty,
+        decimal conversionFactor,
+        decimal unroundedLeftToReturn,
+        decimal postedLeftToReturnStockQty,
+        bool isCancelled = false,
+        decimal? postedReturnSleQty = null,
+        bool isSerialOrBatchBundled = false,
+        bool isInternalTransfer = false,
+        bool isPackedItem = false,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var stockQty = Math.Round(returnQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+
+        if (isSerialOrBatchBundled || isInternalTransfer || isPackedItem)
+            return stockQty;
+
+        if (isCancelled)
+            return postedReturnSleQty.HasValue && postedReturnSleQty.Value != 0m ? postedReturnSleQty.Value : stockQty;
+
+        var leftPosted = Math.Round(postedLeftToReturnStockQty, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        if (leftPosted <= 0m)
+            return stockQty;
+
+        var unreturnedAfterThis = Math.Round(
+            unroundedLeftToReturn + returnQty * factor,
+            stockQtyPrecision,
+            MidpointRounding.AwayFromZero);
+        if (unreturnedAfterThis <= 0m)
+            return -leftPosted;
+
+        return Math.Max(stockQty, -leftPosted);
+    }
+
+    /// <summary>
+    /// Computes <c>(UnroundedLeft, PostedLeftStockQty)</c> remaining to return for an original row across all
+    /// warehouses its delivery and prior returns used (for delivery returns) or the target warehouse only (for stock receipts).
+    /// Per ERPNext PR #67207 (<c>StockController.get_row_left_to_return</c>).
+    /// </summary>
+    public static (decimal UnroundedLeftToReturn, decimal PostedLeftStockQty) CalculateRowLeftToReturn(
+        IEnumerable<(Guid RowId, decimal Qty, decimal ConversionFactor, Guid WarehouseId, decimal RejectedQty, Guid? RejectedWarehouseId)>? submittedOriginalAndPriorReturnRows,
+        IReadOnlyDictionary<Guid, decimal>? postedSleActualQtyByRowId,
+        bool isStockReceipt,
+        Guid targetWarehouseId,
+        int stockQtyPrecision = 4)
+    {
+        if (submittedOriginalAndPriorReturnRows == null || postedSleActualQtyByRowId == null)
+            return (0m, 0m);
+
+        var rows = submittedOriginalAndPriorReturnRows.ToList();
+        if (rows.Count == 0)
+            return (0m, 0m);
+
+        var warehouses = isStockReceipt
+            ? new HashSet<Guid> { targetWarehouseId }
+            : rows.Select(r => r.WarehouseId).ToHashSet();
+
+        decimal unrounded = 0m;
+        decimal postedSum = 0m;
+        foreach (var row in rows)
+        {
+            if (!postedSleActualQtyByRowId.TryGetValue(row.RowId, out var sleQty))
+                continue; // moved no stock (e.g. debit/credit note without Update Stock)
+
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            if (warehouses.Contains(row.WarehouseId))
+                unrounded += row.Qty * factor;
+            if (row.RejectedWarehouseId.HasValue && warehouses.Contains(row.RejectedWarehouseId.Value))
+                unrounded += row.RejectedQty * factor;
+
+            postedSum += sleQty;
+        }
+
+        // Stock receipts post positive SLEs (sign +1); deliveries post negative SLEs (sign -1)
+        var sign = isStockReceipt ? 1m : -1m;
+        var postedLeft = Math.Round(postedSum * sign, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (unrounded, postedLeft);
+    }
 }

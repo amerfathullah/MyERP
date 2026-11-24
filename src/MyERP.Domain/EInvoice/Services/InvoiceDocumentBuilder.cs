@@ -110,6 +110,23 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "Note", data.PaymentTermsNote)));
         }
 
+        // Prepaid Payment (per LHDN MyInvois UBL 2.1 spec)
+        if (data.PrepaidPayment != null)
+        {
+            var prepaid = new XElement(Cac + "PrepaidPayment");
+            if (!string.IsNullOrWhiteSpace(data.PrepaidPayment.Id))
+                prepaid.Add(new XElement(Cbc + "ID", data.PrepaidPayment.Id));
+            prepaid.Add(new XElement(Cbc + "PaidAmount",
+                new XAttribute("currencyID", data.CurrencyCode),
+                Math.Abs(data.PrepaidPayment.PaidAmount).ToString("F2", CultureInfo.InvariantCulture)));
+            if (data.PrepaidPayment.PaidDate.HasValue)
+            {
+                prepaid.Add(new XElement(Cbc + "PaidDate", data.PrepaidPayment.PaidDate.Value.ToString("yyyy-MM-dd")));
+                prepaid.Add(new XElement(Cbc + "PaidTime", data.PrepaidPayment.PaidDate.Value.ToString("HH:mm:ssZ")));
+            }
+            invoice.Add(prepaid);
+        }
+
         // Document-level Allowance/Charge (discount)
         if (data.DiscountAmount != 0)
         {
@@ -572,9 +589,34 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 Math.Abs(data.DiscountAmount).ToString("F2", CultureInfo.InvariantCulture)));
         }
 
+        if (data.ChargeTotalAmount.HasValue && data.ChargeTotalAmount.Value != 0m)
+        {
+            elem.Add(new XElement(Cbc + "ChargeTotalAmount",
+                new XAttribute("currencyID", data.CurrencyCode),
+                Math.Abs(data.ChargeTotalAmount.Value).ToString("F2", CultureInfo.InvariantCulture)));
+        }
+
+        if (data.PrepaidPayment != null && data.PrepaidPayment.PaidAmount != 0m)
+        {
+            elem.Add(new XElement(Cbc + "PrepaidAmount",
+                new XAttribute("currencyID", data.CurrencyCode),
+                Math.Abs(data.PrepaidPayment.PaidAmount).ToString("F2", CultureInfo.InvariantCulture)));
+        }
+
+        if (data.PayableRoundingAmount.HasValue && data.PayableRoundingAmount.Value != 0m)
+        {
+            elem.Add(new XElement(Cbc + "PayableRoundingAmount",
+                new XAttribute("currencyID", data.CurrencyCode),
+                data.PayableRoundingAmount.Value.ToString("F2", CultureInfo.InvariantCulture)));
+        }
+
+        var payableAmount = data.PrepaidPayment != null
+            ? Math.Max(0m, Math.Abs(data.GrandTotal) - Math.Abs(data.PrepaidPayment.PaidAmount))
+            : Math.Abs(data.GrandTotal);
+
         elem.Add(new XElement(Cbc + "PayableAmount",
             new XAttribute("currencyID", data.CurrencyCode),
-            Math.Abs(data.GrandTotal).ToString("F2", CultureInfo.InvariantCulture)));
+            payableAmount.ToString("F2", CultureInfo.InvariantCulture)));
 
         return elem;
     }
@@ -734,8 +776,11 @@ public class EInvoiceDocumentData
     public string? BillingReferenceUuid { get; set; }
     public List<EInvoiceAdditionalDocumentReference>? AdditionalDocumentReferences { get; set; }
     public string? PaymentTermsNote { get; set; }
+    public EInvoicePrepaidPaymentData? PrepaidPayment { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? DiscountReason { get; set; }
+    public decimal? ChargeTotalAmount { get; set; }
+    public decimal? PayableRoundingAmount { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -790,6 +835,13 @@ public class EInvoiceAdditionalDocumentReference
     public string Id { get; set; } = string.Empty;
     public string? DocumentType { get; set; }
     public string? DocumentDescription { get; set; }
+}
+
+public class EInvoicePrepaidPaymentData
+{
+    public string? Id { get; set; }
+    public decimal PaidAmount { get; set; }
+    public DateTime? PaidDate { get; set; }
 }
 
 public class EInvoiceLineData

@@ -2490,6 +2490,182 @@ public class UpstreamBatch41ParityTests
         (rowEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("does not belong to Sales Order SO-001");
     }
 
+    [Fact]
+    public void UpstreamBatch20_LhdnPrepaidMonetary_SplitReturnCap_ScrTargetedCost_ScioMultiRow_Parity()
+    {
+        // 1. MyInvois UBL 2.1: PrepaidPayment + ChargeTotalAmount + PayableRoundingAmount + deducted PayableAmount
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "INV-2026-0020",
+            IssueDate = new DateTime(2026, 8, 20, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Sup", Tin = "C1111111111", Address = "A", City = "KL", State = "14", CountryCode = "MYS" },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData { Name = "Buy", Tin = "C2222222222", Address = "B", City = "KL", State = "14", CountryCode = "MYS" },
+            ChargeTotalAmount = 15m,
+            PayableRoundingAmount = -0.02m,
+            PrepaidPayment = new MyERP.EInvoice.Services.EInvoicePrepaidPaymentData
+            {
+                Id = "ADV-001",
+                PaidAmount = 40m,
+                PaidDate = new DateTime(2026, 8, 19, 9, 30, 0, DateTimeKind.Utc)
+            },
+            NetTotal = 100m,
+            TaxAmount = 6m,
+            GrandTotal = 121m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item", Quantity = 1m, UnitPrice = 100m, TaxAmount = 6m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        var prepaidEl = xml.Root!.Element(cac + "PrepaidPayment");
+        prepaidEl.ShouldNotBeNull();
+        prepaidEl!.Element(cbc + "ID")!.Value.ShouldBe("ADV-001");
+        prepaidEl.Element(cbc + "PaidAmount")!.Value.ShouldBe("40.00");
+        prepaidEl.Element(cbc + "PaidDate")!.Value.ShouldBe("2026-08-19");
+        prepaidEl.Element(cbc + "PaidTime")!.Value.ShouldBe("09:30:00Z");
+        var monetary = xml.Root.Element(cac + "LegalMonetaryTotal")!;
+        monetary.Element(cbc + "ChargeTotalAmount")!.Value.ShouldBe("15.00");
+        monetary.Element(cbc + "PrepaidAmount")!.Value.ShouldBe("40.00");
+        monetary.Element(cbc + "PayableRoundingAmount")!.Value.ShouldBe("-0.02");
+        monetary.Element(cbc + "PayableAmount")!.Value.ShouldBe("81.00");
+
+        // 2. ERPNext PR #67207: Delivery return across warehouses caps cumulative stock qty at original SLE qty
+        var origRowId = Guid.NewGuid();
+        var priorRetRowId = Guid.NewGuid();
+        var whMain = Guid.NewGuid();
+        var whReturn = Guid.NewGuid();
+        // Original delivery: qty 1 Box * 0.33333 = 0.3333 stock qty posted as -0.3333 in whMain;
+        // Prior return to whReturn: qty -0.5 * 0.33333 rounded to +0.1667 in whReturn -> only 0.1666 left to return!
+        var (unroundedLeft, postedLeft) = DeliveryNoteManager.CalculateRowLeftToReturn(
+            submittedOriginalAndPriorReturnRows: new[]
+            {
+                (origRowId, 1m, 0.33333m, whMain, 0m, (Guid?)null),
+                (priorRetRowId, -0.5m, 0.33333m, whReturn, 0m, (Guid?)null),
+            },
+            postedSleActualQtyByRowId: new Dictionary<Guid, decimal>
+            {
+                [origRowId] = -0.3333m,
+                [priorRetRowId] = 0.1667m,
+            },
+            isStockReceipt: false,
+            targetWarehouseId: whReturn,
+            stockQtyPrecision: 4);
+        postedLeft.ShouldBe(0.1666m);
+
+        // Final return of -0.5 Box (which alone would round to -0.1667) is capped at -0.1666 so total == original 0.3333
+        DeliveryNoteManager.CalculateCappedReturnStockQty(
+            returnQty: -0.5m,
+            conversionFactor: 0.33333m,
+            unroundedLeftToReturn: unroundedLeft,
+            postedLeftToReturnStockQty: postedLeft,
+            stockQtyPrecision: 4).ShouldBe(-0.1666m);
+
+        // Cancellation returns exact posted SLE qty
+        DeliveryNoteManager.CalculateCappedReturnStockQty(
+            returnQty: -0.5m,
+            conversionFactor: 0.33333m,
+            unroundedLeftToReturn: 0m,
+            postedLeftToReturnStockQty: 0m,
+            isCancelled: true,
+            postedReturnSleQty: -0.1666m).ShouldBe(-0.1666m);
+
+        // 3. ERPNext PR #68870: SCR targeted additional cost + re-save weight strip + return allocation
+        var fg1 = Guid.NewGuid();
+        var fg2 = Guid.NewGuid();
+        var secRow = Guid.NewGuid();
+        SubcontractingManager.GetSubcontractingReceiptAmountForCosting(
+            rowAmount: 250m, qtyForCosting: 10m, previousAdditionalCostPerQty: 5m, bomCostAllocationPercentage: 100m)
+            .ShouldBe(200m);
+
+        var dist = SubcontractingManager.CalculateTargetedAndSpreadAdditionalCosts(
+            distributeBasedOn: "Qty",
+            rows: new[]
+            {
+                (fg1, false, 100m, 2m),
+                (fg2, false, 100m, 2m),
+                (secRow, true, 10m, 1m),
+            },
+            additionalCostRows: new[]
+            {
+                (1, (Guid?)fg1, 60m),  // targeted to fg1 only
+                (2, (Guid?)null, 40m), // untargeted -> 20 each
+            });
+        dist.First(r => r.RowId == fg1).TotalShare.ShouldBe(80m);
+        dist.First(r => r.RowId == fg1).AdditionalCostPerQty.ShouldBe(40m);
+        dist.First(r => r.RowId == fg2).TotalShare.ShouldBe(20m);
+        dist.First(r => r.RowId == fg2).AdditionalCostPerQty.ShouldBe(10m);
+
+        // Targeting a secondary (non-FG) row throws
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.CalculateTargetedAndSpreadAdditionalCosts(
+                distributeBasedOn: "Qty",
+                rows: new[] { (fg1, false, 100m, 2m), (secRow, true, 10m, 1m) },
+                additionalCostRows: new[] { (1, (Guid?)secRow, 50m) }));
+
+        // Returning 1 of 2 units of fg1 only takes back 50% of targeted cost (30) and 25% of untargeted cost (10)
+        var retCosts = SubcontractingManager.CalculateSubcontractingReturnAdditionalCosts(
+            originalFgRows: new Dictionary<Guid, (decimal, decimal, decimal, decimal)>
+            {
+                [fg1] = (2m, 2m, 40m, 2m),
+                [fg2] = (2m, 2m, 10m, 2m),
+            },
+            returnRows: new[] { (fg1, -1m) },
+            originalAdditionalCosts: new[]
+            {
+                (1, (Guid?)fg1, 60m),
+                (2, (Guid?)null, 40m),
+            });
+        retCosts.First(r => r.RowIdx == 1).ReturnedAmount.ShouldBe(-30m);
+        retCosts.First(r => r.RowIdx == 2).ReturnedAmount.ShouldBe(-10m);
+
+        // 4. ERPNext PR #67501: SCIO multi-row manufacture consumption & scoped cancel check
+        var cpiItem = Guid.NewGuid();
+        var ownItem = Guid.NewGuid();
+        var scio1 = Guid.NewGuid();
+        var scio2 = Guid.NewGuid();
+        var whStore = Guid.NewGuid();
+
+        // Two rows of same customer-provided item summing to 10 <= available 10 pass
+        Should.NotThrow(() =>
+            SubcontractingManager.ValidateInwardManufactureMultiRowConsumption(
+                rows: new[] { (1, cpiItem, "CPI-1", 6m), (2, cpiItem, "CPI-1", 4m) },
+                availableByItemId: new Dictionary<Guid, (decimal, decimal)> { [cpiItem] = (0m, 10m) }));
+
+        // Two rows summing to 11 > available 10 throw at row #2
+        var overEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateInwardManufactureMultiRowConsumption(
+                rows: new[] { (1, cpiItem, "CPI-1", 6m), (2, cpiItem, "CPI-1", 5m) },
+                availableByItemId: new Dictionary<Guid, (decimal, decimal)> { [cpiItem] = (0m, 10m) }));
+        (overEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Row #2");
+
+        // Cancel check: billed extra material on ANOTHER order (scio2) does NOT block cancelling scio1
+        Should.NotThrow(() =>
+            SubcontractingManager.ValidateInwardManufactureCancelAgainstBilledExtraMaterial(
+                scioId: scio1,
+                fgItemId: fg1,
+                ownMaterialRows: new[] { (1, ownItem, "OWN-1", whStore, 3m), (2, ownItem, "OWN-1", whStore, 3m) },
+                scioReceivedOwnMaterials: new Dictionary<(Guid, Guid, Guid, Guid), (decimal, decimal, decimal)>
+                {
+                    [(scio2, fg1, ownItem, whStore)] = (6m, 6m, 0m)
+                }));
+
+        // Cancel check: billed own material on SAME order across two Manufacture rows (3 + 3 = 6) passes row #1 (6-3 >= 2) and blocks at row #2 (6-6 < 2)
+        var cancelOwnEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateInwardManufactureCancelAgainstBilledExtraMaterial(
+                scioId: scio1,
+                fgItemId: fg1,
+                ownMaterialRows: new[] { (1, ownItem, "OWN-1", whStore, 3m), (2, ownItem, "OWN-1", whStore, 3m) },
+                scioReceivedOwnMaterials: new Dictionary<(Guid, Guid, Guid, Guid), (decimal, decimal, decimal)>
+                {
+                    [(scio1, fg1, ownItem, whStore)] = (6m, 2m, 0m)
+                }));
+        (cancelOwnEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Row #2");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

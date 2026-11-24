@@ -6737,7 +6737,18 @@
     "Placeholder:ChequeBankNameExample": "e.g. Maybank, CIMB, Public Bank",
     "Placeholder:CommunicationChannelExample": "e.g. +603-12345678 or support@company.com",
     "Placeholder:EmployeeGroupNameExample": "e.g. Operations Shift A, Management Team",
-    "Placeholder:DesignationExample": "e.g. Technician"
+    "Placeholder:DesignationExample": "e.g. Technician",
+    "Placeholder:FilterByInvoiceSupplierItem": "Filter by invoice, supplier, item...",
+    "Placeholder:SearchItemCodeNameSupplier": "Search by item code, name, supplier...",
+    "Placeholder:SearchPoNumber": "Search PO #",
+    "Placeholder:FilterByPrSupplierItem": "Filter by PR, supplier, item...",
+    "Placeholder:SearchSubcontractOrderSupplierItem": "Search Subcontract Order / Supplier / Item",
+    "Placeholder:LostReasonExample": "e.g. Price Too High, Competitor Won, Project Cancelled",
+    "Placeholder:OpportunityTypeExample": "e.g. Sales, Maintenance, Support, Project, Renewal...",
+    "Placeholder:ParameterGroupExample": "e.g. Visual, Dimensional, Chemical",
+    "Placeholder:ParcelTemplateExample": "e.g. Small Box, Medium Carton, Large Crate",
+    "Placeholder:PlantFloorExample": "e.g. Assembly Floor 1, Welding Bay",
+    "Placeholder:TaskTypeExample": "e.g. Development, Bugfix, QA"
   }
 }
 

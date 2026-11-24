@@ -20,7 +20,7 @@ import { OpportunityTypeService } from '../../proxy/crm/opportunity-type.service
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Type Name *</label>
-            <input type="text" class="form-control" formControlName="name" placeholder="e.g. Sales, Maintenance, Support, Project, Renewal...">
+            <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:OpportunityTypeExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

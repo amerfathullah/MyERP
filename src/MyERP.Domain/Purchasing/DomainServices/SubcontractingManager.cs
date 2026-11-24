@@ -2482,6 +2482,221 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Computes the row amount used for additional-cost weighting, stripping any previously applied
+    /// additional cost so re-saving preserves identical weights.
+    /// Per ERPNext PR #68870 (<c>SubcontractingReceipt.get_amount_for_costing</c>).
+    /// </summary>
+    public static decimal GetSubcontractingReceiptAmountForCosting(
+        decimal rowAmount,
+        decimal qtyForCosting,
+        decimal previousAdditionalCostPerQty,
+        decimal bomCostAllocationPercentage = 100m)
+    {
+        var allocation = bomCostAllocationPercentage > 0m ? bomCostAllocationPercentage / 100m : 1m;
+        var priorAdditionalCost = qtyForCosting * previousAdditionalCostPerQty * allocation;
+        return rowAmount - priorAdditionalCost;
+    }
+
+    /// <summary>
+    /// Distributes Subcontracting Receipt additional costs where individual cost rows may target a
+    /// specific finished good row (<c>TargetItemRowId</c>), and the remaining untargeted cost is spread
+    /// across finished goods by <c>Amount</c> (pre-additional-cost) or <c>Qty</c> with running-total rounding.
+    /// Per ERPNext PR #68870 (<c>SubcontractingController.calculate_additional_costs</c>).
+    /// </summary>
+    public static List<(Guid RowId, decimal TotalShare, decimal AdditionalCostPerQty)> CalculateTargetedAndSpreadAdditionalCosts(
+        string distributeBasedOn,
+        IReadOnlyList<(Guid RowId, bool IsSecondaryItem, decimal AmountForCosting, decimal QtyForCosting)> rows,
+        IReadOnlyList<(int RowIdx, Guid? TargetItemRowId, decimal Amount)> additionalCostRows,
+        int precision = 2)
+    {
+        var fgRows = (rows ?? Array.Empty<(Guid, bool, decimal, decimal)>()).Where(r => !r.IsSecondaryItem).ToList();
+        var result = new List<(Guid RowId, decimal TotalShare, decimal AdditionalCostPerQty)>(fgRows.Count);
+        if (fgRows.Count == 0)
+            return result;
+
+        var rowIndex = new Dictionary<Guid, int>(fgRows.Count);
+        for (var i = 0; i < fgRows.Count; i++)
+            rowIndex[fgRows[i].RowId] = i;
+
+        var costs = new decimal[fgRows.Count];
+        decimal totalAdditionalCosts = 0m;
+        decimal targetedSum = 0m;
+
+        if (additionalCostRows != null)
+        {
+            foreach (var costRow in additionalCostRows)
+            {
+                totalAdditionalCosts += costRow.Amount;
+                if (!costRow.TargetItemRowId.HasValue || costRow.TargetItemRowId.Value == Guid.Empty)
+                    continue;
+
+                if (!rowIndex.TryGetValue(costRow.TargetItemRowId.Value, out var idx))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{costRow.RowIdx}: Additional Costs row targets an item row that is not a finished good.");
+                }
+
+                costs[idx] += costRow.Amount;
+                targetedSum += costRow.Amount;
+            }
+        }
+
+        var spreadCost = Math.Round(totalAdditionalCosts - targetedSum, precision, MidpointRounding.AwayFromZero);
+        if (spreadCost != 0m)
+        {
+            var spreadInput = fgRows.Select(r => (r.RowId, false, r.AmountForCosting, r.QtyForCosting)).ToList();
+            var spreadShares = CalculateAdditionalCostPerQtyForFinishedGoods(spreadCost, distributeBasedOn, spreadInput, precision);
+            for (var i = 0; i < fgRows.Count; i++)
+                costs[i] += spreadShares[i].ShareAmount;
+        }
+
+        for (var i = 0; i < fgRows.Count; i++)
+        {
+            var fg = fgRows[i];
+            var perQty = fg.QtyForCosting != 0m ? costs[i] / fg.QtyForCosting : 0m;
+            result.Add((fg.RowId, costs[i], perQty));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Computes returned additional cost amounts on a Subcontracting Receipt return:
+    /// targeted cost rows scale strictly by their own FG row's return ratio, while untargeted cost rows
+    /// scale by the remaining untargeted ratio.
+    /// Per ERPNext PR #68870 (<c>SubcontractingReceipt.set_return_additional_costs</c>).
+    /// </summary>
+    public static List<(int RowIdx, Guid? TargetItemRowId, decimal ReturnedAmount)> CalculateSubcontractingReturnAdditionalCosts(
+        IReadOnlyDictionary<Guid, (decimal OriginalQty, decimal QtyForCosting, decimal AdditionalCostPerQty, decimal BasisValue)> originalFgRows,
+        IEnumerable<(Guid OriginalRowId, decimal ReturnQty)> returnRows,
+        IReadOnlyList<(int RowIdx, Guid? TargetItemRowId, decimal Amount)> originalAdditionalCosts,
+        int precision = 2)
+    {
+        var result = new List<(int RowIdx, Guid? TargetItemRowId, decimal ReturnedAmount)>();
+        if (originalAdditionalCosts == null || originalAdditionalCosts.Count == 0)
+            return result;
+
+        var totalCost = originalFgRows.Values.Sum(r => r.QtyForCosting * r.AdditionalCostPerQty);
+        var totalBasis = originalFgRows.Values.Sum(r => r.BasisValue);
+
+        decimal returnedCost = 0m;
+        decimal returnedBasis = 0m;
+        var returnedRatios = new Dictionary<Guid, decimal>();
+
+        foreach (var ret in returnRows ?? Enumerable.Empty<(Guid, decimal)>())
+        {
+            if (!originalFgRows.TryGetValue(ret.OriginalRowId, out var orig) || orig.OriginalQty == 0m)
+                continue;
+
+            var rowRatio = ret.ReturnQty / orig.OriginalQty;
+            returnedCost += ret.ReturnQty * orig.AdditionalCostPerQty;
+            returnedBasis += ret.ReturnQty * orig.BasisValue / orig.OriginalQty;
+            returnedRatios[ret.OriginalRowId] = returnedRatios.GetValueOrDefault(ret.OriginalRowId, 0m) + rowRatio;
+        }
+
+        var targetedRows = originalAdditionalCosts
+            .Where(r => r.TargetItemRowId.HasValue && r.TargetItemRowId.Value != Guid.Empty)
+            .ToList();
+        var untargetedCost = Math.Round(totalCost - targetedRows.Sum(r => r.Amount), precision, MidpointRounding.AwayFromZero);
+
+        decimal untargetedRatio;
+        if (untargetedCost != 0m)
+        {
+            var targetedReturned = targetedRows.Sum(r =>
+                r.Amount * returnedRatios.GetValueOrDefault(r.TargetItemRowId!.Value, 0m));
+            untargetedRatio = (returnedCost - targetedReturned) / untargetedCost;
+        }
+        else
+        {
+            untargetedRatio = totalBasis != 0m ? returnedBasis / totalBasis : 0m;
+        }
+
+        foreach (var costRow in originalAdditionalCosts)
+        {
+            var ratio = costRow.TargetItemRowId.HasValue && costRow.TargetItemRowId.Value != Guid.Empty
+                ? returnedRatios.GetValueOrDefault(costRow.TargetItemRowId.Value, 0m)
+                : untargetedRatio;
+            var amount = Math.Round(costRow.Amount * ratio, precision, MidpointRounding.AwayFromZero);
+            result.Add((costRow.RowIdx, costRow.TargetItemRowId, amount));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Validates Manufacture Stock Entry consumption of Customer Provided Items in a Subcontracting Inward Order:
+    /// permits multiple rows of the same item, summing <c>TransferQty</c> per item and rounding both sides
+    /// to <paramref name="qtyPrecision"/> before checking against <c>AvailableQty</c>.
+    /// Per ERPNext PR #67501 (<c>subcontracting_inward_controller.py</c>).
+    /// </summary>
+    public static void ValidateInwardManufactureMultiRowConsumption(
+        IEnumerable<(int RowIdx, Guid ItemId, string ItemCode, decimal TransferQty)>? rows,
+        IReadOnlyDictionary<Guid, (decimal ConsumedQty, decimal AvailableQty)>? availableByItemId,
+        int qtyPrecision = 4)
+    {
+        if (rows == null || availableByItemId == null)
+            return;
+
+        var summedByItem = new Dictionary<Guid, decimal>();
+        foreach (var row in rows)
+        {
+            if (!availableByItemId.TryGetValue(row.ItemId, out var stock))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowIdx}: Customer Provided Item {row.ItemCode} is not part of the Subcontracting Inward Order.");
+            }
+
+            var cumulative = summedByItem.GetValueOrDefault(row.ItemId, 0m) + row.TransferQty;
+            summedByItem[row.ItemId] = cumulative;
+
+            var totalConsumed = Math.Round(stock.ConsumedQty + cumulative, qtyPrecision, MidpointRounding.AwayFromZero);
+            var bound = Math.Round(stock.AvailableQty, qtyPrecision, MidpointRounding.AwayFromZero);
+            if (totalConsumed > bound)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowIdx}: Cannot consume {totalConsumed} of Item {row.ItemCode}; available quantity is {bound}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates cancellation of a Subcontracting Inward Manufacture Stock Entry against billed own extra material:
+    /// scopes extra-material lookup strictly to <c>(ScioId, FgItemId, RmItemId, SourceWarehouseId)</c>,
+    /// sums duplicate rows of the same <c>(RmItemId, SourceWarehouseId)</c>, and compares at <paramref name="qtyPrecision"/>.
+    /// Per ERPNext PR #67501 (<c>subcontracting_inward_controller.py</c>).
+    /// </summary>
+    public static void ValidateInwardManufactureCancelAgainstBilledExtraMaterial(
+        Guid scioId,
+        Guid fgItemId,
+        IEnumerable<(int RowIdx, Guid ItemId, string ItemCode, Guid SourceWarehouseId, decimal TransferQty)>? ownMaterialRows,
+        IReadOnlyDictionary<(Guid ScioId, Guid FgItemId, Guid ItemId, Guid WarehouseId), (decimal ConsumedQty, decimal BilledQty, decimal ReturnedQty)>? scioReceivedOwnMaterials,
+        int qtyPrecision = 4)
+    {
+        if (ownMaterialRows == null || scioReceivedOwnMaterials == null)
+            return;
+
+        var consumedByKey = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+        foreach (var row in ownMaterialRows)
+        {
+            var lookupKey = (scioId, fgItemId, row.ItemId, row.SourceWarehouseId);
+            if (!scioReceivedOwnMaterials.TryGetValue(lookupKey, out var rec))
+                continue;
+
+            var aggKey = (row.ItemId, row.SourceWarehouseId);
+            var summed = consumedByKey.GetValueOrDefault(aggKey, 0m) + row.TransferQty;
+            consumedByKey[aggKey] = summed;
+
+            var netBilled = Math.Round(rec.BilledQty - rec.ReturnedQty, qtyPrecision, MidpointRounding.AwayFromZero);
+            var remainingConsumed = Math.Round(rec.ConsumedQty - summed, qtyPrecision, MidpointRounding.AwayFromZero);
+            if (netBilled > remainingConsumed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowIdx}: Cannot cancel this Manufacturing Stock Entry as billed quantity of Item {row.ItemCode} cannot be greater than consumed quantity.");
+            }
+        }
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(
