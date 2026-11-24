@@ -173,7 +173,7 @@ import type { AccountingDimensionDto, AccountingDimensionFilterDto, AccountDto }
               </div>
               <div class="col-md-3">
                 <label class="form-label">{{ '::DimensionValues' | abpLocalization }}</label>
-                <input type="text" class="form-control" formControlName="dimensionValueIds" placeholder="id1,id2..." />
+                <input type="text" class="form-control" formControlName="dimensionValueIds" [placeholder]="'::Placeholder:DimensionValueIdsSample' | abpLocalization" />
               </div>
               <div class="col-md-2">
                 <button type="submit" class="btn btn-primary w-100" [disabled]="filterForm.invalid || savingFilter()">

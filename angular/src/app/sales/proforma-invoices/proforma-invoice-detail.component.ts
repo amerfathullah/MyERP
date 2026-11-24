@@ -126,7 +126,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                 <div class="card-body">
                   <div class="mb-2">
                     <label class="form-label">{{ '::Recipients' | abpLocalization }} *</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="name@example.com, name2@example.com" [(ngModel)]="emailRecipients" />
+                    <input type="text" class="form-control form-control-sm" [placeholder]="'::Placeholder:EmailRecipientsSample' | abpLocalization" [(ngModel)]="emailRecipients" />
                   </div>
                   <div class="mb-2">
                     <label class="form-label">{{ '::Subject' | abpLocalization }}</label>

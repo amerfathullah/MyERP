@@ -68,7 +68,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
                     }
                   </select>
                 </td>
-                <td><input type="text" class="form-control form-control-sm" [(ngModel)]="item.stockUom" (ngModelChange)="isDirty=true" placeholder="UoM" /></td>
+                <td><input type="text" class="form-control form-control-sm" [(ngModel)]="item.stockUom" (ngModelChange)="isDirty=true" [placeholder]="'::Placeholder:UomShort' | abpLocalization" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="1" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1); isDirty=true"><i class="fa fa-trash"></i></button></td>

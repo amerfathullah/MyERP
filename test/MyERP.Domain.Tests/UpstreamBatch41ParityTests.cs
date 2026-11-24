@@ -3214,6 +3214,98 @@ public class UpstreamBatch41ParityTests
         consolidatedXml.ShouldContain("<cbc:RegistrationName>Consolidated Buyers</cbc:RegistrationName>");
     }
 
+    [Fact]
+    public void UpstreamBatch27_ScoReturnRowSplit_ScrCostShare_MrpForecastOrder_MyInvoisConsolidationGlTax_Parity()
+    {
+        // 1. ERPNext PR #68828: Split Return of Components over order rows it was sent on, rounding each row and slicing serials
+        var row1 = Guid.NewGuid();
+        var row2 = Guid.NewGuid();
+        var split = SubcontractingManager.SplitSubcontractingComponentReturnAcrossOrderRows(
+            returnQty: 5m,
+            orderRows: new List<(Guid OrderRowId, decimal TotalSuppliedQty, decimal ConsumedQty)>
+            {
+                (row1, 4m, 1m), // 3 left
+                (row2, 5m, 1m)  // 4 left -> takes remaining 2
+            },
+            serialNos: new List<string> { "S1", "S2", "S3", "S4", "S5" });
+        split.Count.ShouldBe(2);
+        split[0].OrderRowId.ShouldBe(row1);
+        split[0].Qty.ShouldBe(3m);
+        split[0].SerialNos.ShouldBe(new[] { "S1", "S2", "S3" });
+        split[1].OrderRowId.ShouldBe(row2);
+        split[1].Qty.ShouldBe(2m);
+        split[1].SerialNos.ShouldBe(new[] { "S4", "S5" });
+
+        // Last row is also rounded to qtyPrecision (commit db52d988)
+        var roundedSplit = SubcontractingManager.SplitSubcontractingComponentReturnAcrossOrderRows(
+            returnQty: 1.23456m,
+            orderRows: new List<(Guid OrderRowId, decimal TotalSuppliedQty, decimal ConsumedQty)>
+            {
+                (row1, 0.5m, 0m),
+                (row2, 5m, 0m)
+            },
+            qtyPrecision: 3);
+        roundedSplit[0].Qty.ShouldBe(0.5m);
+        roundedSplit[1].Qty.ShouldBe(0.735m);
+
+        // 2. ERPNext PR #67357: Mapped SCR additional cost share (zero-net -> 1.0, negative net preserved, selected partial qty scaled)
+        var scrRow1 = Guid.NewGuid();
+        var scrRow2 = Guid.NewGuid();
+        // Zero net additional cost keeps rows in full (1.0)
+        SubcontractingManager.CalculateReceiptAdditionalCostShare(
+            new List<(Guid, decimal, decimal, decimal)> { (scrRow1, 10m, 0m, 0m) },
+            costTakenByPriorReceipts: 0m).ShouldBe(1m);
+        // Partial receipt of 4 out of 10 pending after prior receipt took 20 of 100 total -> remainingShare=0.8 * (4/10)=0.32
+        SubcontractingManager.CalculateReceiptAdditionalCostShare(
+            new List<(Guid, decimal, decimal, decimal)> { (scrRow1, 10m, 0m, 10m) },
+            costTakenByPriorReceipts: 20m,
+            selectedQtyByRow: new Dictionary<Guid, decimal> { [scrRow1] = 4m }).ShouldBe(0.32m);
+        // Negative net additional cost (-100 total, -25 already taken -> remainingShare = 1 - (-25/-100) = 0.75)
+        SubcontractingManager.CalculateReceiptAdditionalCostShare(
+            new List<(Guid, decimal, decimal, decimal)> { (scrRow2, 10m, 0m, -10m) },
+            costTakenByPriorReceipts: -25m).ShouldBe(0.75m);
+
+        // 3. ERPNext PR #67498: Overlapping MRP forecast periods consume MPS demand identically in any row order
+        var mrpItem = Guid.NewGuid();
+        var baseDate = new DateTime(2026, 10, 1);
+        var mpsDemands = new List<(Guid ItemId, DateTime DemandDate, decimal PlannedQty)>
+        {
+            (mrpItem, baseDate.AddDays(10), 100m),
+            (mrpItem, baseDate.AddDays(33), 100m)
+        };
+        var fA = (mrpItem, baseDate, baseDate.AddDays(30), 100m);
+        var fB = (mrpItem, baseDate.AddDays(7), baseDate.AddDays(37), 100m);
+
+        var remOrderAB = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .ConsumeForecastAgainstMpsDemand(new[] { fA, fB }, mpsDemands);
+        var remOrderBA = MyERP.Manufacturing.DomainServices.MasterProductionScheduleService
+            .ConsumeForecastAgainstMpsDemand(new[] { fB, fA }, mpsDemands);
+        remOrderAB.ShouldBe(new[] { 0m, 0m });
+        remOrderBA.ShouldBe(new[] { 0m, 0m });
+
+        // 4. MyInvois consolidate_invoice.py: Consolidated invoice skips GL posting and merges taxes by (AccountHead, ChargeType)
+        var consInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CONS-1", baseDate)
+        {
+            IsConsolidated = true
+        };
+        var stdInv = new MyERP.Sales.Entities.SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-1", baseDate)
+        {
+            IsConsolidated = false
+        };
+        MyERP.EInvoice.Services.EInvoiceConsolidationService.ShouldSkipGlPostingForConsolidatedInvoice(consInv).ShouldBeTrue();
+        MyERP.EInvoice.Services.EInvoiceConsolidationService.ShouldSkipGlPostingForConsolidatedInvoice(stdInv).ShouldBeFalse();
+
+        var mergedTaxes = MyERP.EInvoice.Services.EInvoiceConsolidationService.MergeConsolidatedTaxes(new[]
+        {
+            ("SST Output", "On Net Total", 12m),
+            ("Service Tax", "On Net Total", 8m),
+            ("SST Output", "On Net Total", 18m)
+        });
+        mergedTaxes.Count.ShouldBe(2);
+        mergedTaxes[0].ShouldBe(("SST Output", "On Net Total", 30m));
+        mergedTaxes[1].ShouldBe(("Service Tax", "On Net Total", 8m));
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

@@ -150,7 +150,7 @@ interface DunningTypeRow {
                   @for (row of letterTextArray.controls; track $index; let i = $index) {
                     <tr [formGroupName]="i">
                       <td class="text-center text-muted">{{ i + 1 }}</td>
-                      <td><input class="form-control form-control-sm" formControlName="language" placeholder="en" /></td>
+                      <td><input class="form-control form-control-sm" formControlName="language" [placeholder]="'::Placeholder:LanguageCodeSample' | abpLocalization" /></td>
                       <td class="text-center"><input class="form-check-input" type="checkbox" formControlName="isDefaultLanguage" /></td>
                       <td><textarea class="form-control form-control-sm" rows="2" formControlName="bodyText"></textarea></td>
                       <td><textarea class="form-control form-control-sm" rows="2" formControlName="closingText"></textarea></td>

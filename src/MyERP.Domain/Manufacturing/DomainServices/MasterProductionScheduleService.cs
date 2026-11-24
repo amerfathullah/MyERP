@@ -435,4 +435,76 @@ public class MasterProductionScheduleService : DomainService
 
         return ownTime + longestComponent;
     }
+
+    /// <summary>
+    /// Consumes MRP forecast rows against Master Production Schedule demand across each forecast's
+    /// whole <c>[PeriodStart, PeriodEnd)</c> window per ERPNext PR #67498
+    /// (<c>MaterialRequirementsPlanningReport.consume_forecast</c>).
+    /// Sorts forecast periods by <c>(PeriodEnd, PeriodStart)</c> ascending so overlapping periods
+    /// ending earlier consume matching MPS demand deterministically regardless of input row order.
+    /// Returns remaining unconsumed forecast quantities in the original input order.
+    /// </summary>
+    public static decimal[] ConsumeForecastAgainstMpsDemand(
+        IReadOnlyList<(Guid ItemId, DateTime PeriodStart, DateTime PeriodEnd, decimal ForecastQty)> forecasts,
+        IReadOnlyList<(Guid ItemId, DateTime DemandDate, decimal PlannedQty)> mpsDemands)
+    {
+        if (forecasts == null || forecasts.Count == 0)
+            return Array.Empty<decimal>();
+
+        var remainingForecasts = forecasts.Select(f => f.ForecastQty).ToArray();
+        if (mpsDemands == null || mpsDemands.Count == 0)
+            return remainingForecasts;
+
+        // Track remaining consumable demand per item sorted by demand date
+        var demandByItem = mpsDemands
+            .GroupBy(d => d.ItemId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(d => new DemandBucket(d.DemandDate.Date, d.PlannedQty)).ToList());
+
+        var orderedIndices = Enumerable.Range(0, forecasts.Count)
+            .OrderBy(i => forecasts[i].PeriodEnd.Date)
+            .ThenBy(i => forecasts[i].PeriodStart.Date)
+            .ToList();
+
+        foreach (var idx in orderedIndices)
+        {
+            var f = forecasts[idx];
+            if (!demandByItem.TryGetValue(f.ItemId, out var itemDemands))
+                continue;
+
+            var start = f.PeriodStart.Date;
+            var end = f.PeriodEnd.Date;
+
+            foreach (var demand in itemDemands)
+            {
+                if (remainingForecasts[idx] <= 0m)
+                    break;
+
+                if (demand.RemainingQty <= 0m)
+                    continue;
+
+                if (demand.Date >= start && demand.Date < end)
+                {
+                    var consumed = Math.Min(remainingForecasts[idx], demand.RemainingQty);
+                    remainingForecasts[idx] -= consumed;
+                    demand.RemainingQty -= consumed;
+                }
+            }
+        }
+
+        return remainingForecasts;
+    }
+
+    private sealed class DemandBucket
+    {
+        public DateTime Date { get; }
+        public decimal RemainingQty { get; set; }
+
+        public DemandBucket(DateTime date, decimal qty)
+        {
+            Date = date;
+            RemainingQty = qty;
+        }
+    }
 }

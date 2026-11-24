@@ -82,7 +82,7 @@ import {
               type="text"
               class="form-control form-control-sm"
               [(ngModel)]="ranges"
-              placeholder="30, 60, 90, 120"
+              [placeholder]="'::Placeholder:AgeingRangeSample' | abpLocalization"
               (change)="loadData()"
             />
           </div>

@@ -252,4 +252,46 @@ public class EInvoiceConsolidationService : DomainService
             added.ClassificationCode = classificationCode;
         }
     }
+
+    /// <summary>
+    /// Determines whether GL and AR ledger impact should be skipped for a consolidated LHDN e-Invoice
+    /// per myinvois <c>consolidate_invoice.py</c> and <c>original.py: validate_before()</c>.
+    /// Consolidated invoices aggregate already-booked B2C invoices solely for LHDN submission and must
+    /// never post duplicate GL entries or hold AR outstanding balance.
+    /// </summary>
+    public static bool ShouldSkipGlPostingForConsolidatedInvoice(SalesInvoice invoice)
+    {
+        return invoice != null && invoice.IsConsolidated;
+    }
+
+    /// <summary>
+    /// Merges tax rows from multiple source Sales Invoices being consolidated into a single LHDN
+    /// consolidated e-Invoice by grouping on <c>(AccountHead, ChargeType)</c> and summing
+    /// <c>TaxAmount</c> per myinvois <c>consolidate_invoice.py: merge_sales_invoices()</c>.
+    /// </summary>
+    public static List<(string AccountHead, string ChargeType, decimal TaxAmount)> MergeConsolidatedTaxes(
+        IEnumerable<(string AccountHead, string ChargeType, decimal TaxAmount)>? sourceTaxes)
+    {
+        var merged = new Dictionary<(string AccountHead, string ChargeType), decimal>();
+        var order = new List<(string AccountHead, string ChargeType)>();
+
+        if (sourceTaxes == null)
+            return new List<(string AccountHead, string ChargeType, decimal TaxAmount)>();
+
+        foreach (var tax in sourceTaxes)
+        {
+            var key = (tax.AccountHead ?? string.Empty, tax.ChargeType ?? string.Empty);
+            if (!merged.ContainsKey(key))
+            {
+                merged[key] = tax.TaxAmount;
+                order.Add(key);
+            }
+            else
+            {
+                merged[key] += tax.TaxAmount;
+            }
+        }
+
+        return order.Select(k => (k.AccountHead, k.ChargeType, merged[k])).ToList();
+    }
 }

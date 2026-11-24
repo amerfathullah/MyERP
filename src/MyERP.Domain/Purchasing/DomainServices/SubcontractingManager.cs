@@ -2697,6 +2697,102 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Splits a Return of Components over the subcontracting order rows its raw material was sent on,
+    /// allocating each row up to what it still has at the supplier (<c>TotalSuppliedQty - ConsumedQty</c>),
+    /// rounding each row's qty (including the last row) to <paramref name="qtyPrecision"/>, and slicing
+    /// serial numbers proportionally per ERPNext PR #68828 (<c>add_return_items</c>, <c>get_qty_left_on_order_rows</c>).
+    /// </summary>
+    public static List<(Guid OrderRowId, decimal Qty, List<string> SerialNos)> SplitSubcontractingComponentReturnAcrossOrderRows(
+        decimal returnQty,
+        IReadOnlyList<(Guid OrderRowId, decimal TotalSuppliedQty, decimal ConsumedQty)> orderRows,
+        IReadOnlyList<string>? serialNos = null,
+        int qtyPrecision = 3)
+    {
+        var allocations = new List<(Guid OrderRowId, decimal Qty, List<string> SerialNos)>();
+        if (returnQty <= 0m || orderRows == null || orderRows.Count == 0)
+            return allocations;
+
+        var remaining = returnQty;
+        var serialOffset = 0;
+
+        for (var i = 0; i < orderRows.Count; i++)
+        {
+            var row = orderRows[i];
+            var isLast = i == orderRows.Count - 1;
+            var qtyLeft = Math.Max(row.TotalSuppliedQty - row.ConsumedQty, 0m);
+            var rawQty = isLast ? remaining : Math.Min(remaining, qtyLeft);
+            var rowQty = Math.Round(rawQty, qtyPrecision, MidpointRounding.AwayFromZero);
+
+            if (rowQty <= 0m)
+                continue;
+
+            remaining -= rowQty;
+
+            var rowSerials = new List<string>();
+            if (serialNos != null && serialOffset < serialNos.Count)
+            {
+                var takeCount = Math.Min((int)rowQty, serialNos.Count - serialOffset);
+                for (var s = 0; s < takeCount; s++)
+                    rowSerials.Add(serialNos[serialOffset + s]);
+                serialOffset += takeCount;
+            }
+
+            allocations.Add((row.OrderRowId, rowQty, rowSerials));
+        }
+
+        return allocations;
+    }
+
+    /// <summary>
+    /// Computes the share of a Subcontracting Order's additional costs that a mapped Subcontracting Receipt
+    /// should take: what earlier submitted receipts left of them, in proportion to the qty this receipt takes
+    /// of what is still pending (ERPNext PR #67357: <c>get_additional_cost_share</c>).
+    /// - When order additional costs net to zero (<c>totalCost == 0</c>), returns <c>1.0</c> so offsetting
+    ///   expense rows are preserved in full rather than scaled to zero.
+    /// - Uses ratio <c>max(1 - taken / totalCost, 0)</c> so negative net additional costs are preserved rather
+    ///   than clamped to zero.
+    /// </summary>
+    public static decimal CalculateReceiptAdditionalCostShare(
+        IReadOnlyList<(Guid RowId, decimal Qty, decimal ReceivedQty, decimal AdditionalCostPerQty)> orderRows,
+        decimal costTakenByPriorReceipts,
+        IReadOnlyDictionary<Guid, decimal>? selectedQtyByRow = null)
+    {
+        if (orderRows == null || orderRows.Count == 0)
+            return 0m;
+
+        var totalCost = orderRows.Sum(r => r.Qty * r.AdditionalCostPerQty);
+        if (totalCost == 0m)
+            return 1m;
+
+        decimal pendingCost = 0m;
+        decimal receivedCost = 0m;
+        var hasSelection = selectedQtyByRow != null && selectedQtyByRow.Count > 0;
+
+        foreach (var row in orderRows)
+        {
+            var pendingQty = Math.Max(row.Qty - row.ReceivedQty, 0m);
+            pendingCost += pendingQty * row.AdditionalCostPerQty;
+
+            if (!hasSelection)
+            {
+                receivedCost += pendingQty * row.AdditionalCostPerQty;
+            }
+            else if (selectedQtyByRow!.TryGetValue(row.RowId, out var selectedQty))
+            {
+                var effectiveQty = selectedQty > 0m ? selectedQty : pendingQty;
+                receivedCost += effectiveQty * row.AdditionalCostPerQty;
+            }
+        }
+
+        if (pendingCost == 0m)
+            return 0m;
+
+        var remainingShare = Math.Max(1m - (costTakenByPriorReceipts / totalCost), 0m);
+        var proportion = Math.Min(receivedCost / pendingCost, 1m);
+        return remainingShare * proportion;
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

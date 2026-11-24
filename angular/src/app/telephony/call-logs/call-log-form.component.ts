@@ -28,12 +28,12 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
 
             <div class="col-md-4 mb-3">
               <label class="form-label">From (Caller) *</label>
-              <input type="text" class="form-control" formControlName="from" placeholder="+60123456789">
+              <input type="text" class="form-control" formControlName="from" [placeholder]="'::Placeholder:PhoneFromSample' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
               <label class="form-label">To (Receiver) *</label>
-              <input type="text" class="form-control" formControlName="to" placeholder="+60388889999">
+              <input type="text" class="form-control" formControlName="to" [placeholder]="'::Placeholder:PhoneToSample' | abpLocalization">
             </div>
           </div>
 

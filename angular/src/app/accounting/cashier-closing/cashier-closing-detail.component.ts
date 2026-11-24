@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CashierClosingService } from '../../proxy/accounting/cashier-closing.service';
 import type { CashierClosingDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-cashier-closing-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -48,11 +49,11 @@ import type { CashierClosingDto } from '../../proxy/accounting/models';
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">From Time</label>
-              <input type="text" class="form-control" formControlName="fromTime" placeholder="08:00:00" [readonly]="isSubmitted">
+              <input type="text" class="form-control" formControlName="fromTime" [placeholder]="'::Placeholder:StartTimeSample' | abpLocalization" [readonly]="isSubmitted">
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">To Time</label>
-              <input type="text" class="form-control" formControlName="toTime" placeholder="17:00:00" [readonly]="isSubmitted">
+              <input type="text" class="form-control" formControlName="toTime" [placeholder]="'::Placeholder:EndTimeSample' | abpLocalization" [readonly]="isSubmitted">
             </div>
 
             @if (!isSubmitted) {

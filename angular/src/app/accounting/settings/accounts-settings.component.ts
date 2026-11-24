@@ -206,7 +206,7 @@ import { AccountsSettingsService } from '../../proxy/accounting/accounts-setting
                   <h6 class="fw-bold mb-3">Reports & Chart of Accounts</h6>
                   <div class="mb-3">
                     <label class="form-label">Default Ageing Range</label>
-                    <input type="text" class="form-control" formControlName="defaultAgeingRange" placeholder="30, 60, 90, 120">
+                    <input type="text" class="form-control" formControlName="defaultAgeingRange" [placeholder]="'::Placeholder:AgeingRangeSample' | abpLocalization">
                   </div>
                   <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="showBalanceInCoa" formControlName="showBalanceInCoa">

@@ -196,7 +196,7 @@ interface TaxWithholdingCategoryRow {
                   @for (row of accountsArray.controls; track $index; let i = $index) {
                     <tr [formGroupName]="i">
                       <td class="text-center text-muted">{{ i + 1 }}</td>
-                      <td><input class="form-control form-control-sm" formControlName="companyId" placeholder="Company Id" /></td>
+                      <td><input class="form-control form-control-sm" formControlName="companyId" [placeholder]="'::Placeholder:CompanyId' | abpLocalization" /></td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="accountId">
                           <option value="">—</option>

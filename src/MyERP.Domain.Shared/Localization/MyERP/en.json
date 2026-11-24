@@ -6812,7 +6812,16 @@
     "Placeholder:PurchaseManagerRoleExample": "e.g. Purchase Manager",
     "Placeholder:AccountsManagerRoleExample": "e.g. Accounts Manager",
     "Placeholder:CustomsTariffCodeExample": "e.g. 8471.30.0000",
-    "Placeholder:ScoReferenceGuidOrNumber": "SCO Reference Guid / Number"
+    "Placeholder:ScoReferenceGuidOrNumber": "SCO Reference Guid / Number",
+    "Placeholder:DimensionValueIdsSample": "id1,id2...",
+    "Placeholder:UomShort": "UoM",
+    "Placeholder:LanguageCodeSample": "en",
+    "Placeholder:EmailRecipientsSample": "name@example.com, name2@example.com",
+    "Placeholder:StartTimeSample": "08:00:00",
+    "Placeholder:EndTimeSample": "17:00:00",
+    "Placeholder:AgeingRangeSample": "30, 60, 90, 120",
+    "Placeholder:PhoneFromSample": "+60123456789",
+    "Placeholder:PhoneToSample": "+60388889999"
   }
 }
 
