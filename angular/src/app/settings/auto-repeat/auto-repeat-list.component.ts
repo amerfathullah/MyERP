@@ -289,7 +289,7 @@ export class AutoRepeatListComponent implements OnInit {
       '0': 'Daily', '1': 'Weekly', '2': 'Monthly',
       '3': 'Quarterly', '4': 'HalfYearly', '5': 'Yearly',
       'Daily': 'Daily', 'Weekly': 'Weekly', 'Monthly': 'Monthly',
-      'Quarterly': 'Quarterly', 'HalfYearly': 'Half-Yearly', 'Yearly': 'Yearly',
+      'Quarterly': 'Quarterly', 'HalfYearly': 'HalfYearly', 'Yearly': 'Yearly',
     };
     return this.l.instant('::' + (map[freq ?? '2'] || 'Monthly'));
   }

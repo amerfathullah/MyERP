@@ -234,7 +234,50 @@ public class StockLedgerAuditService : DomainService
                     && e.PostingDateTime == targetPostingDateTime
                     && e.CreationTime > voucherFirstCreation.Value)));
     }
+
+    /// <summary>
+    /// Determines whether an active Stock Valuation Adjustment Entry exists after the target SLE
+    /// per ERPNext PR #67378 (<c>valuation_adjustment.py: validate_no_later_adjustment_entry</c> / <c>get_later_than</c>):
+    /// - Any active Adjustment Entry with <c>PostingDateTime &gt; targetPostingDateTime</c> blocks the operation.
+    /// - On cancellation (<paramref name="isCancellation"/> = true), an active Adjustment Entry at the EXACT same
+    ///   <c>PostingDateTime</c> with <c>CreationTime &gt; originalEntryEarliestCreationTime</c> also blocks cancellation.
+    /// </summary>
+    public static bool HasLaterAdjustmentEntry(
+        Guid itemId,
+        Guid warehouseId,
+        Guid voucherId,
+        DateTime targetPostingDateTime,
+        bool isCancellation,
+        DateTime? originalEntryEarliestCreationTime,
+        IEnumerable<AdjustmentSleCandidate>? adjustmentEntries)
+    {
+        if (adjustmentEntries == null)
+        {
+            return false;
+        }
+
+        return adjustmentEntries.Any(e =>
+            !e.IsCancelled
+            && e.IsAdjustmentEntry
+            && e.ItemId == itemId
+            && e.WarehouseId == warehouseId
+            && e.VoucherId != voucherId
+            && (e.PostingDateTime > targetPostingDateTime
+                || (isCancellation
+                    && originalEntryEarliestCreationTime.HasValue
+                    && e.PostingDateTime == targetPostingDateTime
+                    && e.CreationTime > originalEntryEarliestCreationTime.Value)));
+    }
 }
+
+public sealed record AdjustmentSleCandidate(
+    Guid ItemId,
+    Guid WarehouseId,
+    Guid VoucherId,
+    DateTime PostingDateTime,
+    DateTime CreationTime,
+    bool IsAdjustmentEntry,
+    bool IsCancelled);
 
 public sealed record FutureSleCandidate(
     Guid ItemId,

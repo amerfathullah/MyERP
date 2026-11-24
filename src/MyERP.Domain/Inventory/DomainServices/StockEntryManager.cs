@@ -3185,6 +3185,59 @@ public class StockEntryManager : DomainService
 
         return allocationBasis;
     }
+
+    /// <summary>
+    /// Computes the pending secondary-item scaling quantity for Job Card scrap in a Manufacture Stock Entry
+    /// per ERPNext PR #67395 (<c>stock_entry/services/manufacturing.py: _get_pending_secondary_qty</c>):
+    /// returns <paramref name="fgCompletedQty"/> when linked to a specific Job Card; otherwise adds
+    /// <paramref name="pendingProcessLossQty"/> to <c>(completedJobCardQty - workOrderProducedQty)</c>
+    /// because completed qty excludes unbooked Job Card process loss that <c>For Quantity</c> includes.
+    /// </summary>
+    public static decimal CalculatePendingSecondaryQtyForJobCardScrap(
+        bool hasJobCard,
+        decimal fgCompletedQty,
+        decimal completedJobCardQty,
+        decimal workOrderProducedQty,
+        decimal pendingProcessLossQty)
+    {
+        if (hasJobCard)
+        {
+            return fgCompletedQty;
+        }
+
+        return completedJobCardQty - workOrderProducedQty + pendingProcessLossQty;
+    }
+
+    /// <summary>
+    /// Validates a Repack Stock Entry AFTER finished/secondary output rows have been marked per ERPNext PR #67384
+    /// (<c>stock_entry/services/manufacturing.py: validate_repack_entry</c> / <c>stock_entry.py</c>):
+    /// when more than one distinct finished good item code is present, EVERY finished good row
+    /// (not merely one row per item code) must have <c>SetBasicRateManually == true</c>.
+    /// </summary>
+    public static void ValidateRepackFinishedGoodsManualRates(
+        IEnumerable<(string ItemCode, bool IsFinishedItem, bool SetBasicRateManually)>? items)
+    {
+        if (items == null)
+        {
+            return;
+        }
+
+        var fgRows = items.Where(r => r.IsFinishedItem).ToList();
+        var distinctFgItems = fgRows
+            .Select(r => r.ItemCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (distinctFgItems.Count > 1 && !fgRows.All(r => r.SetBasicRateManually))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("items", string.Join(", ", distinctFgItems))
+                .WithData(
+                    "detail",
+                    $"When there are multiple finished goods ({string.Join(", ", distinctFgItems)}) in a Repack stock entry, the basic rate for all finished goods must be set manually.");
+        }
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

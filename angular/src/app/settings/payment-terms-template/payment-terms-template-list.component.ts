@@ -32,7 +32,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
                 <h6 class="mt-2">{{ '::Terms' | abpLocalization }}</h6>
                 <table class="table table-sm">
                   <thead><tr>
-                    <th>{{ '::DueDate' | abpLocalization }} (days)</th>
+                    <th>{{ '::DueDate' | abpLocalization }} ({{ '::DaysLower' | abpLocalization }})</th>
                     <th>{{ '::Portion' | abpLocalization }} (%)</th>
                     <th></th>
                   </tr></thead>
@@ -67,7 +67,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
                 @for (item of items(); track item.id) {
                   <tr>
                     <td>{{ item.name }}</td>
-                    <td>{{ item.terms?.length || 0 }} terms</td>
+                    <td>{{ item.terms?.length || 0 }} {{ '::TermsLower' | abpLocalization }}</td>
                     <td><button class="btn btn-outline-danger btn-sm" (click)="remove(item.id)"><i class="fas fa-trash"></i></button></td>
                   </tr>
                 }

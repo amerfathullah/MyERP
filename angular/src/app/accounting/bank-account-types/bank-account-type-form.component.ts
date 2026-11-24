@@ -14,28 +14,28 @@ import { BankAccountTypeService } from '../../proxy/accounting/bank-account-type
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Bank Account Type</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditBankAccountType' : '::NewBankAccountType') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Account Type Name *</label>
+            <label class="form-label">{{ '::AccountTypeName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="accountTypeName" [placeholder]="'::Placeholder:BankAccountTypeExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:AccountClassificationDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-            <label class="form-check-label" for="isActive">Active</label>
+            <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/accounting/bank-account-types" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/accounting/bank-account-types" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

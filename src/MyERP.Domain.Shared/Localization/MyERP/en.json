@@ -7341,7 +7341,9 @@
     "TermsContent": "Terms Content",
     "TermsContentHelp": "Legal terms, warranty conditions, payment timelines, and dispute clauses.",
     "ApplicableForSelling": "Applicable for Selling",
-    "ApplicableForBuying": "Applicable for Buying"
+    "ApplicableForBuying": "Applicable for Buying",
+    "DaysLower": "days",
+    "TermsLower": "terms"
   }
 }
 

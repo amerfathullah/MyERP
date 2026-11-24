@@ -324,6 +324,21 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Enforces that POS invoice consolidation state is trusted ONLY when set server-side by the POS merge log
+    /// per ERPNext PR #66971 (<c>sales_invoice.py</c>, <c>pos.py</c>, <c>selling_controller.py</c>):
+    /// a client-supplied <c>IsConsolidated = true</c> without <paramref name="isFromPosMergeLog"/> is reset
+    /// to <c>false</c> and cannot bypass customer-block checks or enabled Mode of Payment checks.
+    /// </summary>
+    public static (bool EffectiveIsConsolidated, bool BypassCustomerBlockCheck, bool BypassModeOfPaymentEnabledCheck)
+        ResolveTrustedPosConsolidationState(
+            bool requestedIsConsolidated,
+            bool isFromPosMergeLog)
+    {
+        var effective = requestedIsConsolidated && isFromPosMergeLog;
+        return (effective, BypassCustomerBlockCheck: isFromPosMergeLog, BypassModeOfPaymentEnabledCheck: isFromPosMergeLog);
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

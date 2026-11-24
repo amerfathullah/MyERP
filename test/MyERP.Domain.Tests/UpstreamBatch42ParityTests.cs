@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #67344, #67364, #67379, #67383, #67399, #67400, #67432, #67462, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67462, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1165,5 +1165,81 @@ public class UpstreamBatch42ParityTests
             new Dictionary<Guid, decimal> { [dnRow2] = 6m });
         merged[dnRow1].ShouldBe(4m);
         merged[dnRow2].ShouldBe(6m);
+    }
+
+    [Fact]
+    public void Pr67395_Pr67384_JobCardScrapPendingQtyAndRepackManualRates_Parity()
+    {
+        // PR #67395: Job Card linked -> fgCompletedQty; WO-level -> completed - produced + pendingProcessLoss
+        StockEntryManager.CalculatePendingSecondaryQtyForJobCardScrap(
+            hasJobCard: true, fgCompletedQty: 4m, completedJobCardQty: 8m, workOrderProducedQty: 2m, pendingProcessLossQty: 2m)
+            .ShouldBe(4m);
+        StockEntryManager.CalculatePendingSecondaryQtyForJobCardScrap(
+            hasJobCard: false, fgCompletedQty: 4m, completedJobCardQty: 8m, workOrderProducedQty: 2m, pendingProcessLossQty: 2m)
+            .ShouldBe(8m);
+
+        // PR #67384: Repack with 2 distinct FG items requires EVERY FG row to have SetBasicRateManually == true
+        var splitFgRows = new[]
+        {
+            ("FG-A", true, true),
+            ("FG-A", true, false), // second row of FG-A missing manual flag -> must throw!
+            ("FG-B", true, true),
+        };
+        Should.Throw<BusinessException>(() =>
+            StockEntryManager.ValidateRepackFinishedGoodsManualRates(splitFgRows));
+
+        var allManual = new[]
+        {
+            ("FG-A", true, true),
+            ("FG-A", true, true),
+            ("FG-B", true, true),
+        };
+        StockEntryManager.ValidateRepackFinishedGoodsManualRates(allManual);
+    }
+
+    [Fact]
+    public void Pr67378_Pr66971_SameTimestampAdjustmentCancelBlockAndTrustedPosConsolidation_Parity()
+    {
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var targetVoucher = Guid.NewGuid();
+        var adjVoucher = Guid.NewGuid();
+        var postingDt = new DateTime(2026, 5, 10, 12, 0, 0);
+
+        var adjEntries = new[]
+        {
+            new AdjustmentSleCandidate(itemId, whId, adjVoucher, postingDt, new DateTime(2026, 5, 10, 12, 5, 0), IsAdjustmentEntry: true, IsCancelled: false),
+        };
+
+        // PR #67378: cancelling an entry created BEFORE the same-timestamp Adjustment Entry is blocked
+        StockLedgerAuditService.HasLaterAdjustmentEntry(
+            itemId, whId, targetVoucher, postingDt, isCancellation: true,
+            originalEntryEarliestCreationTime: new DateTime(2026, 5, 10, 12, 1, 0), adjEntries)
+            .ShouldBeTrue();
+
+        // Cancelling an entry created AFTER the same-timestamp Adjustment Entry is allowed
+        StockLedgerAuditService.HasLaterAdjustmentEntry(
+            itemId, whId, targetVoucher, postingDt, isCancellation: true,
+            originalEntryEarliestCreationTime: new DateTime(2026, 5, 10, 12, 9, 0), adjEntries)
+            .ShouldBeFalse();
+
+        // Non-cancellation at same timestamp is not blocked by same-timestamp adjustment
+        StockLedgerAuditService.HasLaterAdjustmentEntry(
+            itemId, whId, targetVoucher, postingDt, isCancellation: false,
+            originalEntryEarliestCreationTime: new DateTime(2026, 5, 10, 12, 1, 0), adjEntries)
+            .ShouldBeFalse();
+
+        // PR #66971: client-spoofed isConsolidated without POS merge log flag resets to false and bypasses nothing
+        var spoofed = TransactionValidationService.ResolveTrustedPosConsolidationState(
+            requestedIsConsolidated: true, isFromPosMergeLog: false);
+        spoofed.EffectiveIsConsolidated.ShouldBeFalse();
+        spoofed.BypassCustomerBlockCheck.ShouldBeFalse();
+        spoofed.BypassModeOfPaymentEnabledCheck.ShouldBeFalse();
+
+        var trusted = TransactionValidationService.ResolveTrustedPosConsolidationState(
+            requestedIsConsolidated: true, isFromPosMergeLog: true);
+        trusted.EffectiveIsConsolidated.ShouldBeTrue();
+        trusted.BypassCustomerBlockCheck.ShouldBeTrue();
+        trusted.BypassModeOfPaymentEnabledCheck.ShouldBeTrue();
     }
 }
