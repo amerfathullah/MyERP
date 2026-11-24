@@ -55,7 +55,7 @@ interface PendingVoucherRow extends RepostAccountingLedgerVoucherInputDto {
               <div class="col-auto">
                 <label class="form-label">{{ '::VoucherNumber' | abpLocalization }}</label>
                 <input class="form-control form-control-sm" [(ngModel)]="pickNumber"
-                  (keyup.enter)="addVoucher()" placeholder="e.g. SI-00001" />
+                  (keyup.enter)="addVoucher()" [placeholder]="'::Placeholder:VoucherNumberSample' | abpLocalization" />
               </div>
               <div class="col-auto">
                 <button class="btn btn-sm btn-outline-primary" [disabled]="!pickNumber || resolving" (click)="addVoucher()">

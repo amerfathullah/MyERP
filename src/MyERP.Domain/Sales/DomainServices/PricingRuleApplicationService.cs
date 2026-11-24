@@ -143,6 +143,130 @@ public class PricingRuleApplicationService : DomainService
         return fallback;
     }
 
+    /// <summary>
+    /// Allow-list of transaction document types permitted to invoke the pricing engine
+    /// (ERPNext PR #69273: <c>PRICING_TRANSACTION_DOCTYPES</c>).
+    /// Accepts both ERPNext space-separated names and MyERP PascalCase names.
+    /// </summary>
+    public static readonly IReadOnlySet<string> PricingTransactionDoctypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Quotation",
+        "Sales Order", "SalesOrder",
+        "Delivery Note", "DeliveryNote",
+        "Sales Invoice", "SalesInvoice",
+        "POS Invoice", "PosInvoice",
+        "Supplier Quotation", "SupplierQuotation",
+        "Purchase Order", "PurchaseOrder",
+        "Purchase Receipt", "PurchaseReceipt",
+        "Purchase Invoice", "PurchaseInvoice",
+        "Material Request", "MaterialRequest",
+        "BOM",
+        "Request for Quotation", "RequestForQuotation",
+        "Opportunity"
+    };
+
+    /// <summary>
+    /// Authorizes a client-supplied pricing context before running the pricing engine
+    /// (ERPNext PR #69273: <c>validate_pricing_context</c>, <c>validate_pricing_parties</c>,
+    /// <c>validate_pricing_price_lists</c>, <c>fits_price_list_side</c>).
+    /// Validates transaction doctype allow-list, transaction read permission, company restriction scope,
+    /// party select permission, and selling/buying price list side compatibility.
+    /// </summary>
+    public static void ValidatePricingContext(
+        string? doctype,
+        bool hasTransactionReadPermission,
+        Guid? companyId = null,
+        IReadOnlySet<Guid>? allowedCompanyIds = null,
+        bool hasParty = false,
+        bool hasPartySelectPermission = true,
+        string? priceListName = null,
+        bool priceListMatchesSide = true,
+        bool isInternalParty = false,
+        bool isReturnAgainstSamePriceList = false)
+    {
+        if (string.IsNullOrWhiteSpace(doctype) || !PricingTransactionDoctypes.Contains(doctype.Trim()))
+        {
+            throw new BusinessException("MyERP:11002")
+                .WithData("detail", $"Invalid doctype '{doctype}' for pricing evaluation.");
+        }
+
+        if (!hasTransactionReadPermission)
+        {
+            throw new BusinessException("MyERP:11003")
+                .WithData("detail", $"Not permitted to read '{doctype}' for pricing evaluation.");
+        }
+
+        if (companyId.HasValue && allowedCompanyIds != null && allowedCompanyIds.Count > 0
+            && !allowedCompanyIds.Contains(companyId.Value))
+        {
+            throw new BusinessException("MyERP:11004")
+                .WithData("detail", $"Not permitted for company '{companyId.Value}'.");
+        }
+
+        if (hasParty && !hasPartySelectPermission)
+        {
+            throw new BusinessException("MyERP:11005")
+                .WithData("detail", "Not permitted to select the specified party for pricing evaluation.");
+        }
+
+        var trimmedDoctype = doctype.Trim();
+        if (string.Equals(trimmedDoctype, "BOM", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(priceListName))
+        {
+            var side = ResolvePriceListSide(trimmedDoctype);
+            var fits = side != null && FitsPriceListSide(priceListMatchesSide, isInternalParty, isReturnAgainstSamePriceList);
+            if (!fits)
+            {
+                throw new BusinessException("MyERP:11006")
+                    .WithData("detail", $"Price List '{priceListName}' cannot be used in {trimmedDoctype}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns whether a price list fits the transaction side per ERPNext PR #69273 (<c>fits_price_list_side</c>):
+    /// matches side flag, or matches the submitted voucher's price list on a return, or party is internal.
+    /// </summary>
+    public static bool FitsPriceListSide(
+        bool priceListMatchesSide,
+        bool isInternalParty,
+        bool isReturnAgainstSamePriceList)
+    {
+        return priceListMatchesSide || isReturnAgainstSamePriceList || isInternalParty;
+    }
+
+    private static string? ResolvePriceListSide(string doctype)
+    {
+        switch (doctype.ToLowerInvariant())
+        {
+            case "quotation":
+            case "sales order":
+            case "salesorder":
+            case "delivery note":
+            case "deliverynote":
+            case "sales invoice":
+            case "salesinvoice":
+            case "pos invoice":
+            case "posinvoice":
+                return "Selling";
+
+            case "supplier quotation":
+            case "supplierquotation":
+            case "purchase order":
+            case "purchaseorder":
+            case "purchase receipt":
+            case "purchasereceipt":
+            case "purchase invoice":
+            case "purchaseinvoice":
+                return "Buying";
+
+            default:
+                return null;
+        }
+    }
+
     private static AppliedPricingRule? ApplyRule(PricingRule rule, PricingRuleContext item)
     {
         switch (rule.RuleType)

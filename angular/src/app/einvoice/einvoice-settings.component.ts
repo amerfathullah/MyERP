@@ -132,7 +132,7 @@ import type { EInvoiceConnectionStatusDto } from '../proxy/einvoice/models';
             </div>
             <div class="col-md-4">
               <label class="form-label">ID Value</label>
-              <input class="form-control" [(ngModel)]="tinIdValue" placeholder="e.g. 202301012345" />
+              <input class="form-control" [(ngModel)]="tinIdValue" [placeholder]="'::Placeholder:TaxpayerIdValueSample' | abpLocalization" />
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" (click)="lookupTin()" [disabled]="!tinIdValue || tinSearching()">

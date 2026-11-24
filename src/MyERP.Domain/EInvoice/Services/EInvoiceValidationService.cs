@@ -449,4 +449,31 @@ public class EInvoiceValidationService : ITransientDependency
 
         return errors;
     }
+
+    /// <summary>
+    /// Validates mandatory company (supplier) address, state code, phone, and email fields
+    /// for standard LHDN e-Invoices per myinvois <c>createxml.py: company_data()</c>.
+    /// </summary>
+    public static List<string> ValidateCompanyAddressAndContactForLhdn(
+        string? addressLine1,
+        string? stateCode,
+        string? phone,
+        string? email)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(addressLine1))
+            errors.Add("Company address must have Address Line 1 filled.");
+
+        if (string.IsNullOrWhiteSpace(stateCode))
+            errors.Add("Company address must have a State Code filled.");
+
+        if (InvoiceDocumentBuilder.IsNotApplicable(phone))
+            errors.Add("Company address must have a phone number filled.");
+
+        if (InvoiceDocumentBuilder.IsNotApplicable(email) || !InvoiceDocumentBuilder.IsValidEmail(email))
+            errors.Add("Company address must have a valid email address filled.");
+
+        return errors;
+    }
 }

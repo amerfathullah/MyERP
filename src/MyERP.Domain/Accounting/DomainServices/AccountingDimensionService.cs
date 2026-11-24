@@ -238,4 +238,33 @@ public class AccountingDimensionService : DomainService
             await _glDimensionValueRepository.InsertAsync(value);
         }
     }
+
+    /// <summary>
+    /// Filters accounting dimension defaults so client callers only receive defaults for companies
+    /// they have permission to view (ERPNext PR #67760: <c>get_dimensions_for_user</c>).
+    /// Throws when the caller lacks Company read permission (e.g., portal/website users).
+    /// </summary>
+    public static Dictionary<Guid, TDefault> FilterDimensionDefaultsForUser<TDefault>(
+        IReadOnlyDictionary<Guid, TDefault> defaultsByCompany,
+        IReadOnlySet<Guid> permittedCompanyIds,
+        bool hasCompanyReadPermission)
+    {
+        if (!hasCompanyReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DimensionValueRestricted)
+                .WithData("reason", "Not permitted to access Company accounting dimension defaults.");
+        }
+
+        var filtered = new Dictionary<Guid, TDefault>();
+        if (defaultsByCompany == null || permittedCompanyIds == null || permittedCompanyIds.Count == 0)
+            return filtered;
+
+        foreach (var kvp in defaultsByCompany)
+        {
+            if (permittedCompanyIds.Contains(kvp.Key))
+                filtered[kvp.Key] = kvp.Value;
+        }
+
+        return filtered;
+    }
 }

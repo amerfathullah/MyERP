@@ -6785,7 +6785,22 @@
     "Placeholder:VideoTitleExample": "e.g. ERP Introduction",
     "Placeholder:YoutubeVideoIdExample": "e.g. dQw4w9WgXcQ",
     "Placeholder:VideoDurationExample": "e.g. 300",
-    "Placeholder:VideoNotes": "Video summary and notes..."
+    "Placeholder:VideoNotes": "Video summary and notes...",
+    "Placeholder:CodeListTitle": "e.g. UN/EDIFACT 1001 Document Types",
+    "Placeholder:CodeListVersion": "e.g. D.16B or 2.1",
+    "Placeholder:CodeListPublisher": "e.g. UN/CEFACT or ISO",
+    "Placeholder:CodeListPublisherId": "e.g. UN/ECE",
+    "Placeholder:CommonCodeValue": "e.g. 380 or MY or MYR",
+    "Placeholder:CommonCodeTitle": "e.g. Commercial Invoice",
+    "Placeholder:LandedCostReceiptNo": "e.g. PR-2026-001...",
+    "Placeholder:LandedCostSearch": "Search voucher #, receipt #, supplier, charge description...",
+    "Placeholder:SerialNoSample": "e.g. SN-001...",
+    "Placeholder:BatchNoSample": "e.g. BATCH-001...",
+    "Placeholder:TraceabilitySearch": "Search within trace results (item, voucher, supplier, customer)...",
+    "Placeholder:VoucherNumberSample": "e.g. SI-00001",
+    "Placeholder:TaxpayerIdValueSample": "e.g. 202301012345",
+    "Placeholder:PercentageChangeSample": "e.g. 5 or -10",
+    "Placeholder:CurrencyCodeSample": "e.g. USD"
   }
 }
 

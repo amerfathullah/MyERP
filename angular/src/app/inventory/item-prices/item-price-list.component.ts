@@ -68,7 +68,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               </div>
               <div class="col-md-3">
                 <label class="form-label small">{{ '::PercentageChange' | abpLocalization }} (%)</label>
-                <input type="number" class="form-control form-control-sm" [(ngModel)]="bulkPercentage" placeholder="e.g. 5 or -10" />
+                <input type="number" class="form-control form-control-sm" [(ngModel)]="bulkPercentage" [placeholder]="'::Placeholder:PercentageChangeSample' | abpLocalization" />
               </div>
               <div class="col-md-3">
                 <button class="btn btn-warning btn-sm me-2" [disabled]="!bulkPriceListId || bulkPercentage === 0" (click)="applyBulkUpdate()">

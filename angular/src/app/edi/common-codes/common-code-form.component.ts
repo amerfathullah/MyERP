@@ -33,13 +33,13 @@ import { CodeListDto } from '../../proxy/edi/models';
 
             <div class="col-md-6 mb-3">
               <label class="form-label">Code *</label>
-              <input type="text" class="form-control" formControlName="code" placeholder="e.g. 380 or MY or MYR">
+              <input type="text" class="form-control" formControlName="code" [placeholder]="'::Placeholder:CommonCodeValue' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Title *</label>
-            <input type="text" class="form-control" formControlName="title" placeholder="e.g. Commercial Invoice">
+            <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:CommonCodeTitle' | abpLocalization">
           </div>
 
           <div class="mb-3">

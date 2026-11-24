@@ -57,7 +57,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              placeholder="e.g. SN-001..."
+              [placeholder]="'::Placeholder:SerialNoSample' | abpLocalization"
               [(ngModel)]="selectedSerialNo"
               (keyup.enter)="loadData()"
             />
@@ -68,7 +68,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              placeholder="e.g. BATCH-001..."
+              [placeholder]="'::Placeholder:BatchNoSample' | abpLocalization"
               [(ngModel)]="selectedBatchNo"
               (keyup.enter)="loadData()"
             />
@@ -97,7 +97,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              [placeholder]="'Search within trace results (item, voucher, supplier, customer)...'"
+              [placeholder]="'::Placeholder:TraceabilitySearch' | abpLocalization"
               [(ngModel)]="searchTerm"
             />
           </div>

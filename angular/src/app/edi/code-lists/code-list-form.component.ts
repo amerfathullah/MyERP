@@ -21,7 +21,7 @@ import { CodeListService } from '../../proxy/edi/code-list.service';
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Title *</label>
-              <input type="text" class="form-control" formControlName="title" placeholder="e.g. UN/EDIFACT 1001 Document Types">
+              <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:CodeListTitle' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
@@ -45,17 +45,17 @@ import { CodeListService } from '../../proxy/edi/code-list.service';
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label">Version</label>
-              <input type="text" class="form-control" formControlName="version" placeholder="e.g. D.16B or 2.1">
+              <input type="text" class="form-control" formControlName="version" [placeholder]="'::Placeholder:CodeListVersion' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
               <label class="form-label">Publisher</label>
-              <input type="text" class="form-control" formControlName="publisher" placeholder="e.g. UN/CEFACT or ISO">
+              <input type="text" class="form-control" formControlName="publisher" [placeholder]="'::Placeholder:CodeListPublisher' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
               <label class="form-label">Publisher ID</label>
-              <input type="text" class="form-control" formControlName="publisherId" placeholder="e.g. UN/ECE">
+              <input type="text" class="form-control" formControlName="publisherId" [placeholder]="'::Placeholder:CodeListPublisherId' | abpLocalization">
             </div>
           </div>
 

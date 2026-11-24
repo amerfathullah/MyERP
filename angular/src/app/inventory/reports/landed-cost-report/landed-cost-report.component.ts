@@ -52,7 +52,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              placeholder="e.g. PR-2026-001..."
+              [placeholder]="'::Placeholder:LandedCostReceiptNo' | abpLocalization"
               [(ngModel)]="receiptDocumentNo"
               (keyup.enter)="loadData()"
             />
@@ -82,7 +82,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              [placeholder]="'Search voucher #, receipt #, supplier, charge description...'"
+              [placeholder]="'::Placeholder:LandedCostSearch' | abpLocalization"
               [(ngModel)]="searchTerm"
             />
           </div>

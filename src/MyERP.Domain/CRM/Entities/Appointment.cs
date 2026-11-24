@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -104,5 +106,28 @@ public class Appointment : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.AppointmentNotVerified)
                 .WithData("reason", "NotYetExpired");
         Status = AppointmentStatus.Closed;
+    }
+
+    /// <summary>
+    /// Resolves the assignee from the latest permitted Opportunity linked to this Appointment's Lead
+    /// (ERPNext PR #69097: <c>Appointment.get_assignee_from_latest_opportunity</c>).
+    /// Returns null when the appointment is not linked to a Lead or the caller lacks Opportunity read permission,
+    /// and skips opportunities the caller cannot read.
+    /// </summary>
+    public static Guid? ResolveAssigneeFromLatestOpportunity(
+        bool isLinkedLead,
+        bool hasOpportunityReadPermission,
+        IEnumerable<(Guid? AssignedUserId, DateTime CreationTime, bool IsPermitted)> opportunities)
+    {
+        if (!isLinkedLead || !hasOpportunityReadPermission || opportunities == null)
+            return null;
+
+        foreach (var opp in opportunities.Where(o => o.IsPermitted).OrderByDescending(o => o.CreationTime))
+        {
+            if (opp.AssignedUserId.HasValue && opp.AssignedUserId.Value != Guid.Empty)
+                return opp.AssignedUserId.Value;
+        }
+
+        return null;
     }
 }

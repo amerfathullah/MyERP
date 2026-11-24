@@ -2994,6 +2994,127 @@ public class UpstreamBatch41ParityTests
         buyerErrors.Count.ShouldBe(4);
     }
 
+    [Fact]
+    public void UpstreamBatch25_PricingContext_AccountingDimUserScope_TdsDefault_AppointmentAssignee_MyInvoisSelfBilledContact_Parity()
+    {
+        // 1. ERPNext PR #69273: Pricing context authorization (doctype allow-list, company scope, party permission, price list side)
+        var allowedCompany = Guid.NewGuid();
+        var otherCompany = Guid.NewGuid();
+        var allowedSet = new HashSet<Guid> { allowedCompany };
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "User", hasTransactionReadPermission: true)).Code.ShouldBe("MyERP:11002");
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesOrder", hasTransactionReadPermission: false)).Code.ShouldBe("MyERP:11003");
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesOrder", hasTransactionReadPermission: true, companyId: otherCompany, allowedCompanyIds: allowedSet))
+            .Code.ShouldBe("MyERP:11004");
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesOrder", hasTransactionReadPermission: true, companyId: allowedCompany, allowedCompanyIds: allowedSet,
+                hasParty: true, hasPartySelectPermission: false))
+            .Code.ShouldBe("MyERP:11005");
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesInvoice", hasTransactionReadPermission: true, companyId: allowedCompany, allowedCompanyIds: allowedSet,
+                priceListName: "Standard Buying", priceListMatchesSide: false, isInternalParty: false, isReturnAgainstSamePriceList: false))
+            .Code.ShouldBe("MyERP:11006");
+
+        // Internal customer or return-against same price list or BOM skips/passes price list side check
+        Should.NotThrow(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesInvoice", hasTransactionReadPermission: true, companyId: allowedCompany, allowedCompanyIds: allowedSet,
+                priceListName: "Standard Buying", priceListMatchesSide: false, isInternalParty: true));
+        Should.NotThrow(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "SalesInvoice", hasTransactionReadPermission: true, companyId: allowedCompany, allowedCompanyIds: allowedSet,
+                priceListName: "Standard Buying", priceListMatchesSide: false, isReturnAgainstSamePriceList: true));
+        Should.NotThrow(() =>
+            MyERP.Sales.DomainServices.PricingRuleApplicationService.ValidatePricingContext(
+                "BOM", hasTransactionReadPermission: true, priceListName: "Standard Buying", priceListMatchesSide: false));
+
+        // 2. ERPNext PR #67760: Accounting dimension defaults scoped to companies user can see
+        var defaultsByCompany = new Dictionary<Guid, string>
+        {
+            [allowedCompany] = "CC-A",
+            [otherCompany] = "CC-B"
+        };
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Accounting.DomainServices.AccountingDimensionService.FilterDimensionDefaultsForUser(
+                defaultsByCompany, allowedSet, hasCompanyReadPermission: false));
+        var scopedDefaults = MyERP.Accounting.DomainServices.AccountingDimensionService.FilterDimensionDefaultsForUser(
+            defaultsByCompany, allowedSet, hasCompanyReadPermission: true);
+        scopedDefaults.Count.ShouldBe(1);
+        scopedDefaults[allowedCompany].ShouldBe("CC-A");
+
+        // 3. ERPNext PR #68477: Purchase Invoice mapped from PO/PR keeps apply_tds ticked when supplier has category or group
+        MyERP.Tax.DomainServices.TaxWithholdingService.ShouldApplyTaxWithholdingByDefault("Section 107A", null).ShouldBeTrue();
+        MyERP.Tax.DomainServices.TaxWithholdingService.ShouldApplyTaxWithholdingByDefault(null, "Non-Resident Group").ShouldBeTrue();
+        MyERP.Tax.DomainServices.TaxWithholdingService.ShouldApplyTaxWithholdingByDefault(null, null).ShouldBeFalse();
+        MyERP.Tax.DomainServices.TaxWithholdingService.ShouldApplyTaxWithholdingByDefault("Section 107A", null, forValidate: true).ShouldBeFalse();
+
+        // 4. ERPNext PR #69097: Appointment assignee lookup requires Opportunity read permission and ignores unpermitted opportunities
+        var permittedAgent = Guid.NewGuid();
+        var hiddenAgent = Guid.NewGuid();
+        var opps = new List<(Guid? AssignedUserId, DateTime CreationTime, bool IsPermitted)>
+        {
+            (hiddenAgent, new DateTime(2026, 11, 20), false),
+            (permittedAgent, new DateTime(2026, 11, 18), true)
+        };
+        MyERP.CRM.Entities.Appointment.ResolveAssigneeFromLatestOpportunity(isLinkedLead: false, hasOpportunityReadPermission: true, opps).ShouldBeNull();
+        MyERP.CRM.Entities.Appointment.ResolveAssigneeFromLatestOpportunity(isLinkedLead: true, hasOpportunityReadPermission: false, opps).ShouldBeNull();
+        MyERP.CRM.Entities.Appointment.ResolveAssigneeFromLatestOpportunity(isLinkedLead: true, hasOpportunityReadPermission: true, opps).ShouldBe(permittedAgent);
+
+        // 5. MyInvois purchase_invoice.py & createxml.py: self-billed contact fallbacks & company address/contact validator
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var selfBilledXml = builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SB-2026-001",
+            DocumentTypeCode = "11",
+            IssueDate = new DateTime(2026, 11, 24),
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Foreign Supplier",
+                Tin = "EI00000000030",
+                IdType = "PASSPORT",
+                IdValue = "P12345",
+                Phone = "NA",
+                Email = "not-an-email"
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "My Company Sdn Bhd",
+                Tin = "C1234567890",
+                IdType = "BRN",
+                IdValue = "202001000001"
+            },
+            Lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Consulting", Quantity = 1m, UnitPrice = 100m, TaxAmount = 0m }
+            },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m
+        });
+        selfBilledXml.ShouldContain("<cbc:Telephone>60100000000</cbc:Telephone>");
+        selfBilledXml.ShouldContain("<cbc:ElectronicMail>noemail@noemail.com</cbc:ElectronicMail>");
+
+        var companyErrors = MyERP.EInvoice.Services.EInvoiceValidationService
+            .ValidateCompanyAddressAndContactForLhdn(null, "", "NA", "bad");
+        companyErrors.Count.ShouldBe(4);
+        MyERP.EInvoice.Services.EInvoiceValidationService
+            .ValidateCompanyAddressAndContactForLhdn("10 Jalan Ampang", "14", "+60312345678", "billing@company.my")
+            .ShouldBeEmpty();
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

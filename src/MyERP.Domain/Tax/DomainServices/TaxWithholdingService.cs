@@ -262,6 +262,24 @@ public class TaxWithholdingService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Determines whether tax withholding (<c>apply_tds</c>) should default to enabled on a newly created
+    /// or mapped Purchase Invoice (e.g. from Purchase Order or Purchase Receipt) per ERPNext PR #68477.
+    /// Returns true during initial load/mapping (<paramref name="forValidate"/> = false) whenever the
+    /// supplier carries a Tax Withholding Category or Tax Withholding Group so the flag stays ticked on load.
+    /// </summary>
+    public static bool ShouldApplyTaxWithholdingByDefault(
+        string? supplierTaxWithholdingCategory,
+        string? supplierTaxWithholdingGroup,
+        bool forValidate = false)
+    {
+        if (forValidate)
+            return false;
+
+        return !string.IsNullOrWhiteSpace(supplierTaxWithholdingCategory)
+            || !string.IsNullOrWhiteSpace(supplierTaxWithholdingGroup);
+    }
 }
 
 /// <summary>Result of a tax withholding calculation.</summary>

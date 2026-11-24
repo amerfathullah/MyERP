@@ -93,7 +93,8 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
 
         // Supplier (AccountingSupplierParty)
-        invoice.Add(BuildSupplierParty(data.Supplier));
+        var isSelfBilled = normalizedDocType is "11" or "12" or "13" or "14";
+        invoice.Add(BuildSupplierParty(data.Supplier, isSelfBilled));
 
         // Buyer (AccountingCustomerParty)
         invoice.Add(BuildCustomerParty(data.Buyer, data.IsConsolidated));
@@ -435,7 +436,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
         return "01";
     }
 
-    private XElement BuildSupplierParty(EInvoicePartyData supplier)
+    private XElement BuildSupplierParty(EInvoicePartyData supplier, bool isSelfBilled = false)
     {
         var party = new XElement(Cac + "AccountingSupplierParty",
             new XElement(Cac + "Party",
@@ -485,10 +486,22 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     msicCode));
         }
 
-        // Contact info (per LHDN spec & myinvois createxml.py — omit NA/invalid email)
+        // Contact info:
+        // - Self-billed purchase invoices (11/12/13/14) fallback to LHDN default contact values when NA/invalid
+        //   per myinvois purchase_invoice.py: set_contact().
+        // - Standard invoices omit NA phone and NA/invalid email per myinvois createxml.py.
         var hasValidPhone = !IsNotApplicable(supplier.Phone);
         var hasValidEmail = !IsNotApplicable(supplier.Email) && IsValidEmail(supplier.Email);
-        if (hasValidPhone || hasValidEmail)
+        if (isSelfBilled)
+        {
+            var resolvedPhone = hasValidPhone ? supplier.Phone!.Trim() : "60100000000";
+            var resolvedEmail = hasValidEmail ? supplier.Email!.Trim() : "noemail@noemail.com";
+            party.Element(Cac + "Party")!.Add(
+                new XElement(Cac + "Contact",
+                    new XElement(Cbc + "Telephone", resolvedPhone),
+                    new XElement(Cbc + "ElectronicMail", resolvedEmail)));
+        }
+        else if (hasValidPhone || hasValidEmail)
         {
             var contact = new XElement(Cac + "Contact");
             if (hasValidPhone)
