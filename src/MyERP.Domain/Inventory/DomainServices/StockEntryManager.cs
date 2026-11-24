@@ -2621,4 +2621,150 @@ public class StockEntryManager : DomainService
             uomMustBeWholeNumber,
             qtyPrecision);
     }
+
+    /// <summary>
+    /// Refuses a Manufacture Stock Entry whose <paramref name="fgCompletedQty"/> exceeds the
+    /// remaining qty covered by material transferred to the Work Order (plus overproduction allowance)
+    /// so BOM backflush cannot steal another order's stock from a shared WIP warehouse.
+    /// Per ERPNext PR #67354 (<c>ManufactureStockEntry.validate_qty_against_transferred_qty</c>).
+    /// </summary>
+    public static void ValidateManufactureQtyAgainstTransferredQty(
+        decimal fgCompletedQty,
+        decimal workOrderQty,
+        decimal transferredQty,
+        decimal producedQty,
+        decimal processLossQty,
+        string workOrderNumber,
+        bool skipTransfer = false,
+        bool trackSemiFinishedGoods = false,
+        string? transferMaterialAgainst = null,
+        decimal overproductionAllowancePercentage = 0m,
+        int qtyPrecision = 4)
+    {
+        if (skipTransfer
+            || trackSemiFinishedGoods
+            || string.Equals(transferMaterialAgainst, "Job Card", StringComparison.OrdinalIgnoreCase)
+            || transferredQty <= 0m)
+        {
+            return;
+        }
+
+        var allowedQty = Math.Round(
+            transferredQty + workOrderQty * overproductionAllowancePercentage / 100m - producedQty - processLossQty,
+            qtyPrecision,
+            MidpointRounding.AwayFromZero);
+        var roundedFg = Math.Round(fgCompletedQty, qtyPrecision, MidpointRounding.AwayFromZero);
+
+        if (roundedFg > allowedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"For Quantity ({roundedFg}) cannot be more than {allowedQty}, the qty transferred to Work Order {workOrderNumber} that is not yet produced.");
+        }
+    }
+
+    /// <summary>
+    /// Resolves target warehouse for a Manufacture secondary item row: routes <c>Scrap</c> to the
+    /// Work Order's scrap warehouse when configured (for both BOM and Job Card scrap rows), else
+    /// falls back to the Stock Entry's target warehouse.
+    /// Per ERPNext PR #67394 (<c>BaseManufactureStockEntry.get_secondary_item_warehouse</c>).
+    /// </summary>
+    public static Guid? ResolveSecondaryItemTargetWarehouse(
+        Manufacturing.SecondaryItemType secondaryItemType,
+        Guid? workOrderScrapWarehouseId,
+        Guid? stockEntryTargetWarehouseId)
+    {
+        if (secondaryItemType == Manufacturing.SecondaryItemType.Scrap && workOrderScrapWarehouseId.HasValue)
+            return workOrderScrapWarehouseId;
+
+        return stockEntryTargetWarehouseId;
+    }
+
+    /// <summary>
+    /// Filters out BOM-estimated secondary items whose <c>(ItemId, SecondaryItemType)</c> was already
+    /// recorded on Job Cards so Manufacture entries do not double-count scrap/co-products.
+    /// Per ERPNext PR #67394 (<c>ManufactureStockEntry.get_bom_secondary_items</c>).
+    /// </summary>
+    public static List<(Guid ItemId, Manufacturing.SecondaryItemType SecondaryItemType, decimal Qty)> FilterBomSecondaryItemsNotRecordedOnJobCard(
+        IEnumerable<(Guid ItemId, Manufacturing.SecondaryItemType SecondaryItemType, decimal Qty)>? bomSecondaryItems,
+        IEnumerable<(Guid ItemId, Manufacturing.SecondaryItemType SecondaryItemType)>? jobCardSecondaryItems)
+    {
+        if (bomSecondaryItems == null)
+            return new List<(Guid, Manufacturing.SecondaryItemType, decimal)>();
+
+        var recorded = (jobCardSecondaryItems ?? Enumerable.Empty<(Guid, Manufacturing.SecondaryItemType)>())
+            .ToHashSet();
+
+        return bomSecondaryItems
+            .Where(r => !recorded.Contains((r.ItemId, r.SecondaryItemType)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Takes serial numbers and batch quantities up to <paramref name="requestedQty"/> from mutable
+    /// reserved entries (FIFO order), filtering by <paramref name="restrictedSerialNos"/> or
+    /// <paramref name="restrictedBatchNo"/> when specified, and decrementing available qty in-place so
+    /// subsequent rows on the same Stock Entry do not over-allocate pending customer batches.
+    /// Per ERPNext PR #67503 (<c>serial_batch.py: take_reserved_entries</c>).
+    /// </summary>
+    public static (List<string> TakenSerialNos, Dictionary<string, decimal> TakenBatches) TakeReservedSerialAndBatchEntries(
+        IList<ReservedSerialBatchSlot> reservedEntries,
+        decimal requestedQty,
+        IReadOnlyCollection<string>? restrictedSerialNos = null,
+        string? restrictedBatchNo = null,
+        int qtyPrecision = 4)
+    {
+        var takenSerials = new List<string>();
+        var takenBatches = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (reservedEntries == null || Math.Round(requestedQty, qtyPrecision, MidpointRounding.AwayFromZero) <= 0m)
+            return (takenSerials, takenBatches);
+
+        var serialFilter = restrictedSerialNos != null && restrictedSerialNos.Count > 0
+            ? new HashSet<string>(restrictedSerialNos, StringComparer.OrdinalIgnoreCase)
+            : null;
+        var takenSerialSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var remaining = requestedQty;
+
+        foreach (var entry in reservedEntries)
+        {
+            if (Math.Round(remaining, qtyPrecision, MidpointRounding.AwayFromZero) <= 0m)
+                break;
+
+            if (Math.Round(entry.AvailableQty, qtyPrecision, MidpointRounding.AwayFromZero) <= 0m)
+                continue;
+
+            if (!string.IsNullOrEmpty(entry.SerialNo) && takenSerialSet.Contains(entry.SerialNo))
+                continue;
+
+            if (serialFilter != null && (string.IsNullOrEmpty(entry.SerialNo) || !serialFilter.Contains(entry.SerialNo)))
+                continue;
+
+            if (!string.IsNullOrEmpty(restrictedBatchNo)
+                && !string.Equals(entry.BatchNo, restrictedBatchNo, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var take = Math.Min(entry.AvailableQty, remaining);
+            entry.AvailableQty -= take;
+            remaining -= take;
+
+            if (!string.IsNullOrEmpty(entry.SerialNo))
+            {
+                takenSerials.Add(entry.SerialNo);
+                takenSerialSet.Add(entry.SerialNo);
+            }
+
+            if (!string.IsNullOrEmpty(entry.BatchNo))
+            {
+                takenBatches[entry.BatchNo] = takenBatches.GetValueOrDefault(entry.BatchNo, 0m) + take;
+            }
+        }
+
+        return (takenSerials, takenBatches);
+    }
+}
+
+public sealed class ReservedSerialBatchSlot
+{
+    public string? SerialNo { get; set; }
+    public string? BatchNo { get; set; }
+    public decimal AvailableQty { get; set; }
 }

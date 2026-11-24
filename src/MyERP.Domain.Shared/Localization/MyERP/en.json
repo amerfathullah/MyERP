@@ -6757,7 +6757,15 @@
     "Placeholder:AgentUnavailableMessage": "Played when outside operating hours",
     "Placeholder:CallTypeExample": "e.g. Sales Inquiry, Support, Follow-up",
     "Placeholder:FilterByCallTypeName": "Filter by call type name...",
-    "Placeholder:FilterByTitleUrlOrDescription": "Filter by title, url, or description..."
+    "Placeholder:FilterByTitleUrlOrDescription": "Filter by title, url, or description...",
+    "Placeholder:CustomerGroupExample": "e.g. Commercial, Government, Retail, Wholesale",
+    "Placeholder:PartyTypeExample": "e.g. Customer, Supplier, Employee",
+    "Placeholder:SupplierGroupExample": "e.g. Raw Material, Services, Hardware, Logistics",
+    "Placeholder:TermsTitleExample": "e.g. Standard Domestic Sales Terms",
+    "Placeholder:TerritoryExample": "e.g. Malaysia, Southeast Asia, Selangor, Kuala Lumpur",
+    "Placeholder:SalesManagerRoleExample": "e.g. Sales Manager",
+    "Placeholder:ProformaPrintFormatExample": "e.g. Standard Proforma Invoice",
+    "Placeholder:ProformaEmailTemplateExample": "e.g. Proforma Invoice Notification"
   }
 }
 

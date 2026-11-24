@@ -167,6 +167,37 @@ public class InvoiceDocumentBuilder : ITransientDependency
     }
 
     /// <summary>
+    /// Checks whether a party contact/identifier value is blank or an N/A placeholder (<c>"NA"</c>, <c>"N/A"</c>).
+    /// Per myinvois <c>createxml.py: is_na()</c>.
+    /// </summary>
+    public static bool IsNotApplicable(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var normalized = value.Trim().ToLowerInvariant();
+        return normalized is "na" or "n/a";
+    }
+
+    /// <summary>
+    /// Validates basic email format before emitting <c>cbc:ElectronicMail</c> per myinvois <c>createxml.py: is_valid_email()</c>.
+    /// </summary>
+    public static bool IsValidEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var trimmed = email.Trim();
+        var at = trimmed.IndexOf('@');
+        if (at <= 0 || at != trimmed.LastIndexOf('@'))
+            return false;
+
+        var domain = trimmed[(at + 1)..];
+        var dot = domain.LastIndexOf('.');
+        return dot > 0 && dot < domain.Length - 2 && !trimmed.Contains(' ');
+    }
+
+    /// <summary>
     /// Extracts the numeric Invoice Counter Value (ICV) from an invoice number (e.g. <c>"SI-2026-00042"</c> -> <c>"00042"</c>)
     /// per myinvois <c>createxml.py</c> / <c>purchase_invoice.py: get_icv_code()</c>.
     /// </summary>
@@ -443,14 +474,16 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     msicCode));
         }
 
-        // Contact info (per LHDN spec — phone and email)
-        if (!string.IsNullOrEmpty(supplier.Phone) || !string.IsNullOrEmpty(supplier.Email))
+        // Contact info (per LHDN spec & myinvois createxml.py — omit NA/invalid email)
+        var hasValidPhone = !IsNotApplicable(supplier.Phone);
+        var hasValidEmail = !IsNotApplicable(supplier.Email) && IsValidEmail(supplier.Email);
+        if (hasValidPhone || hasValidEmail)
         {
             var contact = new XElement(Cac + "Contact");
-            if (!string.IsNullOrEmpty(supplier.Phone))
-                contact.Add(new XElement(Cbc + "Telephone", supplier.Phone));
-            if (!string.IsNullOrEmpty(supplier.Email))
-                contact.Add(new XElement(Cbc + "ElectronicMail", supplier.Email));
+            if (hasValidPhone)
+                contact.Add(new XElement(Cbc + "Telephone", supplier.Phone!.Trim()));
+            if (hasValidEmail)
+                contact.Add(new XElement(Cbc + "ElectronicMail", supplier.Email!.Trim()));
             party.Element(Cac + "Party")!.Add(contact);
         }
 
@@ -541,14 +574,16 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XAttribute("schemeID", "TTX"), buyer.TourismTaxNumber)));
         }
 
-        // Contact info (per LHDN spec — phone and email)
-        if (!string.IsNullOrEmpty(buyer.Phone) || !string.IsNullOrEmpty(buyer.Email))
+        // Contact info (per LHDN spec & myinvois createxml.py — omit NA/invalid email for non-consolidated buyer)
+        var hasValidBuyerPhone = !IsNotApplicable(buyer.Phone);
+        var hasValidBuyerEmail = !IsNotApplicable(buyer.Email) && IsValidEmail(buyer.Email);
+        if (hasValidBuyerPhone || hasValidBuyerEmail)
         {
             var contact = new XElement(Cac + "Contact");
-            if (!string.IsNullOrEmpty(buyer.Phone))
-                contact.Add(new XElement(Cbc + "Telephone", buyer.Phone));
-            if (!string.IsNullOrEmpty(buyer.Email))
-                contact.Add(new XElement(Cbc + "ElectronicMail", buyer.Email));
+            if (hasValidBuyerPhone)
+                contact.Add(new XElement(Cbc + "Telephone", buyer.Phone!.Trim()));
+            if (hasValidBuyerEmail)
+                contact.Add(new XElement(Cbc + "ElectronicMail", buyer.Email!.Trim()));
             party.Element(Cac + "Party")!.Add(contact);
         }
 

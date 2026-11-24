@@ -33,7 +33,7 @@ import type { CompanyDto } from '../../proxy/core/models';
             </div>
             <div class="col-md-6">
               <label class="form-label">Title *</label>
-              <input type="text" class="form-control" formControlName="title" maxlength="140" placeholder="e.g. Standard Domestic Sales Terms">
+              <input type="text" class="form-control" formControlName="title" maxlength="140" [placeholder]="'::Placeholder:TermsTitleExample' | abpLocalization">
             </div>
           </div>
 

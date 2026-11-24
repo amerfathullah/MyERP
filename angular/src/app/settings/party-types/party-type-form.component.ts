@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { PartyTypeService } from '../../proxy/core/party-type.service';
 import { partyAccountTypeOptions } from '../../proxy/core/party-account-type.enum';
 
 @Component({
   selector: 'app-party-type-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -21,7 +22,7 @@ import { partyAccountTypeOptions } from '../../proxy/core/party-account-type.enu
           <div class="row mb-3">
             <div class="col-md-6">
               <label class="form-label">Party Type Name *</label>
-              <input type="text" class="form-control" formControlName="name" placeholder="e.g. Customer, Supplier, Employee">
+              <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:PartyTypeExample' | abpLocalization">
             </div>
             <div class="col-md-6">
               <label class="form-label">Account Type *</label>

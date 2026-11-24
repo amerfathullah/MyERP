@@ -77,7 +77,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <label class="form-label">Role Allowed to Override Stop Action</label>
                 <input type="text" class="form-control form-control-sm"
                   [(ngModel)]="settings['MyERP.Selling.RoleToOverrideStopAction']" name="roleOverrideRate"
-                  placeholder="e.g. Sales Manager" />
+                  [placeholder]="'::Placeholder:SalesManagerRoleExample' | abpLocalization" />
               </div>
             </div>
 
@@ -146,13 +146,13 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <label class="form-label">Default Proforma Print Format</label>
                 <input type="text" class="form-control form-control-sm"
                   [(ngModel)]="settings['MyERP.Selling.DefaultProformaPrintFormat']" name="defaultProformaPrintFormat"
-                  placeholder="e.g. Standard Proforma Invoice" />
+                  [placeholder]="'::Placeholder:ProformaPrintFormatExample' | abpLocalization" />
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ 'MyERP::ProformaEmailTemplate' | abpLocalization }}</label>
                 <input type="text" class="form-control form-control-sm"
                   [(ngModel)]="settings['MyERP.Selling.ProformaEmailTemplate']" name="proformaEmailTemplate"
-                  placeholder="e.g. Proforma Invoice Notification" />
+                  [placeholder]="'::Placeholder:ProformaEmailTemplateExample' | abpLocalization" />
                 <small class="text-muted d-block mt-1">{{ 'MyERP::ProformaEmailTemplateHelp' | abpLocalization }}</small>
               </div>
             </div>

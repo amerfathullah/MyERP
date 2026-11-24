@@ -27,7 +27,7 @@ import type { ItemGroupDto } from '../../proxy/inventory/models';
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Territory Name *</label>
-            <input type="text" class="form-control" formControlName="name" maxlength="140" placeholder="e.g. Malaysia, Southeast Asia, Selangor, Kuala Lumpur">
+            <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:TerritoryExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

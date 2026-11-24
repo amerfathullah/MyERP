@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { SupplierGroupService } from '../../proxy/core/supplier-group.service';
 import type { SupplierGroupDto } from '../../proxy/core/models';
 
 @Component({
   selector: 'app-supplier-group-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -20,7 +21,7 @@ import type { SupplierGroupDto } from '../../proxy/core/models';
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Supplier Group Name *</label>
-            <input type="text" class="form-control" formControlName="name" maxlength="140" placeholder="e.g. Raw Material, Services, Hardware, Logistics">
+            <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:SupplierGroupExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

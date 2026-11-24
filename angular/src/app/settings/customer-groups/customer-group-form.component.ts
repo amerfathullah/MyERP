@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CustomerGroupService } from '../../proxy/core/customer-group.service';
 import type { CustomerGroupDto } from '../../proxy/core/models';
 
 @Component({
   selector: 'app-customer-group-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -20,7 +21,7 @@ import type { CustomerGroupDto } from '../../proxy/core/models';
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Customer Group Name *</label>
-            <input type="text" class="form-control" formControlName="name" maxlength="140" placeholder="e.g. Commercial, Government, Retail, Wholesale">
+            <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:CustomerGroupExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

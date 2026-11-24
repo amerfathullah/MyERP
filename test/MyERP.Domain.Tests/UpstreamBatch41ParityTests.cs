@@ -2747,6 +2747,116 @@ public class UpstreamBatch41ParityTests
             .ShouldBe("00042");
     }
 
+    [Fact]
+    public void UpstreamBatch22_MfgTransferredCap_JcSecondaryLink_ScioBatchTake_LhdnContact_Parity()
+    {
+        // 1. ERPNext PR #67354: Manufacture refuses qty exceeding transferred + overproduction - produced - processLoss
+        Should.NotThrow(() =>
+            StockEntryManager.ValidateManufactureQtyAgainstTransferredQty(
+                fgCompletedQty: 6m, workOrderQty: 10m, transferredQty: 8m, producedQty: 2m, processLossQty: 0m,
+                workOrderNumber: "WO-67354", overproductionAllowancePercentage: 0m));
+
+        var mfgEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateManufactureQtyAgainstTransferredQty(
+                fgCompletedQty: 7m, workOrderQty: 10m, transferredQty: 8m, producedQty: 2m, processLossQty: 0m,
+                workOrderNumber: "WO-67354", overproductionAllowancePercentage: 0m));
+        (mfgEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("cannot be more than 6");
+
+        // 10% overproduction allowance (1 unit) lets qty 7 pass
+        Should.NotThrow(() =>
+            StockEntryManager.ValidateManufactureQtyAgainstTransferredQty(
+                fgCompletedQty: 7m, workOrderQty: 10m, transferredQty: 8m, producedQty: 2m, processLossQty: 0m,
+                workOrderNumber: "WO-67354", overproductionAllowancePercentage: 10m));
+
+        // 2. ERPNext PR #67394: Job Card secondary relinking, BOM dedup, and scrap warehouse routing
+        var itemA = Guid.NewGuid();
+        var itemB = Guid.NewGuid();
+        var bomRowA = Guid.NewGuid();
+        var bomRowB = Guid.NewGuid();
+        var jcRow1 = Guid.NewGuid();
+        var jcRow2 = Guid.NewGuid();
+        var linked = JobCardManager.LinkSecondaryItemsToBom(
+            jobCardSecondaryRows: new[]
+            {
+                (jcRow1, itemA, SecondaryItemType.Scrap, (Guid?)bomRowA), // still matches -> keep
+                (jcRow2, itemB, SecondaryItemType.Scrap, (Guid?)bomRowA), // item changed -> relink to bomRowB
+            },
+            bomSecondaryRows: new[]
+            {
+                (bomRowA, itemA, SecondaryItemType.Scrap),
+                (bomRowB, itemB, SecondaryItemType.Scrap),
+            });
+        linked.First(r => r.RowId == jcRow1).ResolvedBomSecondaryItemId.ShouldBe(bomRowA);
+        linked.First(r => r.RowId == jcRow2).ResolvedBomSecondaryItemId.ShouldBe(bomRowB);
+
+        var filteredBomSec = StockEntryManager.FilterBomSecondaryItemsNotRecordedOnJobCard(
+            bomSecondaryItems: new[] { (itemA, SecondaryItemType.Scrap, 1m), (itemB, SecondaryItemType.ByProduct, 2m) },
+            jobCardSecondaryItems: new[] { (itemA, SecondaryItemType.Scrap) });
+        filteredBomSec.Count.ShouldBe(1);
+        filteredBomSec[0].ItemId.ShouldBe(itemB);
+
+        var scrapWh = Guid.NewGuid();
+        var fgWh = Guid.NewGuid();
+        StockEntryManager.ResolveSecondaryItemTargetWarehouse(SecondaryItemType.Scrap, scrapWh, fgWh).ShouldBe(scrapWh);
+        StockEntryManager.ResolveSecondaryItemTargetWarehouse(SecondaryItemType.ByProduct, scrapWh, fgWh).ShouldBe(fgWh);
+
+        // 3. ERPNext PR #67503: Take pending customer batches only up to row qty, mutating remaining slots FIFO
+        var slots = new List<ReservedSerialBatchSlot>
+        {
+            new() { BatchNo = "B-1", AvailableQty = 4m },
+            new() { BatchNo = "B-2", AvailableQty = 6m },
+        };
+        var (_, row1Batches) = StockEntryManager.TakeReservedSerialAndBatchEntries(slots, requestedQty: 5m);
+        row1Batches["B-1"].ShouldBe(4m);
+        row1Batches["B-2"].ShouldBe(1m);
+        slots[0].AvailableQty.ShouldBe(0m);
+        slots[1].AvailableQty.ShouldBe(5m);
+
+        var (_, row2Batches) = StockEntryManager.TakeReservedSerialAndBatchEntries(slots, requestedQty: 3m);
+        row2Batches.Count.ShouldBe(1);
+        row2Batches["B-2"].ShouldBe(3m);
+        slots[1].AvailableQty.ShouldBe(2m);
+
+        // 4. MyInvois createxml.py: IsNotApplicable / IsValidEmail and XML contact sanitization
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.IsNotApplicable("N/A").ShouldBeTrue();
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.IsNotApplicable("NA").ShouldBeTrue();
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.IsValidEmail("finance@company.my").ShouldBeTrue();
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.IsValidEmail("not-an-email").ShouldBeFalse();
+
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = System.Xml.Linq.XDocument.Parse(builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "SI-2026-00022",
+            IssueDate = new DateTime(2026, 8, 22, 10, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Sup", Tin = "C1111111111", Address = "A", City = "KL", State = "14", CountryCode = "MYS",
+                Phone = "+60312345678", Email = "invalid-email"
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Buy", Tin = "C2222222222", Address = "B", City = "KL", State = "14", CountryCode = "MYS",
+                Phone = "N/A", Email = "NA"
+            },
+            NetTotal = 100m,
+            TaxAmount = 0m,
+            GrandTotal = 100m,
+            Lines = new System.Collections.Generic.List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Item", Quantity = 1m, UnitPrice = 100m }
+            }
+        }));
+        System.Xml.Linq.XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+        System.Xml.Linq.XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+        var supContact = xml.Root!.Element(cac + "AccountingSupplierParty")!.Element(cac + "Party")!.Element(cac + "Contact");
+        supContact.ShouldNotBeNull();
+        supContact!.Element(cbc + "Telephone")!.Value.ShouldBe("+60312345678");
+        supContact.Element(cbc + "ElectronicMail").ShouldBeNull(); // invalid email omitted
+        xml.Root.Element(cac + "AccountingCustomerParty")!.Element(cac + "Party")!.Element(cac + "Contact").ShouldBeNull(); // N/A contact omitted
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

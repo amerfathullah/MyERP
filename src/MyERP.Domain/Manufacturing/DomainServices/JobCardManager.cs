@@ -1515,6 +1515,45 @@ public class JobCardManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Relinks Job Card secondary item rows to their matching BOM secondary item row by
+    /// <c>(ItemId, SecondaryItemType)</c>, preserving an existing valid link when the BOM row still
+    /// matches the row's current item and type, and clearing/relinking rows whose item or type changed.
+    /// Per ERPNext PR #67394 (<c>JobCard.link_secondary_items_to_bom</c>).
+    /// </summary>
+    public static List<(Guid RowId, Guid? ResolvedBomSecondaryItemId)> LinkSecondaryItemsToBom(
+        IEnumerable<(Guid RowId, Guid ItemId, SecondaryItemType SecondaryItemType, Guid? ExistingBomSecondaryItemId)>? jobCardSecondaryRows,
+        IEnumerable<(Guid BomSecondaryItemId, Guid ItemId, SecondaryItemType SecondaryItemType)>? bomSecondaryRows)
+    {
+        var result = new List<(Guid RowId, Guid? ResolvedBomSecondaryItemId)>();
+        if (jobCardSecondaryRows == null)
+            return result;
+
+        var bomList = (bomSecondaryRows ?? Enumerable.Empty<(Guid, Guid, SecondaryItemType)>()).ToList();
+        var bomById = bomList.ToDictionary(b => b.BomSecondaryItemId, b => (b.ItemId, b.SecondaryItemType));
+        var bomByKey = new Dictionary<(Guid ItemId, SecondaryItemType Type), Guid>();
+        foreach (var b in bomList)
+            bomByKey[(b.ItemId, b.SecondaryItemType)] = b.BomSecondaryItemId;
+
+        foreach (var row in jobCardSecondaryRows)
+        {
+            if (row.ExistingBomSecondaryItemId.HasValue
+                && bomById.TryGetValue(row.ExistingBomSecondaryItemId.Value, out var existingMatch)
+                && existingMatch == (row.ItemId, row.SecondaryItemType))
+            {
+                result.Add((row.RowId, row.ExistingBomSecondaryItemId.Value));
+                continue;
+            }
+
+            Guid? resolved = bomByKey.TryGetValue((row.ItemId, row.SecondaryItemType), out var matchedId)
+                ? matchedId
+                : null;
+            result.Add((row.RowId, resolved));
+        }
+
+        return result;
+    }
 }
 
 /// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>
