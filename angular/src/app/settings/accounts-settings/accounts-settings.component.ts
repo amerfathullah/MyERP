@@ -101,7 +101,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <label class="form-label">Overdue Billing Bypass Role</label>
                   <input type="text" class="form-control"
                     [(ngModel)]="settings['MyERP.Accounts.OverdueBillingBypassRole']" name="overdueBillingBypassRole"
-                    placeholder="e.g. CreditController" />
+                    [placeholder]="'::Placeholder:CreditControllerRoleExample' | abpLocalization" />
                 </div>
               </div>
             }

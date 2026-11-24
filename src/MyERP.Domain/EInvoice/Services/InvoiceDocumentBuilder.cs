@@ -99,10 +99,10 @@ public class InvoiceDocumentBuilder : ITransientDependency
         // Buyer (AccountingCustomerParty)
         invoice.Add(BuildCustomerParty(data.Buyer, data.IsConsolidated));
 
-        // Delivery (shipping address — per LHDN spec)
+        // Delivery (shipping address — per LHDN spec & myinvois consolidate_invoice.py)
         if (data.Delivery != null)
         {
-            invoice.Add(BuildDelivery(data.Delivery));
+            invoice.Add(BuildDelivery(data.Delivery, data.IsConsolidated));
         }
 
         // Payment Means (per LHDN spec — payment mode code)
@@ -783,8 +783,35 @@ public class InvoiceDocumentBuilder : ITransientDependency
         return lineElem;
     }
 
-    private XElement BuildDelivery(EInvoiceDeliveryData delivery)
+    private XElement BuildDelivery(EInvoiceDeliveryData delivery, bool isConsolidated = false)
     {
+        if (isConsolidated)
+        {
+            // Per myinvois consolidate_invoice.py: delivery_data_consolidate()
+            var consTin = !string.IsNullOrWhiteSpace(delivery.Tin) ? delivery.Tin.Trim() : "EI00000000010";
+            var consIdType = !string.IsNullOrWhiteSpace(delivery.IdType) ? delivery.IdType.Trim() : "BRN";
+            var consIdValue = !string.IsNullOrWhiteSpace(delivery.IdValue) ? delivery.IdValue.Trim() : "NA";
+            var consAddress = !string.IsNullOrWhiteSpace(delivery.Address) ? delivery.Address.Trim() : "NA";
+            var consName = !string.IsNullOrWhiteSpace(delivery.RecipientName) ? delivery.RecipientName.Trim() : "Consolidated Buyers";
+
+            return new XElement(Cac + "Delivery",
+                new XElement(Cac + "DeliveryParty",
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", "TIN"), consTin)),
+                    new XElement(Cac + "PartyIdentification",
+                        new XElement(Cbc + "ID", new XAttribute("schemeID", consIdType), consIdValue)),
+                    new XElement(Cac + "PostalAddress",
+                        new XElement(Cac + "AddressLine",
+                            new XElement(Cbc + "Line", consAddress)),
+                        new XElement(Cac + "Country",
+                            new XElement(Cbc + "IdentificationCode",
+                                new XAttribute("listID", "ISO3166-1"),
+                                new XAttribute("listAgencyID", "6"),
+                                "MYS"))),
+                    new XElement(Cac + "PartyLegalEntity",
+                        new XElement(Cbc + "RegistrationName", consName))));
+        }
+
         var deliveryParty = new XElement(Cac + "DeliveryParty");
 
         // Per myinvois purchase_invoice.py & consolidate_invoice.py: emit DeliveryParty PartyIdentification (TIN, ID) when supplied

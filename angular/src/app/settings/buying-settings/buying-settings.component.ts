@@ -82,7 +82,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 <label class="form-label">Role Allowed to Override Stop Action</label>
                 <input type="text" class="form-control form-control-sm"
                   [(ngModel)]="settings['MyERP.Buying.RoleToOverrideStopAction']" name="bRoleOverrideRate"
-                  placeholder="e.g. Purchase Manager" />
+                  [placeholder]="'::Placeholder:PurchaseManagerRoleExample' | abpLocalization" />
               </div>
               <div class="col-md-4">
                 <label class="form-label">Blanket Order Allowance (%)</label>

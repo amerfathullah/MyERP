@@ -92,7 +92,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 class="form-control form-control-sm"
                 [(ngModel)]="itemCodeFilter"
                 (keyup.enter)="loadReport()"
-                placeholder="Search code..."
+                [placeholder]="'::Placeholder:SearchCodeEllipsis' | abpLocalization"
               />
             </div>
             <div class="col-md-2 d-flex align-items-end">

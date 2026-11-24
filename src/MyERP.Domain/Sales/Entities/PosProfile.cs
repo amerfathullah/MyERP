@@ -182,6 +182,27 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         IsDisabled = false;
     }
+
+    /// <summary>
+    /// Validates a client-supplied POS Profile filter in POS item queries
+    /// (ERPNext PR #69213: <c>pos_invoice.get_permitted_pos_profile</c>).
+    /// Checks doctype-level select permission first so unentitled callers cannot distinguish
+    /// missing POS Profile names from existing ones, then validates document-level permission.
+    /// </summary>
+    public static void ValidatePosProfileFilterPermission(
+        string? posProfileFilter,
+        bool hasPosProfileDoctypeSelectPermission,
+        bool hasPosProfileDocumentSelectPermission)
+    {
+        if (string.IsNullOrWhiteSpace(posProfileFilter))
+            return;
+
+        if (!hasPosProfileDoctypeSelectPermission || !hasPosProfileDocumentSelectPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to query items for the specified POS Profile.");
+        }
+    }
 }
 
 /// <summary>

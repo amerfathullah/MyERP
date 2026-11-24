@@ -70,6 +70,28 @@ public class InvoiceDiscountingService : DomainService
                     .WithData("actualOutstanding", inv.ActualOutstandingAmount);
         }
     }
+
+    /// <summary>
+    /// Validates permissions before mapping a Sales Invoice into a new Invoice Discounting
+    /// document (ERPNext PR #69090: <c>sales_invoice.mapper.create_invoice_discounting</c>).
+    /// Requires read permission on the source Sales Invoice and create permission on Invoice Discounting.
+    /// </summary>
+    public static void ValidateCreateFromSalesInvoicePermission(
+        bool hasSalesInvoiceReadPermission,
+        bool hasInvoiceDiscountingCreatePermission)
+    {
+        if (!hasSalesInvoiceReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to read the source Sales Invoice for Invoice Discounting.");
+        }
+
+        if (!hasInvoiceDiscountingCreatePermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to create an Invoice Discounting document.");
+        }
+    }
 }
 
 /// <summary>Invoice details for discounting eligibility validation.</summary>

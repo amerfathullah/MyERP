@@ -69,7 +69,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::SubcontractingOrder' | abpLocalization }} (SCO ID)</label>
-              <input type="text" class="form-control" formControlName="subcontractingOrderId" placeholder="SCO Reference Guid / Number" />
+              <input type="text" class="form-control" formControlName="subcontractingOrderId" [placeholder]="'::Placeholder:ScoReferenceGuidOrNumber' | abpLocalization" />
             </div>
           </div>
 

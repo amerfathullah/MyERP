@@ -6800,7 +6800,19 @@
     "Placeholder:VoucherNumberSample": "e.g. SI-00001",
     "Placeholder:TaxpayerIdValueSample": "e.g. 202301012345",
     "Placeholder:PercentageChangeSample": "e.g. 5 or -10",
-    "Placeholder:CurrencyCodeSample": "e.g. USD"
+    "Placeholder:CurrencyCodeSample": "e.g. USD",
+    "Placeholder:FilterByDnCustomerItem": "Filter by DN, customer, item...",
+    "Placeholder:FilterByCustomerNameOrCode": "Filter by customer name or code",
+    "Placeholder:SearchEllipsis": "Search...",
+    "Placeholder:SearchSoNumber": "Search SO #",
+    "Placeholder:SearchCodeEllipsis": "Search code...",
+    "Placeholder:PartnerTypeNameExample": "e.g. Reseller, Distributor, Broker, Affiliate...",
+    "Placeholder:PartnerTypeDescription": "Description of this partner type classification...",
+    "Placeholder:CreditControllerRoleExample": "e.g. CreditController",
+    "Placeholder:PurchaseManagerRoleExample": "e.g. Purchase Manager",
+    "Placeholder:AccountsManagerRoleExample": "e.g. Accounts Manager",
+    "Placeholder:CustomsTariffCodeExample": "e.g. 8471.30.0000",
+    "Placeholder:ScoReferenceGuidOrNumber": "SCO Reference Guid / Number"
   }
 }
 

@@ -138,7 +138,7 @@
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Role Allowed for Frozen Entries</label>
-              <input type="text" class="form-control" formControlName="roleAllowedForFrozenEntries" placeholder="e.g. Accounts Manager" />
+              <input type="text" class="form-control" formControlName="roleAllowedForFrozenEntries" [placeholder]="'::Placeholder:AccountsManagerRoleExample' | abpLocalization" />
               <small class="text-muted">Users in this role can still transact with frozen customers and suppliers.</small>
             </div>
             <div class="col-md-6 mb-3">

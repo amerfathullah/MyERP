@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { SalesPartnerTypeService } from '../../proxy/sales/sales-partner-type.service';
 
 @Component({
   selector: 'app-sales-partner-type-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -19,12 +20,12 @@ import { SalesPartnerTypeService } from '../../proxy/sales/sales-partner-type.se
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Partner Type Name *</label>
-            <input type="text" class="form-control" formControlName="partnerTypeName" placeholder="e.g. Reseller, Distributor, Broker, Affiliate...">
+            <input type="text" class="form-control" formControlName="partnerTypeName" [placeholder]="'::Placeholder:PartnerTypeNameExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="3" formControlName="description" placeholder="Description of this partner type classification..."></textarea>
+            <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:PartnerTypeDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">

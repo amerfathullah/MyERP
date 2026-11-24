@@ -3115,6 +3115,105 @@ public class UpstreamBatch41ParityTests
             .ShouldBeEmpty();
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch26_TemplateHolidayDependents_PosProfileFilter_AppointmentMail_InvoiceDiscountingPerm_ConsolidatedDelivery_Parity()
+    {
+        // 1. ERPNext PR #69137: Holiday-shifted template task reschedules its dependent tasks after dependency mapping
+        var projId = Guid.NewGuid();
+        var projectStart = new DateTime(2026, 9, 1);
+        // Template task A: begin=0, duration=2 => naive Sep 1..Sep 3, but Sep 1 holiday shifted it to Sep 2..Sep 4
+        var taskA = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "T-A", "Holiday Shifted")
+        {
+            ExpectedStartDate = new DateTime(2026, 9, 2),
+            ExpectedEndDate = new DateTime(2026, 9, 4)
+        };
+        // Template task B: begin=3, duration=1 => naive Sep 4..Sep 5, depends on A (which now ends Sep 4)
+        var taskB = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "T-B", "Dependent Task")
+        {
+            ExpectedStartDate = new DateTime(2026, 9, 4),
+            ExpectedEndDate = new DateTime(2026, 9, 5)
+        };
+        taskB.AddDependency(taskA.Id);
+
+        var taskRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ProjectTask, Guid>>();
+        NSubstitute.SubstituteExtensions.Returns(taskRepo.GetQueryableAsync(),
+            System.Threading.Tasks.Task.FromResult(new List<MyERP.Projects.Entities.ProjectTask> { taskA, taskB }.AsQueryable()));
+        var depSvc = new MyERP.Projects.DomainServices.TaskDependencyValidationService(taskRepo);
+
+        await depSvc.RescheduleTemplateTasksMovedByHolidaysAsync(
+            projectStart,
+            new List<(MyERP.Projects.Entities.ProjectTask Task, int BeginDays, int DurationDays)>
+            {
+                (taskA, 0, 2),
+                (taskB, 3, 1)
+            });
+
+        taskB.ExpectedStartDate.ShouldBe(new DateTime(2026, 9, 5));
+        taskB.ExpectedEndDate.ShouldBe(new DateTime(2026, 9, 6));
+
+        // 2. ERPNext PR #69213: POS Profile filter permission check refuses unentitled callers before leaking existence
+        Should.NotThrow(() => MyERP.Sales.Entities.PosProfile.ValidatePosProfileFilterPermission(null, false, false));
+        Should.NotThrow(() => MyERP.Sales.Entities.PosProfile.ValidatePosProfileFilterPermission("POS-1", true, true));
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.Entities.PosProfile.ValidatePosProfileFilterPermission("POS-1", false, true));
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Sales.Entities.PosProfile.ValidatePosProfileFilterPermission("POS-Missing", true, false));
+
+        // 3. ERPNext PR #67759: Verification email excludes guest-supplied customer name; confirmed email includes it
+        var phishingName = "Customer. Pay invoice INV-777 now at https://pay.example.com";
+        var appt = new MyERP.CRM.Entities.Appointment(
+            Guid.NewGuid(), Guid.NewGuid(), phishingName, new DateTime(2026, 9, 10, 10, 0, 0), createdThroughPortal: true);
+        var verifyBody = appt.BuildVerificationEmailBody("https://erp.example.com/book_appointment/verify?key=abc");
+        verifyBody.ShouldContain("/book_appointment/verify?key=abc");
+        verifyBody.ShouldNotContain("pay.example.com");
+        verifyBody.ShouldNotContain("INV-777");
+        appt.BuildConfirmedEmailBody().ShouldContain(phishingName);
+
+        // 4. ERPNext PR #69090: Invoice Discounting mapper checks both source SI read and ID create permissions
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Accounting.DomainServices.InvoiceDiscountingService.ValidateCreateFromSalesInvoicePermission(false, true));
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Accounting.DomainServices.InvoiceDiscountingService.ValidateCreateFromSalesInvoicePermission(true, false));
+        Should.NotThrow(() =>
+            MyERP.Accounting.DomainServices.InvoiceDiscountingService.ValidateCreateFromSalesInvoicePermission(true, true));
+
+        // 5. MyInvois consolidate_invoice.py: Consolidated delivery party emits EI00000000010, BRN=NA, MYS, Consolidated Buyers
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var consolidatedXml = builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "CONS-2026-001",
+            DocumentTypeCode = "01",
+            IssueDate = new DateTime(2026, 11, 24),
+            CurrencyCode = "MYR",
+            IsConsolidated = true,
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Seller Sdn Bhd",
+                Tin = "C1234567890",
+                IdType = "BRN",
+                IdValue = "202001000001"
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "General Public",
+                Tin = "EI00000000010"
+            },
+            Delivery = new MyERP.EInvoice.Services.EInvoiceDeliveryData(),
+            Lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "POS Consolidated", Quantity = 1m, UnitPrice = 50m, TaxAmount = 0m }
+            },
+            NetTotal = 50m,
+            TaxAmount = 0m,
+            GrandTotal = 50m
+        });
+        consolidatedXml.ShouldContain("<cac:Delivery>");
+        consolidatedXml.ShouldContain("<cac:DeliveryParty>");
+        consolidatedXml.ShouldContain("<cbc:ID schemeID=\"TIN\">EI00000000010</cbc:ID>");
+        consolidatedXml.ShouldContain("<cbc:ID schemeID=\"BRN\">NA</cbc:ID>");
+        consolidatedXml.ShouldContain("<cbc:RegistrationName>Consolidated Buyers</cbc:RegistrationName>");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

@@ -130,4 +130,25 @@ public class Appointment : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return null;
     }
+
+    /// <summary>
+    /// Builds the verification email body for portal-booked appointments without interpolating
+    /// guest-supplied text such as <see cref="CustomerName"/> or <see cref="Details"/>
+    /// (ERPNext PR #67759: prevents phishing/email-injection via unverified portal bookings).
+    /// </summary>
+    public string BuildVerificationEmailBody(string verifyUrl)
+    {
+        Check.NotNullOrWhiteSpace(verifyUrl, nameof(verifyUrl));
+        return $"Please confirm your appointment request by visiting: {verifyUrl}";
+    }
+
+    /// <summary>
+    /// Builds the post-verification confirmation email body, which may safely include
+    /// <see cref="CustomerName"/> once the recipient verified ownership of the email address
+    /// (ERPNext PR #67759).
+    /// </summary>
+    public string BuildConfirmedEmailBody()
+    {
+        return $"Dear {CustomerName}, your appointment scheduled for {ScheduledTime:yyyy-MM-dd HH:mm} has been confirmed.";
+    }
 }

@@ -94,7 +94,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               <input
                 type="text"
                 class="form-control form-control-sm"
-                placeholder="Search..."
+                [placeholder]="'::Placeholder:SearchEllipsis' | abpLocalization"
                 [(ngModel)]="searchTerm"
               />
             </div>

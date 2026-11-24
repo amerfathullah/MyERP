@@ -26,7 +26,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::TariffNumber' | abpLocalization }} *</label>
               <input type="text" class="form-control font-monospace" formControlName="tariffNumber"
-                placeholder="e.g. 8471.30.0000" />
+                [placeholder]="'::Placeholder:CustomsTariffCodeExample' | abpLocalization" />
             </div>
             <div class="col-md-6">
               <label class="form-label">{{ 'MyERP::Description' | abpLocalization }}</label>

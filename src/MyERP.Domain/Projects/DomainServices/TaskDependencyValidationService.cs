@@ -274,4 +274,31 @@ public class TaskDependencyValidationService : DomainService
             await RescheduleDependentTasksAsync(depTask, visited, depPreviousEnd);
         }
     }
+
+    /// <summary>
+    /// After creating project tasks from a template and wiring their dependency links,
+    /// reschedules dependents of any template task whose dates were shifted by holidays
+    /// (ERPNext PR #69137: <c>Project.reschedule_tasks_moved_by_holidays</c>).
+    /// </summary>
+    public async Task RescheduleTemplateTasksMovedByHolidaysAsync(
+        DateTime projectExpectedStartDate,
+        IReadOnlyList<(ProjectTask Task, int BeginDays, int DurationDays)> templateMappings)
+    {
+        if (templateMappings == null || templateMappings.Count == 0)
+            return;
+
+        foreach (var (task, beginDays, durationDays) in templateMappings)
+        {
+            var expectedStart = projectExpectedStartDate.Date.AddDays(beginDays);
+            var expectedEnd = expectedStart.AddDays(durationDays);
+
+            var actualStart = task.ExpectedStartDate?.Date;
+            var actualEnd = task.ExpectedEndDate?.Date;
+
+            if (actualStart != expectedStart || actualEnd != expectedEnd)
+            {
+                await RescheduleDependentTasksAsync(task);
+            }
+        }
+    }
 }
