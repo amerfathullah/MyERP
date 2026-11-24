@@ -128,6 +128,69 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Determines whether reference-document rate validation applies per ERPNext PR #69299
+    /// (<c>TransactionBase.validate_rate_with_reference_doc</c>):
+    /// a Quotation's rate still binds a Sales Order even when it is an internal transfer;
+    /// other doctypes skip rate validation on internal transfers.
+    /// </summary>
+    public static bool ShouldValidateRateWithReferenceDoc(string docType, bool isInternalTransfer)
+    {
+        if (!isInternalTransfer)
+            return true;
+
+        return string.Equals(docType, "Sales Order", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(docType, "SalesOrder", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Formats the rate-mismatch message per ERPNext PR #69299 (<c>TransactionBase.get_rate_mismatch_message</c>):
+    /// includes the numeric <paramref name="rate"/> / <paramref name="referenceRate"/> comparison only when
+    /// the current user has permission on the source document holding the reference row.
+    /// </summary>
+    public static string FormatRateMismatchMessage(
+        int rowIdx,
+        string refDocType,
+        string refDocName,
+        decimal rate,
+        decimal referenceRate,
+        bool hasSourceDocPermission)
+    {
+        if (hasSourceDocPermission)
+        {
+            return $"Row #{rowIdx}: Rate must be same as {refDocType}: {refDocName} ({rate} / {referenceRate})";
+        }
+
+        return $"Row #{rowIdx}: Rate must be same as {refDocType}: {refDocName}";
+    }
+
+    /// <summary>
+    /// Resolves permitted company IDs for a multi-company report (e.g. Customer Acquisition and Loyalty)
+    /// per ERPNext PR #69337 (<c>customer_acquisition_and_loyalty.py: get_companies</c>):
+    /// - Rejects an explicitly requested <paramref name="requestedCompanyId"/> not in <paramref name="permittedCompanyIds"/>.
+    /// - Returns <c>[requestedCompanyId]</c> when selected and permitted.
+    /// - Returns <paramref name="permittedCompanyIds"/> (or <c>null</c> if unrestricted) when no company is selected.
+    /// </summary>
+    public static IReadOnlyList<Guid>? ResolvePermittedCompaniesForReport(
+        Guid? requestedCompanyId,
+        IReadOnlyCollection<Guid>? permittedCompanyIds)
+    {
+        var hasRestriction = permittedCompanyIds != null && permittedCompanyIds.Count > 0;
+        if (requestedCompanyId.HasValue && requestedCompanyId.Value != Guid.Empty)
+        {
+            if (hasRestriction && !permittedCompanyIds!.Contains(requestedCompanyId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("companyId", requestedCompanyId.Value)
+                    .WithData("detail", $"You do not have permission to access Company: {requestedCompanyId.Value}.");
+            }
+
+            return new[] { requestedCompanyId.Value };
+        }
+
+        return hasRestriction ? permittedCompanyIds!.Distinct().ToList() : null;
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

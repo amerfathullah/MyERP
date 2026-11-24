@@ -4,9 +4,9 @@
   }
 
   @for (action of actions; track action.name) {
-    <button class="btn btn-sm" [class]="'btn-outline-' + action.color"
+    <button class="btn btn-sm" [ngClass]="buttonClass(action.color)"
       (click)="actionClicked.emit(action.name)">
-      <i class="me-1" [ngClass]="'fa fa-' + action.icon"></i>
+      <i class="me-1" [ngClass]="iconClass(action.icon)"></i>
       {{ action.label | abpLocalization }}
     </button>
   }

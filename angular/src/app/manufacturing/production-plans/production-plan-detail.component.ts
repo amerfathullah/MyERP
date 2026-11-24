@@ -82,13 +82,13 @@ export class ProductionPlanDetailComponent implements OnInit {
     const s = this.plan.status ?? 0;
     const actions: WorkflowAction[] = [];
     if (s === 0) {
-      actions.push({ name: 'calculateMaterials', label: 'Calculate Materials', icon: 'calculator', color: 'info' });
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'calculateMaterials', label: '::CalculateMaterials', icon: 'calculator', color: 'info' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (s === 1 || s === 2) {
-      actions.push({ name: 'generateWorkOrders', label: 'Generate Work Orders', icon: 'industry', color: 'primary' });
-      actions.push({ name: 'generateMaterialRequests', label: 'Generate Material Requests', icon: 'boxes-stacked', color: 'warning' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'generateWorkOrders', label: '::GenerateWorkOrders', icon: 'industry', color: 'primary' });
+      actions.push({ name: 'generateMaterialRequests', label: '::GenerateMaterialRequests', icon: 'boxes-stacked', color: 'warning' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;
   }

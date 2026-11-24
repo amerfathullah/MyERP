@@ -202,12 +202,12 @@ export class StockEntryDetailComponent implements OnInit {
     if (!e) return [];
     const actions: WorkflowAction[] = [];
     if (e.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
-      actions.push({ name: 'autoPickBatches', label: 'AutoPickBatches', icon: 'wand-magic-sparkles', color: 'info' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'autoPickBatches', label: '::AutoPickBatches', icon: 'wand-magic-sparkles', color: 'info' });
     }
     if (e.status === 'Submitted') {
-      actions.push({ name: 'post', label: 'Post', icon: 'check-double', color: 'success' });
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'post', label: '::Post', icon: 'check-double', color: 'success' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;
   }

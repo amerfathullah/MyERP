@@ -7188,7 +7188,14 @@
     "Bom": "BOM",
     "ProfitAndLossStatement": "Profit and Loss Statement",
     "CashFlow": "Cash Flow",
-    "DefaultPerCompany": "Default (Per Company)"
+    "DefaultPerCompany": "Default (Per Company)",
+    "CreateDebitNote": "Create Debit Note",
+    "MakeDebitNote": "Make Debit Note",
+    "UnblockInvoice": "Unblock Invoice",
+    "CreatePurchaseReceipt": "Create Purchase Receipt",
+    "CreateLandedCostVoucher": "Create Landed Cost Voucher",
+    "ResubmitToLhdn": "Resubmit to LHDN",
+    "CheckSupplierTin": "Check Supplier TIN"
   }
 }
 

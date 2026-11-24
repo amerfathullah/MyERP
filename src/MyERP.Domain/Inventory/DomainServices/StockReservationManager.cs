@@ -2339,6 +2339,31 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Excludes Return of Components rows submitted at or before <paramref name="reservedComponentsReturnCutoff"/>
+    /// from supplier-warehouse reservation cancel replay per ERPNext PR #69314
+    /// (<c>StockController.get_component_return_usage</c>): returns submitted prior to the cutoff never
+    /// consumed supplier-warehouse reservations and must not be deducted on replay.
+    /// </summary>
+    public static List<T> FilterComponentsReturnRowsByCutoff<T>(
+        IEnumerable<T>? returnRows,
+        Func<T, DateTime> getSubmittedAt,
+        DateTime? reservedComponentsReturnCutoff)
+    {
+        if (returnRows == null)
+        {
+            return new List<T>();
+        }
+
+        if (!reservedComponentsReturnCutoff.HasValue)
+        {
+            return returnRows.ToList();
+        }
+
+        var cutoff = reservedComponentsReturnCutoff.Value;
+        return returnRows.Where(r => getSubmittedAt(r) > cutoff).ToList();
+    }
+
+    /// <summary>
     /// Computes the maximum allowed reservation quantity for a Work Order material row
     /// per ERPNext PR #68805 (<c>StockReservationEntry.validate_qty_to_be_reserved</c>):
     /// counts the row's <paramref name="subcontractedQty"/> as already delivered only when submitting

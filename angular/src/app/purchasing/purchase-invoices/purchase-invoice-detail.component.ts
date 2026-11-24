@@ -102,47 +102,47 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
 
     if (this.invoice.status === 'Draft') {
       if (canSubmitPI) {
-        actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', color: 'primary' });
+        actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
       }
     }
     if (this.invoice.status === 'Submitted') {
-      actions.push({ name: 'post', label: 'Post', icon: 'fa fa-check-double', color: 'success' });
+      actions.push({ name: 'post', label: '::Post', icon: 'check-double', color: 'success' });
     }
     if (this.invoice.status === 'Posted') {
-      actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', color: 'success' });
+      actions.push({ name: 'payment', label: '::MakePayment', icon: 'money-bill', color: 'success' });
       // Per ERPNext #59367: Return / Debit Note respects Purchase Invoice create permission
       const outstanding = (this.invoice as any).outstandingAmount ?? 0;
       const grandTotal = this.invoice.grandTotal ?? 0;
       if (!this.invoice.isReturn && canCreatePurchaseInvoice && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
-        actions.push({ name: 'return', label: 'Create Debit Note', icon: 'fa fa-rotate-left', color: 'warning' });
+        actions.push({ name: 'return', label: '::CreateDebitNote', icon: 'rotate-left', color: 'warning' });
       }
       if (!this.invoice.isReturn && !(this.invoice as any).isDebitNote && canCreatePurchaseInvoice) {
-        actions.push({ name: 'debitNote', label: 'Make Debit Note', icon: 'fa fa-file-circle-plus', color: 'info' });
+        actions.push({ name: 'debitNote', label: '::MakeDebitNote', icon: 'file-circle-plus', color: 'info' });
       }
       if (outstanding > 0) {
-        actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', color: 'secondary' });
+        actions.push({ name: 'writeOff', label: '::WriteOff', icon: 'eraser', color: 'secondary' });
       }
       // Per ERPNext #59367: Hold / Release Date requires write/edit permission and outstanding != 0
       if (!this.invoice.isReturn && outstanding !== 0 && canEditPurchaseInvoice) {
         if (this.invoice.onHold) {
-          actions.push({ name: 'unblock', label: 'Unblock Invoice', icon: 'fa fa-lock-open', color: 'success' });
+          actions.push({ name: 'unblock', label: '::UnblockInvoice', icon: 'lock-open', color: 'success' });
         } else {
-          actions.push({ name: 'block', label: 'Block Invoice', icon: 'fa fa-lock', color: 'warning' });
+          actions.push({ name: 'block', label: '::BlockInvoice', icon: 'lock', color: 'warning' });
         }
       }
       // Per ERPNext PR #66937: show Make Sales Invoice only while pending qty remains and not made from counterpart SI
       const canCreateIcSi = this.invoice.canCreateInterCompanySalesInvoice
         ?? (this.invoice.isInternalSupplier && !this.invoice.interCompanyInvoiceId && !this.invoice.isReturn);
       if (canCreateIcSi && canCreateSalesInvoice) {
-        actions.push({ name: 'createSalesInvoice', label: 'Make Sales Invoice', icon: 'fa fa-file-invoice', color: 'info' });
+        actions.push({ name: 'createSalesInvoice', label: '::MakeSalesInvoice', icon: 'file-invoice', color: 'info' });
       }
       // Per ERPNext #59367: Purchase Receipt if perReceived < 100 and !updateStock
       if ((this.invoice as any).perReceived < 100 && !(this.invoice as any).updateStock && canCreatePurchaseReceipt) {
-        actions.push({ name: 'createReceipt', label: 'Create Purchase Receipt', icon: 'fa fa-truck-ramp-box', color: 'info' });
+        actions.push({ name: 'createReceipt', label: '::CreatePurchaseReceipt', icon: 'truck-ramp-box', color: 'info' });
       }
       // Per ERPNext #59367: Landed Cost Voucher if updateStock
       if ((this.invoice as any).updateStock && canCreateLCV) {
-        actions.push({ name: 'createLCV', label: 'Create Landed Cost Voucher', icon: 'fa fa-receipt', color: 'info' });
+        actions.push({ name: 'createLCV', label: '::CreateLandedCostVoucher', icon: 'receipt', color: 'info' });
       }
       const canSubmitLhdn = !this.invoice.eInvoiceStatus
         || this.invoice.eInvoiceStatus === 'NotSubmitted'
@@ -153,25 +153,25 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         const isResubmit = this.invoice.eInvoiceStatus === 'Invalid'
           || this.invoice.eInvoiceStatus === 'Rejected'
           || this.invoice.eInvoiceStatus === 'Failed';
-        actions.push({ name: 'submitLhdn', label: isResubmit ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
+        actions.push({ name: 'submitLhdn', label: isResubmit ? '::ResubmitToLhdn' : '::SubmitToLhdn', icon: 'cloud-arrow-up', color: 'primary' });
       }
       // Per MyInvois public/js/puchase.js (custom_check_supplier_tin): allow on-demand LHDN Supplier TIN lookup
       if (this.invoice.supplierId) {
-        actions.push({ name: 'checkSupplierTin', label: 'Check Supplier TIN', icon: 'fa fa-id-card', color: 'info' });
+        actions.push({ name: 'checkSupplierTin', label: '::CheckSupplierTin', icon: 'id-card', color: 'info' });
       }
       if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
-        actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', color: 'info' });
+        actions.push({ name: 'refreshLhdn', label: '::RefreshStatus', icon: 'rotate', color: 'info' });
       }
       if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
-        actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', color: 'warning' });
+        actions.push({ name: 'cancelLhdn', label: '::CancelEInvoice', icon: 'cloud-xmark', color: 'warning' });
       }
       if (canCancelPI) {
-        actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', color: 'danger' });
+        actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
       }
     }
     if (this.invoice.status === 'Cancelled') {
       if (canCreatePurchaseInvoice) {
-        actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', color: 'success' });
+        actions.push({ name: 'amend', label: '::Amend', icon: 'file-circle-plus', color: 'success' });
       }
     }
     return actions;

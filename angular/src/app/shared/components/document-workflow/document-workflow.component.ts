@@ -26,4 +26,14 @@ export class DocumentWorkflowComponent {
   @Output() actionClicked = new EventEmitter<string>();
   /** @deprecated Use actionClicked instead */
   @Output() actionTriggered = this.actionClicked;
+
+  buttonClass(color: string): string {
+    return color.startsWith('btn-') ? color : `btn-outline-${color}`;
+  }
+
+  iconClass(icon: string): string {
+    if (icon.startsWith('fa ')) return icon;
+    if (icon.startsWith('fa-')) return `fa ${icon}`;
+    return `fa fa-${icon}`;
+  }
 }

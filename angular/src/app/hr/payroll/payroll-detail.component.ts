@@ -44,10 +44,10 @@ export class PayrollDetailComponent implements OnInit {
     if (!this.entry) return [];
     const actions: WorkflowAction[] = [];
     if (this.entry.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.entry.status === 'Submitted') {
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;
   }

@@ -804,11 +804,12 @@ public class PurchaseInvoiceManager : DomainService
 
     /// <summary>
     /// Resolves the conversion factor for a standalone stock-updating Debit Note row whose UOM
-    /// and stock UOM may not have been populated yet per ERPNext PR #69242
+    /// and stock UOM may not have been populated yet per ERPNext PR #69242 and PR #69301
     /// (<c>BuyingController.get_standalone_debit_note_conversion_factor</c>):
-    /// falls back <paramref name="rowUom"/> -&gt; <paramref name="itemPurchaseUom"/> -&gt;
-    /// <paramref name="itemStockUom"/>, returning <c>1</c> when the resolved UOM equals
-    /// <paramref name="itemStockUom"/>.
+    /// - When <paramref name="rowUom"/> is blank, ignores any stale <paramref name="rowConversionFactor"/>
+    ///   sent without a UOM and resolves from <paramref name="itemPurchaseUom"/> -&gt; <paramref name="itemStockUom"/>
+    ///   using <paramref name="itemUomConversionFactor"/>.
+    /// - Returns <c>1</c> whenever the effective UOM equals <paramref name="itemStockUom"/>.
     /// </summary>
     public static decimal ResolveStandaloneDebitNoteConversionFactor(
         string? rowUom,
@@ -817,7 +818,8 @@ public class PurchaseInvoiceManager : DomainService
         decimal? rowConversionFactor,
         decimal? itemUomConversionFactor)
     {
-        var effectiveUom = !string.IsNullOrWhiteSpace(rowUom)
+        var hasExplicitRowUom = !string.IsNullOrWhiteSpace(rowUom);
+        var effectiveUom = hasExplicitRowUom
             ? rowUom
             : (!string.IsNullOrWhiteSpace(itemPurchaseUom) ? itemPurchaseUom : itemStockUom);
 
@@ -828,11 +830,40 @@ public class PurchaseInvoiceManager : DomainService
             return 1m;
         }
 
-        return rowConversionFactor.HasValue && rowConversionFactor.Value > 0m
-            ? rowConversionFactor.Value
-            : (itemUomConversionFactor.HasValue && itemUomConversionFactor.Value > 0m
-                ? itemUomConversionFactor.Value
-                : 1m);
+        if (hasExplicitRowUom && rowConversionFactor.HasValue && rowConversionFactor.Value > 0m)
+        {
+            return rowConversionFactor.Value;
+        }
+
+        return itemUomConversionFactor.HasValue && itemUomConversionFactor.Value > 0m
+            ? itemUomConversionFactor.Value
+            : 1m;
+    }
+
+    /// <summary>
+    /// Resolves the exchange rate used to price a standalone stock-updating Debit Note row
+    /// per ERPNext PR #69301 (<c>BuyingController.get_standalone_debit_note_exchange_rate</c>):
+    /// falls back <paramref name="invoiceCurrency"/> -&gt; <paramref name="supplierDefaultCurrency"/> -&gt;
+    /// <paramref name="companyCurrency"/>; returns <c>1</c> when effective currency matches
+    /// <paramref name="companyCurrency"/>, else <paramref name="conversionRate"/> (or <c>1</c> if unset).
+    /// </summary>
+    public static decimal ResolveStandaloneDebitNoteExchangeRate(
+        string? invoiceCurrency,
+        string? supplierDefaultCurrency,
+        string? companyCurrency,
+        decimal conversionRate)
+    {
+        var effectiveCurrency = !string.IsNullOrWhiteSpace(invoiceCurrency)
+            ? invoiceCurrency
+            : (!string.IsNullOrWhiteSpace(supplierDefaultCurrency) ? supplierDefaultCurrency : companyCurrency);
+
+        if (string.IsNullOrWhiteSpace(effectiveCurrency)
+            || string.Equals(effectiveCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return 1m;
+        }
+
+        return conversionRate > 0m ? conversionRate : 1m;
     }
 
     /// <summary>

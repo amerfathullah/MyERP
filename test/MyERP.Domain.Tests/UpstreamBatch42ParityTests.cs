@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using MyERP.Core.DomainServices;
+using MyERP.Inventory.DomainServices;
+using MyERP.Manufacturing;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Projects.Entities;
@@ -13,7 +16,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #68311, #69315, #69322, #69324, #69327, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #68311, #69299, #69301, #69312, #69314,
+/// #69315, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -300,5 +304,120 @@ public class UpstreamBatch42ParityTests
         ts.ExchangeRate = 0m;
         ts.SetExchangeRate("MYR", (_, _) => 0m);
         ts.ExchangeRate.ShouldBe(1m);
+    }
+
+    [Fact]
+    public void Pr69312_WorkOrder_TryRefreshStatus_SkipsUnchangedConcurrentStoppedOrClosed()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-69312", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+
+        // Unchanged status skips write
+        wo.TryRefreshStatus(savedStatus: WorkOrderStatus.Submitted, computedStatus: WorkOrderStatus.Submitted).ShouldBeFalse();
+
+        // Concurrent change (savedStatus != current Status) skips write
+        wo.TryRefreshStatus(savedStatus: WorkOrderStatus.InProcess, computedStatus: WorkOrderStatus.StockReserved).ShouldBeFalse();
+        wo.Status.ShouldBe(WorkOrderStatus.Submitted);
+
+        // Matching savedStatus updates cleanly
+        wo.TryRefreshStatus(savedStatus: WorkOrderStatus.Submitted, computedStatus: WorkOrderStatus.StockReserved).ShouldBeTrue();
+        wo.Status.ShouldBe(WorkOrderStatus.StockReserved);
+
+        // Stopped or Closed saved status is never overwritten
+        wo.Stop();
+        wo.TryRefreshStatus(savedStatus: WorkOrderStatus.Stopped, computedStatus: WorkOrderStatus.StockReserved).ShouldBeFalse();
+        wo.Status.ShouldBe(WorkOrderStatus.Stopped);
+    }
+
+    [Fact]
+    public void Pr69299_RateValidation_ChecksInternalSalesOrderAndGuardsSourceRateByPermission()
+    {
+        // Sales Order still validates Quotation rate even on internal transfers; other doctypes skip
+        TransactionValidationService.ShouldValidateRateWithReferenceDoc("Sales Order", isInternalTransfer: true).ShouldBeTrue();
+        TransactionValidationService.ShouldValidateRateWithReferenceDoc("SalesOrder", isInternalTransfer: true).ShouldBeTrue();
+        TransactionValidationService.ShouldValidateRateWithReferenceDoc("Delivery Note", isInternalTransfer: true).ShouldBeFalse();
+        TransactionValidationService.ShouldValidateRateWithReferenceDoc("Delivery Note", isInternalTransfer: false).ShouldBeTrue();
+
+        // Rate mismatch message shows numbers only when user has source document permission
+        var withPerm = TransactionValidationService.FormatRateMismatchMessage(1, "Quotation", "QTN-001", 120m, 100m, hasSourceDocPermission: true);
+        withPerm.ShouldBe("Row #1: Rate must be same as Quotation: QTN-001 (120 / 100)");
+
+        var withoutPerm = TransactionValidationService.FormatRateMismatchMessage(1, "Quotation", "QTN-001", 120m, 100m, hasSourceDocPermission: false);
+        withoutPerm.ShouldBe("Row #1: Rate must be same as Quotation: QTN-001");
+    }
+
+    [Fact]
+    public void Pr69301_StandaloneDebitNote_IgnoresStaleFactorWithoutUomAndResolvesSupplierCurrencyRate()
+    {
+        // Stale rowConversionFactor (99) sent without a row UOM is ignored in favor of resolved purchase UOM factor (12)
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteConversionFactor(
+            rowUom: null,
+            itemPurchaseUom: "Box",
+            itemStockUom: "Nos",
+            rowConversionFactor: 99m,
+            itemUomConversionFactor: 12m).ShouldBe(12m);
+
+        // Explicit row UOM keeps its explicit conversion factor
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteConversionFactor(
+            rowUom: "Box",
+            itemPurchaseUom: "Box",
+            itemStockUom: "Nos",
+            rowConversionFactor: 10m,
+            itemUomConversionFactor: 12m).ShouldBe(10m);
+
+        // Supplier default currency == company currency -> exchange rate 1 even if stale conversionRate passed
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteExchangeRate(
+            invoiceCurrency: null,
+            supplierDefaultCurrency: "MYR",
+            companyCurrency: "MYR",
+            conversionRate: 4.5m).ShouldBe(1m);
+
+        // Supplier default currency is foreign (USD) -> uses conversionRate
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteExchangeRate(
+            invoiceCurrency: null,
+            supplierDefaultCurrency: "USD",
+            companyCurrency: "MYR",
+            conversionRate: 4.45m).ShouldBe(4.45m);
+    }
+
+    [Fact]
+    public void Pr69314_SubcontractingReservationReplay_ExcludesReturnsAtOrBeforeCutoff()
+    {
+        var cutoff = new DateTime(2026, 11, 24, 10, 0, 0, DateTimeKind.Utc);
+        var rows = new[]
+        {
+            (Id: "RET-BEFORE", SubmittedAt: cutoff.AddMinutes(-5)),
+            (Id: "RET-EXACT", SubmittedAt: cutoff),
+            (Id: "RET-AFTER", SubmittedAt: cutoff.AddMinutes(5)),
+        };
+
+        var filtered = StockReservationManager.FilterComponentsReturnRowsByCutoff(rows, r => r.SubmittedAt, cutoff);
+        filtered.Count.ShouldBe(1);
+        filtered[0].Id.ShouldBe("RET-AFTER");
+
+        // Null cutoff keeps all rows
+        StockReservationManager.FilterComponentsReturnRowsByCutoff(rows, r => r.SubmittedAt, null).Count.ShouldBe(3);
+    }
+
+    [Fact]
+    public void Pr69337_CustomerAcquisitionReport_EnforcesPermittedCompaniesFilter()
+    {
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var permitted = new[] { compA };
+
+        // Selected permitted company -> [compA]
+        TransactionValidationService.ResolvePermittedCompaniesForReport(compA, permitted).ShouldBe(new[] { compA });
+
+        // No company selected -> scoped to permitted companies [compA]
+        TransactionValidationService.ResolvePermittedCompaniesForReport(null, permitted).ShouldBe(new[] { compA });
+
+        // Unrestricted user with no company selected -> null (all companies)
+        TransactionValidationService.ResolvePermittedCompaniesForReport(null, null).ShouldBeNull();
+
+        // Selected forbidden company -> throws
+        var ex = Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ResolvePermittedCompaniesForReport(compB, permitted));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("You do not have permission to access Company");
     }
 }

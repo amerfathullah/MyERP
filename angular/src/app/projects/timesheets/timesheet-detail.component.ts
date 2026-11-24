@@ -128,10 +128,10 @@ export class TimesheetDetailComponent implements OnInit {
     if (!t) return [];
     const actions: WorkflowAction[] = [];
     if (t.status === 0) {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
+      actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (t.status === 1) {
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+      actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     }
     return actions;
   }

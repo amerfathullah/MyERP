@@ -253,6 +253,29 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>
+    /// Refreshes <see cref="Status"/> to <paramref name="computedStatus"/> only when it changed,
+    /// <paramref name="savedStatus"/> still equals the current <see cref="Status"/> (no concurrent
+    /// transaction changed it), and <paramref name="savedStatus"/> is neither <see cref="WorkOrderStatus.Stopped"/>
+    /// nor <see cref="WorkOrderStatus.Closed"/>.
+    /// Per ERPNext PR #69312 (<c>StatusService.refresh_status</c> in <c>work_order/services/status.py</c>).
+    /// </summary>
+    public bool TryRefreshStatus(WorkOrderStatus savedStatus, WorkOrderStatus computedStatus)
+    {
+        if (computedStatus == Status)
+        {
+            return false;
+        }
+
+        if (savedStatus != Status || savedStatus is WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
+        {
+            return false;
+        }
+
+        Status = computedStatus;
+        return true;
+    }
+
     public void Start()
     {
         if (Status is not (WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted or WorkOrderStatus.StockReserved or WorkOrderStatus.StockPartiallyReserved))

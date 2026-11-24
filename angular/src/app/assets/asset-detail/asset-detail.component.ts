@@ -386,14 +386,14 @@ export class AssetDetailComponent implements OnInit {
   getActions(): WorkflowAction[] {
     const s = this.asset()?.status;
     const actions: WorkflowAction[] = [];
-    if (s === 0) actions.push({ name: 'submit', label: 'Submit', icon: 'fa-paper-plane', color: 'btn-outline-primary' });
-    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'sell', label: 'Sell', icon: 'fa-hand-holding-dollar', color: 'btn-outline-success' });
+    if (s === 0) actions.push({ name: 'submit', label: '::Submit', icon: 'paper-plane', color: 'primary' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'sell', label: '::Sell', icon: 'hand-holding-dollar', color: 'success' });
     if ((s === 1 || s === 2 || s === 3) && (this.asset()?.assetQuantity ?? 1) > 1) {
-      actions.push({ name: 'split', label: 'Split', icon: 'fa-code-branch', color: 'btn-outline-info' });
+      actions.push({ name: 'split', label: '::Split', icon: 'code-branch', color: 'info' });
     }
-    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'scrap', label: 'Scrap', icon: 'fa-trash-can', color: 'btn-outline-warning' });
-    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
-    if (s === 5) actions.push({ name: 'restore', label: 'Restore', icon: 'fa-rotate-left', color: 'btn-outline-primary' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'scrap', label: '::Scrap', icon: 'trash-can', color: 'warning' });
+    if (s === 1 || s === 2 || s === 3) actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
+    if (s === 5) actions.push({ name: 'restore', label: '::Restore', icon: 'rotate-left', color: 'primary' });
     return actions;
   }
 

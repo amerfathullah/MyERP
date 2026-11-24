@@ -131,8 +131,8 @@ export class AssetRepairDetailComponent implements OnInit {
   getActions(): WorkflowAction[] {
     const s = this.repair()?.status;
     const actions: WorkflowAction[] = [];
-    if (s === 0) actions.push({ name: 'complete', label: 'Complete', icon: 'fa-check', color: 'btn-outline-success' });
-    if (s === 0 || s === 1) actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa-ban', color: 'btn-outline-danger' });
+    if (s === 0) actions.push({ name: 'complete', label: '::Complete', icon: 'check', color: 'success' });
+    if (s === 0 || s === 1) actions.push({ name: 'cancel', label: '::Cancel', icon: 'ban', color: 'danger' });
     return actions;
   }
 
