@@ -6966,7 +6966,28 @@
     "NoPaymentsAdded": "No payments added.",
     "NetShiftReconciliationAmount": "Net Shift Reconciliation Amount",
     "ShiftTotalsUpdated": "Shift totals updated.",
-    "CashierClosingSubmittedSuccessfully": "Cashier Closing submitted successfully."
+    "CashierClosingSubmittedSuccessfully": "Cashier Closing submitted successfully.",
+    "AllBankAccounts": "All Bank Accounts",
+    "NewBalanceSnapshot": "New Balance Snapshot",
+    "EditBalanceSnapshot": "Edit Balance Snapshot",
+    "NoBalanceSnapshotsRecorded": "No balance snapshots recorded yet.",
+    "NewProcessDeferredAccounting": "New Process Deferred Accounting",
+    "ProcessDeferredPrefix": "Process:",
+    "ProcessAndSubmit": "Process & Submit",
+    "PreviewRecognition": "Preview Recognition",
+    "RecognitionPreview": "Recognition Preview",
+    "RecognitionSummary": "Recognition Summary",
+    "SpecificAccountOptionalFilter": "Specific Account (Optional Filter)",
+    "AllDeferredAccounts": "All Deferred Accounts",
+    "PostingDateForRecognitionJe": "Posting Date (For Recognition Journal Entries)",
+    "DeferredIncomeOption": "Income (Deferred Revenue → Sales Revenue)",
+    "DeferredExpenseOption": "Expense (Deferred Expense → Operating Expense)",
+    "ServicePeriod": "Service Period",
+    "ToRecognize": "To Recognize",
+    "NoDeferredItemsToRecognize": "No deferred items to recognize in this period.",
+    "ProcessDeferredProcessed": "Successfully processed {0} deferred accounting entries.",
+    "ProcessDeferredCancelled": "Process Deferred Accounting cancelled.",
+    "ProcessDeferredBookedSummary": "Successfully booked {0} deferred accounting Journal Entries."
   }
 }
 

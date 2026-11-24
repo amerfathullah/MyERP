@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BankAccountBalanceService } from '../../proxy/accounting/bank-account-balance.service';
 import { BankAccountService } from '../../proxy/accounting/bank-account.service';
 import { BankAccountBalanceDto, BankAccountDto } from '../../proxy/accounting/models';
@@ -10,19 +11,19 @@ import { BankAccountBalanceDto, BankAccountDto } from '../../proxy/accounting/mo
 @Component({
   selector: 'app-bank-account-balance-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Bank Account Balances</h5>
-        <a routerLink="/accounting/bank-account-balances/new" class="btn btn-primary btn-sm">New Balance Snapshot</a>
+        <h5 class="card-title mb-0">{{ '::BankAccountBalances' | abpLocalization }}</h5>
+        <a routerLink="/accounting/bank-account-balances/new" class="btn btn-primary btn-sm">{{ '::NewBalanceSnapshot' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-4">
             <select class="form-select form-select-sm" [(ngModel)]="bankAccountId" (ngModelChange)="load()">
-              <option [ngValue]="undefined">All Bank Accounts</option>
+              <option [ngValue]="undefined">{{ '::AllBankAccounts' | abpLocalization }}</option>
               @for (acc of bankAccounts; track acc.id) {
                 <option [ngValue]="acc.id">{{ acc.accountName }}</option>
               }
@@ -33,11 +34,11 @@ import { BankAccountBalanceDto, BankAccountDto } from '../../proxy/accounting/mo
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Bank Account</th>
-              <th>Company</th>
-              <th>Date</th>
-              <th class="text-end">Balance</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::BankAccount' | abpLocalization }}</th>
+              <th>{{ '::Company' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -52,13 +53,13 @@ import { BankAccountBalanceDto, BankAccountDto } from '../../proxy/accounting/mo
                 <td>{{ item.date | date:'mediumDate' }}</td>
                 <td class="text-end">{{ item.balance | number:'1.2-2' }}</td>
                 <td class="text-end">
-                  <a [routerLink]="['/accounting/bank-account-balances', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/accounting/bank-account-balances', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No balance snapshots recorded yet.</td>
+                <td colspan="5" class="text-center text-muted py-4">{{ '::NoBalanceSnapshotsRecorded' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -98,7 +99,7 @@ export class BankAccountBalanceListComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.load();
         },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

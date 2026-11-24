@@ -389,4 +389,85 @@ public class ChildItemUpdateService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Builds the bin refresh plan for child rows deleted during Update Items per ERPNext PR #67448
+    /// (<c>child_item_update.py: update_bin_on_delete</c>):
+    /// - Skips Quotation / Supplier Quotation.
+    /// - For Sales Order: schedules parent <c>UpdateReservedQty</c> for all deleted row IDs so Product Bundle
+    ///   component bins are refreshed alongside regular item bins.
+    /// - For Purchase Order: schedules parent <c>UpdateOrderedQty</c> for all deleted row IDs and groups
+    ///   linked Material Request item IDs by Material Request ID so each request refreshes <c>requested_qty</c>
+    ///   in the request's own warehouse (even when the PO row's warehouse changed).
+    /// </summary>
+    public static DeletedRowBinRefreshPlan BuildDeletedRowBinRefreshPlan(
+        string parentDocType,
+        IEnumerable<DeletedOrderItemBinInput>? deletedRows)
+    {
+        if (deletedRows == null
+            || string.Equals(parentDocType, "Quotation", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parentDocType, "Supplier Quotation", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parentDocType, "SupplierQuotation", StringComparison.OrdinalIgnoreCase))
+        {
+            return DeletedRowBinRefreshPlan.Empty;
+        }
+
+        var rows = deletedRows.Where(r => r.RowId != Guid.Empty).ToList();
+        if (rows.Count == 0)
+        {
+            return DeletedRowBinRefreshPlan.Empty;
+        }
+
+        var rowIds = rows.Select(r => r.RowId).Distinct().ToList();
+        if (string.Equals(parentDocType, "Sales Order", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parentDocType, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DeletedRowBinRefreshPlan(
+                rowIds,
+                Array.Empty<Guid>(),
+                new Dictionary<Guid, IReadOnlyList<Guid>>());
+        }
+
+        var requestItems = new Dictionary<Guid, List<Guid>>();
+        foreach (var row in rows)
+        {
+            if (row.MaterialRequestId.HasValue
+                && row.MaterialRequestId.Value != Guid.Empty
+                && row.MaterialRequestItemId.HasValue
+                && row.MaterialRequestItemId.Value != Guid.Empty)
+            {
+                if (!requestItems.TryGetValue(row.MaterialRequestId.Value, out var items))
+                {
+                    items = new List<Guid>();
+                    requestItems[row.MaterialRequestId.Value] = items;
+                }
+
+                if (!items.Contains(row.MaterialRequestItemId.Value))
+                {
+                    items.Add(row.MaterialRequestItemId.Value);
+                }
+            }
+        }
+
+        return new DeletedRowBinRefreshPlan(
+            Array.Empty<Guid>(),
+            rowIds,
+            requestItems.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<Guid>)kv.Value));
+    }
+}
+
+public readonly record struct DeletedOrderItemBinInput(
+    Guid RowId,
+    Guid? MaterialRequestId = null,
+    Guid? MaterialRequestItemId = null);
+
+public sealed record DeletedRowBinRefreshPlan(
+    IReadOnlyList<Guid> SalesOrderRowIdsForReservedQty,
+    IReadOnlyList<Guid> PurchaseOrderRowIdsForOrderedQty,
+    IReadOnlyDictionary<Guid, IReadOnlyList<Guid>> MaterialRequestItemIdsByRequestId)
+{
+    public static DeletedRowBinRefreshPlan Empty { get; } = new(
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new Dictionary<Guid, IReadOnlyList<Guid>>());
 }

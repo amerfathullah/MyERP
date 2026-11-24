@@ -245,4 +245,28 @@ public abstract class JournalEntryMultiCurrencyTests<TStartupModule> : MyERPAppl
             receivable.PartyType.ShouldBe("Customer");
         });
     }
+
+    [Fact]
+    public async Task GetAccountDetails_EnforcesAccountPermission_AndCompanyScope()
+    {
+        // ERPNext PR #69179: get_account_details_and_party_type checks Account permission
+        var method = typeof(JournalEntryAppService).GetMethod(nameof(JournalEntryAppService.GetAccountDetailsAsync));
+        method.ShouldNotBeNull();
+        var authorizeAttrs = method!
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>()
+            .ToList();
+        authorizeAttrs.ShouldContain(a => a.Policy == MyERP.Permissions.MyERPPermissions.Accounts.Default);
+
+        // Account belonging to a different company is refused
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var f1 = await SeedAsync("P1");
+            var f2 = await SeedAsync("P2");
+            var app = GetRequiredService<IJournalEntryAppService>();
+
+            await Should.ThrowAsync<Volo.Abp.Authorization.AbpAuthorizationException>(() =>
+                app.GetAccountDetailsAsync(f1.Company.Id, f2.Usd.Id, DateTime.UtcNow.Date));
+        });
+    }
 }

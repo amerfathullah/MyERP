@@ -801,4 +801,77 @@ public class PurchaseInvoiceManager : DomainService
         var stockValuationRate = getStockValuationRate(stockLookupQty);
         return stockValuationRate * conversionFactor;
     }
+
+    /// <summary>
+    /// Resolves the conversion factor for a standalone stock-updating Debit Note row whose UOM
+    /// and stock UOM may not have been populated yet per ERPNext PR #69242
+    /// (<c>BuyingController.get_standalone_debit_note_conversion_factor</c>):
+    /// falls back <paramref name="rowUom"/> -&gt; <paramref name="itemPurchaseUom"/> -&gt;
+    /// <paramref name="itemStockUom"/>, returning <c>1</c> when the resolved UOM equals
+    /// <paramref name="itemStockUom"/>.
+    /// </summary>
+    public static decimal ResolveStandaloneDebitNoteConversionFactor(
+        string? rowUom,
+        string? itemPurchaseUom,
+        string? itemStockUom,
+        decimal? rowConversionFactor,
+        decimal? itemUomConversionFactor)
+    {
+        var effectiveUom = !string.IsNullOrWhiteSpace(rowUom)
+            ? rowUom
+            : (!string.IsNullOrWhiteSpace(itemPurchaseUom) ? itemPurchaseUom : itemStockUom);
+
+        if (!string.IsNullOrWhiteSpace(effectiveUom)
+            && !string.IsNullOrWhiteSpace(itemStockUom)
+            && string.Equals(effectiveUom, itemStockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            return 1m;
+        }
+
+        return rowConversionFactor.HasValue && rowConversionFactor.Value > 0m
+            ? rowConversionFactor.Value
+            : (itemUomConversionFactor.HasValue && itemUomConversionFactor.Value > 0m
+                ? itemUomConversionFactor.Value
+                : 1m);
+    }
+
+    /// <summary>
+    /// Prices a standalone stock-updating Purchase Invoice Debit Note row in both its own UOM and
+    /// invoice currency per ERPNext PR #69242 (<c>BuyingController.set_rate_for_standalone_debit_note</c>):
+    /// resolves the row UOM conversion factor, converts stock valuation rate by
+    /// <c>valuationRate * conversionFactor / conversionRate</c> rounded to <paramref name="ratePrecision"/>,
+    /// and rejects positive valuation rates that round down to <c>0</c> in the invoice currency.
+    /// </summary>
+    public static decimal CalculateStandaloneDebitNoteRowRate(
+        int rowIdx,
+        string itemCode,
+        decimal rowQty,
+        string? rowUom,
+        string? itemPurchaseUom,
+        string? itemStockUom,
+        decimal? rowConversionFactor,
+        decimal? itemUomConversionFactor,
+        decimal conversionRate,
+        Func<decimal, decimal> getStockValuationRate,
+        int ratePrecision = 2,
+        int stockQtyPrecision = 6)
+    {
+        var conversionFactor = ResolveStandaloneDebitNoteConversionFactor(
+            rowUom, itemPurchaseUom, itemStockUom, rowConversionFactor, itemUomConversionFactor);
+        var stockLookupQty = Math.Round(rowQty * conversionFactor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        var stockValuationRate = getStockValuationRate(stockLookupQty);
+        var fxRate = conversionRate > 0m ? conversionRate : 1m;
+        var rowRate = Math.Round(
+            stockValuationRate * conversionFactor / fxRate,
+            ratePrecision,
+            MidpointRounding.AwayFromZero);
+
+        if (rowRate == 0m && stockValuationRate > 0m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Row #{rowIdx}: The valuation rate of Item {itemCode} rounds to 0 in the invoice currency. Increase the precision of Rate or enter the rate.");
+        }
+
+        return rowRate;
+    }
 }

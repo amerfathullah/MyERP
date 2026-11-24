@@ -2890,6 +2890,77 @@ public class StockEntryManager : DomainService
                 .WithData("detail", $"Item {itemCode}: transfer qty {roundedActual} does not match BOM required qty {roundedExpected}.");
         }
     }
+
+    /// <summary>
+    /// Validates that a Material Transfer for Manufacture Stock Entry does not exceed the Work Order's
+    /// remaining allowed transferable quantity per ERPNext PR #67410
+    /// (<c>MaterialTransferForManufactureStockEntry._validate_no_excess_transfer</c>):
+    /// resolves the effective backflush mode from the BOM override first (falling back to
+    /// <c>ManufacturingSettings.BackflushRawMaterialsBasedOn</c>) and skips the excess check when
+    /// returning or when effective backflush is <c>"Material Transferred for Manufacture"</c>.
+    /// </summary>
+    public static void ValidateNoExcessTransferForManufacture(
+        bool isReturn,
+        string? bomBackflushBasedOn,
+        string? manufacturingSettingsBackflushBasedOn,
+        IEnumerable<(string ItemCode, decimal RequiredQty, decimal TransferredQty)> workOrderRequiredItems,
+        IEnumerable<(int RowIdx, string ItemCode, string? OriginalItemCode, bool HasSourceWarehouse, decimal Qty, decimal ConversionFactor, string StockUom)> transferRows,
+        decimal overproductionAllowancePercentage = 0m,
+        int transferQtyPrecision = 3)
+    {
+        if (isReturn)
+            return;
+
+        var effectiveBackflush = !string.IsNullOrWhiteSpace(bomBackflushBasedOn)
+            ? bomBackflushBasedOn
+            : (!string.IsNullOrWhiteSpace(manufacturingSettingsBackflushBasedOn)
+                ? manufacturingSettingsBackflushBasedOn
+                : "BOM");
+
+        if (string.Equals(effectiveBackflush, "Material Transferred for Manufacture", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var allowanceMultiplier = 1m + (overproductionAllowancePercentage > 0m ? overproductionAllowancePercentage / 100m : 0m);
+        var pendingByItem = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var req in workOrderRequiredItems)
+        {
+            var allowedQty = req.RequiredQty * allowanceMultiplier;
+            pendingByItem.TryGetValue(req.ItemCode, out var existing);
+            pendingByItem[req.ItemCode] = existing + allowedQty - req.TransferredQty;
+        }
+
+        var transferByItem = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var firstRowByItem = new Dictionary<string, (int RowIdx, string ItemCode, string StockUom)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in transferRows)
+        {
+            if (!row.HasSourceWarehouse)
+                continue;
+
+            var key = !string.IsNullOrWhiteSpace(row.OriginalItemCode) ? row.OriginalItemCode : row.ItemCode;
+            if (!pendingByItem.ContainsKey(key))
+                continue;
+
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            transferByItem.TryGetValue(key, out var existing);
+            transferByItem[key] = existing + row.Qty * factor;
+            if (!firstRowByItem.ContainsKey(key))
+            {
+                firstRowByItem[key] = (row.RowIdx, row.ItemCode, row.StockUom);
+            }
+        }
+
+        foreach (var (key, rawTransferQty) in transferByItem)
+        {
+            var roundedTransfer = Math.Round(rawTransferQty, transferQtyPrecision, MidpointRounding.AwayFromZero);
+            var roundedPending = Math.Round(pendingByItem[key], transferQtyPrecision, MidpointRounding.AwayFromZero);
+            if (roundedTransfer > roundedPending)
+            {
+                var firstRow = firstRowByItem[key];
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{firstRow.RowIdx}: Cannot transfer {roundedTransfer} {firstRow.StockUom} of Item {firstRow.ItemCode}. Maximum transferable quantity is {roundedPending} {firstRow.StockUom}.");
+            }
+        }
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

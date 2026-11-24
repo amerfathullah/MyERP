@@ -3819,6 +3819,100 @@ public class UpstreamBatch41ParityTests
         span.Value.PlannedEndTime.ShouldBe(t2);
     }
 
+    [Fact]
+    public void UpstreamBatch36_StandaloneDebitNoteCurrency_BomBackflushExcessTransfer_DeletedRowBinPlan_Parity()
+    {
+        // 1. ERPNext PR #69242: Standalone debit note rate converted to row UOM and invoice currency, rejecting 0-rounded positive valuation
+        // Stock UOM fallback returns factor 1 even if rowConversionFactor unset; purchase UOM fallback uses item UOM factor
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteConversionFactor(
+            rowUom: null, itemPurchaseUom: "Box", itemStockUom: "Nos",
+            rowConversionFactor: null, itemUomConversionFactor: 10m).ShouldBe(10m);
+        PurchaseInvoiceManager.ResolveStandaloneDebitNoteConversionFactor(
+            rowUom: "Nos", itemPurchaseUom: "Box", itemStockUom: "Nos",
+            rowConversionFactor: 10m, itemUomConversionFactor: 10m).ShouldBe(1m);
+
+        // Valuation 90 MYR/Nos, Box of 10, USD invoice FX 4.5 -> 90 * 10 / 4.5 = 200 USD/Box
+        decimal capturedLookupQty = 0m;
+        var usdBoxRate = PurchaseInvoiceManager.CalculateStandaloneDebitNoteRowRate(
+            rowIdx: 1, itemCode: "ITEM-FX", rowQty: -2m, rowUom: "Box",
+            itemPurchaseUom: "Box", itemStockUom: "Nos", rowConversionFactor: 10m,
+            itemUomConversionFactor: null, conversionRate: 4.5m,
+            getStockValuationRate: qty => { capturedLookupQty = qty; return 90m; },
+            ratePrecision: 2);
+        capturedLookupQty.ShouldBe(-20m);
+        usdBoxRate.ShouldBe(200m);
+
+        // Positive valuation rate that rounds to 0 in invoice currency throws
+        var zeroRoundEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            PurchaseInvoiceManager.CalculateStandaloneDebitNoteRowRate(
+                rowIdx: 1, itemCode: "TINY-ITEM", rowQty: -1m, rowUom: "Nos",
+                itemPurchaseUom: null, itemStockUom: "Nos", rowConversionFactor: 1m,
+                itemUomConversionFactor: null, conversionRate: 1000m,
+                getStockValuationRate: _ => 1m,
+                ratePrecision: 2));
+        (zeroRoundEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: The valuation rate of Item TINY-ITEM rounds to 0 in the invoice currency");
+
+        // 2. ERPNext PR #67410: Excess transfer check follows BOM backflush override over Manufacturing Settings
+        var required = new[] { ("RM-A", 10m, 4m) };
+        var excessRows = new[] { (1, "RM-A", (string?)null, true, 7m, 1m, "Nos") };
+        // BOM says "Material Transferred for Manufacture" -> skips excess check even if settings say "BOM"
+        Should.NotThrow(() => StockEntryManager.ValidateNoExcessTransferForManufacture(
+            isReturn: false,
+            bomBackflushBasedOn: "Material Transferred for Manufacture",
+            manufacturingSettingsBackflushBasedOn: "BOM",
+            workOrderRequiredItems: required,
+            transferRows: excessRows));
+        // BOM says "BOM" -> enforces excess check even if settings say "Material Transferred for Manufacture"
+        var excessEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateNoExcessTransferForManufacture(
+                isReturn: false,
+                bomBackflushBasedOn: "BOM",
+                manufacturingSettingsBackflushBasedOn: "Material Transferred for Manufacture",
+                workOrderRequiredItems: required,
+                transferRows: excessRows));
+        (excessEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: Cannot transfer 7 Nos of Item RM-A. Maximum transferable quantity is 6 Nos.");
+        // Return entry bypasses excess transfer check
+        Should.NotThrow(() => StockEntryManager.ValidateNoExcessTransferForManufacture(
+            isReturn: true,
+            bomBackflushBasedOn: "BOM",
+            manufacturingSettingsBackflushBasedOn: "BOM",
+            workOrderRequiredItems: required,
+            transferRows: excessRows));
+
+        // 3. ERPNext PR #67448: Update Items deleted rows refresh SO reserved qty (bundle-aware) and PO ordered + MR requested qty
+        var soRow1 = Guid.NewGuid();
+        var soPlan = ChildItemUpdateService.BuildDeletedRowBinRefreshPlan(
+            "Sales Order",
+            new[] { new DeletedOrderItemBinInput(soRow1) });
+        soPlan.SalesOrderRowIdsForReservedQty.ShouldBe(new[] { soRow1 });
+        soPlan.PurchaseOrderRowIdsForOrderedQty.ShouldBeEmpty();
+        soPlan.MaterialRequestItemIdsByRequestId.ShouldBeEmpty();
+
+        var poRow1 = Guid.NewGuid();
+        var poRow2 = Guid.NewGuid();
+        var mr1 = Guid.NewGuid();
+        var mrItem1 = Guid.NewGuid();
+        var mrItem2 = Guid.NewGuid();
+        var poPlan = ChildItemUpdateService.BuildDeletedRowBinRefreshPlan(
+            "Purchase Order",
+            new[]
+            {
+                new DeletedOrderItemBinInput(poRow1, mr1, mrItem1),
+                new DeletedOrderItemBinInput(poRow2, mr1, mrItem2),
+            });
+        poPlan.SalesOrderRowIdsForReservedQty.ShouldBeEmpty();
+        poPlan.PurchaseOrderRowIdsForOrderedQty.ShouldBe(new[] { poRow1, poRow2 });
+        poPlan.MaterialRequestItemIdsByRequestId.ContainsKey(mr1).ShouldBeTrue();
+        poPlan.MaterialRequestItemIdsByRequestId[mr1].ShouldBe(new[] { mrItem1, mrItem2 });
+
+        // Quotation & Supplier Quotation skip bin updates
+        ChildItemUpdateService.BuildDeletedRowBinRefreshPlan(
+            "Quotation",
+            new[] { new DeletedOrderItemBinInput(soRow1) }).SalesOrderRowIdsForReservedQty.ShouldBeEmpty();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

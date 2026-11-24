@@ -312,8 +312,9 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
     /// <summary>
     /// Account currency, posting date exchange rate and party type for a row's account.
-    /// Port of ERPNext get_account_details_and_party_type().
+    /// Port of ERPNext get_account_details_and_party_type() with Account permission and company-scope check (PR #69179).
     /// </summary>
+    [Authorize(MyERPPermissions.Accounts.Default)]
     public async Task<JournalEntryAccountDetailsDto> GetAccountDetailsAsync(Guid companyId, Guid accountId, DateTime postingDate)
     {
         var company = await _companyRepository.GetAsync(companyId);
@@ -321,6 +322,11 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
 
         var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
         var account = await accountRepo.GetAsync(accountId);
+        if (account.CompanyId != Guid.Empty && account.CompanyId != companyId)
+        {
+            throw new Volo.Abp.Authorization.AbpAuthorizationException("No permission to access this account for the selected company.");
+        }
+
         var accountCurrency = string.IsNullOrWhiteSpace(account.Currency) ? companyCurrency : account.Currency;
 
         var exchangeRate = 1m;

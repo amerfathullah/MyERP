@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ProcessDeferredAccountingService } from '../../proxy/accounting/process-deferred-accounting.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
@@ -12,42 +13,46 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
 @Component({
   selector: 'app-process-deferred-accounting-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div>
           <h5 class="card-title mb-0">
-            {{ isNew ? 'New Process Deferred Accounting' : ('Process: ' + (process?.processNumber || '')) }}
+            @if (isNew) {
+              {{ '::NewProcessDeferredAccounting' | abpLocalization }}
+            } @else {
+              {{ '::ProcessDeferredPrefix' | abpLocalization }} {{ process?.processNumber || '' }}
+            }
           </h5>
           @if (!isNew && process) {
             <small class="text-muted">
-              Company: {{ process.companyName }}
+              {{ '::Company' | abpLocalization }}: {{ process.companyName }}
               <span class="badge ms-2" [ngClass]="process.isCancelled ? 'bg-danger' : (process.isSubmitted ? 'bg-success' : 'bg-warning text-dark')">
-                {{ process.isCancelled ? 'Cancelled' : (process.isSubmitted ? 'Submitted' : 'Draft') }}
+                {{ (process.isCancelled ? '::Cancelled' : (process.isSubmitted ? '::Submitted' : '::Draft')) | abpLocalization }}
               </span>
             </small>
           }
         </div>
         <div class="d-flex gap-2">
-          <a routerLink="/accounting/process-deferred-accounting" class="btn btn-outline-secondary btn-sm">Back</a>
+          <a routerLink="/accounting/process-deferred-accounting" class="btn btn-outline-secondary btn-sm">{{ '::Back' | abpLocalization }}</a>
           @if (!isNew && process && process.isSubmitted && !process.isCancelled) {
             <button type="button" class="btn btn-danger btn-sm" (click)="cancel()">
-              <i class="fa fa-ban me-1"></i>Cancel
+              <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
             </button>
           }
           @if (!isNew && process && !process.isSubmitted) {
             <button type="button" class="btn btn-success btn-sm" (click)="submit()">
-              <i class="fa fa-play me-1"></i>Process & Submit
+              <i class="fa fa-play me-1"></i>{{ '::ProcessAndSubmit' | abpLocalization }}
             </button>
           }
           @if (isNew || (process && !process.isSubmitted)) {
             <button type="button" class="btn btn-outline-info btn-sm" (click)="preview()" [disabled]="previewLoading || form.invalid">
               @if (previewLoading) { <i class="fa fa-spinner fa-spin me-1"></i> } @else { <i class="fa fa-eye me-1"></i> }
-              Preview Recognition
+              {{ '::PreviewRecognition' | abpLocalization }}
             </button>
-            <button type="button" class="btn btn-primary btn-sm" (click)="save()">Save</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="save()">{{ '::Save' | abpLocalization }}</button>
           }
         </div>
       </div>
@@ -55,9 +60,9 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Company</label>
+              <label class="form-label">{{ '::Company' | abpLocalization }}</label>
               <select class="form-select" formControlName="companyId">
-                <option value="" disabled>Select Company</option>
+                <option value="" disabled>{{ '::SelectCompany' | abpLocalization }}</option>
                 @for (c of companies; track c.id) {
                   <option [value]="c.id">{{ c.name }}</option>
                 }
@@ -65,17 +70,17 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Type</label>
+              <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select" formControlName="type">
-                <option [ngValue]="DeferredAccountingType.Income">Income (Deferred Revenue → Sales Revenue)</option>
-                <option [ngValue]="DeferredAccountingType.Expense">Expense (Deferred Expense → Operating Expense)</option>
+                <option [ngValue]="DeferredAccountingType.Income">{{ '::DeferredIncomeOption' | abpLocalization }}</option>
+                <option [ngValue]="DeferredAccountingType.Expense">{{ '::DeferredExpenseOption' | abpLocalization }}</option>
               </select>
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Specific Account (Optional Filter)</label>
+              <label class="form-label">{{ '::SpecificAccountOptionalFilter' | abpLocalization }}</label>
               <select class="form-select" formControlName="accountId">
-                <option [ngValue]="null">All Deferred Accounts</option>
+                <option [ngValue]="null">{{ '::AllDeferredAccounts' | abpLocalization }}</option>
                 @for (a of accounts; track a.id) {
                   <option [value]="a.id">{{ a.accountName }} ({{ a.accountCode }})</option>
                 }
@@ -83,17 +88,17 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Posting Date (For Recognition Journal Entries)</label>
+              <label class="form-label">{{ '::PostingDateForRecognitionJe' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="postingDate">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Service Start Date</label>
+              <label class="form-label">{{ '::ServiceStartDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="startDate">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Service End Date</label>
+              <label class="form-label">{{ '::ServiceEndDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="endDate">
             </div>
           </div>
@@ -101,9 +106,9 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
           @if (previewResult) {
             <div class="card mt-3 border-info">
               <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
-                <strong>Recognition Preview</strong>
+                <strong>{{ '::RecognitionPreview' | abpLocalization }}</strong>
                 <span class="small font-monospace">
-                  {{ previewResult.totalInvoicesCount ?? 0 }} items — Total: {{ (previewResult.totalAmountToRecognize ?? 0) | number:'1.2-2' }}
+                  {{ previewResult.totalInvoicesCount ?? 0 }} {{ '::Items' | abpLocalization }} — {{ '::Total' | abpLocalization }}: {{ (previewResult.totalAmountToRecognize ?? 0) | number:'1.2-2' }}
                 </span>
               </div>
               <div class="card-body p-0">
@@ -111,11 +116,11 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
                   <table class="table table-sm table-hover mb-0">
                     <thead class="table-light">
                       <tr>
-                        <th>Invoice #</th>
-                        <th>Item</th>
-                        <th>Service Period</th>
-                        <th class="text-end">Total</th>
-                        <th class="text-end">To Recognize</th>
+                        <th>{{ '::InvoiceNumber' | abpLocalization }}</th>
+                        <th>{{ '::Item' | abpLocalization }}</th>
+                        <th>{{ '::ServicePeriod' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::Total' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::ToRecognize' | abpLocalization }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -129,7 +134,7 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
                         </tr>
                       } @empty {
                         <tr>
-                          <td colspan="5" class="text-center text-muted py-3">No deferred items to recognize in this period.</td>
+                          <td colspan="5" class="text-center text-muted py-3">{{ '::NoDeferredItemsToRecognize' | abpLocalization }}</td>
                         </tr>
                       }
                     </tbody>
@@ -142,7 +147,7 @@ import type { DeferredAccountingPreviewDto, ProcessDeferredAccountingDto } from 
           @if (!isNew && process && process.isSubmitted) {
             <div class="alert alert-info mt-3">
               <i class="fa fa-info-circle me-1"></i>
-              <strong>Recognition Summary:</strong> Successfully booked <strong>{{ process.entriesProcessed }}</strong> deferred accounting Journal Entries.
+              <strong>{{ '::RecognitionSummary' | abpLocalization }}:</strong> {{ '::ProcessDeferredBookedSummary' | abpLocalization:(process.entriesProcessed ?? 0).toString() }}
             </div>
           }
         </form>
@@ -158,6 +163,7 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
   private companyService = inject(CompanyService);
   private accountService = inject(AccountService);
   private toaster = inject(ToasterService);
+  private localization = inject(LocalizationService);
 
   DeferredAccountingType = DeferredAccountingType;
   isNew = true;
@@ -232,7 +238,7 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
       },
       error: (err) => {
         this.previewLoading = false;
-        this.toaster.error(err?.error?.error?.message ?? 'Failed');
+        this.toaster.error(err?.error?.error?.message ?? '::Failed');
       },
     });
   }
@@ -244,7 +250,7 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
           this.toaster.success('::SuccessfullySaved');
           this.router.navigate(['/accounting/process-deferred-accounting', res.id]);
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     } else if (this.processId) {
       this.service.update(this.processId, this.form.value).subscribe({
@@ -252,7 +258,7 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
           this.process = res;
           this.toaster.success('::SuccessfullySaved');
         },
-        error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     }
   }
@@ -263,9 +269,11 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
       next: (res) => {
         this.process = res;
         this.form.disable();
-        this.toaster.success(`Successfully processed ${res.entriesProcessed} deferred accounting entries.`);
+        this.toaster.success(
+          this.localization.instant('::ProcessDeferredProcessed', String(res.entriesProcessed ?? 0))
+        );
       },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 
@@ -274,9 +282,9 @@ export class ProcessDeferredAccountingDetailComponent implements OnInit {
     this.service.cancel(this.processId).subscribe({
       next: (res) => {
         this.process = res;
-        this.toaster.success('Process Deferred Accounting cancelled.');
+        this.toaster.success('::ProcessDeferredCancelled');
       },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }
