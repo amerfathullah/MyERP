@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #65791, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #64998, #65791, #65961, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1342,5 +1342,67 @@ public class UpstreamBatch42ParityTests
         dunning.PostingDate.ShouldBe(new DateTime(2026, 5, 1));
         dunning.OverduePayments[0].OverdueDays.ShouldBe(30);
         dunning.InterestAmount.ShouldBe(30m); // 3650 * 0.10 / 365 * 30 = 30
+    }
+
+    [Fact]
+    public void Pr66299_Pr65961_Pr64998_Pr66292_BatchPickerPrecision_WoLeftoverTransfer_CashFlowYtdLabel_YearlyTimeline_Parity()
+    {
+        // PR #66299: get_batches_used_in_rows rounds direct row qty to Serial and Batch Entry precision
+        var batchId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var rows = new[]
+        {
+            new DocumentBatchRowUsage(IsPackedRow: false, SerialAndBatchBundleId: null, BatchId: batchId, WarehouseId: whId, Qty: 1m, StockQty: 3.33336m),
+            new DocumentBatchRowUsage(IsPackedRow: true, SerialAndBatchBundleId: null, BatchId: batchId, WarehouseId: whId, Qty: 1.66666m, StockQty: 99m),
+            new DocumentBatchRowUsage(IsPackedRow: false, SerialAndBatchBundleId: bundleId, BatchId: null, WarehouseId: whId, Qty: 2m, StockQty: 2m),
+        };
+        var bundleEntries = new[] { (bundleId, batchId, whId, -2m) };
+        var used = SerialBatchBundleValidationService.CalculateBatchesUsedInRows(rows, bundleEntries, entryQtyPrecision: 4);
+        // -3.3334 + (-1.6667) + (-2.0000) = -7.0001
+        used[(batchId, whId)].ShouldBe(-7.0001m);
+
+        // PR #65961: Material Transfer for Manufacture allows qty=0 when maxTransferableQty <= 0 (leftover items pending)
+        var leftover = WorkOrderManager.ResolveMaterialTransferStockEntryCreation(
+            isMaterialTransferForManufacture: true, requestedQty: 0m, maxTransferableQty: 0m);
+        leftover.CanCreate.ShouldBeTrue();
+        leftover.EffectiveQty.ShouldBe(0m);
+
+        var normalZero = WorkOrderManager.ResolveMaterialTransferStockEntryCreation(
+            isMaterialTransferForManufacture: true, requestedQty: 0m, maxTransferableQty: 5m);
+        normalZero.CanCreate.ShouldBeFalse();
+
+        var manufactureZero = WorkOrderManager.ResolveMaterialTransferStockEntryCreation(
+            isMaterialTransferForManufacture: false, requestedQty: 0m, maxTransferableQty: 0m);
+        manufactureZero.CanCreate.ShouldBeFalse();
+
+        // PR #64998: Cash Flow YTD label clamps to max(fyStart, rangeStart) when range starts mid-FY
+        var fyStart = new DateTime(2026, 1, 1);
+        var midYearRangeStart = new DateTime(2026, 4, 1);
+        AccountBalanceService.ResolveAccumulatedPeriodLabelStartDate(
+            periodFromDate: new DateTime(2026, 6, 1),
+            rangeStartDate: midYearRangeStart,
+            firstPeriodFromDate: midYearRangeStart,
+            fromDateFiscalYearStartDate: fyStart,
+            accumulatedValues: true,
+            resetPeriodOnFiscalYearChange: true).ShouldBe(midYearRangeStart);
+
+        // When a subsequent FY starts after rangeStart, label resets to that FY's start date
+        var nextFyStart = new DateTime(2027, 1, 1);
+        AccountBalanceService.ResolveAccumulatedPeriodLabelStartDate(
+            periodFromDate: new DateTime(2027, 2, 1),
+            rangeStartDate: midYearRangeStart,
+            firstPeriodFromDate: midYearRangeStart,
+            fromDateFiscalYearStartDate: nextFyStart,
+            accumulatedValues: true,
+            resetPeriodOnFiscalYearChange: true).ShouldBe(nextFyStart);
+
+        // PR #66292: Account Balance Timeline handles Yearly timegrain without infinite loop
+        var yearlyDates = AccountBalanceService.GetTimelineDatesForTimegrain(
+            new DateTime(2024, 3, 15), new DateTime(2026, 6, 1), "Yearly");
+        yearlyDates.Count.ShouldBe(3);
+        yearlyDates[0].ShouldBe(new DateTime(2024, 12, 31));
+        yearlyDates[1].ShouldBe(new DateTime(2025, 12, 31));
+        yearlyDates[2].ShouldBe(new DateTime(2026, 12, 31));
     }
 }

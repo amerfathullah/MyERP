@@ -1354,7 +1354,65 @@ public class SerialBatchBundleValidationService : DomainService
 
         return Math.Abs(resolved);
     }
+
+    /// <summary>
+    /// Computes batch quantities already claimed by current document rows (items + packed rows + linked bundles),
+    /// keyed by <c>(BatchId, WarehouseId)</c>, per ERPNext PR #66299 (<c>serial_batch_bundle_service.py: get_batches_used_in_rows</c>):
+    /// rounds each direct row's quantity (<c>Qty</c> for Packed Item rows, <c>StockQty</c> for normal item rows)
+    /// to <paramref name="entryQtyPrecision"/> before negating so remaining batch availability matches bundle precision.
+    /// </summary>
+    public static Dictionary<(Guid BatchId, Guid WarehouseId), decimal> CalculateBatchesUsedInRows(
+        IEnumerable<DocumentBatchRowUsage>? documentRows,
+        IEnumerable<(Guid BundleId, Guid BatchId, Guid WarehouseId, decimal Qty)>? bundleEntries = null,
+        int entryQtyPrecision = 4)
+    {
+        var usedByBatchWarehouse = new Dictionary<(Guid BatchId, Guid WarehouseId), decimal>();
+        if (documentRows == null)
+        {
+            return usedByBatchWarehouse;
+        }
+
+        var referencedBundleIds = new HashSet<Guid>();
+        foreach (var row in documentRows)
+        {
+            if (row.SerialAndBatchBundleId.HasValue)
+            {
+                referencedBundleIds.Add(row.SerialAndBatchBundleId.Value);
+            }
+            else if (row.BatchId.HasValue && row.WarehouseId.HasValue)
+            {
+                var rawQty = row.IsPackedRow ? row.Qty : row.StockQty;
+                var roundedQty = Math.Round(rawQty, entryQtyPrecision, MidpointRounding.AwayFromZero);
+                var key = (row.BatchId.Value, row.WarehouseId.Value);
+                usedByBatchWarehouse[key] = usedByBatchWarehouse.GetValueOrDefault(key) - roundedQty;
+            }
+        }
+
+        if (referencedBundleIds.Count > 0 && bundleEntries != null)
+        {
+            foreach (var entry in bundleEntries)
+            {
+                if (!referencedBundleIds.Contains(entry.BundleId))
+                {
+                    continue;
+                }
+
+                var key = (entry.BatchId, entry.WarehouseId);
+                usedByBatchWarehouse[key] = usedByBatchWarehouse.GetValueOrDefault(key) + entry.Qty;
+            }
+        }
+
+        return usedByBatchWarehouse;
+    }
 }
+
+public readonly record struct DocumentBatchRowUsage(
+    bool IsPackedRow,
+    Guid? SerialAndBatchBundleId,
+    Guid? BatchId,
+    Guid? WarehouseId,
+    decimal Qty,
+    decimal StockQty);
 
 /// <summary>Result of syncing a draft internal receipt row's Serial and Batch Bundle.</summary>
 public record DraftPackageSyncResult(

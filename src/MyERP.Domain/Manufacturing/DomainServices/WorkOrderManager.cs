@@ -1434,6 +1434,27 @@ public class WorkOrderManager : DomainService
 
         return notSubcontracted < baseReserved ? notSubcontracted : baseReserved;
     }
+
+    /// <summary>
+    /// Determines whether a Work Order may launch a Stock Entry and resolves the effective <c>qty</c>
+    /// per ERPNext PR #65961 (<c>work_order.js: make_se</c>):
+    /// when <paramref name="isMaterialTransferForManufacture"/> is true and <paramref name="maxTransferableQty"/> &lt;= 0
+    /// (all FG-proportional qty was already transferred, leaving only partial/leftover required items),
+    /// permits launching the transfer entry even when <paramref name="requestedQty"/> is 0.
+    /// </summary>
+    public static (bool CanCreate, decimal EffectiveQty) ResolveMaterialTransferStockEntryCreation(
+        bool isMaterialTransferForManufacture,
+        decimal requestedQty,
+        decimal maxTransferableQty)
+    {
+        var onlyLeftoverItemsPending = isMaterialTransferForManufacture && maxTransferableQty <= 0m;
+        if (requestedQty > 0m || onlyLeftoverItemsPending)
+        {
+            return (true, requestedQty > 0m ? requestedQty : 0m);
+        }
+
+        return (false, 0m);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

@@ -14,42 +14,42 @@ import { SupplierScorecardVariableService } from '../../proxy/purchasing/supplie
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Supplier Scorecard Variable</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditSupplierScorecardVariable' : '::NewSupplierScorecardVariable') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Variable Label *</label>
+              <label class="form-label">{{ '::VariableLabel' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="variableLabel" [placeholder]="'::Placeholder:ScorecardVariableLabelExample' | abpLocalization">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Parameter Name *</label>
+              <label class="form-label">{{ '::ParameterName' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="paramName" [placeholder]="'::Placeholder:ScorecardParamNameExample' | abpLocalization">
             </div>
           </div>
 
           <div class="row mb-3">
             <div class="col-md-8">
-              <label class="form-label">Path *</label>
+              <label class="form-label">{{ '::Path' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="path" [placeholder]="'::Placeholder:ScorecardPathExample' | abpLocalization">
             </div>
             <div class="col-md-4 d-flex align-items-end">
               <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="isCustom" formControlName="isCustom">
-                <label class="form-check-label" for="isCustom">Custom Variable</label>
+                <label class="form-check-label" for="isCustom">{{ '::CustomVariable' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:OptionalDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/purchasing/scorecard-variables" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/purchasing/scorecard-variables" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -98,7 +98,7 @@ export class ScorecardVariableFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/purchasing/scorecard-variables']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

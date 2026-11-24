@@ -15,37 +15,37 @@ import { ProjectService } from '../../proxy/projects/project.service';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Project Update</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditProjectUpdate' : '::NewProjectUpdate') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Project *</label>
+              <label class="form-label">{{ '::Project' | abpLocalization }} *</label>
               <select class="form-select" formControlName="projectId" (change)="onProjectSelected()">
-                <option [ngValue]="null">-- Select Project --</option>
+                <option [ngValue]="null">{{ '::SelectProject' | abpLocalization }}</option>
                 @for (p of projectsList; track p.id) {
                   <option [value]="p.id">{{ p.projectNumber }} - {{ p.projectName }}</option>
                 }
               </select>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Date *</label>
+              <label class="form-label">{{ '::Date' | abpLocalization }} *</label>
               <input type="date" class="form-control" formControlName="date">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Percent Complete (%)</label>
+              <label class="form-label">{{ '::PercentComplete' | abpLocalization }}</label>
               <input type="number" step="0.1" class="form-control" formControlName="percentComplete" placeholder="0 - 100">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Summary</label>
+            <label class="form-label">{{ '::Summary' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="summary" [placeholder]="'::Placeholder:ProgressSummary' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Notes & Details</label>
+            <label class="form-label">{{ '::NotesAndDetails' | abpLocalization }}</label>
             <textarea class="form-control" rows="5" formControlName="notes" [placeholder]="'::Placeholder:ProjectUpdateNotes' | abpLocalization"></textarea>
           </div>
 
@@ -53,14 +53,14 @@ import { ProjectService } from '../../proxy/projects/project.service';
             <div class="col-md-4">
               <div class="form-check form-switch mt-2">
                 <input class="form-check-input" type="checkbox" id="sent" formControlName="sent">
-                <label class="form-check-label" for="sent">Mark as Sent / Published</label>
+                <label class="form-check-label" for="sent">{{ '::MarkAsSentPublished' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/projects/project-updates" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/projects/project-updates" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -131,7 +131,7 @@ export class ProjectUpdateFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/projects/project-updates']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

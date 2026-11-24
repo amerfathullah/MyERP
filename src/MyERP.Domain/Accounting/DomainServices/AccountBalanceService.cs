@@ -299,6 +299,88 @@ public class AccountBalanceService : DomainService
     }
 
     #endregion
+
+    /// <summary>
+    /// Resolves the start date used to label a financial statement / Cash Flow period column
+    /// per ERPNext PR #64998 (<c>financial_statements.py: get_period_list</c>, <c>cash_flow.py</c>):
+    /// when <paramref name="accumulatedValues"/> and <paramref name="resetPeriodOnFiscalYearChange"/> are true,
+    /// clamps the label start date to <c>max(fromDateFiscalYearStartDate, rangeStartDate)</c> so date ranges
+    /// starting mid-fiscal-year do not display an earlier fiscal year start date.
+    /// </summary>
+    public static DateTime ResolveAccumulatedPeriodLabelStartDate(
+        DateTime periodFromDate,
+        DateTime rangeStartDate,
+        DateTime firstPeriodFromDate,
+        DateTime fromDateFiscalYearStartDate,
+        bool accumulatedValues,
+        bool resetPeriodOnFiscalYearChange)
+    {
+        if (!accumulatedValues)
+        {
+            return periodFromDate.Date;
+        }
+
+        if (resetPeriodOnFiscalYearChange)
+        {
+            return fromDateFiscalYearStartDate.Date > rangeStartDate.Date
+                ? fromDateFiscalYearStartDate.Date
+                : rangeStartDate.Date;
+        }
+
+        return firstPeriodFromDate.Date;
+    }
+
+    /// <summary>
+    /// Generates period-ending dates for the Account Balance Timeline dashboard chart across a timegrain
+    /// per ERPNext PR #66292 (<c>account_balance_timeline.py: get_dates_from_timegrain</c>):
+    /// supports Daily, Weekly, Monthly, Quarterly, and Yearly (advancing by 1 year to avoid infinite loop).
+    /// </summary>
+    public static IReadOnlyList<DateTime> GetTimelineDatesForTimegrain(
+        DateTime fromDate,
+        DateTime toDate,
+        string timegrain)
+    {
+        var normalized = (timegrain ?? string.Empty).Trim();
+        var (years, months, days) = normalized switch
+        {
+            "Daily" => (0, 0, 1),
+            "Weekly" => (0, 0, 7),
+            "Monthly" => (0, 1, 0),
+            "Quarterly" => (0, 3, 0),
+            "Yearly" => (1, 0, 0),
+            _ => throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Unsupported account balance timeline timegrain: '{timegrain}'."),
+        };
+
+        var end = toDate.Date;
+        var dates = new List<DateTime> { GetTimegrainPeriodEnding(fromDate.Date, normalized) };
+        while (dates[^1] < end)
+        {
+            var next = dates[^1].AddYears(years).AddMonths(months).AddDays(days);
+            dates.Add(GetTimegrainPeriodEnding(next, normalized));
+        }
+
+        return dates;
+    }
+
+    private static DateTime GetTimegrainPeriodEnding(DateTime date, string timegrain)
+    {
+        return timegrain switch
+        {
+            "Daily" => date.Date,
+            "Weekly" => date.Date.AddDays((7 - (int)date.DayOfWeek) % 7),
+            "Monthly" => new DateTime(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month)),
+            "Quarterly" => GetQuarterEnd(date),
+            "Yearly" => new DateTime(date.Year, 12, 31),
+            _ => date.Date,
+        };
+    }
+
+    private static DateTime GetQuarterEnd(DateTime date)
+    {
+        var endMonth = (((date.Month - 1) / 3) + 1) * 3;
+        return new DateTime(date.Year, endMonth, DateTime.DaysInMonth(date.Year, endMonth));
+    }
 }
 
 /// <summary>

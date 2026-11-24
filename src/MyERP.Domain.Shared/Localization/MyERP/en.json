@@ -7370,7 +7370,15 @@
     "Thursday": "Thursday",
     "Friday": "Friday",
     "Saturday": "Saturday",
-    "Sunday": "Sunday"
+    "Sunday": "Sunday",
+    "VariableLabel": "Variable Label",
+    "ParameterName": "Parameter Name",
+    "Path": "Path",
+    "CustomVariable": "Custom Variable",
+    "StagingWarehouse": "Staging Warehouse",
+    "SelectProject": "Select project...",
+    "NotesAndDetails": "Notes & Details",
+    "MarkAsSentPublished": "Mark as Sent / Published"
   }
 }
 
