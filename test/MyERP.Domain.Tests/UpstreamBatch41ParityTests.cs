@@ -3526,6 +3526,86 @@ public class UpstreamBatch41ParityTests
         Convert.FromBase64String(hashB64).Length.ShouldBe(32);
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch31_BomConsumptionProposal_JobCardNonStock_BomHourRateRescale_LhdnEmptySummaryStatus_Parity()
+    {
+        // 1. ERPNext PR #67348: BOM-based Material Consumption proposal aggregates duplicate item rows,
+        // accounts for process loss, and rounds DOWN so proposal never exceeds materials left
+        var rm = Guid.NewGuid();
+        // 20 Kg transferred at 3 Kg/FG (WO qty=10, required=30): 20/3 = 6.6666... -> floors to 6.66 (not 6.67)
+        WorkOrderManager.CalculateBomBasedPendingConsumptionQty(
+            workOrderQty: 10m, producedQty: 0m, processLossQty: 0m, skipTransfer: false,
+            requiredItems: new[] { (rm, 30m, 20m, 0m, true, false) }, qtyPrecision: 2)
+            .ShouldBe(6.66m);
+
+        // Two rows for same item sum together: required 10+10=20, transferred 15+5=20, consumed 10+5=15 -> 5 left for 2.5 FG
+        WorkOrderManager.CalculateBomBasedPendingConsumptionQty(
+            workOrderQty: 10m, producedQty: 5m, processLossQty: 1m, skipTransfer: false,
+            requiredItems: new[]
+            {
+                (rm, 10m, 15m, 10m, true, false),
+                (rm, 10m, 5m, 5m, true, false)
+            }, qtyPrecision: 2)
+            .ShouldBe(2.5m);
+
+        // 2. ERPNext PR #67462: Job Card output charges only its own operation's non-stock items;
+        // unassigned non-stock items charge only on the final operation producing the Work Order's FG
+        var fg = Guid.NewGuid();
+        var sfg = Guid.NewGuid();
+        var op1 = Guid.NewGuid();
+        var op2 = Guid.NewGuid();
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldChargeBomNonStockItemOnJobCardOutput(
+            bomItemOperationRowIdx: 1, bomItemOperationId: op1, jobCardOperationRowIdx: 1, jobCardOperationId: op1,
+            jobCardFinishedGoodId: sfg, workOrderProductionItemId: fg).ShouldBeTrue();
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldChargeBomNonStockItemOnJobCardOutput(
+            bomItemOperationRowIdx: 2, bomItemOperationId: op2, jobCardOperationRowIdx: 1, jobCardOperationId: op1,
+            jobCardFinishedGoodId: sfg, workOrderProductionItemId: fg).ShouldBeFalse();
+        // Unassigned non-stock item skipped on intermediate operation (producing sfg), charged on final operation (producing fg)
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldChargeBomNonStockItemOnJobCardOutput(
+            bomItemOperationRowIdx: null, bomItemOperationId: null, jobCardOperationRowIdx: 1, jobCardOperationId: op1,
+            jobCardFinishedGoodId: sfg, workOrderProductionItemId: fg).ShouldBeFalse();
+        MyERP.Manufacturing.DomainServices.JobCardManager.ShouldChargeBomNonStockItemOnJobCardOutput(
+            bomItemOperationRowIdx: null, bomItemOperationId: null, jobCardOperationRowIdx: 2, jobCardOperationId: op2,
+            jobCardFinishedGoodId: fg, workOrderProductionItemId: fg).ShouldBeTrue();
+
+        // 3. ERPNext PR #67335: BOM operation hour rate resets on workstation change, rescales on conversion rate change, skips zero rate
+        var ws1 = Guid.NewGuid();
+        var ws2 = Guid.NewGuid();
+        // Workstation changed -> resets to 0 for refetch
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveUpdatedOperationHourRate(
+            100m, 100m, ws1, ws2, null, null, 1m, 1m).ShouldBe(0m);
+        // Conversion rate changed 4 -> 5 -> rescales 100 * 4 / 5 = 80
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveUpdatedOperationHourRate(
+            100m, 100m, ws1, ws1, null, null, 4m, 5m).ShouldBe(80m);
+        // Zero old or new conversion rate -> skips rescaling, preserves 100
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveUpdatedOperationHourRate(
+            100m, 100m, ws1, ws1, null, null, 0m, 5m).ShouldBe(100m);
+        // Manual edit (current != previous) -> preserves manual rate even if workstation changed
+        MyERP.Manufacturing.DomainServices.BomCostPropagationService.ResolveUpdatedOperationHourRate(
+            125m, 100m, ws1, ws2, null, null, 4m, 5m).ShouldBe(125m);
+
+        // 4. MyInvois original.py: HTTP 200 status with empty documentSummary uses overallStatus or defaults to "Submitted"
+        var handler1 = new CaptureHttpHandler(_ => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new System.Net.Http.StringContent("""{"documentSummary":[]}""", System.Text.Encoding.UTF8, "application/json")
+        });
+        var factory1 = NSubstitute.Substitute.For<System.Net.Http.IHttpClientFactory>();
+        NSubstitute.SubstituteExtensions.Returns(factory1.CreateClient("LhdnApi"), new System.Net.Http.HttpClient(handler1));
+        var client1 = new MyERP.EInvoice.Services.LhdnApiClient(
+            factory1, Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.Services.LhdnApiClient>.Instance);
+        (await client1.GetDocumentStatusAsync("tok", "SUB-EMPTY", MyERP.EInvoice.LhdnEnvironment.Sandbox)).Status.ShouldBe("Submitted");
+
+        var handler2 = new CaptureHttpHandler(_ => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new System.Net.Http.StringContent("""{"overallStatus":"InProgress","documentSummary":[]}""", System.Text.Encoding.UTF8, "application/json")
+        });
+        var factory2 = NSubstitute.Substitute.For<System.Net.Http.IHttpClientFactory>();
+        NSubstitute.SubstituteExtensions.Returns(factory2.CreateClient("LhdnApi"), new System.Net.Http.HttpClient(handler2));
+        var client2 = new MyERP.EInvoice.Services.LhdnApiClient(
+            factory2, Microsoft.Extensions.Logging.Abstractions.NullLogger<MyERP.EInvoice.Services.LhdnApiClient>.Instance);
+        (await client2.GetDocumentStatusAsync("tok", "SUB-PROG", MyERP.EInvoice.LhdnEnvironment.Sandbox)).Status.ShouldBe("InProgress");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

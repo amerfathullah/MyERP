@@ -223,16 +223,23 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
 
-        var status = "Unknown";
+        var status = "Submitted";
         string? uuid = null;
         string? lid = null;
 
         if (root.TryGetProperty("documentSummary", out var summary) && summary.GetArrayLength() > 0)
         {
             var first = summary[0];
-            if (first.TryGetProperty("status", out var st)) status = st.GetString() ?? "Unknown";
+            if (first.TryGetProperty("status", out var st) && !string.IsNullOrWhiteSpace(st.GetString()))
+                status = st.GetString()!;
             if (first.TryGetProperty("uuid", out var u)) uuid = u.GetString();
             if (first.TryGetProperty("longId", out var l)) lid = l.GetString();
+        }
+        else if (root.TryGetProperty("overallStatus", out var overall) && !string.IsNullOrWhiteSpace(overall.GetString()))
+        {
+            // Per myinvois original.py:665-672 — when documentSummary is empty right after submission,
+            // fall back to overallStatus if present, otherwise "Submitted" (never "Unknown").
+            status = overall.GetString()!;
         }
 
         return new LhdnStatusResponse

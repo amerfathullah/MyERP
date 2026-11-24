@@ -1150,6 +1150,50 @@ public class WorkOrderManager : DomainService
                 .WithData("detail", "Cannot disassemble more than the produced quantity that is not converted to an alternative item.");
         }
     }
+
+    /// <summary>
+    /// Proposes the FG quantity still eligible for a BOM-based Material Consumption Stock Entry
+    /// per ERPNext PR #67348 (<c>work_order/mapper.py: get_pending_consumption_qty_based_on_bom</c>):
+    /// aggregates rows sharing the same item, bounds by materials remaining for the order
+    /// (<c>RequiredQty</c> when <paramref name="skipTransfer"/> else <c>TransferredQty</c>, minus <c>ConsumedQty</c>),
+    /// caps at <c>workOrderQty - producedQty - processLossQty</c>, and rounds DOWN to
+    /// <paramref name="qtyPrecision"/> so the proposal never requires more material than is left.
+    /// </summary>
+    public static decimal CalculateBomBasedPendingConsumptionQty(
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        bool skipTransfer,
+        IReadOnlyList<(Guid ItemId, decimal RequiredQty, decimal TransferredQty, decimal ConsumedQty, bool IncludeInManufacturing, bool IsAdditionalItem)> requiredItems,
+        int qtyPrecision = 2)
+    {
+        if (workOrderQty <= 0m || requiredItems == null || requiredItems.Count == 0)
+            return 0m;
+
+        var materials = new Dictionary<Guid, (decimal LeftQty, decimal RequiredQty)>();
+        foreach (var row in requiredItems)
+        {
+            if (!(row.IncludeInManufacturing || row.IsAdditionalItem) || row.RequiredQty <= 0m)
+                continue;
+
+            var basis = skipTransfer ? row.RequiredQty : row.TransferredQty;
+            var left = basis - row.ConsumedQty;
+            var prev = materials.TryGetValue(row.ItemId, out var existing) ? existing : (LeftQty: 0m, RequiredQty: 0m);
+            materials[row.ItemId] = (prev.LeftQty + left, prev.RequiredQty + row.RequiredQty);
+        }
+
+        if (materials.Count == 0)
+            return 0m;
+
+        var leftForQty = materials.Values.Min(m => m.LeftQty * workOrderQty / m.RequiredQty);
+        var pendingToProduce = workOrderQty - producedQty - processLossQty;
+        var raw = Math.Min(leftForQty, pendingToProduce);
+
+        // Round down with 9-decimal noise guard so proposal never exceeds available materials
+        var step = (decimal)Math.Pow(10, qtyPrecision);
+        var floored = Math.Floor(Math.Round(raw * step, 9, MidpointRounding.AwayFromZero)) / step;
+        return Math.Max(floored, 0m);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

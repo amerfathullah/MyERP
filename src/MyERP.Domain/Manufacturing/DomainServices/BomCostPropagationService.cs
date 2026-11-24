@@ -507,4 +507,38 @@ public class BomCostPropagationService : DomainService
         if (operationCreateJobCardBasedOnBatchSize) return true;
         return currentFlag;
     }
+
+    /// <summary>
+    /// Resolves the updated <c>HourRate</c> on a BOM Operation row when the row's workstation/type
+    /// or parent BOM's exchange conversion rate changes per ERPNext PR #67335
+    /// (<c>bom/services/costing.py: _reset_row_hour_rate</c>):
+    /// - Preserves manually edited rates (<c>currentHourRate != previousHourRate</c>).
+    /// - Resets to <c>0</c> (triggering workstation refetch) if workstation or workstation type changed.
+    /// - Rescales <c>hourRate * previousConversionRate / currentConversionRate</c> when both conversion
+    ///   rates are positive and differ; skips rescaling when either conversion rate is zero/non-positive.
+    /// </summary>
+    public static decimal ResolveUpdatedOperationHourRate(
+        decimal currentHourRate,
+        decimal previousHourRate,
+        Guid? previousWorkstationId,
+        Guid? currentWorkstationId,
+        Guid? previousWorkstationTypeId,
+        Guid? currentWorkstationTypeId,
+        decimal previousConversionRate,
+        decimal currentConversionRate,
+        int precision = 2)
+    {
+        if (currentHourRate != previousHourRate)
+            return currentHourRate;
+
+        if (previousWorkstationId != currentWorkstationId || previousWorkstationTypeId != currentWorkstationTypeId)
+            return 0m;
+
+        if (previousConversionRate > 0m && currentConversionRate > 0m && previousConversionRate != currentConversionRate)
+        {
+            return Math.Round(currentHourRate * previousConversionRate / currentConversionRate, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return currentHourRate;
+    }
 }
