@@ -280,7 +280,131 @@ public class PaymentEntryManager : DomainService
 
         return (paidAmount, receivedAmount, totalDiscount);
     }
+
+    /// <summary>
+    /// Computes the combined early payment discount percentage across eligible Percentage and Amount
+    /// payment term discounts per ERPNext PR #66981 (<c>get_total_discount_percent</c> in <c>payment_entry.py</c>).
+    /// </summary>
+    public static decimal CalculateTotalEarlyPaymentDiscountPercent(
+        decimal documentGrandTotal,
+        IEnumerable<(string DiscountType, decimal Discount)>? validDiscounts)
+    {
+        if (validDiscounts == null)
+        {
+            return 0m;
+        }
+
+        decimal totalDiscountPercent = 0m;
+        decimal totalDiscountAmount = 0m;
+
+        foreach (var discount in validDiscounts)
+        {
+            if (string.Equals(discount.DiscountType, "Percentage", StringComparison.OrdinalIgnoreCase))
+            {
+                totalDiscountPercent += discount.Discount;
+            }
+            else if (string.Equals(discount.DiscountType, "Amount", StringComparison.OrdinalIgnoreCase))
+            {
+                totalDiscountAmount += discount.Discount;
+            }
+        }
+
+        if (totalDiscountAmount != 0m && documentGrandTotal != 0m)
+        {
+            totalDiscountPercent += (totalDiscountAmount / documentGrandTotal) * 100m;
+        }
+
+        return totalDiscountPercent;
+    }
+
+    /// <summary>
+    /// Splits an early payment discount into base-currency Income Loss and per-account Tax Loss rows
+    /// without requiring a Payment Entry instance per ERPNext PR #66981 (<c>get_early_payment_discount_loss</c>
+    /// in <c>payment_entry.py</c>):
+    /// - Returns empty rows and <c>0</c> when the combined discount percent is zero.
+    /// - Applies <c>-1</c> sign for <see cref="PaymentType.Pay"/> and <c>+1</c> for <see cref="PaymentType.Receive"/>.
+    /// - Aggregates repeated tax account heads and skips tax accounts whose total loss is zero.
+    /// - Rounds <c>BaseTotalDiscountLoss</c> from unrounded income + tax sum to minimize rounding drift.
+    /// </summary>
+    public static (IReadOnlyList<EarlyPaymentDiscountLossRow> Rows, decimal BaseTotalDiscountLoss) SplitEarlyPaymentDiscountLoss(
+        decimal documentGrandTotal,
+        decimal documentBaseTotal,
+        IEnumerable<(Guid AccountId, decimal BaseTaxAmountAfterDiscount)>? documentTaxes,
+        IEnumerable<(string DiscountType, decimal Discount)>? validDiscounts,
+        PaymentType paymentType,
+        Guid defaultDiscountAccountId,
+        Guid? costCenterId,
+        Guid? companyDefaultCostCenterId = null,
+        int totalPrecision = 2,
+        int taxPrecision = 2,
+        int grandTotalPrecision = 2)
+    {
+        var totalDiscountPercent = CalculateTotalEarlyPaymentDiscountPercent(documentGrandTotal, validDiscounts);
+        if (totalDiscountPercent == 0m)
+        {
+            return (Array.Empty<EarlyPaymentDiscountLossRow>(), 0m);
+        }
+
+        var effectiveCostCenterId = costCenterId ?? companyDefaultCostCenterId;
+        var sign = paymentType == PaymentType.Pay ? -1m : 1m;
+
+        var baseLossOnIncome = documentBaseTotal * (totalDiscountPercent / 100m);
+        var rows = new List<EarlyPaymentDiscountLossRow>
+        {
+            new(
+                defaultDiscountAccountId,
+                effectiveCostCenterId,
+                Math.Round(baseLossOnIncome, totalPrecision, MidpointRounding.AwayFromZero) * sign)
+        };
+
+        var baseLossByTaxAccount = new Dictionary<Guid, decimal>();
+        var taxAccountOrder = new List<Guid>();
+        if (documentTaxes != null)
+        {
+            foreach (var tax in documentTaxes)
+            {
+                var baseTaxLoss = tax.BaseTaxAmountAfterDiscount * (totalDiscountPercent / 100m);
+                if (!baseLossByTaxAccount.ContainsKey(tax.AccountId))
+                {
+                    baseLossByTaxAccount[tax.AccountId] = baseTaxLoss;
+                    taxAccountOrder.Add(tax.AccountId);
+                }
+                else
+                {
+                    baseLossByTaxAccount[tax.AccountId] += baseTaxLoss;
+                }
+            }
+        }
+
+        decimal baseLossOnTaxes = 0m;
+        foreach (var accountId in taxAccountOrder)
+        {
+            var taxLoss = baseLossByTaxAccount[accountId];
+            baseLossOnTaxes += taxLoss;
+            if (taxLoss == 0m)
+            {
+                continue;
+            }
+
+            rows.Add(new EarlyPaymentDiscountLossRow(
+                accountId,
+                effectiveCostCenterId,
+                Math.Round(taxLoss, taxPrecision, MidpointRounding.AwayFromZero) * sign));
+        }
+
+        var baseTotalDiscountLoss = Math.Round(
+            baseLossOnIncome + baseLossOnTaxes,
+            grandTotalPrecision,
+            MidpointRounding.AwayFromZero);
+
+        return (rows, baseTotalDiscountLoss);
+    }
 }
+
+public sealed record EarlyPaymentDiscountLossRow(
+    Guid AccountId,
+    Guid? CostCenterId,
+    decimal Amount);
 
 public sealed record ReferenceAllocationSnapshot(
     string VoucherType,

@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Purchase Receipt print layout — professional A4 Goods Receiving Note (GRN).
@@ -11,7 +12,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-pr-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (receipt) {
       <div class="pr-print-layout">
@@ -20,21 +21,21 @@ import { CommonModule } from '@angular/common';
           <div>
             <h3 class="fw-bold mb-1">{{ companyName }}</h3>
             @if (companyTin) {
-              <p class="text-muted mb-0">TIN: {{ companyTin }}</p>
+              <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ companyTin }}</p>
             }
             @if (companySst) {
-              <p class="text-muted mb-0">SST Reg No: {{ companySst }}</p>
+              <p class="text-muted mb-0">{{ '::SstRegNo' | abpLocalization }}: {{ companySst }}</p>
             }
             @if (companyAddress) {
               <p class="text-muted mb-0">{{ companyAddress }}</p>
             }
           </div>
           <div class="text-end">
-            <h4 class="text-uppercase text-primary fw-bold mb-1">GOODS RECEIVING NOTE</h4>
-            <p class="mb-0"><strong>GRN #:</strong> {{ receipt.receiptNumber }}</p>
-            <p class="mb-0"><strong>Date:</strong> {{ receipt.postingDate | date:'dd/MM/yyyy' }}</p>
+            <h4 class="text-uppercase text-primary fw-bold mb-1">{{ '::GoodsReceivingNote' | abpLocalization }}</h4>
+            <p class="mb-0"><strong>{{ '::GrnNumberShort' | abpLocalization }}:</strong> {{ receipt.receiptNumber }}</p>
+            <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ receipt.postingDate | date:'dd/MM/yyyy' }}</p>
             @if (receipt.isReturn) {
-              <p class="mb-0"><span class="badge bg-warning">RETURN</span></p>
+              <p class="mb-0"><span class="badge bg-warning text-uppercase">{{ '::Return' | abpLocalization }}</span></p>
             }
           </div>
         </div>
@@ -42,34 +43,34 @@ import { CommonModule } from '@angular/common';
         <!-- Supplier + Reference Info -->
         <div class="row mb-4">
           <div class="col-6">
-            <h6 class="fw-bold text-uppercase mb-2">Received From</h6>
+            <h6 class="fw-bold text-uppercase mb-2">{{ '::ReceivedFrom' | abpLocalization }}</h6>
             <p class="mb-0 fw-bold">{{ receipt.supplierName || receipt.supplierId }}</p>
             @if (supplierAddress) {
               <p class="mb-0">{{ supplierAddress }}</p>
             }
           </div>
           <div class="col-6">
-            <h6 class="fw-bold text-uppercase mb-2">Reference Details</h6>
+            <h6 class="fw-bold text-uppercase mb-2">{{ '::ReferenceDetails' | abpLocalization }}</h6>
             <table class="table table-sm table-borderless mb-0">
               <tbody>
                 @if (receipt.purchaseOrderId) {
                   <tr>
-                    <td class="text-muted pe-2">Purchase Order:</td>
+                    <td class="text-muted pe-2">{{ '::PurchaseOrder' | abpLocalization }}:</td>
                     <td class="fw-bold">{{ poNumber || '—' }}</td>
                   </tr>
                 }
                 <tr>
-                  <td class="text-muted pe-2">Warehouse:</td>
+                  <td class="text-muted pe-2">{{ '::Warehouse' | abpLocalization }}:</td>
                   <td class="fw-bold">{{ receipt.warehouseName || '—' }}</td>
                 </tr>
                 @if (receipt.supplierDeliveryNote) {
                   <tr>
-                    <td class="text-muted pe-2">Supplier DN:</td>
+                    <td class="text-muted pe-2">{{ '::SupplierDn' | abpLocalization }}:</td>
                     <td class="fw-bold">{{ receipt.supplierDeliveryNote }}</td>
                   </tr>
                 }
                 <tr>
-                  <td class="text-muted pe-2">Currency:</td>
+                  <td class="text-muted pe-2">{{ '::Currency' | abpLocalization }}:</td>
                   <td>{{ receipt.currency || 'MYR' }}</td>
                 </tr>
               </tbody>
@@ -81,12 +82,12 @@ import { CommonModule } from '@angular/common';
           <thead class="table-light">
             <tr>
               <th style="width:5%">#</th>
-              <th style="width:35%">Item Description</th>
-              <th class="text-center" style="width:10%">Ordered</th>
-              <th class="text-center" style="width:10%">Received</th>
-              <th class="text-center" style="width:10%">Rejected</th>
-              <th class="text-end" style="width:12%">Rate</th>
-              <th class="text-end" style="width:15%">Amount</th>
+              <th style="width:35%">{{ '::ItemDescription' | abpLocalization }}</th>
+              <th class="text-center" style="width:10%">{{ '::Ordered' | abpLocalization }}</th>
+              <th class="text-center" style="width:10%">{{ '::Received' | abpLocalization }}</th>
+              <th class="text-center" style="width:10%">{{ '::Rejected' | abpLocalization }}</th>
+              <th class="text-end" style="width:12%">{{ '::Rate' | abpLocalization }}</th>
+              <th class="text-end" style="width:15%">{{ '::Amount' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,17 +105,17 @@ import { CommonModule } from '@angular/common';
           </tbody>
           <tfoot>
             <tr class="table-light fw-bold">
-              <td colspan="6" class="text-end">Net Total:</td>
+              <td colspan="6" class="text-end">{{ '::NetTotal' | abpLocalization }}:</td>
               <td class="text-end">{{ receipt.netTotal | number:'1.2-2' }}</td>
             </tr>
             @if (receipt.taxAmount > 0) {
               <tr>
-                <td colspan="6" class="text-end">Tax (SST):</td>
+                <td colspan="6" class="text-end">{{ '::TaxSst' | abpLocalization }}:</td>
                 <td class="text-end">{{ receipt.taxAmount | number:'1.2-2' }}</td>
               </tr>
             }
             <tr class="fw-bold">
-              <td colspan="6" class="text-end">Grand Total:</td>
+              <td colspan="6" class="text-end">{{ '::GrandTotal' | abpLocalization }}:</td>
               <td class="text-end">{{ receipt.grandTotal | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
@@ -123,7 +124,7 @@ import { CommonModule } from '@angular/common';
         @if (receipt.notes) {
           <div class="row mb-4">
             <div class="col-12">
-              <h6 class="fw-bold">Inspection Notes / Remarks</h6>
+              <h6 class="fw-bold">{{ '::InspectionNotesRemarks' | abpLocalization }}</h6>
               <p class="border rounded p-2 bg-light" style="min-height:40px">{{ receipt.notes }}</p>
             </div>
           </div>
@@ -132,21 +133,21 @@ import { CommonModule } from '@angular/common';
         <div class="row mt-5 pt-3">
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Received By</small>
+            <small class="text-muted">{{ '::ReceivedBy' | abpLocalization }}</small>
           </div>
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Quality Inspector</small>
+            <small class="text-muted">{{ '::QualityInspector' | abpLocalization }}</small>
           </div>
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Store Manager</small>
+            <small class="text-muted">{{ '::StoreManager' | abpLocalization }}</small>
           </div>
         </div>
         <!-- Footer -->
         <div class="text-center mt-4 text-muted small">
-          <p class="mb-0">This is a computer-generated document. Signature required for acceptance.</p>
-          <p class="mb-0">Printed on: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
+          <p class="mb-0">{{ '::ComputerGeneratedDocument' | abpLocalization }} {{ '::SignatureRequiredForAcceptance' | abpLocalization }}</p>
+          <p class="mb-0">{{ '::PrintedOn' | abpLocalization }}: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
       </div>
     }

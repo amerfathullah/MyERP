@@ -247,4 +247,39 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return rowBaseNetAmount * expensedShare;
     }
+
+    /// <summary>
+    /// Collects the distinct effective project IDs affected by a Purchase Invoice for project purchase-cost
+    /// refresh per ERPNext PR #68323 (<c>PurchaseInvoice.update_project</c> in <c>purchase_invoice.py</c>):
+    /// each row falls back to the header <paramref name="invoiceProjectId"/> when the row's project is blank,
+    /// and empty/null project IDs are excluded.
+    /// </summary>
+    public static IReadOnlySet<Guid> CollectEffectivePurchaseInvoiceProjectIds(
+        Guid? invoiceProjectId,
+        IEnumerable<Guid?>? itemProjectIds)
+    {
+        var projects = new HashSet<Guid>();
+        if (itemProjectIds == null)
+        {
+            return projects;
+        }
+
+        var headerId = invoiceProjectId.HasValue && invoiceProjectId.Value != Guid.Empty
+            ? invoiceProjectId
+            : null;
+
+        foreach (var rowProjectId in itemProjectIds)
+        {
+            var effective = rowProjectId.HasValue && rowProjectId.Value != Guid.Empty
+                ? rowProjectId
+                : headerId;
+
+            if (effective.HasValue)
+            {
+                projects.Add(effective.Value);
+            }
+        }
+
+        return projects;
+    }
 }

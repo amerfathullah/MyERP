@@ -949,6 +949,41 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
+    /// Returns whether a purchase target row rounds its stock quantity
+    /// (<c>allow_to_edit_stock_uom_qty_for_purchase || stock_uom.must_be_whole_number</c>)
+    /// per ERPNext PR #66665 (<c>buying_controller.py:rounds_stock_qty</c>).
+    /// </summary>
+    public static bool ShouldRoundReceivedStockQtyTotal(
+        bool allowToEditStockUomQtyForPurchase,
+        bool stockUomMustBeWholeNumber)
+    {
+        return allowToEditStockUomQtyForPurchase || stockUomMustBeWholeNumber;
+    }
+
+    /// <summary>
+    /// Aggregates received stock quantity for a Material Request row across Purchase Receipts and
+    /// update-stock Purchase Invoices per ERPNext PR #66665 (<c>get_received_stock_qty_status_args</c>):
+    /// always sums unrounded <c>Qty * ConversionFactor</c> across receipts (even when row-level stock qty
+    /// was rounded), rounding once at the total only when <see cref="ShouldRoundReceivedStockQtyTotal"/> is true.
+    /// </summary>
+    public static decimal AggregateMaterialRequestReceivedStockQty(
+        IEnumerable<(decimal Qty, decimal ConversionFactor)>? receiptRows,
+        bool allowToEditStockUomQtyForPurchase,
+        bool stockUomMustBeWholeNumber,
+        int targetPrecision = 4)
+    {
+        if (receiptRows == null)
+        {
+            return 0m;
+        }
+
+        var unroundedTotal = receiptRows.Sum(r => r.Qty * (r.ConversionFactor > 0m ? r.ConversionFactor : 1m));
+        return ShouldRoundReceivedStockQtyTotal(allowToEditStockUomQtyForPurchase, stockUomMustBeWholeNumber)
+            ? Math.Round(unroundedTotal, targetPrecision, MidpointRounding.AwayFromZero)
+            : unroundedTotal;
+    }
+
+    /// <summary>
     /// Resolves the credit/outgoing amount taken back from <c>Stock Received But Not Billed</c> when returning
     /// stock from a rejected warehouse on a non-internal Purchase Receipt return
     /// per ERPNext commits 39a75b170e, 097411fb47, and 3837f7b46a (<c>purchase_receipt/services/gl_composer.py</c>):

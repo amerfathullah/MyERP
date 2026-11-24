@@ -1006,15 +1006,46 @@ public class StockEntryManager : DomainService
                     .WithData("reason", "Cannot disassemble from a different Work Order's stock entry");
             }
 
-            // FG consumption must not exceed source FG qty
-            if (entry.FgCompletedQty > sourceEntry.FgCompletedQty)
+            // Per ERPNext PR #67412 (disassemble.py:get_source_fg_qty):
+            // FG consumption must not exceed the finished goods put in stock (fg_completed_qty - process_loss_qty).
+            var sourceFinishedGoodQty = GetSourceManufactureFinishedGoodQty(sourceEntry.FgCompletedQty, sourceEntry.ProcessLossQty);
+            if (entry.FgCompletedQty > sourceFinishedGoodQty)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.DisassembleQtyExceedsSource)
                     .WithData("disassembleQty", entry.FgCompletedQty)
-                    .WithData("sourceQty", sourceEntry.FgCompletedQty)
+                    .WithData("sourceQty", sourceFinishedGoodQty)
                     .WithData("reason", "Disassemble qty exceeds source manufacture FG qty");
             }
         }
+    }
+
+    /// <summary>
+    /// Returns the finished goods quantity that a Manufacture Stock Entry actually put in stock
+    /// (<c>fg_completed_qty - process_loss_qty</c>), floored at 0
+    /// per ERPNext PR #67412 (<c>DisassembleStockEntry.get_source_fg_qty</c>).
+    /// </summary>
+    public static decimal GetSourceManufactureFinishedGoodQty(
+        decimal sourceFgCompletedQty,
+        decimal sourceProcessLossQty)
+    {
+        return Math.Max(0m, sourceFgCompletedQty - Math.Max(0m, sourceProcessLossQty));
+    }
+
+    /// <summary>
+    /// Computes remaining finished good quantity available to disassemble against a source Manufacture
+    /// Stock Entry (<c>fg_completed_qty - process_loss_qty - already_disassembled</c>)
+    /// per ERPNext PR #67412 (<c>work_order.py:get_disassembly_available_qty</c>).
+    /// </summary>
+    public static decimal CalculateSourceManufactureDisassembleAvailableQty(
+        decimal sourceFgCompletedQty,
+        decimal sourceProcessLossQty,
+        decimal alreadyDisassembledQty,
+        int precision = 4)
+    {
+        return Math.Round(
+            sourceFgCompletedQty - sourceProcessLossQty - alreadyDisassembledQty,
+            precision,
+            MidpointRounding.AwayFromZero);
     }
 
     /// <summary>

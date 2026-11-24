@@ -3729,7 +3729,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         if (sourceEntry != null)
         {
-            sourceFgQty = sourceEntry.FgCompletedQty;
+            sourceFgQty = Inventory.DomainServices.StockEntryManager.GetSourceManufactureFinishedGoodQty(
+                sourceEntry.FgCompletedQty, sourceEntry.ProcessLossQty);
             rmSourceItems = sourceEntry.Items
                 .Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)
                 .GroupBy(i => (i.ItemId, WarehouseId: i.SourceWarehouseId!.Value))
@@ -3746,7 +3747,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
         else if (aggregateSourceEntries != null)
         {
-            sourceFgQty = aggregateSourceEntries.Sum(se => se.FgCompletedQty);
+            sourceFgQty = aggregateSourceEntries.Sum(se =>
+                Inventory.DomainServices.StockEntryManager.GetSourceManufactureFinishedGoodQty(
+                    se.FgCompletedQty, se.ProcessLossQty));
             // Representative line ordered by entry precedence (CreationTime, EntryNumber casefolded), then item index (ERPNext PR #59131)
             var orderedLines = aggregateSourceEntries
                 .SelectMany(se => se.Items.Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)

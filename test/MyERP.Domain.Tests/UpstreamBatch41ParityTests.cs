@@ -4479,6 +4479,114 @@ public class UpstreamBatch41ParityTests
             .ShouldBe("Delivered");
     }
 
+    [Fact]
+    public void UpstreamBatch45_DisassembleLoss_EarlyDiscountSplit_PiProject_MrReceivedStockQty_Parity()
+    {
+        // 1. ERPNext PR #67412: Disassemble against a Manufacture Stock Entry subtracts ProcessLossQty
+        StockEntryManager.GetSourceManufactureFinishedGoodQty(sourceFgCompletedQty: 10m, sourceProcessLossQty: 2m)
+            .ShouldBe(8m);
+        StockEntryManager.CalculateSourceManufactureDisassembleAvailableQty(
+            sourceFgCompletedQty: 10m, sourceProcessLossQty: 2m, alreadyDisassembledQty: 3m)
+            .ShouldBe(5m);
+
+        var companyId = Guid.NewGuid();
+        var sourceMfg = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            FgCompletedQty = 10m,
+            ProcessLossQty = 2m
+        };
+        var disassembleExceedsNetFg = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Disassemble, DateTime.UtcNow)
+        {
+            FgCompletedQty = 9m // > 10 - 2 = 8 -> must throw
+        };
+        var disassembleWithinNetFg = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Disassemble, DateTime.UtcNow)
+        {
+            FgCompletedQty = 8m // == 10 - 2 -> allowed
+        };
+        var seManager = new StockEntryManager(null!, null!, null!);
+        var ex = Should.Throw<Volo.Abp.BusinessException>(() => seManager.ValidateDisassembleItems(disassembleExceedsNetFg, sourceMfg));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.DisassembleQtyExceedsSource);
+        Should.NotThrow(() => seManager.ValidateDisassembleItems(disassembleWithinNetFg, sourceMfg));
+
+        // 2. ERPNext PR #66981: Standalone early payment discount split into income loss + grouped tax loss rows
+        var discountAcct = Guid.NewGuid();
+        var taxAcctA = Guid.NewGuid();
+        var taxAcctB = Guid.NewGuid();
+        var ccId = Guid.NewGuid();
+        var (receiveRows, receiveTotal) = MyERP.Accounting.DomainServices.PaymentEntryManager.SplitEarlyPaymentDiscountLoss(
+            documentGrandTotal: 1100m,
+            documentBaseTotal: 1000m,
+            documentTaxes: new[]
+            {
+                (taxAcctA, 60m),
+                (taxAcctA, 40m), // same account head aggregated -> 100m
+                (taxAcctB, 0m),  // zero tax loss -> skipped
+            },
+            validDiscounts: new[] { ("Percentage", 2m) },
+            paymentType: MyERP.Accounting.PaymentType.Receive,
+            defaultDiscountAccountId: discountAcct,
+            costCenterId: null,
+            companyDefaultCostCenterId: ccId);
+        receiveRows.Count.ShouldBe(2);
+        receiveRows[0].ShouldBe(new MyERP.Accounting.DomainServices.EarlyPaymentDiscountLossRow(discountAcct, ccId, 20m));
+        receiveRows[1].ShouldBe(new MyERP.Accounting.DomainServices.EarlyPaymentDiscountLossRow(taxAcctA, ccId, 2m));
+        receiveTotal.ShouldBe(22m);
+
+        // Pay payment type negates row amounts; Amount discount converts to % of GrandTotal
+        var (payRows, payTotal) = MyERP.Accounting.DomainServices.PaymentEntryManager.SplitEarlyPaymentDiscountLoss(
+            documentGrandTotal: 200m,
+            documentBaseTotal: 200m,
+            documentTaxes: Array.Empty<(Guid, decimal)>(),
+            validDiscounts: new[] { ("Amount", 10m) }, // 5%
+            paymentType: MyERP.Accounting.PaymentType.Pay,
+            defaultDiscountAccountId: discountAcct,
+            costCenterId: ccId);
+        payRows.Count.ShouldBe(1);
+        payRows[0].Amount.ShouldBe(-10m);
+        payTotal.ShouldBe(10m);
+
+        // Zero discount returns empty rows and 0 total
+        var (zeroRows, zeroTotal) = MyERP.Accounting.DomainServices.PaymentEntryManager.SplitEarlyPaymentDiscountLoss(
+            documentGrandTotal: 100m,
+            documentBaseTotal: 100m,
+            documentTaxes: new[] { (taxAcctA, 10m) },
+            validDiscounts: Array.Empty<(string, decimal)>(),
+            paymentType: MyERP.Accounting.PaymentType.Receive,
+            defaultDiscountAccountId: discountAcct,
+            costCenterId: ccId);
+        zeroRows.ShouldBeEmpty();
+        zeroTotal.ShouldBe(0m);
+
+        // 3. ERPNext PR #68323: Purchase Invoice effective project IDs fall back to header project on blank rows
+        var headerProj = Guid.NewGuid();
+        var rowProj = Guid.NewGuid();
+        var effectiveProjects = MyERP.Projects.Entities.Project.CollectEffectivePurchaseInvoiceProjectIds(
+            invoiceProjectId: headerProj,
+            itemProjectIds: new Guid?[] { null, Guid.Empty, rowProj });
+        effectiveProjects.Count.ShouldBe(2);
+        effectiveProjects.ShouldContain(headerProj);
+        effectiveProjects.ShouldContain(rowProj);
+
+        MyERP.Projects.Entities.Project.CollectEffectivePurchaseInvoiceProjectIds(
+            invoiceProjectId: null,
+            itemProjectIds: new Guid?[] { null, Guid.Empty })
+            .ShouldBeEmpty();
+
+        // 4. ERPNext PR #66665: Material Request received stock qty sums unrounded Qty * ConversionFactor across partial receipts
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ShouldRoundReceivedStockQtyTotal(false, false).ShouldBeFalse();
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ShouldRoundReceivedStockQtyTotal(true, false).ShouldBeTrue();
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.ShouldRoundReceivedStockQtyTotal(false, true).ShouldBeTrue();
+
+        // 3 partial receipts of 1/3 each at factor 1 -> exact 1.0000 when rounded once at total (not 0.9999)
+        var partialReceipts = new[] { (1m / 3m, 1m), (1m / 3m, 1m), (1m / 3m, 1m) };
+        MyERP.Purchasing.DomainServices.PurchaseReceiptManager.AggregateMaterialRequestReceivedStockQty(
+            partialReceipts,
+            allowToEditStockUomQtyForPurchase: false,
+            stockUomMustBeWholeNumber: true,
+            targetPrecision: 4)
+            .ShouldBe(1m);
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

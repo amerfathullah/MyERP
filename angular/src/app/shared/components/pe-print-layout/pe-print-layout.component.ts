@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Payment Entry print layout — professional A4 receipt/voucher format.
@@ -11,7 +12,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-pe-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (payment) {
       <div class="pe-print-layout">
@@ -20,26 +21,26 @@ import { CommonModule } from '@angular/common';
           <div>
             <h3 class="fw-bold mb-1">{{ companyName }}</h3>
             @if (companyTin) {
-              <p class="text-muted mb-0">TIN: {{ companyTin }}</p>
+              <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ companyTin }}</p>
             }
             @if (companySst) {
-              <p class="text-muted mb-0">SST Reg No: {{ companySst }}</p>
+              <p class="text-muted mb-0">{{ '::SstRegNo' | abpLocalization }}: {{ companySst }}</p>
             }
             @if (companyAddress) {
               <p class="text-muted mb-0">{{ companyAddress }}</p>
             }
             @if (companyPhone) {
-              <p class="text-muted mb-0">Tel: {{ companyPhone }}</p>
+              <p class="text-muted mb-0">{{ '::Tel' | abpLocalization }}: {{ companyPhone }}</p>
             }
           </div>
           <div class="text-end">
             <h4 class="text-uppercase fw-bold mb-1" [class.text-success]="isReceive" [class.text-primary]="!isReceive">
-              {{ isReceive ? 'OFFICIAL RECEIPT' : 'PAYMENT VOUCHER' }}
+              {{ (isReceive ? '::OfficialReceipt' : '::PaymentVoucher') | abpLocalization }}
             </h4>
-            <p class="mb-0"><strong>Receipt #:</strong> {{ payment.paymentNumber }}</p>
-            <p class="mb-0"><strong>Date:</strong> {{ payment.postingDate | date:'dd/MM/yyyy' }}</p>
+            <p class="mb-0"><strong>{{ '::ReceiptNumberShort' | abpLocalization }}:</strong> {{ payment.paymentNumber }}</p>
+            <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ payment.postingDate | date:'dd/MM/yyyy' }}</p>
             @if (payment.referenceNumber) {
-              <p class="mb-0"><strong>Reference:</strong> {{ payment.referenceNumber }}</p>
+              <p class="mb-0"><strong>{{ '::Reference' | abpLocalization }}:</strong> {{ payment.referenceNumber }}</p>
             }
           </div>
         </div>
@@ -47,26 +48,26 @@ import { CommonModule } from '@angular/common';
         <!-- Party Info -->
         <div class="row mb-4">
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ isReceive ? 'Received From' : 'Paid To' }}</h6>
-            <p class="fw-bold mb-1">{{ payment.partyName || 'N/A' }}</p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ (isReceive ? '::ReceivedFrom' : '::PaidTo') | abpLocalization }}</h6>
+            <p class="fw-bold mb-1">{{ payment.partyName || ('::NotAvailableShort' | abpLocalization) }}</p>
             @if (partyAddress) {
               <p class="text-muted mb-0">{{ partyAddress }}</p>
             }
           </div>
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Payment Method</h6>
-            <p class="fw-bold mb-1">{{ modeOfPayment || 'Bank Transfer' }}</p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::PaymentMethod' | abpLocalization }}</h6>
+            <p class="fw-bold mb-1">{{ modeOfPayment || ('::BankTransfer' | abpLocalization) }}</p>
             @if (payment.referenceNumber) {
-              <p class="text-muted mb-0">Ref: {{ payment.referenceNumber }}</p>
+              <p class="text-muted mb-0">{{ '::RefShort' | abpLocalization }}: {{ payment.referenceNumber }}</p>
             }
             @if (payment.referenceDate) {
-              <p class="text-muted mb-0">Cheque Date: {{ payment.referenceDate | date:'dd/MM/yyyy' }}</p>
+              <p class="text-muted mb-0">{{ '::ChequeDate' | abpLocalization }}: {{ payment.referenceDate | date:'dd/MM/yyyy' }}</p>
             }
           </div>
         </div>
         <!-- Amount Hero -->
         <div class="text-center border rounded p-3 mb-4 bg-light">
-          <p class="text-muted mb-1">{{ isReceive ? 'Amount Received' : 'Amount Paid' }}</p>
+          <p class="text-muted mb-1">{{ (isReceive ? '::AmountReceived' : '::AmountPaid') | abpLocalization }}</p>
           <h2 class="fw-bold mb-1">{{ payment.currency || 'MYR' }} {{ payment.paidAmount | number:'1.2-2' }}</h2>
           @if (amountInWords) {
             <p class="text-muted mb-0 fst-italic">{{ amountInWords }}</p>
@@ -75,15 +76,15 @@ import { CommonModule } from '@angular/common';
         <!-- Allocation References Table (if multi-invoice) -->
         @if (payment.references && payment.references.length > 0) {
           <div class="mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Against Invoices</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::AgainstInvoices' | abpLocalization }}</h6>
             <table class="table table-bordered table-sm">
               <thead class="table-light">
                 <tr>
                   <th>#</th>
-                  <th>Invoice</th>
-                  <th>Type</th>
-                  <th class="text-end">Invoice Amount</th>
-                  <th class="text-end">Allocated</th>
+                  <th>{{ '::Invoice' | abpLocalization }}</th>
+                  <th>{{ '::Type' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::InvoiceAmount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Allocated' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,7 +100,7 @@ import { CommonModule } from '@angular/common';
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <td colspan="4" class="text-end fw-bold">Total Allocated:</td>
+                  <td colspan="4" class="text-end fw-bold">{{ '::TotalAllocated' | abpLocalization }}:</td>
                   <td class="text-end fw-bold">{{ totalAllocated | number:'1.2-2' }}</td>
                 </tr>
               </tfoot>
@@ -109,33 +110,33 @@ import { CommonModule } from '@angular/common';
         <!-- Single Invoice Reference (legacy path) -->
         @if (!payment.references?.length && payment.againstInvoiceId) {
           <div class="mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Against</h6>
-            <p class="mb-0">Invoice: <strong>{{ againstInvoiceNumber || payment.againstInvoiceId }}</strong></p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::Against' | abpLocalization }}</h6>
+            <p class="mb-0">{{ '::Invoice' | abpLocalization }}: <strong>{{ againstInvoiceNumber || payment.againstInvoiceId }}</strong></p>
           </div>
         }
         <!-- Account Details -->
         <div class="row mb-4">
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">From Account</h6>
-            <p class="mb-0">{{ paidFromAccountName || 'Company Account' }}</p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::FromAccount' | abpLocalization }}</h6>
+            <p class="mb-0">{{ paidFromAccountName || ('::CompanyAccount' | abpLocalization) }}</p>
           </div>
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">To Account</h6>
-            <p class="mb-0">{{ paidToAccountName || 'Party Account' }}</p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::ToAccount' | abpLocalization }}</h6>
+            <p class="mb-0">{{ paidToAccountName || ('::PartyAccount' | abpLocalization) }}</p>
           </div>
         </div>
         <!-- Exchange Rate (multi-currency) -->
         @if (payment.exchangeRate && payment.exchangeRate !== 1) {
           <div class="mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Exchange Rate</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::ExchangeRate' | abpLocalization }}</h6>
             <p class="mb-0">1 {{ payment.currency }} = {{ payment.exchangeRate | number:'1.4-4' }} MYR</p>
-            <p class="mb-0">Base Amount: MYR {{ baseAmount | number:'1.2-2' }}</p>
+            <p class="mb-0">{{ '::BaseAmount' | abpLocalization }}: MYR {{ baseAmount | number:'1.2-2' }}</p>
           </div>
         }
         <!-- Remarks -->
         @if (payment.notes) {
           <div class="mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Remarks</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::Remarks' | abpLocalization }}</h6>
             <p class="mb-0">{{ payment.notes }}</p>
           </div>
         }
@@ -143,24 +144,24 @@ import { CommonModule } from '@angular/common';
         <div class="row mt-5 pt-4">
           <div class="col-4 text-center">
             <div class="border-top pt-2 mx-3">
-              <p class="text-muted mb-0 small">Prepared By</p>
+              <p class="text-muted mb-0 small">{{ '::PreparedBy' | abpLocalization }}</p>
             </div>
           </div>
           <div class="col-4 text-center">
             <div class="border-top pt-2 mx-3">
-              <p class="text-muted mb-0 small">Authorized Signatory</p>
+              <p class="text-muted mb-0 small">{{ '::AuthorizedSignatory' | abpLocalization }}</p>
             </div>
           </div>
           <div class="col-4 text-center">
             <div class="border-top pt-2 mx-3">
-              <p class="text-muted mb-0 small">{{ isReceive ? 'Received By' : 'Acknowledgement' }}</p>
+              <p class="text-muted mb-0 small">{{ (isReceive ? '::ReceivedBy' : '::Acknowledgement') | abpLocalization }}</p>
             </div>
           </div>
         </div>
         <!-- Footer -->
         <div class="text-center mt-4 pt-3 border-top">
-          <p class="text-muted small mb-0">This is a computer-generated document. No signature is required.</p>
-          <p class="text-muted small mb-0">Thank you for your {{ isReceive ? 'payment' : 'business' }}.</p>
+          <p class="text-muted small mb-0">{{ '::ComputerGeneratedDocument' | abpLocalization }} {{ '::NoSignatureRequired' | abpLocalization }}</p>
+          <p class="text-muted small mb-0">{{ (isReceive ? '::ThankYouForPayment' : '::ThankYouForBusiness') | abpLocalization }}</p>
         </div>
       </div>
     }
