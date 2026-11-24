@@ -11,14 +11,14 @@ describe('LhdnStatusBadgeComponent', () => {
   it('should return Valid config', () => {
     const comp = createComponent('Valid');
     expect(comp.config.badgeClass).toBe('bg-success');
-    expect(comp.config.label).toBe('Valid');
+    expect(comp.config.labelKey).toBe('::Valid');
     expect(comp.config.icon).toContain('check-circle');
   });
 
   it('should return Invalid config', () => {
     const comp = createComponent('Invalid');
     expect(comp.config.badgeClass).toBe('bg-danger');
-    expect(comp.config.label).toBe('Invalid');
+    expect(comp.config.labelKey).toBe('::Invalid');
   });
 
   it('should return Submitted config', () => {
@@ -38,20 +38,20 @@ describe('LhdnStatusBadgeComponent', () => {
 
   it('should return NotSubmitted config', () => {
     const comp = createComponent('NotSubmitted');
-    expect(comp.config.label).toBe('Not Submitted');
+    expect(comp.config.labelKey).toBe('::NotSubmitted');
     expect(comp.config.badgeClass).toBe('bg-secondary');
   });
 
   it('should fallback to NotSubmitted for unknown status', () => {
     const comp = createComponent('SomeRandomStatus');
-    expect(comp.config.label).toBe('Not Submitted');
+    expect(comp.config.labelKey).toBe('::NotSubmitted');
     expect(comp.config.badgeClass).toBe('bg-secondary');
   });
 
   it('should return Consolidated config when isConsolidated is true regardless of status', () => {
     const comp = createComponent('Valid');
     comp.isConsolidated = true;
-    expect(comp.config.label).toBe('Consolidated');
+    expect(comp.config.labelKey).toBe('::Consolidated');
     expect(comp.config.icon).toContain('layer-group');
   });
 
@@ -62,11 +62,11 @@ describe('LhdnStatusBadgeComponent', () => {
       expect(comp.config).toBeDefined();
       expect(comp.config.icon).toBeTruthy();
       expect(comp.config.badgeClass).toBeTruthy();
-      expect(comp.config.label).toBeTruthy();
+      expect(comp.config.labelKey).toBeTruthy();
     }
     expect(createComponent('Pending').config.badgeClass).toBe('bg-info');
-    expect(createComponent('Pending').config.label).toBe('Pending');
+    expect(createComponent('Pending').config.labelKey).toBe('::Pending');
     expect(createComponent('Rejected').config.badgeClass).toBe('bg-danger');
-    expect(createComponent('Rejected').config.label).toBe('Rejected');
+    expect(createComponent('Rejected').config.labelKey).toBe('::Rejected');
   });
 });
