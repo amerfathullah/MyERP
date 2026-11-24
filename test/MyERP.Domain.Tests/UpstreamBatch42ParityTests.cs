@@ -18,8 +18,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #67383, #67503, #67530, #67758, #68311, #68732,
-/// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #67344, #67379, #67383, #67462, #67503, #67530,
+/// #67758, #68311, #68732, #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -696,5 +696,66 @@ public class UpstreamBatch42ParityTests
             inStockSerialsInOrder: inStock);
 
         picked.ShouldBe(new[] { "SN-R1", "SN-P1", "SN-FREE-1" });
+    }
+
+    [Fact]
+    public void Pr67379_InternalTransferValuationLookup_NegatesOutgoingDeliveryQtyAndUsesFromWarehouseOnPurchase()
+    {
+        var whDest = Guid.NewGuid();
+        var whSrc = Guid.NewGuid();
+
+        // Outgoing internal customer delivery -> negative stock qty at warehouseId
+        var (dnWh, dnQty) = InterCompanyTransactionService.ResolveInternalTransferValuationLookup(
+            isInternalCustomer: true, isReturn: false, isInternalPurchase: false,
+            qty: 5m, conversionFactor: 2m, warehouseId: whDest, fromWarehouseId: whSrc);
+        dnWh.ShouldBe(whDest);
+        dnQty.ShouldBe(-10m);
+
+        // Internal customer return -> positive stock qty
+        var (_, retQty) = InterCompanyTransactionService.ResolveInternalTransferValuationLookup(
+            isInternalCustomer: true, isReturn: true, isInternalPurchase: false,
+            qty: -5m, conversionFactor: 2m, warehouseId: whDest, fromWarehouseId: whSrc);
+        retQty.ShouldBe(-10m);
+
+        // Internal purchase receipt -> uses sending fromWarehouseId with positive stock qty
+        var (prWh, prQty) = InterCompanyTransactionService.ResolveInternalTransferValuationLookup(
+            isInternalCustomer: false, isReturn: false, isInternalPurchase: true,
+            qty: 5m, conversionFactor: 2m, warehouseId: whDest, fromWarehouseId: whSrc);
+        prWh.ShouldBe(whSrc);
+        prQty.ShouldBe(10m);
+    }
+
+    [Fact]
+    public void Pr67344_WorkOrderMixedTransfers_ComputesFractionWhenZeroFgTransferPresent()
+    {
+        var reqItems = new[] { (RequiredQty: 10m, TransferredQty: 8m), (RequiredQty: 20m, TransferredQty: 16m) };
+
+        // Direct transfers only -> preserves sumFgCompletedQty (including excess transfer 12 > 10)
+        WorkOrderManager.CalculateMixedMaterialTransferredForManufacturing(
+            workOrderQty: 10m, sumFgCompletedQty: 12m, hasTransferWithoutForQuantity: false, requiredItems: reqItems)
+            .ShouldBe(12m);
+
+        // Mixed transfers (some fg_completed_qty == 0): minFraction = 0.8 * 10 = 8 > sumFgCompletedQty (3) -> 8
+        WorkOrderManager.CalculateMixedMaterialTransferredForManufacturing(
+            workOrderQty: 10m, sumFgCompletedQty: 3m, hasTransferWithoutForQuantity: true, requiredItems: reqItems)
+            .ShouldBe(8m);
+    }
+
+    [Fact]
+    public void Pr67462_JobCardNonStockItemCost_MatchesOperationOrFallsBackToFinalFinishedGoodCard()
+    {
+        var opRow1 = Guid.NewGuid();
+        var opRow2 = Guid.NewGuid();
+        var op1 = Guid.NewGuid();
+        var semiFg = Guid.NewGuid();
+        var finalFg = Guid.NewGuid();
+
+        // Row bound to opRow1 -> charged only to opRow1 card
+        JobCardManager.IsNonStockItemChargedToJobCard(opRow1, op1, opRow1, op1, semiFg, finalFg).ShouldBeTrue();
+        JobCardManager.IsNonStockItemChargedToJobCard(opRow1, op1, opRow2, op1, finalFg, finalFg).ShouldBeFalse();
+
+        // Row with NO operation -> charged ONLY to final FG card, not intermediate semi-FG card
+        JobCardManager.IsNonStockItemChargedToJobCard(null, null, opRow1, op1, semiFg, finalFg).ShouldBeFalse();
+        JobCardManager.IsNonStockItemChargedToJobCard(null, null, opRow2, op1, finalFg, finalFg).ShouldBeTrue();
     }
 }

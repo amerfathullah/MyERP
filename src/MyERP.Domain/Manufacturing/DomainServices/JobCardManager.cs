@@ -1634,6 +1634,33 @@ public class JobCardManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Determines whether a BOM non-stock item row is charged to a given Job Card's manufacture output
+    /// per ERPNext PR #67462 (<c>operations_cost.py: _is_job_card_row</c>):
+    /// - Rows linked to an operation row or operation are charged only to the matching Job Card.
+    /// - Rows with no operation are charged only to the final Job Card producing the Work Order's finished good.
+    /// </summary>
+    public static bool IsNonStockItemChargedToJobCard(
+        Guid? bomItemOperationRowId,
+        Guid? bomItemOperationId,
+        Guid? jobCardOperationRowId,
+        Guid? jobCardOperationId,
+        Guid? jobCardFinishedGoodItemId,
+        Guid workOrderProductionItemId)
+    {
+        if (bomItemOperationRowId.HasValue && bomItemOperationRowId.Value != Guid.Empty)
+        {
+            return jobCardOperationRowId.HasValue && bomItemOperationRowId.Value == jobCardOperationRowId.Value;
+        }
+
+        if (bomItemOperationId.HasValue && bomItemOperationId.Value != Guid.Empty)
+        {
+            return jobCardOperationId.HasValue && bomItemOperationId.Value == jobCardOperationId.Value;
+        }
+
+        return jobCardFinishedGoodItemId.HasValue && jobCardFinishedGoodItemId.Value == workOrderProductionItemId;
+    }
 }
 
 public readonly record struct JobCardExistingItemRow(

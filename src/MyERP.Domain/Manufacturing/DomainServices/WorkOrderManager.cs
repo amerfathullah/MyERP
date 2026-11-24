@@ -1362,6 +1362,43 @@ public class WorkOrderManager : DomainService
             MidpointRounding.AwayFromZero);
         return remainingWithoutTransfer > 0m;
     }
+
+    /// <summary>
+    /// Computes <c>material_transferred_for_manufacturing</c> when a Work Order has mixed material transfers
+    /// (both <c>fg_completed_qty &gt; 0</c> direct entries and <c>fg_completed_qty == 0</c> row-only transfers)
+    /// per ERPNext PR #67344 (<c>required_items.py: update_material_transferred_for_manufacturing</c>):
+    /// - When only direct transfers exist (<paramref name="sumFgCompletedQty"/> &gt; 0 and
+    ///   !<paramref name="hasTransferWithoutForQuantity"/>), preserves <paramref name="sumFgCompletedQty"/>.
+    /// - Otherwise takes <c>Max(Min(minItemFraction, 1) * workOrderQty, sumFgCompletedQty)</c>.
+    /// </summary>
+    public static decimal CalculateMixedMaterialTransferredForManufacturing(
+        decimal workOrderQty,
+        decimal sumFgCompletedQty,
+        bool hasTransferWithoutForQuantity,
+        IReadOnlyList<(decimal RequiredQty, decimal TransferredQty)>? requiredItems,
+        int precision = 4)
+    {
+        if (sumFgCompletedQty > 0m && !hasTransferWithoutForQuantity)
+        {
+            return Math.Round(sumFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        if (requiredItems == null || requiredItems.Count == 0)
+        {
+            return Math.Round(sumFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        var positiveRows = requiredItems.Where(r => r.RequiredQty > 0m).ToList();
+        if (positiveRows.Count == 0)
+        {
+            return Math.Round(sumFgCompletedQty, precision, MidpointRounding.AwayFromZero);
+        }
+
+        var minFraction = positiveRows.Min(r => r.TransferredQty / r.RequiredQty);
+        minFraction = Math.Min(Math.Max(minFraction, 0m), 1m);
+        var transferred = Math.Max(minFraction * workOrderQty, sumFgCompletedQty);
+        return Math.Round(transferred, precision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

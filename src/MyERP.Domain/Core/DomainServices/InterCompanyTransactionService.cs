@@ -1027,4 +1027,27 @@ public class InterCompanyTransactionService : DomainService
             purchaseOrder.InterCompanySalesOrderId = null;
         }
     }
+
+    /// <summary>
+    /// Resolves the warehouse and signed stock quantity used to look up valuation rate for an internal
+    /// transfer row per ERPNext PR #67379 (<c>transaction_base.py</c> and <c>transaction.js: get_incoming_rate</c>):
+    /// - Internal purchase receipts/invoices look up rate at the sending <paramref name="fromWarehouseId"/>.
+    /// - Outgoing internal customer deliveries (<paramref name="isInternalCustomer"/> &amp;&amp; !<paramref name="isReturn"/>)
+    ///   pass negative <c>-stockQty</c> so FIFO/valuation computes the outgoing rate instead of incoming rate.
+    /// </summary>
+    public static (Guid? LookupWarehouseId, decimal SignedStockQty) ResolveInternalTransferValuationLookup(
+        bool isInternalCustomer,
+        bool isReturn,
+        bool isInternalPurchase,
+        decimal qty,
+        decimal conversionFactor,
+        Guid? warehouseId,
+        Guid? fromWarehouseId)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var stockQty = qty * factor;
+        var isOutgoing = isInternalCustomer && !isReturn;
+        var lookupWarehouse = isInternalPurchase ? fromWarehouseId : warehouseId;
+        return (lookupWarehouse, isOutgoing ? -stockQty : stockQty);
+    }
 }

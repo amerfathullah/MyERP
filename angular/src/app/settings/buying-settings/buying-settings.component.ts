@@ -20,14 +20,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
           <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
         } @else {
           <form (ngSubmit)="save()">
-            <h6 class="text-muted mb-3">Transaction Requirements</h6>
+            <h6 class="text-muted mb-3">{{ 'MyERP::TransactionRequirements' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
                 <div class="form-check form-switch">
                   <input type="checkbox" class="form-check-input" id="poReq"
                     [ngModel]="settings['MyERP.Buying.PoRequired'] === 'true'"
                     (ngModelChange)="settings['MyERP.Buying.PoRequired'] = $event ? 'true' : 'false'" name="poReq" />
-                  <label class="form-check-label" for="poReq">PO Required (before PR/PI)</label>
+                  <label class="form-check-label" for="poReq">{{ 'MyERP::PoRequiredBeforePrPi' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -35,7 +35,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="prReq"
                     [ngModel]="settings['MyERP.Buying.PrRequired'] === 'true'"
                     (ngModelChange)="settings['MyERP.Buying.PrRequired'] = $event ? 'true' : 'false'" name="prReq" />
-                  <label class="form-check-label" for="prReq">PR Required (before PI for stock items)</label>
+                  <label class="form-check-label" for="prReq">{{ 'MyERP::PrRequiredBeforePi' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -43,19 +43,19 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="billReject"
                     [ngModel]="settings['MyERP.Buying.BillForRejectedQty'] === 'true'"
                     (ngModelChange)="settings['MyERP.Buying.BillForRejectedQty'] = $event ? 'true' : 'false'" name="billReject" />
-                  <label class="form-check-label" for="billReject">Bill for Rejected Qty</label>
+                  <label class="form-check-label" for="billReject">{{ 'MyERP::BillForRejectedQty' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
 
-            <h6 class="text-muted mb-3 mt-4">Rate & Allowance</h6>
+            <h6 class="text-muted mb-3 mt-4">{{ 'MyERP::RateAndAllowance' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
                 <div class="form-check form-switch">
                   <input type="checkbox" class="form-check-input" id="bSameRate"
                     [ngModel]="settings['MyERP.Buying.MaintainSameRate'] === 'true'"
                     (ngModelChange)="settings['MyERP.Buying.MaintainSameRate'] = $event ? 'true' : 'false'" name="bSameRate" />
-                  <label class="form-check-label" for="bSameRate">Maintain Same Rate (from PO)</label>
+                  <label class="form-check-label" for="bSameRate">{{ 'MyERP::MaintainSameRateFromPo' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -63,53 +63,53 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="useTxDateExRate"
                     [ngModel]="settings['MyERP.Buying.UseTransactionDateExchangeRate'] === 'true'"
                     (ngModelChange)="settings['MyERP.Buying.UseTransactionDateExchangeRate'] = $event ? 'true' : 'false'" name="useTxDateExRate" />
-                  <label class="form-check-label" for="useTxDateExRate">Use Transaction Date Exchange Rate</label>
+                  <label class="form-check-label" for="useTxDateExRate">{{ 'MyERP::UseTransactionDateExchangeRate' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Rate Enforcement Action</label>
+                <label class="form-label">{{ 'MyERP::RateEnforcementAction' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="settings['MyERP.Buying.MaintainSameRateAction']" name="bRateAction">
-                  <option value="Stop">Stop</option>
-                  <option value="Warn">Warn</option>
+                  <option value="Stop">{{ 'MyERP::Stop' | abpLocalization }}</option>
+                  <option value="Warn">{{ 'MyERP::Warn' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Over-Order Allowance (%)</label>
+                <label class="form-label">{{ 'MyERP::OverOrderAllowance' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" min="0" max="100"
                   [(ngModel)]="settings['MyERP.Buying.OverOrderAllowance']" name="overOrder" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Role Allowed to Override Stop Action</label>
+                <label class="form-label">{{ 'MyERP::RoleAllowedToOverrideStopAction' | abpLocalization }}</label>
                 <input type="text" class="form-control form-control-sm"
                   [(ngModel)]="settings['MyERP.Buying.RoleToOverrideStopAction']" name="bRoleOverrideRate"
                   [placeholder]="'::Placeholder:PurchaseManagerRoleExample' | abpLocalization" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Blanket Order Allowance (%)</label>
+                <label class="form-label">{{ 'MyERP::BlanketOrderAllowance' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" min="0" max="100"
                   [(ngModel)]="settings['MyERP.Buying.BlanketOrderAllowance']" name="blanketAllow" />
               </div>
             </div>
 
-            <h6 class="text-muted mb-3 mt-4">Subcontracting</h6>
+            <h6 class="text-muted mb-3 mt-4">{{ 'MyERP::Subcontracting' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">Backflush Based On</label>
+                <label class="form-label">{{ 'MyERP::BackflushBasedOn' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="settings['MyERP.Buying.BackflushSubcontractBasedOn']" name="backflush">
-                  <option value="BOM">BOM</option>
-                  <option value="Material Transferred">Material Transferred</option>
+                  <option value="BOM">{{ 'MyERP::Bom' | abpLocalization }}</option>
+                  <option value="Material Transferred">{{ 'MyERP::MaterialTransferred' | abpLocalization }}</option>
                 </select>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Over-Transfer Allowance (%)</label>
+                <label class="form-label">{{ 'MyERP::OverTransferAllowance' | abpLocalization }}</label>
                 <input type="number" class="form-control form-control-sm" min="0" max="100"
                   [(ngModel)]="settings['MyERP.Buying.OverTransferAllowance']" name="overTransfer" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Supplier Naming By</label>
+                <label class="form-label">{{ 'MyERP::SupplierNamingBy' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="settings['MyERP.Buying.SupplierNamingBy']" name="suppNaming">
-                  <option value="Supplier Name">Supplier Name</option>
-                  <option value="Naming Series">Naming Series</option>
+                  <option value="Supplier Name">{{ 'MyERP::SupplierName' | abpLocalization }}</option>
+                  <option value="Naming Series">{{ 'MyERP::NamingSeries' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
@@ -123,7 +123,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                     (ngModelChange)="settings['MyERP.Buying.LoadSupplierOverview'] = $event ? 'true' : 'false'" name="loadSupplierOverview" />
                   <label class="form-check-label" for="loadSupplierOverview">{{ '::EnableSupplierOverviewDashboard' | abpLocalization }}</label>
                 </div>
-                <small class="text-muted d-block mt-1">When off, the Overview tab on a supplier shows a Load Overview button and loads only when clicked.</small>
+                <small class="text-muted d-block mt-1">{{ 'MyERP::SupplierOverviewHint' | abpLocalization }}</small>
               </div>
             </div>
 

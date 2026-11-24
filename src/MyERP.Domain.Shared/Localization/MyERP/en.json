@@ -7228,7 +7228,31 @@
     "StopBlockSubmission": "Stop (Block Submission)",
     "WarnAllowWithWarning": "Warn (Allow with Warning)",
     "RoleAllowedForFrozenEntries": "Role Allowed for Frozen Entries",
-    "RoleAllowedForFrozenEntriesHint": "Users in this role can still transact with frozen customers and suppliers."
+    "RoleAllowedForFrozenEntriesHint": "Users in this role can still transact with frozen customers and suppliers.",
+    "BillingAndTolerance": "Billing & Tolerance",
+    "RepostLimitPerRun": "Repost Limit (per run)",
+    "DeferredEntriesBasedOn": "Deferred Entries Based On",
+    "DaysDailyProration": "Days (daily proration)",
+    "MonthsMonthlyProration": "Months (monthly proration)",
+    "AutoCreateReversalEntry": "Auto-Create Reversal Entry",
+    "OverdueBillingBypassRole": "Overdue Billing Bypass Role",
+    "TransactionRequirements": "Transaction Requirements",
+    "PoRequiredBeforePrPi": "PO Required (before PR/PI)",
+    "PrRequiredBeforePi": "PR Required (before PI for stock items)",
+    "BillForRejectedQty": "Bill for Rejected Qty",
+    "RateAndAllowance": "Rate & Allowance",
+    "MaintainSameRateFromPo": "Maintain Same Rate (from PO)",
+    "UseTransactionDateExchangeRate": "Use Transaction Date Exchange Rate",
+    "RateEnforcementAction": "Rate Enforcement Action",
+    "Warn": "Warn",
+    "OverOrderAllowance": "Over-Order Allowance (%)",
+    "RoleAllowedToOverrideStopAction": "Role Allowed to Override Stop Action",
+    "BlanketOrderAllowance": "Blanket Order Allowance (%)",
+    "Subcontracting": "Subcontracting",
+    "BackflushBasedOn": "Backflush Based On",
+    "OverTransferAllowance": "Over-Transfer Allowance (%)",
+    "SupplierNamingBy": "Supplier Naming By",
+    "SupplierOverviewHint": "When off, the Overview tab on a supplier shows a Load Overview button and loads only when clicked."
   }
 }
 

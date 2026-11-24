@@ -20,35 +20,35 @@ import { ToasterService } from '@abp/ng.theme.shared';
           <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
         } @else {
           <form (ngSubmit)="save()">
-            <h6 class="text-muted mb-3">Billing & Tolerance</h6>
+            <h6 class="text-muted mb-3">{{ 'MyERP::BillingAndTolerance' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
-                <label class="form-label">Over-Billing Allowance (%)</label>
+                <label class="form-label">{{ 'MyERP::OverBillingAllowance' | abpLocalization }} (%)</label>
                 <input type="number" class="form-control" min="0" max="100" step="0.1"
                   [(ngModel)]="settings['MyERP.Accounts.OverBillingAllowance']" name="overBilling" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Repost Limit (per run)</label>
+                <label class="form-label">{{ 'MyERP::RepostLimitPerRun' | abpLocalization }}</label>
                 <input type="number" class="form-control" min="1"
                   [(ngModel)]="settings['MyERP.Accounts.RepostLimit']" name="repostLimit" />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Deferred Entries Based On</label>
+                <label class="form-label">{{ 'MyERP::DeferredEntriesBasedOn' | abpLocalization }}</label>
                 <select class="form-select" [(ngModel)]="settings['MyERP.Accounts.DeferredBasedOn']" name="deferredBasis">
-                  <option value="Days">Days (daily proration)</option>
-                  <option value="Months">Months (monthly proration)</option>
+                  <option value="Days">{{ 'MyERP::DaysDailyProration' | abpLocalization }}</option>
+                  <option value="Months">{{ 'MyERP::MonthsMonthlyProration' | abpLocalization }}</option>
                 </select>
               </div>
             </div>
 
-            <h6 class="text-muted mb-3 mt-4">Feature Toggles</h6>
+            <h6 class="text-muted mb-3 mt-4">{{ 'MyERP::FeatureToggles' | abpLocalization }}</h6>
             <div class="row mb-3">
               <div class="col-md-4">
                 <div class="form-check form-switch">
                   <input type="checkbox" class="form-check-input" id="discMargin"
                     [ngModel]="settings['MyERP.Accounts.EnableDiscountsAndMargin'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.EnableDiscountsAndMargin'] = $event ? 'true' : 'false'" name="discMargin" />
-                  <label class="form-check-label" for="discMargin">Enable Discounts & Margin</label>
+                  <label class="form-check-label" for="discMargin">{{ 'MyERP::EnableDiscountsAndMargin' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -56,7 +56,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="roundRow"
                     [ngModel]="settings['MyERP.Accounts.RoundRowWiseTax'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.RoundRowWiseTax'] = $event ? 'true' : 'false'" name="roundRow" />
-                  <label class="form-check-label" for="roundRow">Round Row-Wise Tax</label>
+                  <label class="form-check-label" for="roundRow">{{ 'MyERP::RoundRowWiseTax' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -64,7 +64,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="autoReversal"
                     [ngModel]="settings['MyERP.Accounts.AutoCreateReversalEntry'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.AutoCreateReversalEntry'] = $event ? 'true' : 'false'" name="autoReversal" />
-                  <label class="form-check-label" for="autoReversal">Auto-Create Reversal Entry</label>
+                  <label class="form-check-label" for="autoReversal">{{ 'MyERP::AutoCreateReversalEntry' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -74,7 +74,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="stockExpense"
                     [ngModel]="settings['MyERP.Accounts.BookStockExpenseGL'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.BookStockExpenseGL'] = $event ? 'true' : 'false'" name="stockExpense" />
-                  <label class="form-check-label" for="stockExpense">Book Stock Expense GL Entries</label>
+                  <label class="form-check-label" for="stockExpense">{{ 'MyERP::BookStockExpenseGlEntries' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -82,7 +82,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="overdueBilling"
                     [ngModel]="settings['MyERP.Accounts.EnableOverdueBilling'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.EnableOverdueBilling'] = $event ? 'true' : 'false'" name="overdueBilling" />
-                  <label class="form-check-label" for="overdueBilling">Enable Overdue Billing Threshold</label>
+                  <label class="form-check-label" for="overdueBilling">{{ 'MyERP::EnableOverdueBillingThreshold' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-4">
@@ -90,7 +90,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <input type="checkbox" class="form-check-input" id="commonPartyAccounting"
                     [ngModel]="settings['MyERP.Accounts.EnableCommonPartyAccounting'] === 'true'"
                     (ngModelChange)="settings['MyERP.Accounts.EnableCommonPartyAccounting'] = $event ? 'true' : 'false'" name="commonPartyAccounting" />
-                  <label class="form-check-label" for="commonPartyAccounting">Enable Common Party Accounting</label>
+                  <label class="form-check-label" for="commonPartyAccounting">{{ 'MyERP::EnableCommonPartyAccounting' | abpLocalization }}</label>
                 </div>
               </div>
             </div>
@@ -98,7 +98,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
             @if (settings['MyERP.Accounts.EnableOverdueBilling'] === 'true') {
               <div class="row mb-3">
                 <div class="col-md-4">
-                  <label class="form-label">Overdue Billing Bypass Role</label>
+                  <label class="form-label">{{ 'MyERP::OverdueBillingBypassRole' | abpLocalization }}</label>
                   <input type="text" class="form-control"
                     [(ngModel)]="settings['MyERP.Accounts.OverdueBillingBypassRole']" name="overdueBillingBypassRole"
                     [placeholder]="'::Placeholder:CreditControllerRoleExample' | abpLocalization" />
