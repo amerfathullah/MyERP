@@ -1282,6 +1282,46 @@ public class StockValuationService : DomainService
 
         return (null, false);
     }
+
+    /// <summary>
+    /// Resolves which child tables need temporary Serial and Batch Bundles for Stock Ledger preview
+    /// and whether each table should build return bundles from the original voucher
+    /// per ERPNext PR #65588 and PR #65631 (<c>ledger_preview.py: make_serial_and_batch_bundles_for_preview</c>):
+    /// - <c>Subcontracting Receipt</c>: <c>items</c> (return bundle if <paramref name="isReturn"/>) and
+    ///   <c>supplied_items</c> (never uses sales/purchase return bundle helper).
+    /// - All other stock documents: <c>items</c> and <c>packed_items</c> (both use return bundle when <paramref name="isReturn"/>).
+    /// - Empty child tables are skipped.
+    /// </summary>
+    public static IReadOnlyList<(string TableName, bool UseReturnBundle)> ResolveStockLedgerPreviewBundleTables(
+        string docType,
+        bool hasItems,
+        bool hasSuppliedItems,
+        bool hasPackedItems,
+        bool isReturn)
+    {
+        var tables = new List<(string TableName, bool UseReturnBundle)>();
+        var isSubcontractingReceipt = string.Equals(docType, "Subcontracting Receipt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(docType, "SubcontractingReceipt", StringComparison.OrdinalIgnoreCase);
+
+        if (hasItems)
+        {
+            tables.Add(("items", isReturn));
+        }
+
+        if (isSubcontractingReceipt)
+        {
+            if (hasSuppliedItems)
+            {
+                tables.Add(("supplied_items", false));
+            }
+        }
+        else if (hasPackedItems)
+        {
+            tables.Add(("packed_items", isReturn));
+        }
+
+        return tables;
+    }
 }
 
 public record StockBalance(decimal Quantity, decimal Value)

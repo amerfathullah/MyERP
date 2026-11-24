@@ -4882,6 +4882,60 @@ public class UpstreamBatch41ParityTests
         returnPayments[1].ShouldBe((2, -40m, -40m));
     }
 
+    [Fact]
+    public void UpstreamBatch50_PickPendingSerials_PackedPickMatch_ReservedQtyRound_PreviewBundles_Parity()
+    {
+        // 1. ERPNext PR #65585: Pick List pending serial nos filtered to in-stock and capped at pending qty
+        var pendingSerials = MyERP.Inventory.DomainServices.PickListManager.GetPendingSerialNosForPickListLocation(
+            pickedSerialNos: new[] { "SN-1", "SN-2", "SN-3", "SN-4" },
+            pickedQty: 4m,
+            movedQty: 2m, // pending = 2
+            serialNosInStock: new[] { "sn-2", "SN-3", "SN-4" }); // 3 in stock, capped to 2
+        pendingSerials.ShouldBe(new[] { "SN-2", "SN-3" });
+
+        // Unmoved row keeps all picked serial nos unchanged
+        MyERP.Inventory.DomainServices.PickListManager.GetPendingSerialNosForPickListLocation(
+            pickedSerialNos: new[] { "SN-1", "SN-2" },
+            pickedQty: 2m,
+            movedQty: 0m,
+            serialNosInStock: Array.Empty<string>())
+            .ShouldBe(new[] { "SN-1", "SN-2" });
+
+        // 2. ERPNext PR #65630: Packed item matches Pick List locations by (ItemId, SalesOrderItemId, PickListId)
+        var pickListId = Guid.NewGuid();
+        var otherPickListId = Guid.NewGuid();
+        var packedItemId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+        var locMatch = Guid.NewGuid();
+        var locWrongPl = Guid.NewGuid();
+        var matchedLocs = MyERP.Inventory.DomainServices.PickListManager.FindPickListLocationsForPackedItem(
+            pickListLocations: new[]
+            {
+                (locMatch, packedItemId, (Guid?)soItemId, pickListId),
+                (locWrongPl, packedItemId, (Guid?)soItemId, otherPickListId),
+            },
+            packedItemId: packedItemId,
+            salesOrderItemId: soItemId,
+            againstPickListId: pickListId);
+        matchedLocs.ShouldBe(new[] { locMatch });
+
+        // 3. ERPNext PR #65578: Allowed qty in reserved-stock shortage message rounds to qty precision
+        StockReservationManager.CalculateUnreservedAllowedQtyOnShortage(
+            actualQty: -5.3000000001m,
+            shortageDiff: -2.1000000002m,
+            qtyPrecision: 4)
+            .ShouldBe(3.2m);
+
+        // 4. ERPNext PR #65588 + #65631: Stock Ledger preview bundles include packed_items and return bundles
+        var dnReturnTables = MyERP.Inventory.DomainServices.StockValuationService.ResolveStockLedgerPreviewBundleTables(
+            docType: "Delivery Note", hasItems: true, hasSuppliedItems: false, hasPackedItems: true, isReturn: true);
+        dnReturnTables.ShouldBe(new[] { ("items", true), ("packed_items", true) });
+
+        var scrReturnTables = MyERP.Inventory.DomainServices.StockValuationService.ResolveStockLedgerPreviewBundleTables(
+            docType: "Subcontracting Receipt", hasItems: true, hasSuppliedItems: true, hasPackedItems: false, isReturn: true);
+        scrReturnTables.ShouldBe(new[] { ("items", true), ("supplied_items", false) });
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

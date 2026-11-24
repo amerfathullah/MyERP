@@ -2616,6 +2616,22 @@ public class StockReservationManager : DomainService
 
         return reservedQty > 0m ? "Reserved" : "Draft";
     }
+
+    /// <summary>
+    /// Rounds the unreserved allowed quantity (<c>abs(actualQty) - abs(shortageDiff)</c>) to
+    /// <paramref name="qtyPrecision"/> before displaying the reserved-stock shortage message
+    /// per ERPNext PR #65578 (<c>stock_ledger.py</c>).
+    /// </summary>
+    public static decimal CalculateUnreservedAllowedQtyOnShortage(
+        decimal actualQty,
+        decimal shortageDiff,
+        int qtyPrecision = 4)
+    {
+        return Math.Round(
+            Math.Abs(actualQty) - Math.Abs(shortageDiff),
+            qtyPrecision,
+            MidpointRounding.AwayFromZero);
+    }
 }
 
 public readonly record struct InwardWorkOrderReservationRow(

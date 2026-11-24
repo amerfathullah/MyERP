@@ -967,6 +967,71 @@ public class PickListManager : DomainService
 
         return qtyByLocation;
     }
+
+    /// <summary>
+    /// Returns the serial numbers a Pick List location still has left to move when mapping to a
+    /// Delivery Note or Stock Entry, filtering to serial numbers still in stock and capping the count
+    /// at the row's pending quantity (<c>pickedQty - movedQty</c>)
+    /// per ERPNext PR #65585 (<c>pick_list/mapper.py: get_pending_serial_nos</c>).
+    /// </summary>
+    public static IReadOnlyList<string> GetPendingSerialNosForPickListLocation(
+        IReadOnlyList<string>? pickedSerialNos,
+        decimal pickedQty,
+        decimal movedQty,
+        IReadOnlyCollection<string>? serialNosInStock)
+    {
+        if (pickedSerialNos == null || pickedSerialNos.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        if (movedQty == 0m)
+        {
+            return pickedSerialNos;
+        }
+
+        var inStockSet = new HashSet<string>(
+            (serialNosInStock ?? Array.Empty<string>())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var pendingQty = Math.Max((int)(pickedQty - movedQty), 0);
+        if (pendingQty == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return pickedSerialNos
+            .Where(sn => !string.IsNullOrWhiteSpace(sn) && inStockSet.Contains(sn.Trim()))
+            .Take(pendingQty)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Matches Pick List location rows for a Product Bundle packed component by
+    /// <c>(ItemId, SalesOrderItemId, PickListId)</c> without requiring header <c>against_sales_order</c>,
+    /// so Sales Invoices mapped from a Pick List keep each bundle component's picked warehouse and serial nos
+    /// per ERPNext PR #65630 (<c>packed_item.py: update_packed_item_with_pick_list_info</c>).
+    /// </summary>
+    public static IReadOnlyList<Guid> FindPickListLocationsForPackedItem(
+        IEnumerable<(Guid LocationId, Guid ItemId, Guid? SalesOrderItemId, Guid PickListId)>? pickListLocations,
+        Guid packedItemId,
+        Guid? salesOrderItemId,
+        Guid againstPickListId)
+    {
+        if (pickListLocations == null || packedItemId == Guid.Empty || againstPickListId == Guid.Empty)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        return pickListLocations
+            .Where(l => l.ItemId == packedItemId
+                && l.SalesOrderItemId == salesOrderItemId
+                && l.PickListId == againstPickListId)
+            .Select(l => l.LocationId)
+            .ToList();
+    }
 }
 
 public class AllocatedLocationItem

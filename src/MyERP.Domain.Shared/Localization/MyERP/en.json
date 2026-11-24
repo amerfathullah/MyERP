@@ -7149,7 +7149,31 @@
     "Unfulfilled": "Unfulfilled",
     "PartiallyFulfilled": "Partially Fulfilled",
     "Lapsed": "Lapsed",
-    "ReturnIssued": "Return Issued"
+    "ReturnIssued": "Return Issued",
+    "ConsolidationCandidates": "Consolidation Candidates",
+    "ConsolidatedInvoicesHistory": "Consolidated Invoices History",
+    "MaxInvoiceAmountRm": "Max Invoice Amount (RM)",
+    "SearchAction": "Search",
+    "ConsolidateIntoEInvoice": "Consolidate into e-Invoice",
+    "NoEligibleUnconsolidatedB2cInvoices": "No eligible unconsolidated B2C sales invoices found in this date range.",
+    "InvoiceNumberShort": "Invoice #",
+    "GrandTotalRm": "Grand Total (RM)",
+    "Eligibility": "Eligibility",
+    "EligibleB2c": "Eligible B2C",
+    "NoConsolidatedInvoicesFound": "No consolidated invoices found.",
+    "ConsolidatedInvoiceNumberShort": "Consolidated Invoice #",
+    "MergedInvoices": "Merged Invoices",
+    "TotalAmountRm": "Total Amount (RM)",
+    "InvoicesCountSuffix": "invoices",
+    "OriginalInvoicesFor": "Original Invoices for",
+    "TotalMerged": "Total Merged",
+    "ConsolidatedTotal": "Consolidated Total",
+    "AmountRm": "Amount (RM)",
+    "LhdnSuccessAuditLogs": "LHDN e-Invoice Success & Audit Logs",
+    "SearchUuidDocNumber": "Search UUID / Doc #",
+    "ApplyFilters": "Apply Filters",
+    "DocumentNumberShort": "Document #",
+    "Validated": "Validated"
   }
 }
 
