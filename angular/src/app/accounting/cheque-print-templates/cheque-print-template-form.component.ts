@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { ChequePrintTemplateService } from '../../proxy/accounting/cheque-print-template.service';
 import { ChequeSize } from '../../proxy/accounting/cheque-size.enum';
 
 @Component({
   selector: 'app-cheque-print-template-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -25,7 +26,7 @@ import { ChequeSize } from '../../proxy/accounting/cheque-size.enum';
 
               <div class="mb-3">
                 <label class="form-label">Bank Name *</label>
-                <input type="text" class="form-control" formControlName="bankName" placeholder="e.g. Maybank, CIMB, Public Bank">
+                <input type="text" class="form-control" formControlName="bankName" [placeholder]="'::Placeholder:ChequeBankNameExample' | abpLocalization">
               </div>
 
               <div class="row">

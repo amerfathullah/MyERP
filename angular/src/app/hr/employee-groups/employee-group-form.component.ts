@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { EmployeeGroupService } from '../../proxy/human-resources/employee-group.service';
 import { EmployeeService } from '../../proxy/human-resources/employee.service';
 import { CompanyService } from '../../proxy/core/company.service';
@@ -13,7 +14,7 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
 @Component({
   selector: 'app-employee-group-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -34,7 +35,7 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
             </div>
             <div class="col-md-6">
               <label class="form-label">Group Name *</label>
-              <input type="text" class="form-control" formControlName="groupName" maxlength="140" placeholder="e.g. Operations Shift A, Management Team">
+              <input type="text" class="form-control" formControlName="groupName" maxlength="140" [placeholder]="'::Placeholder:EmployeeGroupNameExample' | abpLocalization">
             </div>
           </div>
 
@@ -71,7 +72,7 @@ import type { EmployeeDto } from '../../proxy/human-resources/models';
                         </select>
                       </td>
                       <td>
-                        <input type="text" class="form-control form-control-sm" formControlName="designation" placeholder="e.g. Technician">
+                        <input type="text" class="form-control form-control-sm" formControlName="designation" [placeholder]="'::Placeholder:DesignationExample' | abpLocalization">
                       </td>
                       <td class="text-center">
                         <button type="button" class="btn btn-sm btn-link text-danger" (click)="removeMember($index)">×</button>

@@ -35,7 +35,7 @@ import type { SupplierDto } from '../../proxy/purchasing/models';
 
             <div class="col-md-6 mb-3">
               <label class="form-label">Communication Channel</label>
-              <input type="text" class="form-control" formControlName="communicationChannel" placeholder="e.g. +603-12345678 or support@company.com">
+              <input type="text" class="form-control" formControlName="communicationChannel" [placeholder]="'::Placeholder:CommunicationChannelExample' | abpLocalization">
             </div>
           </div>
 

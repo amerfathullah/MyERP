@@ -214,21 +214,32 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Calculates reservation status when Work Order is submitted and ReserveStock is enabled.
-    /// Per ERPNext PR #60161 / commit 1334acafe2:
-    /// - If no items have reservations, status remains unchanged.
-    /// - If any required item has StockReservedQty &lt; RequiredQuantity, status is StockPartiallyReserved.
-    /// - Only if all required items have StockReservedQty &gt;= RequiredQuantity, status is StockReserved.
+    /// Per ERPNext PR #60161 / commit 1334acafe2 and PR #69243 (<c>status.py: _reservation_status</c>):
+    /// - Counts both <c>StockReservedQty</c> and any <c>SubcontractedQty</c> taken over by a Subcontracting Order.
+    /// - If no items have reservations or subcontracted qty, status remains unchanged.
+    /// - If any required item has unreserved qty (RequiredQuantity - subcontractedQty - StockReservedQty) &gt; 0 at stock precision, status is StockPartiallyReserved.
+    /// - Otherwise, status is StockReserved.
     /// </summary>
     public WorkOrderStatus GetReservationStatus(WorkOrderStatus fallbackStatus = WorkOrderStatus.NotStarted)
+        => GetReservationStatus(fallbackStatus, subcontractedQtyByRowId: null, precision: 4);
+
+    public WorkOrderStatus GetReservationStatus(
+        WorkOrderStatus fallbackStatus,
+        IReadOnlyDictionary<Guid, decimal>? subcontractedQtyByRowId,
+        int precision = 4)
     {
         if (!ReserveStock || !RequiredItems.Any())
             return fallbackStatus;
 
-        if (!RequiredItems.Any(r => r.StockReservedQty > 0))
+        decimal GetSubcontracted(WorkOrderItem row) =>
+            subcontractedQtyByRowId != null && subcontractedQtyByRowId.TryGetValue(row.Id, out var qty) ? qty : 0m;
+
+        if (!RequiredItems.Any(r => r.StockReservedQty > 0m || GetSubcontracted(r) > 0m))
             return fallbackStatus;
 
-        // Per ERPNext PR #66965: compare at 4-decimal precision so rounded multi-batch allocations count as reserved.
-        if (RequiredItems.Any(r => Math.Round(r.StockReservedQty, 4) < Math.Round(r.RequiredQuantity, 4)))
+        // Per ERPNext PR #66965 & PR #69243: round unreserved qty (required - subcontracted - reserved) at stock precision.
+        if (RequiredItems.Any(r =>
+            Math.Round(r.RequiredQuantity - GetSubcontracted(r) - r.StockReservedQty, precision, MidpointRounding.AwayFromZero) > 0m))
             return WorkOrderStatus.StockPartiallyReserved;
 
         return WorkOrderStatus.StockReserved;

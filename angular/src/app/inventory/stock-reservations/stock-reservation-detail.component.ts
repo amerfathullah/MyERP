@@ -56,14 +56,31 @@ import { ItemService } from '../../proxy/inventory/item.service';
           <h6>{{ '::FulfillmentProgress' | abpLocalization }}</h6>
           <div class="progress" style="height: 24px">
             @if (e.reservedQty > 0) {
-              <div class="progress-bar bg-success" [style.width.%]="(e.deliveredQty / e.reservedQty * 100)">
-                {{ '::Delivered' | abpLocalization }}: {{ e.deliveredQty | number:'1.0-2' }}
-              </div>
+              @if (e.deliveredQty > 0) {
+                <div class="progress-bar bg-success" [style.width.%]="(e.deliveredQty / e.reservedQty * 100)">
+                  {{ '::Delivered' | abpLocalization }}: {{ e.deliveredQty | number:'1.0-2' }}
+                </div>
+              }
+              @if ((e.transferredQty ?? 0) > 0) {
+                <div class="progress-bar bg-primary" [style.width.%]="((e.transferredQty ?? 0) / e.reservedQty * 100)">
+                  {{ '::Transferred' | abpLocalization }}: {{ e.transferredQty | number:'1.0-2' }}
+                </div>
+              }
+              @if ((e.consumedQty ?? 0) > 0) {
+                <div class="progress-bar bg-warning text-dark" [style.width.%]="((e.consumedQty ?? 0) / e.reservedQty * 100)">
+                  {{ '::Consumed' | abpLocalization }}: {{ e.consumedQty | number:'1.0-2' }}
+                </div>
+              }
               <div class="progress-bar bg-info" [style.width.%]="(e.availableQty / e.reservedQty * 100)">
                 {{ '::Available' | abpLocalization }}: {{ e.availableQty | number:'1.0-2' }}
               </div>
             }
           </div>
+          @if (isSerialBatchLocked(e)) {
+            <div class="alert alert-warning mt-3 mb-0 py-2 small">
+              <i class="fa fa-lock me-1"></i>{{ '::SerialBatchReservationLocked' | abpLocalization }}
+            </div>
+          }
         </div></div>
 
         <!-- Details Card -->
@@ -74,6 +91,8 @@ import { ItemService } from '../../proxy/inventory/item.service';
               <table class="table table-borderless table-sm mb-0">
                 <tr><td class="text-muted" style="width:40%">{{ '::Item' | abpLocalization }}</td><td><strong>{{ itemName() || e.itemId || '...' }}</strong></td></tr>
                 <tr><td class="text-muted">{{ '::Warehouse' | abpLocalization }}</td><td>{{ warehouseName() || e.warehouseId || '...' }}</td></tr>
+                <tr><td class="text-muted">{{ '::TransferredQty' | abpLocalization }}</td><td>{{ (e.transferredQty ?? 0) | number:'1.0-2' }}</td></tr>
+                <tr><td class="text-muted">{{ '::ConsumedQty' | abpLocalization }}</td><td>{{ (e.consumedQty ?? 0) | number:'1.0-2' }}</td></tr>
               </table>
             </div>
             <div class="col-md-6">
@@ -88,6 +107,9 @@ import { ItemService } from '../../proxy/inventory/item.service';
                     }
                   </td>
                 </tr>
+                @if (e.fromVoucherType) {
+                  <tr><td class="text-muted">{{ '::FromVoucherType' | abpLocalization }}</td><td>{{ e.fromVoucherType }}</td></tr>
+                }
                 <tr><td class="text-muted">{{ '::Created' | abpLocalization }}</td><td>{{ e.creationTime | date:'dd/MM/yyyy HH:mm' }}</td></tr>
               </table>
             </div>
@@ -156,6 +178,14 @@ export class StockReservationDetailComponent implements OnInit {
 
   getStatusName(s: number) { return this.statusNames[s] ?? 'Unknown'; }
   getStatusClass(s: number) { return this.statusClasses[s] ?? 'bg-secondary'; }
+
+  /** Per ERPNext PR #68930: serial/batch reservation cannot be updated once delivered/consumed/transferred or created from Pick List. */
+  isSerialBatchLocked(e: any): boolean {
+    if (!e) return false;
+    const fromPickList = e.fromVoucherType === 'Pick List' || e.fromVoucherType === 'PickList';
+    const usedQty = Number(((e.deliveredQty ?? 0) + (e.consumedQty ?? 0) + (e.transferredQty ?? 0)).toFixed(4));
+    return fromPickList || usedQty > 0;
+  }
 
   cancelEntry() {
     this.confirmation.warn('::CancelReservationConfirmation', '::AreYouSure').subscribe(status => {

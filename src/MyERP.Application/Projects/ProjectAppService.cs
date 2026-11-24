@@ -357,19 +357,20 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Create)]
     public async Task<ProjectTaskDto> CreateTaskAsync(CreateProjectTaskDto input)
     {
+        ProjectTask? parentTask = null;
         if (input.ParentTaskId.HasValue)
         {
-            var parent = await _taskRepository.GetAsync(input.ParentTaskId.Value);
-            if (!parent.IsGroup)
+            parentTask = await _taskRepository.GetAsync(input.ParentTaskId.Value);
+            if (!parentTask.IsGroup)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
+                    .WithData("detail", $"Parent Task '{parentTask.Subject}' must be a Group Task.");
             }
             // Per ERPNext PR #60578 / commit 4973292edc: parent task must be from the same project
-            if (parent.ProjectId != input.ProjectId)
+            if (parentTask.ProjectId != input.ProjectId)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Parent Task '{parent.Subject}' is not in Project '{input.ProjectId}'. Pick a group task of the same project.");
+                    .WithData("detail", $"Parent Task '{parentTask.Subject}' is not in Project '{input.ProjectId}'. Pick a group task of the same project.");
             }
         }
 
@@ -397,7 +398,9 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             Description = input.Description,
         };
 
+        // Per ERPNext PR #69181: compute default end date before validating against parent group end date
         task.SetDefaultEndDateIfMissing();
+        MyERP.Projects.DomainServices.TaskDependencyValidationService.ValidateParentExpectedEndDate(task, parentTask);
         await _taskRepository.InsertAsync(task);
         await UpdateProjectProgress(input.ProjectId);
         return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
@@ -413,7 +416,15 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         }
 
         var task = await _taskRepository.GetAsync(taskId);
+        var previousScheduleEndDate = task.GetScheduleEndDate();
+        var previousExpectedEndDate = task.ExpectedEndDate;
+        var depValidator = LazyServiceProvider?.LazyGetService<MyERP.Projects.DomainServices.TaskDependencyValidationService>()
+            ?? new MyERP.Projects.DomainServices.TaskDependencyValidationService(_taskRepository);
 
+        // Per ERPNext PR #69181: refuse converting a group task with children to non-group
+        await depValidator.ValidateGroupHasNoChildrenAsync(task, input.IsGroup);
+
+        ProjectTask? parentTask = null;
         if (input.ParentTaskId.HasValue)
         {
             if (input.ParentTaskId.Value == taskId)
@@ -422,17 +433,17 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                     .WithData("detail", "Task cannot be its own parent.");
             }
 
-            var parent = await _taskRepository.GetAsync(input.ParentTaskId.Value);
-            if (!parent.IsGroup)
+            parentTask = await _taskRepository.GetAsync(input.ParentTaskId.Value);
+            if (!parentTask.IsGroup)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
+                    .WithData("detail", $"Parent Task '{parentTask.Subject}' must be a Group Task.");
             }
             // Per ERPNext PR #60578 / commit 4973292edc: parent task must be from the same project
-            if (parent.ProjectId != task.ProjectId)
+            if (parentTask.ProjectId != task.ProjectId)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Parent Task '{parent.Subject}' is not in Project '{task.ProjectId}'. Pick a group task of the same project.");
+                    .WithData("detail", $"Parent Task '{parentTask.Subject}' is not in Project '{task.ProjectId}'. Pick a group task of the same project.");
             }
         }
 
@@ -443,7 +454,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
 
         if (input.TaskTypeId.HasValue && (typeChanged && !weightChanged))
         {
-            var taskTypeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<TaskType, Guid>>();
+            var taskTypeRepo = LazyServiceProvider!.LazyGetRequiredService<IRepository<TaskType, Guid>>();
             var taskType = await taskTypeRepo.GetAsync(input.TaskTypeId.Value);
             task.SetDefaultWeight(taskType.Weight);
         }
@@ -464,17 +475,23 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         task.ExpectedHours = input.ExpectedHours;
         task.AssignedUserId = input.AssignedUserId;
         task.Description = input.Description;
-        task.SetDefaultEndDateIfMissing();
 
-        var endDateChanged = task.ExpectedEndDate != input.ExpectedEndDate;
+        // Per ERPNext PR #69181: derive missing end date BEFORE parent/children date validations
+        task.SetDefaultEndDateIfMissing();
+        MyERP.Projects.DomainServices.TaskDependencyValidationService.ValidateParentExpectedEndDate(task, parentTask);
+        if (task.ExpectedEndDate != previousExpectedEndDate)
+        {
+            await depValidator.ValidateChildrenExpectedEndDateAsync(task, task.ExpectedEndDate);
+        }
+
+        var scheduleEndChanged = task.GetScheduleEndDate() != previousScheduleEndDate;
         await _taskRepository.UpdateAsync(task);
 
-        // Per ERPNext task.py reschedule_dependent_tasks (Gotcha #1302): pushing this task's end
-        // date out must cascade to dependent tasks whose start would otherwise overlap it.
-        if (endDateChanged)
+        // Per ERPNext PRs #69135 & #69136 (task.py reschedule_dependent_tasks): cascade end-date shifts
+        // forward or backward (when moved earlier) to dependent tasks.
+        if (scheduleEndChanged)
         {
-            var depValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.TaskDependencyValidationService>();
-            await depValidator.RescheduleDependentTasksAsync(task);
+            await depValidator.RescheduleDependentTasksAsync(task, previousEndDate: previousScheduleEndDate);
         }
 
         await UpdateProjectProgress(task.ProjectId);

@@ -78,6 +78,35 @@ public class ProjectTask : FullAuditedEntity<Guid>
         }
     }
 
+    /// <summary>
+    /// Returns the later of ExpectedEndDate and ActualEndDate, as a task that overruns still blocks its dependents.
+    /// Per ERPNext PR #69135 (<c>task.py: get_schedule_end_date</c>).
+    /// </summary>
+    public DateTime? GetScheduleEndDate()
+    {
+        if (ExpectedEndDate.HasValue && ActualEndDate.HasValue)
+            return ExpectedEndDate.Value >= ActualEndDate.Value ? ExpectedEndDate.Value : ActualEndDate.Value;
+        return ExpectedEndDate ?? ActualEndDate;
+    }
+
+    /// <summary>
+    /// Moves this task to start on the day after <paramref name="endDate"/>, preserving time-of-day
+    /// and duration (works even when <see cref="ExpectedEndDate"/> is unset).
+    /// Per ERPNext PR #69135 (<c>task.py: move_to_start_after</c>).
+    /// </summary>
+    public void MoveToStartAfter(DateTime endDate)
+    {
+        if (!ExpectedStartDate.HasValue) return;
+        var startDate = ExpectedStartDate.Value;
+        var newStartDate = endDate.Date.AddDays(1).Add(startDate.TimeOfDay);
+        var shift = newStartDate - startDate;
+        ExpectedStartDate = newStartDate;
+        if (ExpectedEndDate.HasValue)
+        {
+            ExpectedEndDate = ExpectedEndDate.Value + shift;
+        }
+    }
+
     public void Start()
     {
         if (Status is not (ProjectTaskStatus.Open or ProjectTaskStatus.Overdue or ProjectTaskStatus.PendingReview))

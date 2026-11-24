@@ -47,8 +47,51 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
     /// <summary>Qty already consumed (e.g., Material Consumption for Manufacture).</summary>
     public decimal ConsumedQty { get; set; }
 
+    /// <summary>Total fulfilled quantity (delivered + consumed + transferred).</summary>
+    public decimal UsedQty => DeliveredQty + ConsumedQty + TransferredQty;
+
     /// <summary>Remaining available: ReservedQty minus all fulfilled quantities.</summary>
     public decimal AvailableQty => Math.Max(0, ReservedQty - DeliveredQty - TransferredQty - ConsumedQty);
+
+    /// <summary>
+    /// Whether Serial &amp; Batch Reservation child entries may still be edited after submit.
+    /// Per ERPNext PR #68930 (<c>stock_reservation_entry.js</c> &amp; <c>stock_reservation_entry.py</c>):
+    /// blocked once any quantity is delivered, consumed, or transferred (rounded at stock precision),
+    /// or when the reservation originated from a Pick List.
+    /// </summary>
+    public bool CanUpdateSerialAndBatchEntries(int precision = 4)
+    {
+        var isFromPickList = string.Equals(FromVoucherType, "Pick List", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(FromVoucherType, "PickList", StringComparison.OrdinalIgnoreCase);
+        if (isFromPickList)
+            return false;
+
+        return Math.Round(UsedQty, precision, MidpointRounding.AwayFromZero) <= 0m;
+    }
+
+    /// <summary>
+    /// Validates whether changes to Serial &amp; Batch Reservation entries are allowed on this reservation.
+    /// Per ERPNext PR #68930 (<c>stock_reservation_entry.py: validate_update_after_submit</c>).
+    /// </summary>
+    public void ValidateCanUpdateSerialAndBatchEntries(bool serialBatchEntriesChanged, int precision = 4)
+    {
+        if (!serialBatchEntriesChanged)
+            return;
+
+        var isFromPickList = string.Equals(FromVoucherType, "Pick List", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(FromVoucherType, "PickList", StringComparison.OrdinalIgnoreCase);
+        if (isFromPickList)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Serial and Batch Reservation cannot be updated as the Stock Reservation Entry was created from a Pick List.");
+        }
+
+        if (Math.Round(UsedQty, precision, MidpointRounding.AwayFromZero) > 0m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Serial and Batch Reservation cannot be updated as the Stock Reservation Entry has already been delivered, consumed or transferred.");
+        }
+    }
 
     /// <summary>Batch (if batch-tracked item).</summary>
     public Guid? BatchId { get; set; }

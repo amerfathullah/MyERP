@@ -20,7 +20,7 @@ import { BankAccountTypeService } from '../../proxy/accounting/bank-account-type
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Account Type Name *</label>
-            <input type="text" class="form-control" formControlName="accountTypeName" placeholder="e.g. Current Account, Savings, Checking...">
+            <input type="text" class="form-control" formControlName="accountTypeName" [placeholder]="'::Placeholder:BankAccountTypeExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

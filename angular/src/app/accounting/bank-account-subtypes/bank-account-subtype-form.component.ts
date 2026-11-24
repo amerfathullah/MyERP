@@ -20,7 +20,7 @@ import { BankAccountSubtypeService } from '../../proxy/accounting/bank-account-s
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Account Subtype Name *</label>
-            <input type="text" class="form-control" formControlName="accountSubtypeName" placeholder="e.g. Corporate, Personal, Fixed Deposit...">
+            <input type="text" class="form-control" formControlName="accountSubtypeName" [placeholder]="'::Placeholder:BankAccountSubtypeExample' | abpLocalization">
           </div>
 
           <div class="mb-3">

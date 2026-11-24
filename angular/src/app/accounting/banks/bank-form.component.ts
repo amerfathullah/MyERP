@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BankService } from '../../proxy/accounting/bank.service';
 
 @Component({
   selector: 'app-bank-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
@@ -19,17 +20,17 @@ import { BankService } from '../../proxy/accounting/bank.service';
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
             <label class="form-label">Bank Name *</label>
-            <input type="text" class="form-control" formControlName="bankName" placeholder="e.g. Malayan Banking Berhad (Maybank), CIMB Bank, Public Bank...">
+            <input type="text" class="form-control" formControlName="bankName" [placeholder]="'::Placeholder:BankNameExample' | abpLocalization">
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">SWIFT / BIC Code</label>
-              <input type="text" class="form-control" formControlName="swiftNumber" placeholder="e.g. MBBEMYKL">
+              <input type="text" class="form-control" formControlName="swiftNumber" [placeholder]="'::Placeholder:SwiftCodeExample' | abpLocalization">
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Website</label>
-              <input type="url" class="form-control" formControlName="website" placeholder="https://www.bank.com">
+              <input type="url" class="form-control" formControlName="website" [placeholder]="'::Placeholder:BankWebsiteExample' | abpLocalization">
             </div>
           </div>
 

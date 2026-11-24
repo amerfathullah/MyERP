@@ -2323,6 +2323,173 @@ public class UpstreamBatch41ParityTests
         reconciled.Any(r => r.ItemId == itemStaleTransferred).ShouldBeTrue();
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task UpstreamBatch19_LhdnTinStatus_ProjectsTasks_WoSubcontract_SreLock_OrderRow_Parity()
+    {
+        // 1a. MyInvois search_taxpayer.py: HTTP 200 JSON without TIN returns IsFound=false with exact error message
+        var handler = new CaptureHttpHandler(_ => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new System.Net.Http.StringContent("{\"name\":\"Test Sdn Bhd\"}", System.Text.Encoding.UTF8, "application/json")
+        });
+        var httpFactory = NSubstitute.Substitute.For<System.Net.Http.IHttpClientFactory>();
+        NSubstitute.SubstituteExtensions.Returns(httpFactory.CreateClient("LhdnApi"), new System.Net.Http.HttpClient(handler));
+        var lhdnLogger = NSubstitute.Substitute.For<Microsoft.Extensions.Logging.ILogger<MyERP.EInvoice.Services.LhdnApiClient>>();
+        var apiClient = new MyERP.EInvoice.Services.LhdnApiClient(httpFactory, lhdnLogger);
+        var tinRes = await apiClient.SearchTaxpayerAsync("tok", "BRN", "202001001234", MyERP.EInvoice.LhdnEnvironment.Sandbox);
+        tinRes.IsFound.ShouldBeFalse();
+        tinRes.Tin.ShouldBeNull();
+        (tinRes.ErrorMessage ?? string.Empty).ShouldContain("TIN not found in API response.");
+
+        // 1b. MyInvois get_status.py: missing SubmissionUid marks submission Failed, persists update, and throws
+        var subRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.EInvoiceSubmission, Guid>>();
+        var logRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.EInvoice.Entities.LhdnSuccessLog, Guid>>();
+        var mockLhdn = NSubstitute.Substitute.For<MyERP.EInvoice.Services.ILhdnApiClient>();
+        var subId = Guid.NewGuid();
+        var missingUidSub = new MyERP.EInvoice.Entities.EInvoiceSubmission(subId, Guid.NewGuid(), "SalesInvoice", Guid.NewGuid())
+        {
+            SubmissionUid = "",
+            Status = "Pending"
+        };
+        NSubstitute.SubstituteExtensions.Returns(subRepo.GetAsync(subId), System.Threading.Tasks.Task.FromResult(missingUidSub));
+        var einvSvc = new MyERP.EInvoice.Services.EInvoiceService(mockLhdn, subRepo, logRepo);
+        var statusEx = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            einvSvc.RefreshStatusAsync(subId, "tok", MyERP.EInvoice.LhdnEnvironment.Sandbox));
+        statusEx.Code.ShouldBe(MyERP.MyERPDomainErrorCodes.EInvoiceSubmissionFailed);
+        missingUidSub.Status.ShouldBe("Failed");
+        await NSubstitute.SubstituteExtensions.Received(subRepo, 1).UpdateAsync(missingUidSub);
+
+        // 2. ERPNext PR #69135 & #69136: ProjectTask schedule end + dependent rescheduling forward and backward
+        var projId = Guid.NewGuid();
+        var pred1 = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "TASK-1", "Predecessor 1")
+        {
+            ExpectedStartDate = new DateTime(2026, 8, 1, 9, 0, 0),
+            ExpectedEndDate = new DateTime(2026, 8, 5, 17, 0, 0),
+            ActualEndDate = new DateTime(2026, 8, 7, 17, 0, 0) // overran expected end!
+        };
+        pred1.GetScheduleEndDate().ShouldBe(new DateTime(2026, 8, 7, 17, 0, 0));
+
+        var depNoEnd = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "TASK-2", "Dependent No End")
+        {
+            ExpectedStartDate = new DateTime(2026, 8, 7, 10, 30, 0), // starts AT pred1 schedule end
+            ExpectedEndDate = null
+        };
+        depNoEnd.Start(); // Working status must also be rescheduled
+        depNoEnd.AddDependency(pred1.Id);
+
+        var pred2 = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "TASK-3", "Predecessor 2")
+        {
+            ExpectedStartDate = new DateTime(2026, 8, 1),
+            ExpectedEndDate = new DateTime(2026, 8, 4)
+        };
+        var depMoveBack = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "TASK-4", "Dependent Move Back")
+        {
+            ExpectedStartDate = new DateTime(2026, 8, 8, 8, 0, 0), // day after old end (Aug 7)
+            ExpectedEndDate = new DateTime(2026, 8, 10, 8, 0, 0)
+        };
+        depMoveBack.AddDependency(pred1.Id);
+        depMoveBack.AddDependency(pred2.Id);
+
+        var allTasks = new List<MyERP.Projects.Entities.ProjectTask> { pred1, depNoEnd, pred2, depMoveBack };
+        var taskRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ProjectTask, Guid>>();
+        NSubstitute.SubstituteExtensions.Returns(taskRepo.GetQueryableAsync(), System.Threading.Tasks.Task.FromResult(allTasks.AsQueryable()));
+        var taskDepSvc = new MyERP.Projects.DomainServices.TaskDependencyValidationService(taskRepo);
+
+        // Overrun pushes depNoEnd to Aug 8 preserving 10:30 time-of-day even with null ExpectedEndDate
+        await taskDepSvc.RescheduleDependentTasksAsync(pred1);
+        depNoEnd.ExpectedStartDate.ShouldBe(new DateTime(2026, 8, 8, 10, 30, 0));
+        depNoEnd.ExpectedEndDate.ShouldBeNull();
+
+        // Moving pred1 earlier from Aug 7 -> Aug 2 pulls depMoveBack back to Aug 5 (respecting pred2 end Aug 4)
+        var oldEnd = pred1.GetScheduleEndDate();
+        pred1.ActualEndDate = null;
+        pred1.ExpectedEndDate = new DateTime(2026, 8, 2, 17, 0, 0);
+        await taskDepSvc.RescheduleDependentTasksAsync(pred1, previousEndDate: oldEnd);
+        depMoveBack.ExpectedStartDate.ShouldBe(new DateTime(2026, 8, 5, 8, 0, 0));
+        depMoveBack.ExpectedEndDate.ShouldBe(new DateTime(2026, 8, 7, 8, 0, 0));
+
+        // 3. ERPNext PR #69181 & #69182: Group task validations & recursive ExtendGroupToCover
+        var grandGroup = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "GRP-0", "Grand Group")
+        {
+            IsGroup = true,
+            ExpectedEndDate = new DateTime(2026, 8, 10)
+        };
+        var groupTask = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "GRP-1", "Parent Group")
+        {
+            IsGroup = true,
+            ParentTaskId = grandGroup.Id,
+            ExpectedEndDate = new DateTime(2026, 8, 10)
+        };
+        var childTask = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "CHILD-1", "Child Task")
+        {
+            ParentTaskId = groupTask.Id,
+            ExpectedStartDate = new DateTime(2026, 8, 8),
+            ExpectedHours = 72m // derives Aug 11 (> group Aug 10)
+        };
+        var cancelledChild = new MyERP.Projects.Entities.ProjectTask(Guid.NewGuid(), projId, "CHILD-2", "Cancelled Child")
+        {
+            ParentTaskId = groupTask.Id,
+            ExpectedEndDate = new DateTime(2026, 8, 20)
+        };
+        cancelledChild.Cancel();
+        allTasks.AddRange(new[] { grandGroup, groupTask, childTask, cancelledChild });
+
+        childTask.SetDefaultEndDateIfMissing();
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            MyERP.Projects.DomainServices.TaskDependencyValidationService.ValidateParentExpectedEndDate(childTask, groupTask));
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            taskDepSvc.ValidateGroupHasNoChildrenAsync(groupTask, newIsGroup: false));
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            taskDepSvc.ValidateChildrenExpectedEndDateAsync(groupTask, new DateTime(2026, 8, 9)));
+
+        // Cancelled child on Aug 20 does not block setting group end to Aug 12
+        await Should.NotThrowAsync(() =>
+            taskDepSvc.ValidateChildrenExpectedEndDateAsync(groupTask, new DateTime(2026, 8, 12)));
+
+        // PR #69182: ExtendGroupToCover extends both parent and grandparent groups
+        MyERP.Projects.DomainServices.TaskDependencyValidationService.ExtendGroupToCover(
+            groupTask, new DateTime(2026, 8, 15), new[] { grandGroup, groupTask, childTask });
+        groupTask.ExpectedEndDate.ShouldBe(new DateTime(2026, 8, 15));
+        grandGroup.ExpectedEndDate.ShouldBe(new DateTime(2026, 8, 15));
+
+        // 4. ERPNext PR #69243: WorkOrder status counts subcontracted qty as reserved
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-69243", Guid.NewGuid(), Guid.NewGuid(), 10m)
+        {
+            ReserveStock = true
+        };
+        var woRow = new WorkOrderItem(Guid.NewGuid(), wo.Id, Guid.NewGuid(), "RM-1", 10m);
+        wo.RequiredItems.Add(woRow);
+        woRow.SetStockReservedQty(4m);
+        wo.GetReservationStatus(WorkOrderStatus.NotStarted, new Dictionary<Guid, decimal> { [woRow.Id] = 6m })
+            .ShouldBe(WorkOrderStatus.StockReserved);
+        wo.GetReservationStatus(WorkOrderStatus.NotStarted, new Dictionary<Guid, decimal> { [woRow.Id] = 5m })
+            .ShouldBe(WorkOrderStatus.StockPartiallyReserved);
+
+        // 5. ERPNext PR #68930: StockReservationEntry blocks serial/batch updates when consumed, transferred, delivered, or from Pick List
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "WorkOrder", Guid.NewGuid(), 10m);
+        sre.CanUpdateSerialAndBatchEntries().ShouldBeTrue();
+        sre.TransferredQty = 2m;
+        sre.CanUpdateSerialAndBatchEntries().ShouldBeFalse();
+        var sreEx = Should.Throw<Volo.Abp.BusinessException>(() => sre.ValidateCanUpdateSerialAndBatchEntries(serialBatchEntriesChanged: true));
+        (sreEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("delivered, consumed or transferred");
+        Should.NotThrow(() => sre.ValidateCanUpdateSerialAndBatchEntries(serialBatchEntriesChanged: false));
+
+        var pickListSre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), 5m)
+        {
+            FromVoucherType = "Pick List"
+        };
+        pickListSre.CanUpdateSerialAndBatchEntries().ShouldBeFalse();
+        Should.Throw<Volo.Abp.BusinessException>(() => pickListSre.ValidateCanUpdateSerialAndBatchEntries(serialBatchEntriesChanged: true));
+
+        // 6. ERPNext PR #69227: ChildItemUpdateService rejects item row IDs not belonging to target order
+        var childUpdater = new ChildItemUpdateService();
+        var ownRowId = Guid.NewGuid();
+        var foreignRowId = Guid.NewGuid();
+        Should.NotThrow(() => childUpdater.ValidateRowsBelongToParent(new[] { ownRowId }, new[] { ownRowId }, "Sales Order", "SO-001"));
+        var rowEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            childUpdater.ValidateRowsBelongToParent(new[] { ownRowId }, new[] { foreignRowId }, "Sales Order", "SO-001"));
+        (rowEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("does not belong to Sales Order SO-001");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

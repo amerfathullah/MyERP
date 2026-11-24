@@ -116,8 +116,14 @@ public class EInvoiceService : DomainService
     {
         var submission = await _submissionRepository.GetAsync(submissionId);
 
-        if (string.IsNullOrEmpty(submission.SubmissionUid))
-            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceSubmissionFailed);
+        if (string.IsNullOrWhiteSpace(submission.SubmissionUid))
+        {
+            // Per myinvois get_status.py lines 38-53: mark status Failed and persist before throwing
+            submission.Status = "Failed";
+            await _submissionRepository.UpdateAsync(submission);
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceSubmissionFailed)
+                .WithData("reason", "As per LHDN Regulation, Submission UID is missing from the document's submission response.");
+        }
 
         var response = await _lhdnApiClient.GetDocumentStatusAsync(
             accessToken, submission.SubmissionUid, environment);

@@ -1734,6 +1734,13 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         // Per ERPNext PR #59832: reject Draft, Cancelled, Closed, and OnHold orders
         _childItemUpdateService.ValidateOrderStatusForItemUpdate(so.Status, "Sales Order", so.OrderNumber);
 
+        // Per ERPNext PR #69227: reject any item row IDs that do not belong to this order
+        var itemsToUpdate = input.Items ?? new List<UpdateOrderItemDto>();
+        var requestedRowIds = itemsToUpdate
+            .Select(i => i.ItemId)
+            .Concat(input.RemovedItemIds ?? Enumerable.Empty<Guid>());
+        _childItemUpdateService.ValidateRowsBelongToParent(so.Items.Select(i => i.Id), requestedRowIds, "Sales Order", so.OrderNumber);
+
         var previousGrandTotal = so.GrandTotal;
         var warnings = new List<string>();
         var updatedCount = 0;
@@ -1878,7 +1885,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             so.RemoveItem(removeId);
         }
 
-        foreach (var update in input.Items)
+        foreach (var update in itemsToUpdate)
         {
             var soItem = so.Items.FirstOrDefault(i => i.Id == update.ItemId);
             if (soItem == null)

@@ -6726,7 +6726,18 @@
     "Placeholder:ProjectUpdateNotes": "Detailed update notes, blockers, milestones achieved, next steps...",
     "Placeholder:FilterByProjectOrSummary": "Filter by project or summary...",
     "Placeholder:TermsAndConditionsClauses": "Enter standard legal / commercial clauses...",
-    "Placeholder:PriorityLevels": "Low / Medium / High / Urgent"
+    "Placeholder:PriorityLevels": "Low / Medium / High / Urgent",
+    "FromVoucherType": "From Voucher Type",
+    "SerialBatchReservationLocked": "Serial and Batch Reservation is locked because stock has already been delivered, consumed, or transferred (or originated from a Pick List).",
+    "Placeholder:BankAccountSubtypeExample": "e.g. Corporate, Personal, Fixed Deposit...",
+    "Placeholder:BankAccountTypeExample": "e.g. Current Account, Savings, Checking...",
+    "Placeholder:BankNameExample": "e.g. Malayan Banking Berhad (Maybank), CIMB Bank, Public Bank...",
+    "Placeholder:SwiftCodeExample": "e.g. MBBEMYKL",
+    "Placeholder:BankWebsiteExample": "https://www.bank.com",
+    "Placeholder:ChequeBankNameExample": "e.g. Maybank, CIMB, Public Bank",
+    "Placeholder:CommunicationChannelExample": "e.g. +603-12345678 or support@company.com",
+    "Placeholder:EmployeeGroupNameExample": "e.g. Operations Shift A, Management Team",
+    "Placeholder:DesignationExample": "e.g. Technician"
   }
 }
 

@@ -1089,6 +1089,13 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Per ERPNext PR #59832: reject Draft, Cancelled, Closed, and OnHold orders
         _childItemUpdateService.ValidateOrderStatusForItemUpdate(po.Status, "Purchase Order", po.OrderNumber);
 
+        // Per ERPNext PR #69227: reject any item row IDs that do not belong to this order
+        var itemsToUpdate = input.Items ?? new List<UpdateOrderItemDto>();
+        var requestedRowIds = itemsToUpdate
+            .Select(i => i.ItemId)
+            .Concat(input.RemovedItemIds ?? Enumerable.Empty<Guid>());
+        _childItemUpdateService.ValidateRowsBelongToParent(po.Items.Select(i => i.Id), requestedRowIds, "Purchase Order", po.OrderNumber);
+
         // Guard: cannot update items once a Subcontracting Order exists for this PO — per
         // ERPNext can_update_items(), even a DRAFT SCO blocks this (stricter than the cancel
         // guard above, which only blocks on submitted SCOs). Only a Cancelled SCO clears the way.
@@ -1223,7 +1230,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.RemoveItem(removeId);
         }
 
-        foreach (var update in input.Items)
+        foreach (var update in itemsToUpdate)
         {
             var poItem = po.Items.FirstOrDefault(i => i.Id == update.ItemId);
             if (poItem == null)

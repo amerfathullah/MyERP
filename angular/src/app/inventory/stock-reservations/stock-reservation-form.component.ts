@@ -28,7 +28,7 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
               <div class="col-md-6">
                 <label class="form-label">{{ '::SalesOrder' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="salesOrderId" (change)="onSalesOrderChange()">
-                  <option value="">— Select Sales Order —</option>
+                  <option value="">— {{ '::SelectSalesOrder' | abpLocalization }} —</option>
                   @for (so of salesOrders(); track so.id) {
                     <option [value]="so.id">{{ so.orderNumber }}</option>
                   }
@@ -38,7 +38,7 @@ const UNRESERVABLE_SO_STATUSES = ['Draft', 'Cancelled', 'Closed'];
                 <label class="form-label">{{ '::SalesOrderItem' | abpLocalization }} *</label>
                 <select class="form-select" formControlName="soItemId" (change)="onSoItemChange()"
                   [attr.disabled]="soItems().length === 0 ? true : null">
-                  <option value="">— Select Item —</option>
+                  <option value="">— {{ '::SelectItem' | abpLocalization }} —</option>
                   @for (item of soItems(); track item.id) {
                     <option [value]="item.id">{{ item.description }} ({{ pendingQty(item) | number:'1.2-2' }} pending)</option>
                   }

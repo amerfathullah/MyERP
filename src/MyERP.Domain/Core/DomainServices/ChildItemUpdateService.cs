@@ -364,4 +364,29 @@ public class ChildItemUpdateService : DomainService
 
         return null;
     }
+
+    /// <summary>
+    /// Validates that every item row ID referenced in an Update Items request belongs to the target order.
+    /// Per ERPNext PR #69227 (<c>child_item_update.py: _validate_rows_belong_to_parent</c>).
+    /// </summary>
+    public void ValidateRowsBelongToParent(
+        IEnumerable<Guid> existingRowIds,
+        IEnumerable<Guid>? requestedRowIds,
+        string parentDocType,
+        string parentOrderNumber)
+    {
+        if (requestedRowIds == null)
+            return;
+
+        var validRowIds = existingRowIds.ToHashSet();
+        foreach (var rowId in requestedRowIds)
+        {
+            if (rowId != Guid.Empty && !validRowIds.Contains(rowId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowId", rowId)
+                    .WithData("detail", $"Item row {rowId} does not belong to {parentDocType} {parentOrderNumber}.");
+            }
+        }
+    }
 }

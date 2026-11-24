@@ -327,6 +327,19 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
             else if (root.TryGetProperty("data", out var dataNameProp) && dataNameProp.TryGetProperty("name", out var dataNameVal))
                 nameVal = dataNameVal.GetString();
 
+            if (string.IsNullOrWhiteSpace(tinVal))
+            {
+                return new LhdnTaxpayerSearchResponse
+                {
+                    IsFound = false,
+                    StatusCode = (int)response.StatusCode,
+                    Tin = null,
+                    TaxpayerName = nameVal,
+                    RawJson = rawJson,
+                    ErrorMessage = "TIN not found in API response."
+                };
+            }
+
             return new LhdnTaxpayerSearchResponse
             {
                 IsFound = true,
