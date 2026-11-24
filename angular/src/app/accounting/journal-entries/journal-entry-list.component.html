@@ -37,17 +37,17 @@
         <div class="col-auto">
           <select class="form-select form-select-sm" style="width: 160px;" (change)="onTypeChange($any($event.target).value)">
             <option value="">{{ '::AllTypes' | abpLocalization }}</option>
-            <option value="0">Journal Entry</option>
-            <option value="2">Bank Entry</option>
-            <option value="3">Cash Entry</option>
-            <option value="5">Debit Note</option>
-            <option value="6">Credit Note</option>
-            <option value="7">Contra Entry</option>
-            <option value="9">Write Off</option>
-            <option value="10">Opening Entry</option>
-            <option value="11">Depreciation</option>
-            <option value="12">Revaluation</option>
-            <option value="16">Reversal</option>
+            <option value="0">{{ '::VoucherType:JournalEntry' | abpLocalization }}</option>
+            <option value="2">{{ '::VoucherType:BankEntry' | abpLocalization }}</option>
+            <option value="3">{{ '::VoucherType:CashEntry' | abpLocalization }}</option>
+            <option value="5">{{ '::VoucherType:DebitNote' | abpLocalization }}</option>
+            <option value="6">{{ '::VoucherType:CreditNote' | abpLocalization }}</option>
+            <option value="7">{{ '::VoucherType:ContraEntry' | abpLocalization }}</option>
+            <option value="9">{{ '::VoucherType:WriteOffEntry' | abpLocalization }}</option>
+            <option value="10">{{ '::VoucherType:OpeningEntry' | abpLocalization }}</option>
+            <option value="11">{{ '::VoucherType:DepreciationEntry' | abpLocalization }}</option>
+            <option value="12">{{ '::VoucherType:ExchangeRateRevaluation' | abpLocalization }}</option>
+            <option value="16">{{ '::VoucherType:Reversal' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-auto">

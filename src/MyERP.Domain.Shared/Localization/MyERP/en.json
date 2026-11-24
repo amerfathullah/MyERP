@@ -7202,7 +7202,11 @@
     "ConvertToSO": "Convert to SO",
     "ReturnRejectedQty": "Return Rejected Qty",
     "TransferMaterials": "Transfer Materials",
-    "CreateWorkOrder": "Create Work Order"
+    "CreateWorkOrder": "Create Work Order",
+    "VoucherType:Reversal": "Reversal",
+    "Liability": "Liability",
+    "Order": "Order",
+    "PosInvoice": "POS Invoice"
   }
 }
 

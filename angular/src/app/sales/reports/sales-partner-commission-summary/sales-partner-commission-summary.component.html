@@ -51,7 +51,7 @@
           <select class="form-select form-select-sm" [(ngModel)]="selectedDocType" (ngModelChange)="loadReport()">
             <option value="Sales Invoice">{{ '::SalesInvoice' | abpLocalization }}</option>
             <option value="Sales Order">{{ '::SalesOrder' | abpLocalization }}</option>
-            <option value="POS Invoice">POS Invoice</option>
+            <option value="POS Invoice">{{ '::PosInvoice' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-md-2">

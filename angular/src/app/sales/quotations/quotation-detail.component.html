@@ -68,7 +68,7 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
-                @if (hasAlternatives && quotation.status === 'Submitted') { <th>Order</th> }
+                @if (hasAlternatives && quotation.status === 'Submitted') { <th>{{ '::Order' | abpLocalization }}</th> }
                 <th>{{ '::Description' | abpLocalization }}</th>
                 <th>{{ '::Qty' | abpLocalization }}</th>
                 <th>{{ '::UnitPrice' | abpLocalization }}</th>

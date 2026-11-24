@@ -20,11 +20,11 @@
           </strong>
           <select class="form-select form-select-sm" style="width: auto;" [(ngModel)]="accountRootTypeFilter" (ngModelChange)="loadFilteredAccounts()">
             <option value="">{{ '::AllRootTypes' | abpLocalization }}</option>
-            <option value="Asset">Asset</option>
-            <option value="Liability">Liability</option>
-            <option value="Equity">Equity</option>
-            <option value="Income">Income</option>
-            <option value="Expense">Expense</option>
+            <option value="Asset">{{ '::Asset' | abpLocalization }}</option>
+            <option value="Liability">{{ '::Liability' | abpLocalization }}</option>
+            <option value="Equity">{{ '::Equity' | abpLocalization }}</option>
+            <option value="Income">{{ '::Income' | abpLocalization }}</option>
+            <option value="Expense">{{ '::Expense' | abpLocalization }}</option>
           </select>
           @if (templateCategories().length > 0) {
             <select class="form-select form-select-sm" style="width: auto;" [(ngModel)]="accountCategoryFilter" (ngModelChange)="loadFilteredAccounts()">

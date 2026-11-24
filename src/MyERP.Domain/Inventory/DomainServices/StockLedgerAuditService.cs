@@ -196,7 +196,54 @@ public class StockLedgerAuditService : DomainService
 
         return true;
     }
+
+    /// <summary>
+    /// Determines whether any active Stock Ledger Entry for another voucher comes strictly after
+    /// the target voucher's posting timestamp and earliest SLE creation time (including cancelled SLEs)
+    /// per ERPNext PR #68732 (<c>stock_controller.py: future_sle_exists</c> / <c>get_voucher_sle_creation</c>):
+    /// - Entries with <c>PostingDateTime &gt; targetPostingDateTime</c> are future.
+    /// - Entries at the exact same <c>PostingDateTime</c> are future ONLY when
+    ///   <c>CreationTime &gt; voucherFirstSleCreationTime</c>.
+    /// </summary>
+    public static bool HasFutureStockLedgerEntry(
+        Guid itemId,
+        Guid warehouseId,
+        string voucherType,
+        Guid voucherId,
+        DateTime targetPostingDateTime,
+        IEnumerable<FutureSleCandidate>? ledgerEntries)
+    {
+        if (ledgerEntries == null)
+            return false;
+
+        var entries = ledgerEntries.ToList();
+        var voucherFirstCreation = entries
+            .Where(e => string.Equals(e.VoucherType, voucherType, StringComparison.OrdinalIgnoreCase)
+                && e.VoucherId == voucherId)
+            .Select(e => (DateTime?)e.CreationTime)
+            .OrderBy(dt => dt)
+            .FirstOrDefault();
+
+        return entries.Any(e =>
+            !e.IsCancelled
+            && e.ItemId == itemId
+            && e.WarehouseId == warehouseId
+            && e.VoucherId != voucherId
+            && (e.PostingDateTime > targetPostingDateTime
+                || (voucherFirstCreation.HasValue
+                    && e.PostingDateTime == targetPostingDateTime
+                    && e.CreationTime > voucherFirstCreation.Value)));
+    }
 }
+
+public sealed record FutureSleCandidate(
+    Guid ItemId,
+    Guid WarehouseId,
+    string? VoucherType,
+    Guid? VoucherId,
+    DateTime PostingDateTime,
+    DateTime CreationTime,
+    bool IsCancelled);
 
 public sealed record PendingRepostSnapshot(
     Guid ItemId,

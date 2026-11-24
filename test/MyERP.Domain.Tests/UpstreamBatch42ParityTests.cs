@@ -16,7 +16,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #68311, #69286, #69293, #69299, #69301,
+/// Parity tests for upstream ERPNext PRs #63403, #68311, #68732, #69286, #69293, #69299, #69301,
 /// #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -526,5 +526,35 @@ public class UpstreamBatch42ParityTests
             bomConversionRate: 4.5m);
         zeroCost.ShouldBe(0m);
         zeroBase.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void Pr68732_FutureSleExists_UsesSameTimestampCreationTieBreakIncludingCancelledVoucherSle()
+    {
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var earlierVoucher = Guid.NewGuid();
+        var targetVoucher = Guid.NewGuid();
+        var laterVoucher = Guid.NewGuid();
+        var samePostingTime = new DateTime(2026, 11, 24, 10, 0, 0);
+
+        // Earlier voucher created at 10:00:01, target voucher's SLE (even if cancelled) at 10:00:02
+        var onlyEarlier = new[]
+        {
+            new FutureSleCandidate(itemId, whId, "StockEntry", earlierVoucher, samePostingTime, samePostingTime.AddSeconds(1), IsCancelled: false),
+            new FutureSleCandidate(itemId, whId, "StockEntry", targetVoucher, samePostingTime, samePostingTime.AddSeconds(2), IsCancelled: true),
+        };
+        StockLedgerAuditService.HasFutureStockLedgerEntry(itemId, whId, "StockEntry", targetVoucher, samePostingTime, onlyEarlier)
+            .ShouldBeFalse();
+
+        // Adding another active voucher at same posting_datetime created AFTER target (10:00:03) -> future SLE exists
+        var withLaterSameTimestamp = new[]
+        {
+            onlyEarlier[0],
+            onlyEarlier[1],
+            new FutureSleCandidate(itemId, whId, "StockEntry", laterVoucher, samePostingTime, samePostingTime.AddSeconds(3), IsCancelled: false),
+        };
+        StockLedgerAuditService.HasFutureStockLedgerEntry(itemId, whId, "StockEntry", targetVoucher, samePostingTime, withLaterSameTimestamp)
+            .ShouldBeTrue();
     }
 }
