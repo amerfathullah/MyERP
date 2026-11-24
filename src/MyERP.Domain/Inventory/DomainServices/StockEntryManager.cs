@@ -1049,6 +1049,27 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Sizes a reset or batchwise finished-good Serial and Batch Bundle on a Manufacture Stock Entry
+    /// to the finished-good row's stock quantity (<c>Round(rowQty * conversionFactor, precision)</c>,
+    /// after process loss) rather than raw <c>fg_completed_qty</c>
+    /// per ERPNext PR #66155 (<c>stock_entry/services/manufacturing.py</c>).
+    /// </summary>
+    public static decimal ResolveFinishedGoodBundleStockQty(
+        decimal rowQty,
+        decimal? rowConversionFactor,
+        decimal? resolvedUomConversionFactor = null,
+        int transferQtyPrecision = 4)
+    {
+        var conversionFactor = rowConversionFactor.HasValue && rowConversionFactor.Value > 0m
+            ? rowConversionFactor.Value
+            : (resolvedUomConversionFactor.HasValue && resolvedUomConversionFactor.Value > 0m
+                ? resolvedUomConversionFactor.Value
+                : 1m);
+
+        return Math.Round(rowQty * conversionFactor, transferQtyPrecision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
     /// Validates scale factor for Disassemble items against source entry.
     /// Per PR #57710: quantities are aggregated in stock UOM (using StockQty) to avoid
     /// cross-UOM mismatches when the same item appears across manufacture entries in different UOMs.

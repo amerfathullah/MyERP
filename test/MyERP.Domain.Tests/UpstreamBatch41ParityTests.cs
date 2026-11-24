@@ -4587,6 +4587,105 @@ public class UpstreamBatch41ParityTests
             .ShouldBe(1m);
     }
 
+    [Fact]
+    public void UpstreamBatch46_DisposalSalvageCap_FgBundleQty_BatchFilter_GrossProfitHeader_Parity()
+    {
+        // 1. ERPNext PR #66288: Asset disposal in final pro-rata period scales linearly and caps at salvage value
+        var finalProRataDisposal = MyERP.Assets.DomainServices.AssetLifecycleManager.CalculateDisposalDepreciationAmount(
+            pendingDepreciationAmount: 1200m,
+            expectedValueAfterUsefulLife: 200m, // remaining depreciable = 1000
+            fromDate: new DateTime(2026, 1, 1),
+            disposalDate: new DateTime(2026, 1, 15), // 15 days inclusive
+            scheduleDate: new DateTime(2026, 1, 30), // 30 days inclusive
+            hasProRata: true,
+            rowIndex: 5,
+            finalNumberOfDepreciations: 6,
+            proRataFallbackAmount: 900m);
+        finalProRataDisposal.ShouldBe(500m);
+
+        // Non-final period caps fallback pro-rata depreciation at remaining depreciable value (salvage floor)
+        var cappedNonFinal = MyERP.Assets.DomainServices.AssetLifecycleManager.CalculateDisposalDepreciationAmount(
+            pendingDepreciationAmount: 350m,
+            expectedValueAfterUsefulLife: 200m, // remaining depreciable = 150
+            fromDate: new DateTime(2026, 1, 1),
+            disposalDate: new DateTime(2026, 1, 20),
+            scheduleDate: new DateTime(2026, 1, 31),
+            hasProRata: false,
+            rowIndex: 2,
+            finalNumberOfDepreciations: 6,
+            proRataFallbackAmount: 250m);
+        cappedNonFinal.ShouldBe(150m);
+
+        // 2. ERPNext PR #66155: Manufacture FG bundle sized to FG row stock qty (rowQty * conversionFactor)
+        StockEntryManager.ResolveFinishedGoodBundleStockQty(rowQty: 8m, rowConversionFactor: 2.5m)
+            .ShouldBe(20m);
+        StockEntryManager.ResolveFinishedGoodBundleStockQty(rowQty: 8m, rowConversionFactor: 0m, resolvedUomConversionFactor: 1.5m)
+            .ShouldBe(12m);
+        StockEntryManager.ResolveFinishedGoodBundleStockQty(rowQty: 8m, rowConversionFactor: null, resolvedUomConversionFactor: null)
+            .ShouldBe(8m);
+
+        // 3. ERPNext PR #66443 + #66522: Auto-set batch deducts items + packed items matching target warehouse or blank warehouse
+        var batches = new[] { ("B1", 10m), ("B2", 10m) };
+        // Packed item uses 6 of B1 in WH-A, later row with blank warehouse uses 4 of B1 -> B1 exhausted -> selects B2
+        var selected = MyERP.Inventory.DomainServices.ItemDetailsResolverService.SelectBatchNoCoveringQty(
+            availableBatches: batches,
+            requestedStockQty: 5m,
+            targetWarehouse: "WH-A",
+            documentItemAndPackedRows: new[]
+            {
+                ((string?)"B1", (string?)"WH-A", 6m),
+                ((string?)"B1", (string?)null, 4m),
+                ((string?)"B2", (string?)"WH-OTHER", 10m), // different warehouse -> ignored
+            });
+        selected.ShouldBe("B2");
+
+        // Remaining B1 covers requested qty when other rows belong to a different warehouse
+        var keepsB1 = MyERP.Inventory.DomainServices.ItemDetailsResolverService.SelectBatchNoCoveringQty(
+            availableBatches: batches,
+            requestedStockQty: 8m,
+            targetWarehouse: "WH-A",
+            documentItemAndPackedRows: new[]
+            {
+                ((string?)"B1", (string?)"WH-OTHER", 10m),
+            });
+        keepsB1.ShouldBe("B1");
+
+        // 4. ERPNext PR #66641: Gross profit invoice header row skips valuation lookup; debit note returns 0
+        var lookupCalls = 0;
+        var headerRow = MyERP.Sales.DomainServices.GrossProfitService.ResolveGroupedGrossProfitRowAmounts(
+            groupedByInvoice: true,
+            rowIndent: 0,
+            isDebitNote: false,
+            rowBaseAmount: 0m,
+            aggregatedInvoiceBuyingAmount: 420m,
+            aggregatedInvoiceBaseAmount: 600m,
+            lookupItemBuyingAmount: () => { lookupCalls++; return 999m; });
+        headerRow.ShouldBe((420m, 600m, false));
+        lookupCalls.ShouldBe(0);
+
+        var debitNoteRow = MyERP.Sales.DomainServices.GrossProfitService.ResolveGroupedGrossProfitRowAmounts(
+            groupedByInvoice: false,
+            rowIndent: 0,
+            isDebitNote: true,
+            rowBaseAmount: 150m,
+            aggregatedInvoiceBuyingAmount: 0m,
+            aggregatedInvoiceBaseAmount: 0m,
+            lookupItemBuyingAmount: () => { lookupCalls++; return 999m; });
+        debitNoteRow.ShouldBe((0m, 150m, false));
+        lookupCalls.ShouldBe(0);
+
+        var itemRow = MyERP.Sales.DomainServices.GrossProfitService.ResolveGroupedGrossProfitRowAmounts(
+            groupedByInvoice: true,
+            rowIndent: 1,
+            isDebitNote: false,
+            rowBaseAmount: 300m,
+            aggregatedInvoiceBuyingAmount: 0m,
+            aggregatedInvoiceBaseAmount: 0m,
+            lookupItemBuyingAmount: () => { lookupCalls++; return 199.996m; });
+        itemRow.ShouldBe((200m, 300m, true));
+        lookupCalls.ShouldBe(1);
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

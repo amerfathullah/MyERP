@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe, DatePipe } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Delivery Note print layout — professional A4 format for warehouse/shipping operations.
@@ -11,7 +12,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
 @Component({
   selector: 'app-dn-print-layout',
   standalone: true,
-  imports: [DecimalPipe, DatePipe],
+  imports: [DecimalPipe, DatePipe, LocalizationPipe],
   template: `
     @if (deliveryNote) {
     <div class="dn-print-layout">
@@ -19,19 +20,19 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <div class="print-header d-flex justify-content-between align-items-start mb-4">
         <div>
           <h3 class="fw-bold mb-1">{{ companyName }}</h3>
-          @if (companyTin) { <p class="text-muted mb-0">TIN: {{ companyTin }}</p> }
-          @if (companySst) { <p class="text-muted mb-0">SST No: {{ companySst }}</p> }
+          @if (companyTin) { <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ companyTin }}</p> }
+          @if (companySst) { <p class="text-muted mb-0">{{ '::SstNo' | abpLocalization }}: {{ companySst }}</p> }
           @if (companyAddress) { <p class="text-muted mb-0">{{ companyAddress }}</p> }
-          @if (companyPhone) { <p class="text-muted mb-0">Tel: {{ companyPhone }}</p> }
+          @if (companyPhone) { <p class="text-muted mb-0">{{ '::Tel' | abpLocalization }}: {{ companyPhone }}</p> }
         </div>
         <div class="text-end">
           <h4 class="text-uppercase fw-bold mb-1" [class.text-danger]="deliveryNote.isReturn" [class.text-primary]="!deliveryNote.isReturn">
-            {{ deliveryNote.isReturn ? 'RETURN NOTE' : 'DELIVERY NOTE' }}
+            {{ (deliveryNote.isReturn ? '::ReturnNote' : '::DeliveryNote') | abpLocalization }}
           </h4>
-          <p class="mb-0"><strong>DN #:</strong> {{ deliveryNote.deliveryNumber }}</p>
-          <p class="mb-0"><strong>Date:</strong> {{ deliveryNote.postingDate | date:'dd/MM/yyyy' }}</p>
-          @if (deliveryNote.salesOrderNumber) { <p class="mb-0"><strong>SO Ref:</strong> {{ deliveryNote.salesOrderNumber }}</p> }
-          @if (deliveryNote.customerPo) { <p class="mb-0"><strong>Customer PO:</strong> {{ deliveryNote.customerPo }}</p> }
+          <p class="mb-0"><strong>{{ '::DnNumberShort' | abpLocalization }}:</strong> {{ deliveryNote.deliveryNumber }}</p>
+          <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ deliveryNote.postingDate | date:'dd/MM/yyyy' }}</p>
+          @if (deliveryNote.salesOrderNumber) { <p class="mb-0"><strong>{{ '::SoRef' | abpLocalization }}:</strong> {{ deliveryNote.salesOrderNumber }}</p> }
+          @if (deliveryNote.customerPo) { <p class="mb-0"><strong>{{ '::CustomerPo' | abpLocalization }}:</strong> {{ deliveryNote.customerPo }}</p> }
         </div>
       </div>
 
@@ -40,16 +41,16 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <!-- Customer & Shipping Info -->
       <div class="row mb-4">
         <div class="col-6">
-          <h6 class="text-uppercase text-muted fw-bold mb-2">Bill To</h6>
-          <p class="fw-bold mb-1">{{ deliveryNote.customerName || 'N/A' }}</p>
+          <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::BillTo' | abpLocalization }}</h6>
+          <p class="fw-bold mb-1">{{ deliveryNote.customerName || ('::NotAvailableShort' | abpLocalization) }}</p>
           @if (billingAddress) { <p class="text-muted mb-0">{{ billingAddress }}</p> }
-          @if (customerTin) { <p class="text-muted mb-0">TIN: {{ customerTin }}</p> }
+          @if (customerTin) { <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ customerTin }}</p> }
         </div>
         <div class="col-6">
-          <h6 class="text-uppercase text-muted fw-bold mb-2">Ship To</h6>
-          <p class="fw-bold mb-1">{{ shippingContactName || deliveryNote.customerName || 'N/A' }}</p>
+          <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::ShipTo' | abpLocalization }}</h6>
+          <p class="fw-bold mb-1">{{ shippingContactName || deliveryNote.customerName || ('::NotAvailableShort' | abpLocalization) }}</p>
           @if (shippingAddress) { <p class="text-muted mb-0">{{ shippingAddress }}</p> }
-          @if (shippingPhone) { <p class="text-muted mb-0">Tel: {{ shippingPhone }}</p> }
+          @if (shippingPhone) { <p class="text-muted mb-0">{{ '::Tel' | abpLocalization }}: {{ shippingPhone }}</p> }
         </div>
       </div>
 
@@ -58,19 +59,19 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <div class="row mb-3">
         @if (warehouseName) {
         <div class="col-4">
-          <small class="text-muted">Source Warehouse</small>
+          <small class="text-muted">{{ '::SourceWarehouse' | abpLocalization }}</small>
           <p class="fw-bold mb-0">{{ warehouseName }}</p>
         </div>
         }
         @if (vehicleNo) {
         <div class="col-4">
-          <small class="text-muted">Vehicle No.</small>
+          <small class="text-muted">{{ '::VehicleNo' | abpLocalization }}</small>
           <p class="fw-bold mb-0">{{ vehicleNo }}</p>
         </div>
         }
         @if (driverName) {
         <div class="col-4">
-          <small class="text-muted">Driver</small>
+          <small class="text-muted">{{ '::Driver' | abpLocalization }}</small>
           <p class="fw-bold mb-0">{{ driverName }}</p>
         </div>
         }
@@ -81,13 +82,13 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <table class="table table-bordered mb-4">
         <thead class="table-light">
           <tr>
-            <th style="width: 40px" class="text-center">S/No</th>
-            <th>Item Code / Description</th>
-            <th class="text-end" style="width: 70px">Qty</th>
-            <th class="text-end" style="width: 70px">UOM</th>
-            @if (showSerialBatch) { <th class="text-center" style="width: 120px">Serial / Batch</th> }
-            @if (!hideAmounts) { <th class="text-end" style="width: 100px">Rate</th> }
-            @if (!hideAmounts) { <th class="text-end" style="width: 110px">Amount</th> }
+            <th style="width: 40px" class="text-center">{{ '::SerialNoShort' | abpLocalization }}</th>
+            <th>{{ '::ItemCodeDescription' | abpLocalization }}</th>
+            <th class="text-end" style="width: 70px">{{ '::Qty' | abpLocalization }}</th>
+            <th class="text-end" style="width: 70px">{{ '::Uom' | abpLocalization }}</th>
+            @if (showSerialBatch) { <th class="text-center" style="width: 120px">{{ '::SerialBatch' | abpLocalization }}</th> }
+            @if (!hideAmounts) { <th class="text-end" style="width: 100px">{{ '::Rate' | abpLocalization }}</th> }
+            @if (!hideAmounts) { <th class="text-end" style="width: 110px">{{ '::Amount' | abpLocalization }}</th> }
           </tr>
         </thead>
         <tbody>
@@ -109,7 +110,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
         @if (!hideAmounts) {
         <tfoot>
           <tr class="fw-bold">
-            <td [attr.colspan]="showSerialBatch ? 5 : 4" class="text-end border-0">Total Qty:</td>
+            <td [attr.colspan]="showSerialBatch ? 5 : 4" class="text-end border-0">{{ '::TotalQty' | abpLocalization }}:</td>
             <td class="text-end font-monospace border-0" [attr.colspan]="2">{{ totalQty | number:'1.0-2' }}</td>
           </tr>
         </tfoot>
@@ -122,7 +123,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
         <div class="col-6">
           @if (deliveryNote.notes || deliveryInstructions) {
           <div class="border rounded p-3">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Delivery Instructions</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::DeliveryInstructions' | abpLocalization }}</h6>
             <p class="mb-0 small">{{ deliveryInstructions || deliveryNote.notes }}</p>
           </div>
           }
@@ -131,17 +132,17 @@ import { DecimalPipe, DatePipe } from '@angular/common';
           <table class="table table-sm mb-0">
             <tbody>
               <tr>
-                <td class="text-end border-0"><strong>Subtotal:</strong></td>
+                <td class="text-end border-0"><strong>{{ '::Subtotal' | abpLocalization }}:</strong></td>
                 <td class="text-end border-0 font-monospace" style="width: 140px">{{ currency }} {{ deliveryNote.netTotal | number:'1.2-2' }}</td>
               </tr>
               @if (deliveryNote.taxAmount) {
               <tr>
-                <td class="text-end border-0"><strong>Tax (SST):</strong></td>
+                <td class="text-end border-0"><strong>{{ '::TaxSst' | abpLocalization }}:</strong></td>
                 <td class="text-end border-0 font-monospace">{{ currency }} {{ deliveryNote.taxAmount | number:'1.2-2' }}</td>
               </tr>
               }
               <tr class="border-top">
-                <td class="text-end"><strong class="fs-5">Grand Total:</strong></td>
+                <td class="text-end"><strong class="fs-5">{{ '::GrandTotal' | abpLocalization }}:</strong></td>
                 <td class="text-end font-monospace fs-5 fw-bold">{{ currency }} {{ deliveryNote.grandTotal | number:'1.2-2' }}</td>
               </tr>
             </tbody>
@@ -154,19 +155,19 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <div class="mt-5 pt-4 border-top">
         <div class="row">
           <div class="col-4">
-            <p class="mb-1 small fw-bold">Prepared By:</p>
+            <p class="mb-1 small fw-bold">{{ '::PreparedBy' | abpLocalization }}:</p>
             <div class="border-bottom mt-4" style="width: 180px;"></div>
-            <p class="text-muted small mt-1">Name / Date / Stamp</p>
+            <p class="text-muted small mt-1">{{ '::NameDateStamp' | abpLocalization }}</p>
           </div>
           <div class="col-4">
-            <p class="mb-1 small fw-bold">Checked By:</p>
+            <p class="mb-1 small fw-bold">{{ '::CheckedBy' | abpLocalization }}:</p>
             <div class="border-bottom mt-4" style="width: 180px;"></div>
-            <p class="text-muted small mt-1">Name / Date / Stamp</p>
+            <p class="text-muted small mt-1">{{ '::NameDateStamp' | abpLocalization }}</p>
           </div>
           <div class="col-4">
-            <p class="mb-1 small fw-bold">Received By:</p>
+            <p class="mb-1 small fw-bold">{{ '::ReceivedBy' | abpLocalization }}:</p>
             <div class="border-bottom mt-4" style="width: 180px;"></div>
-            <p class="text-muted small mt-1">Name / Date / Stamp</p>
+            <p class="text-muted small mt-1">{{ '::NameDateStamp' | abpLocalization }}</p>
           </div>
         </div>
       </div>
@@ -174,11 +175,11 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <!-- Footer -->
       <div class="mt-3 text-center">
         <p class="text-muted small mb-0">
-          Goods received in good condition unless otherwise noted above.
+          {{ '::GoodsReceivedInGoodCondition' | abpLocalization }}
         </p>
         @if (deliveryNote.isReturn) {
         <p class="text-muted small mb-0">
-          <strong>Note:</strong> This is a return document. Items listed are being returned to the company.
+          <strong>{{ '::Note' | abpLocalization }}:</strong> {{ '::ReturnDocumentNotice' | abpLocalization }}
         </p>
         }
       </div>

@@ -438,4 +438,42 @@ public class AssetLifecycleManager : DomainService
 
         return Math.Round(netPurchaseAmount * (salvageValuePercentage / 100m), precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes disposal depreciation amount for a finance book schedule row, handling disposal in the
+    /// final pro-rata period linearly against remaining depreciable balance and always capping depreciation
+    /// so net book value never drops below <paramref name="expectedValueAfterUsefulLife"/> (salvage value)
+    /// per ERPNext PR #66288 (<c>deppreciation_schedule_controller.py</c>).
+    /// </summary>
+    public static decimal CalculateDisposalDepreciationAmount(
+        decimal pendingDepreciationAmount,
+        decimal expectedValueAfterUsefulLife,
+        DateTime fromDate,
+        DateTime disposalDate,
+        DateTime scheduleDate,
+        bool hasProRata,
+        int rowIndex,
+        int finalNumberOfDepreciations,
+        decimal proRataFallbackAmount,
+        int precision = 2)
+    {
+        var remainingDepreciation = Math.Max(0m, pendingDepreciationAmount - expectedValueAfterUsefulLife);
+
+        decimal rawDepreciation;
+        if (hasProRata && rowIndex == finalNumberOfDepreciations - 1)
+        {
+            var totalDays = Math.Max(1, (scheduleDate.Date - fromDate.Date).Days + 1);
+            var days = Math.Clamp((disposalDate.Date - fromDate.Date).Days + 1, 0, totalDays);
+            rawDepreciation = remainingDepreciation * days / totalDays;
+        }
+        else
+        {
+            rawDepreciation = proRataFallbackAmount;
+        }
+
+        return Math.Round(
+            Math.Min(Math.Max(0m, rawDepreciation), remainingDepreciation),
+            precision,
+            MidpointRounding.AwayFromZero);
+    }
 }

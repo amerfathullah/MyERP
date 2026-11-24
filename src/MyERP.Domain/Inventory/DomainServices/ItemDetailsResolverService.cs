@@ -778,6 +778,85 @@ public class ItemDetailsResolverService : DomainService
         => isSerialNoWiseValuationDisabled
             ? currentIncomingRate
             : Math.Round(bundleAvgRate, ratePrecision, MidpointRounding.AwayFromZero);
+
+    /// <summary>
+    /// Auto-selects the first available batch covering <paramref name="requestedStockQty"/> after
+    /// deducting quantities already allocated across both item rows and packed item rows in the
+    /// document per ERPNext PR #66443 and PR #66522 (<c>get_batch_no_covering_qty</c> / <c>filter_batches</c>
+    /// in <c>get_item_details.py</c>):
+    /// - Counts both <c>items</c> and <c>packed_items</c> rows.
+    /// - Deducts a row when its warehouse matches <paramref name="targetWarehouse"/> OR its warehouse is
+    ///   still blank/null (later rows may inherit the same warehouse from header/item/POS defaults).
+    /// - Removes exhausted batches (<c>&lt;= 0</c>) and returns the first remaining batch with qty
+    ///   <c>&gt;= Round(requestedStockQty, qtyPrecision)</c>, or <c>null</c> if none covers it.
+    /// </summary>
+    public static string? SelectBatchNoCoveringQty(
+        IEnumerable<(string BatchNo, decimal AvailableQty)>? availableBatches,
+        decimal requestedStockQty,
+        string? targetWarehouse,
+        IEnumerable<(string? BatchNo, string? Warehouse, decimal StockQty)>? documentItemAndPackedRows,
+        int qtyPrecision = 4)
+    {
+        if (availableBatches == null)
+        {
+            return null;
+        }
+
+        var remainingOrder = new List<string>();
+        var remainingByBatch = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        foreach (var (batchNo, availableQty) in availableBatches)
+        {
+            if (string.IsNullOrWhiteSpace(batchNo) || remainingByBatch.ContainsKey(batchNo))
+            {
+                continue;
+            }
+
+            remainingOrder.Add(batchNo);
+            remainingByBatch[batchNo] = availableQty;
+        }
+
+        if (documentItemAndPackedRows != null)
+        {
+            foreach (var row in documentItemAndPackedRows)
+            {
+                if (string.IsNullOrWhiteSpace(row.BatchNo) || !remainingByBatch.ContainsKey(row.BatchNo))
+                {
+                    continue;
+                }
+
+                var warehouseMatches = string.IsNullOrWhiteSpace(row.Warehouse)
+                    || (!string.IsNullOrWhiteSpace(targetWarehouse)
+                        && string.Equals(row.Warehouse, targetWarehouse, StringComparison.OrdinalIgnoreCase));
+
+                if (!warehouseMatches)
+                {
+                    continue;
+                }
+
+                var rowStockQty = Math.Round(row.StockQty, qtyPrecision, MidpointRounding.AwayFromZero);
+                var updated = Math.Round(remainingByBatch[row.BatchNo] - rowStockQty, qtyPrecision, MidpointRounding.AwayFromZero);
+                if (updated <= 0m)
+                {
+                    remainingByBatch.Remove(row.BatchNo);
+                }
+                else
+                {
+                    remainingByBatch[row.BatchNo] = updated;
+                }
+            }
+        }
+
+        var required = Math.Round(requestedStockQty, qtyPrecision, MidpointRounding.AwayFromZero);
+        foreach (var batchNo in remainingOrder)
+        {
+            if (remainingByBatch.TryGetValue(batchNo, out var qty))
+            {
+                return qty >= required ? batchNo : null;
+            }
+        }
+
+        return null;
+    }
 }
 
 // --- Supporting types ---

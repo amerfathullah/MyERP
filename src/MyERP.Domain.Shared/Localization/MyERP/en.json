@@ -7111,7 +7111,32 @@
     "AuthorizedSignatory": "Authorized Signatory",
     "Acknowledgement": "Acknowledgement",
     "ThankYouForPayment": "Thank you for your payment.",
-    "ThankYouForBusiness": "Thank you for your business."
+    "ThankYouForBusiness": "Thank you for your business.",
+    "ReturnNote": "Return Note",
+    "DnNumberShort": "DN #",
+    "SoRef": "SO Ref",
+    "CustomerPo": "Customer PO",
+    "VehicleNo": "Vehicle No.",
+    "ItemCodeDescription": "Item Code / Description",
+    "SerialBatch": "Serial / Batch",
+    "DeliveryInstructions": "Delivery Instructions",
+    "CheckedBy": "Checked By",
+    "NameDateStamp": "Name / Date / Stamp",
+    "GoodsReceivedInGoodCondition": "Goods received in good condition unless otherwise noted above.",
+    "Note": "Note",
+    "ReturnDocumentNotice": "This is a return document. Items listed are being returned to the company.",
+    "RefNumberShort": "Ref #",
+    "QuotationTo": "Quotation To",
+    "Attn": "Attn",
+    "AsPerAgreement": "As per agreement",
+    "DiscPercent": "Disc %",
+    "Sst": "SST",
+    "QuotationValidUntilPrefix": "This quotation is valid until",
+    "QuotationPricesSubjectToChange": "Prices may be subject to change after the validity period.",
+    "ForCompanyPrefix": "For",
+    "AcceptedByCustomer": "Accepted By (Customer)",
+    "NameSignatureDateStamp": "Name / Signature / Date / Company Stamp",
+    "ThankYouProposal": "Thank you for considering our proposal. We look forward to serving you."
   }
 }
 

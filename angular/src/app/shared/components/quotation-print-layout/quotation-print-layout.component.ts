@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Quotation print layout — professional A4 format for customer proposals.
@@ -10,7 +11,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-quotation-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (quotation) {
       <div class="quotation-print-layout">
@@ -19,27 +20,27 @@ import { CommonModule } from '@angular/common';
           <div>
             <h3 class="fw-bold mb-1">{{ companyName }}</h3>
             @if (companyTin) {
-              <p class="text-muted mb-0">TIN: {{ companyTin }}</p>
+              <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ companyTin }}</p>
             }
             @if (companySst) {
-              <p class="text-muted mb-0">SST Reg No: {{ companySst }}</p>
+              <p class="text-muted mb-0">{{ '::SstRegNo' | abpLocalization }}: {{ companySst }}</p>
             }
             @if (companyAddress) {
               <p class="text-muted mb-0">{{ companyAddress }}</p>
             }
             @if (companyPhone) {
-              <p class="text-muted mb-0">Tel: {{ companyPhone }}</p>
+              <p class="text-muted mb-0">{{ '::Tel' | abpLocalization }}: {{ companyPhone }}</p>
             }
             @if (companyEmail) {
-              <p class="text-muted mb-0">Email: {{ companyEmail }}</p>
+              <p class="text-muted mb-0">{{ '::Email' | abpLocalization }}: {{ companyEmail }}</p>
             }
           </div>
           <div class="text-end">
-            <h4 class="text-uppercase text-primary fw-bold mb-1">QUOTATION</h4>
-            <p class="mb-0"><strong>Ref #:</strong> {{ quotation.quotationNumber }}</p>
-            <p class="mb-0"><strong>Date:</strong> {{ quotation.issueDate | date:'dd/MM/yyyy' }}</p>
+            <h4 class="text-uppercase text-primary fw-bold mb-1">{{ '::Quotation' | abpLocalization }}</h4>
+            <p class="mb-0"><strong>{{ '::RefNumberShort' | abpLocalization }}:</strong> {{ quotation.quotationNumber }}</p>
+            <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ quotation.issueDate | date:'dd/MM/yyyy' }}</p>
             @if (quotation.validUntil) {
-              <p class="mb-0"><strong>Valid Until:</strong> {{ quotation.validUntil | date:'dd/MM/yyyy' }}</p>
+              <p class="mb-0"><strong>{{ '::ValidUntil' | abpLocalization }}:</strong> {{ quotation.validUntil | date:'dd/MM/yyyy' }}</p>
             }
           </div>
         </div>
@@ -47,22 +48,22 @@ import { CommonModule } from '@angular/common';
         <!-- Customer Info -->
         <div class="row mb-4">
           <div class="col-7">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Quotation To</h6>
-            <p class="fw-bold mb-1">{{ quotation.customerName || customerName || 'N/A' }}</p>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::QuotationTo' | abpLocalization }}</h6>
+            <p class="fw-bold mb-1">{{ quotation.customerName || customerName || ('::NotAvailableShort' | abpLocalization) }}</p>
             @if (customerAddress) {
               <p class="text-muted mb-0">{{ customerAddress }}</p>
             }
             @if (customerTin) {
-              <p class="text-muted mb-0">TIN: {{ customerTin }}</p>
+              <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ customerTin }}</p>
             }
             @if (contactPerson) {
-              <p class="text-muted mb-0">Attn: {{ contactPerson }}</p>
+              <p class="text-muted mb-0">{{ '::Attn' | abpLocalization }}: {{ contactPerson }}</p>
             }
           </div>
           <div class="col-5 text-end">
             <div class="border rounded p-3 d-inline-block">
-              <small class="text-muted d-block">Payment Terms</small>
-              <span class="fw-semibold">{{ paymentTerms || 'As per agreement' }}</span>
+              <small class="text-muted d-block">{{ '::PaymentTerms' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ paymentTerms || ('::AsPerAgreement' | abpLocalization) }}</span>
             </div>
           </div>
         </div>
@@ -76,15 +77,15 @@ import { CommonModule } from '@angular/common';
         <table class="table table-bordered mb-4">
           <thead class="table-light">
             <tr>
-              <th style="width: 40px" class="text-center">S/No</th>
-              <th>Description</th>
-              <th class="text-end" style="width: 70px">Qty</th>
-              <th class="text-end" style="width: 70px">UOM</th>
-              <th class="text-end" style="width: 110px">Unit Price</th>
+              <th style="width: 40px" class="text-center">{{ '::SerialNoShort' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-end" style="width: 70px">{{ '::Qty' | abpLocalization }}</th>
+              <th class="text-end" style="width: 70px">{{ '::Uom' | abpLocalization }}</th>
+              <th class="text-end" style="width: 110px">{{ '::UnitPrice' | abpLocalization }}</th>
               @if (hasDiscounts) {
-                <th class="text-end" style="width: 80px">Disc %</th>
+                <th class="text-end" style="width: 80px">{{ '::DiscPercent' | abpLocalization }}</th>
               }
-              <th class="text-end" style="width: 120px">Amount ({{ currency }})</th>
+              <th class="text-end" style="width: 120px">{{ '::Amount' | abpLocalization }} ({{ currency }})</th>
             </tr>
           </thead>
           <tbody>
@@ -117,7 +118,7 @@ import { CommonModule } from '@angular/common';
               <!-- Terms & Conditions -->
               @if (termsAndConditions) {
                 <div>
-                  <h6 class="text-uppercase text-muted fw-bold mb-2">Terms & Conditions</h6>
+                  <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::TermsAndConditions' | abpLocalization }}</h6>
                   <div class="small" [innerHTML]="termsAndConditions"></div>
                 </div>
               }
@@ -126,23 +127,23 @@ import { CommonModule } from '@angular/common';
               <table class="table table-sm mb-0">
                 <tbody>
                   <tr>
-                    <td class="text-end border-0"><strong>Subtotal:</strong></td>
+                    <td class="text-end border-0"><strong>{{ '::Subtotal' | abpLocalization }}:</strong></td>
                     <td class="text-end border-0 font-monospace" style="width: 140px">{{ currency }} {{ quotation.netTotal | number:'1.2-2' }}</td>
                   </tr>
                   @if (quotation.discountAmount) {
                     <tr>
-                      <td class="text-end border-0"><strong>Discount:</strong></td>
+                      <td class="text-end border-0"><strong>{{ '::Discount' | abpLocalization }}:</strong></td>
                       <td class="text-end border-0 font-monospace text-danger">- {{ currency }} {{ quotation.discountAmount | number:'1.2-2' }}</td>
                     </tr>
                   }
                   @if (quotation.taxAmount) {
                     <tr>
-                      <td class="text-end border-0"><strong>Tax (SST {{ taxRate }}%):</strong></td>
+                      <td class="text-end border-0"><strong>{{ '::Tax' | abpLocalization }} ({{ '::Sst' | abpLocalization }} {{ taxRate }}%):</strong></td>
                       <td class="text-end border-0 font-monospace">{{ currency }} {{ quotation.taxAmount | number:'1.2-2' }}</td>
                     </tr>
                   }
                   <tr class="border-top">
-                    <td class="text-end"><strong class="fs-5">Grand Total:</strong></td>
+                    <td class="text-end"><strong class="fs-5">{{ '::GrandTotal' | abpLocalization }}:</strong></td>
                     <td class="text-end font-monospace fs-5 fw-bold">{{ currency }} {{ quotation.grandTotal | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
@@ -154,8 +155,8 @@ import { CommonModule } from '@angular/common';
             <div class="mt-4 p-3 border rounded bg-light">
               <p class="mb-0 text-center small">
                 <i class="fa fa-info-circle me-1"></i>
-                This quotation is valid until <strong>{{ quotation.validUntil | date:'dd MMMM yyyy' }}</strong>.
-                Prices may be subject to change after the validity period.
+                {{ '::QuotationValidUntilPrefix' | abpLocalization }} <strong>{{ quotation.validUntil | date:'dd MMMM yyyy' }}</strong>.
+                {{ '::QuotationPricesSubjectToChange' | abpLocalization }}
               </p>
             </div>
           }
@@ -163,20 +164,20 @@ import { CommonModule } from '@angular/common';
           <div class="mt-5 pt-4 border-top">
             <div class="row">
               <div class="col-6">
-                <h6 class="fw-bold mb-3">For {{ companyName }}</h6>
+                <h6 class="fw-bold mb-3">{{ '::ForCompanyPrefix' | abpLocalization }} {{ companyName }}</h6>
                 <div class="border-bottom mt-4" style="width: 200px;"></div>
-                <p class="text-muted small mt-1">Authorized Signatory</p>
+                <p class="text-muted small mt-1">{{ '::AuthorizedSignatory' | abpLocalization }}</p>
               </div>
               <div class="col-6">
-                <h6 class="fw-bold mb-3">Accepted By (Customer)</h6>
+                <h6 class="fw-bold mb-3">{{ '::AcceptedByCustomer' | abpLocalization }}</h6>
                 <div class="border-bottom mt-4" style="width: 200px;"></div>
-                <p class="text-muted small mt-1">Name / Signature / Date / Company Stamp</p>
+                <p class="text-muted small mt-1">{{ '::NameSignatureDateStamp' | abpLocalization }}</p>
               </div>
             </div>
           </div>
           <!-- Footer -->
           <div class="mt-3 text-center">
-            <p class="text-muted small mb-0">Thank you for considering our proposal. We look forward to serving you.</p>
+            <p class="text-muted small mb-0">{{ '::ThankYouProposal' | abpLocalization }}</p>
           </div>
         </div>
       }

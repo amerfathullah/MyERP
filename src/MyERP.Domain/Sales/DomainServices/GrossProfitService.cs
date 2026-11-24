@@ -139,6 +139,40 @@ public class GrossProfitService : DomainService
         var ratePerStockUom = (rate * effectiveExchangeRate) / effectiveConversionFactor;
         return Math.Round((ratePerStockUom - valuationRate) * stockQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves buying and base amounts for a Gross Profit report row per ERPNext PR #66641
+    /// (<c>gross_profit.py</c>):
+    /// - When <paramref name="groupedByInvoice"/> is true and <paramref name="rowIndent"/> is <c>0</c>
+    ///   (invoice header row), directly applies the pre-aggregated invoice totals and skips per-item
+    ///   valuation lookup.
+    /// - For rate-adjustment debit notes (<paramref name="isDebitNote"/> = true), returns <c>0</c>
+    ///   buying amount with no valuation lookup.
+    /// - Otherwise invokes <paramref name="lookupItemBuyingAmount"/> and rounds to <paramref name="currencyPrecision"/>.
+    /// </summary>
+    public static (decimal BuyingAmount, decimal BaseAmount, bool LookupInvoked) ResolveGroupedGrossProfitRowAmounts(
+        bool groupedByInvoice,
+        int rowIndent,
+        bool isDebitNote,
+        decimal rowBaseAmount,
+        decimal aggregatedInvoiceBuyingAmount,
+        decimal aggregatedInvoiceBaseAmount,
+        Func<decimal> lookupItemBuyingAmount,
+        int currencyPrecision = 2)
+    {
+        if (groupedByInvoice && rowIndent == 0)
+        {
+            return (aggregatedInvoiceBuyingAmount, aggregatedInvoiceBaseAmount, false);
+        }
+
+        if (isDebitNote)
+        {
+            return (0m, rowBaseAmount, false);
+        }
+
+        var buyingAmount = Math.Round(lookupItemBuyingAmount(), currencyPrecision, MidpointRounding.AwayFromZero);
+        return (buyingAmount, rowBaseAmount, true);
+    }
 }
 
 public class GrossProfitResult
