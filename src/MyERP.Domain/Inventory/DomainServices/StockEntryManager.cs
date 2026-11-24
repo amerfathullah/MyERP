@@ -2804,6 +2804,29 @@ public class StockEntryManager : DomainService
 
         return Math.Ceiling(Math.Round(qty, 9, MidpointRounding.AwayFromZero));
     }
+
+    /// <summary>
+    /// Orders Stock Entry rows for manufacturing valuation per ERPNext PR #68832
+    /// (<c>stock_entry.py: count_secondary_items_under</c>):
+    /// non-finished items before finished items, costed-out rows before non-costed-out rows,
+    /// rows costed out of the finished item before others, and inner sub-assembly secondary rows
+    /// (fewer nested secondary items under their BOM) before outer sub-assembly co-products
+    /// so outer co-products are valued net of inner co-products.
+    /// </summary>
+    public static List<TRow> OrderFinishedAndSecondaryRowsForCosting<TRow>(
+        IEnumerable<TRow> rows,
+        Func<TRow, bool> isFinishedItem,
+        Func<TRow, bool> isCostedOut,
+        Func<TRow, bool> isCostedOutOfFinishedItem,
+        Func<TRow, int> nestedSecondaryRowCount)
+    {
+        return rows
+            .OrderBy(r => isFinishedItem(r) ? 1 : 0)
+            .ThenBy(r => isCostedOut(r) ? 0 : 1)
+            .ThenBy(r => isCostedOutOfFinishedItem(r) ? 0 : 1)
+            .ThenBy(nestedSecondaryRowCount)
+            .ToList();
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

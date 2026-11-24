@@ -16,15 +16,15 @@ import { CodeListDto } from '../../proxy/edi/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} EDI Common Code</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditEdiCommonCode' : '::NewEdiCommonCode') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Code List *</label>
+              <label class="form-label">{{ '::CodeList' | abpLocalization }} *</label>
               <select class="form-select" formControlName="codeListId">
-                <option [ngValue]="null">-- Select Code List --</option>
+                <option [ngValue]="null">{{ '::SelectCodeList' | abpLocalization }}</option>
                 @for (cl of codeLists; track cl.id) {
                   <option [ngValue]="cl.id">{{ cl.title }}</option>
                 }
@@ -32,34 +32,34 @@ import { CodeListDto } from '../../proxy/edi/models';
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Code *</label>
+              <label class="form-label">{{ '::Code' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="code" [placeholder]="'::Placeholder:CommonCodeValue' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Title *</label>
+            <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:CommonCodeTitle' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:CodeValueDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Additional Data (JSON)</label>
+            <label class="form-label">{{ '::AdditionalDataJson' | abpLocalization }}</label>
             <textarea class="form-control font-monospace" rows="4" formControlName="additionalDataJson" [placeholder]="'::Placeholder:OptionalJsonMetadata' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-            <label class="form-check-label" for="isActive">Active</label>
+            <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/edi/common-codes" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/edi/common-codes" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

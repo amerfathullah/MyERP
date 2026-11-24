@@ -14,64 +14,64 @@ import { CodeListService } from '../../proxy/edi/code-list.service';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} EDI Code List</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditEdiCodeList' : '::NewEdiCodeList') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Title *</label>
+              <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:CodeListTitle' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Canonical URI</label>
+              <label class="form-label">{{ '::CanonicalUri' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="canonicalUri" placeholder="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">URL</label>
+              <label class="form-label">{{ '::Url' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="url" placeholder="https://...">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Default Common Code</label>
+              <label class="form-label">{{ '::DefaultCommonCode' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="defaultCommonCode" [placeholder]="'::Placeholder:FallbackCommonCode' | abpLocalization">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Version</label>
+              <label class="form-label">{{ '::Version' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="version" [placeholder]="'::Placeholder:CodeListVersion' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Publisher</label>
+              <label class="form-label">{{ '::Publisher' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="publisher" [placeholder]="'::Placeholder:CodeListPublisher' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Publisher ID</label>
+              <label class="form-label">{{ '::PublisherId' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="publisherId" [placeholder]="'::Placeholder:CodeListPublisherId' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:CodeListDescription' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-            <label class="form-check-label" for="isActive">Active</label>
+            <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/edi/code-lists" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/edi/code-lists" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

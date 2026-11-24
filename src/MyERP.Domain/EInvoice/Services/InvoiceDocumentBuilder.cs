@@ -736,10 +736,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 Math.Abs(line.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)));
         if (line.TaxCategoryCode != null)
         {
+            // Per myinvois createxml.py:986 — support both "01" and "01 : Sales Tax" display formats
+            var normalizedCategory = ExtractTaxCategoryCode(line.TaxCategoryCode, line.TaxAmount);
             var lineTaxCategory = new XElement(Cac + "TaxCategory",
-                new XElement(Cbc + "ID", line.TaxCategoryCode),
+                new XElement(Cbc + "ID", normalizedCategory),
                 new XElement(Cbc + "Percent", Math.Abs(line.TaxRate ?? 0).ToString("F2", CultureInfo.InvariantCulture)));
-            if (string.Equals(line.TaxCategoryCode, "E", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(normalizedCategory, "E", StringComparison.OrdinalIgnoreCase)
                 || !string.IsNullOrWhiteSpace(line.TaxExemptionReason))
             {
                 lineTaxCategory.Add(new XElement(Cbc + "TaxExemptionReason",
@@ -750,10 +752,12 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XAttribute("schemeAgencyID", "6"),
                     new XAttribute("schemeID", "UN/ECE 5153"), "OTH")));
 
+            // Per myinvois createxml.py:972 — line TaxableAmount is net of per-line discount
+            var lineTaxableAmount = Math.Abs(line.LineTotal - Math.Abs(line.DiscountAmount));
             taxTotal.Add(new XElement(Cac + "TaxSubtotal",
                 new XElement(Cbc + "TaxableAmount",
                     new XAttribute("currencyID", currency),
-                    Math.Abs(line.LineTotal).ToString("F2", CultureInfo.InvariantCulture)),
+                    lineTaxableAmount.ToString("F2", CultureInfo.InvariantCulture)),
                 new XElement(Cbc + "TaxAmount",
                     new XAttribute("currencyID", currency),
                     Math.Abs(line.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)),
@@ -886,9 +890,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
         foreach (var line in lines)
         {
-            var categoryCode = string.IsNullOrWhiteSpace(line.TaxCategoryCode)
-                ? (line.TaxAmount != 0m ? "01" : "06")
-                : line.TaxCategoryCode.Trim();
+            var categoryCode = ExtractTaxCategoryCode(line.TaxCategoryCode, line.TaxAmount);
             if (!byCategory.TryGetValue(categoryCode, out var bucket))
             {
                 bucket = new EInvoiceTaxBreakdown
@@ -920,6 +922,23 @@ public class InvoiceDocumentBuilder : ITransientDependency
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Extracts the LHDN tax category code from either a plain code (<c>"01"</c>, <c>"E"</c>)
+    /// or MyInvois <c>"CODE : Description"</c> display value (<c>"01 : Sales Tax"</c>).
+    /// Falls back to <c>"01"</c> when tax is non-zero or <c>"06"</c> (Not Applicable) when blank.
+    /// </summary>
+    public static string ExtractTaxCategoryCode(string? rawTaxCategory, decimal taxAmount = 0m)
+    {
+        if (string.IsNullOrWhiteSpace(rawTaxCategory))
+            return taxAmount != 0m ? "01" : "06";
+
+        var colonIdx = rawTaxCategory.IndexOf(':');
+        var code = (colonIdx >= 0 ? rawTaxCategory[..colonIdx] : rawTaxCategory).Trim();
+        return string.IsNullOrWhiteSpace(code)
+            ? (taxAmount != 0m ? "01" : "06")
+            : code;
     }
 }
 

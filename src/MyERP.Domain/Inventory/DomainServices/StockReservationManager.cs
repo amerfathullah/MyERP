@@ -2337,6 +2337,31 @@ public class StockReservationManager : DomainService
             TargetWarehouseId: supplierWarehouseId,
             ReplayGroupKey: (subcontractingOrderId, itemId, supplierWarehouseId));
     }
+
+    /// <summary>
+    /// Computes the maximum allowed reservation quantity for a Work Order material row
+    /// per ERPNext PR #68805 (<c>StockReservationEntry.validate_qty_to_be_reserved</c>):
+    /// counts the row's <paramref name="subcontractedQty"/> as already delivered only when submitting
+    /// a new Work Order reservation (not linked from an upstream voucher), so stock taken over by a
+    /// Subcontracting Order is not reserved a second time.
+    /// </summary>
+    public static decimal CalculateWorkOrderAllowedReservationQty(
+        decimal availableQty,
+        decimal voucherQty,
+        decimal totalReservedQty,
+        decimal subcontractedQty,
+        bool hasFromVoucher,
+        bool isSubmitAction,
+        int precision = 3)
+    {
+        var voucherDeliveredQty = !hasFromVoucher && isSubmitAction
+            ? Math.Max(subcontractedQty, 0m)
+            : 0m;
+
+        var remainingDemand = voucherQty - voucherDeliveredQty - totalReservedQty;
+        var allowed = Math.Min(availableQty, remainingDemand);
+        return Math.Max(0m, Math.Round(allowed, precision, MidpointRounding.AwayFromZero));
+    }
 }
 
 public class ReservationConsumption

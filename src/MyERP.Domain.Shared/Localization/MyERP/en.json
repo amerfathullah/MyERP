@@ -6833,7 +6833,20 @@
     "Placeholder:CustomerEmailSample": "customer@example.com",
     "Placeholder:CcEmailsSample": "cc1@example.com, cc2@example.com",
     "Placeholder:EmailSubjectVariableHint": "Use {variable} for placeholders",
-    "Placeholder:EmailBodyHtmlHint": "HTML supported. Use {customer}, {amount}, {invoice_no} etc."
+    "Placeholder:EmailBodyHtmlHint": "HTML supported. Use {customer}, {amount}, {invoice_no} etc.",
+    "EditEdiCodeList": "Edit EDI Code List",
+    "NewEdiCodeList": "New EDI Code List",
+    "Url": "URL",
+    "Version": "Version",
+    "Publisher": "Publisher",
+    "EditEdiCommonCode": "Edit EDI Common Code",
+    "NewEdiCommonCode": "New EDI Common Code",
+    "CodeList": "Code List",
+    "SelectCodeList": "-- Select Code List --",
+    "AdditionalDataJson": "Additional Data (JSON)",
+    "NewPartnerType": "New Partner Type",
+    "PartnerType": "Partner Type",
+    "NoSalesPartnerTypesFound": "No sales partner types found."
   }
 }
 

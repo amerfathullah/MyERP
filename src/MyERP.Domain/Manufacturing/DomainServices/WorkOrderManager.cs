@@ -1084,6 +1084,35 @@ public class WorkOrderManager : DomainService
 
         return qty > 0m ? timeInMins / qty : 0m;
     }
+
+    /// <summary>
+    /// Computes scheduled operation duration for a Production Plan item quantity
+    /// per ERPNext PR #68876 (<c>manufacturing/scheduling/loaders.py: get_operation_duration</c>):
+    /// returns fixed time verbatim when <paramref name="fixedTime"/> is set, otherwise scales
+    /// <see cref="CalculateOperationTimePerUnit"/> by <paramref name="qty"/> so batch-based operations
+    /// schedule per batch rather than dividing by BOM quantity.
+    /// </summary>
+    public static decimal CalculatePlannedOperationDuration(
+        decimal timeInMins,
+        decimal qty,
+        decimal bomQty,
+        bool fixedTime,
+        bool isBatchBased,
+        decimal batchSize,
+        bool setCostBasedOnBomQty = false)
+    {
+        if (fixedTime)
+            return timeInMins;
+
+        return CalculateOperationTimePerUnit(
+            timeInMins,
+            qty: bomQty,
+            units: 1m,
+            exploded: false,
+            operationBatchSizeFlag: isBatchBased,
+            setCostBasedOnBomQty: setCostBasedOnBomQty,
+            batchSize: batchSize) * qty;
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

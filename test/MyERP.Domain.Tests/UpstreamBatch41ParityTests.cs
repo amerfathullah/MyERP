@@ -3370,6 +3370,94 @@ public class UpstreamBatch41ParityTests
         breakdown[1].TaxExemptionReason.ShouldBe("Export Goods");
     }
 
+    [Fact]
+    public void UpstreamBatch29_WoSubcontractedReserve_PlanBatchOpTime_NestedCoProductOrder_LhdnLineTaxNorm_Parity()
+    {
+        // 1. ERPNext PR #68805: New WO reservation excludes subcontracted qty, while updates/from-voucher do not
+        StockReservationManager.CalculateWorkOrderAllowedReservationQty(
+            availableQty: 20m, voucherQty: 10m, totalReservedQty: 0m, subcontractedQty: 6m,
+            hasFromVoucher: false, isSubmitAction: true).ShouldBe(4m);
+        StockReservationManager.CalculateWorkOrderAllowedReservationQty(
+            availableQty: 20m, voucherQty: 10m, totalReservedQty: 0m, subcontractedQty: 6m,
+            hasFromVoucher: false, isSubmitAction: false).ShouldBe(10m);
+        StockReservationManager.CalculateWorkOrderAllowedReservationQty(
+            availableQty: 20m, voucherQty: 10m, totalReservedQty: 0m, subcontractedQty: 6m,
+            hasFromVoucher: true, isSubmitAction: true).ShouldBe(10m);
+
+        // 2. ERPNext PR #68876: Production Plan schedules batch-based operation per batch (not divided by BOM qty)
+        // Batch op: 30 mins per batch of 5, BOM qty=10, planned qty=20 -> (30 / 5) * 20 = 120 mins
+        WorkOrderManager.CalculatePlannedOperationDuration(
+            timeInMins: 30m, qty: 20m, bomQty: 10m, fixedTime: false, isBatchBased: true, batchSize: 5m)
+            .ShouldBe(120m);
+        // Non-batch op: 30 mins per BOM qty 10, planned qty=20 -> (30 / 10) * 20 = 60 mins
+        WorkOrderManager.CalculatePlannedOperationDuration(
+            timeInMins: 30m, qty: 20m, bomQty: 10m, fixedTime: false, isBatchBased: false, batchSize: 0m)
+            .ShouldBe(60m);
+        // Fixed time ignores qty
+        WorkOrderManager.CalculatePlannedOperationDuration(
+            timeInMins: 45m, qty: 20m, bomQty: 10m, fixedTime: true, isBatchBased: true, batchSize: 5m)
+            .ShouldBe(45m);
+
+        // 3. ERPNext PR #68832: Inner sub-assembly co-product ordered before outer sub-assembly co-product, FG last
+        var rows = new[]
+        {
+            (Name: "FG", IsFg: true, IsCostedOut: false, CostedOutOfFg: false, NestedCount: 0),
+            (Name: "OuterCoProd", IsFg: false, IsCostedOut: false, CostedOutOfFg: false, NestedCount: 2),
+            (Name: "InnerCoProd", IsFg: false, IsCostedOut: false, CostedOutOfFg: false, NestedCount: 0),
+            (Name: "ByProductScrap", IsFg: false, IsCostedOut: true, CostedOutOfFg: false, NestedCount: 0),
+        };
+        var ordered = StockEntryManager.OrderFinishedAndSecondaryRowsForCosting(
+            rows, r => r.IsFg, r => r.IsCostedOut, r => r.CostedOutOfFg, r => r.NestedCount);
+        ordered.Select(r => r.Name).ShouldBe(new[] { "ByProductScrap", "InnerCoProd", "OuterCoProd", "FG" });
+
+        // 4. MyInvois createxml.py: Line tax category splits "01 : Sales Tax" -> "01" and line TaxableAmount deducts per-line discount
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ExtractTaxCategoryCode("01 : Sales Tax", 10m).ShouldBe("01");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ExtractTaxCategoryCode("E : Exempt", 0m).ShouldBe("E");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.ExtractTaxCategoryCode(null, 0m).ShouldBe("06");
+
+        var builder = new MyERP.EInvoice.Services.InvoiceDocumentBuilder();
+        var xml = builder.Build(new MyERP.EInvoice.Services.EInvoiceDocumentData
+        {
+            InvoiceNumber = "INV-2026-029",
+            DocumentTypeCode = "01",
+            IssueDate = new DateTime(2026, 11, 24),
+            CurrencyCode = "MYR",
+            Supplier = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Seller Sdn Bhd",
+                Tin = "C1234567890",
+                IdType = "BRN",
+                IdValue = "202001000001"
+            },
+            Buyer = new MyERP.EInvoice.Services.EInvoicePartyData
+            {
+                Name = "Buyer Sdn Bhd",
+                Tin = "C9876543210",
+                IdType = "BRN",
+                IdValue = "202101000002"
+            },
+            Lines = new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new()
+                {
+                    Description = "Discounted Widget",
+                    Quantity = 2m,
+                    UnitPrice = 100m,
+                    DiscountAmount = 20m,
+                    TaxCategoryCode = "01 : Sales Tax",
+                    TaxRate = 10m,
+                    TaxAmount = 18m
+                }
+            },
+            NetTotal = 180m,
+            TaxAmount = 18m,
+            GrandTotal = 198m
+        });
+        xml.ShouldContain("<cbc:ID>01</cbc:ID>");
+        xml.ShouldNotContain("01 : Sales Tax");
+        xml.ShouldContain("<cbc:TaxableAmount currencyID=\"MYR\">180.00</cbc:TaxableAmount>");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;
