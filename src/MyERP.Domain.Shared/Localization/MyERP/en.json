@@ -6846,7 +6846,14 @@
     "AdditionalDataJson": "Additional Data (JSON)",
     "NewPartnerType": "New Partner Type",
     "PartnerType": "Partner Type",
-    "NoSalesPartnerTypesFound": "No sales partner types found."
+    "NoSalesPartnerTypesFound": "No sales partner types found.",
+    "EdiCodeLists": "EDI Code Lists",
+    "DefaultCode": "Default Code",
+    "CheckDefault": "Check Default",
+    "NoCodeListsFound": "No code lists found.",
+    "EdiCommonCodes": "EDI Common Codes",
+    "AllCodeLists": "-- All Code Lists --",
+    "NoCommonCodesFound": "No common codes found."
   }
 }
 

@@ -16,8 +16,8 @@ import { CommonCodeDto, CodeListDto } from '../../proxy/edi/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">EDI Common Codes</h5>
-        <a routerLink="/edi/common-codes/new" class="btn btn-primary btn-sm">New Common Code</a>
+        <h5 class="card-title mb-0">{{ '::EdiCommonCodes' | abpLocalization }}</h5>
+        <a routerLink="/edi/common-codes/new" class="btn btn-primary btn-sm">{{ '::NewCommonCode' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -26,7 +26,7 @@ import { CommonCodeDto, CodeListDto } from '../../proxy/edi/models';
           </div>
           <div class="col-md-4">
             <select class="form-select form-select-sm" [(ngModel)]="selectedCodeListId" (ngModelChange)="load()">
-              <option [ngValue]="null">-- All Code Lists --</option>
+              <option [ngValue]="null">{{ '::AllCodeLists' | abpLocalization }}</option>
               @for (cl of codeLists; track cl.id) {
                 <option [ngValue]="cl.id">{{ cl.title }}</option>
               }
@@ -37,11 +37,11 @@ import { CommonCodeDto, CodeListDto } from '../../proxy/edi/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th style="width: 150px;">Code</th>
-              <th>Title</th>
-              <th>Description</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th style="width: 150px;">{{ '::Code' | abpLocalization }}</th>
+              <th>{{ '::Title' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -56,17 +56,17 @@ import { CommonCodeDto, CodeListDto } from '../../proxy/edi/models';
                 <td>{{ item.description || '—' }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/edi/common-codes', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/edi/common-codes', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No common codes found.</td>
+                <td colspan="5" class="text-center text-muted py-4">{{ '::NoCommonCodesFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

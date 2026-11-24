@@ -3458,6 +3458,74 @@ public class UpstreamBatch41ParityTests
         xml.ShouldContain("<cbc:TaxableAmount currencyID=\"MYR\">180.00</cbc:TaxableAmount>");
     }
 
+    [Fact]
+    public void UpstreamBatch30_WoDisassembleCap_ScoClosedPoGuard_ScrFgRemainingShare_XadesSignedPropsHash_Parity()
+    {
+        // 1. ERPNext PR #67345: Work Order disassembly and FG conversion subtract each other from produced qty
+        WorkOrderManager.CalculateAvailableFgQtyForDisassemblyOrConversion(
+            producedQty: 10m, disassembledQty: 6m, convertedFgQty: 4m).ShouldBe(0m);
+        WorkOrderManager.CalculateAvailableFgQtyForDisassemblyOrConversion(
+            producedQty: 0.3m, disassembledQty: 0.1m, convertedFgQty: 0m).ShouldBe(0.2m);
+
+        var disEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            WorkOrderManager.ValidateCanDisassembleFgQty(
+                requestedQty: 1m, producedQty: 10m, alreadyDisassembledQty: 6m, convertedFgQty: 4m));
+        (disEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("not converted to an alternative item");
+
+        Should.NotThrow(() =>
+            WorkOrderManager.ValidateCanDisassembleFgQty(
+                requestedQty: 0.2m, producedQty: 0.3m, alreadyDisassembledQty: 0.1m, convertedFgQty: 0m));
+
+        // 2. ERPNext PR #67362: Subcontracting Order submit/re-open rejects unreceived rows whose PO row is closed
+        var scoClosedEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            SubcontractingManager.ValidateSubcontractingOrderPoRowsAreOpen(
+                "PO-2026-001",
+                new List<(int RowIdx, string ItemCode, decimal Qty, decimal ReceivedQty, bool IsPurchaseOrderRowClosed)>
+                {
+                    (1, "FG-SA7", 5m, 0m, true)
+                }));
+        (scoClosedEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is closed in Purchase Order PO-2026-001");
+
+        // Fully received row on closed PO row or open PO row passes
+        Should.NotThrow(() =>
+            SubcontractingManager.ValidateSubcontractingOrderPoRowsAreOpen(
+                "PO-2026-001",
+                new List<(int RowIdx, string ItemCode, decimal Qty, decimal ReceivedQty, bool IsPurchaseOrderRowClosed)>
+                {
+                    (1, "FG-SA7", 5m, 5m, true),
+                    (2, "FG-SA1", 5m, 0m, false)
+                }));
+
+        // 3. ERPNext PR #67398: FG gets 100% minus only % co-products actually on the receipt (ignoring Valuation Rate/Manual rows)
+        SubcontractingManager.CalculateFinishedGoodRemainingAllocationPercentage(
+            new[]
+            {
+                (Qty: 4m, ValuationType: MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, CostAllocationPercentage: 25m),
+                (Qty: 2m, ValuationType: MyERP.Manufacturing.SecondaryItemValuationType.ValuationRate, CostAllocationPercentage: 30m),
+                (Qty: 0m, ValuationType: MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, CostAllocationPercentage: 15m),
+            }).ShouldBe(75m);
+
+        // When all % co-products are omitted from the receipt, FG receives 100%
+        SubcontractingManager.CalculateFinishedGoodRemainingAllocationPercentage(
+            Array.Empty<(decimal, MyERP.Manufacturing.SecondaryItemValuationType, decimal)>()).ShouldBe(100m);
+
+        // 4. MyInvois original.py: Canonical XAdES SignedProperties single-line XML + RFC 4514 comma-space issuer + SHA-256 Base64 hash
+        MyERP.EInvoice.Services.InvoiceDocumentSigner
+            .FormatRfc4514IssuerName("CN=LHDN CA,O=LHDN,C=MY")
+            .ShouldBe("CN=LHDN CA, O=LHDN, C=MY");
+
+        var (canonXml, hashB64) = MyERP.EInvoice.Services.InvoiceDocumentSigner.ComputeCanonicalSignedPropertiesHash(
+            signingTimeUtc: "2026-11-24T02:00:00Z",
+            certDigestBase64: "abc123==",
+            formattedIssuerName: "CN=LHDN CA,O=LHDN,C=MY",
+            decimalSerialNumber: "123456789");
+        canonXml.ShouldNotContain("\n");
+        canonXml.ShouldContain("xmlns:xades=\"http://uri.etsi.org/01903/v1.3.2#\"");
+        canonXml.ShouldContain("xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"");
+        canonXml.ShouldContain("CN=LHDN CA, O=LHDN, C=MY");
+        Convert.FromBase64String(hashB64).Length.ShouldBe(32);
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

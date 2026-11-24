@@ -1113,6 +1113,43 @@ public class WorkOrderManager : DomainService
             setCostBasedOnBomQty: setCostBasedOnBomQty,
             batchSize: batchSize) * qty;
     }
+
+    /// <summary>
+    /// Computes the remaining produced FG quantity available for either Disassembly or Alternative FG Conversion
+    /// on a Work Order per ERPNext PR #67345 (<c>get_available_fg_qty</c>):
+    /// subtracts BOTH <paramref name="disassembledQty"/> and <paramref name="convertedFgQty"/> from
+    /// <paramref name="producedQty"/>, rounded to <paramref name="precision"/>.
+    /// </summary>
+    public static decimal CalculateAvailableFgQtyForDisassemblyOrConversion(
+        decimal producedQty,
+        decimal disassembledQty,
+        decimal convertedFgQty,
+        int precision = 3)
+    {
+        var available = producedQty - disassembledQty - convertedFgQty;
+        return Math.Max(0m, Math.Round(available, precision, MidpointRounding.AwayFromZero));
+    }
+
+    /// <summary>
+    /// Validates that a Work Order disassembly request does not exceed the produced FG quantity
+    /// that has neither been disassembled nor converted to an alternative item (ERPNext PR #67345).
+    /// </summary>
+    public static void ValidateCanDisassembleFgQty(
+        decimal requestedQty,
+        decimal producedQty,
+        decimal alreadyDisassembledQty,
+        decimal convertedFgQty,
+        int precision = 3)
+    {
+        var available = CalculateAvailableFgQtyForDisassemblyOrConversion(
+            producedQty, alreadyDisassembledQty, convertedFgQty, precision);
+        var roundedRequested = Math.Round(requestedQty, precision, MidpointRounding.AwayFromZero);
+        if (roundedRequested > available)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot disassemble more than the produced quantity that is not converted to an alternative item.");
+        }
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

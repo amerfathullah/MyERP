@@ -187,4 +187,49 @@ public class InvoiceDocumentSigner : ITransientDependency
     {
         return SHA256.HashData(Encoding.UTF8.GetBytes(input));
     }
+
+    /// <summary>
+    /// Formats an X.509 issuer RFC 4514 string with comma-space separation (<c>", "</c>)
+    /// per myinvois <c>original.py: certificate_data()</c> for LHDN XAdES v1.1 <c>ds:X509IssuerName</c>.
+    /// </summary>
+    public static string FormatRfc4514IssuerName(string rawRfc4514IssuerName)
+    {
+        if (string.IsNullOrWhiteSpace(rawRfc4514IssuerName))
+            return string.Empty;
+
+        var parts = rawRfc4514IssuerName.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Builds the canonical single-line XAdES <c>SignedProperties</c> XML with explicit
+    /// <c>xmlns:xades</c> and <c>xmlns:ds</c> attributes and computes its Base64 SHA-256 digest
+    /// per myinvois <c>original.py: signed_properties_hash()</c>.
+    /// </summary>
+    public static (string CanonicalXml, string Base64Sha256Hash) ComputeCanonicalSignedPropertiesHash(
+        string signingTimeUtc,
+        string certDigestBase64,
+        string formattedIssuerName,
+        string decimalSerialNumber)
+    {
+        var issuer = FormatRfc4514IssuerName(formattedIssuerName);
+        var singleLineXml =
+            $"<xades:SignedProperties Id=\"id-xades-signed-props\" xmlns:xades=\"http://uri.etsi.org/01903/v1.3.2#\">" +
+            $"<xades:SignedSignatureProperties>" +
+            $"<xades:SigningTime>{signingTimeUtc}</xades:SigningTime>" +
+            $"<xades:SigningCertificate><xades:Cert>" +
+            $"<xades:CertDigest>" +
+            $"<ds:DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\" xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"></ds:DigestMethod>" +
+            $"<ds:DigestValue xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{certDigestBase64}</ds:DigestValue>" +
+            $"</xades:CertDigest>" +
+            $"<xades:IssuerSerial>" +
+            $"<ds:X509IssuerName xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{issuer}</ds:X509IssuerName>" +
+            $"<ds:X509SerialNumber xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{decimalSerialNumber}</ds:X509SerialNumber>" +
+            $"</xades:IssuerSerial>" +
+            $"</xades:Cert></xades:SigningCertificate>" +
+            $"</xades:SignedSignatureProperties></xades:SignedProperties>";
+
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(singleLineXml));
+        return (singleLineXml, Convert.ToBase64String(hashBytes));
+    }
 }

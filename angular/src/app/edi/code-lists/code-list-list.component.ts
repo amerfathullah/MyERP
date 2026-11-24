@@ -15,8 +15,8 @@ import { CodeListDto } from '../../proxy/edi/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">EDI Code Lists</h5>
-        <a routerLink="/edi/code-lists/new" class="btn btn-primary btn-sm">New Code List</a>
+        <h5 class="card-title mb-0">{{ '::EdiCodeLists' | abpLocalization }}</h5>
+        <a routerLink="/edi/code-lists/new" class="btn btn-primary btn-sm">{{ '::NewCodeList' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,13 +28,13 @@ import { CodeListDto } from '../../proxy/edi/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Title</th>
-              <th>Canonical URI</th>
-              <th>Publisher</th>
-              <th>Version</th>
-              <th>Default Code</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th>{{ '::Title' | abpLocalization }}</th>
+              <th>{{ '::CanonicalUri' | abpLocalization }}</th>
+              <th>{{ '::Publisher' | abpLocalization }}</th>
+              <th>{{ '::Version' | abpLocalization }}</th>
+              <th>{{ '::DefaultCode' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -52,22 +52,22 @@ import { CodeListDto } from '../../proxy/edi/models';
                   @if (item.id && defaultCodes[item.id] !== undefined) {
                     <span class="badge bg-info text-dark font-monospace">{{ defaultCodes[item.id] || '—' }}</span>
                   } @else {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resolveDefaultCode(item)">Check Default</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resolveDefaultCode(item)">{{ '::CheckDefault' | abpLocalization }}</button>
                   }
                 </td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/edi/code-lists', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/edi/code-lists', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="text-center text-muted py-4">No code lists found.</td>
+                <td colspan="7" class="text-center text-muted py-4">{{ '::NoCodeListsFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

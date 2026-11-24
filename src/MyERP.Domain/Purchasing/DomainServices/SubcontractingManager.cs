@@ -2862,6 +2862,52 @@ public class SubcontractingManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Validates on Subcontracting Order submit or re-open that no unreceived SCO item row references
+    /// a closed Purchase Order row (ERPNext PR #67362: <c>validate_purchase_order_rows_are_open</c>).
+    /// </summary>
+    public static void ValidateSubcontractingOrderPoRowsAreOpen(
+        string purchaseOrderNumber,
+        IReadOnlyList<(int RowIdx, string ItemCode, decimal Qty, decimal ReceivedQty, bool IsPurchaseOrderRowClosed)> scoRows)
+    {
+        if (scoRows == null || scoRows.Count == 0)
+            return;
+
+        foreach (var row in scoRows)
+        {
+            if (row.IsPurchaseOrderRowClosed && row.ReceivedQty < row.Qty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row.RowIdx}: {row.ItemCode} is closed in Purchase Order {purchaseOrderNumber}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes the remaining cost allocation percentage (<c>0..100</c>) assigned to a Subcontracting Receipt's
+    /// Finished Good row per ERPNext PR #67398 (<c>get_returned_allocated_per</c> / <c>calculate_percentage_secondary_rows</c>):
+    /// sums <c>CostAllocationPercentage</c> ONLY across percentage-allocated secondary rows actually present on
+    /// the receipt with non-zero qty, giving the Finished Good the share of any omitted % co-products (and
+    /// excluding Valuation Rate / Manual secondary rows).
+    /// </summary>
+    public static decimal CalculateFinishedGoodRemainingAllocationPercentage(
+        IEnumerable<(decimal Qty, Manufacturing.SecondaryItemValuationType ValuationType, decimal CostAllocationPercentage)>? receiptSecondaryRows)
+    {
+        if (receiptSecondaryRows == null)
+            return 100m;
+
+        decimal allocatedPer = 0m;
+        foreach (var row in receiptSecondaryRows)
+        {
+            if (row.Qty != 0m && row.ValuationType == Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost)
+            {
+                allocatedPer += row.CostAllocationPercentage;
+            }
+        }
+
+        return Math.Max(0m, 100m - allocatedPer);
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(
