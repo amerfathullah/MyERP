@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67462, #67468, #67485, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64596, #65791, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1278,5 +1278,69 @@ public class UpstreamBatch42ParityTests
             (prId, rowId, transitWh, true, -999m), // cancelled ignored
         };
         PurchaseReceiptManager.SumStockValueDifferenceForRowInWarehouse(prId, rowId, transitWh, sles).ShouldBe(-1000m);
+    }
+
+    [Fact]
+    public void Pr67480_Pr67450_Pr67445_Pr65791_ManufactureMrStockQty_WoOverConsumedReserve_SoReplacementReserve_DunningPostingDate_Parity()
+    {
+        var companyId = Guid.NewGuid();
+        var mrId = Guid.NewGuid();
+        var mrItemOpen = Guid.NewGuid();
+        var mrItemDone = Guid.NewGuid();
+
+        // PR #67480: Manufacture MR has qty=2 Box (cf=10 -> stockQty=20), orderedQty=5 (stock UOM, > qty=2!)
+        // Must still appear as open with pendingQty = 20 - 5 = 15 (not filtered out by qty > orderedQty).
+        var mrCandidates = new[]
+        {
+            new OpenManufactureMaterialRequestCandidate(
+                mrId, mrItemOpen, companyId, IsSubmitted: true, RequestStatus: "Pending",
+                IsManufactureType: true, HasBom: true, Qty: 2m, StockQty: 20m, OrderedQty: 5m, PlannedQty: 0m),
+            new OpenManufactureMaterialRequestCandidate(
+                mrId, mrItemDone, companyId, IsSubmitted: true, RequestStatus: "Ordered",
+                IsManufactureType: true, HasBom: true, Qty: 2m, StockQty: 20m, OrderedQty: 20m, PlannedQty: 0m),
+        };
+        var openMrs = ProductionPlanMaterialPlanningService.FilterOpenManufactureMaterialRequestRows(mrCandidates, companyId);
+        openMrs.Count.ShouldBe(1);
+        openMrs[0].MaterialRequestItemId.ShouldBe(mrItemOpen);
+        openMrs[0].PendingQty.ShouldBe(15m);
+
+        // PR #67450: Work Order with skipTransfer=true consumed past requiredQty reserves 0 (not negative)
+        WorkOrderManager.CalculateProductionReservedQtyForItem(
+            skipTransfer: true, requiredQty: 10m, transferredQty: 0m, consumedQty: 14m).ShouldBe(0m);
+        WorkOrderManager.CalculateProductionReservedQtyForItem(
+            skipTransfer: true, requiredQty: 10m, transferredQty: 0m, consumedQty: 4m).ShouldBe(6m);
+        WorkOrderManager.CalculateProductionReservedQtyForItem(
+            skipTransfer: true, requiredQty: 10m, transferredQty: 0m, consumedQty: 4m, subcontractedQty: 7m).ShouldBe(3m);
+        WorkOrderManager.CalculateProductionReservedQtyForItem(
+            skipTransfer: false, requiredQty: 10m, transferredQty: 12m, consumedQty: 0m).ShouldBe(0m);
+
+        // PR #67445: SO replacement delivery after return (qty=10, delivered=10, returned=10 -> qty - del - ret = -10)
+        // clamps at 0 when dontReserveOnReturn=true so it cannot subtract from another open SO's reserved qty.
+        var soRows = new[]
+        {
+            new SalesOrderReservedQtyRow(
+                IsSubmitted: true, OrderStatus: "To Deliver and Bill", DeliveredBySupplier: false, IsRowClosed: false,
+                Qty: 10m, StockQty: 10m, DeliveredQty: 10m, ReturnedQty: 10m),
+            new SalesOrderReservedQtyRow(
+                IsSubmitted: true, OrderStatus: "To Deliver and Bill", DeliveredBySupplier: false, IsRowClosed: false,
+                Qty: 5m, StockQty: 10m, DeliveredQty: 0m, ReturnedQty: 0m),
+        };
+        StockReservationManager.SumSalesOrderReservedStockQty(soRows, dontReserveOnReturn: true).ShouldBe(10m);
+        // Without replacement delivery (qty=10, delivered=0, returned=4 -> net 6)
+        StockReservationManager.CalculateSalesOrderRowReservedStockQty(
+            isSubmitted: true, orderStatus: "To Deliver and Bill", deliveredBySupplier: false, isRowClosed: false,
+            qty: 10m, stockQty: 20m, deliveredQty: 0m, returnedQty: 4m, dontReserveOnReturn: true).ShouldBe(12m);
+
+        // PR #65791: Changing Dunning PostingDate updates OverdueDays on every row and recalculates InterestAmount
+        var dueDate = new DateTime(2026, 4, 1);
+        var dunning = new MyERP.Sales.Entities.Dunning(Guid.NewGuid(), companyId, Guid.NewGuid(), new DateTime(2026, 4, 11), dunningLevel: 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), outstandingAmount: 3650m, dueDate: dueDate, overdueDays: 10);
+        dunning.CalculateInterest(rateOfInterest: 10m);
+        dunning.InterestAmount.ShouldBe(10m); // 3650 * 0.10 / 365 * 10 = 10
+
+        dunning.UpdatePostingDateAndRecalculate(new DateTime(2026, 5, 1), rateOfInterest: 10m);
+        dunning.PostingDate.ShouldBe(new DateTime(2026, 5, 1));
+        dunning.OverduePayments[0].OverdueDays.ShouldBe(30);
+        dunning.InterestAmount.ShouldBe(30m); // 3650 * 0.10 / 365 * 30 = 30
     }
 }

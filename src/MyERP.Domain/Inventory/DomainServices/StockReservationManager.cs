@@ -2805,7 +2805,95 @@ public class StockReservationManager : DomainService
             qtyPrecision,
             MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes the Sales Order reserved stock quantity contributed by a single direct or packed SO row
+    /// per ERPNext PR #67445 (<c>erpnext/stock/stock_balance.py: get_reserved_qty</c>):
+    /// - Excludes non-submitted, On Hold, Closed, drop-ship (<c>deliveredBySupplier</c>), row-closed, zero-qty,
+    ///   and over-delivered (<c>qty &lt; deliveredQty</c>) rows.
+    /// - When <paramref name="dontReserveOnReturn"/> is enabled, <c>netReserved = qty - deliveredQty - returnedQty</c>
+    ///   is clamped at <c>0</c> so a replacement delivery after a return never produces negative reserved qty.
+    /// </summary>
+    public static decimal CalculateSalesOrderRowReservedStockQty(
+        bool isSubmitted,
+        string orderStatus,
+        bool deliveredBySupplier,
+        bool isRowClosed,
+        decimal qty,
+        decimal stockQty,
+        decimal deliveredQty,
+        decimal returnedQty,
+        bool dontReserveOnReturn,
+        decimal? packedComponentQty = null,
+        bool isPackedComponentSameAsParent = false)
+    {
+        if (!isSubmitted
+            || string.Equals(orderStatus, "On Hold", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(orderStatus, "Closed", StringComparison.OrdinalIgnoreCase)
+            || deliveredBySupplier
+            || isRowClosed
+            || isPackedComponentSameAsParent)
+        {
+            return 0m;
+        }
+
+        if (qty == 0m || qty < deliveredQty)
+        {
+            return 0m;
+        }
+
+        var netReserved = dontReserveOnReturn
+            ? Math.Max(0m, qty - deliveredQty - returnedQty)
+            : qty - deliveredQty;
+
+        var basisQty = packedComponentQty ?? stockQty;
+        return basisQty * netReserved / qty;
+    }
+
+    /// <summary>
+    /// Aggregates reserved stock quantity across multiple Sales Order rows per ERPNext PR #67445.
+    /// </summary>
+    public static decimal SumSalesOrderReservedStockQty(
+        IEnumerable<SalesOrderReservedQtyRow>? rows,
+        bool dontReserveOnReturn)
+    {
+        if (rows == null)
+        {
+            return 0m;
+        }
+
+        var total = 0m;
+        foreach (var row in rows)
+        {
+            total += CalculateSalesOrderRowReservedStockQty(
+                row.IsSubmitted,
+                row.OrderStatus,
+                row.DeliveredBySupplier,
+                row.IsRowClosed,
+                row.Qty,
+                row.StockQty,
+                row.DeliveredQty,
+                row.ReturnedQty,
+                dontReserveOnReturn,
+                row.PackedComponentQty,
+                row.IsPackedComponentSameAsParent);
+        }
+
+        return total;
+    }
 }
+
+public readonly record struct SalesOrderReservedQtyRow(
+    bool IsSubmitted,
+    string OrderStatus,
+    bool DeliveredBySupplier,
+    bool IsRowClosed,
+    decimal Qty,
+    decimal StockQty,
+    decimal DeliveredQty,
+    decimal ReturnedQty,
+    decimal? PackedComponentQty = null,
+    bool IsPackedComponentSameAsParent = false);
 
 public readonly record struct InwardWorkOrderReservationRow(
     Guid StockReservationEntryId,

@@ -1399,6 +1399,41 @@ public class WorkOrderManager : DomainService
         var transferred = Math.Max(minFraction * workOrderQty, sumFgCompletedQty);
         return Math.Round(transferred, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Computes the stock quantity reserved for production by a single Work Order required-item row
+    /// per ERPNext PR #67450 (<c>work_order/services/reservation.py: _production_reserved_qty_field</c>):
+    /// - When <paramref name="skipTransfer"/> is false: reserves <c>requiredQty - transferredQty</c>, floored at <c>0</c>.
+    /// - When <paramref name="skipTransfer"/> is true: reserves <c>requiredQty - consumedQty</c>, floored at <c>0</c>
+    ///   so over-consumed rows never contribute negative reservation to Bin totals.
+    /// - Caps the result at <c>max(0, requiredQty - subcontractedQty)</c> because subcontracted takeover belongs to the
+    ///   Subcontracting Order's demand.
+    /// </summary>
+    public static decimal CalculateProductionReservedQtyForItem(
+        bool skipTransfer,
+        decimal requiredQty,
+        decimal transferredQty,
+        decimal consumedQty,
+        decimal subcontractedQty = 0m)
+    {
+        decimal baseReserved;
+        if (!skipTransfer)
+        {
+            baseReserved = transferredQty > requiredQty ? 0m : requiredQty - transferredQty;
+        }
+        else
+        {
+            baseReserved = consumedQty > requiredQty ? 0m : requiredQty - consumedQty;
+        }
+
+        var notSubcontracted = requiredQty - subcontractedQty;
+        if (notSubcontracted <= 0m)
+        {
+            return 0m;
+        }
+
+        return notSubcontracted < baseReserved ? notSubcontracted : baseReserved;
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

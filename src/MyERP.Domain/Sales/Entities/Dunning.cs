@@ -131,6 +131,25 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
             p.OutstandingAmount * (rateOfInterest / 100m / 365m) * p.OverdueDays), 2);
     }
 
+    /// <summary>
+    /// Updates <see cref="PostingDate"/> on a Draft Dunning document, recomputes <c>OverdueDays</c> for every
+    /// overdue payment row against the new posting date, and immediately recalculates <see cref="InterestAmount"/>
+    /// per ERPNext PR #65791 (<c>dunning.js: posting_date -&gt; calculate_overdue_days -&gt; calculate_interest</c>).
+    /// </summary>
+    public void UpdatePostingDateAndRecalculate(DateTime newPostingDate, decimal rateOfInterest)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        PostingDate = newPostingDate;
+        foreach (var payment in _overduePayments)
+        {
+            payment.OverdueDays = Math.Max(0, (newPostingDate.Date - payment.DueDate.Date).Days);
+        }
+
+        CalculateInterest(rateOfInterest);
+    }
+
     public void ValidateIncomeAccount()
     {
         // Per ERPNext PR #61620 (commit 308143fc67): income account is required to collect dunning fees or interest

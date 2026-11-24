@@ -7351,7 +7351,26 @@
     "Parent": "Parent",
     "Root": "— Root —",
     "NoCostCentersDefined": "No cost centers defined.",
-    "BalanceInAccountCurrency": "Balance (Account Currency)"
+    "BalanceInAccountCurrency": "Balance (Account Currency)",
+    "TypeName": "Type Name",
+    "ConditionExample": "Condition (e.g., \"GrandTotal > 5000\")",
+    "ActionConfigJson": "Action Config (JSON)",
+    "MediumType": "Medium Type",
+    "Voice": "Voice",
+    "Chat": "Chat",
+    "ProviderSupplier": "Provider Supplier",
+    "OperatingTimeslots": "Operating Timeslots",
+    "AddTimeslot": "Add Timeslot",
+    "HandlingEmployeeGroup": "Handling Employee Group",
+    "SelectEmployeeGroup": "Select Employee Group...",
+    "NoTimeslotsConfiguredHint": "No timeslots configured. All communications will route to catch-all group.",
+    "Monday": "Monday",
+    "Tuesday": "Tuesday",
+    "Wednesday": "Wednesday",
+    "Thursday": "Thursday",
+    "Friday": "Friday",
+    "Saturday": "Saturday",
+    "Sunday": "Sunday"
   }
 }
 

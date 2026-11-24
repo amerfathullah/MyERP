@@ -1075,7 +1075,73 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return existingSalesOrders.ToList();
     }
+
+    /// <summary>
+    /// Filters open Manufacture Material Request item rows for a Production Plan and computes stock-UOM pending quantity
+    /// per ERPNext PR #67480 (<c>sales_order_planning.py</c>):
+    /// <c>ordered_qty</c> on a Manufacture Material Request is the Work Order quantity in stock UOM, so both the open-row
+    /// filter (<c>StockQty &gt; OrderedQty</c>, <c>StockQty &gt; PlannedQty</c>) and <c>PendingQty</c>
+    /// (<c>StockQty - OrderedQty</c>) compare directly in stock UOM rather than order UOM.
+    /// </summary>
+    public static IReadOnlyList<OpenManufactureMaterialRequestResult> FilterOpenManufactureMaterialRequestRows(
+        IEnumerable<OpenManufactureMaterialRequestCandidate>? candidates,
+        Guid companyId)
+    {
+        if (candidates == null)
+        {
+            return Array.Empty<OpenManufactureMaterialRequestResult>();
+        }
+
+        var results = new List<OpenManufactureMaterialRequestResult>();
+        foreach (var row in candidates)
+        {
+            if (!row.IsSubmitted
+                || string.Equals(row.RequestStatus, "Stopped", StringComparison.OrdinalIgnoreCase)
+                || row.CompanyId != companyId
+                || !row.IsManufactureType
+                || !row.HasBom)
+            {
+                continue;
+            }
+
+            if (row.StockQty <= row.OrderedQty || row.StockQty <= row.PlannedQty)
+            {
+                continue;
+            }
+
+            results.Add(new OpenManufactureMaterialRequestResult(
+                row.MaterialRequestId,
+                row.MaterialRequestItemId,
+                row.StockQty,
+                row.OrderedQty,
+                row.PlannedQty,
+                row.StockQty - row.OrderedQty));
+        }
+
+        return results;
+    }
 }
+
+public sealed record OpenManufactureMaterialRequestCandidate(
+    Guid MaterialRequestId,
+    Guid MaterialRequestItemId,
+    Guid CompanyId,
+    bool IsSubmitted,
+    string RequestStatus,
+    bool IsManufactureType,
+    bool HasBom,
+    decimal Qty,
+    decimal StockQty,
+    decimal OrderedQty,
+    decimal PlannedQty);
+
+public sealed record OpenManufactureMaterialRequestResult(
+    Guid MaterialRequestId,
+    Guid MaterialRequestItemId,
+    decimal StockQty,
+    decimal OrderedQty,
+    decimal PlannedQty,
+    decimal PendingQty);
 
 public sealed record OpenSalesOrderPlanCandidate(
     Guid SalesOrderId,
