@@ -6987,7 +6987,24 @@
     "NoDeferredItemsToRecognize": "No deferred items to recognize in this period.",
     "ProcessDeferredProcessed": "Successfully processed {0} deferred accounting entries.",
     "ProcessDeferredCancelled": "Process Deferred Accounting cancelled.",
-    "ProcessDeferredBookedSummary": "Successfully booked {0} deferred accounting Journal Entries."
+    "ProcessDeferredBookedSummary": "Successfully booked {0} deferred accounting Journal Entries.",
+    "NewLostReason": "New Lost Reason",
+    "NoOpportunityLostReasonsConfigured": "No opportunity lost reasons configured yet.",
+    "LeadSettings": "Lead Settings",
+    "NamingSeries": "Naming Series",
+    "OpportunityAndQuotationSettings": "Opportunity & Quotation Settings",
+    "CloseRepliedOpportunityAfterDays": "Close Replied Opportunity After (Days)",
+    "ActivityAndCommunicationSettings": "Activity & Communication Settings",
+    "SaveSettings": "Save Settings",
+    "BatchDate": "Batch Date",
+    "ItemBreakdown": "Item Breakdown",
+    "TransactionName": "Transaction Name",
+    "ErrorDetails": "Error Details",
+    "Retries": "Retries",
+    "NoDetailRecordsLogged": "No detail records logged.",
+    "RetryInitiated": "Retry initiated",
+    "RetryFailed": "Retry failed",
+    "Retried": "Retried"
   }
 }
 

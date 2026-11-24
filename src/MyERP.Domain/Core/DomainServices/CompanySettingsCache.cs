@@ -64,7 +64,56 @@ public class CompanySettingsCache : ITransientDependency
     {
         await _cache.RemoveAsync($"company:{companyId}");
     }
+
+    /// <summary>
+    /// Projects boot-time company metadata per ERPNext PR #68511 (<c>startup/boot.py: get_boot_companies</c>):
+    /// every company exposes baseline client-side fields (currency, country, letterhead, perpetual inventory),
+    /// while sensitive ledger/account defaults are populated ONLY when <paramref name="canReadCompanyDefaults"/> is true.
+    /// </summary>
+    public static BootCompanyDefaultsSnapshot BuildBootCompanySnapshot(
+        Guid companyId,
+        string name,
+        string currencyCode,
+        string? country,
+        string? defaultLetterHead,
+        bool enablePerpetualInventory,
+        bool canReadCompanyDefaults,
+        Guid? costCenterId = null,
+        Guid? defaultSellingTermsId = null,
+        Guid? defaultBuyingTermsId = null,
+        Guid? defaultBankAccountId = null,
+        Guid? exchangeGainLossAccountId = null,
+        Guid? bankChargesAccountId = null)
+    {
+        return new BootCompanyDefaultsSnapshot(
+            companyId,
+            name,
+            currencyCode,
+            country,
+            defaultLetterHead,
+            enablePerpetualInventory,
+            canReadCompanyDefaults ? costCenterId : null,
+            canReadCompanyDefaults ? defaultSellingTermsId : null,
+            canReadCompanyDefaults ? defaultBuyingTermsId : null,
+            canReadCompanyDefaults ? defaultBankAccountId : null,
+            canReadCompanyDefaults ? exchangeGainLossAccountId : null,
+            canReadCompanyDefaults ? bankChargesAccountId : null);
+    }
 }
+
+public sealed record BootCompanyDefaultsSnapshot(
+    Guid CompanyId,
+    string Name,
+    string CurrencyCode,
+    string? Country,
+    string? DefaultLetterHead,
+    bool EnablePerpetualInventory,
+    Guid? CostCenterId,
+    Guid? DefaultSellingTermsId,
+    Guid? DefaultBuyingTermsId,
+    Guid? DefaultBankAccountId,
+    Guid? ExchangeGainLossAccountId,
+    Guid? BankChargesAccountId);
 
 /// <summary>
 /// Cacheable subset of Company data — only the fields needed for transaction validation.

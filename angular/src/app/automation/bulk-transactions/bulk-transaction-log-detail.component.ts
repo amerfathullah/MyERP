@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { BulkTransactionLogService } from '../../proxy/automation/bulk-transaction-log.service';
 import { BulkTransactionLogDto, BulkTransactionLogDetailDto } from '../../proxy/automation/models';
 import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-status.enum';
@@ -9,7 +10,7 @@ import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-s
 @Component({
   selector: 'app-bulk-transaction-log-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (log) {
@@ -17,43 +18,43 @@ import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-s
         <div class="card-header d-flex justify-content-between align-items-center">
           <div>
             <h5 class="card-title mb-0">{{ log.title }}</h5>
-            <small class="text-muted">Batch Date: {{ log.batchDate | date:'medium' }}</small>
+            <small class="text-muted">{{ '::BatchDate' | abpLocalization }}: {{ log.batchDate | date:'medium' }}</small>
           </div>
-          <a routerLink="/automation/bulk-transactions" class="btn btn-secondary btn-sm">Back to List</a>
+          <a routerLink="/automation/bulk-transactions" class="btn btn-secondary btn-sm">{{ '::BackToList' | abpLocalization }}</a>
         </div>
         <div class="card-body">
           <div class="row text-center mb-4">
             <div class="col-md-4">
               <div class="p-3 border rounded bg-light">
                 <div class="h3 mb-0 text-secondary">{{ log.totalEntries }}</div>
-                <small class="text-muted text-uppercase fw-semibold">Total Entries</small>
+                <small class="text-muted text-uppercase fw-semibold">{{ '::TotalEntries' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-4">
               <div class="p-3 border rounded bg-light">
                 <div class="h3 mb-0 text-success">{{ log.succeededCount }}</div>
-                <small class="text-muted text-uppercase fw-semibold">Succeeded</small>
+                <small class="text-muted text-uppercase fw-semibold">{{ '::Succeeded' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-4">
               <div class="p-3 border rounded bg-light">
                 <div class="h3 mb-0 text-danger">{{ log.failedCount }}</div>
-                <small class="text-muted text-uppercase fw-semibold">Failed</small>
+                <small class="text-muted text-uppercase fw-semibold">{{ '::Failed' | abpLocalization }}</small>
               </div>
             </div>
           </div>
 
-          <h6 class="text-secondary mb-3">Item Breakdown</h6>
+          <h6 class="text-secondary mb-3">{{ '::ItemBreakdown' | abpLocalization }}</h6>
           <table class="table table-bordered table-hover">
             <thead class="table-light">
               <tr>
-                <th>Transaction Name</th>
-                <th>From DocType</th>
-                <th>To DocType</th>
-                <th class="text-center" style="width: 120px;">Status</th>
-                <th>Error Details</th>
-                <th class="text-center" style="width: 80px;">Retries</th>
-                <th class="text-end" style="width: 120px;">Action</th>
+                <th>{{ '::TransactionName' | abpLocalization }}</th>
+                <th>{{ '::FromDocType' | abpLocalization }}</th>
+                <th>{{ '::ToDocType' | abpLocalization }}</th>
+                <th class="text-center" style="width: 120px;">{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::ErrorDetails' | abpLocalization }}</th>
+                <th class="text-center" style="width: 80px;">{{ '::Retries' | abpLocalization }}</th>
+                <th class="text-end" style="width: 120px;">{{ '::Action' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -64,7 +65,7 @@ import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-s
                   <td>{{ d.toDocType }}</td>
                   <td class="text-center">
                     <span class="badge" [ngClass]="getStatusClass(d.status)">
-                      {{ getStatusText(d.status) }}
+                      {{ getStatusKey(d.status) | abpLocalization }}
                     </span>
                   </td>
                   <td>
@@ -77,13 +78,13 @@ import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-s
                   <td class="text-center">{{ d.retriedCount }}</td>
                   <td class="text-end">
                     @if (d.status === 3 || d.status === 4) {
-                      <button class="btn btn-sm btn-outline-warning" (click)="retry(d)">Retry</button>
+                      <button class="btn btn-sm btn-outline-warning" (click)="retry(d)">{{ '::Retry' | abpLocalization }}</button>
                     }
                   </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="7" class="text-center text-muted py-4">No detail records logged.</td>
+                  <td colspan="7" class="text-center text-muted py-4">{{ '::NoDetailRecordsLogged' | abpLocalization }}</td>
                 </tr>
               }
             </tbody>
@@ -118,9 +119,9 @@ export class BulkTransactionLogDetailComponent implements OnInit {
     this.service.retryDetail(this.id!, d.id!).subscribe({
       next: (res) => {
         this.log = res;
-        this.toaster.success('Retry initiated');
+        this.toaster.success('::RetryInitiated');
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Retry failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::RetryFailed'),
     });
   }
 
@@ -134,14 +135,14 @@ export class BulkTransactionLogDetailComponent implements OnInit {
     }
   }
 
-  getStatusText(status: BulkTransactionStatus): string {
+  getStatusKey(status: BulkTransactionStatus): string {
     switch (status) {
-      case BulkTransactionStatus.Queued: return 'Queued';
-      case BulkTransactionStatus.InProgress: return 'In Progress';
-      case BulkTransactionStatus.Success: return 'Success';
-      case BulkTransactionStatus.Failed: return 'Failed';
-      case BulkTransactionStatus.Retried: return 'Retried';
-      default: return 'Unknown';
+      case BulkTransactionStatus.Queued: return '::Queued';
+      case BulkTransactionStatus.InProgress: return '::InProgress';
+      case BulkTransactionStatus.Success: return '::Success';
+      case BulkTransactionStatus.Failed: return '::Failed';
+      case BulkTransactionStatus.Retried: return '::Retried';
+      default: return '::Unknown';
     }
   }
 }

@@ -2399,7 +2399,133 @@ public class StockReservationManager : DomainService
                 .WithData("reason", "Serial and Batch Reservation cannot be updated as the Stock Reservation Entry has already been delivered, consumed or transferred.");
         }
     }
+
+    /// <summary>
+    /// Computes per-inward-order-row shortage quantities that must be reclaimed from unused
+    /// Work Order reservations when returning customer material per ERPNext PR #67523
+    /// (<c>SubcontractingInwardController.release_unused_work_order_reservations</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateInwardReturnWorkOrderShortage(
+        IReadOnlyDictionary<Guid, decimal> returnQtyByScioDetail,
+        IReadOnlyDictionary<Guid, decimal> scioFreeReservedQtyByDetail)
+    {
+        var shortQty = new Dictionary<Guid, decimal>();
+        foreach (var (scioDetailId, returnQty) in returnQtyByScioDetail)
+        {
+            scioFreeReservedQtyByDetail.TryGetValue(scioDetailId, out var freeQty);
+            var missing = returnQty - freeQty;
+            if (missing > 0m)
+            {
+                shortQty[scioDetailId] = missing;
+            }
+        }
+
+        return shortQty;
+    }
+
+    /// <summary>
+    /// Computes per-SRE release quantities to reclaim extra customer material held by Work Order
+    /// qty-based reservations beyond their required or used qty per ERPNext PR #67523
+    /// (<c>work_order/services/reservation.py: release_unused_inward_reservations</c>).
+    /// Input <paramref name="sresNewestFirst"/> must be ordered newest-first.
+    /// </summary>
+    public static List<(Guid StockReservationEntryId, decimal ReleaseQty)> ComputeUnusedInwardWorkOrderReservationReleasePlan(
+        IReadOnlyList<InwardWorkOrderReservationRow> sresNewestFirst,
+        IReadOnlyDictionary<Guid, decimal> shortQtyByScioDetail,
+        int qtyPrecision = 3)
+    {
+        var remainingShort = new Dictionary<Guid, decimal>(shortQtyByScioDetail);
+        var unusedByWoDetail = new Dictionary<Guid, decimal>();
+        foreach (var group in sresNewestFirst.GroupBy(s => s.WorkOrderItemId))
+        {
+            var rows = group.ToList();
+            var totalUsed = rows.Sum(r => r.UsedQty);
+            var needed = Math.Max(rows[0].WorkOrderRequiredQty, totalUsed);
+            unusedByWoDetail[group.Key] = rows.Sum(r => r.ReservedQty) - needed;
+        }
+
+        var plan = new List<(Guid StockReservationEntryId, decimal ReleaseQty)>();
+        foreach (var sre in sresNewestFirst)
+        {
+            if (!remainingShort.TryGetValue(sre.ScioDetailId, out var shortLeft) || shortLeft <= 0m)
+                continue;
+            if (!unusedByWoDetail.TryGetValue(sre.WorkOrderItemId, out var unusedLeft) || unusedLeft <= 0m)
+                continue;
+
+            var releasableOnSre = sre.ReservedQty - sre.UsedQty;
+            var releaseQty = Math.Round(
+                Math.Min(releasableOnSre, Math.Min(unusedLeft, shortLeft)),
+                qtyPrecision,
+                MidpointRounding.AwayFromZero);
+
+            if (releaseQty <= 0m)
+                continue;
+
+            var clampedReserved = Math.Round(
+                Math.Max(sre.ReservedQty - releaseQty, sre.UsedQty),
+                qtyPrecision,
+                MidpointRounding.AwayFromZero);
+            var actualReleased = sre.ReservedQty - clampedReserved;
+            if (actualReleased <= 0m)
+                continue;
+
+            plan.Add((sre.StockReservationEntryId, actualReleased));
+            unusedByWoDetail[sre.WorkOrderItemId] = unusedLeft - actualReleased;
+            remainingShort[sre.ScioDetailId] = shortLeft - actualReleased;
+        }
+
+        return plan;
+    }
+
+    /// <summary>
+    /// Computes per-SRE restore quantities when cancelling a "Return Raw Material to Customer"
+    /// entry to return previously released qty back to Work Order reservations per ERPNext PR #67523
+    /// (<c>work_order/services/reservation.py: restore_inward_reservations</c>).
+    /// Input <paramref name="sresNewestFirst"/> must be ordered newest-first.
+    /// </summary>
+    public static List<(Guid StockReservationEntryId, decimal RestoreQty)> ComputeRestoreInwardWorkOrderReservationPlan(
+        IReadOnlyList<InwardWorkOrderReservationRow> sresNewestFirst,
+        IReadOnlyDictionary<Guid, decimal> scioFreeReservedQtyByDetail,
+        IReadOnlyDictionary<Guid, decimal> returnQtyByScioDetail,
+        int qtyPrecision = 3)
+    {
+        var freeRemaining = new Dictionary<Guid, decimal>(scioFreeReservedQtyByDetail);
+        var returnRemaining = new Dictionary<Guid, decimal>(returnQtyByScioDetail);
+        var plan = new List<(Guid StockReservationEntryId, decimal RestoreQty)>();
+
+        foreach (var sre in sresNewestFirst)
+        {
+            if (!returnRemaining.TryGetValue(sre.ScioDetailId, out var returnLeft) || returnLeft <= 0m)
+                continue;
+            if (!freeRemaining.TryGetValue(sre.ScioDetailId, out var freeLeft) || freeLeft <= 0m)
+                continue;
+
+            var capacity = sre.VoucherQty - sre.ReservedQty;
+            var restoreQty = Math.Round(
+                Math.Min(capacity, Math.Min(freeLeft, returnLeft)),
+                qtyPrecision,
+                MidpointRounding.AwayFromZero);
+
+            if (restoreQty <= 0m)
+                continue;
+
+            plan.Add((sre.StockReservationEntryId, restoreQty));
+            freeRemaining[sre.ScioDetailId] = freeLeft - restoreQty;
+            returnRemaining[sre.ScioDetailId] = returnLeft - restoreQty;
+        }
+
+        return plan;
+    }
 }
+
+public readonly record struct InwardWorkOrderReservationRow(
+    Guid StockReservationEntryId,
+    Guid WorkOrderItemId,
+    Guid ScioDetailId,
+    decimal ReservedQty,
+    decimal VoucherQty,
+    decimal UsedQty,
+    decimal WorkOrderRequiredQty);
 
 public class ReservationConsumption
 {

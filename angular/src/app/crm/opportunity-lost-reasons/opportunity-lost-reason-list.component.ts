@@ -2,28 +2,29 @@ import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { OpportunityLostReasonService } from '../../proxy/crm/opportunity-lost-reason.service';
 import { OpportunityLostReasonDto } from '../../proxy/crm/models';
 
 @Component({
   selector: 'app-opportunity-lost-reason-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Opportunity Lost Reasons</h5>
-        <a routerLink="/crm/opportunity-lost-reasons/new" class="btn btn-primary btn-sm">New Lost Reason</a>
+        <h5 class="card-title mb-0">{{ '::OpportunityLostReasons' | abpLocalization }}</h5>
+        <a routerLink="/crm/opportunity-lost-reasons/new" class="btn btn-primary btn-sm">{{ '::NewLostReason' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Reason</th>
-              <th>Description</th>
-              <th>Status</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::Reason' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th>{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -37,19 +38,19 @@ import { OpportunityLostReasonDto } from '../../proxy/crm/models';
                 <td>{{ item.description || '—' }}</td>
                 <td>
                   @if (item.isDisabled) {
-                    <span class="badge bg-warning text-dark">Disabled</span>
+                    <span class="badge bg-warning text-dark">{{ '::Disabled' | abpLocalization }}</span>
                   } @else {
-                    <span class="badge bg-success">Active</span>
+                    <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                   }
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/crm/opportunity-lost-reasons', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/crm/opportunity-lost-reasons', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No opportunity lost reasons configured yet.</td>
+                <td colspan="4" class="text-center text-muted py-4">{{ '::NoOpportunityLostReasonsConfigured' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -83,7 +84,7 @@ export class OpportunityLostReasonListComponent implements OnInit {
           this.toaster.success('::SuccessfullyDeleted');
           this.load();
         },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

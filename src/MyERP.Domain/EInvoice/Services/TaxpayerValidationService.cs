@@ -24,9 +24,12 @@ public class TaxpayerValidationService : ITransientDependency
     /// <summary>
     /// Validates a taxpayer's TIN against the LHDN database.
     /// Uses ID Type (e.g. BRN, NRIC, PASSPORT, ARMY) and ID Value, or Taxpayer Name.
+    /// Per MyInvois search_taxpayer.py: requires either (idType + idValue) or taxpayerName before calling LHDN.
     /// </summary>
     public async Task<LhdnTaxpayerSearchResponse> ValidateTaxpayerAsync(string? idType, string? idValue, string? taxpayerName = null)
     {
+        ValidateTaxpayerSearchInputs(idType, idValue, taxpayerName);
+
         var environment = ParseEnvironment(await _settingProvider.GetOrNullAsync("EInvoice.Environment"));
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken");
 
@@ -87,5 +90,21 @@ public class TaxpayerValidationService : ITransientDependency
             ? $"Status code: {statusCode} {responseText.Trim()}"
             : $"Status code: {statusCode} As per LHDN,either type or value or taxpayer data is wrong";
         return $"API request failed: {msg}";
+    }
+
+    /// <summary>
+    /// Enforces MyInvois <c>search_taxpayer.py</c> input precondition before issuing LHDN API calls:
+    /// either both <paramref name="idType"/> and <paramref name="idValue"/>, or <paramref name="taxpayerName"/>
+    /// must be non-blank.
+    /// </summary>
+    public static void ValidateTaxpayerSearchInputs(string? idType, string? idValue, string? taxpayerName)
+    {
+        var hasIdPair = !string.IsNullOrWhiteSpace(idType) && !string.IsNullOrWhiteSpace(idValue);
+        var hasName = !string.IsNullOrWhiteSpace(taxpayerName);
+        if (!hasIdPair && !hasName)
+        {
+            throw new Volo.Abp.UserFriendlyException(
+                "As per LHDN Regulations, Either ID Type and Value or Taxpayer Name must be present.");
+        }
     }
 }

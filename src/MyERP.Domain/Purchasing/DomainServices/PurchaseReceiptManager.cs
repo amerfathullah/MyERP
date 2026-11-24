@@ -1375,7 +1375,98 @@ public class PurchaseReceiptManager : DomainService
 
         return RejectedPackageAction.Remove;
     }
+
+    /// <summary>
+    /// Computes the unrounded and posted stock quantities remaining on a receipt row in
+    /// <paramref name="warehouseId"/> across the original receipt row and its other submitted returns
+    /// per ERPNext PR #67194 (<c>BuyingController.get_receipt_row_left_to_return</c>):
+    /// ignores rows that posted no SLE in <paramref name="warehouseId"/> (such as non-stock debit notes)
+    /// and includes both accepted (<c>AcceptedWarehouseId</c>) and rejected (<c>RejectedWarehouseId</c>) legs.
+    /// </summary>
+    public static (decimal UnroundedLeftStockQty, decimal PostedLeftStockQty) CalculateReceiptRowLeftToReturn(
+        Guid warehouseId,
+        IReadOnlyDictionary<Guid, decimal> postedSleQtyByRowId,
+        IEnumerable<PurchaseReceiptReturnLegRow> receiptAndOtherReturnRows,
+        int stockQtyPrecision = 4)
+    {
+        decimal unroundedLeft = 0m;
+        foreach (var row in receiptAndOtherReturnRows)
+        {
+            if (!postedSleQtyByRowId.ContainsKey(row.RowId))
+                continue;
+
+            var factor = row.ConversionFactor > 0m ? row.ConversionFactor : 1m;
+            if (row.AcceptedWarehouseId == warehouseId)
+            {
+                unroundedLeft += row.Qty * factor;
+            }
+
+            if (row.RejectedWarehouseId == warehouseId)
+            {
+                unroundedLeft += row.RejectedQty * factor;
+            }
+        }
+
+        var postedLeft = Math.Round(postedSleQtyByRowId.Values.Sum(), stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (unroundedLeft, postedLeft);
+    }
+
+    /// <summary>
+    /// Caps the negative stock quantity a Purchase Receipt or Purchase Invoice return row takes back
+    /// from a warehouse so split returns never take more stock out than the original receipt row put in
+    /// per ERPNext PR #67194 (<c>BuyingController.get_accepted_stock_qty</c> &amp; <c>get_return_stock_qty</c>):
+    /// - Non-returns and rows with a Serial &amp; Batch Bundle return un-capped rounded stock qty.
+    /// - Cancelled returns reverse their exact posted return SLE qty when present.
+    /// - Final partial return whose unrounded remainder reaches &lt;= 0 takes all remaining posted stock (<c>-postedLeft</c>).
+    /// - Intermediate partial returns clamp to <c>Math.Max(stockQty, -postedLeft)</c>.
+    /// </summary>
+    public static decimal CalculateCappedPurchaseReturnStockQty(
+        bool isReturn,
+        bool hasSerialAndBatchBundle,
+        bool isCancelled,
+        decimal? postedReturnSleQty,
+        decimal returnQty,
+        decimal conversionFactor,
+        decimal unroundedLeftToReturn,
+        decimal postedLeftToReturnStockQty,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var stockQty = Math.Round(returnQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+
+        if (!isReturn || hasSerialAndBatchBundle)
+            return stockQty;
+
+        if (isCancelled)
+        {
+            return postedReturnSleQty.HasValue && postedReturnSleQty.Value != 0m
+                ? postedReturnSleQty.Value
+                : stockQty;
+        }
+
+        var postedLeft = Math.Round(postedLeftToReturnStockQty, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        if (postedLeft <= 0m)
+            return stockQty;
+
+        var unreturnedStockQty = Math.Round(
+            unroundedLeftToReturn + returnQty * factor,
+            stockQtyPrecision,
+            MidpointRounding.AwayFromZero);
+
+        if (unreturnedStockQty <= 0m)
+            return -postedLeft;
+
+        return Math.Max(stockQty, -postedLeft);
+    }
 }
+
+public readonly record struct PurchaseReceiptReturnLegRow(
+    Guid RowId,
+    decimal Qty,
+    decimal RejectedQty,
+    decimal ConversionFactor,
+    Guid? AcceptedWarehouseId,
+    Guid? RejectedWarehouseId);
 
 public enum RejectedPackageAction
 {

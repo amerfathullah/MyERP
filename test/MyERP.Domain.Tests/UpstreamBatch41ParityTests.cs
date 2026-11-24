@@ -3913,6 +3913,100 @@ public class UpstreamBatch41ParityTests
             new[] { new DeletedOrderItemBinInput(soRow1) }).SalesOrderRowIdsForReservedQty.ShouldBeEmpty();
     }
 
+    [Fact]
+    public void UpstreamBatch37_InwardWoReleaseRestore_SplitPurchaseReturnCap_BootCompanyDefaults_LhdnTinInputs_Parity()
+    {
+        // 1. ERPNext PR #67523: Return extra customer material held by a Work Order (release & restore)
+        var scioDetail1 = Guid.NewGuid();
+        var woDetail1 = Guid.NewGuid();
+        var sreOld = Guid.NewGuid();
+        var sreNew = Guid.NewGuid();
+
+        var shortage = StockReservationManager.CalculateInwardReturnWorkOrderShortage(
+            new Dictionary<Guid, decimal> { [scioDetail1] = 5m },
+            new Dictionary<Guid, decimal> { [scioDetail1] = 2m });
+        shortage[scioDetail1].ShouldBe(3m);
+
+        // WO needs 6 (required 6, used 4 on old SRE, 0 on new SRE), holds 10 total (5+5) -> 4 unused; newest SRE released first up to shortage 3
+        var sresNewestFirst = new[]
+        {
+            new InwardWorkOrderReservationRow(sreNew, woDetail1, scioDetail1, ReservedQty: 5m, VoucherQty: 5m, UsedQty: 0m, WorkOrderRequiredQty: 6m),
+            new InwardWorkOrderReservationRow(sreOld, woDetail1, scioDetail1, ReservedQty: 5m, VoucherQty: 5m, UsedQty: 4m, WorkOrderRequiredQty: 6m),
+        };
+        var releasePlan = StockReservationManager.ComputeUnusedInwardWorkOrderReservationReleasePlan(sresNewestFirst, shortage);
+        releasePlan.ShouldBe(new[] { (sreNew, 3m) });
+
+        // Cancel return restores up to voucher_qty - reserved_qty (3) capped by SCIO free qty (4) and return qty (3)
+        var sresAfterRelease = new[]
+        {
+            new InwardWorkOrderReservationRow(sreNew, woDetail1, scioDetail1, ReservedQty: 2m, VoucherQty: 5m, UsedQty: 0m, WorkOrderRequiredQty: 6m),
+            new InwardWorkOrderReservationRow(sreOld, woDetail1, scioDetail1, ReservedQty: 5m, VoucherQty: 5m, UsedQty: 4m, WorkOrderRequiredQty: 6m),
+        };
+        var restorePlan = StockReservationManager.ComputeRestoreInwardWorkOrderReservationPlan(
+            sresAfterRelease,
+            scioFreeReservedQtyByDetail: new Dictionary<Guid, decimal> { [scioDetail1] = 4m },
+            returnQtyByScioDetail: new Dictionary<Guid, decimal> { [scioDetail1] = 3m });
+        restorePlan.ShouldBe(new[] { (sreNew, 3m) });
+
+        // 2. ERPNext PR #67194: Split purchase returns never take more stock out than receipt row put in
+        var whAccepted = Guid.NewGuid();
+        var prRow = Guid.NewGuid();
+        var prevRetRow = Guid.NewGuid();
+        var nonStockDnRow = Guid.NewGuid();
+        // Original receipt 1 box (factor 3.3333 -> posted 3.3333), first split return -0.5 box (posted -1.6667), non-stock DN ignored
+        var postedMap = new Dictionary<Guid, decimal> { [prRow] = 3.3333m, [prevRetRow] = -1.6667m };
+        var legRows = new[]
+        {
+            new PurchaseReceiptReturnLegRow(prRow, Qty: 1m, RejectedQty: 0m, ConversionFactor: 3.3333m, AcceptedWarehouseId: whAccepted, RejectedWarehouseId: null),
+            new PurchaseReceiptReturnLegRow(prevRetRow, Qty: -0.5m, RejectedQty: 0m, ConversionFactor: 3.3333m, AcceptedWarehouseId: whAccepted, RejectedWarehouseId: null),
+            new PurchaseReceiptReturnLegRow(nonStockDnRow, Qty: -0.5m, RejectedQty: 0m, ConversionFactor: 3.3333m, AcceptedWarehouseId: whAccepted, RejectedWarehouseId: null),
+        };
+        var (unroundedLeft, postedLeft) = PurchaseReceiptManager.CalculateReceiptRowLeftToReturn(
+            whAccepted, postedMap, legRows, stockQtyPrecision: 4);
+        unroundedLeft.ShouldBe(1.66665m);
+        postedLeft.ShouldBe(1.6666m);
+
+        // Final split return -0.5 box would round to -1.6667, but caps at -postedLeft (-1.6666) so total returns == 3.3333
+        PurchaseReceiptManager.CalculateCappedPurchaseReturnStockQty(
+            isReturn: true, hasSerialAndBatchBundle: false, isCancelled: false, postedReturnSleQty: null,
+            returnQty: -0.5m, conversionFactor: 3.3333m,
+            unroundedLeftToReturn: unroundedLeft, postedLeftToReturnStockQty: postedLeft, stockQtyPrecision: 4)
+            .ShouldBe(-1.6666m);
+
+        // Cancelled return reverses its exact posted SLE qty
+        PurchaseReceiptManager.CalculateCappedPurchaseReturnStockQty(
+            isReturn: true, hasSerialAndBatchBundle: false, isCancelled: true, postedReturnSleQty: -1.6666m,
+            returnQty: -0.5m, conversionFactor: 3.3333m,
+            unroundedLeftToReturn: unroundedLeft, postedLeftToReturnStockQty: postedLeft, stockQtyPrecision: 4)
+            .ShouldBe(-1.6666m);
+
+        // 3. ERPNext PR #68511: Boot company snapshot exposes currency always, ledger defaults only when readable
+        var compId = Guid.NewGuid();
+        var ccId = Guid.NewGuid();
+        var bankId = Guid.NewGuid();
+        var permitted = CompanySettingsCache.BuildBootCompanySnapshot(
+            compId, "Acme MY", "MYR", "Malaysia", "LH-1", true, canReadCompanyDefaults: true,
+            costCenterId: ccId, defaultBankAccountId: bankId);
+        permitted.CurrencyCode.ShouldBe("MYR");
+        permitted.CostCenterId.ShouldBe(ccId);
+        permitted.DefaultBankAccountId.ShouldBe(bankId);
+
+        var unpermitted = CompanySettingsCache.BuildBootCompanySnapshot(
+            compId, "Acme MY", "MYR", "Malaysia", "LH-1", true, canReadCompanyDefaults: false,
+            costCenterId: ccId, defaultBankAccountId: bankId);
+        unpermitted.CurrencyCode.ShouldBe("MYR");
+        unpermitted.CostCenterId.ShouldBeNull();
+        unpermitted.DefaultBankAccountId.ShouldBeNull();
+
+        // 4. MyInvois search_taxpayer.py: require (idType + idValue) or taxpayerName before LHDN API call
+        Should.NotThrow(() => MyERP.EInvoice.Services.TaxpayerValidationService.ValidateTaxpayerSearchInputs("BRN", "202001012345", null));
+        Should.NotThrow(() => MyERP.EInvoice.Services.TaxpayerValidationService.ValidateTaxpayerSearchInputs(null, null, "ACME SDN BHD"));
+        Should.Throw<Volo.Abp.UserFriendlyException>(() =>
+            MyERP.EInvoice.Services.TaxpayerValidationService.ValidateTaxpayerSearchInputs("BRN", "   ", null));
+        Should.Throw<Volo.Abp.UserFriendlyException>(() =>
+            MyERP.EInvoice.Services.TaxpayerValidationService.ValidateTaxpayerSearchInputs(null, null, " "));
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

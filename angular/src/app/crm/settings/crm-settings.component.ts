@@ -3,50 +3,51 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { LocalizationPipe } from '@abp/ng.core';
 import { CrmSettingsService } from '../../proxy/crm/crm-settings.service';
 
 @Component({
   selector: 'app-crm-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">CRM Settings</h5>
+        <h5 class="card-title mb-0">{{ '::CrmSettings' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
-          <h6 class="text-secondary mb-3">Lead Settings</h6>
+          <h6 class="text-secondary mb-3">{{ '::LeadSettings' | abpLocalization }}</h6>
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Campaign Naming By</label>
+              <label class="form-label">{{ '::CampaignNamingBy' | abpLocalization }}</label>
               <select class="form-select" formControlName="campaignNamingBy">
-                <option value="Campaign Name">Campaign Name</option>
-                <option value="Naming Series">Naming Series</option>
+                <option value="Campaign Name">{{ '::CampaignName' | abpLocalization }}</option>
+                <option value="Naming Series">{{ '::NamingSeries' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-6 d-flex align-items-center mt-4">
               <div class="form-check form-switch me-4">
                 <input class="form-check-input" type="checkbox" id="allowLeadDuplication" formControlName="allowLeadDuplicationBasedOnEmails">
-                <label class="form-check-label" for="allowLeadDuplication">Allow Lead Duplication Based on Emails</label>
+                <label class="form-check-label" for="allowLeadDuplication">{{ '::AllowLeadDuplicationBasedOnEmails' | abpLocalization }}</label>
               </div>
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="autoCreationOfContact" formControlName="autoCreationOfContact">
-                <label class="form-check-label" for="autoCreationOfContact">Auto Creation of Contact</label>
+                <label class="form-check-label" for="autoCreationOfContact">{{ '::AutoCreationOfContact' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
           <hr>
-          <h6 class="text-secondary mb-3">Opportunity & Quotation Settings</h6>
+          <h6 class="text-secondary mb-3">{{ '::OpportunityAndQuotationSettings' | abpLocalization }}</h6>
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Close Replied Opportunity After (Days)</label>
+              <label class="form-label">{{ '::CloseRepliedOpportunityAfterDays' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="closeOpportunityAfterDays">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Default Quotation Validity (Days)</label>
+              <label class="form-label">{{ '::DefaultQuotationValidityDays' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="defaultQuotationValidityDays">
             </div>
           </div>
@@ -55,29 +56,29 @@ import { CrmSettingsService } from '../../proxy/crm/crm-settings.service';
             <div class="col-md-12">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="enableOpportunityCreationFromContactUs" formControlName="enableOpportunityCreationFromContactUs">
-                <label class="form-check-label" for="enableOpportunityCreationFromContactUs">Enable Opportunity Creation from Contact Us</label>
+                <label class="form-check-label" for="enableOpportunityCreationFromContactUs">{{ '::EnableOpportunityCreationFromContactUs' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
           <hr>
-          <h6 class="text-secondary mb-3">Activity & Communication Settings</h6>
+          <h6 class="text-secondary mb-3">{{ '::ActivityAndCommunicationSettings' | abpLocalization }}</h6>
           <div class="row mb-4">
             <div class="col-md-6">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="carryForward" formControlName="carryForwardCommunicationAndComments">
-                <label class="form-check-label" for="carryForward">Carry Forward Communication and Comments (Lead → Opportunity → Quotation)</label>
+                <label class="form-check-label" for="carryForward">{{ '::CarryForwardCommunicationAndComments' | abpLocalization }}</label>
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="updateTimestamp" formControlName="updateTimestampOnNewCommunication">
-                <label class="form-check-label" for="updateTimestamp">Update Timestamp on New Communication</label>
+                <label class="form-check-label" for="updateTimestamp">{{ '::UpdateTimestampOnNewCommunication' | abpLocalization }}</label>
               </div>
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary">Save Settings</button>
+          <button type="submit" class="btn btn-primary">{{ '::SaveSettings' | abpLocalization }}</button>
         </form>
       </div>
     </div>
@@ -114,7 +115,7 @@ export class CrmSettingsComponent implements OnInit {
       next: () => {
         this.toaster.success('::SuccessfullySaved');
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }
