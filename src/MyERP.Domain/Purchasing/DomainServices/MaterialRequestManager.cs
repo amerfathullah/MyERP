@@ -306,4 +306,26 @@ public class MaterialRequestManager : DomainService
 
         return affectedMRs;
     }
+
+    /// <summary>
+    /// Determines whether saving a Material Request should re-fetch item rates from the buying price list
+    /// per ERPNext PR #67789 (<c>material_request.py: on_update</c>):
+    /// returns <c>true</c> ONLY when updating an already-saved document (<paramref name="hasPreviousSavedDoc"/> = true)
+    /// whose <c>BuyingPriceList</c> is set and actually changed, preserving typed rates on initial insert.
+    /// </summary>
+    public static bool ShouldRefreshMaterialRequestItemRatesOnSave(
+        bool hasPreviousSavedDoc,
+        string? previousBuyingPriceList,
+        string? currentBuyingPriceList)
+    {
+        if (!hasPreviousSavedDoc || string.IsNullOrWhiteSpace(currentBuyingPriceList))
+        {
+            return false;
+        }
+
+        return !string.Equals(
+            previousBuyingPriceList?.Trim(),
+            currentBuyingPriceList.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+    }
 }

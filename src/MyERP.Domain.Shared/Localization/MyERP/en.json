@@ -7321,7 +7321,18 @@
     "PermanentlyFailed": "Permanently Failed",
     "FailedLower": "failed",
     "NoNotificationLogsFound": "No notification logs found.",
-    "Channel": "Channel"
+    "Channel": "Channel",
+    "CustomerGroupName": "Customer Group Name",
+    "ParentCustomerGroup": "Parent Customer Group",
+    "NoneRootGroup": "— None (Root Group) —",
+    "IsGroupCustomerHelp": "Is Group (Folder node — contains other customer groups)",
+    "SupplierGroupName": "Supplier Group Name",
+    "ParentSupplierGroup": "Parent Supplier Group",
+    "IsGroupSupplierHelp": "Is Group (Folder node — contains other supplier groups)",
+    "PartyTypeName": "Party Type Name",
+    "Receivable": "Receivable",
+    "Payable": "Payable",
+    "NoPartyTypesConfigured": "No party types configured yet."
   }
 }
 

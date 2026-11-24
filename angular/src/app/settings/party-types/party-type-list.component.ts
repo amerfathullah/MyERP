@@ -15,8 +15,8 @@ import { PartyTypeDto } from '../../proxy/core/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Party Types</h5>
-        <a routerLink="/settings/party-types/new" class="btn btn-primary btn-sm">New Party Type</a>
+        <h5 class="card-title mb-0">{{ '::PartyTypes' | abpLocalization }}</h5>
+        <a routerLink="/settings/party-types/new" class="btn btn-primary btn-sm">{{ '::NewPartyType' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,9 +28,9 @@ import { PartyTypeDto } from '../../proxy/core/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Party Type</th>
-              <th>Account Type</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::PartyType' | abpLocalization }}</th>
+              <th>{{ '::AccountType' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -43,17 +43,17 @@ import { PartyTypeDto } from '../../proxy/core/models';
                 </td>
                 <td>
                   <span class="badge" [class.bg-success]="item.accountType === 1" [class.bg-warning]="item.accountType === 0">
-                    {{ item.accountType === 1 ? 'Receivable' : 'Payable' }}
+                    {{ (item.accountType === 1 ? '::Receivable' : '::Payable') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/settings/party-types', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/settings/party-types', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="3" class="text-center text-muted py-4">No party types configured yet.</td>
+                <td colspan="3" class="text-center text-muted py-4">{{ '::NoPartyTypesConfigured' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

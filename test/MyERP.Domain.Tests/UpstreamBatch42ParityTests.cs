@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67462, #67503, #67530,
-/// #67699, #67758, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68371, #68473, #68529, #68578, #68732,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67399, #67400, #67432, #67462, #67503, #67530,
+/// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68311, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -989,5 +989,92 @@ public class UpstreamBatch42ParityTests
         TransactionValidationService.ValidateSalesOrderEventsReadPermission(true);
         Should.Throw<BusinessException>(() =>
             TransactionValidationService.ValidateSalesOrderEventsReadPermission(false));
+    }
+
+    [Fact]
+    public void Pr67789_MaterialRequestRates_PreservedOnFirstSaveRefreshedOnPriceListChange()
+    {
+        // First save (no previous doc) -> must NOT overwrite typed item rates
+        MaterialRequestManager.ShouldRefreshMaterialRequestItemRatesOnSave(
+            hasPreviousSavedDoc: false, previousBuyingPriceList: null, currentBuyingPriceList: "Standard Buying")
+            .ShouldBeFalse();
+
+        // Update with unchanged buying price list -> no refresh
+        MaterialRequestManager.ShouldRefreshMaterialRequestItemRatesOnSave(
+            hasPreviousSavedDoc: true, previousBuyingPriceList: "Standard Buying", currentBuyingPriceList: "Standard Buying")
+            .ShouldBeFalse();
+
+        // Update with changed buying price list -> refresh rates
+        MaterialRequestManager.ShouldRefreshMaterialRequestItemRatesOnSave(
+            hasPreviousSavedDoc: true, previousBuyingPriceList: "Standard Buying", currentBuyingPriceList: "Wholesale Buying")
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr67432_ItemLastPurchaseVoucher_PicksLatestAcrossPoPrPiExcludingFreeAndInternal()
+    {
+        var candidates = new[]
+        {
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Order", "PO-001", new DateTime(2026, 4, 1), 10m, 1m),
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Receipt", "PR-001", new DateTime(2026, 4, 5), 11m, 1m),
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Invoice", "PI-001", new DateTime(2026, 4, 10), 12m, 1m),
+            // Newer free item and internal supplier rows must be ignored
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Invoice", "PI-FREE", new DateTime(2026, 4, 15), 0m, 1m, IsFreeItem: true),
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Invoice", "PI-INT", new DateTime(2026, 4, 16), 99m, 1m, IsInternalSupplier: true),
+        };
+
+        var latest = MyERP.Inventory.Entities.Item.ResolveLatestPurchaseVoucher(candidates);
+        latest.ShouldNotBeNull();
+        latest!.VoucherNumber.ShouldBe("PI-001");
+
+        // Same date tie-breaker: Purchase Order beats Purchase Receipt beats Purchase Invoice
+        var sameDay = new[]
+        {
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Invoice", "PI-SAME", new DateTime(2026, 5, 1), 12m, 1m),
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Receipt", "PR-SAME", new DateTime(2026, 5, 1), 11m, 1m),
+            new MyERP.Inventory.Entities.LastPurchaseVoucherCandidate("Purchase Order", "PO-SAME", new DateTime(2026, 5, 1), 10m, 1m),
+        };
+        MyERP.Inventory.Entities.Item.ResolveLatestPurchaseVoucher(sameDay)!.VoucherNumber.ShouldBe("PO-SAME");
+    }
+
+    [Fact]
+    public void Pr67400_Pr67399_SubcontractingReceiptSecondaryRowsAndLandedCostFilter_Parity()
+    {
+        var fg1 = Guid.NewGuid();
+        var fg2 = Guid.NewGuid();
+        var sec1 = Guid.NewGuid();
+        var orphanSec = Guid.NewGuid();
+
+        var validRows = new (Guid RowId, int RowIdx, string ItemCode, string? SecondaryItemType, SecondaryItemValuationType? ValuationType, Guid? ReferenceRowId)[]
+        {
+            (fg1, 1, "FG-001", null, null, null),
+            (sec1, 2, "SCRAP-001", "Scrap", SecondaryItemValuationType.ValuationRate, fg1),
+            (fg2, 3, "FG-002", null, null, null),
+        };
+
+        // PR #67400: valid secondary row passes
+        SubcontractingManager.ValidateNoOrphanSecondaryItemsOnReceipt(validRows);
+
+        // PR #67400: removing FG-001 also removes its secondary row SCRAP-001, leaving FG-002
+        var afterRemove = SubcontractingManager.RemoveFinishedGoodAndItsSecondaryRows(
+            validRows, fg1, r => r.RowId, r => r.ReferenceRowId);
+        afterRemove.Count.ShouldBe(1);
+        afterRemove[0].RowId.ShouldBe(fg2);
+
+        // PR #67400: orphan secondary row whose FG row is missing throws
+        var orphanRows = new (Guid RowId, int RowIdx, string ItemCode, string? SecondaryItemType, SecondaryItemValuationType? ValuationType, Guid? ReferenceRowId)[]
+        {
+            (fg2, 1, "FG-002", null, null, null),
+            (orphanSec, 2, "SCRAP-ORPHAN", "Scrap", SecondaryItemValuationType.ValuationRate, fg1),
+        };
+        var ex = Should.Throw<BusinessException>(() =>
+            SubcontractingManager.ValidateNoOrphanSecondaryItemsOnReceipt(orphanRows));
+        ex.Data["detail"]!.ToString()!.ShouldContain("SCRAP-ORPHAN");
+
+        // PR #67399: Landed Cost Voucher spreads over Finished Good rows only (excludes secondary rows)
+        var lcvEligible = MyERP.Inventory.Entities.LandedCostVoucher.FilterSubcontractingReceiptItemsForLandedCost(
+            validRows, r => r.SecondaryItemType, r => r.ValuationType);
+        lcvEligible.Count.ShouldBe(2);
+        lcvEligible.ShouldAllBe(r => r.RowId == fg1 || r.RowId == fg2);
     }
 }

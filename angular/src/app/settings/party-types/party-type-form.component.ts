@@ -15,28 +15,28 @@ import { partyAccountTypeOptions } from '../../proxy/core/party-account-type.enu
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Party Type</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditPartyType' : '::NewPartyType') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Party Type Name *</label>
+              <label class="form-label">{{ '::PartyTypeName' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="name" [placeholder]="'::Placeholder:PartyTypeExample' | abpLocalization">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Account Type *</label>
+              <label class="form-label">{{ '::AccountType' | abpLocalization }} *</label>
               <select class="form-select" formControlName="accountType">
                 @for (opt of accountTypeOptions; track opt.value) {
-                  <option [value]="opt.value">{{ opt.key }}</option>
+                  <option [ngValue]="opt.value">{{ opt.key }}</option>
                 }
               </select>
             </div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/settings/party-types" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/settings/party-types" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

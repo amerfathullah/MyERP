@@ -269,4 +269,25 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return projects;
     }
+
+    /// <summary>
+    /// Filters Subcontracting Receipt rows eligible for Landed Cost Voucher allocation per ERPNext PR #67399
+    /// (<c>landed_cost_voucher.py: get_pr_items</c>):
+    /// spreads landed costs across Finished Good rows only, excluding secondary item rows
+    /// (<c>SecondaryItemType</c> or <c>ValuationType</c> set) because secondary items take their share from the finished good.
+    /// </summary>
+    public static List<T> FilterSubcontractingReceiptItemsForLandedCost<T>(
+        IEnumerable<T>? receiptItems,
+        Func<T, string?> getSecondaryItemType,
+        Func<T, Manufacturing.SecondaryItemValuationType?> getValuationType)
+    {
+        if (receiptItems == null)
+        {
+            return new List<T>();
+        }
+
+        return receiptItems
+            .Where(item => string.IsNullOrWhiteSpace(getSecondaryItemType(item)) && !getValuationType(item).HasValue)
+            .ToList();
+    }
 }

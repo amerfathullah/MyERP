@@ -15,19 +15,19 @@ import type { CustomerGroupDto } from '../../proxy/core/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Customer Group</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditCustomerGroup' : '::NewCustomerGroup') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Customer Group Name *</label>
+            <label class="form-label">{{ '::CustomerGroupName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:CustomerGroupExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Parent Customer Group</label>
+            <label class="form-label">{{ '::ParentCustomerGroup' | abpLocalization }}</label>
             <select class="form-select" formControlName="parentId">
-              <option [ngValue]="null">— None (Root Group) —</option>
+              <option [ngValue]="null">{{ '::NoneRootGroup' | abpLocalization }}</option>
               @for (g of groups(); track g.id) {
                 @if (g.id !== id) {
                   <option [value]="g.id">{{ g.name }}</option>
@@ -39,18 +39,18 @@ import type { CustomerGroupDto } from '../../proxy/core/models';
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" formControlName="isGroup" id="isGroup">
-              <label class="form-check-label" for="isGroup">Is Group (Folder node — contains other customer groups)</label>
+              <label class="form-check-label" for="isGroup">{{ '::IsGroupCustomerHelp' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Default Credit Limit</label>
+            <label class="form-label">{{ '::DefaultCreditLimit' | abpLocalization }}</label>
             <input type="number" step="0.01" class="form-control" formControlName="defaultCreditLimit" placeholder="0.00">
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/settings/customer-groups" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/settings/customer-groups" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>

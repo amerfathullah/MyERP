@@ -3263,6 +3263,64 @@ public class SubcontractingManager : DomainService
     {
         return string.IsNullOrWhiteSpace(secondaryItemType) && !valuationType.HasValue;
     }
+
+    /// <summary>
+    /// Validates that every secondary item row on a Subcontracting Receipt still references a Finished Good row
+    /// present on the same receipt per ERPNext PR #67400 (<c>subcontracting_receipt.py: validate_secondary_items</c>).
+    /// </summary>
+    public static void ValidateNoOrphanSecondaryItemsOnReceipt(
+        IEnumerable<(Guid RowId, int RowIdx, string ItemCode, string? SecondaryItemType, Manufacturing.SecondaryItemValuationType? ValuationType, Guid? ReferenceRowId)>? rows)
+    {
+        if (rows == null)
+        {
+            return;
+        }
+
+        var rowList = rows.ToList();
+        var finishedGoodRowIds = rowList
+            .Where(r => string.IsNullOrWhiteSpace(r.SecondaryItemType) && !r.ValuationType.HasValue)
+            .Select(r => r.RowId)
+            .ToHashSet();
+
+        foreach (var row in rowList)
+        {
+            var isSecondary = !string.IsNullOrWhiteSpace(row.SecondaryItemType) || row.ValuationType.HasValue;
+            if (!isSecondary)
+            {
+                continue;
+            }
+
+            if (!row.ReferenceRowId.HasValue || !finishedGoodRowIds.Contains(row.ReferenceRowId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("itemCode", row.ItemCode)
+                    .WithData(
+                        "detail",
+                        $"Row #{row.RowIdx}: The Finished Good row of Secondary Item {row.ItemCode} is not on this receipt. Remove the Secondary Item row.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes a Finished Good row from a Subcontracting Receipt together with all secondary rows
+    /// referencing it per ERPNext PR #67400 (<c>subcontracting_receipt.js: before_items_remove</c>).
+    /// </summary>
+    public static List<T> RemoveFinishedGoodAndItsSecondaryRows<T>(
+        IEnumerable<T>? rows,
+        Guid removedFinishedGoodRowId,
+        Func<T, Guid> getRowId,
+        Func<T, Guid?> getReferenceRowId)
+    {
+        if (rows == null)
+        {
+            return new List<T>();
+        }
+
+        return rows
+            .Where(r => getRowId(r) != removedFinishedGoodRowId && getReferenceRowId(r) != removedFinishedGoodRowId)
+            .ToList();
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

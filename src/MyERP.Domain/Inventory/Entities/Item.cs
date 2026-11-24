@@ -423,4 +423,44 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
             }
         }
     }
+
+    /// <summary>
+    /// Resolves the latest purchase voucher for an Item across Purchase Order, Purchase Receipt,
+    /// and Purchase Invoice per ERPNext PR #67432 (<c>item.py: get_last_purchase_details</c>):
+    /// - Excludes free item rows (<c>IsFreeItem == true</c>) and internal-supplier documents (<c>IsInternalSupplier == true</c>).
+    /// - Picks the candidate with the latest <c>VoucherDate</c>.
+    /// - On equal dates, breaks ties in ERPNext priority order: Purchase Order, then Purchase Receipt, then Purchase Invoice.
+    /// </summary>
+    public static LastPurchaseVoucherCandidate? ResolveLatestPurchaseVoucher(
+        IEnumerable<LastPurchaseVoucherCandidate>? candidates)
+    {
+        if (candidates == null)
+        {
+            return null;
+        }
+
+        static int DocTypePriority(string docType) => docType switch
+        {
+            "Purchase Order" => 0,
+            "Purchase Receipt" => 1,
+            "Purchase Invoice" => 2,
+            _ => 3
+        };
+
+        return candidates
+            .Where(c => c.IsSubmitted && !c.IsFreeItem && !c.IsInternalSupplier)
+            .OrderByDescending(c => c.VoucherDate.Date)
+            .ThenBy(c => DocTypePriority(c.DocType))
+            .FirstOrDefault();
+    }
 }
+
+public sealed record LastPurchaseVoucherCandidate(
+    string DocType,
+    string VoucherNumber,
+    DateTime VoucherDate,
+    decimal Rate,
+    decimal ConversionFactor,
+    bool IsSubmitted = true,
+    bool IsFreeItem = false,
+    bool IsInternalSupplier = false);

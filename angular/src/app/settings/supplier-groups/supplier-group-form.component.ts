@@ -15,19 +15,19 @@ import type { SupplierGroupDto } from '../../proxy/core/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Supplier Group</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditSupplierGroup' : '::NewSupplierGroup') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="mb-3">
-            <label class="form-label">Supplier Group Name *</label>
+            <label class="form-label">{{ '::SupplierGroupName' | abpLocalization }} *</label>
             <input type="text" class="form-control" formControlName="name" maxlength="140" [placeholder]="'::Placeholder:SupplierGroupExample' | abpLocalization">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Parent Supplier Group</label>
+            <label class="form-label">{{ '::ParentSupplierGroup' | abpLocalization }}</label>
             <select class="form-select" formControlName="parentId">
-              <option [ngValue]="null">— None (Root Group) —</option>
+              <option [ngValue]="null">{{ '::NoneRootGroup' | abpLocalization }}</option>
               @for (g of groups(); track g.id) {
                 @if (g.id !== id) {
                   <option [value]="g.id">{{ g.name }}</option>
@@ -39,13 +39,13 @@ import type { SupplierGroupDto } from '../../proxy/core/models';
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" formControlName="isGroup" id="isGroup">
-              <label class="form-check-label" for="isGroup">Is Group (Folder node — contains other supplier groups)</label>
+              <label class="form-check-label" for="isGroup">{{ '::IsGroupSupplierHelp' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/settings/supplier-groups" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/settings/supplier-groups" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
