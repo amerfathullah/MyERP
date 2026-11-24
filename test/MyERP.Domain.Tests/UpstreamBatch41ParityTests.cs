@@ -4428,6 +4428,57 @@ public class UpstreamBatch41ParityTests
         isPacked.ShouldBeTrue();
     }
 
+    [Fact]
+    public void UpstreamBatch44_DisabledBundleReserve_OpBomMaterialFactor_ZeroQtyBundlePrice_SreDeliveredResidue_Parity()
+    {
+        // 1. ERPNext PR #67706: Refresh reserved qty of a disabled bundle's components from the SO's own packed_items
+        var soBundleRow = Guid.NewGuid();
+        var soRegularRow = Guid.NewGuid();
+        var bundleItem = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var regItem = Guid.NewGuid();
+        var wh = Guid.NewGuid();
+
+        var pairs = SalesOrderManager.CollectReservedQtyRefreshPairsForSalesOrder(
+            salesOrderItems: new[]
+            {
+                (soBundleRow, bundleItem, (Guid?)wh, DeliveredBySupplier: false),
+                (soRegularRow, regItem, (Guid?)wh, DeliveredBySupplier: false),
+            },
+            packedItems: new[]
+            {
+                (soBundleRow, compA, (Guid?)wh),
+                (soBundleRow, compB, (Guid?)wh),
+            });
+        pairs.ShouldContain((compA, wh));
+        pairs.ShouldContain((compB, wh));
+        pairs.ShouldContain((regItem, wh));
+        pairs.ShouldNotContain((bundleItem, wh));
+
+        // 2. ERPNext PR #67705: Operation BOM material row resets UOM to stockUom, conversionFactor to 1, doNotExplode to true
+        var (uom, factor, doNotExplode) = BomValidationService.NormalizeOperationBomMaterialRow("Nos");
+        uom.ShouldBe("Nos");
+        factor.ShouldBe(1m);
+        doNotExplode.ShouldBeTrue();
+
+        // 3. ERPNext PR #67702: Skip updating bundle parent rate from children when parent row qty is 0
+        SalesOrderManager.ShouldUpdateProductBundleRateFromChildren(true, 0m).ShouldBeFalse();
+        SalesOrderManager.ShouldUpdateProductBundleRateFromChildren(true, 3m).ShouldBeTrue();
+        SalesOrderManager.ShouldUpdateProductBundleRateFromChildren(false, 3m).ShouldBeFalse();
+
+        // 4. ERPNext PR #67701: Ignore sub-precision float residue in SRE delivered_qty when resolving status
+        StockReservationManager.ResolveStockReservationEntryStatus(
+            reservedQty: 10m, deliveredQty: 0.00001m, consumedQty: 0m, transferredQty: 0m, reservedQtyPrecision: 4)
+            .ShouldBe("Reserved");
+        StockReservationManager.ResolveStockReservationEntryStatus(
+            reservedQty: 10m, deliveredQty: 2m, consumedQty: 0m, transferredQty: 0m, reservedQtyPrecision: 4)
+            .ShouldBe("Partially Delivered");
+        StockReservationManager.ResolveStockReservationEntryStatus(
+            reservedQty: 10m, deliveredQty: 10m, consumedQty: 0m, transferredQty: 0m, reservedQtyPrecision: 4)
+            .ShouldBe("Delivered");
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

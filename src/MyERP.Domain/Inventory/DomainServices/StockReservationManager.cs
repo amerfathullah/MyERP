@@ -2578,6 +2578,44 @@ public class StockReservationManager : DomainService
         decimal qtyToReserve,
         int stockQtyPrecision = 4)
         => Math.Round(unreservedQty - qtyToReserve, stockQtyPrecision, MidpointRounding.AwayFromZero) > 0m;
+
+    /// <summary>
+    /// Computes the status string of a submitted Stock Reservation Entry per ERPNext PR #67701
+    /// (<c>stock_reservation_entry.py: get_status</c>):
+    /// ignores sub-precision floating/decimal residue in <paramref name="deliveredQty"/>
+    /// (<c>Round(deliveredQty, reservedQtyPrecision) &gt; 0</c>) so serial/batch arithmetic residue
+    /// does not falsely mark a reservation as <c>"Partially Delivered"</c>.
+    /// </summary>
+    public static string ResolveStockReservationEntryStatus(
+        decimal reservedQty,
+        decimal deliveredQty,
+        decimal consumedQty,
+        decimal transferredQty,
+        bool isWorkOrderOrSubcontractingTransfer = false,
+        int reservedQtyPrecision = 4)
+    {
+        if (isWorkOrderOrSubcontractingTransfer && transferredQty > 0m)
+        {
+            return transferredQty < reservedQty ? "Partially Used" : "Closed";
+        }
+
+        if (deliveredQty + consumedQty >= reservedQty && reservedQty > 0m)
+        {
+            return "Delivered";
+        }
+
+        if (Math.Round(deliveredQty, reservedQtyPrecision, MidpointRounding.AwayFromZero) > 0m)
+        {
+            return "Partially Delivered";
+        }
+
+        if (Math.Round(consumedQty, reservedQtyPrecision, MidpointRounding.AwayFromZero) > 0m)
+        {
+            return "Partially Consumed";
+        }
+
+        return reservedQty > 0m ? "Reserved" : "Draft";
+    }
 }
 
 public readonly record struct InwardWorkOrderReservationRow(

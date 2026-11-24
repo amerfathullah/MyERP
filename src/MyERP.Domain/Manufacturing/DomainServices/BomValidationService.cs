@@ -318,6 +318,17 @@ public class BomValidationService : DomainService
 
         return currentConversionRate;
     }
+
+    /// <summary>
+    /// Normalizes a material row copied from an operation's sub-BOM per ERPNext PR #67705
+    /// (<c>BOM._append_bom_material_row</c>):
+    /// because <c>get_bom_items</c> returns quantities in <paramref name="stockUom"/>, resets
+    /// <c>Uom</c> to <paramref name="stockUom"/>, resets <c>ConversionFactor</c> to <c>1</c>,
+    /// and flags <c>DoNotExplode = true</c>.
+    /// </summary>
+    public static (string Uom, decimal ConversionFactor, bool DoNotExplode) NormalizeOperationBomMaterialRow(
+        string stockUom)
+        => (stockUom, 1m, true);
 }
 
 /// <summary>

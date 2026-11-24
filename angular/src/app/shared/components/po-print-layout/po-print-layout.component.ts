@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Purchase Order print layout — professional A4 format for sending to suppliers.
@@ -10,7 +11,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-po-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (order) {
       <div class="po-print-layout">
@@ -19,21 +20,21 @@ import { CommonModule } from '@angular/common';
           <div>
             <h3 class="fw-bold mb-1">{{ companyName }}</h3>
             @if (companyTin) {
-              <p class="text-muted mb-0">TIN: {{ companyTin }}</p>
+              <p class="text-muted mb-0">{{ '::Tin' | abpLocalization }}: {{ companyTin }}</p>
             }
             @if (companySst) {
-              <p class="text-muted mb-0">SST No: {{ companySst }}</p>
+              <p class="text-muted mb-0">{{ '::SstNo' | abpLocalization }}: {{ companySst }}</p>
             }
             @if (companyAddress) {
               <p class="text-muted mb-0">{{ companyAddress }}</p>
             }
           </div>
           <div class="text-end">
-            <h4 class="text-uppercase text-primary fw-bold mb-1">PURCHASE ORDER</h4>
-            <p class="mb-0"><strong>PO #:</strong> {{ order.orderNumber }}</p>
-            <p class="mb-0"><strong>Date:</strong> {{ order.orderDate | date:'dd/MM/yyyy' }}</p>
+            <h4 class="text-uppercase text-primary fw-bold mb-1">{{ '::PurchaseOrder' | abpLocalization }}</h4>
+            <p class="mb-0"><strong>{{ '::PoNumberShort' | abpLocalization }}:</strong> {{ order.orderNumber }}</p>
+            <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ order.orderDate | date:'dd/MM/yyyy' }}</p>
             @if (order.deliveryDate) {
-              <p class="mb-0"><strong>Delivery By:</strong> {{ order.deliveryDate | date:'dd/MM/yyyy' }}</p>
+              <p class="mb-0"><strong>{{ '::DeliveryBy' | abpLocalization }}:</strong> {{ order.deliveryDate | date:'dd/MM/yyyy' }}</p>
             }
           </div>
         </div>
@@ -41,14 +42,14 @@ import { CommonModule } from '@angular/common';
         <!-- Supplier Info -->
         <div class="row mb-4">
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Supplier</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::Supplier' | abpLocalization }}</h6>
             <p class="fw-bold mb-1">{{ order.supplierName || 'N/A' }}</p>
             @if (supplierAddress) {
               <p class="text-muted mb-0">{{ supplierAddress }}</p>
             }
           </div>
           <div class="col-6">
-            <h6 class="text-uppercase text-muted fw-bold mb-2">Ship To</h6>
+            <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::ShipTo' | abpLocalization }}</h6>
             <p class="mb-1">{{ companyName }}</p>
             @if (shipToAddress) {
               <p class="text-muted mb-0">{{ shipToAddress }}</p>
@@ -59,12 +60,12 @@ import { CommonModule } from '@angular/common';
         <table class="table table-bordered mb-4">
           <thead class="table-light">
             <tr>
-              <th style="width: 40px" class="text-center">S/No</th>
-              <th>Item Description</th>
-              <th class="text-end" style="width: 80px">Qty</th>
-              <th class="text-end" style="width: 80px">UOM</th>
-              <th class="text-end" style="width: 120px">Unit Price</th>
-              <th class="text-end" style="width: 120px">Amount</th>
+              <th style="width: 40px" class="text-center">{{ '::SerialNoShort' | abpLocalization }}</th>
+              <th>{{ '::ItemDescription' | abpLocalization }}</th>
+              <th class="text-end" style="width: 80px">{{ '::Qty' | abpLocalization }}</th>
+              <th class="text-end" style="width: 80px">{{ '::Uom' | abpLocalization }}</th>
+              <th class="text-end" style="width: 120px">{{ '::UnitPrice' | abpLocalization }}</th>
+              <th class="text-end" style="width: 120px">{{ '::Amount' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -85,7 +86,7 @@ import { CommonModule } from '@angular/common';
           <div class="col-6">
             @if (order.notes) {
               <div class="border rounded p-3">
-                <h6 class="text-uppercase text-muted fw-bold mb-2">Notes / Terms</h6>
+                <h6 class="text-uppercase text-muted fw-bold mb-2">{{ '::NotesTerms' | abpLocalization }}</h6>
                 <p class="mb-0 small">{{ order.notes }}</p>
               </div>
             }
@@ -94,17 +95,17 @@ import { CommonModule } from '@angular/common';
             <table class="table table-sm mb-0">
               <tbody>
                 <tr>
-                  <td class="text-end border-0"><strong>Subtotal:</strong></td>
+                  <td class="text-end border-0"><strong>{{ '::Subtotal' | abpLocalization }}:</strong></td>
                   <td class="text-end border-0 font-monospace" style="width: 140px">{{ order.currency || 'MYR' }} {{ order.netTotal | number:'1.2-2' }}</td>
                 </tr>
                 @if (order.taxAmount) {
                   <tr>
-                    <td class="text-end border-0"><strong>Tax:</strong></td>
+                    <td class="text-end border-0"><strong>{{ '::Tax' | abpLocalization }}:</strong></td>
                     <td class="text-end border-0 font-monospace">{{ order.currency || 'MYR' }} {{ order.taxAmount | number:'1.2-2' }}</td>
                   </tr>
                 }
                 <tr class="border-top">
-                  <td class="text-end"><strong class="fs-5">Grand Total:</strong></td>
+                  <td class="text-end"><strong class="fs-5">{{ '::GrandTotal' | abpLocalization }}:</strong></td>
                   <td class="text-end font-monospace fs-5 fw-bold">{{ order.currency || 'MYR' }} {{ order.grandTotal | number:'1.2-2' }}</td>
                 </tr>
               </tbody>
@@ -115,13 +116,13 @@ import { CommonModule } from '@angular/common';
         <div class="mt-5 pt-4 border-top">
           <div class="row">
             <div class="col-6">
-              <p class="mb-4">Authorized Signature:</p>
+              <p class="mb-4">{{ '::AuthorizedSignature' | abpLocalization }}:</p>
               <div class="border-bottom" style="width: 200px; margin-top: 40px;"></div>
-              <p class="text-muted small mt-1">Name & Date</p>
+              <p class="text-muted small mt-1">{{ '::NameAndDate' | abpLocalization }}</p>
             </div>
             <div class="col-6 text-end">
-              <p class="text-muted small">This is a computer-generated document.</p>
-              <p class="text-muted small">No signature required.</p>
+              <p class="text-muted small">{{ '::ComputerGeneratedDocument' | abpLocalization }}</p>
+              <p class="text-muted small">{{ '::NoSignatureRequired' | abpLocalization }}</p>
             </div>
           </div>
         </div>

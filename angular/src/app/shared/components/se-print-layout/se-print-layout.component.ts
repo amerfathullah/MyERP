@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalizationPipe } from '@abp/ng.core';
 
 /**
  * Stock Entry print layout — professional A4 internal stock transfer/movement document.
@@ -11,7 +12,7 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-se-print-layout',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizationPipe],
   template: `
     @if (entry) {
       <div class="se-print-layout">
@@ -24,22 +25,22 @@ import { CommonModule } from '@angular/common';
             }
           </div>
           <div class="text-end">
-            <h4 class="text-uppercase text-primary fw-bold mb-1">STOCK {{ entryTypeLabel }}</h4>
-            <p class="mb-0"><strong>Entry #:</strong> {{ entry.entryNumber }}</p>
-            <p class="mb-0"><strong>Date:</strong> {{ entry.postingDate | date:'dd/MM/yyyy' }}</p>
+            <h4 class="text-uppercase text-primary fw-bold mb-1">{{ '::Stock' | abpLocalization }} {{ entryTypeLabel }}</h4>
+            <p class="mb-0"><strong>{{ '::EntryNumberShort' | abpLocalization }}:</strong> {{ entry.entryNumber }}</p>
+            <p class="mb-0"><strong>{{ '::Date' | abpLocalization }}:</strong> {{ entry.postingDate | date:'dd/MM/yyyy' }}</p>
             @if (entry.workOrderId) {
-              <p class="mb-0"><strong>Work Order:</strong> {{ woNumber || '—' }}</p>
+              <p class="mb-0"><strong>{{ '::WorkOrder' | abpLocalization }}:</strong> {{ woNumber || '—' }}</p>
             }
           </div>
         </div>
         <!-- Purpose Banner -->
         <div class="alert alert-light border text-center mb-4">
-          <strong>Purpose:</strong> {{ entryTypeLabel }}
+          <strong>{{ '::Purpose' | abpLocalization }}:</strong> {{ entryTypeLabel }}
           @if (sourceWarehouse) {
-            <span> | <strong>From:</strong> {{ sourceWarehouse }}</span>
+            <span> | <strong>{{ '::From' | abpLocalization }}:</strong> {{ sourceWarehouse }}</span>
           }
           @if (targetWarehouse) {
-            <span> | <strong>To:</strong> {{ targetWarehouse }}</span>
+            <span> | <strong>{{ '::To' | abpLocalization }}:</strong> {{ targetWarehouse }}</span>
           }
         </div>
         <!-- Items Table -->
@@ -47,12 +48,12 @@ import { CommonModule } from '@angular/common';
           <thead class="table-light">
             <tr>
               <th style="width:5%">#</th>
-              <th style="width:30%">Item</th>
-              <th style="width:15%">Source WH</th>
-              <th style="width:15%">Target WH</th>
-              <th class="text-center" style="width:10%">Qty</th>
-              <th class="text-end" style="width:12%">Rate</th>
-              <th class="text-end" style="width:13%">Amount</th>
+              <th style="width:30%">{{ '::Item' | abpLocalization }}</th>
+              <th style="width:15%">{{ '::SourceWh' | abpLocalization }}</th>
+              <th style="width:15%">{{ '::TargetWh' | abpLocalization }}</th>
+              <th class="text-center" style="width:10%">{{ '::Qty' | abpLocalization }}</th>
+              <th class="text-end" style="width:12%">{{ '::Rate' | abpLocalization }}</th>
+              <th class="text-end" style="width:13%">{{ '::Amount' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -70,9 +71,9 @@ import { CommonModule } from '@angular/common';
           </tbody>
           <tfoot>
             <tr class="table-light fw-bold">
-              <td colspan="4" class="text-end">Total Qty:</td>
+              <td colspan="4" class="text-end">{{ '::TotalQty' | abpLocalization }}:</td>
               <td class="text-center">{{ totalQty }}</td>
-              <td class="text-end">Total Value:</td>
+              <td class="text-end">{{ '::TotalValue' | abpLocalization }}:</td>
               <td class="text-end">{{ totalValue | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
@@ -80,10 +81,10 @@ import { CommonModule } from '@angular/common';
         <!-- Additional Costs (for Manufacture/Repack) -->
         @if (entry.additionalCosts && entry.additionalCosts.length > 0) {
           <div class="mb-4">
-            <h6 class="fw-bold">Additional Costs</h6>
+            <h6 class="fw-bold">{{ '::AdditionalCosts' | abpLocalization }}</h6>
             <table class="table table-sm table-bordered">
               <thead class="table-light">
-                <tr><th>Description</th><th class="text-end">Amount</th></tr>
+                <tr><th>{{ '::Description' | abpLocalization }}</th><th class="text-end">{{ '::Amount' | abpLocalization }}</th></tr>
               </thead>
               <tbody>
                 @for (cost of entry.additionalCosts; track cost) {
@@ -99,7 +100,7 @@ import { CommonModule } from '@angular/common';
         <!-- Remarks -->
         @if (entry.remarks) {
           <div class="mb-4">
-            <h6 class="fw-bold">Remarks</h6>
+            <h6 class="fw-bold">{{ '::Remarks' | abpLocalization }}</h6>
             <p class="border rounded p-2 bg-light">{{ entry.remarks }}</p>
           </div>
         }
@@ -107,21 +108,21 @@ import { CommonModule } from '@angular/common';
         <div class="row mt-5 pt-4">
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Prepared By</small>
+            <small class="text-muted">{{ '::PreparedBy' | abpLocalization }}</small>
           </div>
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Issued By / Received By</small>
+            <small class="text-muted">{{ '::IssuedByReceivedBy' | abpLocalization }}</small>
           </div>
           <div class="col-4 text-center">
             <div class="border-bottom border-dark mb-1" style="height:40px;"></div>
-            <small class="text-muted">Authorized By</small>
+            <small class="text-muted">{{ '::AuthorizedBy' | abpLocalization }}</small>
           </div>
         </div>
         <!-- Footer -->
         <div class="text-center mt-4 text-muted small">
-          <p class="mb-0">Internal document — not for external distribution.</p>
-          <p class="mb-0">Printed on: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
+          <p class="mb-0">{{ '::InternalDocumentNotice' | abpLocalization }}</p>
+          <p class="mb-0">{{ '::PrintedOn' | abpLocalization }}: {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
       </div>
     }

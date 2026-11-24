@@ -261,4 +261,58 @@ public class SalesOrderManager : DomainService
         var baseStockUomRate = itemRate * effectiveConvRate / effectiveFactor;
         return Math.Round((baseStockUomRate - valuationRate) * stockQty, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Collects the <c>(ItemId, WarehouseId)</c> bin pairs whose <c>ReservedQty</c> must be refreshed
+    /// for a Sales Order per ERPNext PR #67706 (<c>sales_order/services/reservation.py</c>):
+    /// inspects the Sales Order's own <paramref name="packedItems"/> rows (matched by <c>ParentSalesOrderItemId</c>)
+    /// rather than checking whether the Product Bundle master is currently active, so components of a
+    /// bundle disabled after order creation still have their reserved qty refreshed.
+    /// </summary>
+    public static List<(Guid ItemId, Guid WarehouseId)> CollectReservedQtyRefreshPairsForSalesOrder(
+        IEnumerable<(Guid RowId, Guid ItemId, Guid? WarehouseId, bool DeliveredBySupplier)> salesOrderItems,
+        IEnumerable<(Guid ParentSalesOrderItemId, Guid ItemId, Guid? WarehouseId)> packedItems,
+        IReadOnlySet<Guid>? filterSalesOrderItemIds = null)
+    {
+        var packedByParent = packedItems
+            .GroupBy(p => p.ParentSalesOrderItemId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var pairs = new HashSet<(Guid ItemId, Guid WarehouseId)>();
+        foreach (var row in salesOrderItems)
+        {
+            if (row.DeliveredBySupplier)
+                continue;
+            if (filterSalesOrderItemIds != null && filterSalesOrderItemIds.Count > 0 && !filterSalesOrderItemIds.Contains(row.RowId))
+                continue;
+
+            if (packedByParent.TryGetValue(row.RowId, out var children) && children.Count > 0)
+            {
+                foreach (var p in children)
+                {
+                    if (p.ItemId != Guid.Empty && p.WarehouseId.HasValue && p.WarehouseId.Value != Guid.Empty)
+                    {
+                        pairs.Add((p.ItemId, p.WarehouseId.Value));
+                    }
+                }
+            }
+            else if (row.ItemId != Guid.Empty && row.WarehouseId.HasValue && row.WarehouseId.Value != Guid.Empty)
+            {
+                pairs.Add((row.ItemId, row.WarehouseId.Value));
+            }
+        }
+
+        return pairs.ToList();
+    }
+
+    /// <summary>
+    /// Determines whether a Product Bundle parent row's rate should be computed from its child
+    /// packed items per ERPNext PR #67702 (<c>packed_item.py: make_packing_list</c>):
+    /// skips pricing when <paramref name="parentRowQty"/> is <c>0</c>, as a zero-qty row has no
+    /// component amount to price it from.
+    /// </summary>
+    public static bool ShouldUpdateProductBundleRateFromChildren(
+        bool setPriceFromChildren,
+        decimal parentRowQty)
+        => setPriceFromChildren && parentRowQty != 0m;
 }

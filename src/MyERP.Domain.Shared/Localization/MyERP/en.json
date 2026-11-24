@@ -7063,7 +7063,26 @@
     "Pagination": "Pagination",
     "SearchItemByCodeOrName": "Search item by code or name...",
     "About": "About",
-    "Privacy": "Privacy"
+    "Privacy": "Privacy",
+    "SstNo": "SST No",
+    "PoNumberShort": "PO #",
+    "DeliveryBy": "Delivery By",
+    "SerialNoShort": "S/No",
+    "ItemDescription": "Item Description",
+    "NotesTerms": "Notes / Terms",
+    "AuthorizedSignature": "Authorized Signature",
+    "NameAndDate": "Name & Date",
+    "ComputerGeneratedDocument": "This is a computer-generated document.",
+    "NoSignatureRequired": "No signature required.",
+    "Stock": "Stock",
+    "EntryNumberShort": "Entry #",
+    "SourceWh": "Source WH",
+    "TargetWh": "Target WH",
+    "PreparedBy": "Prepared By",
+    "IssuedByReceivedBy": "Issued By / Received By",
+    "AuthorizedBy": "Authorized By",
+    "InternalDocumentNotice": "Internal document — not for external distribution.",
+    "PrintedOn": "Printed on"
   }
 }
 
