@@ -965,4 +965,29 @@ public class PurchaseInvoiceManager : DomainService
 
         return Math.Round(qty * rate, precision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves <c>ApplyTds</c> and its onload preservation flag when creating/mapping a Purchase Invoice
+    /// from another document (e.g. Purchase Order / Purchase Receipt) per ERPNext PR #68529
+    /// (<c>purchase_invoice.py: set_missing_values</c>):
+    /// when not validating (<paramref name="forValidate"/> = false) and the supplier has a
+    /// <paramref name="taxWithholdingCategory"/> or <paramref name="taxWithholdingGroup"/>,
+    /// enables <c>ApplyTds</c> and marks <c>PreserveApplyTdsOnLoad = true</c> so client onload
+    /// supplier refresh does not clear the flag.
+    /// </summary>
+    public static (bool ApplyTds, bool PreserveApplyTdsOnLoad) ResolveMappedInvoiceApplyTds(
+        bool currentApplyTds,
+        string? taxWithholdingCategory,
+        string? taxWithholdingGroup,
+        bool forValidate)
+    {
+        if (!forValidate
+            && (!string.IsNullOrWhiteSpace(taxWithholdingCategory)
+                || !string.IsNullOrWhiteSpace(taxWithholdingGroup)))
+        {
+            return (true, true);
+        }
+
+        return (currentApplyTds, false);
+    }
 }

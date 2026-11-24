@@ -399,6 +399,106 @@ public class PaymentEntryManager : DomainService
 
         return (rows, baseTotalDiscountLoss);
     }
+
+    /// <summary>
+    /// Removes payment reference rows with zero allocated amount and formats the user alert message
+    /// per ERPNext PR #66947 (<c>payment_entry.py: clear_unallocated_reference_document_rows</c>
+    /// / <c>show_removed_references_alert</c>).
+    /// </summary>
+    public static (List<T> KeptRows, int RemovedCount, string? AlertMessage) ClearUnallocatedReferences<T>(
+        IEnumerable<T>? references,
+        Func<T, decimal> getAllocatedAmount)
+    {
+        if (references == null)
+        {
+            return (new List<T>(), 0, null);
+        }
+
+        var allRows = references.ToList();
+        var keptRows = allRows.Where(r => getAllocatedAmount(r) != 0m).ToList();
+        var removedCount = allRows.Count - keptRows.Count;
+        string? alertMessage = removedCount switch
+        {
+            0 => null,
+            1 => "Removed 1 row with nothing allocated from Payment References.",
+            _ => $"Removed {removedCount} rows with nothing allocated from Payment References."
+        };
+
+        return (keptRows, removedCount, alertMessage);
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="differenceAmount"/> is zero on submit and throws an actionable
+    /// error guiding the user to Write Off Difference Amount, Deductions or Loss, or adjusting amounts
+    /// per ERPNext PR #66947 (<c>payment_entry.py: on_submit</c>).
+    /// </summary>
+    public static void ValidateZeroDifferenceAmountOnSubmit(
+        decimal differenceAmount,
+        string? companyCurrency = null)
+    {
+        if (differenceAmount == 0m)
+        {
+            return;
+        }
+
+        var formattedAmount = string.IsNullOrWhiteSpace(companyCurrency)
+            ? differenceAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+            : $"{companyCurrency.Trim()} {differenceAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}";
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("title", "Amounts Don't Match")
+            .WithData("differenceAmount", differenceAmount)
+            .WithData(
+                "detail",
+                $"Difference Amount is {formattedAmount}. Use Write Off Difference Amount, add a row under Deductions or Loss, or change the amounts until it is zero.");
+    }
+
+    /// <summary>
+    /// Formats the empty-result message when fetching outstanding reference documents for a Payment Entry
+    /// per ERPNext PR #66947 (<c>payment_entry.py: _get_outstanding_reference_documents</c>):
+    /// when filtering invoices with a <paramref name="fromPostingDate"/>, explicitly tells the user
+    /// to clear the From Date filter to include older invoices.
+    /// </summary>
+    public static string FormatNoOutstandingReferencesMessage(
+        string partyType,
+        string partyName,
+        string referenceCategory,
+        DateTime? fromPostingDate = null)
+    {
+        var normalizedPartyType = (partyType ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.Equals(referenceCategory, "invoices", StringComparison.OrdinalIgnoreCase)
+            && fromPostingDate.HasValue)
+        {
+            return $"The {normalizedPartyType} {partyName} has no outstanding invoices posted on or after {fromPostingDate.Value:yyyy-MM-dd}. Clear the From Date under Posting Date to include older invoices.";
+        }
+
+        return $"No outstanding {referenceCategory} found for the {normalizedPartyType} {partyName} which qualify the filters you have specified.";
+    }
+
+    /// <summary>
+    /// Resolves <c>party_balance</c> for Payment Entry party details per ERPNext PR #66947
+    /// (<c>payment_entry.py: get_party_details</c>):
+    /// returns the balance only for <c>Customer</c> or <c>Supplier</c> parties when the caller holds
+    /// read permission on the party; otherwise returns <c>null</c>.
+    /// </summary>
+    public static decimal? ResolvePartyBalanceIfPermitted(
+        string? partyType,
+        bool hasPartyReadPermission,
+        decimal? partyBalance)
+    {
+        if (!hasPartyReadPermission)
+        {
+            return null;
+        }
+
+        if (!string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return partyBalance;
+    }
 }
 
 public sealed record EarlyPaymentDiscountLossRow(

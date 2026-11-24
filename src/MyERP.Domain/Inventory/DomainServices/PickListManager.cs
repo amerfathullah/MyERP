@@ -1032,7 +1032,99 @@ public class PickListManager : DomainService
             .Select(l => l.LocationId)
             .ToList();
     }
+
+    /// <summary>
+    /// Builds the packed rows that a Pick List re-pack produces from existing stale packed rows and
+    /// Pick List locations per ERPNext PR #68172 (<c>packed_item.py: get_kept_component_rows</c>
+    /// / <c>get_item_details.py: get_current_packed_items</c>):
+    /// - Returns empty when no stale rows exist (only bundle rows with existing packed rows participate).
+    /// - Reuses matching stale rows first (preferring exact <c>(WarehouseId, BatchNo)</c>, then <c>WarehouseId</c>).
+    /// - Creates a new packed row (inheriting <c>ItemCode</c> and <c>Uom</c>) for each additional Pick List
+    ///   location beyond the stale row count so batch/serial auto-selection counts every re-packed row.
+    /// </summary>
+    public static List<RepackedPackedItemRow> BuildKeptPackedRowsForPickListRepack(
+        string itemCode,
+        decimal componentTotalQty,
+        IReadOnlyList<RepackedPackedItemRow>? staleRows,
+        IReadOnlyList<PickListRepackLocation>? pickListLocations,
+        int qtyPrecision = 4)
+    {
+        var result = new List<RepackedPackedItemRow>();
+        if (staleRows == null || staleRows.Count == 0)
+        {
+            return result;
+        }
+
+        var remainingStale = new List<RepackedPackedItemRow>(staleRows);
+        var defaultUom = remainingStale[0].Uom;
+        var roundedTotalQty = Math.Round(componentTotalQty, qtyPrecision, MidpointRounding.AwayFromZero);
+
+        if (pickListLocations == null || pickListLocations.Count == 0)
+        {
+            var reused = remainingStale[0];
+            result.Add(reused with { Qty = roundedTotalQty, IsNewlyCreated = false });
+            return result;
+        }
+
+        foreach (var location in pickListLocations)
+        {
+            var locationQty = Math.Round(location.PackQty, qtyPrecision, MidpointRounding.AwayFromZero);
+            if (remainingStale.Count > 0)
+            {
+                var matchIdx = remainingStale.FindIndex(r =>
+                    r.WarehouseId == location.WarehouseId
+                    && string.Equals(r.BatchNo, location.BatchNo, StringComparison.Ordinal));
+                if (matchIdx < 0)
+                {
+                    matchIdx = remainingStale.FindIndex(r => r.WarehouseId == location.WarehouseId);
+                }
+                if (matchIdx < 0)
+                {
+                    matchIdx = 0;
+                }
+
+                var stale = remainingStale[matchIdx];
+                remainingStale.RemoveAt(matchIdx);
+                result.Add(stale with
+                {
+                    WarehouseId = location.WarehouseId,
+                    BatchNo = location.BatchNo ?? stale.BatchNo,
+                    SerialNo = location.SerialNo ?? stale.SerialNo,
+                    Qty = locationQty,
+                    IsNewlyCreated = false,
+                });
+            }
+            else
+            {
+                result.Add(new RepackedPackedItemRow(
+                    ItemCode: itemCode,
+                    Uom: defaultUom,
+                    WarehouseId: location.WarehouseId,
+                    BatchNo: location.BatchNo,
+                    SerialNo: location.SerialNo,
+                    Qty: locationQty,
+                    IsNewlyCreated: true));
+            }
+        }
+
+        return result;
+    }
 }
+
+public sealed record RepackedPackedItemRow(
+    string ItemCode,
+    string Uom,
+    Guid? WarehouseId,
+    string? BatchNo,
+    string? SerialNo,
+    decimal Qty,
+    bool IsNewlyCreated = false);
+
+public sealed record PickListRepackLocation(
+    Guid WarehouseId,
+    string? BatchNo,
+    string? SerialNo,
+    decimal PackQty);
 
 public class AllocatedLocationItem
 {

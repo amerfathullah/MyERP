@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MyERP.Accounting.DomainServices;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing;
@@ -18,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #67344, #67379, #67383, #67462, #67503, #67530,
-/// #67758, #68311, #68732, #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #66947, #67344, #67379, #67383, #67462, #67503, #67530,
+/// #67758, #68172, #68311, #68529, #68732, #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -757,5 +758,111 @@ public class UpstreamBatch42ParityTests
         // Row with NO operation -> charged ONLY to final FG card, not intermediate semi-FG card
         JobCardManager.IsNonStockItemChargedToJobCard(null, null, opRow1, op1, semiFg, finalFg).ShouldBeFalse();
         JobCardManager.IsNonStockItemChargedToJobCard(null, null, opRow2, op1, finalFg, finalFg).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr66947_PaymentEntryUxMessagesAndPermissionCheckedBalance_Parity()
+    {
+        // 1. Clear unallocated references + singular/plural alert
+        var rows = new[]
+        {
+            (Name: "SINV-001", Allocated: 100m),
+            (Name: "SINV-002", Allocated: 0m),
+        };
+        var (kept1, removed1, alert1) = PaymentEntryManager.ClearUnallocatedReferences(rows, r => r.Allocated);
+        kept1.Count.ShouldBe(1);
+        removed1.ShouldBe(1);
+        alert1.ShouldBe("Removed 1 row with nothing allocated from Payment References.");
+
+        var rowsPlural = new[]
+        {
+            (Name: "SINV-001", Allocated: 0m),
+            (Name: "SINV-002", Allocated: 0m),
+        };
+        var (kept2, removed2, alert2) = PaymentEntryManager.ClearUnallocatedReferences(rowsPlural, r => r.Allocated);
+        kept2.ShouldBeEmpty();
+        removed2.ShouldBe(2);
+        alert2.ShouldBe("Removed 2 rows with nothing allocated from Payment References.");
+
+        // 2. Non-zero difference amount submit error includes actionable guidance + title
+        PaymentEntryManager.ValidateZeroDifferenceAmountOnSubmit(0m, "MYR");
+        var ex = Should.Throw<BusinessException>(() =>
+            PaymentEntryManager.ValidateZeroDifferenceAmountOnSubmit(25.5m, "MYR"));
+        ex.Data["title"]!.ToString()!.ShouldBe("Amounts Don't Match");
+        ex.Data["detail"]!.ToString()!.ShouldContain("MYR 25.50");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Write Off Difference Amount");
+
+        // 3. No-outstanding-invoices message mentions From Date when filter is active
+        var withDate = PaymentEntryManager.FormatNoOutstandingReferencesMessage(
+            "Customer", "Acme Sdn Bhd", "invoices", new DateTime(2026, 1, 1));
+        withDate.ShouldContain("posted on or after 2026-01-01");
+        withDate.ShouldContain("Clear the From Date under Posting Date");
+
+        var generic = PaymentEntryManager.FormatNoOutstandingReferencesMessage(
+            "Customer", "Acme Sdn Bhd", "orders", null);
+        generic.ShouldContain("No outstanding orders found");
+
+        // 4. Party balance returned only for Customer/Supplier when read-permitted
+        PaymentEntryManager.ResolvePartyBalanceIfPermitted("Customer", true, 500m).ShouldBe(500m);
+        PaymentEntryManager.ResolvePartyBalanceIfPermitted("Supplier", true, -200m).ShouldBe(-200m);
+        PaymentEntryManager.ResolvePartyBalanceIfPermitted("Customer", false, 500m).ShouldBeNull();
+        PaymentEntryManager.ResolvePartyBalanceIfPermitted("Employee", true, 500m).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Pr68172_PickListRepackPackedRows_CreatesRowsForExtraPickListLocations()
+    {
+        var wh1 = Guid.NewGuid();
+        var wh2 = Guid.NewGuid();
+
+        // Empty stale rows -> nothing kept
+        PickListManager.BuildKeptPackedRowsForPickListRepack(
+            "COMP-A", 5m, Array.Empty<RepackedPackedItemRow>(),
+            new[] { new PickListRepackLocation(wh1, "B1", null, 5m) }).ShouldBeEmpty();
+
+        // 1 stale row + 2 pick list locations -> reuses stale row for matching location + creates new row for second location
+        var stale = new[]
+        {
+            new RepackedPackedItemRow("COMP-A", "Box", wh1, "B1", null, 5m),
+        };
+        var locations = new[]
+        {
+            new PickListRepackLocation(wh1, "B1", null, 3m),
+            new PickListRepackLocation(wh2, "B2", null, 2m),
+        };
+
+        var repacked = PickListManager.BuildKeptPackedRowsForPickListRepack("COMP-A", 5m, stale, locations);
+        repacked.Count.ShouldBe(2);
+        repacked[0].WarehouseId.ShouldBe(wh1);
+        repacked[0].BatchNo.ShouldBe("B1");
+        repacked[0].Qty.ShouldBe(3m);
+        repacked[0].IsNewlyCreated.ShouldBeFalse();
+        repacked[1].WarehouseId.ShouldBe(wh2);
+        repacked[1].BatchNo.ShouldBe("B2");
+        repacked[1].Uom.ShouldBe("Box");
+        repacked[1].Qty.ShouldBe(2m);
+        repacked[1].IsNewlyCreated.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr68529_MappedPurchaseInvoiceApplyTds_PreservesOnLoadWhenSupplierHasWithholding()
+    {
+        // Mapped PI (forValidate = false) with category -> sets ApplyTds and PreserveApplyTdsOnLoad
+        var (apply1, onload1) = PurchaseInvoiceManager.ResolveMappedInvoiceApplyTds(
+            currentApplyTds: false, taxWithholdingCategory: "TDS-10", taxWithholdingGroup: null, forValidate: false);
+        apply1.ShouldBeTrue();
+        onload1.ShouldBeTrue();
+
+        // Mapped PI with withholding group -> sets both
+        var (apply2, onload2) = PurchaseInvoiceManager.ResolveMappedInvoiceApplyTds(
+            currentApplyTds: false, taxWithholdingCategory: null, taxWithholdingGroup: "WHT-MY", forValidate: false);
+        apply2.ShouldBeTrue();
+        onload2.ShouldBeTrue();
+
+        // During validate (forValidate = true) -> preserves user toggle without onload override
+        var (apply3, onload3) = PurchaseInvoiceManager.ResolveMappedInvoiceApplyTds(
+            currentApplyTds: false, taxWithholdingCategory: "TDS-10", taxWithholdingGroup: null, forValidate: true);
+        apply3.ShouldBeFalse();
+        onload3.ShouldBeFalse();
     }
 }

@@ -19,7 +19,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
           <h6 class="mb-0"><i class="fa fa-plug me-2"></i>{{ '::ConnectionStatus' | abpLocalization }}</h6>
           @if (status()) {
             <span class="badge" [class]="status()!.isConnected ? 'bg-success' : status()!.isTokenExpired ? 'bg-warning' : 'bg-secondary'">
-              {{ status()!.isConnected ? 'Connected' : status()!.isTokenExpired ? 'Token Expired' : 'Not Connected' }}
+              {{ (status()!.isConnected ? '::Connected' : status()!.isTokenExpired ? '::TokenExpired' : '::NotConnected') | abpLocalization }}
             </span>
           }
         </div>
@@ -31,19 +31,19 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <div class="col-md-3">
                 <small class="text-muted d-block">{{ '::Environment' | abpLocalization }}</small>
                 <span class="badge" [class]="status()!.environment === 'Production' ? 'bg-danger' : 'bg-info'">
-                  {{ status()!.environment }}
+                  {{ (status()!.environment === 'Production' ? '::Production' : '::Sandbox') | abpLocalization }}
                 </span>
               </div>
               <div class="col-md-3">
                 <small class="text-muted d-block">{{ '::Credentials' | abpLocalization }}</small>
-                <span>{{ status()!.isConfigured ? '✓ Configured' : '✗ Not configured' }}</span>
+                <span>{{ status()!.isConfigured ? '✓ ' : '✗ ' }}{{ (status()!.isConfigured ? '::Configured' : '::NotConfigured') | abpLocalization }}</span>
               </div>
               <div class="col-md-3">
                 <small class="text-muted d-block">{{ '::Certificate' | abpLocalization }}</small>
-                <span>{{ status()!.isCertificateConfigured ? '✓ Uploaded' : '✗ Not uploaded' }}</span>
+                <span>{{ status()!.isCertificateConfigured ? '✓ ' : '✗ ' }}{{ (status()!.isCertificateConfigured ? '::Uploaded' : '::NotUploaded') | abpLocalization }}</span>
               </div>
               <div class="col-md-3">
-                <small class="text-muted d-block">Token Expires</small>
+                <small class="text-muted d-block">{{ '::TokenExpires' | abpLocalization }}</small>
                 <span>{{ status()!.tokenExpiresAt ? (status()!.tokenExpiresAt | date:'dd/MM/yyyy HH:mm') : '—' }}</span>
               </div>
             </div>
@@ -59,16 +59,16 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <div class="col-md-4">
               <label class="form-label">{{ '::Environment' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="credentials.environment">
-                <option value="Sandbox">Sandbox (Testing)</option>
-                <option value="Production">Production</option>
+                <option value="Sandbox">{{ '::SandboxTesting' | abpLocalization }}</option>
+                <option value="Production">{{ '::Production' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Client ID</label>
+              <label class="form-label">{{ '::ClientId' | abpLocalization }}</label>
               <input type="text" class="form-control" [(ngModel)]="credentials.clientId" [placeholder]="'::Placeholder:LhdnClientId' | abpLocalization">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Client Secret</label>
+              <label class="form-label">{{ '::ClientSecret' | abpLocalization }}</label>
               <input type="password" class="form-control" [(ngModel)]="credentials.clientSecret" [placeholder]="'::Placeholder:LeaveBlankToKeepExisting' | abpLocalization">
             </div>
           </div>
@@ -92,19 +92,19 @@ import { ToasterService } from '@abp/ng.theme.shared';
       <div class="card mb-3">
         <div class="card-header"><h6 class="mb-0"><i class="fa fa-certificate me-2"></i>{{ '::DigitalCertificate' | abpLocalization }}</h6></div>
         <div class="card-body">
-          <p class="text-muted small mb-3">Upload PFX/P12 certificate for XAdES document signing. Required for LHDN submission.</p>
+          <p class="text-muted small mb-3">{{ '::DigitalCertificateHelp' | abpLocalization }}</p>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Certificate File (.pfx / .p12)</label>
+              <label class="form-label">{{ '::CertificateFilePfxP12' | abpLocalization }}</label>
               <input type="file" class="form-control" accept=".pfx,.p12" (change)="onCertificateSelected($event)">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Certificate Password</label>
+              <label class="form-label">{{ '::CertificatePassword' | abpLocalization }}</label>
               <input type="password" class="form-control" [(ngModel)]="certPassword" [placeholder]="'::Placeholder:PfxPassword' | abpLocalization">
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-primary w-100" (click)="uploadCertificate()" [disabled]="!certBase64 || isUploading()">
-                <i class="fa fa-upload me-1"></i>Upload
+                <i class="fa fa-upload me-1"></i>{{ '::Upload' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -115,24 +115,24 @@ import { ToasterService } from '@abp/ng.theme.shared';
       <div class="card">
         <div class="card-header"><h6 class="mb-0"><i class="fa fa-search me-2"></i>{{ '::TINLookup' | abpLocalization }}</h6></div>
         <div class="card-body">
-          <p class="text-muted small mb-3">Search LHDN database for taxpayer TIN by ID type and value.</p>
+          <p class="text-muted small mb-3">{{ '::TinLookupSearchHelp' | abpLocalization }}</p>
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">ID Type</label>
+              <label class="form-label">{{ '::IdType' | abpLocalization }}</label>
               <select class="form-select" [(ngModel)]="searchIdType">
-                <option value="BRN">Business Registration (BRN)</option>
-                <option value="NRIC">MyKad (NRIC)</option>
-                <option value="PASSPORT">Passport</option>
-                <option value="ARMY">Army ID</option>
+                <option value="BRN">{{ '::BusinessRegistrationBrn' | abpLocalization }}</option>
+                <option value="NRIC">{{ '::MyKadNric' | abpLocalization }}</option>
+                <option value="PASSPORT">{{ '::Passport' | abpLocalization }}</option>
+                <option value="ARMY">{{ '::ArmyId' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-5">
-              <label class="form-label">ID Value</label>
+              <label class="form-label">{{ '::IdValue' | abpLocalization }}</label>
               <input type="text" class="form-control" [(ngModel)]="searchIdValue" [placeholder]="'::Placeholder:TinExample' | abpLocalization">
             </div>
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" (click)="searchTaxpayer()" [disabled]="!searchIdValue || isSearching()">
-                <i class="fa fa-search me-1"></i>Search
+                <i class="fa fa-search me-1"></i>{{ '::SearchButton' | abpLocalization }}
               </button>
             </div>
             <div class="col-md-2 d-flex align-items-end">
@@ -207,7 +207,7 @@ export class EInvoiceSettingsComponent implements OnInit {
         if (res.isSuccess) {
           this.toaster.success('::SuccessfullyUpdated');
         } else {
-          this.toaster.error(res.errorMessage || 'Connection failed');
+          this.toaster.error(res.errorMessage || '::ConnectionFailed');
         }
         this.isConnecting.set(false);
         this.loadStatus();
