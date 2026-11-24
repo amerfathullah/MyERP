@@ -95,7 +95,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              [placeholder]="'Search serial #, batch #, voucher #, item...'"
+              [placeholder]="'::Placeholder:SearchSerialBatchSummary' | abpLocalization"
               [(ngModel)]="searchTerm"
             />
           </div>

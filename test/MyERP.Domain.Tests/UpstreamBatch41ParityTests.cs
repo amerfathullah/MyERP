@@ -3306,6 +3306,70 @@ public class UpstreamBatch41ParityTests
         mergedTaxes[1].ShouldBe(("Service Tax", "On Net Total", 8m));
     }
 
+    [Fact]
+    public void UpstreamBatch28_WholeNumCeilNoise_StandaloneDebitNoteUom_ScoSpillover_LhdnTaxBreakdown_Parity()
+    {
+        // 1. ERPNext PR #68803: Whole-number ceil ignores 1e-10 float noise while preserving small shares (1/2500 -> 1)
+        StockEntryManager.CeilQtyIfUomMustBeWholeNumber(2.3m, mustBeWholeNumber: true).ShouldBe(3m);
+        StockEntryManager.CeilQtyIfUomMustBeWholeNumber(1.0000000001m, mustBeWholeNumber: true).ShouldBe(1m);
+        StockEntryManager.CeilQtyIfUomMustBeWholeNumber(1m / 2500m, mustBeWholeNumber: true).ShouldBe(1m);
+        StockEntryManager.CeilQtyIfUomMustBeWholeNumber(2.3m, mustBeWholeNumber: false).ShouldBe(2.3m);
+
+        // 2. ERPNext PR #68802: Standalone Debit Note resolves missing conversion factor from item, rounds stock qty, converts rate to row UOM
+        decimal capturedLookupQty = 0m;
+        var rowRate = MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.CalculateStandaloneDebitNoteRowRate(
+            rowQty: -2m,
+            rowConversionFactor: null,
+            itemUomConversionFactor: 12m, // 1 Box = 12 Nos
+            getStockValuationRate: stockQty =>
+            {
+                capturedLookupQty = stockQty;
+                return 25m; // RM 25 per Nos
+            });
+        capturedLookupQty.ShouldBe(-24m);
+        rowRate.ShouldBe(300m); // RM 300 per Box
+
+        // 3. ERPNext PR #68830: Subcontracting RM consumed for FG B beyond its own sent qty spills over onto FG A's sent row
+        var rm = Guid.NewGuid();
+        var fgA = Guid.NewGuid();
+        var fgB = Guid.NewGuid();
+        var rowA = Guid.NewGuid();
+        var rowB = Guid.NewGuid();
+
+        // Case A: all 16 sent on FG A, 6 consumed by FG B -> [6, 0]
+        var alloc1 = SubcontractingManager.AllocateSubcontractingConsumptionAcrossOrderRows(
+            new[] { (rowA, rm, fgA, 16m), (rowB, rm, fgB, 0m) },
+            new Dictionary<(Guid, Guid), decimal> { [(rm, fgB)] = 6m });
+        alloc1[rowA].ShouldBe(6m);
+        alloc1[rowB].ShouldBe(0m);
+
+        // Case B: 14 sent on FG A, 2 sent on FG B, 6 consumed by FG B -> FG B takes its own 2, remaining 4 spills to FG A -> [4, 2]
+        var alloc2 = SubcontractingManager.AllocateSubcontractingConsumptionAcrossOrderRows(
+            new[] { (rowA, rm, fgA, 14m), (rowB, rm, fgB, 2m) },
+            new Dictionary<(Guid, Guid), decimal> { [(rm, fgB)] = 6m });
+        alloc2[rowA].ShouldBe(4m);
+        alloc2[rowB].ShouldBe(2m);
+
+        // 4. MyInvois createxml.py: Multi-category tax breakdown deducts document discount from first category & preserves "E" exemption reason
+        var breakdown = MyERP.EInvoice.Services.InvoiceDocumentBuilder.BuildTaxBreakdownFromLines(
+            new List<MyERP.EInvoice.Services.EInvoiceLineData>
+            {
+                new() { Description = "Taxable A", Quantity = 2m, UnitPrice = 100m, TaxCategoryCode = "01", TaxRate = 10m },
+                new() { Description = "Taxable B", Quantity = 1m, UnitPrice = 50m, TaxCategoryCode = "01", TaxRate = 10m },
+                new() { Description = "Exempt C", Quantity = 1m, UnitPrice = 80m, TaxCategoryCode = "E", TaxRate = 0m, TaxExemptionReason = "Export Goods" }
+            },
+            documentDiscountAmount: 50m);
+        breakdown.Count.ShouldBe(2);
+        breakdown[0].TaxCategoryCode.ShouldBe("01");
+        breakdown[0].TaxableAmount.ShouldBe(200m); // 250 - 50 discount
+        breakdown[0].TaxAmount.ShouldBe(20m);
+        breakdown[0].TaxExemptionReason.ShouldBe("NA");
+        breakdown[1].TaxCategoryCode.ShouldBe("E");
+        breakdown[1].TaxableAmount.ShouldBe(80m);
+        breakdown[1].TaxAmount.ShouldBe(0m);
+        breakdown[1].TaxExemptionReason.ShouldBe("Export Goods");
+    }
+
     private sealed class CaptureHttpHandler : System.Net.Http.HttpMessageHandler
     {
         private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _fn;

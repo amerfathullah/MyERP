@@ -776,4 +776,29 @@ public class PurchaseInvoiceManager : DomainService
         return (supplierTaxWithholdingCategoryId.HasValue && supplierTaxWithholdingCategoryId.Value != Guid.Empty)
             || (supplierTaxWithholdingGroupId.HasValue && supplierTaxWithholdingGroupId.Value != Guid.Empty);
     }
+
+    /// <summary>
+    /// Computes the row-UOM rate for a standalone stock-updating Purchase Invoice Debit Note
+    /// when the row rate is unset (<c>&lt;= 0</c>) per ERPNext PR #68802 (<c>buying_controller.py</c>):
+    /// resolves missing conversion factor from item UOM metadata, rounds the stock lookup qty
+    /// to <paramref name="stockQtyPrecision"/> to match SLE posting, and converts the stock-UOM
+    /// valuation rate back to the row's transaction UOM.
+    /// </summary>
+    public static decimal CalculateStandaloneDebitNoteRowRate(
+        decimal rowQty,
+        decimal? rowConversionFactor,
+        decimal? itemUomConversionFactor,
+        Func<decimal, decimal> getStockValuationRate,
+        int stockQtyPrecision = 6)
+    {
+        var conversionFactor = rowConversionFactor.HasValue && rowConversionFactor.Value > 0m
+            ? rowConversionFactor.Value
+            : (itemUomConversionFactor.HasValue && itemUomConversionFactor.Value > 0m
+                ? itemUomConversionFactor.Value
+                : 1m);
+
+        var stockLookupQty = Math.Round(rowQty * conversionFactor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        var stockValuationRate = getStockValuationRate(stockLookupQty);
+        return stockValuationRate * conversionFactor;
+    }
 }

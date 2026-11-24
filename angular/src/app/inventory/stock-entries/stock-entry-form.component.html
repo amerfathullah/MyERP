@@ -133,7 +133,7 @@
         <!-- Barcode Scanner -->
         <div class="mb-3">
           <app-barcode-scanner
-            [placeholder]="'Scan item barcode or serial number...'"
+            [placeholder]="'::Placeholder:ScanItemBarcodeOrSerial' | abpLocalization"
             (scanned)="onBarcodeScan($event)"
           />
         </div>

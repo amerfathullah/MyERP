@@ -36,11 +36,11 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
             </div>
             <div class="col-md-4">
               <label class="form-label">Subject</label>
-              <input type="text" class="form-control" [(ngModel)]="formData.subject" [placeholder]="'Use {variable} for placeholders'">
+              <input type="text" class="form-control" [(ngModel)]="formData.subject" [placeholder]="'::Placeholder:EmailSubjectVariableHint' | abpLocalization">
             </div>
             <div class="col-12">
               <label class="form-label">Body</label>
-              <textarea class="form-control" [(ngModel)]="formData.body" rows="8" [placeholder]="'HTML supported. Use {customer}, {amount}, {invoice_no} etc.'"></textarea>
+              <textarea class="form-control" [(ngModel)]="formData.body" rows="8" [placeholder]="'::Placeholder:EmailBodyHtmlHint' | abpLocalization"></textarea>
             </div>
           </div>
           <div class="d-flex gap-2 mt-3">

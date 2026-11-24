@@ -72,11 +72,11 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               <div class="row">
                 <div class="col-md-6 mb-2">
                   <label class="form-label">{{ '::RecipientEmail' | abpLocalization }}</label>
-                  <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'customer@example.com'" />
+                  <input type="email" class="form-control" [(ngModel)]="emailRecipient" [placeholder]="'::Placeholder:CustomerEmailSample' | abpLocalization" />
                 </div>
                 <div class="col-md-6 mb-2">
                   <label class="form-label">{{ '::CcEmails' | abpLocalization }}</label>
-                  <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'cc1@example.com, cc2@example.com'" />
+                  <input type="text" class="form-control" [(ngModel)]="emailCc" [placeholder]="'::Placeholder:CcEmailsSample' | abpLocalization" />
                 </div>
               </div>
               <div class="d-flex gap-2 mt-2">

@@ -85,7 +85,7 @@ interface ClosingBalanceStatus {
             <div class="col-md-4">
               <label class="form-label">{{ '::Period' | abpLocalization }}</label>
               <input type="text" class="form-control form-control-sm" [(ngModel)]="period"
-                     [placeholder]="'YYYY-MM'" (keyup.enter)="loadBalances()">
+                     [placeholder]="'::Placeholder:YearMonthFormat' | abpLocalization" (keyup.enter)="loadBalances()">
             </div>
             <div class="col-md-3">
               <label class="form-label">{{ '::ClosingDate' | abpLocalization }}</label>

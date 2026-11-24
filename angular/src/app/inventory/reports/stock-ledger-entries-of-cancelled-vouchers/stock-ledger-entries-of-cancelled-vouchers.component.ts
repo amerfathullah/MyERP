@@ -100,7 +100,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <input
               type="text"
               class="form-control form-control-sm"
-              [placeholder]="'Search voucher #, item, warehouse...'"
+              [placeholder]="'::Placeholder:SearchCancelledSle' | abpLocalization"
               [(ngModel)]="searchTerm"
             />
           </div>

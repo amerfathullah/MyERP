@@ -2793,6 +2793,75 @@ public class SubcontractingManager : DomainService
         var proportion = Math.Min(receivedCost / pendingCost, 1m);
         return remainingShare * proportion;
     }
+
+    /// <summary>
+    /// Allocates raw material consumption across Subcontracting Order supplied-item rows so that
+    /// consumption for a finished good beyond what was sent on its own rows spills over onto the
+    /// order's other rows that still have that raw material left at the supplier
+    /// (ERPNext PR #68830: <c>get_consumed_qty_beyond_sent</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> AllocateSubcontractingConsumptionAcrossOrderRows(
+        IReadOnlyList<(Guid OrderRowId, Guid RmItemId, Guid FinishedGoodId, decimal SentQty)> orderRows,
+        IReadOnlyDictionary<(Guid RmItemId, Guid FinishedGoodId), decimal> consumedByRmAndFg,
+        int qtyPrecision = 3)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (orderRows == null || orderRows.Count == 0)
+            return result;
+
+        var remainingByRmFg = consumedByRmAndFg != null
+            ? new Dictionary<(Guid RmItemId, Guid FinishedGoodId), decimal>(consumedByRmAndFg)
+            : new Dictionary<(Guid RmItemId, Guid FinishedGoodId), decimal>();
+
+        var sentForRmFg = new Dictionary<(Guid RmItemId, Guid FinishedGoodId), decimal>();
+        foreach (var row in orderRows)
+        {
+            var key = (row.RmItemId, row.FinishedGoodId);
+            sentForRmFg[key] = sentForRmFg.GetValueOrDefault(key, 0m) + Math.Max(row.SentQty, 0m);
+        }
+
+        // Consumption by RM item beyond what its own FG's rows were sent
+        var consumedBeyondSent = new Dictionary<Guid, decimal>();
+        foreach (var kvp in remainingByRmFg)
+        {
+            var excess = Math.Max(kvp.Value - sentForRmFg.GetValueOrDefault(kvp.Key, 0m), 0m);
+            if (excess > 0m)
+            {
+                consumedBeyondSent[kvp.Key.RmItemId] = consumedBeyondSent.GetValueOrDefault(kvp.Key.RmItemId, 0m) + excess;
+            }
+        }
+
+        foreach (var row in orderRows)
+        {
+            var qtyLeft = Math.Max(row.SentQty, 0m);
+            decimal rowConsumed = 0m;
+
+            // 1. Own finished good's consumption first
+            var ownKey = (row.RmItemId, row.FinishedGoodId);
+            var ownAvail = remainingByRmFg.GetValueOrDefault(ownKey, 0m);
+            if (ownAvail > 0m && qtyLeft > 0m)
+            {
+                var take = Math.Min(ownAvail, qtyLeft);
+                remainingByRmFg[ownKey] = ownAvail - take;
+                qtyLeft -= take;
+                rowConsumed += take;
+            }
+
+            // 2. Spillover from other finished goods that consumed beyond their own sent qty
+            var beyondAvail = consumedBeyondSent.GetValueOrDefault(row.RmItemId, 0m);
+            if (beyondAvail > 0m && qtyLeft > 0m)
+            {
+                var take = Math.Min(beyondAvail, qtyLeft);
+                consumedBeyondSent[row.RmItemId] = beyondAvail - take;
+                qtyLeft -= take;
+                rowConsumed += take;
+            }
+
+            result[row.OrderRowId] = Math.Round(rowConsumed, qtyPrecision, MidpointRounding.AwayFromZero);
+        }
+
+        return result;
+    }
 }
 
 public sealed record SubcontractingSecondaryRowInput(

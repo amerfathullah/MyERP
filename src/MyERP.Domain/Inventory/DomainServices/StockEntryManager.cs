@@ -2790,6 +2790,20 @@ public class StockEntryManager : DomainService
             precision,
             MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Rounds a quantity up to the next whole unit when its Stock UOM requires whole numbers,
+    /// rounding to 9 decimals first so floating-point noise (e.g. <c>0.07 * 100</c> or <c>3 * 0.1 / 0.3</c>)
+    /// does not add a spurious unit while preserving small non-zero shares (e.g. <c>1 / 2500</c> = 1)
+    /// per ERPNext PR #68803 (<c>ceil_qty_if_uom_has_whole_number</c>).
+    /// </summary>
+    public static decimal CeilQtyIfUomMustBeWholeNumber(decimal qty, bool mustBeWholeNumber)
+    {
+        if (!mustBeWholeNumber)
+            return qty;
+
+        return Math.Ceiling(Math.Round(qty, 9, MidpointRounding.AwayFromZero));
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

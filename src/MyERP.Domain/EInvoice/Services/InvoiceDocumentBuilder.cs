@@ -866,6 +866,61 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XAttribute("currencyID", currency),
                 Math.Abs(amount).ToString("F2", CultureInfo.InvariantCulture)));
     }
+
+    /// <summary>
+    /// Aggregates line-level Malaysia tax categories into <see cref="EInvoiceTaxBreakdown"/> rows
+    /// per myinvois <c>createxml.py: tax_total_with_template()</c>:
+    /// groups lines by <c>TaxCategoryCode</c> preserving first-seen order, subtracts any document-level
+    /// discount from the first category's taxable amount, computes each category's tax rounded to 2 decimals,
+    /// and sets <c>TaxExemptionReason</c> to the configured reason for category <c>"E"</c> or <c>"NA"</c> otherwise.
+    /// </summary>
+    public static List<EInvoiceTaxBreakdown> BuildTaxBreakdownFromLines(
+        IReadOnlyList<EInvoiceLineData>? lines,
+        decimal documentDiscountAmount = 0m)
+    {
+        var result = new List<EInvoiceTaxBreakdown>();
+        if (lines == null || lines.Count == 0)
+            return result;
+
+        var byCategory = new Dictionary<string, EInvoiceTaxBreakdown>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in lines)
+        {
+            var categoryCode = string.IsNullOrWhiteSpace(line.TaxCategoryCode)
+                ? (line.TaxAmount != 0m ? "01" : "06")
+                : line.TaxCategoryCode.Trim();
+            if (!byCategory.TryGetValue(categoryCode, out var bucket))
+            {
+                bucket = new EInvoiceTaxBreakdown
+                {
+                    TaxCategoryCode = categoryCode,
+                    TaxRate = line.TaxRate ?? 0m,
+                    TaxExemptionReason = string.Equals(categoryCode, "E", StringComparison.OrdinalIgnoreCase)
+                        ? (string.IsNullOrWhiteSpace(line.TaxExemptionReason) ? "NA" : line.TaxExemptionReason.Trim())
+                        : "NA",
+                    TaxableAmount = 0m,
+                    TaxAmount = 0m
+                };
+                byCategory[categoryCode] = bucket;
+                result.Add(bucket);
+            }
+
+            bucket.TaxableAmount += Math.Abs(line.LineTotal);
+        }
+
+        if (documentDiscountAmount != 0m && result.Count > 0)
+        {
+            result[0].TaxableAmount = Math.Max(0m, result[0].TaxableAmount - Math.Abs(documentDiscountAmount));
+        }
+
+        foreach (var bucket in result)
+        {
+            bucket.TaxableAmount = Math.Round(bucket.TaxableAmount, 2, MidpointRounding.AwayFromZero);
+            bucket.TaxAmount = Math.Abs(Math.Round(bucket.TaxableAmount * bucket.TaxRate / 100m, 2, MidpointRounding.AwayFromZero));
+        }
+
+        return result;
+    }
 }
 
 // Data models for XML builder

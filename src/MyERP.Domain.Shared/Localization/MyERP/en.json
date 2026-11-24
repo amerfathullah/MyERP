@@ -6821,7 +6821,19 @@
     "Placeholder:EndTimeSample": "17:00:00",
     "Placeholder:AgeingRangeSample": "30, 60, 90, 120",
     "Placeholder:PhoneFromSample": "+60123456789",
-    "Placeholder:PhoneToSample": "+60388889999"
+    "Placeholder:PhoneToSample": "+60388889999",
+    "Placeholder:YearMonthFormat": "YYYY-MM",
+    "Placeholder:SearchBatchBalance": "Search item, batch number, warehouse, description...",
+    "Placeholder:SearchSerialBatchSummary": "Search serial #, batch #, voucher #, item...",
+    "Placeholder:SearchSerialBatchBalance": "Search item, batch, serial number, warehouse...",
+    "Placeholder:SearchWarrantyExpiry": "Search serial #, customer, item...",
+    "Placeholder:SearchCancelledSle": "Search voucher #, item, warehouse...",
+    "Placeholder:ScanItemBarcodeOrSerial": "Scan item barcode or serial number...",
+    "Placeholder:FilterBomSearchResults": "Filter search results by BOM #, FG item, component...",
+    "Placeholder:CustomerEmailSample": "customer@example.com",
+    "Placeholder:CcEmailsSample": "cc1@example.com, cc2@example.com",
+    "Placeholder:EmailSubjectVariableHint": "Use {variable} for placeholders",
+    "Placeholder:EmailBodyHtmlHint": "HTML supported. Use {customer}, {amount}, {invoice_no} etc."
   }
 }
 

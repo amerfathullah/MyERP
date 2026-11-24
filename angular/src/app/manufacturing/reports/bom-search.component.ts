@@ -121,7 +121,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               <input
                 type="text"
                 class="form-control form-control-sm"
-                [placeholder]="'Filter search results by BOM #, FG item, component...'"
+                [placeholder]="'::Placeholder:FilterBomSearchResults' | abpLocalization"
                 [(ngModel)]="searchTerm"
               />
             </div>
