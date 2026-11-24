@@ -4356,6 +4356,78 @@ public class UpstreamBatch41ParityTests
         StockReservationManager.IsPartialSalesOrderReservation(3.01m, 3m, stockQtyPrecision: 4).ShouldBeTrue();
     }
 
+    [Fact]
+    public void UpstreamBatch43_PiPendingReceiptQty_JobCardGetItemsGuard_StockEntryPickValidation_IcReturnDeliveryRef_Parity()
+    {
+        // 1. ERPNext PR #67799: Mapping Purchase Invoice to Purchase Receipt subtracts both received/mapped and returned qty
+        var (pending, stockQty, amount, baseAmount) = PurchaseInvoiceManager.CalculatePendingReceiptQtyFromPurchaseInvoice(
+            invoiceRowQty: 10m, receivedAndMappedQty: 3m, returnedStockQty: 4m,
+            conversionFactor: 2m, rate: 50m, conversionRate: 4.5m, qtyPrecision: 4);
+        // returnedQty = 4 / 2 = 2 -> pending = 10 - 3 - 2 = 5
+        pending.ShouldBe(5m);
+        stockQty.ShouldBe(10m);
+        amount.ShouldBe(250m);
+        baseAmount.ShouldBe(1125m);
+
+        // Clamps at 0 when over-returned
+        var (clampedPending, _, clampedAmt, _) = PurchaseInvoiceManager.CalculatePendingReceiptQtyFromPurchaseInvoice(
+            invoiceRowQty: 5m, receivedAndMappedQty: 4m, returnedStockQty: 4m,
+            conversionFactor: 2m, rate: 50m);
+        clampedPending.ShouldBe(0m);
+        clampedAmt.ShouldBe(0m);
+
+        // 2. ERPNext PR #67796: Refuse Get Items on Job Card's Manufacture output Stock Entry
+        var jcEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateGetItemsAllowed(
+                StockEntryType.Manufacture, Guid.NewGuid(), "JC-0001", fromBom: true, fgCompletedQty: 5m));
+        (jcEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Items of this Stock Entry come from Job Card JC-0001. Use Record Output on the Job Card instead of Get Items.");
+        Should.NotThrow(() => StockEntryManager.ValidateGetItemsAllowed(
+            StockEntryType.MaterialTransferForManufacture, Guid.NewGuid(), "JC-0001", fromBom: true, fgCompletedQty: 5m));
+
+        // 3. ERPNext PR #67707 & #67703: Stock Entry rows against Pick List enforce item match (with WO alternative), warehouse, and rounded qty
+        var pickRowId = Guid.NewGuid();
+        var whPick = Guid.NewGuid();
+        var pickedRows = new Dictionary<Guid, (string ItemCode, Guid? WarehouseId, decimal PickedQty, decimal TransferredQty)>
+        {
+            [pickRowId] = ("RM-1", whPick, PickedQty: 10m, TransferredQty: 6.6666m),
+        };
+        // Exact float-rounded transfer passes (6.6666 + 3.3334 = 10.0000 <= 10)
+        Should.NotThrow(() => StockEntryManager.ValidateStockEntryRowsAgainstPickList(
+            StockEntryType.MaterialTransferForManufacture, hasWorkOrder: true, "PL-01", pickedRows,
+            new[] { (1, (Guid?)pickRowId, "RM-1", (string?)null, (Guid?)whPick, 3.3334m) }, transferredQtyPrecision: 4));
+        // Valid Work Order alternative item passes
+        Should.NotThrow(() => StockEntryManager.ValidateStockEntryRowsAgainstPickList(
+            StockEntryType.MaterialTransferForManufacture, hasWorkOrder: true, "PL-01", pickedRows,
+            new[] { (1, (Guid?)pickRowId, "RM-ALT", (string?)"RM-1", (Guid?)whPick, 2m) }, transferredQtyPrecision: 4));
+        // Mismatched item without WO alternative throws
+        var itemMismatchEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateStockEntryRowsAgainstPickList(
+                StockEntryType.MaterialTransfer, hasWorkOrder: false, "PL-01", pickedRows,
+                new[] { (1, (Guid?)pickRowId, "RM-WRONG", (string?)null, (Guid?)whPick, 2m) }, transferredQtyPrecision: 4));
+        (itemMismatchEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: Item RM-WRONG is not the item RM-1 picked in PL-01.");
+        // Exceeding picked qty throws
+        var overQtyEx = Should.Throw<Volo.Abp.BusinessException>(() =>
+            StockEntryManager.ValidateStockEntryRowsAgainstPickList(
+                StockEntryType.MaterialTransferForManufacture, hasWorkOrder: true, "PL-01", pickedRows,
+                new[] { (1, (Guid?)pickRowId, "RM-1", (string?)null, (Guid?)whPick, 3.334m) }, transferredQtyPrecision: 4));
+        (overQtyEx.Data["detail"]?.ToString() ?? string.Empty).ShouldContain(
+            "Row #1: Item RM-1 is transferred more than the 10 picked in PL-01.");
+
+        // 4. ERPNext PR #67438: Return of internal receipt follows original receipt row to reach delivery (or packed) item reference
+        var origPrRowId = Guid.NewGuid();
+        var retPrRowId = Guid.NewGuid();
+        var dnPackedRowId = Guid.NewGuid();
+        var (refId, isPacked) = StockValuationService.ResolveInterCompanyTransferDeliveryReference(
+            sleVoucherDetailNo: retPrRowId,
+            originalReceiptItemId: origPrRowId,
+            getDeliveryOrSalesItemReference: _ => null,
+            getDeliveryPackedItemReference: detailId => detailId == origPrRowId ? dnPackedRowId : null);
+        refId.ShouldBe(dnPackedRowId);
+        isPacked.ShouldBeTrue();
+    }
+
     private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
     {
         private readonly System.Net.Http.HttpMessageHandler _handler;

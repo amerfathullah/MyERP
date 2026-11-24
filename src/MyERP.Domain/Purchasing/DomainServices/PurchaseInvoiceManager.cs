@@ -874,4 +874,33 @@ public class PurchaseInvoiceManager : DomainService
 
         return rowRate;
     }
+
+    /// <summary>
+    /// Computes the remaining receivable quantity, stock quantity, and amounts when mapping a
+    /// Purchase Invoice row to a Purchase Receipt per ERPNext PR #67799
+    /// (<c>purchase_invoice/mapper.py: make_purchase_receipt</c>):
+    /// deducts both already received/mapped qty AND returned qty (<c>returnedStockQty / conversionFactor</c>),
+    /// rounds and clamps at <c>0</c>, and derives <c>StockQty</c>, <c>Amount</c>, and <c>BaseAmount</c>
+    /// from the clamped pending qty.
+    /// </summary>
+    public static (decimal PendingQty, decimal StockQty, decimal Amount, decimal BaseAmount)
+        CalculatePendingReceiptQtyFromPurchaseInvoice(
+            decimal invoiceRowQty,
+            decimal receivedAndMappedQty,
+            decimal returnedStockQty,
+            decimal conversionFactor,
+            decimal rate,
+            decimal conversionRate = 1m,
+            int qtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var returnedQty = returnedStockQty / factor;
+        var rawPending = invoiceRowQty - receivedAndMappedQty - returnedQty;
+        var pendingQty = Math.Max(Math.Round(rawPending, qtyPrecision, MidpointRounding.AwayFromZero), 0m);
+        var stockQty = pendingQty * factor;
+        var amount = pendingQty * rate;
+        var fxRate = conversionRate > 0m ? conversionRate : 1m;
+        var baseAmount = amount * fxRate;
+        return (pendingQty, stockQty, amount, baseAmount);
+    }
 }

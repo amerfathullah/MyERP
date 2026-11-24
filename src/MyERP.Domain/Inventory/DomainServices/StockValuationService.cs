@@ -1247,6 +1247,41 @@ public class StockValuationService : DomainService
     /// </summary>
     public static bool ShouldRepostGleForStockVoucher(Core.DocumentStatus voucherStatus)
         => voucherStatus == Core.DocumentStatus.Submitted;
+
+    /// <summary>
+    /// Resolves the delivery/invoice item reference ID used to look up the incoming valuation rate
+    /// of an inter-company transfer receipt or return per ERPNext PR #67438
+    /// (<c>stock_ledger.py: get_incoming_rate_for_inter_company_transfer</c>):
+    /// for a return receipt row, follows <paramref name="originalReceiptItemId"/> first so the return
+    /// reaches the original delivery row (or packed delivery item row) and moves at its delivery rate.
+    /// </summary>
+    public static (Guid? DeliveryReferenceItemId, bool IsPackedItem) ResolveInterCompanyTransferDeliveryReference(
+        Guid sleVoucherDetailNo,
+        Guid? originalReceiptItemId,
+        Func<Guid, Guid?> getDeliveryOrSalesItemReference,
+        Func<Guid, Guid?>? getDeliveryPackedItemReference = null)
+    {
+        var detailNo = originalReceiptItemId.HasValue && originalReceiptItemId.Value != Guid.Empty
+            ? originalReceiptItemId.Value
+            : sleVoucherDetailNo;
+
+        var directRef = getDeliveryOrSalesItemReference(detailNo);
+        if (directRef.HasValue && directRef.Value != Guid.Empty)
+        {
+            return (directRef, false);
+        }
+
+        if (getDeliveryPackedItemReference != null)
+        {
+            var packedRef = getDeliveryPackedItemReference(detailNo);
+            if (packedRef.HasValue && packedRef.Value != Guid.Empty)
+            {
+                return (packedRef, true);
+            }
+        }
+
+        return (null, false);
+    }
 }
 
 public record StockBalance(decimal Quantity, decimal Value)

@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, forwardRef, inject, Input, Output,
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { Subject, debounceTime } from 'rxjs';
 import { ItemService } from '../../../proxy/inventory/item.service';
 import type { ItemDto } from '../../../proxy/inventory/models';
@@ -18,7 +19,7 @@ import type { ItemDto } from '../../../proxy/inventory/models';
 @Component({
   selector: 'app-item-picker',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -34,7 +35,7 @@ import type { ItemDto } from '../../../proxy/inventory/models';
         type="text"
         class="form-control"
         [class.is-invalid]="invalid"
-        [placeholder]="placeholder"
+        [placeholder]="placeholder || ('::SearchItemByCodeOrName' | abpLocalization)"
         [disabled]="disabled"
         [(ngModel)]="searchText"
         (ngModelChange)="onSearchChange($event)"
@@ -58,7 +59,7 @@ import type { ItemDto } from '../../../proxy/inventory/models';
 export class ItemPickerComponent implements ControlValueAccessor {
   private itemService = inject(ItemService);
 
-  @Input() placeholder = 'Search item by code or name...';
+  @Input() placeholder = '';
   @Input() companyId: string | null = null;
   @Input() invalid = false;
 

@@ -2961,6 +2961,96 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Guards Stock Entry <c>Get Items</c> per ERPNext PR #67796 (<c>StockEntry.get_items</c>):
+    /// refuses fetching BOM items on a <c>Manufacture</c> Stock Entry that belongs to a Job Card,
+    /// and requires positive <c>FgCompletedQty</c> when fetching from BOM on Manufacture/Repack.
+    /// </summary>
+    public static void ValidateGetItemsAllowed(
+        StockEntryType entryType,
+        Guid? jobCardId,
+        string? jobCardNumber,
+        bool fromBom,
+        decimal fgCompletedQty)
+    {
+        if (jobCardId.HasValue && jobCardId.Value != Guid.Empty && entryType == StockEntryType.Manufacture)
+        {
+            var label = string.IsNullOrWhiteSpace(jobCardNumber) ? jobCardId.Value.ToString() : jobCardNumber;
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("jobCard", label)
+                .WithData("detail", $"Items of this Stock Entry come from Job Card {label}. Use Record Output on the Job Card instead of Get Items.");
+        }
+
+        if ((entryType == StockEntryType.Manufacture || entryType == StockEntryType.Repack)
+            && fromBom
+            && fgCompletedQty <= 0m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please set Finished Good Quantity before fetching items from the BOM.");
+        }
+    }
+
+    /// <summary>
+    /// Validates Stock Entry rows linked to Pick List rows per ERPNext PR #67707 and PR #67703
+    /// (<c>StockEntry.validate_with_pick_list</c>):
+    /// - Refuses rows moving a different item than picked on the Pick List row (allowing valid
+    ///   Work Order alternative items where <c>OriginalItemCode == pickedRow.ItemCode</c>).
+    /// - Refuses rows moving from a different source warehouse than picked.
+    /// - Rounds cumulative <c>pickedRow.TransferredQty + sum(row.TransferQty)</c> to
+    ///   <paramref name="transferredQtyPrecision"/> before comparing against <c>PickedQty</c>.
+    /// </summary>
+    public static void ValidateStockEntryRowsAgainstPickList(
+        StockEntryType entryType,
+        bool hasWorkOrder,
+        string pickListName,
+        IReadOnlyDictionary<Guid, (string ItemCode, Guid? WarehouseId, decimal PickedQty, decimal TransferredQty)> pickedRowsById,
+        IEnumerable<(int RowIdx, Guid? PickListItemId, string ItemCode, string? OriginalItemCode, Guid? SourceWarehouseId, decimal TransferQty)> entryRows,
+        int transferredQtyPrecision = 4)
+    {
+        var isAlternativePurpose = hasWorkOrder
+            && (entryType == StockEntryType.MaterialTransferForManufacture
+                || entryType == StockEntryType.Manufacture
+                || entryType == StockEntryType.MaterialConsumptionForManufacture);
+
+        var addedByPickRow = new Dictionary<Guid, decimal>();
+        foreach (var row in entryRows)
+        {
+            if (!row.PickListItemId.HasValue || !pickedRowsById.TryGetValue(row.PickListItemId.Value, out var picked))
+                continue;
+
+            var isWorkOrderAlternative = isAlternativePurpose
+                && !string.IsNullOrWhiteSpace(row.OriginalItemCode)
+                && string.Equals(row.OriginalItemCode, picked.ItemCode, StringComparison.OrdinalIgnoreCase);
+
+            if (!string.Equals(row.ItemCode, picked.ItemCode, StringComparison.OrdinalIgnoreCase) && !isWorkOrderAlternative)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("detail", $"Row #{row.RowIdx}: Item {row.ItemCode} is not the item {picked.ItemCode} picked in {pickListName}.");
+            }
+
+            if (row.SourceWarehouseId.HasValue && row.SourceWarehouseId.Value != Guid.Empty
+                && picked.WarehouseId.HasValue && row.SourceWarehouseId.Value != picked.WarehouseId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("detail", $"Row #{row.RowIdx}: Item {row.ItemCode} was picked from a different warehouse in {pickListName}.");
+            }
+
+            addedByPickRow.TryGetValue(row.PickListItemId.Value, out var prevAdded);
+            var cumulativeAdded = prevAdded + row.TransferQty;
+            addedByPickRow[row.PickListItemId.Value] = cumulativeAdded;
+
+            var totalTransferred = Math.Round(picked.TransferredQty + cumulativeAdded, transferredQtyPrecision, MidpointRounding.AwayFromZero);
+            if (totalTransferred > picked.PickedQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", row.RowIdx)
+                    .WithData("detail", $"Row #{row.RowIdx}: Item {row.ItemCode} is transferred more than the {picked.PickedQty} picked in {pickListName}.");
+            }
+        }
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

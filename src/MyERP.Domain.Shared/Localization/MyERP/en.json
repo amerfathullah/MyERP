@@ -7060,7 +7060,10 @@
     "PageNotFoundMessage": "The page you are looking for does not exist.",
     "BackToDashboard": "Back to Dashboard",
     "ShowingRangeOfTotal": "Showing {0}–{1} of {2}",
-    "Pagination": "Pagination"
+    "Pagination": "Pagination",
+    "SearchItemByCodeOrName": "Search item by code or name...",
+    "About": "About",
+    "Privacy": "Privacy"
   }
 }
 

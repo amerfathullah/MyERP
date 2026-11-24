@@ -1,7 +1,10 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { LocalizationPipe } from '@abp/ng.core';
 
 @Component({
   selector: 'app-footer',
+  standalone: true,
+  imports: [LocalizationPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="lpx-footbar-container end-0">
@@ -13,9 +16,9 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
           <a href="https://volosoft.com/" target="_blank">Volosoft</a>
         </div>
         <div class="lpx-footbar-solo-links">
-          <a href="#">About</a>
-          <a href="#">Privacy</a>
-          <a href="#">Contact</a>
+          <a href="#">{{ '::About' | abpLocalization }}</a>
+          <a href="#">{{ '::Privacy' | abpLocalization }}</a>
+          <a href="#">{{ '::Contact' | abpLocalization }}</a>
         </div>
       </div>
     </div>

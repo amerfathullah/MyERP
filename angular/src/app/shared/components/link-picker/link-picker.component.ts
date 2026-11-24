@@ -2,6 +2,7 @@ import { Component, EventEmitter, forwardRef, Input, Output, signal, ChangeDetec
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { LocalizationPipe } from '@abp/ng.core';
 import { Subject, debounceTime, Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -17,7 +18,7 @@ import { catchError } from 'rxjs/operators';
 @Component({
   selector: 'app-link-picker',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -32,7 +33,7 @@ import { catchError } from 'rxjs/operators';
         type="text"
         class="form-control"
         [class.is-invalid]="invalid"
-        [placeholder]="placeholder"
+        [placeholder]="placeholder || ('::Search' | abpLocalization)"
         [disabled]="disabled"
         [(ngModel)]="searchText"
         (ngModelChange)="onSearchChange($event)"
@@ -60,7 +61,7 @@ export class LinkPickerComponent implements ControlValueAccessor {
   /** item => string shown in the input/dropdown. */
   @Input({ required: true }) displayFn!: (item: any) => string;
   @Input() idFn: (item: any) => string = (item) => item?.id;
-  @Input() placeholder = 'Search...';
+  @Input() placeholder = '';
   @Input() invalid = false;
 
   /** Emits the full selected item (or null when cleared). */
