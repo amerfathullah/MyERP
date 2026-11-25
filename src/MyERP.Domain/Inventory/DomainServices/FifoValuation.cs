@@ -75,7 +75,7 @@ public class FifoValuation
     /// Removes stock from the queue using FIFO (front) or LIFO (back) order.
     /// Returns consumed bins for valuation rate calculation.
     /// </summary>
-    public List<StockBin> RemoveStock(decimal qty, decimal outgoingRate = 0)
+    public List<StockBin> RemoveStock(decimal qty, decimal outgoingRate = 0, bool isReturnPurchaseEntry = false)
     {
         var consumedBins = new List<StockBin>();
         if (qty <= 0) return consumedBins;
@@ -93,14 +93,14 @@ public class FifoValuation
             }
 
             // FIFO: consume from front (index 0), LIFO: consume from back (last index)
-            // Per ERPNext commit 433707f5f4: both FIFO and LIFO match purchase return / outgoing rates
-            // at database precision (9 decimals, commercial rounding) without mutating bin rates.
+            // Per ERPNext PR #68029 & commit 433707f5f4: both FIFO and LIFO match purchase return /
+            // outgoing rates at database precision (9 decimals, commercial rounding) without mutating bin rates.
             int targetIndex;
             var matchingRate = RoundRateToDatabasePrecision(outgoingRate);
             if (_isLifo)
             {
                 targetIndex = _queue.Count - 1;
-                if (outgoingRate > 0)
+                if (outgoingRate > 0 || isReturnPurchaseEntry)
                 {
                     for (var idx = _queue.Count - 1; idx >= 0; idx--)
                     {
@@ -114,9 +114,9 @@ public class FifoValuation
             }
             else
             {
-                // For FIFO: if outgoing rate > 0, try rate-matched consumption first
+                // For FIFO: if outgoing rate > 0 or purchase return, try rate-matched consumption first
                 targetIndex = 0;
-                if (outgoingRate > 0)
+                if (outgoingRate > 0 || isReturnPurchaseEntry)
                 {
                     var matchIndex = _queue.FindIndex(b => b.Qty > 0 && RoundRateToDatabasePrecision(b.Rate) == matchingRate);
                     if (matchIndex >= 0)

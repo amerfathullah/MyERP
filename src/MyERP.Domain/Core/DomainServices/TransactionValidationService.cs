@@ -466,6 +466,14 @@ public class TransactionValidationService : DomainService
         => existingAppliedPricingRules;
 
     /// <summary>
+    /// Determines whether transaction UI/print totals should show the Net Total section per ERPNext PR #68233
+    /// (<c>transaction.js</c>): checks <paramref name="discountAmount"/> as a decimal (<c>!= 0m</c>) instead of
+    /// truncating to int so fractional additional discounts below <c>1</c> (e.g. <c>0.50</c>) still show Net Total.
+    /// </summary>
+    public static bool ShouldShowNetTotalRow(decimal discountAmount, bool hasTaxIncludedInPrintRate)
+        => discountAmount != 0m || hasTaxIncludedInPrintRate;
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

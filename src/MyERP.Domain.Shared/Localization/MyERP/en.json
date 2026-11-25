@@ -7525,7 +7525,28 @@
     "BasedOnQuantity": "Based On Quantity",
     "BasedOnAmount": "Based On Amount",
     "NewUpdate": "New Update",
-    "NoProjectUpdatesFound": "No project updates found."
+    "NoProjectUpdatesFound": "No project updates found.",
+    "CurrentScore": "Current Score",
+    "OutOf100": "out of 100",
+    "PeriodType": "Period Type",
+    "StandingBands": "Standing Bands",
+    "Grade": "Grade",
+    "PreventPO": "Prevent PO",
+    "PreventRFQ": "Prevent RFQ",
+    "EvaluationCriteria": "Evaluation Criteria",
+    "Criteria": "Criteria",
+    "MaxScore": "Max Score",
+    "SelectAnItem": "Select an Item...",
+    "SectionFilter": "Section Filter",
+    "TotalRecords": "Total Records",
+    "RelatedItem": "Related Item",
+    "DetailsStatus": "Details / Status",
+    "NoUsagesOrReferencesFound": "No usages or references found for this item.",
+    "SelectItemToSeeWhereUsed": "Please select an item above and click Generate to see where it is used.",
+    "TotalActiveBatches": "Total Active Batches",
+    "MfgDate": "Mfg Date",
+    "ExpiresToday": "Expires Today",
+    "NoBatchExpiryRecordsFound": "No batch expiry records found matching the filter criteria."
   }
 }
 

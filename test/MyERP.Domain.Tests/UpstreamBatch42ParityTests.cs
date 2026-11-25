@@ -20,7 +20,7 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
+/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -1853,5 +1853,42 @@ public class UpstreamBatch42ParityTests
 
         // PR #69279: Keep applied pricing rules string intact on UOM change so stale discounts reset
         TransactionValidationService.PreserveAppliedPricingRulesOnUomChange("[\"PR-001\"]").ShouldBe("[\"PR-001\"]");
+    }
+
+    [Fact]
+    public void Pr68211_Pr68233_Pr68075_Pr68029_TransitRepostQty_SubUnitDiscountNetTotal_RemainingReservedStock_LifoReturnRate_Parity()
+    {
+        // PR #68211: Internal receipt repost preserves earliest cancelled transit SLE qty (-(-7) = 7)
+        PurchaseReceiptManager.ResolveInternalReceiptTransitQtyOnRepost(
+            isCancelledDoc: false, isReturn: false, requestedQty: 10m,
+            activePostedQty: null, earliestCancelledPostedQty: -7m).ShouldBe(7m);
+
+        // PR #68233: Additional discount < 1 (e.g. 0.50) still shows Net Total row
+        TransactionValidationService.ShouldShowNetTotalRow(discountAmount: 0.50m, hasTaxIncludedInPrintRate: false).ShouldBeTrue();
+        TransactionValidationService.ShouldShowNetTotalRow(discountAmount: 0m, hasTaxIncludedInPrintRate: false).ShouldBeFalse();
+
+        // PR #68075: Hide Unreserve once Delivered + Transferred + Consumed >= Reserved
+        StockReservationManager.HasRemainingReservedStockForVoucher(new[]
+        {
+            (ReservedQty: 10m, DeliveredQty: 0m, TransferredQty: 6m, ConsumedQty: 4m),
+        }).ShouldBeFalse();
+        StockReservationManager.HasRemainingReservedStockForVoucher(new[]
+        {
+            (ReservedQty: 10m, DeliveredQty: 0m, TransferredQty: 6m, ConsumedQty: 3m),
+        }).ShouldBeTrue();
+
+        // PR #68029: LIFO purchase return matches bin rate at 9dp DB precision including zero-rate purchase returns
+        var lifo = new FifoValuation(
+            new List<StockBin> { new(5m, 10.1234567891m), new(5m, 20m) },
+            isLifo: true);
+        var consumed = lifo.RemoveStock(2m, outgoingRate: 10.1234567894m, isReturnPurchaseEntry: true);
+        consumed.Count.ShouldBe(1);
+        consumed[0].Rate.ShouldBe(10.1234567891m);
+
+        var lifoZeroReturn = new FifoValuation(
+            new List<StockBin> { new(4m, 0m), new(4m, 15m) },
+            isLifo: true);
+        var consumedZero = lifoZeroReturn.RemoveStock(1m, outgoingRate: 0m, isReturnPurchaseEntry: true);
+        consumedZero[0].Rate.ShouldBe(0m);
     }
 }

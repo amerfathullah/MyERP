@@ -16,18 +16,18 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="scorecard?.supplierName ?? 'Supplier Scorecard'">
+    <abp-page [title]="scorecard?.supplierName ?? ('::SupplierScorecard' | abpLocalization)">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (scorecard) {
         <div class="row g-3 mb-4">
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Current Score</div>
+              <div class="text-muted small">{{ '::CurrentScore' | abpLocalization }}</div>
               <div class="fs-2 fw-bold" [class]="scorecard.score >= 70 ? 'text-success' : scorecard.score >= 40 ? 'text-warning' : 'text-danger'">
                 {{ scorecard.score | number:'1.1-1' }}
               </div>
-              <div class="text-muted small">out of 100</div>
+              <div class="text-muted small">{{ '::OutOf100' | abpLocalization }}</div>
               @if (!showScoreOverride) {
                 <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="openScoreOverride()">
                   <i class="fa fa-sliders me-1"></i>{{ '::OverrideScore' | abpLocalization }}
@@ -47,18 +47,18 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Period Type</div>
+              <div class="text-muted small">{{ '::PeriodType' | abpLocalization }}</div>
               <div class="fs-5 fw-bold">{{ scorecard.periodType }}</div>
             </div></div>
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Enforcement</div>
+              <div class="text-muted small">{{ '::Enforcement' | abpLocalization }}</div>
               @if (scorecard.preventPurchaseOrders) {
-                <span class="badge bg-danger me-1">Blocks PO</span>
+                <span class="badge bg-danger me-1">{{ '::BlocksPO' | abpLocalization }}</span>
               }
               @if (scorecard.preventRfqs) {
-                <span class="badge bg-danger me-1">Blocks RFQ</span>
+                <span class="badge bg-danger me-1">{{ '::BlocksRFQ' | abpLocalization }}</span>
               }
               @if (!scorecard.preventPurchaseOrders && !scorecard.preventRfqs) {
                 <span class="badge bg-success">{{ '::NoRestrictions' | abpLocalization }}</span>
@@ -67,14 +67,14 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
           </div>
         </div>
 
-        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">Standing Bands</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::StandingBands' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>Grade</th>
-                <th>Range</th>
-                <th>Prevent PO</th>
-                <th>Prevent RFQ</th>
+                <th>{{ '::Grade' | abpLocalization }}</th>
+                <th>{{ '::Range' | abpLocalization }}</th>
+                <th>{{ '::PreventPO' | abpLocalization }}</th>
+                <th>{{ '::PreventRFQ' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (s of scorecard.standings; track s.name) {
@@ -90,10 +90,10 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
           </div>
         </div>
 
-        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">Evaluation Criteria</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::EvaluationCriteria' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
-              <thead><tr><th>Criteria</th><th class="text-end">Weight</th><th class="text-end">Max Score</th></tr></thead>
+              <thead><tr><th>{{ '::Criteria' | abpLocalization }}</th><th class="text-end">{{ '::Weight' | abpLocalization }}</th><th class="text-end">{{ '::MaxScore' | abpLocalization }}</th></tr></thead>
               <tbody>
                 @for (c of scorecard.criteria; track c.name) {
                   <tr>

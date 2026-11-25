@@ -1806,6 +1806,43 @@ public class PurchaseReceiptManager : DomainService
         var receivedStockQty = Math.Round(receivedQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
         return (receivedQty, receivedStockQty);
     }
+
+    /// <summary>
+    /// Resolves the transit stock quantity for an internal Purchase Receipt/Invoice row across normal
+    /// submit, cancel, and Landed Cost Voucher / repost replays per ERPNext PR #68211
+    /// (<c>buying_controller.py: get_qty_for_transit</c> / <c>get_posted_qty</c>):
+    /// - Cancelled doc: reverses the active posted transit qty (<c>-activePostedQty</c>).
+    /// - Repost / LCV replay: when an earlier cancelled SLE exists (earliest by creation), preserves
+    ///   what the row originally moved out of transit (<c>-earliestCancelledPostedQty</c>).
+    /// - Otherwise on returns, caps by remaining returnable qty when positive.
+    /// </summary>
+    public static decimal ResolveInternalReceiptTransitQtyOnRepost(
+        bool isCancelledDoc,
+        bool isReturn,
+        decimal requestedQty,
+        decimal? activePostedQty = null,
+        decimal? earliestCancelledPostedQty = null,
+        decimal? qtyLeftToReturn = null)
+    {
+        if (isCancelledDoc)
+        {
+            return activePostedQty.HasValue && activePostedQty.Value != 0m
+                ? -activePostedQty.Value
+                : requestedQty;
+        }
+
+        if (earliestCancelledPostedQty.HasValue && earliestCancelledPostedQty.Value != 0m)
+        {
+            return -earliestCancelledPostedQty.Value;
+        }
+
+        if (isReturn && qtyLeftToReturn.HasValue && qtyLeftToReturn.Value > 0m)
+        {
+            return Math.Max(requestedQty, -qtyLeftToReturn.Value);
+        }
+
+        return requestedQty;
+    }
 }
 
 public sealed record PurchaseReturnMovedWarehouseRow(

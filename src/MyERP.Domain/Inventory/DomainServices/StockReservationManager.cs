@@ -2301,6 +2301,23 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Returns <c>true</c> ONLY when at least one Stock Reservation Entry for the voucher still holds
+    /// unused stock (<c>DeliveredQty + TransferredQty + ConsumedQty &lt; ReservedQty</c>) per ERPNext PR #68075
+    /// (<c>stock_reservation_entry.py: has_reserved_stock</c> / <c>_get_stock_reservation_entries_for_voucher</c>),
+    /// hiding the Unreserve action once all reserved stock has been transferred or consumed.
+    /// </summary>
+    public static bool HasRemainingReservedStockForVoucher(
+        IEnumerable<(decimal ReservedQty, decimal DeliveredQty, decimal TransferredQty, decimal ConsumedQty)>? entries)
+    {
+        if (entries == null)
+        {
+            return false;
+        }
+
+        return entries.Any(e => (e.DeliveredQty + e.TransferredQty + e.ConsumedQty) < e.ReservedQty);
+    }
+
+    /// <summary>
     /// Restores Work Order reservations up to <c>min(VoucherQty - ReservedQty, FreeInwardQty, ReturnedQty)</c>
     /// per inward order row when a customer material return is cancelled.
     /// Per ERPNext commit <c>d6d9be7765</c> (<c>restore_inward_reservations</c>).

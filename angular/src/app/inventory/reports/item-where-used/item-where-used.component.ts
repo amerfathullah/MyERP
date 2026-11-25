@@ -35,14 +35,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-5">
             <label class="form-label small fw-semibold">{{ '::Item' | abpLocalization }} *</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedItemId" (change)="loadData()">
-              <option value="">Select an Item...</option>
+              <option value="">{{ '::SelectAnItem' | abpLocalization }}</option>
               @for (item of items(); track item.id) {
                 <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
               }
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label small fw-semibold">Section Filter</label>
+            <label class="form-label small fw-semibold">{{ '::SectionFilter' | abpLocalization }}</label>
             <div class="btn-group btn-group-sm w-100" role="group">
               <button
                 type="button"
@@ -51,7 +51,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 [class.btn-outline-primary]="selectedSection !== ''"
                 (click)="setSection('')"
               >
-                All
+                {{ '::All' | abpLocalization }}
               </button>
               <button
                 type="button"
@@ -116,7 +116,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-4 col-sm-6">
               <div class="card bg-body-tertiary border-0 shadow-none h-100">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Total Records</div>
+                  <div class="text-muted small">{{ '::TotalRecords' | abpLocalization }}</div>
                   <div class="h4 mb-0 fw-bold">{{ d.rows.length }}</div>
                 </div>
               </div>
@@ -128,13 +128,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <table class="table table-hover align-middle table-sm border">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 120px;">Section</th>
-                  <th>Reference Type</th>
-                  <th>Document</th>
-                  <th>Related Item</th>
-                  <th class="text-end">Qty</th>
-                  <th>UOM</th>
-                  <th>Details / Status</th>
+                  <th style="width: 120px;">{{ '::Section' | abpLocalization }}</th>
+                  <th>{{ '::ReferenceType' | abpLocalization }}</th>
+                  <th>{{ '::Document' | abpLocalization }}</th>
+                  <th>{{ '::RelatedItem' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                  <th>{{ '::UOM' | abpLocalization }}</th>
+                  <th>{{ '::DetailsStatus' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,11 +143,11 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td>
                       @if (row.section === 'Where Used') {
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                          Where Used
+                          {{ '::WhereUsed' | abpLocalization }}
                         </span>
                       } @else {
                         <span class="badge bg-info-subtle text-info border border-info-subtle">
-                          References
+                          {{ '::References' | abpLocalization }}
                         </span>
                       }
                     </td>
@@ -179,13 +179,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td class="small">
                       <div class="d-flex align-items-center gap-1 flex-wrap">
                         @if (row.isDefault) {
-                          <span class="badge bg-success-subtle text-success">Default</span>
+                          <span class="badge bg-success-subtle text-success">{{ '::Default' | abpLocalization }}</span>
                         }
                         @if (row.isActive !== null && row.isActive !== undefined) {
                           @if (row.isActive) {
-                            <span class="badge bg-light text-success border">Active</span>
+                            <span class="badge bg-light text-success border">{{ '::Active' | abpLocalization }}</span>
                           } @else {
-                            <span class="badge bg-light text-danger border">Inactive</span>
+                            <span class="badge bg-light text-danger border">{{ '::Inactive' | abpLocalization }}</span>
                           }
                         }
                         @if (row.details) {
@@ -198,7 +198,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <tr>
                     <td colspan="7" class="text-center text-muted py-5">
                       <i class="fa fa-info-circle fa-2x text-muted mb-2 d-block"></i>
-                      No usages or references found for this item.
+                      {{ '::NoUsagesOrReferencesFound' | abpLocalization }}
                     </td>
                   </tr>
                 }
@@ -208,7 +208,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
         } @else {
           <div class="text-center text-muted py-5">
             <i class="fa fa-arrow-up fa-2x mb-3 text-secondary d-block"></i>
-            Please select an item above and click Generate to see where it is used.
+            {{ '::SelectItemToSeeWhereUsed' | abpLocalization }}
           </div>
         }
       </div>

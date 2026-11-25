@@ -77,7 +77,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 [class.btn-outline-primary]="statusFilter !== 'all'"
                 (click)="setStatusFilter('all')"
               >
-                All
+                {{ '::All' | abpLocalization }}
               </button>
               <button
                 type="button"
@@ -110,7 +110,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 [class.btn-outline-success]="statusFilter !== 'valid'"
                 (click)="setStatusFilter('valid')"
               >
-                Valid
+                {{ '::Valid' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -135,7 +135,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <div class="card bg-body-tertiary border-0 shadow-none h-100">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Total Active Batches</div>
+                  <div class="text-muted small">{{ '::TotalActiveBatches' | abpLocalization }}</div>
                   <div class="h4 mb-0 fw-bold">{{ d.totalBatches }}</div>
                 </div>
               </div>
@@ -171,13 +171,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <table class="table table-hover align-middle table-sm border">
               <thead class="table-light">
                 <tr>
-                  <th style="width: 130px;">Status</th>
-                  <th>Batch No</th>
-                  <th>Item</th>
-                  <th>Warehouse</th>
-                  <th class="text-end">Quantity</th>
-                  <th>Mfg Date</th>
-                  <th>Expiry Date</th>
+                  <th style="width: 130px;">{{ '::Status' | abpLocalization }}</th>
+                  <th>{{ '::BatchNo' | abpLocalization }}</th>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                  <th>{{ '::MfgDate' | abpLocalization }}</th>
+                  <th>{{ '::ExpiryDate' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ExpiryInDays' | abpLocalization }}</th>
                 </tr>
               </thead>
@@ -187,14 +187,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td>
                       @if (row.isExpired) {
                         <span class="badge bg-danger">
-                          <i class="fa fa-triangle-exclamation me-1"></i>Expired
+                          <i class="fa fa-triangle-exclamation me-1"></i>{{ '::Expired' | abpLocalization }}
                         </span>
                       } @else if (row.isExpiringSoon) {
                         <span class="badge bg-warning text-dark">
-                          <i class="fa fa-clock me-1"></i>Expiring Soon
+                          <i class="fa fa-clock me-1"></i>{{ '::ExpiringSoon' | abpLocalization }}
                         </span>
                       } @else {
-                        <span class="badge bg-success-subtle text-success">Valid</span>
+                        <span class="badge bg-success-subtle text-success">{{ '::Valid' | abpLocalization }}</span>
                       }
                     </td>
                     <td>
@@ -215,16 +215,16 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       {{ row.manufacturingDate ? (row.manufacturingDate | date:'mediumDate') : '—' }}
                     </td>
                     <td class="small fw-medium">
-                      {{ row.expiryDate ? (row.expiryDate | date:'mediumDate') : 'No Expiry' }}
+                      {{ row.expiryDate ? (row.expiryDate | date:'mediumDate') : ('::NoExpiry' | abpLocalization) }}
                     </td>
                     <td class="text-end font-monospace small">
                       @if (row.expiryInDays !== null && row.expiryInDays !== undefined) {
                         @if (row.expiryInDays < 0) {
-                          <span class="text-danger fw-bold">Expired ({{ -row.expiryInDays }}d ago)</span>
+                          <span class="text-danger fw-bold">{{ '::Expired' | abpLocalization }} ({{ -row.expiryInDays }}d)</span>
                         } @else if (row.expiryInDays === 0) {
-                          <span class="text-danger fw-bold">Expires Today</span>
+                          <span class="text-danger fw-bold">{{ '::ExpiresToday' | abpLocalization }}</span>
                         } @else if (row.expiryInDays <= 30) {
-                          <span class="text-warning fw-bold">{{ row.expiryInDays }}d left</span>
+                          <span class="text-warning fw-bold">{{ row.expiryInDays }}d</span>
                         } @else {
                           <span class="text-muted">{{ row.expiryInDays }}d</span>
                         }
@@ -237,7 +237,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <tr>
                     <td colspan="8" class="text-center text-muted py-5">
                       <i class="fa fa-circle-check fa-2x text-success mb-2 d-block"></i>
-                      No batch expiry records found matching the filter criteria.
+                      {{ '::NoBatchExpiryRecordsFound' | abpLocalization }}
                     </td>
                   </tr>
                 }
