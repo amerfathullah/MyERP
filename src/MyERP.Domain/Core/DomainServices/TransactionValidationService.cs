@@ -531,4 +531,64 @@ public class TransactionValidationService : DomainService
         throw new BusinessException(MyERPDomainErrorCodes.PriceListDisabled)
             .WithData("priceListName", priceList.Name);
     }
+
+    /// <summary>
+    /// Validates an inclusive tax row against the CURRENT form's tax rows (never a stale cached form)
+    /// per ERPNext PR #67957 (<c>accounts.js: validate_inclusive_tax</c>):
+    /// - Rejects <c>Actual</c> charge type when <paramref name="includedInPrintRate"/> is true.
+    /// - For <c>On Previous Row Amount</c>, requires the referenced row (<paramref name="referencedRowId"/>)
+    ///   in <paramref name="currentFormTaxes"/> to also be inclusive.
+    /// - For <c>On Previous Row Total</c>, requires every tax row up to <paramref name="referencedRowId"/>
+    ///   in <paramref name="currentFormTaxes"/> to be inclusive.
+    /// </summary>
+    public static void ValidateInclusiveTaxRowAgainstFormTaxes(
+        int rowIdx,
+        string? chargeType,
+        bool includedInPrintRate,
+        int? referencedRowId,
+        IReadOnlyList<(int RowIdx, bool IncludedInPrintRate)>? currentFormTaxes)
+    {
+        if (!includedInPrintRate || string.IsNullOrWhiteSpace(chargeType))
+        {
+            return;
+        }
+
+        if (string.Equals(chargeType.Trim(), "Actual", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("rowIdx", rowIdx)
+                .WithData("detail", $"Actual type tax cannot be included in Item rate in row {rowIdx}");
+        }
+
+        if (currentFormTaxes == null || !referencedRowId.HasValue || referencedRowId.Value <= 0)
+        {
+            return;
+        }
+
+        var refId = referencedRowId.Value;
+        if (string.Equals(chargeType.Trim(), "On Previous Row Amount", StringComparison.OrdinalIgnoreCase))
+        {
+            if (refId <= currentFormTaxes.Count && !currentFormTaxes[refId - 1].IncludedInPrintRate)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", rowIdx)
+                    .WithData("referencedRowId", refId)
+                    .WithData("detail", $"Row {rowIdx}: Referred row {refId} must also be included in basic rate.");
+            }
+        }
+        else if (string.Equals(chargeType.Trim(), "On Previous Row Total", StringComparison.OrdinalIgnoreCase))
+        {
+            var limit = Math.Min(refId, currentFormTaxes.Count);
+            for (var i = 0; i < limit; i++)
+            {
+                if (!currentFormTaxes[i].IncludedInPrintRate)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("rowIdx", rowIdx)
+                        .WithData("referencedRowId", refId)
+                        .WithData("detail", $"Row {rowIdx}: All tax rows up to row {refId} must be included in basic rate.");
+                }
+            }
+        }
+    }
 }

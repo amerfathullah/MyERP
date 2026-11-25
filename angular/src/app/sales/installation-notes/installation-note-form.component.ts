@@ -32,7 +32,7 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
               <input class="form-control" [value]="$safeNavigationMigration(deliveryNote?.deliveryNumber)" disabled />
             </div>
             <div class="col-md-4">
-              <label class="form-label">Installation Date</label>
+              <label class="form-label">{{ '::InstallationDate' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="installationDate" [min]="minDate" />
             </div>
             <div class="col-12">
@@ -43,12 +43,12 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
         </div></div>
 
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">Installed Items</h6>
+          <h6 class="card-title">{{ '::InstalledItems' | abpLocalization }}</h6>
           <table class="table table-sm mb-0">
             <thead><tr>
               <th>{{ '::Item' | abpLocalization }}</th>
               <th class="text-end" style="width:150px">{{ '::Quantity' | abpLocalization }}</th>
-              <th style="width:200px">Serial No</th>
+              <th style="width:200px">{{ '::SerialNo' | abpLocalization }}</th>
             </tr></thead>
             <tbody>
               @for (row of rows; track row.itemId) {
@@ -59,7 +59,7 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
                 </tr>
               }
               @if (rows.length === 0) {
-                <tr><td colspan="3" class="text-center text-muted py-3">No items available from this Delivery Note.</td></tr>
+                <tr><td colspan="3" class="text-center text-muted py-3">{{ '::NoItemsAvailableFromDeliveryNote' | abpLocalization }}</td></tr>
               }
             </tbody>
           </table>

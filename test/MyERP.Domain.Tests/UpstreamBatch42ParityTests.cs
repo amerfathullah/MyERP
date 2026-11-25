@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66600, #66647, #66690, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
-/// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66000, #66259, #66260, #66292, #66299, #66329, #66536, #66596, #66600, #66647, #66690, #66947, #66966, #66971, #66993, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67957, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2460,5 +2460,68 @@ public class UpstreamBatch42ParityTests
         orderedChildren[0].ShouldBe(("SO-000", 2, (DateTime?)d1));
         orderedChildren[1].ShouldBe(("SO-001", 1, (DateTime?)d1));
         orderedChildren[2].ShouldBe(("SO-001", 3, (DateTime?)d1));
+    }
+
+    [Fact]
+    public void Pr66000_Pr66596_Pr66993_Pr67957_AutoDataWhPerm_InlineEditorUomQty_NoSecondIcSi_InclusiveTaxForm_Parity()
+    {
+        // PR #66596: Inline serial/batch editor sets row qty in row UOM, avoids fractional drift, negates non-SE returns
+        SerialBatchBundleValidationService.ResolveInlineEditorRowQtyFromStockQty(
+            currentRowQty: 1m, bundleStockQty: 24m, conversionFactor: 12m, hasStockQtyField: true,
+            isReturn: false, isStockEntry: false).ShouldBe(2m);
+        SerialBatchBundleValidationService.ResolveInlineEditorRowQtyFromStockQty(
+            currentRowQty: 1m, bundleStockQty: 24m, conversionFactor: 12m, hasStockQtyField: true,
+            isReturn: true, isStockEntry: false).ShouldBe(-2m);
+        // Preserves existing row qty (3) when 3 * 0.3333 rounds to 1.0000 matching bundleStockQty = 1
+        SerialBatchBundleValidationService.ResolveInlineEditorRowQtyFromStockQty(
+            currentRowQty: 3m, bundleStockQty: 1m, conversionFactor: 0.33333m, hasStockQtyField: true,
+            isReturn: false, isStockEntry: false, rowQtyPrecision: 4, stockQtyPrecision: 4).ShouldBe(3m);
+
+        // PR #66000: get_auto_data blocks unpermitted explicit warehouse and filters/caps batches to permitted warehouses
+        var whAllowed = Guid.NewGuid();
+        var whDenied = Guid.NewGuid();
+        var allowedSet = new HashSet<Guid> { whAllowed };
+        Should.Throw<BusinessException>(() =>
+            SerialBatchBundleValidationService.FilterAutoSerialBatchDataByPermittedWarehouses(
+                whDenied, allowedSet, Array.Empty<(Guid, string?, Guid?, decimal)>(), hasSerialNo: false, requestedQty: 5m));
+
+        var b1 = Guid.NewGuid();
+        var b2 = Guid.NewGuid();
+        var filteredBatches = SerialBatchBundleValidationService.FilterAutoSerialBatchDataByPermittedWarehouses(
+            requestedWarehouseId: null,
+            permittedWarehouseIds: allowedSet,
+            candidateRows: new[]
+            {
+                (whDenied, (string?)null, (Guid?)b1, 10m),
+                (whAllowed, (string?)null, (Guid?)b2, 8m),
+            },
+            hasSerialNo: false,
+            requestedQty: 5m);
+        filteredBatches.Count.ShouldBe(1);
+        filteredBatches[0].WarehouseId.ShouldBe(whAllowed);
+        filteredBatches[0].BatchId.ShouldBe(b2);
+        filteredBatches[0].Qty.ShouldBe(5m);
+
+        // PR #66993: Refuse second inter-company Sales Invoice when PI already links an inter-company Sales Invoice
+        InterCompanyTransactionService.ValidateNoCounterpartSalesInvoiceExists("PI-001", null);
+        Should.Throw<BusinessException>(() =>
+            InterCompanyTransactionService.ValidateNoCounterpartSalesInvoiceExists("PI-001", Guid.NewGuid(), "SI-001"))
+            .Data["detail"]!.ToString()!.ShouldContain("already has Sales Invoice SI-001");
+
+        // PR #67957: Inclusive tax validates against current form's tax rows
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateInclusiveTaxRowAgainstFormTaxes(
+                rowIdx: 1, chargeType: "Actual", includedInPrintRate: true, referencedRowId: null,
+                currentFormTaxes: new[] { (1, true) }))
+            .Data["detail"]!.ToString()!.ShouldContain("Actual type tax");
+
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateInclusiveTaxRowAgainstFormTaxes(
+                rowIdx: 2, chargeType: "On Previous Row Amount", includedInPrintRate: true, referencedRowId: 1,
+                currentFormTaxes: new[] { (1, false), (2, true) }));
+
+        TransactionValidationService.ValidateInclusiveTaxRowAgainstFormTaxes(
+            rowIdx: 2, chargeType: "On Previous Row Total", includedInPrintRate: true, referencedRowId: 1,
+            currentFormTaxes: new[] { (1, true), (2, true) });
     }
 }

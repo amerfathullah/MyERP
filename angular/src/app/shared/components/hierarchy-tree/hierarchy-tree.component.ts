@@ -26,7 +26,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i [class]="iconClass + ' me-2'"></i>{{ title }}</h5>
         <button class="btn btn-primary btn-sm" (click)="showForm = true; resetForm()">
-          <i class="bi bi-plus-lg me-1"></i>Add New
+          <i class="bi bi-plus-lg me-1"></i>{{ '::AddNew' | abpLocalization }}
         </button>
       </div>
       <div class="card-body">
@@ -34,30 +34,30 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
           <div class="border rounded p-3 mb-3 bg-light">
             <div class="row g-2">
               <div class="col-md-4">
-                <label class="form-label">Name *</label>
+                <label class="form-label">{{ '::Name' | abpLocalization }} *</label>
                 <input class="form-control form-control-sm" [(ngModel)]="formData.name" />
               </div>
               <div class="col-md-3">
-                <label class="form-label">Parent</label>
+                <label class="form-label">{{ '::Parent' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="formData.parentId">
-                  <option [ngValue]="null">— Root Level —</option>
+                  <option [ngValue]="null">{{ '::RootLevel' | abpLocalization }}</option>
                   @for (g of groupNodes(); track g.id) {
                     <option [value]="g.id">{{ g.name }}</option>
                   }
                 </select>
               </div>
               <div class="col-md-2">
-                <label class="form-label">Type</label>
+                <label class="form-label">{{ '::Type' | abpLocalization }}</label>
                 <div class="form-check mt-1">
                   <input type="checkbox" class="form-check-input" [(ngModel)]="formData.isGroup" id="grpCheck" />
-                  <label class="form-check-label" for="grpCheck">Group</label>
+                  <label class="form-check-label" for="grpCheck">{{ '::Group' | abpLocalization }}</label>
                 </div>
               </div>
               <div class="col-md-3 d-flex align-items-end gap-2">
                 <button class="btn btn-primary btn-sm" (click)="save()" [disabled]="!formData.name">
-                  <i class="bi bi-check-lg me-1"></i>Save
+                  <i class="bi bi-check-lg me-1"></i>{{ '::Save' | abpLocalization }}
                 </button>
-                <button class="btn btn-secondary btn-sm" (click)="showForm = false">Cancel</button>
+                <button class="btn btn-secondary btn-sm" (click)="showForm = false">{{ '::Cancel' | abpLocalization }}</button>
               </div>
             </div>
           </div>
@@ -68,7 +68,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
         } @else if (tree().length === 0) {
           <div class="text-center text-muted py-5">
             <i [class]="iconClass + ' d-block mb-2'" style="font-size: 2rem;"></i>
-            <p>No {{ title.toLowerCase() }} defined yet.</p>
+            <p>{{ '::NoEntriesDefinedYet' | abpLocalization }}</p>
           </div>
         } @else {
           <div style="max-height: 60vh; overflow-y: auto;">
@@ -186,7 +186,7 @@ export class HierarchyTreeComponent implements OnInit {
 
     obs.subscribe({
       next: () => { this.toaster.success('MyERP::SuccessfullySaved'); this.showForm = false; this.loadData(); },
-      error: (err) => this.toaster.error(err?.error?.error?.message ?? 'Save failed'),
+      error: (err) => this.toaster.error(err?.error?.error?.message ?? '::SaveFailed'),
     });
   }
 

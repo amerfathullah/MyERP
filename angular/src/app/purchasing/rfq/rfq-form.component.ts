@@ -31,7 +31,7 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
 
         <h6>{{ '::Items' | abpLocalization }}</h6>
         <table class="table table-sm mb-3">
-          <thead><tr><th>Item</th><th>Qty</th><th>UOM</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th>{{ '::Qty' | abpLocalization }}</th><th>{{ '::UOM' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
@@ -49,7 +49,7 @@ import { RequestForQuotationService } from '../../proxy/purchasing/request-for-q
 
         <h6>{{ '::Suppliers' | abpLocalization }}</h6>
         <table class="table table-sm mb-3">
-          <thead><tr><th>Supplier</th><th>Email</th><th></th></tr></thead>
+          <thead><tr><th>{{ '::Supplier' | abpLocalization }}</th><th>{{ '::Email' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (s of form.suppliers; track $index) {
               <tr>

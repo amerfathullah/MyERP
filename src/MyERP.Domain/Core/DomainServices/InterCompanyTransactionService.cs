@@ -1075,4 +1075,27 @@ public class InterCompanyTransactionService : DomainService
             || isPurchaseReceipt
             || isPurchaseInvoiceWithUpdateStock;
     }
+
+    /// <summary>
+    /// Refuses creating a second inter-company Sales Invoice from a Purchase Invoice whose header already
+    /// carries an inter-company Sales Invoice reference per ERPNext PR #66993
+    /// (<c>sales_invoice/mapper.py: validate_no_counterpart_sales_invoice</c>):
+    /// Purchase Invoice rows link no Sales Invoice rows, so the header reference alone marks it already invoiced.
+    /// </summary>
+    public static void ValidateNoCounterpartSalesInvoiceExists(
+        string purchaseInvoiceNumber,
+        Guid? existingInterCompanySalesInvoiceId,
+        string? existingSalesInvoiceNumber = null)
+    {
+        if (existingInterCompanySalesInvoiceId.HasValue && existingInterCompanySalesInvoiceId.Value != Guid.Empty)
+        {
+            var salesInvoiceRef = string.IsNullOrWhiteSpace(existingSalesInvoiceNumber)
+                ? existingInterCompanySalesInvoiceId.Value.ToString()
+                : existingSalesInvoiceNumber;
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
+                .WithData("purchaseInvoiceNumber", purchaseInvoiceNumber)
+                .WithData("salesInvoiceNumber", salesInvoiceRef)
+                .WithData("detail", $"Cannot create Intercompany Sales Invoice. Purchase Invoice {purchaseInvoiceNumber} already has Sales Invoice {salesInvoiceRef}.");
+        }
+    }
 }

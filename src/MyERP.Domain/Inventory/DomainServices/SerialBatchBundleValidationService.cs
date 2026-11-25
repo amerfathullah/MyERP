@@ -1530,6 +1530,101 @@ public class SerialBatchBundleValidationService : DomainService
             && resolvedWh == initialWarehouseId
             && string.Equals(resolvedBasedOn, initialBasedOn, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Converts a Serial and Batch Inline Editor bundle stock quantity back to the transaction row's
+    /// UOM quantity per ERPNext PR #66596 (<c>serial_batch_inline_editor.js: get_sbie_row_qty</c>):
+    /// - Uses <paramref name="conversionFactor"/> when the row has a stock/transfer qty field, else <c>1</c>.
+    /// - Preserves <c>abs(currentRowQty)</c> when <c>Round(absRowQty * factor, stockQtyPrecision)</c> already
+    ///   equals <c>Round(bundleStockQty, stockQtyPrecision)</c> so dividing back by a fractional factor never drifts.
+    /// - Negates the result for return documents except Stock Entry.
+    /// </summary>
+    public static decimal ResolveInlineEditorRowQtyFromStockQty(
+        decimal currentRowQty,
+        decimal bundleStockQty,
+        decimal conversionFactor,
+        bool hasStockQtyField,
+        bool isReturn,
+        bool isStockEntry,
+        int rowQtyPrecision = 4,
+        int stockQtyPrecision = 4)
+    {
+        var effectiveFactor = hasStockQtyField && conversionFactor > 0m ? conversionFactor : 1m;
+        var absRowQty = Math.Abs(currentRowQty);
+
+        var rowQty = Math.Round(absRowQty * effectiveFactor, stockQtyPrecision, MidpointRounding.AwayFromZero)
+            == Math.Round(bundleStockQty, stockQtyPrecision, MidpointRounding.AwayFromZero)
+            ? absRowQty
+            : Math.Round(bundleStockQty / effectiveFactor, rowQtyPrecision, MidpointRounding.AwayFromZero);
+
+        return isReturn && !isStockEntry && rowQty != 0m ? -Math.Abs(rowQty) : rowQty;
+    }
+
+    /// <summary>
+    /// Enforces warehouse select permissions when fetching auto serial/batch selector rows per ERPNext PR #66000
+    /// (<c>serial_and_batch_bundle.py: get_auto_data</c> / <c>get_auto_data_rows_in_warehouses</c>):
+    /// - Throws if an explicit <paramref name="requestedWarehouseId"/> is not in <paramref name="permittedWarehouseIds"/>.
+    /// - Filters candidate rows to <paramref name="permittedWarehouseIds"/> and caps to <paramref name="requestedQty"/>
+    ///   (count slice for serial items, greedy qty allocation for batch items).
+    /// </summary>
+    public static IReadOnlyList<(Guid WarehouseId, string? SerialNo, Guid? BatchId, decimal Qty)> FilterAutoSerialBatchDataByPermittedWarehouses(
+        Guid? requestedWarehouseId,
+        IReadOnlySet<Guid>? permittedWarehouseIds,
+        IEnumerable<(Guid WarehouseId, string? SerialNo, Guid? BatchId, decimal Qty)>? candidateRows,
+        bool hasSerialNo,
+        decimal requestedQty)
+    {
+        var allowed = permittedWarehouseIds ?? new HashSet<Guid>();
+        if (requestedWarehouseId.HasValue
+            && requestedWarehouseId.Value != Guid.Empty
+            && !allowed.Contains(requestedWarehouseId.Value))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("warehouseId", requestedWarehouseId.Value)
+                .WithData("detail", "No select permission for the requested warehouse.");
+        }
+
+        if (allowed.Count == 0 || candidateRows == null)
+        {
+            return Array.Empty<(Guid, string?, Guid?, decimal)>();
+        }
+
+        var permittedRows = candidateRows
+            .Where(r => allowed.Contains(r.WarehouseId)
+                && (!requestedWarehouseId.HasValue || requestedWarehouseId.Value == Guid.Empty || r.WarehouseId == requestedWarehouseId.Value))
+            .ToList();
+
+        if (requestedQty <= 0m)
+        {
+            return permittedRows;
+        }
+
+        if (hasSerialNo)
+        {
+            return permittedRows.Take((int)Math.Truncate(requestedQty)).ToList();
+        }
+
+        var selected = new List<(Guid WarehouseId, string? SerialNo, Guid? BatchId, decimal Qty)>();
+        var remaining = requestedQty;
+        foreach (var row in permittedRows)
+        {
+            if (remaining <= 0m)
+            {
+                break;
+            }
+
+            if (row.Qty <= 0m)
+            {
+                continue;
+            }
+
+            var take = Math.Min(row.Qty, remaining);
+            selected.Add((row.WarehouseId, row.SerialNo, row.BatchId, take));
+            remaining -= take;
+        }
+
+        return selected;
+    }
 }
 
 public readonly record struct DocumentBatchRowUsage(

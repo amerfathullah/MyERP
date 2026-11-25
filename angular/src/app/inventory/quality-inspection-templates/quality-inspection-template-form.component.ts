@@ -49,9 +49,9 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
               <thead>
                 <tr>
                   <th>{{ '::Specification' | abpLocalization }} *</th>
-                  <th style="width:110px">Numeric</th>
-                  <th style="width:120px">Min</th>
-                  <th style="width:120px">Max</th>
+                  <th style="width:110px">{{ '::Numeric' | abpLocalization }}</th>
+                  <th style="width:120px">{{ '::Min' | abpLocalization }}</th>
+                  <th style="width:120px">{{ '::Max' | abpLocalization }}</th>
                   <th>{{ '::AcceptanceCriteria' | abpLocalization }}</th>
                   <th style="width:60px"></th>
                 </tr>
@@ -72,7 +72,7 @@ import type { CreateQiTemplateDto } from '../../proxy/inventory/models';
                   </tr>
                 }
                 @if (form.parameters.length === 0) {
-                  <tr><td colspan="6" class="text-center text-muted py-3">No parameters yet.</td></tr>
+                  <tr><td colspan="6" class="text-center text-muted py-3">{{ '::NoParametersYet' | abpLocalization }}</td></tr>
                 }
               </tbody>
             </table>

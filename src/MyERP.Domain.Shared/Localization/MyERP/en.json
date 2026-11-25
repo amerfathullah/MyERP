@@ -7685,7 +7685,13 @@
     "LeaveEmptyForGlobal": "(leave empty for global)",
     "PointsFormulaHint": "Points = FLOOR(amount / factor)",
     "ZeroNeverExpires": "0 = never expires",
-    "AddAtLeastOneTierHint": "Add at least one tier. The lowest tier must have Min Spent = 0."
+    "AddAtLeastOneTierHint": "Add at least one tier. The lowest tier must have Min Spent = 0.",
+    "NoItemsAvailableFromDeliveryNote": "No items available from this Delivery Note.",
+    "Numeric": "Numeric",
+    "NoParametersYet": "No parameters yet.",
+    "AddNew": "Add New",
+    "RootLevel": "— Root Level —",
+    "NoEntriesDefinedYet": "No entries defined yet."
   }
 }
 
