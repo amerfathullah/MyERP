@@ -268,7 +268,286 @@ public class StockLedgerAuditService : DomainService
                     && e.PostingDateTime == targetPostingDateTime
                     && e.CreationTime > originalEntryEarliestCreationTime.Value)));
     }
+
+    /// <summary>
+    /// Computes the index in <paramref name="orderedRows"/> where the Valuation Rate Breakdown window
+    /// should restart (the last non-adjustment Stock Reconciliation or zero-qty crossing)
+    /// per ERPNext PR #66536 (<c>valuation_rate_breakdown.py: get_restart_index</c>).
+    /// </summary>
+    public static int FindValuationBreakdownRestartIndex(
+        IReadOnlyList<ValuationBreakdownSleRow>? orderedRows,
+        ValuationBreakdownSleRow? previousRow)
+    {
+        if (orderedRows == null || orderedRows.Count == 0)
+        {
+            return 0;
+        }
+
+        var start = 0;
+        for (var i = 0; i < orderedRows.Count; i++)
+        {
+            var row = orderedRows[i];
+            var before = i > 0 ? orderedRows[i - 1] : previousRow;
+            var isReconciliation = row.IsStockReconciliation && !row.IsAdjustmentEntry;
+            var beforeQtyZero = (before?.QtyAfterTransaction ?? 0m) == 0m;
+            if (isReconciliation || beforeQtyZero)
+            {
+                start = i;
+            }
+        }
+
+        return start;
+    }
+
+    /// <summary>
+    /// Builds step-by-step Valuation Rate Breakdown entries with before/after balances, FIFO/LIFO lot
+    /// diffs (<c>UsedLots</c>, <c>AddedLots</c>), per-row ledger invariant problems (<c>qty</c>,
+    /// <c>value</c>, <c>rate</c>, <c>lots</c>, <c>outgoing_rate</c>), and earliest repost-start entry
+    /// per ERPNext PR #66536 (<c>valuation_rate_breakdown.py</c> &amp; <c>ledger_checks.py</c>).
+    /// </summary>
+    public static ValuationBreakdownResult BuildValuationRateBreakdown(
+        IReadOnlyList<ValuationBreakdownSleRow>? orderedRows,
+        ValuationBreakdownSleRow? previousRow,
+        string valuationMethod,
+        bool valuedBySerialOrBatch = false,
+        IReadOnlyList<ValuationBreakdownSleRow>? olderRowsNewestFirst = null,
+        int floatPrecision = 3,
+        decimal roundingGap = 0.01m)
+    {
+        var steps = new List<ValuationBreakdownStep>();
+        if (orderedRows == null || orderedRows.Count == 0)
+        {
+            return new ValuationBreakdownResult(steps, null);
+        }
+
+        var isQueueMethod = !valuedBySerialOrBatch
+            && (string.Equals(valuationMethod, "FIFO", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(valuationMethod, "LIFO", StringComparison.OrdinalIgnoreCase));
+        var isMovingAverage = !valuedBySerialOrBatch
+            && string.Equals(valuationMethod, "Moving Average", StringComparison.OrdinalIgnoreCase);
+
+        var before = previousRow;
+        Guid? repostFromEntryId = null;
+
+        for (var i = 0; i < orderedRows.Count; i++)
+        {
+            var row = orderedRows[i];
+            var qtyBefore = before?.QtyAfterTransaction ?? 0m;
+            var valueBefore = before?.StockValue ?? 0m;
+            var rateBefore = before?.ValuationRate ?? 0m;
+            var lotsBefore = isQueueMethod ? (before?.Lots ?? Array.Empty<(decimal Qty, decimal Rate)>()) : Array.Empty<(decimal, decimal)>();
+            var lotsAfter = isQueueMethod ? (row.Lots ?? Array.Empty<(decimal Qty, decimal Rate)>()) : Array.Empty<(decimal, decimal)>();
+
+            var kind = (row.IsStockReconciliation && !row.IsAdjustmentEntry)
+                ? "reconciliation"
+                : row.ActualQty == 0m
+                    ? "revaluation"
+                    : row.ActualQty > 0m ? "in" : "out";
+
+            var stepRate = row.ActualQty > 0m
+                ? row.IncomingRate
+                : row.ActualQty != 0m
+                    ? Math.Abs(row.StockValueDifference / row.ActualQty)
+                    : 0m;
+
+            var (usedLots, addedLots) = isQueueMethod
+                ? ComputeLotChanges(lotsBefore, lotsAfter)
+                : (new List<(decimal Qty, decimal Rate)>(), new List<(decimal Qty, decimal Rate)>());
+
+            var problems = row.AwaitingRecalculation
+                ? new List<string>()
+                : CheckValuationBreakdownRowProblems(row, before, isQueueMethod, isMovingAverage, floatPrecision, roundingGap);
+
+            if (problems.Count > 0 && !repostFromEntryId.HasValue)
+            {
+                var startRow = row;
+                if (i == 0 && previousRow != null
+                    && HasValuationStateProblem(previousRow, isQueueMethod, floatPrecision, roundingGap))
+                {
+                    startRow = previousRow;
+                    if (olderRowsNewestFirst != null)
+                    {
+                        foreach (var older in olderRowsNewestFirst)
+                        {
+                            if (!HasValuationStateProblem(older, isQueueMethod, floatPrecision, roundingGap))
+                            {
+                                break;
+                            }
+
+                            startRow = older;
+                        }
+                    }
+                }
+
+                repostFromEntryId = startRow.EntryId;
+            }
+
+            steps.Add(new ValuationBreakdownStep(
+                row.EntryId,
+                kind,
+                row.ActualQty,
+                stepRate,
+                row.StockValueDifference,
+                qtyBefore,
+                valueBefore,
+                rateBefore,
+                row.QtyAfterTransaction,
+                row.StockValue,
+                row.ValuationRate,
+                usedLots,
+                addedLots,
+                problems));
+
+            before = row;
+        }
+
+        return new ValuationBreakdownResult(steps, repostFromEntryId);
+    }
+
+    private static (List<(decimal Qty, decimal Rate)> Used, List<(decimal Qty, decimal Rate)> Added) ComputeLotChanges(
+        IReadOnlyList<(decimal Qty, decimal Rate)> lotsBefore,
+        IReadOnlyList<(decimal Qty, decimal Rate)> lotsAfter)
+    {
+        var beforeByRate = new Dictionary<decimal, decimal>();
+        foreach (var (q, r) in lotsBefore)
+            beforeByRate[r] = beforeByRate.GetValueOrDefault(r, 0m) + q;
+
+        var afterByRate = new Dictionary<decimal, decimal>();
+        foreach (var (q, r) in lotsAfter)
+            afterByRate[r] = afterByRate.GetValueOrDefault(r, 0m) + q;
+
+        var used = beforeByRate
+            .Where(kv => kv.Value > afterByRate.GetValueOrDefault(kv.Key, 0m))
+            .Select(kv => (kv.Value - afterByRate.GetValueOrDefault(kv.Key, 0m), kv.Key))
+            .ToList();
+
+        var added = afterByRate
+            .Where(kv => kv.Value > beforeByRate.GetValueOrDefault(kv.Key, 0m))
+            .Select(kv => (kv.Value - beforeByRate.GetValueOrDefault(kv.Key, 0m), kv.Key))
+            .ToList();
+
+        return (used, added);
+    }
+
+    private static List<string> CheckValuationBreakdownRowProblems(
+        ValuationBreakdownSleRow row,
+        ValuationBreakdownSleRow? before,
+        bool isQueueMethod,
+        bool isMovingAverage,
+        int floatPrecision,
+        decimal roundingGap)
+    {
+        var problems = new List<string>();
+        var isQtyReset = row.IsStockReconciliation && !row.HasSerialAndBatchBundle && !row.IsAdjustmentEntry;
+
+        if (!isQtyReset)
+        {
+            var expectedQty = (before?.QtyAfterTransaction ?? 0m) + row.ActualQty;
+            if (Math.Round(expectedQty - row.QtyAfterTransaction, floatPrecision, MidpointRounding.AwayFromZero) != 0m)
+            {
+                problems.Add("qty");
+            }
+        }
+
+        var expectedVal = (before?.StockValue ?? 0m) + row.StockValueDifference;
+        if (Math.Abs(expectedVal - row.StockValue) >= roundingGap)
+        {
+            problems.Add("value");
+        }
+
+        if (Math.Abs(row.ValuationRate * row.QtyAfterTransaction - row.StockValue) >= roundingGap)
+        {
+            problems.Add("rate");
+        }
+
+        if (isQueueMethod && !row.HasSerialAndBatchBundle && row.Lots != null)
+        {
+            var lotQty = row.Lots.Sum(l => l.Qty);
+            var lotVal = row.Lots.Sum(l => l.Qty * l.Rate);
+            var sameQty = Math.Round(lotQty - row.QtyAfterTransaction, floatPrecision, MidpointRounding.AwayFromZero) == 0m;
+            if (!sameQty || Math.Abs(lotVal - row.StockValue) >= roundingGap)
+            {
+                problems.Add("lots");
+            }
+        }
+
+        if (isMovingAverage
+            && row.ActualQty < 0m
+            && !row.IsReturn
+            && !isQtyReset
+            && !row.IsAdjustmentEntry
+            && (before?.QtyAfterTransaction ?? 0m) > 0m)
+        {
+            var expectedDiff = row.ActualQty * (before?.ValuationRate ?? 0m);
+            if (Math.Abs(expectedDiff - row.StockValueDifference) >= roundingGap)
+            {
+                problems.Add("outgoing_rate");
+            }
+        }
+
+        return problems;
+    }
+
+    private static bool HasValuationStateProblem(
+        ValuationBreakdownSleRow row,
+        bool isQueueMethod,
+        int floatPrecision,
+        decimal roundingGap)
+    {
+        if (Math.Abs(row.ValuationRate * row.QtyAfterTransaction - row.StockValue) >= roundingGap)
+        {
+            return true;
+        }
+
+        if (isQueueMethod && !row.HasSerialAndBatchBundle && row.Lots != null)
+        {
+            var lotQty = row.Lots.Sum(l => l.Qty);
+            var lotVal = row.Lots.Sum(l => l.Qty * l.Rate);
+            var sameQty = Math.Round(lotQty - row.QtyAfterTransaction, floatPrecision, MidpointRounding.AwayFromZero) == 0m;
+            if (!sameQty || Math.Abs(lotVal - row.StockValue) >= roundingGap)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
+
+public sealed record ValuationBreakdownSleRow(
+    Guid EntryId,
+    decimal ActualQty,
+    decimal IncomingRate,
+    decimal QtyAfterTransaction,
+    decimal ValuationRate,
+    decimal StockValue,
+    decimal StockValueDifference,
+    bool IsStockReconciliation = false,
+    bool IsAdjustmentEntry = false,
+    bool HasSerialAndBatchBundle = false,
+    bool IsReturn = false,
+    bool AwaitingRecalculation = false,
+    IReadOnlyList<(decimal Qty, decimal Rate)>? Lots = null);
+
+public sealed record ValuationBreakdownStep(
+    Guid EntryId,
+    string Kind,
+    decimal Qty,
+    decimal Rate,
+    decimal ValueChange,
+    decimal QtyBefore,
+    decimal ValueBefore,
+    decimal RateBefore,
+    decimal QtyAfter,
+    decimal ValueAfter,
+    decimal RateAfter,
+    IReadOnlyList<(decimal Qty, decimal Rate)> UsedLots,
+    IReadOnlyList<(decimal Qty, decimal Rate)> AddedLots,
+    IReadOnlyList<string> LedgerProblems);
+
+public sealed record ValuationBreakdownResult(
+    IReadOnlyList<ValuationBreakdownStep> Steps,
+    Guid? RepostFromEntryId);
 
 public sealed record AdjustmentSleCandidate(
     Guid ItemId,

@@ -15,7 +15,7 @@ import { BulkTransactionLogDto } from '../../proxy/automation/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Bulk Transaction Logs</h5>
+        <h5 class="card-title mb-0">{{ '::BulkTransactionLogs' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -27,12 +27,12 @@ import { BulkTransactionLogDto } from '../../proxy/automation/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Title</th>
-              <th>Batch Date</th>
-              <th class="text-center" style="width: 120px;">Total</th>
-              <th class="text-center" style="width: 120px;">Succeeded</th>
-              <th class="text-center" style="width: 120px;">Failed</th>
-              <th class="text-end" style="width: 140px;">Actions</th>
+              <th>{{ '::Title' | abpLocalization }}</th>
+              <th>{{ '::BatchDate' | abpLocalization }}</th>
+              <th class="text-center" style="width: 120px;">{{ '::Total' | abpLocalization }}</th>
+              <th class="text-center" style="width: 120px;">{{ '::Succeeded' | abpLocalization }}</th>
+              <th class="text-center" style="width: 120px;">{{ '::Failed' | abpLocalization }}</th>
+              <th class="text-end" style="width: 140px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -56,13 +56,13 @@ import { BulkTransactionLogDto } from '../../proxy/automation/models';
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/automation/bulk-transactions', item.id]" class="btn btn-sm btn-outline-primary me-2">View</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/automation/bulk-transactions', item.id]" class="btn btn-sm btn-outline-primary me-2">{{ '::View' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="text-center text-muted py-4">No bulk transaction logs found.</td>
+                <td colspan="6" class="text-center text-muted py-4">{{ '::NoBulkTransactionLogsFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

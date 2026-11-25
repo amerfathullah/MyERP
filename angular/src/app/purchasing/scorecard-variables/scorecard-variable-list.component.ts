@@ -15,8 +15,8 @@ import { SupplierScorecardVariableDto } from '../../proxy/purchasing/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Supplier Scorecard Variables</h5>
-        <a routerLink="/purchasing/scorecard-variables/new" class="btn btn-primary btn-sm">New Variable</a>
+        <h5 class="card-title mb-0">{{ '::SupplierScorecardVariables' | abpLocalization }}</h5>
+        <a routerLink="/purchasing/scorecard-variables/new" class="btn btn-primary btn-sm">{{ '::NewVariable' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,12 +28,12 @@ import { SupplierScorecardVariableDto } from '../../proxy/purchasing/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Variable Label</th>
-              <th>Parameter Name</th>
-              <th>Path</th>
-              <th>Custom</th>
-              <th>Description</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::VariableLabel' | abpLocalization }}</th>
+              <th>{{ '::ParameterName' | abpLocalization }}</th>
+              <th>{{ '::Path' | abpLocalization }}</th>
+              <th>{{ '::Custom' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -48,20 +48,20 @@ import { SupplierScorecardVariableDto } from '../../proxy/purchasing/models';
                 <td><code>{{ item.path }}</code></td>
                 <td>
                   @if (item.isCustom) {
-                    <span class="badge bg-info">Custom</span>
+                    <span class="badge bg-info">{{ '::Custom' | abpLocalization }}</span>
                   } @else {
-                    <span class="badge bg-secondary">System</span>
+                    <span class="badge bg-secondary">{{ '::System' | abpLocalization }}</span>
                   }
                 </td>
                 <td>{{ item.description || '—' }}</td>
                 <td class="text-end">
-                  <a [routerLink]="['/purchasing/scorecard-variables', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/purchasing/scorecard-variables', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="text-center text-muted py-4">No scorecard variables configured yet.</td>
+                <td colspan="6" class="text-center text-muted py-4">{{ '::NoScorecardVariablesConfigured' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

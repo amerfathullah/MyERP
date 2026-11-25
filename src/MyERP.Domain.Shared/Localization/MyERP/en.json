@@ -7553,7 +7553,12 @@
     "IncomeRevenue": "Income (Revenue)",
     "ProcessNo": "Process #",
     "NoProcessDeferredAccountingFound": "No Process Deferred Accounting entries found.",
-    "RemainingCapitalized": "Remaining"
+    "RemainingCapitalized": "Remaining",
+    "NewVariable": "New Variable",
+    "System": "System",
+    "NoScorecardVariablesConfigured": "No scorecard variables configured yet.",
+    "NoPlantFloorsFound": "No plant floors found.",
+    "NoBulkTransactionLogsFound": "No bulk transaction logs found."
   }
 }
 

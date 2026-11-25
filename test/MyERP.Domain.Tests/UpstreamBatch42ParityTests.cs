@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -1944,5 +1944,46 @@ public class UpstreamBatch42ParityTests
                 ((Guid?)soId, (Guid?)soLine2, compId, (Guid?)bundleId, true, 7m),
             });
         line1Qty.ShouldBe(3m);
+    }
+
+    [Fact]
+    public void Pr66536_ValuationRateBreakdown_ComputesRestartIndexFifoLotDiffsLedgerProblemsAndRepostStart()
+    {
+        var e1 = Guid.NewGuid();
+        var e2 = Guid.NewGuid();
+        var e3 = Guid.NewGuid();
+        var olderBroken = Guid.NewGuid();
+        var olderClean = Guid.NewGuid();
+
+        // Restart index picks last non-adjustment Stock Reconciliation or zero-qty crossing
+        var rowsForRestart = new[]
+        {
+            new ValuationBreakdownSleRow(e1, 10m, 50m, 10m, 50m, 500m, 500m),
+            new ValuationBreakdownSleRow(e2, -10m, 0m, 0m, 50m, 0m, -500m),
+            new ValuationBreakdownSleRow(e3, 5m, 60m, 5m, 60m, 300m, 300m), // before qty == 0 -> restart here (idx 2)
+        };
+        StockLedgerAuditService.FindValuationBreakdownRestartIndex(rowsForRestart, previousRow: null).ShouldBe(2);
+
+        // FIFO lot diff: before [(10, 50)], after [(7, 50), (4, 60)] -> used [(3, 50)], added [(4, 60)]
+        var prevFifo = new ValuationBreakdownSleRow(e1, 10m, 50m, 10m, 50m, 500m, 500m, Lots: new[] { (10m, 50m) });
+        var curFifo = new ValuationBreakdownSleRow(e2, 1m, 60m, 11m, 53.6364m, 590m, 90m, Lots: new[] { (7m, 50m), (4m, 60m) });
+        var fifoRes = StockLedgerAuditService.BuildValuationRateBreakdown(new[] { curFifo }, prevFifo, "FIFO");
+        fifoRes.Steps[0].UsedLots.ShouldBe(new[] { (3m, 50m) });
+        fifoRes.Steps[0].AddedLots.ShouldBe(new[] { (4m, 60m) });
+        fifoRes.Steps[0].LedgerProblems.ShouldBeEmpty();
+        fifoRes.RepostFromEntryId.ShouldBeNull();
+
+        // Moving Average outgoing rate mismatch + walking back to earliest broken older row for RepostFromEntryId
+        var prevBad = new ValuationBreakdownSleRow(e1, 5m, 10m, 5m, 10m, 80m, 80m); // 5 * 10 != 80 -> rate problem
+        var curBad = new ValuationBreakdownSleRow(e2, -2m, 0m, 3m, 10m, 30m, -50m); // outgoing_rate (-2 * 10 != -50)
+        var older = new[]
+        {
+            new ValuationBreakdownSleRow(olderBroken, 5m, 10m, 5m, 10m, 70m, 70m), // broken
+            new ValuationBreakdownSleRow(olderClean, 5m, 10m, 5m, 10m, 50m, 50m),  // clean -> stops walk
+        };
+        var maRes = StockLedgerAuditService.BuildValuationRateBreakdown(
+            new[] { curBad }, prevBad, "Moving Average", olderRowsNewestFirst: older);
+        maRes.Steps[0].LedgerProblems.ShouldContain("outgoing_rate");
+        maRes.RepostFromEntryId.ShouldBe(olderBroken);
     }
 }
