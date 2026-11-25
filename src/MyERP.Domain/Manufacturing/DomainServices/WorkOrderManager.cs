@@ -1487,6 +1487,70 @@ public class WorkOrderManager : DomainService
 
         return (allowedQty, defaultQty, defaultFgQty);
     }
+
+    /// <summary>
+    /// Aggregates Work Order net transferred quantities per <c>(BomItemId, WarehouseId, OperationRowId)</c>
+    /// accounting for Job Card component returns per ERPNext PR #68916
+    /// (<c>required_items.py: _material_transfer_filter</c> / <c>_signed_transfer_qty</c>):
+    /// - Non-Job-Card return entries (<c>IsReturn &amp;&amp; !HasJobCard</c>) are excluded from transferred qty
+    ///   (tracked separately as Work Order returns).
+    /// - Job Card return entries (<c>IsReturn &amp;&amp; HasJobCard</c>) subtract their <c>TransferQty</c>
+    ///   against <c>TargetWarehouseId</c> (the source warehouse the material was returned to), while
+    ///   forward transfers add against <c>SourceWarehouseId</c>.
+    /// </summary>
+    public static Dictionary<(Guid BomItemId, Guid? WarehouseId, Guid? OperationRowId), decimal>
+        AggregateWorkOrderTransferredQtyWithJobCardReturns(
+            IEnumerable<(Guid ItemId, Guid? OriginalItemId, Guid? SourceWarehouseId, Guid? TargetWarehouseId, Guid? OperationRowId, decimal TransferQty, bool IsReturn, bool HasJobCard)>? entries)
+    {
+        var result = new Dictionary<(Guid BomItemId, Guid? WarehouseId, Guid? OperationRowId), decimal>();
+        if (entries == null)
+        {
+            return result;
+        }
+
+        foreach (var e in entries)
+        {
+            // Non-Job-Card returns belong to Work Order returned_qty, not transferred_qty
+            if (e.IsReturn && !e.HasJobCard)
+            {
+                continue;
+            }
+
+            var isJobCardReturn = e.IsReturn && e.HasJobCard;
+            var warehouseId = isJobCardReturn ? e.TargetWarehouseId : e.SourceWarehouseId;
+            var signedQty = isJobCardReturn ? -e.TransferQty : e.TransferQty;
+            var key = (e.OriginalItemId ?? e.ItemId, warehouseId, e.OperationRowId);
+            result[key] = result.GetValueOrDefault(key, 0m) + signedQty;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Identifies open (submitted, neither Completed nor Closed) Work Orders that have mixed
+    /// <c>Material Transfer for Manufacture</c> Stock Entries — both <c>FgCompletedQty == 0</c>
+    /// and <c>FgCompletedQty &gt; 0</c> — requiring <c>MaterialTransferredForManufacturing</c>
+    /// backfill recalculation per ERPNext PR #69281.
+    /// </summary>
+    public static List<Guid> IdentifyOpenWorkOrdersWithMixedTransfers(
+        IEnumerable<(Guid WorkOrderId, bool IsSubmitted, string Status, decimal TransferEntryFgCompletedQty, bool IsReturnTransfer)>? transferRows)
+    {
+        if (transferRows == null)
+        {
+            return new List<Guid>();
+        }
+
+        return transferRows
+            .Where(r => r.IsSubmitted
+                && !r.IsReturnTransfer
+                && !string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(r.Status, "Closed", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(r => r.WorkOrderId)
+            .Where(g => g.Min(x => x.TransferEntryFgCompletedQty) == 0m
+                && g.Max(x => x.TransferEntryFgCompletedQty) > 0m)
+            .Select(g => g.Key)
+            .ToList();
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

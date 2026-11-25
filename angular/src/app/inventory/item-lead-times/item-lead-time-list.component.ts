@@ -15,8 +15,8 @@ import { ItemLeadTimeDto } from '../../proxy/inventory/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Item Lead Times</h5>
-        <a routerLink="/inventory/item-lead-times/new" class="btn btn-primary btn-sm">New Lead Time</a>
+        <h5 class="card-title mb-0">{{ '::ItemLeadTimes' | abpLocalization }}</h5>
+        <a routerLink="/inventory/item-lead-times/new" class="btn btn-primary btn-sm">{{ '::NewLeadTime' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,15 +28,15 @@ import { ItemLeadTimeDto } from '../../proxy/inventory/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Item</th>
-              <th class="text-end">Shift (Hrs)</th>
-              <th class="text-end">Workstations</th>
-              <th class="text-end">Mfg Time (Mins)</th>
-              <th class="text-end">Daily Yield</th>
-              <th class="text-end">Capacity / Day</th>
-              <th class="text-end">Purchase (Days)</th>
-              <th class="text-end">Buffer (Days)</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::Item' | abpLocalization }}</th>
+              <th class="text-end">{{ '::ShiftHours' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Workstations' | abpLocalization }}</th>
+              <th class="text-end">{{ '::MfgTimeMins' | abpLocalization }}</th>
+              <th class="text-end">{{ '::DailyYield' | abpLocalization }}</th>
+              <th class="text-end">{{ '::CapacityPerDay' | abpLocalization }}</th>
+              <th class="text-end">{{ '::PurchaseDays' | abpLocalization }}</th>
+              <th class="text-end">{{ '::BufferDays' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -55,13 +55,13 @@ import { ItemLeadTimeDto } from '../../proxy/inventory/models';
                 <td class="text-end">{{ item.purchaseTimeDays }}</td>
                 <td class="text-end">{{ item.bufferTimeDays }}</td>
                 <td class="text-end">
-                  <a [routerLink]="['/inventory/item-lead-times', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/inventory/item-lead-times', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="9" class="text-center text-muted py-4">No item lead time profiles configured.</td>
+                <td colspan="9" class="text-center text-muted py-4">{{ '::NoItemLeadTimeProfilesConfigured' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

@@ -339,6 +339,59 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Builds the Payment Request Print Format list for <paramref name="refDoctype"/> respecting
+    /// caller Print Format permissions per ERPNext PR #67749 (<c>payment_request.py: get_print_format_list</c>):
+    /// always starts with <c>"Standard"</c> and appends only permitted formats matching <paramref name="refDoctype"/>.
+    /// </summary>
+    public static List<string> BuildPermittedPaymentRequestPrintFormats(
+        string refDoctype,
+        IEnumerable<(string Name, string DocType, bool UserHasReadPermission)>? allPrintFormats)
+    {
+        var list = new List<string> { "Standard" };
+        if (allPrintFormats == null || string.IsNullOrWhiteSpace(refDoctype))
+        {
+            return list;
+        }
+
+        foreach (var pf in allPrintFormats)
+        {
+            if (pf.UserHasReadPermission
+                && string.Equals(pf.DocType, refDoctype, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(pf.Name)
+                && !list.Contains(pf.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                list.Add(pf.Name);
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Enforces restricted default permissions for the <c>Customer</c> role on <c>Customer Group</c>
+    /// per ERPNext PR #68340 (<c>customer_group.json</c> / <c>restrict_customer_group_permissions.py</c>):
+    /// when <paramref name="hasReadPermission"/> is <c>false</c>, strips <c>print</c>, <c>email</c>,
+    /// <c>export</c>, <c>report</c>, and <c>share</c>, retaining only <c>select</c>.
+    /// </summary>
+    public static (bool Select, bool Read, bool Print, bool Email, bool Export, bool Report, bool Share)
+        RestrictCustomerGroupCustomerRolePermissions(
+            bool select,
+            bool hasReadPermission,
+            bool print,
+            bool email,
+            bool export,
+            bool report,
+            bool share)
+    {
+        if (!hasReadPermission)
+        {
+            return (Select: select, Read: false, Print: false, Email: false, Export: false, Report: false, Share: false);
+        }
+
+        return (select, true, print, email, export, report, share);
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

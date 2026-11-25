@@ -2210,6 +2210,97 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Replays all historical reservation usages (submits and earlier cancels) in chronological order,
+    /// keeping <paramref name="cancelledVoucherId"/>'s share in place during the replay so later usages
+    /// land on the exact reservations they originally consumed on submit, then removes ONLY
+    /// <paramref name="cancelledVoucherId"/>'s own recorded share.
+    /// Per ERPNext PR #67174 (<c>stock_controller.py: rebuild_reservation_usage</c> / <c>replay_reservation_usage</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> ReplayReservationUsageAndUndoCancelledVoucher(
+        IEnumerable<(Guid SreId, DateTime CreatedAt, decimal ReservedQty)>? reservations,
+        IEnumerable<(Guid VoucherId, DateTime SubmittedAt, DateTime? CancelledAt, decimal Qty)>? usages,
+        Guid cancelledVoucherId,
+        int precision = 4)
+    {
+        var sreList = (reservations ?? Array.Empty<(Guid, DateTime, decimal)>()).ToList();
+        var usedBySre = sreList.ToDictionary(s => s.SreId, _ => 0m);
+        if (sreList.Count == 0 || usages == null)
+        {
+            return usedBySre;
+        }
+
+        var usageList = usages.ToList();
+        var sharesByUsageIndex = new Dictionary<int, List<(Guid SreId, decimal Qty)>>();
+        var events = new List<(DateTime Time, bool IsCancel, int UsageIndex)>();
+
+        for (var i = 0; i < usageList.Count; i++)
+        {
+            var u = usageList[i];
+            events.Add((u.SubmittedAt, false, i));
+            if (u.CancelledAt.HasValue && u.VoucherId != cancelledVoucherId)
+            {
+                events.Add((u.CancelledAt.Value, true, i));
+            }
+        }
+
+        events.Sort((a, b) =>
+        {
+            var cmp = a.Time.CompareTo(b.Time);
+            return cmp != 0 ? cmp : a.IsCancel.CompareTo(b.IsCancel);
+        });
+
+        foreach (var (_, isCancel, idx) in events)
+        {
+            if (isCancel)
+            {
+                if (sharesByUsageIndex.TryGetValue(idx, out var priorShares))
+                {
+                    foreach (var (sreId, q) in priorShares)
+                    {
+                        usedBySre[sreId] = Math.Round(usedBySre[sreId] - q, precision, MidpointRounding.AwayFromZero);
+                    }
+                }
+            }
+            else
+            {
+                var u = usageList[idx];
+                var remaining = u.Qty;
+                var taken = new List<(Guid SreId, decimal Qty)>();
+                foreach (var sre in sreList)
+                {
+                    if (remaining <= 0m) break;
+                    if (sre.CreatedAt >= u.SubmittedAt) continue;
+
+                    var room = Math.Max(sre.ReservedQty - usedBySre[sre.SreId], 0m);
+                    var share = Math.Round(Math.Min(room, remaining), precision, MidpointRounding.AwayFromZero);
+                    if (share <= 0m) continue;
+
+                    usedBySre[sre.SreId] = Math.Round(usedBySre[sre.SreId] + share, precision, MidpointRounding.AwayFromZero);
+                    remaining = Math.Round(remaining - share, precision, MidpointRounding.AwayFromZero);
+                    taken.Add((sre.SreId, share));
+                }
+
+                sharesByUsageIndex[idx] = taken;
+            }
+        }
+
+        // Now undo ONLY the currently-cancelling voucher's own shares
+        for (var i = 0; i < usageList.Count; i++)
+        {
+            if (usageList[i].VoucherId == cancelledVoucherId
+                && sharesByUsageIndex.TryGetValue(i, out var cancelledShares))
+            {
+                foreach (var (sreId, q) in cancelledShares)
+                {
+                    usedBySre[sreId] = Math.Round(usedBySre[sreId] - q, precision, MidpointRounding.AwayFromZero);
+                }
+            }
+        }
+
+        return usedBySre;
+    }
+
+    /// <summary>
     /// Restores Work Order reservations up to <c>min(VoucherQty - ReservedQty, FreeInwardQty, ReturnedQty)</c>
     /// per inward order row when a customer material return is cancelled.
     /// Per ERPNext commit <c>d6d9be7765</c> (<c>restore_inward_reservations</c>).

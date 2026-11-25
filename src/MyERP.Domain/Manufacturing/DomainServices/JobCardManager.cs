@@ -1697,6 +1697,90 @@ public class JobCardManager : DomainService
                     $"Cannot cancel Job Card because Work Order produced quantity ({workOrderProducedQty}) exceeds remaining operation completed quantity ({operationTotal}).");
         }
     }
+
+    /// <summary>
+    /// Computes net transferred quantity for a Job Card (or Job Card item row) across submitted
+    /// <c>Material Transfer for Manufacture</c> Stock Entries by subtracting component returns
+    /// (<c>IsReturn ? -Qty : Qty</c>), and throws if net transferred quantity falls below <c>0</c>
+    /// (at 6-decimal precision) per ERPNext PR #68916 (<c>job_card.py: set_transferred_qty</c> /
+    /// <c>get_transferred_qty_from_stock_entry</c>).
+    /// </summary>
+    public static decimal CalculateNetTransferredQtyWithReturns(
+        IEnumerable<(decimal Qty, bool IsReturn)>? transferEntries,
+        string? jobCardLabel = null)
+    {
+        var netQty = 0m;
+        if (transferEntries != null)
+        {
+            foreach (var entry in transferEntries)
+            {
+                netQty += entry.IsReturn ? -entry.Qty : entry.Qty;
+            }
+        }
+
+        if (Math.Round(netQty, 6, MidpointRounding.AwayFromZero) < 0m)
+        {
+            var label = string.IsNullOrWhiteSpace(jobCardLabel) ? "Job Card" : $"Job Card {jobCardLabel}";
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("netTransferredQty", netQty)
+                .WithData("detail", $"{label} has more components returned than transferred. Cancel its return entries first.");
+        }
+
+        return netQty;
+    }
+
+    /// <summary>
+    /// Validates a Job Card component return Stock Entry against both the Job Card's transferred
+    /// quantity and the Work Order's unconsumed cap per ERPNext PR #68916
+    /// (<c>material_transfer.py</c> / commit <c>8893668bc4</c>):
+    /// - Rejects <paramref name="returnFgQty"/> exceeding <paramref name="jobCardTransferredQty"/> (6dp).
+    /// - Caps per-item returnable qty at <c>min(jobCardReturnable, workOrderUnconsumed)</c> and
+    ///   throws when any requested return item exceeds its effective cap.
+    /// </summary>
+    public static Dictionary<Guid, decimal> ValidateAndCapJobCardComponentReturn(
+        decimal returnFgQty,
+        decimal jobCardTransferredQty,
+        IReadOnlyDictionary<Guid, decimal> jobCardReturnableByItem,
+        IReadOnlyDictionary<Guid, decimal> workOrderUnconsumedByItem,
+        IReadOnlyDictionary<Guid, decimal>? requestedReturnByItem = null)
+    {
+        if (Math.Round(returnFgQty, 6, MidpointRounding.AwayFromZero)
+            > Math.Round(jobCardTransferredQty, 6, MidpointRounding.AwayFromZero))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("returnFgQty", returnFgQty)
+                .WithData("transferredQty", jobCardTransferredQty)
+                .WithData("detail", $"Return quantity {returnFgQty} is more than the quantity {jobCardTransferredQty} transferred against Job Card.");
+        }
+
+        var effectiveCaps = new Dictionary<Guid, decimal>();
+        foreach (var (itemId, jcQty) in jobCardReturnableByItem ?? new Dictionary<Guid, decimal>())
+        {
+            var woQty = workOrderUnconsumedByItem != null
+                ? workOrderUnconsumedByItem.GetValueOrDefault(itemId, 0m)
+                : jcQty;
+            effectiveCaps[itemId] = Math.Max(0m, Math.Min(jcQty, woQty));
+        }
+
+        if (requestedReturnByItem != null)
+        {
+            foreach (var (itemId, reqQty) in requestedReturnByItem)
+            {
+                var cap = effectiveCaps.GetValueOrDefault(itemId, 0m);
+                if (Math.Round(reqQty, 6, MidpointRounding.AwayFromZero)
+                    > Math.Round(cap, 6, MidpointRounding.AwayFromZero))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("itemId", itemId)
+                        .WithData("requestedQty", reqQty)
+                        .WithData("returnableCap", cap)
+                        .WithData("detail", $"Return quantity {reqQty} exceeds unconsumed returnable cap {cap}.");
+                }
+            }
+        }
+
+        return effectiveCaps;
+    }
 }
 
 public readonly record struct JobCardExistingItemRow(

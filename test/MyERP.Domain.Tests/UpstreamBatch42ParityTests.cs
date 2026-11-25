@@ -20,8 +20,8 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
-/// #69225, #69278, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69371, #69372.
+/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68473, #68529, #68578, #68732, #68916,
+/// #67174, #69225, #69278, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -1664,5 +1664,114 @@ public class UpstreamBatch42ParityTests
         MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Customer", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("CUST-ADDR-1");
         MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Lead", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("CUST-ADDR-1");
         MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Supplier", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("SUP-ADDR-1");
+    }
+
+    [Fact]
+    public void Pr68916_Pr69281_JobCardComponentReturnsAndMixedTransferWorkOrderBackfill_Parity()
+    {
+        var rmItem = Guid.NewGuid();
+        var srcWh = Guid.NewGuid();
+        var wipWh = Guid.NewGuid();
+        var opRow = Guid.NewGuid();
+
+        // PR #68916: Net transferred qty subtracts returns and rejects negative net qty
+        JobCardManager.CalculateNetTransferredQtyWithReturns(
+            new[] { (10m, false), (4m, true) }, "JC-001").ShouldBe(6m);
+
+        var negEx = Should.Throw<BusinessException>(() =>
+            JobCardManager.CalculateNetTransferredQtyWithReturns(
+                new[] { (4m, false), (5m, true) }, "JC-001"));
+        negEx.Data["detail"]!.ToString()!.ShouldContain("more components returned than transferred");
+
+        // PR #68916: Return cap keeps min(jobCardReturnable, workOrderUnconsumed) and rejects excess fg qty
+        var caps = JobCardManager.ValidateAndCapJobCardComponentReturn(
+            returnFgQty: 3m,
+            jobCardTransferredQty: 5m,
+            jobCardReturnableByItem: new Dictionary<Guid, decimal> { [rmItem] = 6m },
+            workOrderUnconsumedByItem: new Dictionary<Guid, decimal> { [rmItem] = 4m },
+            requestedReturnByItem: new Dictionary<Guid, decimal> { [rmItem] = 4m });
+        caps[rmItem].ShouldBe(4m);
+
+        Should.Throw<BusinessException>(() =>
+            JobCardManager.ValidateAndCapJobCardComponentReturn(
+                returnFgQty: 6m,
+                jobCardTransferredQty: 5m,
+                jobCardReturnableByItem: new Dictionary<Guid, decimal> { [rmItem] = 6m },
+                workOrderUnconsumedByItem: new Dictionary<Guid, decimal> { [rmItem] = 6m }));
+
+        Should.Throw<BusinessException>(() =>
+            JobCardManager.ValidateAndCapJobCardComponentReturn(
+                returnFgQty: 3m,
+                jobCardTransferredQty: 5m,
+                jobCardReturnableByItem: new Dictionary<Guid, decimal> { [rmItem] = 6m },
+                workOrderUnconsumedByItem: new Dictionary<Guid, decimal> { [rmItem] = 4m },
+                requestedReturnByItem: new Dictionary<Guid, decimal> { [rmItem] = 5m }));
+
+        // PR #68916: WO net transferred aggregates Job Card returns against target warehouse and ignores non-JC returns
+        var agg = WorkOrderManager.AggregateWorkOrderTransferredQtyWithJobCardReturns(new[]
+        {
+            (rmItem, (Guid?)null, (Guid?)srcWh, (Guid?)wipWh, (Guid?)opRow, 10m, false, true),
+            (rmItem, (Guid?)null, (Guid?)wipWh, (Guid?)srcWh, (Guid?)opRow, 3m, true, true),  // JC return -> -3 against srcWh
+            (rmItem, (Guid?)null, (Guid?)wipWh, (Guid?)srcWh, (Guid?)opRow, 2m, true, false), // WO return -> excluded
+        });
+        agg[(rmItem, srcWh, opRow)].ShouldBe(7m);
+
+        // PR #69281: Identify open WOs with mixed transfers (min == 0 and max > 0), skip Completed/Closed/uniform
+        var woMixed = Guid.NewGuid();
+        var woCompleted = Guid.NewGuid();
+        var woUniform = Guid.NewGuid();
+        var affected = WorkOrderManager.IdentifyOpenWorkOrdersWithMixedTransfers(new[]
+        {
+            (woMixed, true, "In Process", 0m, false),
+            (woMixed, true, "In Process", 5m, false),
+            (woCompleted, true, "Completed", 0m, false),
+            (woCompleted, true, "Completed", 5m, false),
+            (woUniform, true, "In Process", 3m, false),
+            (woUniform, true, "In Process", 5m, false),
+        });
+        affected.ShouldBe(new[] { woMixed });
+    }
+
+    [Fact]
+    public void Pr67174_Pr67749_Pr68340_ReservationCancelReplay_PrintFormatPerms_CustomerGroupPerms_Parity()
+    {
+        // PR #67174: Replay keeps cancelled voucher #1 in place during replay so voucher #2 stays on SRE #2,
+        // then undoes ONLY voucher #1 -> SRE #1 reopened (0 used), SRE #2 stays consumed (5 used)
+        var sre1 = Guid.NewGuid();
+        var sre2 = Guid.NewGuid();
+        var v1 = Guid.NewGuid();
+        var v2 = Guid.NewGuid();
+        var t0 = new DateTime(2026, 11, 1, 8, 0, 0);
+
+        var usedAfterCancelV1 = StockReservationManager.ReplayReservationUsageAndUndoCancelledVoucher(
+            reservations: new[]
+            {
+                (sre1, t0, 5m),
+                (sre2, t0.AddMinutes(1), 5m),
+            },
+            usages: new[]
+            {
+                (v1, t0.AddMinutes(10), (DateTime?)t0.AddMinutes(30), 5m),
+                (v2, t0.AddMinutes(20), (DateTime?)null, 5m),
+            },
+            cancelledVoucherId: v1);
+        usedAfterCancelV1[sre1].ShouldBe(0m);
+        usedAfterCancelV1[sre2].ShouldBe(5m);
+
+        // PR #67749: Payment Request print formats include Standard + only permitted matching DocType formats
+        var formats = TransactionValidationService.BuildPermittedPaymentRequestPrintFormats(
+            "Sales Invoice",
+            new[]
+            {
+                ("Allowed SI", "Sales Invoice", true),
+                ("Forbidden SI", "Sales Invoice", false),
+                ("Other PI", "Purchase Invoice", true),
+            });
+        formats.ShouldBe(new[] { "Standard", "Allowed SI" });
+
+        // PR #68340: Customer role on Customer Group without read permission keeps select only
+        var restricted = TransactionValidationService.RestrictCustomerGroupCustomerRolePermissions(
+            select: true, hasReadPermission: false, print: true, email: true, export: true, report: true, share: true);
+        restricted.ShouldBe((Select: true, Read: false, Print: false, Email: false, Export: false, Report: false, Share: false));
     }
 }

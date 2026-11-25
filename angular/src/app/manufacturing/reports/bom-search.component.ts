@@ -42,9 +42,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-2 mb-2">
             <!-- Item 1 -->
             <div class="col-md-4 col-sm-6">
-              <label class="form-label small fw-semibold">Component Item 1</label>
+              <label class="form-label small fw-semibold">{{ '::ComponentItem1' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="item1Id">
-                <option value="">-- Select Item 1 --</option>
+                <option value="">{{ '::SelectItem1' | abpLocalization }}</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -53,9 +53,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
 
             <!-- Item 2 -->
             <div class="col-md-4 col-sm-6">
-              <label class="form-label small fw-semibold">Component Item 2</label>
+              <label class="form-label small fw-semibold">{{ '::ComponentItem2' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="item2Id">
-                <option value="">-- Select Item 2 (Optional) --</option>
+                <option value="">{{ '::SelectItem2Optional' | abpLocalization }}</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -64,9 +64,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
 
             <!-- Item 3 -->
             <div class="col-md-4 col-sm-6">
-              <label class="form-label small fw-semibold">Component Item 3</label>
+              <label class="form-label small fw-semibold">{{ '::ComponentItem3' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="item3Id">
-                <option value="">-- Select Item 3 (Optional) --</option>
+                <option value="">{{ '::SelectItem3Optional' | abpLocalization }}</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -77,9 +77,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-2 mb-3 align-items-end">
             <!-- Item 4 -->
             <div class="col-md-4 col-sm-6">
-              <label class="form-label small fw-semibold">Component Item 4</label>
+              <label class="form-label small fw-semibold">{{ '::ComponentItem4' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="item4Id">
-                <option value="">-- Select Item 4 (Optional) --</option>
+                <option value="">{{ '::SelectItem4Optional' | abpLocalization }}</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -88,9 +88,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
 
             <!-- Item 5 -->
             <div class="col-md-4 col-sm-6">
-              <label class="form-label small fw-semibold">Component Item 5</label>
+              <label class="form-label small fw-semibold">{{ '::ComponentItem5' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="item5Id">
-                <option value="">-- Select Item 5 (Optional) --</option>
+                <option value="">{{ '::SelectItem5Optional' | abpLocalization }}</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -131,12 +131,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 (click)="loadData()"
                 [disabled]="isLoading() || !hasSelectedAnyItem()"
               >
-                <i class="fa fa-search me-1" [class.fa-spin]="isLoading()"></i>Search Assemblies
+                <i class="fa fa-search me-1" [class.fa-spin]="isLoading()"></i>{{ '::SearchAssemblies' | abpLocalization }}
               </button>
             </div>
             <div class="col-md-3 col-sm-6">
               <button class="btn btn-outline-secondary btn-sm w-100" (click)="clearFilters()">
-                <i class="fa fa-times me-1"></i>Reset
+                <i class="fa fa-times me-1"></i>{{ '::Reset' | abpLocalization }}
               </button>
             </div>
           </div>
@@ -147,19 +147,19 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-4 col-sm-12">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Total Matches</small>
+                <small class="text-muted fw-semibold">{{ '::TotalMatches' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-primary">{{ data.totalMatches }}</span>
               </div>
             </div>
             <div class="col-md-4 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">BOM Matches</small>
+                <small class="text-muted fw-semibold">{{ '::BomMatches' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-success">{{ data.bomMatchesCount }}</span>
               </div>
             </div>
             <div class="col-md-4 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Product Bundle Matches</small>
+                <small class="text-muted fw-semibold">{{ '::ProductBundleMatches' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-info">{{ data.productBundleMatchesCount }}</span>
               </div>
             </div>
@@ -171,27 +171,27 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light text-nowrap">
               <tr>
-                <th>Type</th>
-                <th>Assembly / BOM Number</th>
-                <th>Finished Good / Parent Item</th>
-                <th>Quantity</th>
-                <th>Default</th>
-                <th>Source Scope</th>
-                <th class="text-end">Total Cost</th>
-                <th>Contained Components</th>
+                <th>{{ '::Type' | abpLocalization }}</th>
+                <th>{{ '::AssemblyBomNumber' | abpLocalization }}</th>
+                <th>{{ '::FinishedGoodParentItem' | abpLocalization }}</th>
+                <th>{{ '::Quantity' | abpLocalization }}</th>
+                <th>{{ '::Default' | abpLocalization }}</th>
+                <th>{{ '::SourceScope' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TotalCost' | abpLocalization }}</th>
+                <th>{{ '::ContainedComponents' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @if (isLoading()) {
                 <tr>
                   <td colspan="8" class="text-center py-4 text-muted">
-                    <i class="fa fa-spinner fa-spin me-2"></i>Searching assemblies...
+                    <i class="fa fa-spinner fa-spin me-2"></i>{{ '::SearchingAssemblies' | abpLocalization }}
                   </td>
                 </tr>
               } @else if (!hasSearched()) {
                 <tr>
                   <td colspan="8" class="text-center py-4 text-muted">
-                    <i class="fa fa-info-circle me-1"></i>Select at least one component item above and click "Search Assemblies".
+                    <i class="fa fa-info-circle me-1"></i>{{ '::SelectComponentToSearch' | abpLocalization }}
                   </td>
                 </tr>
               } @else if (filteredRows().length === 0) {
@@ -206,9 +206,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   <tr>
                     <td>
                       @if (row.docType === 'BOM') {
-                        <span class="badge bg-primary">BOM</span>
+                        <span class="badge bg-primary">{{ '::BOM' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-info text-dark">Product Bundle</span>
+                        <span class="badge bg-info text-dark">{{ '::ProductBundle' | abpLocalization }}</span>
                       }
                     </td>
                     <td>
@@ -228,7 +228,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                     </td>
                     <td>
                       @if (row.isDefault) {
-                        <span class="badge bg-success-subtle text-success border border-success-subtle">Default</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">{{ '::Default' | abpLocalization }}</span>
                       } @else {
                         <span class="text-muted">-</span>
                       }
@@ -236,10 +236,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                     <td>
                       @if (row.foundInSubAssembly) {
                         <span class="badge bg-warning text-dark">
-                          <i class="fa fa-layer-group me-1"></i>Via Sub-Assembly
+                          <i class="fa fa-layer-group me-1"></i>{{ '::ViaSubAssembly' | abpLocalization }}
                         </span>
                       } @else {
-                        <span class="badge bg-light text-muted border">Direct Component</span>
+                        <span class="badge bg-light text-muted border">{{ '::DirectComponent' | abpLocalization }}</span>
                       }
                     </td>
                     <td class="text-end fw-semibold">
@@ -339,7 +339,7 @@ export class BomSearchComponent implements OnInit {
         },
         error: err => {
           this.isLoading.set(false);
-          this.toaster.error(err.message || 'Failed to search assemblies');
+          this.toaster.error(err.message || '::FailedToSearchAssemblies');
         },
       });
   }

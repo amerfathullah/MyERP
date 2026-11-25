@@ -45,11 +45,11 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-2 mb-2">
             <!-- Based On -->
             <div class="col-md-3 col-sm-6">
-              <label class="form-label small fw-semibold">Based On</label>
+              <label class="form-label small fw-semibold">{{ '::BasedOn' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="basedOn" (ngModelChange)="loadData()">
-                <option value="WorkOrder">Work Order</option>
-                <option value="SalesOrder">Sales Order</option>
-                <option value="MaterialRequest">Material Request</option>
+                <option value="WorkOrder">{{ '::WorkOrder' | abpLocalization }}</option>
+                <option value="SalesOrder">{{ '::SalesOrder' | abpLocalization }}</option>
+                <option value="MaterialRequest">{{ '::MaterialRequest' | abpLocalization }}</option>
               </select>
             </div>
 
@@ -57,7 +57,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <label class="form-label small fw-semibold">{{ '::RawMaterialWarehouse' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="rawMaterialWarehouseId" (ngModelChange)="loadData()">
-                <option [ngValue]="null">-- All Warehouses --</option>
+                <option [ngValue]="null">-- {{ '::AllWarehouses' | abpLocalization }} --</option>
                 @for (w of warehouses(); track w.id) {
                   <option [value]="w.id">{{ w.name }}</option>
                 }
@@ -68,7 +68,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <label class="form-label small fw-semibold">{{ '::Item' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="itemId" (ngModelChange)="loadData()">
-                <option [ngValue]="null">-- All Items --</option>
+                <option [ngValue]="null">-- {{ '::AllItems' | abpLocalization }} --</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -102,7 +102,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 [(ngModel)]="shortageOnly"
               />
               <label class="form-check-label small" for="shortageOnlyCheck">
-                Only Show Shortages
+                {{ '::OnlyShowShortages' | abpLocalization }}
               </label>
             </div>
             <button class="btn btn-primary btn-sm px-4" (click)="loadData()" [disabled]="isLoading()">
@@ -121,7 +121,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Orders</div>
+                  <div class="text-muted small">{{ '::Orders' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-primary">{{ d.totalOrdersCount }}</div>
                 </div>
               </div>
@@ -129,7 +129,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-info text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Materials</div>
+                  <div class="text-muted small">{{ '::Materials' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-info">{{ d.totalRawMaterialsCount }}</div>
                 </div>
               </div>
@@ -137,7 +137,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-secondary text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Req Qty</div>
+                  <div class="text-muted small">{{ '::ReqQty' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-secondary">{{ d.totalRequiredQty | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -145,7 +145,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-success text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Allotted</div>
+                  <div class="text-muted small">{{ '::Allotted' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-success">{{ d.totalAllottedQty | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -153,7 +153,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-danger text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Shortage</div>
+                  <div class="text-muted small">{{ '::Shortage' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-danger">{{ d.totalShortageQty | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -161,7 +161,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-4">
               <div class="card border-warning text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Expected PO</div>
+                  <div class="text-muted small">{{ '::ExpectedPO' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-warning">{{ d.totalExpectedArrivalQty | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -174,19 +174,19 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               <table class="table table-sm table-striped table-hover align-middle mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>Order No</th>
-                    <th>Type</th>
-                    <th>FG Item</th>
-                    <th>FG Wh</th>
-                    <th class="text-end">To Mfg</th>
-                    <th class="text-end">FG Avail</th>
-                    <th>Planned Date</th>
-                    <th>Raw Material</th>
-                    <th>RM Wh</th>
-                    <th class="text-end">Req Qty</th>
-                    <th class="text-end">Allotted</th>
-                    <th class="text-end">Shortage</th>
-                    <th>PO Arrival</th>
+                    <th>{{ '::OrderNo' | abpLocalization }}</th>
+                    <th>{{ '::Type' | abpLocalization }}</th>
+                    <th>{{ '::FgItem' | abpLocalization }}</th>
+                    <th>{{ '::FgWh' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ToMfg' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::FgAvail' | abpLocalization }}</th>
+                    <th>{{ '::PlannedDate' | abpLocalization }}</th>
+                    <th>{{ '::RawMaterial' | abpLocalization }}</th>
+                    <th>{{ '::RmWh' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReqQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Allotted' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::Shortage' | abpLocalization }}</th>
+                    <th>{{ '::PoArrival' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
