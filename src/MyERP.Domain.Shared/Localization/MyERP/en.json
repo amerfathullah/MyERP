@@ -7596,7 +7596,13 @@
     "NewMedium": "New Medium",
     "TimeslotsCount": "Timeslots Count",
     "TimeslotsSuffix": "timeslot(s)",
-    "NoCommunicationMediaFound": "No communication media found."
+    "NoCommunicationMediaFound": "No communication media found.",
+    "NewGroup": "New Group",
+    "NoTaxWithholdingGroupsFound": "No tax withholding groups found.",
+    "NewReason": "New Reason",
+    "NoQuotationLostReasonsFound": "No quotation lost reasons found.",
+    "NoTaskTypesFound": "No task types found.",
+    "NoParameterGroupsFound": "No parameter groups found."
   }
 }
 

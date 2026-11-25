@@ -15,8 +15,8 @@ import { TaxWithholdingGroupDto } from '../../proxy/tax/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Tax Withholding Groups</h5>
-        <a routerLink="/tax/tax-withholding-groups/new" class="btn btn-primary btn-sm">New Group</a>
+        <h5 class="card-title mb-0">{{ '::TaxWithholdingGroups' | abpLocalization }}</h5>
+        <a routerLink="/tax/tax-withholding-groups/new" class="btn btn-primary btn-sm">{{ '::NewGroup' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,10 +28,10 @@ import { TaxWithholdingGroupDto } from '../../proxy/tax/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Group Name</th>
-              <th>Description</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th>{{ '::GroupName' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -45,17 +45,17 @@ import { TaxWithholdingGroupDto } from '../../proxy/tax/models';
                 <td>{{ item.description || '—' }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/tax/tax-withholding-groups', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/tax/tax-withholding-groups', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No tax withholding groups found.</td>
+                <td colspan="4" class="text-center text-muted py-4">{{ '::NoTaxWithholdingGroupsFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

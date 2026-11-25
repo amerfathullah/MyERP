@@ -917,6 +917,51 @@ public class ItemDetailsResolverService : DomainService
 
         return rowQty * factor;
     }
+
+    /// <summary>
+    /// Resolves effective <c>(Rate, PriceListRate)</c> when a batch is auto-picked on an outward
+    /// delivery / POS row per ERPNext PR #67554 (<c>get_item_details.py: update_stock</c>):
+    /// if <paramref name="hasLockedRate"/> is <c>true</c> (source rate locked under Maintain Same Rate),
+    /// preserves the source <paramref name="currentRate"/> and <paramref name="currentPriceListRate"/>
+    /// instead of overwriting them with the batch-based item price.
+    /// </summary>
+    public static (decimal Rate, decimal PriceListRate) ResolveBatchAutoPickPricing(
+        decimal currentRate,
+        decimal currentPriceListRate,
+        decimal? batchBasedItemPrice,
+        bool hasLockedRate)
+    {
+        if (hasLockedRate || !batchBasedItemPrice.HasValue || batchBasedItemPrice.Value <= 0m)
+        {
+            return (currentRate, currentPriceListRate);
+        }
+
+        return (batchBasedItemPrice.Value, batchBasedItemPrice.Value);
+    }
+
+    /// <summary>
+    /// Computes updated <c>(PriceListRate, Rate, Amount)</c> for a Material Request item row when
+    /// refreshing item rates from a Buying Price List per ERPNext PR #68153
+    /// (<c>material_request.py: update_item_rates</c>): updates <c>PriceListRate</c> alongside
+    /// <c>Rate</c> and rounded <c>Amount</c> whenever a non-null price list rate is resolved.
+    /// </summary>
+    public static (decimal PriceListRate, decimal Rate, decimal Amount) ComputeMaterialRequestPriceListRateUpdate(
+        decimal currentPriceListRate,
+        decimal currentRate,
+        decimal currentAmount,
+        decimal qty,
+        decimal? fetchedPriceListRate,
+        int amountPrecision = 2)
+    {
+        if (!fetchedPriceListRate.HasValue)
+        {
+            return (currentPriceListRate, currentRate, currentAmount);
+        }
+
+        var rate = fetchedPriceListRate.Value;
+        var amount = Math.Round(rate * qty, amountPrecision, MidpointRounding.AwayFromZero);
+        return (rate, rate, amount);
+    }
 }
 
 // --- Supporting types ---

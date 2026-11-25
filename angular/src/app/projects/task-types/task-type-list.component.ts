@@ -15,8 +15,8 @@ import { TaskTypeDto } from '../../proxy/projects/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Task Types</h5>
-        <a routerLink="/projects/task-types/new" class="btn btn-primary btn-sm">New Task Type</a>
+        <h5 class="card-title mb-0">{{ '::TaskTypes' | abpLocalization }}</h5>
+        <a routerLink="/projects/task-types/new" class="btn btn-primary btn-sm">{{ '::NewTaskType' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,10 +28,10 @@ import { TaskTypeDto } from '../../proxy/projects/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Name</th>
-              <th class="text-end">Weight</th>
-              <th>Description</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::Name' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Weight' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -45,13 +45,13 @@ import { TaskTypeDto } from '../../proxy/projects/models';
                 <td class="text-end">{{ item.weight | number:'1.2-2' }}</td>
                 <td>{{ item.description || '—' }}</td>
                 <td class="text-end">
-                  <a [routerLink]="['/projects/task-types', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/projects/task-types', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No task types found.</td>
+                <td colspan="4" class="text-center text-muted py-4">{{ '::NoTaskTypesFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

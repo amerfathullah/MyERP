@@ -3495,6 +3495,63 @@ public class SubcontractingManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Filters out secondary item rows on a return Subcontracting Receipt whose net quantity
+    /// (<c>Round(ReceivedQty - ProcessLossQty, qtyPrecision)</c>) rounds to zero per ERPNext PR #67555
+    /// (<c>subcontracting_receipt.py: remove_returned_secondary_rows_without_qty</c>), keeping non-return
+    /// rows and finished-good rows untouched.
+    /// </summary>
+    public static List<T> FilterReturnedSecondaryRowsWithQty<T>(
+        bool isReturn,
+        IEnumerable<T>? rows,
+        Func<T, bool> isBomSecondaryItem,
+        Func<T, decimal> getReceivedQty,
+        Func<T, decimal> getProcessLossQty,
+        int qtyPrecision = 4)
+    {
+        if (rows == null)
+        {
+            return new List<T>();
+        }
+
+        if (!isReturn)
+        {
+            return rows.ToList();
+        }
+
+        var kept = new List<T>();
+        foreach (var row in rows)
+        {
+            var netQty = Math.Round(getReceivedQty(row) - getProcessLossQty(row), qtyPrecision, MidpointRounding.AwayFromZero);
+            if (isBomSecondaryItem(row) && netQty == 0m)
+            {
+                continue;
+            }
+
+            kept.Add(row);
+        }
+
+        return kept;
+    }
+
+    /// <summary>
+    /// Computes the per-unit rate of a percentage-allocated secondary item on a Subcontracting Receipt,
+    /// returning <c>0</c> safely when <paramref name="secondaryQty"/> is zero (e.g. return row that rounds
+    /// to zero before removal) per ERPNext PR #67555 (<c>subcontracting_receipt.py</c>).
+    /// </summary>
+    public static decimal CalculatePercentageSecondaryItemRate(
+        decimal fgTotalCostMinusOwnSecondaryCost,
+        decimal costAllocationPercentage,
+        decimal secondaryQty)
+    {
+        if (secondaryQty == 0m)
+        {
+            return 0m;
+        }
+
+        return (fgTotalCostMinusOwnSecondaryCost * (costAllocationPercentage / 100m)) / secondaryQty;
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

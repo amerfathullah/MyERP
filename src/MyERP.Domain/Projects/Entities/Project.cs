@@ -483,7 +483,63 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return new ProjectSalesOrderBillingCardResult(listedOrders, ordered.Count, orderFilter);
     }
+
+    /// <summary>
+    /// Restricts custom <c>Employee</c> permission rules on <c>Project</c> to select-only when the rule
+    /// is at <c>PermLevel == 0</c> and does not grant <c>Read</c>, clearing rights that would otherwise
+    /// expose Project records (<c>Print</c>, <c>Email</c>, <c>Export</c>, <c>Report</c>, <c>Share</c>)
+    /// per ERPNext PR #66329 (<c>restrict_employee_project_perms_to_select.py</c>).
+    /// </summary>
+    public static (IReadOnlyList<ProjectRolePermissionRule> UpdatedRules, bool AnyChanged)
+        RestrictNonReadEmployeeProjectPermissionsToSelect(
+            IEnumerable<ProjectRolePermissionRule>? rules)
+    {
+        if (rules == null)
+        {
+            return (Array.Empty<ProjectRolePermissionRule>(), false);
+        }
+
+        var updated = new List<ProjectRolePermissionRule>();
+        var anyChanged = false;
+
+        foreach (var rule in rules)
+        {
+            var isTarget = string.Equals(rule.Role, "Employee", StringComparison.OrdinalIgnoreCase)
+                && rule.PermLevel == 0
+                && !rule.Read;
+
+            if (isTarget && (rule.Print || rule.Email || rule.Export || rule.Report || rule.Share))
+            {
+                updated.Add(rule with
+                {
+                    Print = false,
+                    Email = false,
+                    Export = false,
+                    Report = false,
+                    Share = false,
+                });
+                anyChanged = true;
+            }
+            else
+            {
+                updated.Add(rule);
+            }
+        }
+
+        return (updated, anyChanged);
+    }
 }
+
+public sealed record ProjectRolePermissionRule(
+    string Role,
+    int PermLevel,
+    bool Select,
+    bool Read,
+    bool Print,
+    bool Email,
+    bool Export,
+    bool Report,
+    bool Share);
 
 public sealed record ProjectBillingSalesOrderInput(
     Guid OrderId,

@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530, #67554, #67555,
+/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2125,5 +2125,60 @@ public class UpstreamBatch42ParityTests
         rowOnlyCard.OrderFilter.ShouldBe("RowProject");
         rowOnlyCard.TotalOrderCount.ShouldBe(2);
         rowOnlyCard.ListedOrders.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Pr66329_Pr67554_Pr67555_Pr68153_EmployeeProjectPerms_BatchLockedRate_ReturnZeroSecondary_MrPriceListRate_Parity()
+    {
+        // PR #67554: Batch auto-pick preserves locked source rate; unlocked row takes batch item price
+        var locked = ItemDetailsResolverService.ResolveBatchAutoPickPricing(
+            currentRate: 120m, currentPriceListRate: 125m, batchBasedItemPrice: 95m, hasLockedRate: true);
+        locked.ShouldBe((120m, 125m));
+        var unlocked = ItemDetailsResolverService.ResolveBatchAutoPickPricing(
+            currentRate: 120m, currentPriceListRate: 125m, batchBasedItemPrice: 95m, hasLockedRate: false);
+        unlocked.ShouldBe((95m, 95m));
+
+        // PR #68153: Material Request rate update updates PriceListRate alongside Rate and Amount
+        var mrUpdated = ItemDetailsResolverService.ComputeMaterialRequestPriceListRateUpdate(
+            currentPriceListRate: 10m, currentRate: 10m, currentAmount: 50m, qty: 5m, fetchedPriceListRate: 14.5m);
+        mrUpdated.ShouldBe((14.5m, 14.5m, 72.5m));
+        var mrSkipped = ItemDetailsResolverService.ComputeMaterialRequestPriceListRateUpdate(
+            currentPriceListRate: 10m, currentRate: 10m, currentAmount: 50m, qty: 5m, fetchedPriceListRate: null);
+        mrSkipped.ShouldBe((10m, 10m, 50m));
+
+        // PR #67555: Return SCR drops secondary rows whose net qty rounds to 0 and guards /0 in percentage rate
+        var scrRows = new[]
+        {
+            (Code: "FG-1", IsSecondary: false, ReceivedQty: -2m, ProcessLossQty: 0m),
+            (Code: "SEC-ZERO", IsSecondary: true, ReceivedQty: -0.00001m, ProcessLossQty: -0.00001m),
+            (Code: "SEC-KEEP", IsSecondary: true, ReceivedQty: -1m, ProcessLossQty: 0m),
+        };
+        var kept = SubcontractingManager.FilterReturnedSecondaryRowsWithQty(
+            isReturn: true,
+            scrRows,
+            r => r.IsSecondary,
+            r => r.ReceivedQty,
+            r => r.ProcessLossQty);
+        kept.Count.ShouldBe(2);
+        kept.ShouldNotContain(r => r.Code == "SEC-ZERO");
+        SubcontractingManager.CalculatePercentageSecondaryItemRate(500m, 20m, 0m).ShouldBe(0m);
+        SubcontractingManager.CalculatePercentageSecondaryItemRate(500m, 20m, 4m).ShouldBe(25m);
+
+        // PR #66329: Restrict non-read Employee Project perms at permlevel 0 to select-only
+        var (updatedRules, anyChanged) = Project.RestrictNonReadEmployeeProjectPermissionsToSelect(new[]
+        {
+            new ProjectRolePermissionRule("Employee", 0, Select: true, Read: false, Print: true, Email: true, Export: true, Report: true, Share: true),
+            new ProjectRolePermissionRule("Employee", 0, Select: true, Read: true, Print: true, Email: false, Export: false, Report: false, Share: false),
+            new ProjectRolePermissionRule("Projects Manager", 0, Select: true, Read: false, Print: true, Email: false, Export: false, Report: false, Share: false),
+        });
+        anyChanged.ShouldBeTrue();
+        updatedRules[0].Select.ShouldBeTrue();
+        updatedRules[0].Print.ShouldBeFalse();
+        updatedRules[0].Email.ShouldBeFalse();
+        updatedRules[0].Export.ShouldBeFalse();
+        updatedRules[0].Report.ShouldBeFalse();
+        updatedRules[0].Share.ShouldBeFalse();
+        updatedRules[1].Print.ShouldBeTrue(); // Read == true preserved
+        updatedRules[2].Print.ShouldBeTrue(); // non-Employee preserved
     }
 }
