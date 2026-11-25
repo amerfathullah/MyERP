@@ -641,4 +641,29 @@ public class TransactionValidationService : DomainService
 
         return allPartyTypes.Select(p => p.PartyTypeName).ToList();
     }
+
+    /// <summary>
+    /// Validates a Request for Quotation <c>send_supplier_emails</c> request per ERPNext PR #65960
+    /// (<c>request_for_quotation.py: send_supplier_emails</c>): requires portal enabled and RFQ
+    /// <c>write</c> permission, returning <c>true</c> only when the RFQ is submitted.
+    /// </summary>
+    public static bool ValidateRfqSendSupplierEmailsRequest(
+        bool isPortalEnabled,
+        bool hasRfqWritePermission,
+        bool isSubmitted)
+    {
+        if (!isPortalEnabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Supplier portal is not enabled for Request for Quotation.");
+        }
+
+        if (!hasRfqWritePermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Write permission on Request for Quotation is required to send supplier emails.");
+        }
+
+        return isSubmitted;
+    }
 }

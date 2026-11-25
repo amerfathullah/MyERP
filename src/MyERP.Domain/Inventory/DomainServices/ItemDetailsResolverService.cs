@@ -981,6 +981,49 @@ public class ItemDetailsResolverService : DomainService
 
         return !isPortalQuotation;
     }
+
+    /// <summary>
+    /// Validates that <paramref name="itemCode"/> passed to <c>get_item_tax_template</c> is non-empty text
+    /// per ERPNext PR #65905 (<c>get_item_details.py: get_item_tax_template</c>).
+    /// </summary>
+    public static string ValidateTextItemCodeForTaxTemplate(object? itemCode)
+    {
+        if (itemCode is not string text || string.IsNullOrWhiteSpace(text))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Item/Item Code required to get Item Tax Template.");
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Enforces <c>select</c> permission on every distinct non-empty Item Tax Template returned by
+    /// <c>get_item_tax_info</c> per ERPNext PR #65911 (<c>get_item_details.py: get_item_tax_info</c>).
+    /// </summary>
+    public static void ValidateItemTaxTemplateSelectPermissions(
+        IEnumerable<string?>? resolvedTemplateNames,
+        IReadOnlySet<string>? permittedTemplateNames)
+    {
+        if (resolvedTemplateNames == null)
+        {
+            return;
+        }
+
+        var permitted = permittedTemplateNames ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var template in resolvedTemplateNames
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!permitted.Contains(template))
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("itemTaxTemplate", template)
+                    .WithData("detail", $"No select permission for Item Tax Template {template}.");
+            }
+        }
+    }
 }
 
 // --- Supporting types ---

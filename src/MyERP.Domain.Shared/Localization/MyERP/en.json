@@ -7755,7 +7755,26 @@
     "UnpaidInvoices": "Unpaid Invoices",
     "NoRecentTransactionsFound": "No recent transactions found",
     "InvoiceWithoutSalesOrderAllowed": "Invoice without Sales Order allowed",
-    "InvoiceWithoutDeliveryNoteAllowed": "Invoice without Delivery Note allowed"
+    "InvoiceWithoutDeliveryNoteAllowed": "Invoice without Delivery Note allowed",
+    "SupplierHasUnallocatedAdvancesOf": "Supplier has unallocated advances of",
+    "UnpaidBill": "unpaid bill",
+    "UnpaidBillsLower": "unpaid bills",
+    "DebitAdvanceBalanceNoBillsToApply": "Debit advance balance, no bills to apply it to",
+    "BillsLower": "bills",
+    "AdvanceDeposit": "Advance deposit",
+    "OrderLinesLower": "order lines",
+    "PurchasesVsPaymentsTrend": "Purchases vs Payments Trend",
+    "TotalPayments": "Total Payments",
+    "Purchased": "Purchased",
+    "NoPurchasesOrPaymentDataForThisPeriod": "No purchases or payment data for this period",
+    "PayablesAgeing": "Payables Ageing",
+    "OfUnpaidBills": "of unpaid bills",
+    "TotalPayables": "Total Payables",
+    "PurchasingPipeline": "Purchasing Pipeline",
+    "ExpiringLower": "expiring",
+    "Due": "Due",
+    "OrdersReceivedLower": "orders received",
+    "DaysLateShort": "d late"
   }
 }
 

@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65938, #65961, #66000, #66259, #66260, #66292, #66299, #66304, #66326, #66329, #66444, #66536, #66588, #66596, #66600, #66626, #66647, #66690, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65905, #65911, #65938, #65960, #65961, #66000, #66259, #66260, #66292, #66299, #66304, #66326, #66329, #66444, #66523, #66536, #66588, #66596, #66600, #66621, #66626, #66647, #66690, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
 /// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67957, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -2630,5 +2630,48 @@ public class UpstreamBatch42ParityTests
                 companyLhdnEnabled: false, submitToLhdnChecked: true, isExplicitManualSubmission: true));
         MyERP.EInvoice.Services.EInvoiceValidationService.ShouldProceedWithLhdnSubmission(
             companyLhdnEnabled: true, submitToLhdnChecked: true, isExplicitManualSubmission: false).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr65905_Pr65911_Pr65960_Pr66523_Pr66621_TaxTemplateTypeAndPerm_RfqWritePerm_PlanUomRepair_AssetCatPerm_Parity()
+    {
+        // PR #65905: get_item_tax_template rejects non-string or blank item_code
+        ItemDetailsResolverService.ValidateTextItemCodeForTaxTemplate("ITEM-001").ShouldBe("ITEM-001");
+        Should.Throw<BusinessException>(() => ItemDetailsResolverService.ValidateTextItemCodeForTaxTemplate(42))
+            .Data["detail"]!.ToString()!.ShouldContain("Item/Item Code required");
+        Should.Throw<BusinessException>(() => ItemDetailsResolverService.ValidateTextItemCodeForTaxTemplate(""));
+
+        // PR #65911: get_item_tax_info requires select permission on every resolved Item Tax Template
+        var allowedTemplates = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "SST-6%" };
+        ItemDetailsResolverService.ValidateItemTaxTemplateSelectPermissions(new[] { "SST-6%", null }, allowedTemplates);
+        Should.Throw<BusinessException>(() =>
+            ItemDetailsResolverService.ValidateItemTaxTemplateSelectPermissions(new[] { "SST-6%", "Exempt-0%" }, allowedTemplates));
+
+        // PR #65960: RFQ send_supplier_emails requires portal enabled + RFQ write permission and sends only when submitted
+        TransactionValidationService.ValidateRfqSendSupplierEmailsRequest(true, true, true).ShouldBeTrue();
+        TransactionValidationService.ValidateRfqSendSupplierEmailsRequest(true, true, false).ShouldBeFalse();
+        Should.Throw<BusinessException>(() =>
+            TransactionValidationService.ValidateRfqSendSupplierEmailsRequest(true, false, true));
+
+        // PR #66523: Identify MR Plan Item rows saved with purchase UOM at cf=1 whose real UOM factor != 1
+        var planItem1 = Guid.NewGuid();
+        var planItem2 = Guid.NewGuid();
+        var pp1 = Guid.NewGuid();
+        var pp2 = Guid.NewGuid();
+        var (repairs, plansToRefresh) = ProductionPlanMaterialPlanningService.IdentifyPlanRowsNeedingStockUomRepair(new[]
+        {
+            (planItem1, pp1, IsSubmitted: true, RowUom: "Box", ItemStockUom: "Nos", RowConversionFactor: 1m, ActualUomConversionFactor: 12m),
+            (planItem2, pp2, IsSubmitted: true, RowUom: "Each", ItemStockUom: "Nos", RowConversionFactor: 1m, ActualUomConversionFactor: 1m), // valid 1:1 -> skip
+        });
+        repairs.Count.ShouldBe(1);
+        repairs[0].ShouldBe((planItem1, "Nos"));
+        plansToRefresh.ShouldContain(pp1);
+        plansToRefresh.ShouldNotContain(pp2);
+
+        // PR #66621: Asset Category details lookup requires read permission
+        var catId = Guid.NewGuid();
+        MyERP.Assets.DomainServices.AssetLifecycleManager.ValidateAssetCategoryReadAccess(catId, true);
+        Should.Throw<BusinessException>(() =>
+            MyERP.Assets.DomainServices.AssetLifecycleManager.ValidateAssetCategoryReadAccess(catId, false));
     }
 }

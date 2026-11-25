@@ -522,4 +522,20 @@ public class AssetLifecycleManager : DomainService
                 .WithData("detail", $"Not permitted to read Company {companyId} disposal defaults.");
         }
     }
+
+    /// <summary>
+    /// Enforces read permission on <c>Asset Category</c> before returning asset category finance book
+    /// details per ERPNext PR #66621 (<c>asset.py: get_item_details</c>).
+    /// </summary>
+    public static void ValidateAssetCategoryReadAccess(
+        Guid assetCategoryId,
+        bool hasAssetCategoryReadPermission)
+    {
+        if (!hasAssetCategoryReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("assetCategoryId", assetCategoryId)
+                .WithData("detail", $"Not permitted to read Asset Category {assetCategoryId}.");
+        }
+    }
 }

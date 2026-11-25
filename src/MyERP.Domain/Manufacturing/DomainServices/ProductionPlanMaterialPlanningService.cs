@@ -1320,6 +1320,40 @@ public class ProductionPlanMaterialPlanningService : DomainService
                 .ThenBy(r => r.RowIdx)
                 .ToList();
     }
+
+    /// <summary>
+    /// Identifies Material Request Plan Item rows saved with a non-stock UOM at conversion factor 1
+    /// whose actual UOM conversion factor differs from 1, returning the rows to reset to their Item's
+    /// <c>StockUom</c> and the submitted Production Plans needing status refresh per ERPNext PR #66523
+    /// (<c>set_stock_uom_on_plan_rows_without_conversion.py</c>).
+    /// </summary>
+    public static (IReadOnlyList<(Guid PlanItemId, string TargetStockUom)> RowsToRepair, IReadOnlySet<Guid> SubmittedPlansToRefresh)
+        IdentifyPlanRowsNeedingStockUomRepair(
+            IEnumerable<(Guid PlanItemId, Guid ProductionPlanId, bool IsSubmitted, string RowUom, string ItemStockUom, decimal RowConversionFactor, decimal ActualUomConversionFactor)>? rows)
+    {
+        var repairs = new List<(Guid PlanItemId, string TargetStockUom)>();
+        var submittedPlans = new HashSet<Guid>();
+        if (rows == null)
+        {
+            return (repairs, submittedPlans);
+        }
+
+        foreach (var row in rows)
+        {
+            var stockUom = row.ItemStockUom ?? string.Empty;
+            var sameUom = string.Equals(row.RowUom?.Trim(), stockUom.Trim(), StringComparison.OrdinalIgnoreCase);
+            if (row.RowConversionFactor == 1m && !sameUom && row.ActualUomConversionFactor != 1m)
+            {
+                repairs.Add((row.PlanItemId, stockUom));
+                if (row.IsSubmitted)
+                {
+                    submittedPlans.Add(row.ProductionPlanId);
+                }
+            }
+        }
+
+        return (repairs, submittedPlans);
+    }
 }
 
 public sealed record OpenManufactureMaterialRequestCandidate(
