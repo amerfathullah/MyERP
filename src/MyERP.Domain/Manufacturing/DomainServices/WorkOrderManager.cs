@@ -1580,6 +1580,29 @@ public class WorkOrderManager : DomainService
                     : wo.ProductionItemId == productionItemId))
             .Sum(wo => wo.QtyAgainstSalesOrder);
     }
+
+    /// <summary>
+    /// Applies Company user permissions to Work Order report rows (e.g. Work Order Consumed Materials)
+    /// per ERPNext PR #65796 (<c>work_order_consumed_materials.py: get_data</c>):
+    /// when <paramref name="allowedCompanies"/> is non-empty, retains only Work Orders belonging to
+    /// an allowed company; when null or empty (unrestricted user), returns all rows.
+    /// </summary>
+    public static IReadOnlyList<(Guid WorkOrderId, Guid CompanyId)> FilterWorkOrdersByAllowedCompanies(
+        IEnumerable<(Guid WorkOrderId, Guid CompanyId)>? workOrders,
+        IReadOnlySet<Guid>? allowedCompanies)
+    {
+        if (workOrders == null)
+        {
+            return Array.Empty<(Guid, Guid)>();
+        }
+
+        if (allowedCompanies == null || allowedCompanies.Count == 0)
+        {
+            return workOrders.ToList();
+        }
+
+        return workOrders.Where(wo => allowedCompanies.Contains(wo.CompanyId)).ToList();
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

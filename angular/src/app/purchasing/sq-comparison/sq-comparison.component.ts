@@ -71,7 +71,7 @@ interface ComparisonResult {
             <!-- Selection UI -->
             <div class="mb-3">
               <label class="form-label fw-bold">{{ '::SelectQuotations' | abpLocalization }}</label>
-              <p class="text-muted small">Select at least 2 supplier quotations to compare side-by-side.</p>
+              <p class="text-muted small">{{ '::SelectAtLeastTwoSqHint' | abpLocalization }}</p>
             </div>
             @if (availableQuotations().length > 0) {
               <div class="table-responsive">
@@ -99,20 +99,20 @@ interface ComparisonResult {
                 </table>
               </div>
               <button class="btn btn-primary" (click)="loadComparison()" [disabled]="selectedIds().size < 2">
-                <i class="fas fa-balance-scale me-1"></i>Compare Selected ({{ selectedIds().size }})
+                <i class="fas fa-balance-scale me-1"></i>{{ '::CompareSelected' | abpLocalization }} ({{ selectedIds().size }})
               </button>
             } @else {
               <div class="text-center py-4 text-muted">
                 <i class="fas fa-file-alt fa-3x mb-2 d-block"></i>
-                No supplier quotations available. Create quotations from Request for Quotation first.
+                {{ '::NoSqAvailableHint' | abpLocalization }}
               </div>
             }
           } @else {
             <!-- Comparison Matrix -->
             <div class="mb-3 d-flex justify-content-between align-items-center">
-              <span class="text-muted">Comparing {{ comparison()!.suppliers.length }} suppliers across {{ comparison()!.items.length }} items</span>
+              <span class="text-muted">{{ '::Comparing' | abpLocalization }} {{ comparison()!.suppliers.length }} {{ '::SuppliersAcross' | abpLocalization }} {{ comparison()!.items.length }} {{ '::ItemsLower' | abpLocalization }}</span>
               <button class="btn btn-outline-secondary btn-sm" (click)="comparison.set(null)">
-                <i class="fas fa-arrow-left me-1"></i>Back to Selection
+                <i class="fas fa-arrow-left me-1"></i>{{ '::BackToSelection' | abpLocalization }}
               </button>
             </div>
 
@@ -123,7 +123,7 @@ interface ComparisonResult {
                   <div class="card h-100" [class.border-success]="supplier.grandTotal === comparison()!.lowestTotalAmount">
                     <div class="card-body text-center">
                       @if (supplier.grandTotal === comparison()!.lowestTotalAmount) {
-                        <span class="badge bg-success mb-2">Lowest Total</span>
+                        <span class="badge bg-success mb-2">{{ '::LowestTotal' | abpLocalization }}</span>
                       }
                       <h6 class="card-title mb-1">{{ supplier.supplierName }}</h6>
                       <p class="text-muted small mb-1">{{ supplier.quotationNumber }}</p>
@@ -132,7 +132,7 @@ interface ComparisonResult {
                       }
                       <div class="fs-5 fw-bold">{{ supplier.currency }} {{ supplier.grandTotal | number:'1.2-2' }}</div>
                       @if (supplier.validTill) {
-                        <small class="text-muted">Valid till {{ supplier.validTill | date:'dd/MM/yyyy' }}</small>
+                        <small class="text-muted">{{ '::ValidTill' | abpLocalization }} {{ supplier.validTill | date:'dd/MM/yyyy' }}</small>
                       }
                     </div>
                   </div>
@@ -145,11 +145,11 @@ interface ComparisonResult {
               <table class="table table-bordered table-sm">
                 <thead class="table-dark">
                   <tr>
-                    <th class="bg-dark text-white" style="min-width:200px">Item</th>
+                    <th class="bg-dark text-white" style="min-width:200px">{{ '::Item' | abpLocalization }}</th>
                     @for (supplier of comparison()!.suppliers; track supplier.supplierId) {
                       <th class="text-center bg-dark text-white" style="min-width:140px">{{ supplier.supplierName }}</th>
                     }
-                    <th class="text-center bg-dark text-white" style="width:100px">Lowest</th>
+                    <th class="text-center bg-dark text-white" style="width:100px">{{ '::Lowest' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,9 +163,9 @@ interface ComparisonResult {
                               {{ price.rate | number:'1.2-4' }}
                               @if (price.isLowestPrice) { <i class="fas fa-check-circle ms-1"></i> }
                             </div>
-                            <small class="text-muted">Qty: {{ price.quantity | number:'1.0-2' }}</small>
+                            <small class="text-muted">{{ '::Qty' | abpLocalization }}: {{ price.quantity | number:'1.0-2' }}</small>
                             @if (price.leadTimeDays) {
-                              <br /><small class="text-info">{{ price.leadTimeDays }}d lead</small>
+                              <br /><small class="text-info">{{ price.leadTimeDays }}{{ '::DaysLeadShort' | abpLocalization }}</small>
                             }
                           } @else {
                             <span class="text-muted">—</span>
@@ -182,7 +182,7 @@ interface ComparisonResult {
             <!-- Create PO from lowest supplier -->
             <div class="mt-3">
               <button class="btn btn-success" (click)="createPoFromLowest()">
-                <i class="fas fa-shopping-cart me-1"></i>Create Purchase Order from Best Supplier
+                <i class="fas fa-shopping-cart me-1"></i>{{ '::CreatePoFromBestSupplier' | abpLocalization }}
               </button>
             </div>
           }

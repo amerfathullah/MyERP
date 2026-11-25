@@ -39,7 +39,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card text-center border-primary h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Customers</div>
+                  <div class="text-muted small">{{ '::TotalCustomers' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-primary">{{ rows().length }}</div>
                 </div>
               </div>
@@ -47,7 +47,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card text-center border-info h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Credit Limit</div>
+                  <div class="text-muted small">{{ '::TotalCreditLimit' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-info">{{ totalCreditLimit() | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -55,7 +55,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card text-center border-warning h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Outstanding</div>
+                  <div class="text-muted small">{{ '::TotalOutstanding' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-warning">{{ totalOutstanding() | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -63,7 +63,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card text-center h-100 bg-light" [class.border-danger]="totalCreditBalance() < 0" [class.border-success]="totalCreditBalance() >= 0">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Credit Balance</div>
+                  <div class="text-muted small">{{ '::TotalCreditBalance' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold" [class.text-danger]="totalCreditBalance() < 0" [class.text-success]="totalCreditBalance() >= 0">
                     {{ totalCreditBalance() | number:'1.2-2' }}
                   </div>
@@ -82,8 +82,8 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <th class="text-end">{{ '::OutstandingAmount' | abpLocalization }}</th>
                   <th class="text-end">{{ '::CreditBalance' | abpLocalization }}</th>
                   <th class="text-center">{{ '::BypassCreditCheck' | abpLocalization }}</th>
-                  <th class="text-center">Frozen</th>
-                  <th class="text-center">Status</th>
+                  <th class="text-center">{{ '::Frozen' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,23 +99,23 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     </td>
                     <td class="text-center">
                       @if (row.bypassCreditLimitCheckAtSalesOrder) {
-                        <span class="badge bg-secondary">Yes</span>
+                        <span class="badge bg-secondary">{{ '::Yes' | abpLocalization }}</span>
                       } @else {
-                        <span class="text-muted">No</span>
+                        <span class="text-muted">{{ '::No' | abpLocalization }}</span>
                       }
                     </td>
                     <td class="text-center">
                       @if (row.isFrozen) {
-                        <span class="badge bg-danger"><i class="fas fa-snowflake me-1"></i>Frozen</span>
+                        <span class="badge bg-danger"><i class="fas fa-snowflake me-1"></i>{{ '::Frozen' | abpLocalization }}</span>
                       } @else {
                         <span class="text-muted">-</span>
                       }
                     </td>
                     <td class="text-center">
                       @if (row.disabled) {
-                        <span class="badge bg-secondary">Disabled</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-success">Active</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
@@ -123,7 +123,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 @if (rows().length === 0) {
                   <tr>
                     <td colspan="7" class="text-center py-4 text-muted">
-                      No customer credit records found for the current company.
+                      {{ '::NoCustomerCreditRecordsFound' | abpLocalization }}
                     </td>
                   </tr>
                 }

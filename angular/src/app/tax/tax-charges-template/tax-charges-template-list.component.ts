@@ -66,9 +66,9 @@ interface TaxRow {
             <div class="col-md-3">
               <label class="form-label small">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="filterType" (ngModelChange)="loadTemplates()">
-                <option value="">All Types</option>
-                <option value="0">Selling</option>
-                <option value="1">Buying</option>
+                <option value="">{{ '::AllTypes' | abpLocalization }}</option>
+                <option value="0">{{ '::Selling' | abpLocalization }}</option>
+                <option value="1">{{ '::Buying' | abpLocalization }}</option>
               </select>
             </div>
           </div>
@@ -81,7 +81,7 @@ interface TaxRow {
           } @else if (templates().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fas fa-percent fa-3x mb-2 d-block opacity-50"></i>
-              <p>No tax templates configured. Create one to auto-populate taxes on transactions.</p>
+              <p>{{ '::NoTaxTemplatesConfigured' | abpLocalization }}</p>
             </div>
           } @else {
             <table class="table table-hover mb-0">
@@ -99,7 +99,7 @@ interface TaxRow {
                 @for (t of templates(); track t.id) {
                   <tr [class.table-secondary]="!t.isEnabled">
                     <td class="fw-medium">{{ t.name }}</td>
-                    <td><span class="badge" [class.bg-success]="t.templateType === 0" [class.bg-info]="t.templateType === 1">{{ t.templateType === 0 ? 'Selling' : 'Buying' }}</span></td>
+                    <td><span class="badge" [class.bg-success]="t.templateType === 0" [class.bg-info]="t.templateType === 1">{{ (t.templateType === 0 ? '::Selling' : '::Buying') | abpLocalization }}</span></td>
                     <td>
                       @for (row of t.rows; track row.rowIndex) {
                         <span class="badge bg-light text-dark me-1 mb-1">{{ row.description || row.chargeType }} @ {{ row.rate }}%</span>
@@ -110,13 +110,13 @@ interface TaxRow {
                     </td>
                     <td class="text-center">
                       <span class="badge" [class.bg-success]="t.isEnabled" [class.bg-secondary]="!t.isEnabled">
-                        {{ t.isEnabled ? 'Active' : 'Disabled' }}
+                        {{ (t.isEnabled ? '::Active' : '::Disabled') | abpLocalization }}
                       </span>
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" (click)="editTemplate(t)" [title]="'::Edit' | abpLocalization"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-secondary" (click)="toggleEnabled(t)" [title]="t.isEnabled ? 'Disable' : 'Enable'">
+                        <button class="btn btn-outline-secondary" (click)="toggleEnabled(t)" [title]="(t.isEnabled ? '::Disable' : '::Enable') | abpLocalization">
                           <i class="fas" [class.fa-toggle-on]="t.isEnabled" [class.fa-toggle-off]="!t.isEnabled"></i>
                         </button>
                         <button class="btn btn-outline-danger" (click)="deleteTemplate(t.id)" [title]="'::Delete' | abpLocalization"><i class="fas fa-trash"></i></button>
@@ -146,8 +146,8 @@ interface TaxRow {
                 <div class="col-md-3">
                   <label class="form-label">{{ '::Type' | abpLocalization }} *</label>
                   <select class="form-select" formControlName="templateType">
-                    <option [ngValue]="0">Selling</option>
-                    <option [ngValue]="1">Buying</option>
+                    <option [ngValue]="0">{{ '::Selling' | abpLocalization }}</option>
+                    <option [ngValue]="1">{{ '::Buying' | abpLocalization }}</option>
                   </select>
                 </div>
                 <div class="col-md-3">
@@ -162,13 +162,13 @@ interface TaxRow {
                 <div class="col-md-2 d-flex align-items-end">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="isDefault" formControlName="isDefault" />
-                    <label class="form-check-label" for="isDefault">Default</label>
+                    <label class="form-check-label" for="isDefault">{{ '::Default' | abpLocalization }}</label>
                   </div>
                 </div>
               </div>
 
               <!-- Tax Rows -->
-              <h6 class="mt-3">Tax Rows</h6>
+              <h6 class="mt-3">{{ '::TaxRows' | abpLocalization }}</h6>
               <table class="table table-sm table-bordered">
                 <thead class="table-light">
                   <tr>
@@ -187,20 +187,20 @@ interface TaxRow {
                       <td class="text-center text-muted">{{ i + 1 }}</td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="chargeType">
-                          <option value="On Net Total">On Net Total</option>
-                          <option value="On Previous Row Amount">On Previous Row Amount</option>
-                          <option value="On Previous Row Total">On Previous Row Total</option>
-                          <option value="On Item Quantity">On Item Quantity</option>
-                          <option value="Actual">Actual</option>
+                          <option value="On Net Total">{{ '::OnNetTotal' | abpLocalization }}</option>
+                          <option value="On Previous Row Amount">{{ '::OnPreviousRowAmount' | abpLocalization }}</option>
+                          <option value="On Previous Row Total">{{ '::OnPreviousRowTotal' | abpLocalization }}</option>
+                          <option value="On Item Quantity">{{ '::OnItemQuantity' | abpLocalization }}</option>
+                          <option value="Actual">{{ '::Actual' | abpLocalization }}</option>
                         </select>
                       </td>
                       <td><input class="form-control form-control-sm" type="number" formControlName="rate" /></td>
                       <td><input class="form-control form-control-sm" formControlName="description" [placeholder]="'::Placeholder:TaxDescription' | abpLocalization" /></td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="taxCategory">
-                          <option value="Total">Total</option>
-                          <option value="Valuation">Valuation</option>
-                          <option value="Valuation and Total">Valuation and Total</option>
+                          <option value="Total">{{ '::Total' | abpLocalization }}</option>
+                          <option value="Valuation">{{ '::Valuation' | abpLocalization }}</option>
+                          <option value="Valuation and Total">{{ '::ValuationAndTotal' | abpLocalization }}</option>
                         </select>
                       </td>
                       <td>
@@ -219,7 +219,7 @@ interface TaxRow {
                 </tbody>
               </table>
               <button type="button" class="btn btn-outline-secondary btn-sm mb-3" (click)="addRow()">
-                <i class="fas fa-plus me-1"></i>Add Tax Row
+                <i class="fas fa-plus me-1"></i>{{ '::AddTaxRow' | abpLocalization }}
               </button>
 
               <div class="d-flex gap-2">
@@ -366,7 +366,7 @@ export class TaxChargesTemplateListComponent implements OnInit {
 
     request$.subscribe({
       next: () => {
-        this.toaster.success(this.editingId() ? 'Template updated.' : 'Template created.');
+        this.toaster.success(this.editingId() ? '::TemplateUpdated' : '::TemplateCreated');
         this.showForm.set(false);
         this.saving.set(false);
         this.loadTemplates();

@@ -46,11 +46,11 @@
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label" for="idType">{{ '::IDType' | abpLocalization }}</label>
             <select id="idType" class="form-select" formControlName="idType">
-              <option value="BRN">BRN (Business Registration)</option>
-              <option value="NRIC">NRIC (MyKad)</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="ARMY">ARMY (My Tentera)</option>
-              <option value="MYKAS">MyKas</option>
+              <option value="BRN">{{ '::IdTypeBrn' | abpLocalization }}</option>
+              <option value="NRIC">{{ '::IdTypeNric' | abpLocalization }}</option>
+              <option value="PASSPORT">{{ '::IdTypePassport' | abpLocalization }}</option>
+              <option value="ARMY">{{ '::IdTypeArmy' | abpLocalization }}</option>
+              <option value="MYKAS">{{ '::IdTypeMykas' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-12 col-md-6 mb-3">
@@ -189,21 +189,21 @@
           <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
             <div class="form-check form-switch mt-3">
               <input class="form-check-input" type="checkbox" id="isFrozen" formControlName="isFrozen" />
-              <label class="form-check-label" for="isFrozen">Frozen</label>
+              <label class="form-check-label" for="isFrozen">{{ '::Frozen' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
             <div class="form-check form-switch mt-3">
               <input class="form-check-input" type="checkbox" id="allowPiWithoutPo" formControlName="allowPurchaseInvoiceWithoutPurchaseOrder" />
-              <label class="form-check-label" for="allowPiWithoutPo">Allow Purchase Invoice without Purchase Order</label>
+              <label class="form-check-label" for="allowPiWithoutPo">{{ '::AllowPurchaseInvoiceWithoutPurchaseOrder' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
             <div class="form-check form-switch mt-3">
               <input class="form-check-input" type="checkbox" id="allowPiWithoutPr" formControlName="allowPurchaseInvoiceWithoutPurchaseReceipt" />
-              <label class="form-check-label" for="allowPiWithoutPr">Allow Purchase Invoice without Purchase Receipt</label>
+              <label class="form-check-label" for="allowPiWithoutPr">{{ '::AllowPurchaseInvoiceWithoutPurchaseReceipt' | abpLocalization }}</label>
             </div>
           </div>
         </div>

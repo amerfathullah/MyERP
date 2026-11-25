@@ -249,4 +249,28 @@ public class UomConversionService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Prepares duplicated Item fields while preserving all copied UOM conversion rows per ERPNext PR #66395
+    /// (<c>item.js: Duplicate</c>): clears <c>ItemName</c> when it matched <c>ItemCode</c>, clears
+    /// <c>Description</c> when it matched <c>ItemCode</c>, and keeps all copied <c>(Uom, ConversionFactor)</c>
+    /// entries intact without re-triggering <c>stock_uom</c> wipe.
+    /// </summary>
+    public static (string? ItemName, string? Description, IReadOnlyList<(string Uom, decimal ConversionFactor)> PreservedUoms)
+        PrepareDuplicatedItemFieldsKeepingUoms(
+            string sourceItemCode,
+            string? sourceItemName,
+            string? sourceDescription,
+            IEnumerable<(string Uom, decimal ConversionFactor)>? sourceUoms)
+    {
+        var newName = string.Equals(sourceItemName, sourceItemCode, StringComparison.Ordinal)
+            ? null
+            : sourceItemName;
+        var newDescription = string.Equals(sourceDescription, sourceItemCode, StringComparison.Ordinal)
+            ? null
+            : sourceDescription;
+        var preserved = sourceUoms?.ToList() ?? new List<(string Uom, decimal ConversionFactor)>();
+
+        return (newName, newDescription, preserved);
+    }
 }

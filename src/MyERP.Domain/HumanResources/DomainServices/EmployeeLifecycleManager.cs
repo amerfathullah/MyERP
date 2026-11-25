@@ -255,4 +255,24 @@ public class EmployeeLifecycleManager : DomainService
 
         return (includeEmployeePermission, removeCompany, removeRole);
     }
+
+    /// <summary>
+    /// Resolves permission flags for <c>employee_query</c> per ERPNext PR #65936
+    /// (<c>controllers/queries.py: employee_query</c>):
+    /// ALWAYS keeps <c>IgnoreRolePermissions = false</c> (never disables Employee role checks), and sets
+    /// <c>IgnoreUserPermissions = true</c> only when a reference doctype is provided, the caller requests
+    /// ignoring user permissions, AND the reference doctype has a Link field to Employee with
+    /// <c>ignore_user_permissions</c> enabled.
+    /// </summary>
+    public static (bool IgnoreRolePermissions, bool IgnoreUserPermissions) ResolveEmployeeQueryPermissionFlags(
+        bool hasReferenceDocType,
+        bool callerIgnoreUserPermissions,
+        bool referenceFieldIgnoresUserPermissions)
+    {
+        var ignoreUserPerms = hasReferenceDocType
+            && callerIgnoreUserPermissions
+            && referenceFieldIgnoresUserPermissions;
+
+        return (IgnoreRolePermissions: false, IgnoreUserPermissions: ignoreUserPerms);
+    }
 }

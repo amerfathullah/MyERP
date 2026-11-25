@@ -7774,7 +7774,32 @@
     "ExpiringLower": "expiring",
     "Due": "Due",
     "OrdersReceivedLower": "orders received",
-    "DaysLateShort": "d late"
+    "DaysLateShort": "d late",
+    "NoTaxTemplatesConfigured": "No tax templates configured. Create one to auto-populate taxes on transactions.",
+    "Enable": "Enable",
+    "OnPreviousRowAmount": "On Previous Row Amount",
+    "OnItemQuantity": "On Item Quantity",
+    "Valuation": "Valuation",
+    "ValuationAndTotal": "Valuation and Total",
+    "AddTaxRow": "Add Tax Row",
+    "TemplateUpdated": "Template updated.",
+    "TemplateCreated": "Template created.",
+    "SelectAtLeastTwoSqHint": "Select at least 2 supplier quotations to compare side-by-side.",
+    "CompareSelected": "Compare Selected",
+    "NoSqAvailableHint": "No supplier quotations available. Create quotations from Request for Quotation first.",
+    "Comparing": "Comparing",
+    "SuppliersAcross": "suppliers across",
+    "ItemsLower": "items",
+    "BackToSelection": "Back to Selection",
+    "Lowest": "Lowest",
+    "DaysLeadShort": "d lead",
+    "CreatePoFromBestSupplier": "Create Purchase Order from Best Supplier",
+    "TotalCustomers": "Total Customers",
+    "TotalCreditLimit": "Total Credit Limit",
+    "TotalCreditBalance": "Total Credit Balance",
+    "NoCustomerCreditRecordsFound": "No customer credit records found for the current company.",
+    "AllowPurchaseInvoiceWithoutPurchaseOrder": "Allow Purchase Invoice without Purchase Order",
+    "AllowPurchaseInvoiceWithoutPurchaseReceipt": "Allow Purchase Invoice without Purchase Receipt"
   }
 }
 

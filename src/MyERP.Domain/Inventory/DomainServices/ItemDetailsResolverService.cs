@@ -1024,6 +1024,38 @@ public class ItemDetailsResolverService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates that <paramref name="itemCode"/> passed to <c>calculate_service_end_date</c> or
+    /// <c>get_item_tax_info</c> is a text <see cref="string"/> per ERPNext PRs #65906 and #65908
+    /// (<c>get_item_details.py</c>).
+    /// </summary>
+    public static string ValidateTextItemCode(object? itemCode)
+    {
+        if (itemCode is not string text)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Invalid Item Code");
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Enforces Item read permission before returning alternative item rows per ERPNext PR #65931
+    /// (<c>item_alternative.py: get_alternative_items</c>).
+    /// </summary>
+    public static void ValidateAlternativeItemLookupAccess(
+        string? itemCode,
+        bool hasItemReadPermission)
+    {
+        if (!hasItemReadPermission)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("itemCode", itemCode ?? string.Empty)
+                .WithData("detail", $"Not permitted to read Item {itemCode}.");
+        }
+    }
 }
 
 // --- Supporting types ---
