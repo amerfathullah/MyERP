@@ -694,6 +694,57 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         return (returnPaidAmount, refunds);
     }
 
+    /// <summary>
+    /// Computes POS/Sales Invoice <c>OutstandingAmount</c> using <c>changeAmount</c> in the party's
+    /// receivable account currency (<paramref name="changeAmount"/> when party account currency matches
+    /// invoice currency, else <paramref name="baseChangeAmount"/>) instead of multiplying by conversion rate.
+    /// Per ERPNext PR #69372 (<c>taxes_and_totals.js: calculate_outstanding_amount</c>).
+    /// </summary>
+    public static decimal CalculatePosOutstandingAmountInReceivableCurrency(
+        decimal totalAmountToPay,
+        decimal paidAmount,
+        decimal basePaidAmount,
+        decimal changeAmount,
+        decimal baseChangeAmount,
+        string? partyAccountCurrency,
+        string? invoiceCurrency,
+        int precision = 2)
+    {
+        var inPartyCurrency = string.Equals(partyAccountCurrency, invoiceCurrency, StringComparison.OrdinalIgnoreCase);
+        var effectivePaid = inPartyCurrency ? paidAmount : basePaidAmount;
+        var effectiveChange = inPartyCurrency ? changeAmount : baseChangeAmount;
+        return Math.Round(totalAmountToPay - effectivePaid + effectiveChange, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Computes default POS payment target after loyalty redemption: <paramref name="loyaltyAmountInCompanyCurrency"/>
+    /// is stored in company currency, so it is converted to invoice currency (<c>/ conversionRate</c>)
+    /// when <paramref name="partyAccountCurrency"/> matches <paramref name="invoiceCurrency"/>.
+    /// Per ERPNext PR #69371 (<c>taxes_and_totals.js: calculate_outstanding_amount</c>).
+    /// </summary>
+    public static decimal CalculatePosDefaultPaymentTargetWithLoyalty(
+        decimal totalAmountToPay,
+        bool redeemLoyaltyPoints,
+        decimal loyaltyAmountInCompanyCurrency,
+        decimal conversionRate,
+        string? partyAccountCurrency,
+        string? invoiceCurrency,
+        int precision = 2)
+    {
+        if (!redeemLoyaltyPoints || loyaltyAmountInCompanyCurrency == 0m)
+        {
+            return totalAmountToPay;
+        }
+
+        var inPartyCurrency = string.Equals(partyAccountCurrency, invoiceCurrency, StringComparison.OrdinalIgnoreCase);
+        var fxRate = conversionRate > 0m ? conversionRate : 1m;
+        var loyaltyAmount = inPartyCurrency
+            ? loyaltyAmountInCompanyCurrency / fxRate
+            : loyaltyAmountInCompanyCurrency;
+
+        return Math.Round(totalAmountToPay - loyaltyAmount, precision, MidpointRounding.AwayFromZero);
+    }
+
     private void RecalculateTotals()
     {
         NetTotal = _items.Sum(i => i.LineTotal);

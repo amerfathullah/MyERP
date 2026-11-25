@@ -80,4 +80,20 @@ public class TaxRule : FullAuditedEntity<Guid>, IMultiTenant
 
         return result;
     }
+
+    /// <summary>
+    /// Resolves the billing address sent to Tax Rule matching: uses <paramref name="supplierAddress"/>
+    /// ONLY when <paramref name="partyType"/> is <c>Supplier</c>, otherwise uses <paramref name="customerAddress"/>
+    /// (covering Quotations whose <c>party_name</c> field does not populate <c>customer</c>/<c>lead</c>).
+    /// Per ERPNext PR #69278 (<c>party.js: set_taxes</c>).
+    /// </summary>
+    public static string? ResolveTaxRuleBillingAddress(
+        string? partyType,
+        string? customerAddress,
+        string? supplierAddress)
+    {
+        return string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase)
+            ? supplierAddress
+            : customerAddress;
+    }
 }

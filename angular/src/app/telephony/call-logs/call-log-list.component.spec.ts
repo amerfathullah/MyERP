@@ -26,7 +26,7 @@ describe('CallLogListComponent Fail Call', () => {
     comp.failCall(comp.items[0]);
 
     expect(callMock.failCall).toHaveBeenCalledWith('call-1', CallStatus.Failed);
-    expect(toasterMock.warn).toHaveBeenCalledWith('Call marked failed');
+    expect(toasterMock.warn).toHaveBeenCalledWith('::CallMarkedFailed');
     expect(callMock.getList).toHaveBeenCalledTimes(2);
   });
 });

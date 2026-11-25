@@ -48,7 +48,7 @@ describe('VideoListComponent Update Stats', () => {
 
     comp.watchVideo({ id: '1', url: 'javascript:alert(1)' } as any);
     expect(openSpy).not.toHaveBeenCalled();
-    expect(toasterMock.error).toHaveBeenCalledWith('Invalid video URL');
+    expect(toasterMock.error).toHaveBeenCalledWith('::InvalidVideoUrl');
 
     comp.watchVideo({ id: '2', url: 'https://vimeo.com/76979871' } as any);
     expect(openSpy).toHaveBeenCalledWith('https://vimeo.com/76979871', '_blank', 'noopener,noreferrer');

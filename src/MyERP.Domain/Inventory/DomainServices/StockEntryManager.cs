@@ -2323,7 +2323,158 @@ public class StockEntryManager : DomainService
             componentCost += stockQty * bomsMade * rate;
         }
 
-        return Math.Round(componentCost - subAssemblyOwnCostSecondaryValue, precision, MidpointRounding.AwayFromZero);
+        // Per ERPNext PR #69225: own-cost rows can exceed posted components; net basis never goes below 0
+        return Math.Round(Math.Max(componentCost - subAssemblyOwnCostSecondaryValue, 0m), precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Computes the output quantity of a BOM secondary item row for <paramref name="fgCompletedQty"/>,
+    /// applying the BOM's rounded <paramref name="bomRowProcessLossQty"/> ratio
+    /// (<c>(bomRowStockQty - bomRowProcessLossQty) / bomRowStockQty</c>), ceiling whole-number UOMs
+    /// after 9-decimal float-noise rounding, and rounding to <paramref name="qtyPrecision"/>
+    /// so rows that round to <c>0</c> are omitted.
+    /// Per ERPNext PR #69225 (<c>manufacturing.py: get_secondary_item_qty</c>).
+    /// </summary>
+    public static decimal CalculateSecondaryItemQty(
+        decimal rowQtyPerFg,
+        decimal fgCompletedQty,
+        decimal bomRowStockQty,
+        decimal bomRowProcessLossQty,
+        bool stockUomMustBeWholeNumber,
+        int qtyPrecision = 4)
+    {
+        var qty = rowQtyPerFg * fgCompletedQty;
+        if (bomRowStockQty > 0m)
+        {
+            qty = qty * (bomRowStockQty - bomRowProcessLossQty) / bomRowStockQty;
+        }
+
+        if (stockUomMustBeWholeNumber && qty > 0m)
+        {
+            qty = Math.Ceiling(Math.Round(qty, 9, MidpointRounding.AwayFromZero));
+        }
+
+        return Math.Round(qty, qtyPrecision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Recursively collects secondary items across multi-level sub-assembly BOMs accounting for each
+    /// sub-assembly's process loss (<c>qtyMade = subAssemblyQty * (bomQty / explodedGoodQty)</c>),
+    /// grouping child rows by sub-assembly BOM and merging duplicate <c>BomSecondaryItemId</c> rows
+    /// across paths before rounding.
+    /// Per ERPNext PR #69225 (<c>get_secondary_items_from_sub_assemblies</c> / <c>merge_secondary_items_by_bom_row</c>).
+    /// </summary>
+    public static List<(Guid BomSecondaryItemId, Guid SourceBomId, Guid ItemId, decimal ScaledQty)>
+        ScaleAndMergeSubAssemblySecondaryItemsWithProcessLoss(
+            Guid rootBomId,
+            decimal rootQty,
+            IReadOnlyDictionary<Guid, (decimal BomQuantity, decimal ProcessLossQty, bool IsPhantomBom)>? bomYieldByBomId,
+            IReadOnlyDictionary<Guid, IReadOnlyList<(Guid SubBomId, decimal QtyPerParentUnit)>>? subAssembliesByBom,
+            IReadOnlyDictionary<Guid, IReadOnlyList<(Guid BomSecondaryItemId, Guid ItemId, decimal QtyPerSubBomUnit)>>? secondaryItemsByBom)
+    {
+        var merged = new Dictionary<Guid, (Guid BomSecondaryItemId, Guid SourceBomId, Guid ItemId, decimal ScaledQty)>();
+        if (rootQty <= 0m || subAssembliesByBom == null)
+        {
+            return new List<(Guid, Guid, Guid, decimal)>();
+        }
+
+        var visited = new HashSet<Guid> { rootBomId };
+        Collect(rootBomId, rootQty);
+        return merged.Values.ToList();
+
+        void Collect(Guid bomId, decimal parentQty)
+        {
+            if (!subAssembliesByBom.TryGetValue(bomId, out var children))
+                return;
+
+            // Group by sub-assembly BOM, not item: two BOMs of one sub-assembly have their own yield
+            var qtyPerSubBom = new Dictionary<Guid, decimal>();
+            foreach (var (subBomId, qtyPerUnit) in children)
+            {
+                var subQty = parentQty * qtyPerUnit;
+                if (subQty <= 0m) continue;
+                qtyPerSubBom[subBomId] = qtyPerSubBom.GetValueOrDefault(subBomId, 0m) + subQty;
+            }
+
+            foreach (var (subBomId, subAssemblyQty) in qtyPerSubBom)
+            {
+                var bomQty = 1m;
+                var processLossQty = 0m;
+                var isPhantom = false;
+                if (bomYieldByBomId != null && bomYieldByBomId.TryGetValue(subBomId, out var yieldInfo))
+                {
+                    bomQty = yieldInfo.BomQuantity > 0m ? yieldInfo.BomQuantity : 1m;
+                    processLossQty = yieldInfo.ProcessLossQty;
+                    isPhantom = yieldInfo.IsPhantomBom;
+                }
+
+                var explodedGoodQty = isPhantom
+                    ? bomQty
+                    : (bomQty - processLossQty > 0m ? bomQty - processLossQty : bomQty);
+                var qtyMade = subAssemblyQty * (bomQty / explodedGoodQty);
+
+                if (secondaryItemsByBom != null && secondaryItemsByBom.TryGetValue(subBomId, out var secs))
+                {
+                    foreach (var (secRowId, itemId, secPerUnit) in secs)
+                    {
+                        var scaled = qtyMade * secPerUnit;
+                        if (scaled <= 0m) continue;
+                        if (merged.TryGetValue(secRowId, out var existing))
+                        {
+                            merged[secRowId] = (secRowId, existing.SourceBomId, existing.ItemId, existing.ScaledQty + scaled);
+                        }
+                        else
+                        {
+                            merged[secRowId] = (secRowId, subBomId, itemId, scaled);
+                        }
+                    }
+                }
+
+                if (visited.Add(subBomId))
+                {
+                    Collect(subBomId, qtyMade);
+                    visited.Remove(subBomId);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes consumed component rates for sub-assembly co-product valuation dividing each component's
+    /// posted value by <c>max(consumedQty, requiredQty)</c> so rounding shortfalls in consumed qty cannot
+    /// allocate more cost to a sub-assembly than was actually posted.
+    /// Per ERPNext PR #69225 (<c>stock_entry.py: get_consumed_rates</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateConsumedComponentRatesCappedByBomRequirement(
+        IEnumerable<(Guid BomItemId, decimal TransferQty, decimal BasicAmount)>? consumedRows,
+        IReadOnlyDictionary<Guid, decimal>? requiredQtyByBomItemId)
+    {
+        var qty = new Dictionary<Guid, decimal>();
+        var value = new Dictionary<Guid, decimal>();
+        if (consumedRows != null)
+        {
+            foreach (var row in consumedRows)
+            {
+                qty[row.BomItemId] = qty.GetValueOrDefault(row.BomItemId, 0m) + row.TransferQty;
+                value[row.BomItemId] = value.GetValueOrDefault(row.BomItemId, 0m) + row.BasicAmount;
+            }
+        }
+
+        var rates = new Dictionary<Guid, decimal>();
+        foreach (var (itemId, consumedQty) in qty)
+        {
+            if (consumedQty == 0m) continue;
+            var requiredQty = requiredQtyByBomItemId != null
+                ? requiredQtyByBomItemId.GetValueOrDefault(itemId, 0m)
+                : 0m;
+            var denom = Math.Max(consumedQty, requiredQty);
+            if (denom != 0m)
+            {
+                rates[itemId] = value[itemId] / denom;
+            }
+        }
+
+        return rates;
     }
 
     /// <summary>

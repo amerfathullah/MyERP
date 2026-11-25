@@ -2133,6 +2133,83 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Computes per-inward-order-row shortfall (<c>entryRowQty - currentInwardReservedQty &gt; 0</c>)
+    /// that must be reclaimed from unused Work Order reservations when returning customer material
+    /// OR cancelling a <c>Receive from Customer</c> entry.
+    /// Per ERPNext PR #69284 (<c>subcontracting_inward_controller.py: release_unused_work_order_reservations</c>).
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateInwardReservationShortfall(
+        IReadOnlyDictionary<Guid, decimal>? entryRowQtyByScioDetailId,
+        IReadOnlyDictionary<Guid, decimal>? reservedQtyByScioDetailId,
+        int precision = 4)
+    {
+        var shortQty = new Dictionary<Guid, decimal>();
+        if (entryRowQtyByScioDetailId == null)
+        {
+            return shortQty;
+        }
+
+        foreach (var (scioDetailId, qty) in entryRowQtyByScioDetailId)
+        {
+            var reserved = reservedQtyByScioDetailId != null
+                ? reservedQtyByScioDetailId.GetValueOrDefault(scioDetailId, 0m)
+                : 0m;
+            var missing = Math.Round(qty - reserved, precision, MidpointRounding.AwayFromZero);
+            if (missing > 0m)
+            {
+                shortQty[scioDetailId] = missing;
+            }
+        }
+
+        return shortQty;
+    }
+
+    /// <summary>
+    /// Releases unused customer-material reservation quantity from Work Order reservations, returning
+    /// each reservation's <c>ReleasedQty</c>, <c>NewReservedQty</c>, and <c>NewVoucherQty</c>.
+    /// Per ERPNext PR #69284 (<c>reservation.py: release_unused_inward_reservations</c> / <c>release_inward_reservation</c>):
+    /// - Never lowers <c>ReservedQty</c> below <c>UsedQty</c> (<c>delivered + transferred + consumed</c>).
+    /// - When <paramref name="lowerVoucherQty"/> is <c>true</c> (cancelling a <c>Receive from Customer</c> entry),
+    ///   lowers <c>VoucherQty</c> by <c>ReleasedQty</c> too so a later return cancellation cannot restore
+    ///   material that left permanently.
+    /// - When <paramref name="lowerVoucherQty"/> is <c>false</c> (customer return), preserves <c>VoucherQty</c>.
+    /// </summary>
+    public static Dictionary<Guid, (decimal ReleasedQty, decimal NewReservedQty, decimal NewVoucherQty)>
+        ReleaseUnusedInwardWorkOrderReservationsWithVoucherAdjustment(
+            IEnumerable<(Guid ReservationId, Guid FromScioDetailId, decimal VoucherQty, decimal ReservedQty, decimal UsedQty)>? reservations,
+            IReadOnlyDictionary<Guid, decimal>? shortQtyByScioDetailId,
+            bool lowerVoucherQty = false,
+            int precision = 4)
+    {
+        var results = new Dictionary<Guid, (decimal ReleasedQty, decimal NewReservedQty, decimal NewVoucherQty)>();
+        if (reservations == null || shortQtyByScioDetailId == null)
+        {
+            return results;
+        }
+
+        var remainingShort = new Dictionary<Guid, decimal>(shortQtyByScioDetailId);
+        foreach (var sre in reservations)
+        {
+            if (!remainingShort.TryGetValue(sre.FromScioDetailId, out var needed) || needed <= 0m)
+                continue;
+
+            var newReserved = Math.Round(Math.Max(sre.ReservedQty - needed, sre.UsedQty), precision, MidpointRounding.AwayFromZero);
+            var releasedQty = Math.Round(sre.ReservedQty - newReserved, precision, MidpointRounding.AwayFromZero);
+            if (releasedQty <= 0m)
+                continue;
+
+            var newVoucherQty = lowerVoucherQty
+                ? Math.Round(sre.VoucherQty - releasedQty, precision, MidpointRounding.AwayFromZero)
+                : sre.VoucherQty;
+
+            results[sre.ReservationId] = (releasedQty, newReserved, newVoucherQty);
+            remainingShort[sre.FromScioDetailId] = needed - releasedQty;
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Restores Work Order reservations up to <c>min(VoucherQty - ReservedQty, FreeInwardQty, ReturnedQty)</c>
     /// per inward order row when a customer material return is cancelled.
     /// Per ERPNext commit <c>d6d9be7765</c> (<c>restore_inward_reservations</c>).

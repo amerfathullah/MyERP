@@ -267,9 +267,9 @@ public class ItemDetailsResolverService : DomainService
         bool IsGeneric(ItemPriceCandidate c) => !c.CustomerId.HasValue && !c.SupplierId.HasValue;
 
         bool FitsPackingUnit(ItemPriceCandidate c, decimal desiredQty) =>
-            c.PackingUnit <= 0m || (desiredQty % c.PackingUnit) == 0m;
+            c.PackingUnit <= 0m || (desiredQty != 0m && (desiredQty % c.PackingUnit) == 0m);
 
-        ItemPriceCandidate? FindBest(string uom, decimal desiredQty, bool partyOnly)
+        ItemPriceCandidate? FindBest(string uom, decimal desiredQty, bool partyOnly, bool enforcePackingUnitWhenZero = false)
         {
             var uomCandidates = all
                 .Where(c => string.Equals(c.Uom, uom, StringComparison.OrdinalIgnoreCase))
@@ -278,7 +278,7 @@ public class ItemDetailsResolverService : DomainService
                 .ThenByDescending(c => c.ValidFrom ?? DateTime.MinValue)
                 .ToList();
 
-            if (desiredQty != 0m)
+            if (desiredQty != 0m || enforcePackingUnitWhenZero)
             {
                 return uomCandidates.FirstOrDefault(c => FitsPackingUnit(c, desiredQty));
             }
@@ -295,7 +295,8 @@ public class ItemDetailsResolverService : DomainService
             && !string.IsNullOrWhiteSpace(stockUom)
             && !string.Equals(rowUom, stockUom, StringComparison.OrdinalIgnoreCase))
         {
-            var partyStockMatch = FindBest(stockUom, stockQty, partyOnly: true);
+            // Per ERPNext PR #69300: a stock_qty that rounds to 0 fits no positive packing_unit
+            var partyStockMatch = FindBest(stockUom, stockQty, partyOnly: true, enforcePackingUnitWhenZero: true);
             if (partyStockMatch != null)
             {
                 return new PartyStockUomPriceResolution(
@@ -334,6 +335,33 @@ public class ItemDetailsResolverService : DomainService
         }
 
         return new PartyStockUomPriceResolution(null, null, false, effectiveFactor, stockQty);
+    }
+
+    /// <summary>
+    /// Resolves the stock-quantity rounding precision for party stock-UOM Item Price matching:
+    /// resolves the row doctype (<c>doctype</c> if already a child table, else <c>"{doctype} Item"</c>),
+    /// returns that doctype's <c>stock_qty</c> precision when the doctype exists and has a <c>stock_qty</c>
+    /// field, and falls back to <paramref name="packingUnitPrecision"/> for plain/missing contexts or
+    /// doctypes without a <c>stock_qty</c> field.
+    /// Per ERPNext PR #69300 (<c>get_item_details.py: get_stock_qty_precision</c>).
+    /// </summary>
+    public static int ResolveStockQtyPrecisionForPartyPrice(
+        string? doctype,
+        bool isChildTable,
+        Func<string, bool> doctypeHasStockQtyField,
+        Func<string, int> getStockQtyPrecision,
+        int packingUnitPrecision = 0)
+    {
+        if (!string.IsNullOrWhiteSpace(doctype))
+        {
+            var resolvedDoctype = isChildTable ? doctype : $"{doctype} Item";
+            if (doctypeHasStockQtyField(resolvedDoctype))
+            {
+                return getStockQtyPrecision(resolvedDoctype);
+            }
+        }
+
+        return packingUnitPrecision;
     }
 
     // --- Private methods ---

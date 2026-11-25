@@ -21,7 +21,7 @@ namespace MyERP;
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
-/// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
+/// #69225, #69278, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -1517,5 +1517,152 @@ public class UpstreamBatch42ParityTests
         ItemDetailsResolverService.ResolveRowStockQtyForBatchFilter(
             rowQty: 3m, rowUom: null, rowConversionFactor: null, itemStockUom: "Nos", itemSalesUom: "Box", uomConversionFactor: 12m)
             .ShouldBe(36m);
+    }
+
+    [Fact]
+    public void Pr69284_InwardReceiptCancel_ReleasesUnusedWorkOrderExtraAndLowersVoucherQty()
+    {
+        var scioDetail = Guid.NewGuid();
+        var sreId = Guid.NewGuid();
+
+        // Shortfall: customer receipt of 10 cancelled when inward order only still holds 4 -> 6 short
+        var shortfall = StockReservationManager.CalculateInwardReservationShortfall(
+            new Dictionary<Guid, decimal> { [scioDetail] = 10m },
+            new Dictionary<Guid, decimal> { [scioDetail] = 4m });
+        shortfall[scioDetail].ShouldBe(6m);
+
+        // Cancel "Receive from Customer": lowerVoucherQty = true lowers BOTH ReservedQty (10->4) AND VoucherQty (10->4)
+        // so a later return cancel cannot restore material that left permanently; capped at UsedQty (2)
+        var onReceiptCancel = StockReservationManager.ReleaseUnusedInwardWorkOrderReservationsWithVoucherAdjustment(
+            new[] { (sreId, scioDetail, VoucherQty: 10m, ReservedQty: 10m, UsedQty: 2m) },
+            shortfall,
+            lowerVoucherQty: true);
+        onReceiptCancel[sreId].ShouldBe((ReleasedQty: 6m, NewReservedQty: 4m, NewVoucherQty: 4m));
+
+        // Normal customer return: lowerVoucherQty = false preserves VoucherQty (10)
+        var onCustomerReturn = StockReservationManager.ReleaseUnusedInwardWorkOrderReservationsWithVoucherAdjustment(
+            new[] { (sreId, scioDetail, VoucherQty: 10m, ReservedQty: 10m, UsedQty: 2m) },
+            shortfall,
+            lowerVoucherQty: false);
+        onCustomerReturn[sreId].ShouldBe((ReleasedQty: 6m, NewReservedQty: 4m, NewVoucherQty: 10m));
+
+        // Never releases below UsedQty (e.g. Reserved=5, Used=4 -> max release 1)
+        var cappedByUsed = StockReservationManager.ReleaseUnusedInwardWorkOrderReservationsWithVoucherAdjustment(
+            new[] { (sreId, scioDetail, VoucherQty: 10m, ReservedQty: 5m, UsedQty: 4m) },
+            new Dictionary<Guid, decimal> { [scioDetail] = 6m },
+            lowerVoucherQty: true);
+        cappedByUsed[sreId].ShouldBe((ReleasedQty: 1m, NewReservedQty: 4m, NewVoucherQty: 9m));
+    }
+
+    [Fact]
+    public void Pr69225_SubAssemblySecondaryItems_AccountsForProcessLossMergesPathsAndFloorsBasisAtZero()
+    {
+        var rootBom = Guid.NewGuid();
+        var subBom = Guid.NewGuid();
+        var secRowId = Guid.NewGuid();
+        var coProdItem = Guid.NewGuid();
+
+        // Sub-assembly BOM: quantity=10, processLoss=2 (good=8), makes 1 co-product per sub-BOM unit
+        // Root BOM needs 4 units via two rows (2 + 2) -> total subAssemblyQty=4 -> qtyMade = 4 * (10 / 8) = 5
+        var scaled = StockEntryManager.ScaleAndMergeSubAssemblySecondaryItemsWithProcessLoss(
+            rootBom,
+            rootQty: 1m,
+            bomYieldByBomId: new Dictionary<Guid, (decimal, decimal, bool)>
+            {
+                [subBom] = (10m, 2m, false),
+            },
+            subAssembliesByBom: new Dictionary<Guid, IReadOnlyList<(Guid, decimal)>>
+            {
+                [rootBom] = new[] { (subBom, 2m), (subBom, 2m) },
+            },
+            secondaryItemsByBom: new Dictionary<Guid, IReadOnlyList<(Guid, Guid, decimal)>>
+            {
+                [subBom] = new[] { (secRowId, coProdItem, 1m) },
+            });
+        scaled.Count.ShouldBe(1);
+        scaled[0].BomSecondaryItemId.ShouldBe(secRowId);
+        scaled[0].ScaledQty.ShouldBe(5m);
+
+        // Secondary item qty applies BOM rounded loss ratio and omits rows that round to 0
+        StockEntryManager.CalculateSecondaryItemQty(
+            rowQtyPerFg: 2m, fgCompletedQty: 3m, bomRowStockQty: 10m, bomRowProcessLossQty: 2m,
+            stockUomMustBeWholeNumber: false, qtyPrecision: 4).ShouldBe(4.8m);
+        StockEntryManager.CalculateSecondaryItemQty(
+            rowQtyPerFg: 2m, fgCompletedQty: 3m, bomRowStockQty: 10m, bomRowProcessLossQty: 10m,
+            stockUomMustBeWholeNumber: true, qtyPrecision: 4).ShouldBe(0m);
+
+        // Consumed rates divide posted value by max(consumedQty, requiredQty)
+        var compItem = Guid.NewGuid();
+        var rates = StockEntryManager.CalculateConsumedComponentRatesCappedByBomRequirement(
+            consumedRows: new[] { (compItem, TransferQty: 8m, BasicAmount: 80m) },
+            requiredQtyByBomItemId: new Dictionary<Guid, decimal> { [compItem] = 10m });
+        rates[compItem].ShouldBe(8m); // 80 / max(8, 10) = 8, not 10
+
+        // Sub-assembly co-product cost basis never goes below 0 when Manual rows exceed posted component cost
+        var zeroBasis = StockEntryManager.CalculateSubAssemblyComponentCost(
+            subAssemblySecondaryQtyPerBom: 1m,
+            subAssemblySecondaryQtyPerFinishedGood: 1m,
+            fgCompletedQty: 1m,
+            subAssemblyBomQuantity: 1m,
+            subAssemblyBomProcessLossQty: 0m,
+            subAssemblyBomIsPhantom: false,
+            subAssemblyExplodedComponents: new[] { (compItem, 2m) },
+            consumedRatesByBomItemId: new Dictionary<Guid, decimal> { [compItem] = 10m },
+            subAssemblyOwnCostSecondaryValue: 50m);
+        zeroBasis.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void Pr69300_Pr69371_Pr69372_Pr69278_PartyStockUomZeroQtyGuard_PosCurrencyMath_QuotationTaxAddress_Parity()
+    {
+        // PR #69300: Stock qty rounding to 0 must NOT match a party stock-UOM price with PackingUnit > 0
+        var customerId = Guid.NewGuid();
+        var candidates = new[]
+        {
+            new ItemPriceCandidate(PriceListRate: 120m, Uom: "Box", PackingUnit: 0m, CustomerId: null),
+            new ItemPriceCandidate(PriceListRate: 8.5m, Uom: "Unit", PackingUnit: 6m, CustomerId: customerId),
+        };
+        var roundedToZero = ItemDetailsResolverService.ResolvePriceListRateWithPartyStockUomPriority(
+            candidates,
+            rowUom: "Box",
+            stockUom: "Unit",
+            qty: 0.001m,
+            conversionFactor: 0.01m,
+            partyId: customerId,
+            isBuying: false,
+            stockQtyPrecision: 2); // stockQty rounds to 0.00m
+        roundedToZero.StockQty.ShouldBe(0m);
+        roundedToZero.IsPartyPrice.ShouldBeFalse();
+        roundedToZero.PriceListRate.ShouldBe(120m);
+        roundedToZero.MatchedUom.ShouldBe("Box");
+
+        // PR #69300: Plain/missing doctype falls back to packingUnitPrecision
+        ItemDetailsResolverService.ResolveStockQtyPrecisionForPartyPrice(
+            doctype: null, isChildTable: false, _ => false, _ => 4, packingUnitPrecision: 0).ShouldBe(0);
+        ItemDetailsResolverService.ResolveStockQtyPrecisionForPartyPrice(
+            doctype: "Sales Order", isChildTable: false, dt => dt == "Sales Order Item", _ => 3, packingUnitPrecision: 0).ShouldBe(3);
+
+        // PR #69372: POS outstanding uses changeAmount in party account currency (not changeAmount * conversionRate)
+        MyERP.Sales.Entities.SalesInvoice.CalculatePosOutstandingAmountInReceivableCurrency(
+            totalAmountToPay: 100m, paidAmount: 120m, basePaidAmount: 540m,
+            changeAmount: 20m, baseChangeAmount: 90m,
+            partyAccountCurrency: "USD", invoiceCurrency: "USD").ShouldBe(0m);
+        MyERP.Sales.Entities.SalesInvoice.CalculatePosOutstandingAmountInReceivableCurrency(
+            totalAmountToPay: 450m, paidAmount: 120m, basePaidAmount: 540m,
+            changeAmount: 20m, baseChangeAmount: 90m,
+            partyAccountCurrency: "MYR", invoiceCurrency: "USD").ShouldBe(0m);
+
+        // PR #69371: POS loyalty amount (company currency) divides by conversionRate when partyAccountCurrency == invoiceCurrency
+        MyERP.Sales.Entities.SalesInvoice.CalculatePosDefaultPaymentTargetWithLoyalty(
+            totalAmountToPay: 100m, redeemLoyaltyPoints: true, loyaltyAmountInCompanyCurrency: 45m,
+            conversionRate: 4.5m, partyAccountCurrency: "USD", invoiceCurrency: "USD").ShouldBe(90m);
+        MyERP.Sales.Entities.SalesInvoice.CalculatePosDefaultPaymentTargetWithLoyalty(
+            totalAmountToPay: 450m, redeemLoyaltyPoints: true, loyaltyAmountInCompanyCurrency: 45m,
+            conversionRate: 4.5m, partyAccountCurrency: "MYR", invoiceCurrency: "USD").ShouldBe(405m);
+
+        // PR #69278: Quotation/Customer/Lead sends customerAddress; only Supplier sends supplierAddress
+        MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Customer", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("CUST-ADDR-1");
+        MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Lead", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("CUST-ADDR-1");
+        MyERP.Tax.Entities.TaxRule.ResolveTaxRuleBillingAddress("Supplier", "CUST-ADDR-1", "SUP-ADDR-1").ShouldBe("SUP-ADDR-1");
     }
 }

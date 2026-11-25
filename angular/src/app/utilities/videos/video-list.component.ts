@@ -16,10 +16,10 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Videos</h5>
+        <h5 class="card-title mb-0">{{ '::Videos' | abpLocalization }}</h5>
         <div class="d-flex gap-2">
-          <a routerLink="/utilities/settings" class="btn btn-outline-secondary btn-sm">Settings</a>
-          <a routerLink="/utilities/videos/new" class="btn btn-primary btn-sm">New Video</a>
+          <a routerLink="/utilities/settings" class="btn btn-outline-secondary btn-sm">{{ '::Settings' | abpLocalization }}</a>
+          <a routerLink="/utilities/videos/new" class="btn btn-primary btn-sm">{{ '::NewVideo' | abpLocalization }}</a>
         </div>
       </div>
       <div class="card-body">
@@ -29,10 +29,10 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
           </div>
           <div class="col-md-3">
             <select class="form-select form-select-sm" [(ngModel)]="selectedProvider" (ngModelChange)="load()">
-              <option [ngValue]="null">-- All Providers --</option>
-              <option [ngValue]="0">YouTube</option>
-              <option [ngValue]="1">Vimeo</option>
-              <option [ngValue]="2">Custom</option>
+              <option [ngValue]="null">{{ '::AllProviders' | abpLocalization }}</option>
+              <option [ngValue]="0">{{ '::YouTube' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::Vimeo' | abpLocalization }}</option>
+              <option [ngValue]="2">{{ '::Custom' | abpLocalization }}</option>
             </select>
           </div>
         </div>
@@ -40,13 +40,13 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Title</th>
-              <th>Provider</th>
-              <th>Duration</th>
-              <th class="text-center">Views</th>
-              <th class="text-center">Likes</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th>{{ '::Title' | abpLocalization }}</th>
+              <th>{{ '::Provider' | abpLocalization }}</th>
+              <th>{{ '::Duration' | abpLocalization }}</th>
+              <th class="text-center">{{ '::Views' | abpLocalization }}</th>
+              <th class="text-center">{{ '::Likes' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -60,7 +60,7 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
                 </td>
                 <td>
                   <span class="badge" [ngClass]="getProviderBadge(item.provider)">
-                    {{ getProviderName(item.provider) }}
+                    {{ getProviderKey(item.provider) | abpLocalization }}
                   </span>
                 </td>
                 <td>{{ item.durationSeconds ? (item.durationSeconds + 's') : '—' }}</td>
@@ -68,19 +68,19 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
                 <td class="text-center">{{ item.likeCount | number }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end text-nowrap">
-                  <button type="button" class="btn btn-sm btn-outline-success me-2" (click)="watchVideo(item)">Watch</button>
-                  <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="openStatsEditor(item)">Stats</button>
-                  <a [routerLink]="['/utilities/videos', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <button type="button" class="btn btn-sm btn-outline-success me-2" (click)="watchVideo(item)">{{ '::Watch' | abpLocalization }}</button>
+                  <button type="button" class="btn btn-sm btn-outline-info me-2" (click)="openStatsEditor(item)">{{ '::Stats' | abpLocalization }}</button>
+                  <a [routerLink]="['/utilities/videos', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="text-center text-muted py-4">No videos found.</td>
+                <td colspan="7" class="text-center text-muted py-4">{{ '::NoVideosFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>
@@ -88,27 +88,27 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
         @if (editingStatsVideo; as vid) {
           <div class="card mt-3 bg-light">
             <div class="card-body">
-              <h6 class="mb-2">Update Stats: {{ vid.title }}</h6>
+              <h6 class="mb-2">{{ '::UpdateStats' | abpLocalization }}: {{ vid.title }}</h6>
               <div class="row g-2 align-items-end">
                 <div class="col-md-2">
-                  <label class="form-label small">Views</label>
+                  <label class="form-label small">{{ '::Views' | abpLocalization }}</label>
                   <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.viewCount">
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label small">Likes</label>
+                  <label class="form-label small">{{ '::Likes' | abpLocalization }}</label>
                   <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.likeCount">
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label small">Dislikes</label>
+                  <label class="form-label small">{{ '::Dislikes' | abpLocalization }}</label>
                   <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.dislikeCount">
                 </div>
                 <div class="col-md-2">
-                  <label class="form-label small">Comments</label>
+                  <label class="form-label small">{{ '::Comments' | abpLocalization }}</label>
                   <input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="statsForm.commentCount">
                 </div>
                 <div class="col-md-4 d-flex gap-2">
-                  <button type="button" class="btn btn-sm btn-primary" (click)="saveStats()">Save Stats</button>
-                  <button type="button" class="btn btn-sm btn-secondary" (click)="editingStatsVideo = null">Cancel</button>
+                  <button type="button" class="btn btn-sm btn-primary" (click)="saveStats()">{{ '::SaveStats' | abpLocalization }}</button>
+                  <button type="button" class="btn btn-sm btn-secondary" (click)="editingStatsVideo = null">{{ '::Cancel' | abpLocalization }}</button>
                 </div>
               </div>
             </div>
@@ -179,12 +179,12 @@ export class VideoListComponent implements OnInit {
     });
   }
 
-  getProviderName(provider: VideoProvider): string {
+  getProviderKey(provider: VideoProvider): string {
     switch (provider) {
-      case VideoProvider.YouTube: return 'YouTube';
-      case VideoProvider.Vimeo: return 'Vimeo';
-      case VideoProvider.Custom: return 'Custom';
-      default: return 'Unknown';
+      case VideoProvider.YouTube: return '::YouTube';
+      case VideoProvider.Vimeo: return '::Vimeo';
+      case VideoProvider.Custom: return '::Custom';
+      default: return '::Unknown';
     }
   }
 
@@ -207,7 +207,7 @@ export class VideoListComponent implements OnInit {
     }
 
     if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
-      this.toaster.error('Invalid video URL');
+      this.toaster.error('::InvalidVideoUrl');
       return;
     }
 
