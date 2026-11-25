@@ -40,10 +40,10 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-3 col-sm-6">
             <label class="form-label small fw-semibold">{{ '::ReceiptDocumentType' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="receiptDocumentType" (change)="loadData()">
-              <option value="All">All Types</option>
-              <option value="PurchaseReceipt">Purchase Receipt</option>
-              <option value="PurchaseInvoice">Purchase Invoice</option>
-              <option value="StockEntry">Stock Entry</option>
+              <option value="All">{{ '::AllTypes' | abpLocalization }}</option>
+              <option value="PurchaseReceipt">{{ '::PurchaseReceipt' | abpLocalization }}</option>
+              <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+              <option value="StockEntry">{{ '::StockEntry' | abpLocalization }}</option>
             </select>
           </div>
 
@@ -87,17 +87,17 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             />
           </div>
           <div class="col-md-2 col-sm-6">
-            <label class="form-label small fw-semibold">Status</label>
+            <label class="form-label small fw-semibold">{{ '::Status' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedStatus" (change)="loadData()">
-              <option [ngValue]="null">All Statuses</option>
-              <option [ngValue]="1">Submitted</option>
-              <option [ngValue]="0">Draft</option>
-              <option [ngValue]="4">Cancelled</option>
+              <option [ngValue]="null">{{ '::AllStatuses' | abpLocalization }}</option>
+              <option [ngValue]="1">{{ '::Submitted' | abpLocalization }}</option>
+              <option [ngValue]="0">{{ '::Draft' | abpLocalization }}</option>
+              <option [ngValue]="4">{{ '::Cancelled' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-2 col-sm-6 mt-auto">
             <button class="btn btn-outline-secondary btn-sm w-100" (click)="resetFilters()">
-              <i class="fa fa-times me-1"></i>Reset
+              <i class="fa fa-times me-1"></i>{{ '::Reset' | abpLocalization }}
             </button>
           </div>
         </div>
@@ -107,19 +107,19 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-4 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Landed Cost Vouchers</small>
+                <small class="text-muted fw-semibold">{{ '::LandedCostVouchers' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-primary">{{ data.totalVouchersCount }}</span>
               </div>
             </div>
             <div class="col-md-4 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Total Landed Costs</small>
+                <small class="text-muted fw-semibold">{{ '::TotalLandedCosts' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-success">{{ data.totalLandedCost | currency:'USD':'symbol':'1.2-2' }}</span>
               </div>
             </div>
             <div class="col-md-4 col-sm-12">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Receipt Documents Affected</small>
+                <small class="text-muted fw-semibold">{{ '::ReceiptDocumentsAffected' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-info">{{ data.totalReceiptsAffected }}</span>
               </div>
             </div>
@@ -131,23 +131,23 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light text-nowrap">
               <tr>
-                <th>Landed Cost Voucher</th>
-                <th>Posting Date</th>
-                <th>Status</th>
-                <th>Receipt Voucher</th>
-                <th>Supplier</th>
-                <th class="text-end">Receipt Value</th>
+                <th>{{ '::LandedCostVoucher' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::Status' | abpLocalization }}</th>
+                <th>{{ '::ReceiptVoucher' | abpLocalization }}</th>
+                <th>{{ '::Supplier' | abpLocalization }}</th>
+                <th class="text-end">{{ '::ReceiptValue' | abpLocalization }}</th>
                 <th class="text-end">{{ '::AllocatedCharges' | abpLocalization }}</th>
-                <th>Distribution Method</th>
-                <th>Charges Breakdown</th>
-                <th>Items Covered</th>
+                <th>{{ '::DistributionMethod' | abpLocalization }}</th>
+                <th>{{ '::ChargesBreakdown' | abpLocalization }}</th>
+                <th>{{ '::ItemsCovered' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @if (isLoading()) {
                 <tr>
                   <td colspan="10" class="text-center py-4 text-muted">
-                    <i class="fa fa-spinner fa-spin me-2"></i>Loading landed cost report...
+                    <i class="fa fa-spinner fa-spin me-2"></i>{{ '::LoadingLandedCostReport' | abpLocalization }}
                   </td>
                 </tr>
               } @else if (filteredRows().length === 0) {
@@ -168,11 +168,11 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     </td>
                     <td>
                       @if (row.status === 1) {
-                        <span class="badge bg-success">Submitted</span>
+                        <span class="badge bg-success">{{ '::Submitted' | abpLocalization }}</span>
                       } @else if (row.status === 0) {
-                        <span class="badge bg-secondary">Draft</span>
+                        <span class="badge bg-secondary">{{ '::Draft' | abpLocalization }}</span>
                       } @else if (row.status === 4) {
-                        <span class="badge bg-danger">Cancelled</span>
+                        <span class="badge bg-danger">{{ '::Cancelled' | abpLocalization }}</span>
                       } @else {
                         <span class="badge bg-light text-dark border">{{ row.status }}</span>
                       }
@@ -196,7 +196,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     </td>
                     <td>
                       <span class="badge bg-light text-muted border">
-                        {{ formatMethod(row.distributionMethod) }}
+                        {{ formatMethodKey(row.distributionMethod) | abpLocalization }}
                       </span>
                     </td>
                     <td>
@@ -276,7 +276,7 @@ export class LandedCostReportComponent implements OnInit {
         },
         error: err => {
           this.isLoading.set(false);
-          this.toaster.error(err.message || 'Failed to load landed cost report');
+          this.toaster.error(err.message || '::FailedToLoadLandedCostReport');
         },
       });
   }
@@ -289,6 +289,15 @@ export class LandedCostReportComponent implements OnInit {
     this.selectedStatus = 1;
     this.searchTerm = '';
     this.loadData();
+  }
+
+  formatMethodKey(method: number): string {
+    switch (method) {
+      case 0: return '::BasedOnQuantity';
+      case 1: return '::BasedOnAmount';
+      case 2: return '::Manual';
+      default: return String(method);
+    }
   }
 
   formatMethod(method: number): string {

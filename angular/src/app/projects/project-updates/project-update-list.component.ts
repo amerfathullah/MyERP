@@ -15,8 +15,8 @@ import { ProjectUpdateDto } from '../../proxy/projects/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Project Updates</h5>
-        <a routerLink="/projects/project-updates/new" class="btn btn-primary btn-sm">New Update</a>
+        <h5 class="card-title mb-0">{{ '::ProjectUpdates' | abpLocalization }}</h5>
+        <a routerLink="/projects/project-updates/new" class="btn btn-primary btn-sm">{{ '::NewUpdate' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,13 +28,13 @@ import { ProjectUpdateDto } from '../../proxy/projects/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Project</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th class="text-end">Progress</th>
-              <th>Summary</th>
-              <th class="text-center">Status</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::Project' | abpLocalization }}</th>
+              <th>{{ '::Date' | abpLocalization }}</th>
+              <th>{{ '::Time' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Progress' | abpLocalization }}</th>
+              <th>{{ '::Summary' | abpLocalization }}</th>
+              <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -53,17 +53,17 @@ import { ProjectUpdateDto } from '../../proxy/projects/models';
                 <td>{{ item.summary || '—' }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.sent ? 'bg-success' : 'bg-secondary'">
-                    {{ item.sent ? 'Sent' : 'Draft' }}
+                    {{ (item.sent ? '::Sent' : '::Draft') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/projects/project-updates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/projects/project-updates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="text-center text-muted py-4">No project updates found.</td>
+                <td colspan="7" class="text-center text-muted py-4">{{ '::NoProjectUpdatesFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

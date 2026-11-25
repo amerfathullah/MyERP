@@ -19,9 +19,9 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68473, #68529, #68578, #68732, #68786, #68916,
-/// #67174, #69225, #69278, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69371, #69372.
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
+/// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
 {
@@ -1810,5 +1810,48 @@ public class UpstreamBatch42ParityTests
         TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Exchange Gain Or Loss", true).ShouldBeFalse();
         TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Journal Entry", true).ShouldBeTrue();
         TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Exchange Gain Or Loss", false).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr67433_Pr68372_Pr69369_Pr69370_Pr69279_ReceivedQtyStockUom_EmptyDocWords_TypedFx_DateReprice_UomPricingRules_Parity()
+    {
+        // PR #67433: Fill ReceivedQty (accepted + rejected) BEFORE converting to stock UOM on PR/update_stock PI
+        var (recQty, recStockQty) = PurchaseReceiptManager.PopulateReceivedQtyBeforeStockUomConversion(
+            isPurchaseReceiptOrUpdateStockInvoice: true, existingReceivedQty: 0m,
+            acceptedQty: 3m, rejectedQty: 1m, conversionFactor: 12m);
+        recQty.ShouldBe(4m);
+        recStockQty.ShouldBe(48m);
+
+        // Non-stock PI leaves receivedQty untouched
+        var (nonStockRecQty, nonStockRecStockQty) = PurchaseReceiptManager.PopulateReceivedQtyBeforeStockUomConversion(
+            isPurchaseReceiptOrUpdateStockInvoice: false, existingReceivedQty: 0m,
+            acceptedQty: 3m, rejectedQty: 0m, conversionFactor: 12m);
+        nonStockRecQty.ShouldBe(0m);
+        nonStockRecStockQty.ShouldBe(0m);
+
+        // PR #68372: Null totals coerce to 0m without throwing in money-in-words
+        TransactionValidationService.ResolveAmountForMoneyInWords(null, null, isRoundedTotalDisabled: false).ShouldBe(0m);
+        TransactionValidationService.ResolveAmountForMoneyInWords(-250m, -250m, isRoundedTotalDisabled: true).ShouldBe(250m);
+
+        // PR #69369: Keep typed exchange rate when price list is in document currency
+        var synced = TransactionValidationService.ResolvePriceListRateSyncOnCurrencyChange(
+            docCurrency: "USD", companyCurrency: "MYR", priceListCurrency: "USD",
+            conversionRate: 4.45m, currentPlcConversionRate: 4.20m);
+        synced.ConversionRate.ShouldBe(4.45m);
+        synced.PlcConversionRate.ShouldBe(4.45m);
+        synced.PreservePlcConversionRate.ShouldBeTrue();
+
+        var differentPlc = TransactionValidationService.ResolvePriceListRateSyncOnCurrencyChange(
+            docCurrency: "USD", companyCurrency: "MYR", priceListCurrency: "EUR",
+            conversionRate: 4.45m, currentPlcConversionRate: 4.90m);
+        differentPlc.PlcConversionRate.ShouldBe(4.90m);
+        differentPlc.PreservePlcConversionRate.ShouldBeFalse();
+
+        // PR #69370: Re-apply pricing rules on date change when conversion rate did not change
+        TransactionValidationService.ShouldReapplyPricingRulesAfterDateChange(4.5m, 4.5m).ShouldBeTrue();
+        TransactionValidationService.ShouldReapplyPricingRulesAfterDateChange(4.5m, 4.6m).ShouldBeFalse();
+
+        // PR #69279: Keep applied pricing rules string intact on UOM change so stale discounts reset
+        TransactionValidationService.PreserveAppliedPricingRulesOnUomChange("[\"PR-001\"]").ShouldBe("[\"PR-001\"]");
     }
 }

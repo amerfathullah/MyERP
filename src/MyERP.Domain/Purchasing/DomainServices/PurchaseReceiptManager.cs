@@ -1778,6 +1778,34 @@ public class PurchaseReceiptManager : DomainService
                 && e.WarehouseId == warehouseId)
             .Sum(e => e.StockValueDifference);
     }
+
+    /// <summary>
+    /// Populates missing <c>ReceivedQty</c> (<c>acceptedQty + rejectedQty</c>) BEFORE converting to
+    /// stock UOM on Purchase Receipt or stock-updating Purchase Invoice rows per ERPNext PR #67433
+    /// (<c>buying_controller.py: set_received_qty</c>), returning both the resolved <c>ReceivedQty</c>
+    /// and <c>ReceivedStockQty</c>.
+    /// </summary>
+    public static (decimal ReceivedQty, decimal ReceivedStockQty) PopulateReceivedQtyBeforeStockUomConversion(
+        bool isPurchaseReceiptOrUpdateStockInvoice,
+        decimal existingReceivedQty,
+        decimal acceptedQty,
+        decimal rejectedQty,
+        decimal conversionFactor,
+        int receivedQtyPrecision = 4,
+        int stockQtyPrecision = 4)
+    {
+        var receivedQty = existingReceivedQty;
+        if (isPurchaseReceiptOrUpdateStockInvoice
+            && receivedQty == 0m
+            && (acceptedQty != 0m || rejectedQty != 0m))
+        {
+            receivedQty = Math.Round(acceptedQty + rejectedQty, receivedQtyPrecision, MidpointRounding.AwayFromZero);
+        }
+
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var receivedStockQty = Math.Round(receivedQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        return (receivedQty, receivedStockQty);
+    }
 }
 
 public sealed record PurchaseReturnMovedWarehouseRow(

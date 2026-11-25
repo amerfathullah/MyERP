@@ -46,43 +46,43 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-2 mb-2">
             <!-- Based On Document -->
             <div class="col-md-2 col-sm-6">
-              <label class="form-label small fw-semibold">Document</label>
+              <label class="form-label small fw-semibold">{{ '::Document' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="basedOnDocument">
-                <option value="Sales Order">Sales Order</option>
-                <option value="Delivery Note">Delivery Note</option>
-                <option value="Sales Invoice">Sales Invoice</option>
+                <option value="Sales Order">{{ '::SalesOrder' | abpLocalization }}</option>
+                <option value="Delivery Note">{{ '::DeliveryNote' | abpLocalization }}</option>
+                <option value="Sales Invoice">{{ '::SalesInvoice' | abpLocalization }}</option>
               </select>
             </div>
 
             <!-- Based On Field -->
             <div class="col-md-2 col-sm-6">
-              <label class="form-label small fw-semibold">Value Based On</label>
+              <label class="form-label small fw-semibold">{{ '::ValueBasedOn' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="basedOnField">
-                <option value="Qty">Quantity</option>
-                <option value="Amount">Amount</option>
+                <option value="Qty">{{ '::Quantity' | abpLocalization }}</option>
+                <option value="Amount">{{ '::Amount' | abpLocalization }}</option>
               </select>
             </div>
 
             <!-- Periodicity -->
             <div class="col-md-2 col-sm-6">
-              <label class="form-label small fw-semibold">Periodicity</label>
+              <label class="form-label small fw-semibold">{{ '::Periodicity' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="periodicity">
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Half-Yearly">Half-Yearly</option>
-                <option value="Yearly">Yearly</option>
+                <option value="Monthly">{{ '::Monthly' | abpLocalization }}</option>
+                <option value="Quarterly">{{ '::Quarterly' | abpLocalization }}</option>
+                <option value="Half-Yearly">{{ '::HalfYearly' | abpLocalization }}</option>
+                <option value="Yearly">{{ '::Yearly' | abpLocalization }}</option>
               </select>
             </div>
 
             <!-- From Date (Start of Forecast) -->
             <div class="col-md-3 col-sm-6">
-              <label class="form-label small fw-semibold">Forecast From</label>
+              <label class="form-label small fw-semibold">{{ '::ForecastFrom' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" />
             </div>
 
             <!-- To Date (End of Forecast) -->
             <div class="col-md-3 col-sm-6">
-              <label class="form-label small fw-semibold">Forecast To</label>
+              <label class="form-label small fw-semibold">{{ '::ForecastTo' | abpLocalization }}</label>
               <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" />
             </div>
           </div>
@@ -90,12 +90,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="row g-2 mb-2">
             <!-- History Years -->
             <div class="col-md-2 col-sm-6">
-              <label class="form-label small fw-semibold">History Years</label>
+              <label class="form-label small fw-semibold">{{ '::HistoryYears' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="noOfYears">
-                <option [ngValue]="1">1 Year</option>
-                <option [ngValue]="2">2 Years</option>
-                <option [ngValue]="3">3 Years</option>
-                <option [ngValue]="5">5 Years</option>
+                <option [ngValue]="1">{{ '::Year1' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Years2' | abpLocalization }}</option>
+                <option [ngValue]="3">{{ '::Years3' | abpLocalization }}</option>
+                <option [ngValue]="5">{{ '::Years5' | abpLocalization }}</option>
               </select>
             </div>
 
@@ -118,7 +118,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <label class="form-label small fw-semibold">{{ '::Item' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="itemId">
-                <option [ngValue]="null">-- All Items --</option>
+                <option [ngValue]="null">-- {{ '::AllItems' | abpLocalization }} --</option>
                 @for (item of items(); track item.id) {
                   <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
                 }
@@ -129,7 +129,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-2 col-sm-6">
               <label class="form-label small fw-semibold">{{ '::Warehouse' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="warehouseId">
-                <option [ngValue]="null">-- All Warehouses --</option>
+                <option [ngValue]="null">-- {{ '::AllWarehouses' | abpLocalization }} --</option>
                 @for (w of warehouses(); track w.id) {
                   <option [value]="w.id">{{ w.name }}</option>
                 }
@@ -171,7 +171,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Past Actual Demand</div>
+                  <div class="text-muted small">{{ '::PastActualDemand' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-primary">{{ d.totalDemandPastData | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -179,7 +179,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <div class="card border-info text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Past Smoothed Forecast</div>
+                  <div class="text-muted small">{{ '::PastSmoothedForecast' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-info">{{ d.totalForecastPastData | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -187,7 +187,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <div class="card border-success text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Future Forecast Demand</div>
+                  <div class="text-muted small">{{ '::FutureForecastDemand' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-success">{{ d.totalForecastFutureData | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -195,7 +195,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3 col-sm-6">
               <div class="card border-warning text-center h-100 bg-light">
                 <div class="card-body py-2">
-                  <div class="text-muted small">Alpha (α)</div>
+                  <div class="text-muted small">{{ '::Alpha' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-warning">{{ smoothingConstant }}</div>
                 </div>
               </div>
@@ -208,10 +208,10 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               <table class="table table-sm table-bordered table-hover align-middle mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th style="min-width: 140px;">Item Code</th>
-                    <th style="min-width: 160px;">Item Name</th>
-                    <th style="min-width: 120px;">Warehouse</th>
-                    <th style="min-width: 90px;" class="text-end">Avg Demand</th>
+                    <th style="min-width: 140px;">{{ '::ItemCode' | abpLocalization }}</th>
+                    <th style="min-width: 160px;">{{ '::ItemName' | abpLocalization }}</th>
+                    <th style="min-width: 120px;">{{ '::Warehouse' | abpLocalization }}</th>
+                    <th style="min-width: 90px;" class="text-end">{{ '::AvgDemand' | abpLocalization }}</th>
                     @for (p of d.periods; track p.key) {
                       <th
                         class="text-end"
@@ -220,12 +220,12 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       >
                         <div>{{ p.label }}</div>
                         <small class="badge" [ngClass]="p.isForecast ? 'bg-success' : 'bg-secondary'">
-                          {{ p.isForecast ? 'Forecast' : 'Actual' }}
+                          {{ (p.isForecast ? '::Forecast' : '::Actual') | abpLocalization }}
                         </small>
                       </th>
                     }
-                    <th class="text-end" style="min-width: 100px;">Total Demand</th>
-                    <th class="text-end" style="min-width: 100px;">Total Forecast</th>
+                    <th class="text-end" style="min-width: 100px;">{{ '::TotalDemand' | abpLocalization }}</th>
+                    <th class="text-end" style="min-width: 100px;">{{ '::TotalForecast' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -250,7 +250,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   }
                   @if (d.totalRow; as tr) {
                     <tr class="table-dark fw-bold">
-                      <td colspan="3">Total</td>
+                      <td colspan="3">{{ '::Total' | abpLocalization }}</td>
                       <td class="text-end">-</td>
                       @for (p of d.periods; track p.key) {
                         <td class="text-end">

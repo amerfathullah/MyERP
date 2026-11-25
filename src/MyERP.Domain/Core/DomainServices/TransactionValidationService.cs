@@ -406,6 +406,66 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Coerces nullable document totals to <c>0m</c> before taking absolute value for money-in-words
+    /// formatting per ERPNext PR #68372 (<c>selling_controller.py: set_total_in_words</c>) so an empty
+    /// document without items raises its normal mandatory-items error instead of a null-arithmetic crash.
+    /// </summary>
+    public static decimal ResolveAmountForMoneyInWords(
+        decimal? grandTotal,
+        decimal? roundedTotal,
+        bool isRoundedTotalDisabled)
+    {
+        var raw = isRoundedTotalDisabled ? grandTotal : roundedTotal;
+        return Math.Abs(raw ?? 0m);
+    }
+
+    /// <summary>
+    /// Resolves exchange-rate sync when document currency or conversion rate changes per ERPNext PR #69369
+    /// (<c>transaction.js</c>):
+    /// - When <paramref name="docCurrency"/> equals <paramref name="companyCurrency"/>, forces <c>ConversionRate = 1m</c>.
+    /// - When <paramref name="docCurrency"/> equals <paramref name="priceListCurrency"/>, syncs
+    ///   <c>PlcConversionRate = ConversionRate</c> AND returns <c>PreservePlcConversionRate = true</c> so
+    ///   <c>apply_price_list</c> keeps the user's typed rate instead of refetching the market rate.
+    /// </summary>
+    public static (decimal ConversionRate, decimal PlcConversionRate, bool PreservePlcConversionRate)
+        ResolvePriceListRateSyncOnCurrencyChange(
+            string? docCurrency,
+            string? companyCurrency,
+            string? priceListCurrency,
+            decimal conversionRate,
+            decimal currentPlcConversionRate)
+    {
+        var effectiveRate = string.Equals(docCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase)
+            ? 1m
+            : conversionRate;
+
+        var plcFollowsCurrency = !string.IsNullOrWhiteSpace(docCurrency)
+            && string.Equals(docCurrency, priceListCurrency, StringComparison.OrdinalIgnoreCase);
+
+        var effectivePlcRate = plcFollowsCurrency ? effectiveRate : currentPlcConversionRate;
+        return (effectiveRate, effectivePlcRate, PreservePlcConversionRate: plcFollowsCurrency);
+    }
+
+    /// <summary>
+    /// Determines whether pricing rules must be re-applied explicitly after a transaction/posting date
+    /// change per ERPNext PR #69370 (<c>transaction.js: update_rates_for_new_date</c>):
+    /// a changed conversion rate already re-prices via the rate trigger; an unchanged rate fires nothing,
+    /// so pricing rules must be triggered explicitly.
+    /// </summary>
+    public static bool ShouldReapplyPricingRulesAfterDateChange(
+        decimal previousConversionRate,
+        decimal currentConversionRate)
+        => previousConversionRate == currentConversionRate;
+
+    /// <summary>
+    /// Keeps previously applied pricing rule IDs intact on a row UOM change (instead of clearing them to
+    /// empty string) per ERPNext PR #69279 (<c>transaction.js: uom</c>) so server-side pricing rule
+    /// evaluation detects rules that no longer match the new UOM and resets stale discounts.
+    /// </summary>
+    public static string? PreserveAppliedPricingRulesOnUomChange(string? existingAppliedPricingRules)
+        => existingAppliedPricingRules;
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.
