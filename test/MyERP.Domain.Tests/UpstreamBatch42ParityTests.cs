@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67530, #67550, #67554, #67555,
-/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67530, #67550, #67553, #67554, #67555,
+/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2227,5 +2227,50 @@ public class UpstreamBatch42ParityTests
             });
         eligible.Count.ShouldBe(2);
         distinctOrders.ShouldBe(new[] { so1 }); // listed once (#67495)
+    }
+
+    [Fact]
+    public void Pr67553_Pr68142_MrpReport24HourLeadTimeAndReleaseDate_ScioProposeZeroCustomerMaterials_Parity()
+    {
+        var deliveryDate = new DateTime(2026, 3, 20);
+
+        // PR #67553: Manufacture uses 24-hour (1440 min) day + buffer; non-Manufacture uses supplier/item purchase lead days
+        var (mfgDays, mfgRelease) = MasterProductionScheduleService.CalculateMrpReportLeadTimeDaysAndReleaseDate(
+            typeOfMaterial: "Manufacture",
+            requiredQty: 10m,
+            deliveryDate: deliveryDate,
+            manufacturingTimeInMins: 180m, // 1800 mins / 1440 = 1.25 days + 1 buffer = 2.25 -> ceil 3
+            bufferTimeDays: 1m,
+            resolvedPurchaseLeadDays: 99m);
+        mfgDays.ShouldBe(3);
+        mfgRelease.ShouldBe(new DateTime(2026, 3, 17));
+
+        var (zeroDays, zeroRelease) = MasterProductionScheduleService.CalculateMrpReportLeadTimeDaysAndReleaseDate(
+            "Manufacture", 0m, deliveryDate, 180m, 2m, 0m);
+        zeroDays.ShouldBe(0);
+        zeroRelease.ShouldBe(deliveryDate);
+
+        var (buyDays, buyRelease) = MasterProductionScheduleService.CalculateMrpReportLeadTimeDaysAndReleaseDate(
+            "Purchase", 50m, deliveryDate, 999m, 2m, resolvedPurchaseLeadDays: 5m);
+        buyDays.ShouldBe(5);
+        buyRelease.ShouldBe(new DateTime(2026, 3, 15));
+
+        // PR #68142: Fully received customer-provided material is proposed with 0 qty (not skipped),
+        // accounting for returnedQty and processLossQty * qtyConsumedPerUnit
+        var rowFull = Guid.NewGuid();
+        var rowShort = Guid.NewGuid();
+        var rowNonCustomer = Guid.NewGuid();
+        var proposals = MyERP.Purchasing.Entities.SubcontractingInwardOrder.ProposeCustomerProvidedMaterialReceiptQuantities(
+            new[]
+            {
+                (rowFull, Guid.NewGuid(), true, RequiredQty: 10m, ReceivedQty: 12m, ReturnedQty: 0m, QtyConsumedPerUnit: 1m, ProcessLossQty: 0m, (Guid?)null),
+                (rowShort, Guid.NewGuid(), true, RequiredQty: 10m, ReceivedQty: 8m, ReturnedQty: 1m, QtyConsumedPerUnit: 2m, ProcessLossQty: 1.5m, (Guid?)null),
+                (rowNonCustomer, Guid.NewGuid(), false, RequiredQty: 5m, ReceivedQty: 0m, ReturnedQty: 0m, QtyConsumedPerUnit: 1m, ProcessLossQty: 0m, (Guid?)null),
+            });
+        proposals.Count.ShouldBe(2); // rowNonCustomer excluded; rowFull kept with 0 qty
+        proposals[0].ScioDetailId.ShouldBe(rowFull);
+        proposals[0].ProposedQty.ShouldBe(0m);
+        proposals[1].ScioDetailId.ShouldBe(rowShort);
+        proposals[1].ProposedQty.ShouldBe(6m); // 10 - 8 + 1 + (2 * 1.5) = 6
     }
 }

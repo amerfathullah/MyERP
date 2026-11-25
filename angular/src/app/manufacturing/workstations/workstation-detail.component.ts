@@ -15,7 +15,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="ws?.name ?? 'Workstation'">
+    <abp-page [title]="ws?.name ?? ('::Workstation' | abpLocalization)">
       @if (ws) {
         <div class="d-flex justify-content-end mb-2">
           <a class="btn btn-outline-primary btn-sm" [routerLink]="['/manufacturing/workstations', ws.id, 'edit']">
@@ -29,53 +29,53 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Production Capacity</div>
+              <div class="text-muted small">{{ '::ProductionCapacity' | abpLocalization }}</div>
               <div class="fs-3 fw-bold">{{ ws.productionCapacity }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Hour Rate</div>
+              <div class="text-muted small">{{ '::HourRate' | abpLocalization }}</div>
               <div class="fs-4 fw-bold text-primary">{{ ws.hourRate | number:'1.2-2' }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Type' | abpLocalization }}</div>
-              <div class="fs-5">{{ ws.workstationType ?? 'General' }}</div>
+              <div class="fs-5">{{ ws.workstationType ?? ('::General' | abpLocalization) }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="ws.isActive !== false ? 'bg-success' : 'bg-secondary'">
-                {{ ws.isActive !== false ? 'Active' : 'Inactive' }}
+                {{ (ws.isActive !== false ? '::Active' : '::Inactive') | abpLocalization }}
               </span>
             </div></div>
           </div>
         </div>
 
         @if (ws.costs?.length) {
-          <div class="card mb-4"><div class="card-header"><h6 class="mb-0">Cost Components</h6></div>
+          <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::CostComponents' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
               <table class="table table-hover mb-0">
-                <thead><tr><th>Component</th><th class="text-end">Amount / Hr</th></tr></thead>
+                <thead><tr><th>{{ '::Component' | abpLocalization }}</th><th class="text-end">{{ '::AmountPerHr' | abpLocalization }}</th></tr></thead>
                 <tbody>
                   @for (c of ws.costs; track $index) {
                     <tr><td>{{ c.name }}</td><td class="text-end">{{ c.amount | number:'1.2-2' }}</td></tr>
                   }
                 </tbody>
-                <tfoot><tr class="fw-bold"><td>Total Hour Rate</td><td class="text-end">{{ ws.hourRate | number:'1.2-2' }}</td></tr></tfoot>
+                <tfoot><tr class="fw-bold"><td>{{ '::TotalHourRate' | abpLocalization }}</td><td class="text-end">{{ ws.hourRate | number:'1.2-2' }}</td></tr></tfoot>
               </table>
             </div>
           </div>
         }
 
         @if (ws.workingHours?.length) {
-          <div class="card"><div class="card-header"><h6 class="mb-0">Working Hours</h6></div>
+          <div class="card"><div class="card-header"><h6 class="mb-0">{{ '::WorkingHours' | abpLocalization }}</h6></div>
             <div class="card-body p-0">
               <table class="table table-hover mb-0">
-                <thead><tr><th>Day</th><th>Start</th><th>End</th></tr></thead>
+                <thead><tr><th>{{ '::Day' | abpLocalization }}</th><th>{{ '::Start' | abpLocalization }}</th><th>{{ '::End' | abpLocalization }}</th></tr></thead>
                 <tbody>
                   @for (h of ws.workingHours; track $index) {
                     <tr><td>{{ h.dayOfWeek }}</td><td>{{ h.startTime }}</td><td>{{ h.endTime }}</td></tr>

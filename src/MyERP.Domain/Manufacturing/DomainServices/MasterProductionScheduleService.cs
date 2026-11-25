@@ -636,6 +636,43 @@ public class MasterProductionScheduleService : DomainService
         return (eligible, distinctOrders);
     }
 
+    /// <summary>
+    /// Computes calendar lead-time days and release date for an MRP report row per ERPNext PR #67553
+    /// (<c>material_requirements_planning_report.py: get_item_lead_time</c> / <c>set_lead_time</c>):
+    /// - For <c>Manufacture</c>: returns <c>0</c> when <paramref name="requiredQty"/> &lt;= 0;
+    ///   otherwise uses MRP's 24-hour planning day (<c>max(manufacturingTimeInMins, 0) * requiredQty / 1440 + bufferTimeDays</c>)
+    ///   and takes <c>Ceiling</c>.
+    /// - For non-<c>Manufacture</c> (<c>Purchase</c> / <c>Subcontract</c>): uses the resolved supplier/item
+    ///   purchase lead days (<paramref name="resolvedPurchaseLeadDays"/>) without scaling by quantity.
+    /// - Computes <c>ReleaseDate = deliveryDate.AddDays(-leadTimeDays)</c>.
+    /// </summary>
+    public static (int LeadTimeDays, DateTime ReleaseDate) CalculateMrpReportLeadTimeDaysAndReleaseDate(
+        string typeOfMaterial,
+        decimal requiredQty,
+        DateTime deliveryDate,
+        decimal manufacturingTimeInMins,
+        decimal bufferTimeDays,
+        decimal resolvedPurchaseLeadDays)
+    {
+        decimal rawDays;
+        if (string.Equals(typeOfMaterial, "Manufacture", StringComparison.OrdinalIgnoreCase))
+        {
+            if (requiredQty <= 0m)
+            {
+                return (0, deliveryDate);
+            }
+
+            rawDays = (Math.Max(manufacturingTimeInMins, 0m) * requiredQty / 1440m) + bufferTimeDays;
+        }
+        else
+        {
+            rawDays = Math.Max(resolvedPurchaseLeadDays, 0m);
+        }
+
+        var leadTimeDays = (int)Math.Ceiling(Math.Max(rawDays, 0m));
+        return (leadTimeDays, deliveryDate.AddDays(-leadTimeDays));
+    }
+
     private sealed class DemandBucket
     {
         public DateTime Date { get; }

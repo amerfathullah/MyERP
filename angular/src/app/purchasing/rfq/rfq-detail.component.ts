@@ -16,7 +16,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="rfq?.rfqNumber ?? 'Request for Quotation'">
+    <abp-page [title]="rfq?.rfqNumber ?? ('::RequestForQuotation' | abpLocalization)">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (rfq) {
@@ -35,7 +35,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Suppliers</div>
+              <div class="text-muted small">{{ '::Suppliers' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ rfq.suppliers?.length ?? 0 }}</div>
             </div></div>
           </div>
@@ -43,18 +43,18 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
 
         @if (rfq.messageForSupplier) {
           <div class="alert alert-light">
-            <strong>Message for Suppliers:</strong><br>{{ rfq.messageForSupplier }}
+            <strong>{{ '::MessageForSuppliers' | abpLocalization }}:</strong><br>{{ rfq.messageForSupplier }}
           </div>
         }
 
         @if (rfq.status === 'Submitted' || rfq.status === 1) {
           <div class="d-flex flex-wrap gap-2 mb-3">
             <button class="btn btn-outline-info btn-sm" (click)="viewSupplierQuotationComparison()">
-              <i class="fa fa-balance-scale me-1"></i>Supplier Quotation Comparison
+              <i class="fa fa-balance-scale me-1"></i>{{ '::SupplierQuotationComparison' | abpLocalization }}
             </button>
             @for (s of rfq.suppliers; track s.supplierId) {
               <button class="btn btn-outline-primary btn-sm" (click)="createSupplierQuotation(s.supplierId, s.supplierName)">
-                <i class="fa fa-file-invoice me-1"></i>Create SQ for {{ s.supplierName }}
+                <i class="fa fa-file-invoice me-1"></i>{{ '::CreateSqFor' | abpLocalization }} {{ s.supplierName }}
               </button>
             }
           </div>
@@ -63,7 +63,7 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
         <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::Items' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
-              <thead><tr><th>Item</th><th class="text-end">Qty</th><th>Required By</th></tr></thead>
+              <thead><tr><th>{{ '::Item' | abpLocalization }}</th><th class="text-end">{{ '::Qty' | abpLocalization }}</th><th>{{ '::RequiredBy' | abpLocalization }}</th></tr></thead>
               <tbody>
                 @for (item of rfq.items; track $index) {
                   <tr>
@@ -77,17 +77,17 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
           </div>
         </div>
 
-        <div class="card"><div class="card-header"><h6 class="mb-0">Suppliers</h6></div>
+        <div class="card"><div class="card-header"><h6 class="mb-0">{{ '::Suppliers' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
-              <thead><tr><th>Supplier</th><th>Quote Status</th><th>Email Sent</th></tr></thead>
+              <thead><tr><th>{{ '::Supplier' | abpLocalization }}</th><th>{{ '::QuoteStatus' | abpLocalization }}</th><th>{{ '::EmailSent' | abpLocalization }}</th></tr></thead>
               <tbody>
                 @for (s of rfq.suppliers; track $index) {
                   <tr>
                     <td>{{ s.supplierName ?? s.supplierId }}</td>
                     <td>
                       <span class="badge" [class]="s.quoteStatus === 'Received' ? 'bg-success' : 'bg-warning'">
-                        {{ s.quoteStatus ?? 'Pending' }}
+                        {{ s.quoteStatus ?? ('::Pending' | abpLocalization) }}
                       </span>
                     </td>
                     <td>@if (s.emailSent) { <i class="fa fa-check text-success"></i> } @else { <i class="fa fa-minus text-muted"></i> }</td>

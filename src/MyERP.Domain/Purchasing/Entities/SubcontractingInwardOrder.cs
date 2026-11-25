@@ -278,6 +278,42 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
 
         return drifted;
     }
+
+    /// <summary>
+    /// Proposes customer-provided raw material quantities to receive on a Subcontracting Inward Order
+    /// per ERPNext PR #68142 (<c>subcontracting_inward_order.py: make_rm_stock_entry_inward</c>):
+    /// - Skips rows with <c>RequiredQty &lt;= 0</c> or <c>!IsCustomerProvidedItem</c>.
+    /// - Computes <c>max(Round(RequiredQty - ReceivedQty + ReturnedQty + QtyConsumedPerUnit * ProcessLossQty, precision), 0)</c>.
+    /// - Emits fully received customer-provided rows with <c>ProposedQty = 0</c> instead of skipping them.
+    /// </summary>
+    public static IReadOnlyList<(Guid ScioDetailId, Guid RmItemId, decimal ProposedQty, Guid? WarehouseId)>
+        ProposeCustomerProvidedMaterialReceiptQuantities(
+            IEnumerable<(Guid ScioDetailId, Guid RmItemId, bool IsCustomerProvidedItem, decimal RequiredQty, decimal ReceivedQty, decimal ReturnedQty, decimal QtyConsumedPerUnit, decimal ProcessLossQty, Guid? WarehouseId)>? rmItems,
+            int precision = 4)
+    {
+        var proposals = new List<(Guid, Guid, decimal, Guid?)>();
+        if (rmItems == null)
+        {
+            return proposals;
+        }
+
+        foreach (var rm in rmItems)
+        {
+            if (rm.RequiredQty <= 0m || !rm.IsCustomerProvidedItem)
+            {
+                continue;
+            }
+
+            var qty = Math.Round(
+                rm.RequiredQty - rm.ReceivedQty + rm.ReturnedQty + (rm.QtyConsumedPerUnit * rm.ProcessLossQty),
+                precision,
+                MidpointRounding.AwayFromZero);
+
+            proposals.Add((rm.ScioDetailId, rm.RmItemId, Math.Max(qty, 0m), rm.WarehouseId));
+        }
+
+        return proposals;
+    }
 }
 
 /// <summary>FG item expected from subcontracting.</summary>

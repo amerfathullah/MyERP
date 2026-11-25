@@ -7610,7 +7610,21 @@
     "AccountSubtype": "Account Subtype",
     "NoBankAccountSubtypesFound": "No bank account subtypes found.",
     "NewCallType": "New Call Type",
-    "NoTelephonyCallTypesFound": "No telephony call types found."
+    "NoTelephonyCallTypesFound": "No telephony call types found.",
+    "StandingBandsHint": "Standing Bands (must cover 0-100)",
+    "AddBand": "Add Band",
+    "BlockPO": "Block PO",
+    "BlockRFQ": "Block RFQ",
+    "CriteriaWeightHint": "Criteria (weights must sum to 100%)",
+    "AddCriterion": "Add Criterion",
+    "WeightPercent": "Weight %",
+    "RequestForQuotation": "Request for Quotation",
+    "MessageForSuppliers": "Message for Suppliers",
+    "CreateSqFor": "Create SQ for",
+    "ProductionCapacity": "Production Capacity",
+    "AmountPerHr": "Amount / Hr",
+    "TotalHourRate": "Total Hour Rate",
+    "Day": "Day"
   }
 }
 

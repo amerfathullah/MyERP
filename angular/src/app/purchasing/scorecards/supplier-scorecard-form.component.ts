@@ -19,12 +19,12 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
     <abp-page [title]="'::NewScorecard' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">Scorecard Settings</h6>
+          <h6 class="card-title">{{ '::ScorecardSettings' | abpLocalization }}</h6>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">{{ '::Supplier' | abpLocalization }}</label>
               <select class="form-select" formControlName="supplierId">
-                <option value="">Select Supplier...</option>
+                <option value="">{{ '::SelectSupplier' | abpLocalization }}</option>
                 @for (s of suppliers; track s.id) {
                   <option [value]="s.id">{{ s.name }}</option>
                 }
@@ -33,9 +33,9 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
             <div class="col-md-4">
               <label class="form-label">{{ '::Period' | abpLocalization }}</label>
               <select class="form-select" formControlName="periodType">
-                <option [ngValue]="0">Weekly</option>
-                <option [ngValue]="1">Monthly</option>
-                <option [ngValue]="2">Yearly</option>
+                <option [ngValue]="0">{{ '::Weekly' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Monthly' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Yearly' | abpLocalization }}</option>
               </select>
             </div>
           </div>
@@ -43,14 +43,14 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title mb-0">{{ '::Standing' | abpLocalization }} Bands (must cover 0-100)</h6>
+            <h6 class="card-title mb-0">{{ '::StandingBandsHint' | abpLocalization }}</h6>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addStanding()">
-              <i class="fa fa-plus me-1"></i>Add Band
+              <i class="fa fa-plus me-1"></i>{{ '::AddBand' | abpLocalization }}
             </button>
           </div>
           @if (standings.length > 0) {
             <table class="table table-sm">
-              <thead><tr><th>Name</th><th>Min</th><th>Max</th><th>Block PO</th><th>Block RFQ</th><th></th></tr></thead>
+              <thead><tr><th>{{ '::Name' | abpLocalization }}</th><th>{{ '::Min' | abpLocalization }}</th><th>{{ '::Max' | abpLocalization }}</th><th>{{ '::BlockPO' | abpLocalization }}</th><th>{{ '::BlockRFQ' | abpLocalization }}</th><th></th></tr></thead>
               <tbody>
                 @for (s of standings.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(s)">
@@ -69,14 +69,14 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
 
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title mb-0">Criteria (weights must sum to 100%)</h6>
+            <h6 class="card-title mb-0">{{ '::CriteriaWeightHint' | abpLocalization }}</h6>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCriterion()">
-              <i class="fa fa-plus me-1"></i>Add Criterion
+              <i class="fa fa-plus me-1"></i>{{ '::AddCriterion' | abpLocalization }}
             </button>
           </div>
           @if (criteria.length > 0) {
             <table class="table table-sm">
-              <thead><tr><th>{{ '::Name' | abpLocalization }}</th><th>Weight %</th><th>Max Score</th><th></th></tr></thead>
+              <thead><tr><th>{{ '::Name' | abpLocalization }}</th><th>{{ '::WeightPercent' | abpLocalization }}</th><th>{{ '::MaxScore' | abpLocalization }}</th><th></th></tr></thead>
               <tbody>
                 @for (c of criteria.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(c)">
