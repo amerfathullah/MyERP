@@ -36,7 +36,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
     @if (loading()) {
       <div class="d-flex justify-content-center py-5">
         <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">{{ '::LoadingEllipsis' | abpLocalization }}</span>
         </div>
       </div>
     } @else if (entity(); as customer) {
@@ -143,9 +143,9 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               <div class="col-12 col-md-4 text-md-end text-muted small d-flex align-items-center justify-content-md-end gap-2">
                 @if (overviewLoading()) {
                   <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
-                  <span>Refreshing...</span>
+                  <span>{{ '::Refreshing' | abpLocalization }}</span>
                 } @else if (overview(); as ov) {
-                  <span>As of {{ ov.asOfDate | date:'mediumDate' }}</span>
+                  <span>{{ '::AsOf' | abpLocalization }} {{ ov.asOfDate | date:'mediumDate' }}</span>
                 }
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshOverview()" [title]="'::Refresh' | abpLocalization">
                   <i class="fas fa-sync-alt"></i>
@@ -166,7 +166,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               <div>
                 <i class="fas fa-exclamation-triangle me-2 fs-5 text-warning"></i>
                 <span>
-                  Customer has unallocated advances of
+                  {{ '::CustomerHasUnallocatedAdvancesOf' | abpLocalization }}
                   <strong>{{ ov.currency }} {{ ov.unallocatedAdvances | number:'1.2-2' }}</strong>.
                 </span>
               </div>
@@ -176,10 +176,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   [queryParams]="{ partyType: 'Customer', partyId: entityId }"
                   class="btn btn-sm btn-dark">
                   <i class="fas fa-hand-holding-usd me-1"></i>
-                  Reconcile with {{ ov.position?.outstanding?.unpaidCount }} unpaid {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? 'invoice' : 'invoices') }}
+                  {{ '::ReconcileWith' | abpLocalization }} {{ ov.position?.outstanding?.unpaidCount }} {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? '::UnpaidInvoice' : '::UnpaidInvoicesLower') | abpLocalization }}
                 </a>
               } @else {
-                <span class="badge bg-light text-dark border">Credit balance, no invoices to apply it to</span>
+                <span class="badge bg-light text-dark border">{{ '::CreditBalanceNoInvoicesToApply' | abpLocalization }}</span>
               }
             </div>
           }
@@ -195,7 +195,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     {{ ov.currency }} {{ (ov.position?.netSales?.value ?? 0) | number:'1.2-2' }}
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
-                    <span>{{ ov.position?.netSales?.count ?? 0 }} invoices</span>
+                    <span>{{ ov.position?.netSales?.count ?? 0 }} {{ '::InvoicesLower' | abpLocalization }}</span>
                     @if ($safeNavigationMigration(ov.position?.netSales?.delta) !== null && $safeNavigationMigration(ov.position?.netSales?.delta) !== undefined) {
                       <span class="badge" [class.bg-success]="(ov.position?.netSales?.delta ?? 0) >= 0" [class.bg-danger]="(ov.position?.netSales?.delta ?? 0) < 0">
                         <i class="fas" [class.fa-arrow-up]="(ov.position?.netSales?.delta ?? 0) >= 0" [class.fa-arrow-down]="(ov.position?.netSales?.delta ?? 0) < 0"></i>
@@ -216,7 +216,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     {{ ov.currency }} {{ (ov.position?.outstanding?.value ?? 0) | number:'1.2-2' }}
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
-                    <span>{{ ov.position?.outstanding?.unpaidCount ?? 0 }} unpaid</span>
+                    <span>{{ ov.position?.outstanding?.unpaidCount ?? 0 }} {{ '::UnpaidLower' | abpLocalization }}</span>
                     @if ($safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== null && $safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== undefined) {
                       <span class="badge bg-light text-dark border">
                         <i class="fas fa-clock me-1 text-info"></i>{{ ov.position?.outstanding?.daysToPay }}d DSO
@@ -237,9 +237,9 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     @if ((ov.position?.overdue?.value ?? 0) <= 0) {
-                      <span>Nothing overdue</span>
+                      <span>{{ '::NothingOverdue' | abpLocalization }}</span>
                     } @else if ((ov.position?.overdue?.count ?? 0) > 0) {
-                      <span>{{ ov.position?.overdue?.count }} overdue</span>
+                      <span>{{ ov.position?.overdue?.count }} {{ '::OverdueLower' | abpLocalization }}</span>
                     } @else {
                       <span></span>
                     }
@@ -249,7 +249,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                         {{ $safeNavigationMigration(ov.position?.overdue?.delta) | number:'1.1-1' }}%
                       </span>
                     } @else if ((ov.position?.overdue?.value ?? 0) > 0) {
-                      <span class="badge bg-danger">Action required</span>
+                      <span class="badge bg-danger">{{ '::ActionRequired' | abpLocalization }}</span>
                     }
                   </div>
                 </div>
@@ -266,18 +266,18 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     @if ((ov.unallocatedAdvances ?? 0) === 0) {
-                      <span>No unapplied payments</span>
+                      <span>{{ '::NoUnappliedPayments' | abpLocalization }}</span>
                     } @else if ((ov.position?.outstanding?.unpaidCount ?? 0) > 0) {
                       <a
                         routerLink="/accounting/payment-reconciliation"
                         [queryParams]="{ partyType: 'Customer', partyId: entityId }"
                         class="text-decoration-none text-primary fw-semibold text-truncate"
-                        title="Reconcile with {{ ov.position?.outstanding?.unpaidCount }} unpaid {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? 'invoice' : 'invoices') }}">
+                        [title]="('::ReconcileWith' | abpLocalization) + ' ' + ov.position?.outstanding?.unpaidCount + ' ' + (((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? '::UnpaidInvoice' : '::UnpaidInvoicesLower') | abpLocalization)">
                         <i class="fas fa-hand-holding-usd me-1"></i>
-                        Reconcile with {{ ov.position?.outstanding?.unpaidCount }} unpaid {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? 'invoice' : 'invoices') }}
+                        {{ '::ReconcileWith' | abpLocalization }} {{ ov.position?.outstanding?.unpaidCount }} {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? '::UnpaidInvoice' : '::UnpaidInvoicesLower') | abpLocalization }}
                       </a>
                     } @else {
-                      <span class="badge bg-light text-dark border">Credit balance</span>
+                      <span class="badge bg-light text-dark border">{{ '::CreditBalance' | abpLocalization }}</span>
                     }
                   </div>
                 </div>
@@ -315,13 +315,13 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                       </div>
                       @if ((ov.position?.credit?.usedPct ?? 0) > 100) {
                         <div class="text-danger small mt-1 fw-semibold">
-                          <i class="fas fa-exclamation-circle me-1"></i>Over credit limit by {{ ov.currency }} {{ ((ov.position?.outstanding?.value ?? 0) - (ov.position?.credit?.limit ?? 0)) | number:'1.2-2' }}
+                          <i class="fas fa-exclamation-circle me-1"></i>{{ '::OverCreditLimitBy' | abpLocalization }} {{ ov.currency }} {{ ((ov.position?.outstanding?.value ?? 0) - (ov.position?.credit?.limit ?? 0)) | number:'1.2-2' }}
                         </div>
                       }
                     </div>
                   } @else {
                     <div class="mt-2 pt-1 border-top small text-muted">
-                      <span>No limit enforced</span>
+                      <span>{{ '::NoLimitEnforced' | abpLocalization }}</span>
                     </div>
                   }
                 </div>
@@ -338,7 +338,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               </div>
               @if (ov.trend?.average && ov.trend!.average > 0) {
                 <span class="badge bg-light text-dark border">
-                  Monthly Avg: {{ ov.currency }} {{ $safeNavigationMigration(ov.trend?.average) | number:'1.0-0' }}
+                  {{ '::MonthlyAvg' | abpLocalization }}: {{ ov.currency }} {{ $safeNavigationMigration(ov.trend?.average) | number:'1.0-0' }}
                 </span>
               }
             </div>
@@ -370,13 +370,13 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                 </div>
                 <div class="d-flex justify-content-between align-items-center mt-2 small text-muted">
                   <div>
-                    <span class="badge bg-primary me-1">&nbsp;</span> Closed Months
-                    <span class="badge bg-info text-dark ms-3 me-1">&nbsp;</span> MTD (Month-To-Date)
+                    <span class="badge bg-primary me-1">&nbsp;</span> {{ '::ClosedMonths' | abpLocalization }}
+                    <span class="badge bg-info text-dark ms-3 me-1">&nbsp;</span> {{ '::MtdMonthToDate' | abpLocalization }}
                   </div>
-                  <div>All values in {{ ov.currency }}</div>
+                  <div>{{ '::AllValuesIn' | abpLocalization }} {{ ov.currency }}</div>
                 </div>
               } @else {
-                <div class="text-center text-muted py-4">No sales data for this period</div>
+                <div class="text-center text-muted py-4">{{ '::NoSalesDataForThisPeriod' | abpLocalization }}</div>
               }
             </div>
           </div>
@@ -392,10 +392,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </span>
                   @if ((ov.ageing?.overdue ?? 0) > 0) {
                     <span class="badge bg-danger">
-                      Overdue: {{ ov.currency }} {{ $safeNavigationMigration(ov.ageing?.overdue) | number:'1.2-2' }} ({{ $safeNavigationMigration(ov.ageing?.overduePct) | number:'1.0-0' }}% of unpaid invoices)
+                      {{ '::Overdue' | abpLocalization }}: {{ ov.currency }} {{ $safeNavigationMigration(ov.ageing?.overdue) | number:'1.2-2' }} ({{ $safeNavigationMigration(ov.ageing?.overduePct) | number:'1.0-0' }}% {{ '::OfUnpaidInvoices' | abpLocalization }})
                     </span>
                   } @else {
-                    <span class="badge bg-success">No overdue</span>
+                    <span class="badge bg-success">{{ '::NoOverdue' | abpLocalization }}</span>
                   }
                 </div>
                 <div class="card-body">
@@ -421,7 +421,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     }
                   </div>
                   <div class="text-muted small mt-3 text-center">
-                    Total Receivables: <strong>{{ ov.currency }} {{ (ov.ageing?.total ?? 0) | number:'1.2-2' }}</strong>
+                    {{ '::TotalReceivables' | abpLocalization }}: <strong>{{ ov.currency }} {{ (ov.ageing?.total ?? 0) | number:'1.2-2' }}</strong>
                   </div>
                 </div>
               </div>
@@ -438,20 +438,20 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <!-- Quotations -->
                     <div class="col-6">
                       <div class="p-2 border rounded bg-light">
-                        <div class="text-muted small">Quotations</div>
+                        <div class="text-muted small">{{ '::Quotations' | abpLocalization }}</div>
                         <div class="fs-6 fw-bold text-dark">{{ ov.currency }} {{ (ov.pipeline?.quotations?.value ?? 0) | number:'1.2-2' }}</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">{{ ov.pipeline?.quotations?.count ?? 0 }} open</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ ov.pipeline?.quotations?.count ?? 0 }} {{ '::OpenLower' | abpLocalization }}</div>
                       </div>
                     </div>
                     <!-- Delivery -->
                     <div class="col-6">
                       <div class="p-2 border rounded bg-light">
-                        <div class="text-muted small">Delivery to be Made</div>
+                        <div class="text-muted small">{{ '::DeliveryToBeMade' | abpLocalization }}</div>
                         <div class="fs-6 fw-bold text-dark">{{ ov.currency }} {{ (ov.pipeline?.delivery?.value ?? 0) | number:'1.2-2' }}</div>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                          {{ ov.pipeline?.delivery?.count ?? 0 }} orders
+                          {{ ov.pipeline?.delivery?.count ?? 0 }} {{ '::OrdersLower' | abpLocalization }}
                           @if ((ov.pipeline?.delivery?.pastDue ?? 0) > 0) {
-                            <span class="badge bg-danger ms-1">{{ ov.pipeline?.delivery?.pastDue }} past due</span>
+                            <span class="badge bg-danger ms-1">{{ ov.pipeline?.delivery?.pastDue }} {{ '::PastDue' | abpLocalization }}</span>
                           }
                         </div>
                       </div>
@@ -459,20 +459,20 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <!-- Billing -->
                     <div class="col-6">
                       <div class="p-2 border rounded bg-light">
-                        <div class="text-muted small">To be Billed</div>
+                        <div class="text-muted small">{{ '::ToBeBilled' | abpLocalization }}</div>
                         <div class="fs-6 fw-bold text-dark">{{ ov.currency }} {{ (ov.pipeline?.billing?.value ?? 0) | number:'1.2-2' }}</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">{{ ov.pipeline?.billing?.count ?? 0 }} orders</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ ov.pipeline?.billing?.count ?? 0 }} {{ '::OrdersLower' | abpLocalization }}</div>
                       </div>
                     </div>
                     <!-- Invoices -->
                     <div class="col-6">
                       <div class="p-2 border rounded bg-light">
-                        <div class="text-muted small">Unpaid Invoices</div>
+                        <div class="text-muted small">{{ '::UnpaidInvoices' | abpLocalization }}</div>
                         <div class="fs-6 fw-bold text-dark">{{ ov.currency }} {{ (ov.pipeline?.invoices?.value ?? 0) | number:'1.2-2' }}</div>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                          {{ ov.pipeline?.invoices?.count ?? 0 }} invoices
+                          {{ ov.pipeline?.invoices?.count ?? 0 }} {{ '::InvoicesLower' | abpLocalization }}
                           @if ((ov.pipeline?.invoices?.overdue ?? 0) > 0) {
-                            <span class="badge bg-danger ms-1">{{ ov.pipeline?.invoices?.overdue }} overdue</span>
+                            <span class="badge bg-danger ms-1">{{ ov.pipeline?.invoices?.overdue }} {{ '::OverdueLower' | abpLocalization }}</span>
                           }
                         </div>
                       </div>
@@ -509,18 +509,18 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                 </div>
               } @else if (transactions().length === 0) {
-                <div class="text-center text-muted py-4">No recent transactions found</div>
+                <div class="text-center text-muted py-4">{{ '::NoRecentTransactionsFound' | abpLocalization }}</div>
               } @else {
                 <div class="table-responsive">
                   <table class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-light">
                       <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Number</th>
-                        <th>Status</th>
-                        <th class="text-end">Amount</th>
-                        <th class="text-end">Outstanding</th>
+                        <th>{{ '::Date' | abpLocalization }}</th>
+                        <th>{{ '::Type' | abpLocalization }}</th>
+                        <th>{{ '::Number' | abpLocalization }}</th>
+                        <th>{{ '::Status' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                        <th class="text-end">{{ '::Outstanding' | abpLocalization }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -614,13 +614,13 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     </tr>
                     @if (customer.soRequired) {
                       <tr>
-                        <th class="text-muted">Invoice without Sales Order allowed</th>
+                        <th class="text-muted">{{ '::InvoiceWithoutSalesOrderAllowed' | abpLocalization }}</th>
                         <td><span class="badge bg-warning text-dark">{{ '::Yes' | abpLocalization }}</span></td>
                       </tr>
                     }
                     @if (customer.dnRequired) {
                       <tr>
-                        <th class="text-muted">Invoice without Delivery Note allowed</th>
+                        <th class="text-muted">{{ '::InvoiceWithoutDeliveryNoteAllowed' | abpLocalization }}</th>
                         <td><span class="badge bg-info text-dark">{{ '::Yes' | abpLocalization }}</span></td>
                       </tr>
                     }

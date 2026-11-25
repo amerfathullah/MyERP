@@ -476,4 +476,43 @@ public class EInvoiceValidationService : ITransientDependency
 
         return errors;
     }
+
+    /// <summary>
+    /// Evaluates whether an LHDN e-Invoice submission should proceed, skip non-blockingly, or throw
+    /// per myinvois commit <c>d9adf36</c> (<c>original.py</c> / <c>submit_purchase.py: submit_document_wrapper</c>):
+    /// - Automatic submission hooks (<paramref name="isExplicitManualSubmission"/> = false): when Company LHDN
+    ///   e-Invoice is disabled or the invoice's submit-to-LHDN flag is unchecked, returns <c>false</c> (skip
+    ///   non-blockingly so normal Sales/Purchase Invoice submission succeeds).
+    /// - Explicit manual submission (<paramref name="isExplicitManualSubmission"/> = true): throws
+    ///   <see cref="BusinessException"/> when Company LHDN e-Invoice is disabled or unchecked.
+    /// </summary>
+    public static bool ShouldProceedWithLhdnSubmission(
+        bool companyLhdnEnabled,
+        bool submitToLhdnChecked,
+        bool isExplicitManualSubmission)
+    {
+        if (!companyLhdnEnabled)
+        {
+            if (isExplicitManualSubmission)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "LHDN Invoice Submission is not enabled in settings.");
+            }
+
+            return false;
+        }
+
+        if (!submitToLhdnChecked)
+        {
+            if (isExplicitManualSubmission)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Invoice is not marked for submission to LHDN.");
+            }
+
+            return false;
+        }
+
+        return true;
+    }
 }

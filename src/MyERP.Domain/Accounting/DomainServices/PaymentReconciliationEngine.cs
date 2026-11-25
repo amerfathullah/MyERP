@@ -618,6 +618,55 @@ public class PaymentReconciliationEngine : DomainService
 
         return totalRestored;
     }
+
+    /// <summary>
+    /// Validates <c>payment_limit</c> on Payment Reconciliation before fetching unreconciled entries
+    /// per ERPNext PR #66304 (<c>payment_reconciliation.py: validate_payment_limit</c>):
+    /// treats null/empty/0 as no limit (returns 0), and rejects non-integer or negative values.
+    /// </summary>
+    public static int ValidatePaymentReconciliationLimit(object? paymentLimit)
+    {
+        if (paymentLimit == null)
+        {
+            return 0;
+        }
+
+        int parsed;
+        if (paymentLimit is int i)
+        {
+            parsed = i;
+        }
+        else if (paymentLimit is long l && l is >= int.MinValue and <= int.MaxValue)
+        {
+            parsed = (int)l;
+        }
+        else if (paymentLimit is string s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(s.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out parsed))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Payment Limit must be a non-negative integer");
+            }
+        }
+        else
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Payment Limit must be a non-negative integer");
+        }
+
+        if (parsed < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Payment Limit must be a non-negative integer");
+        }
+
+        return parsed;
+    }
 }
 
 /// <summary>An unreconciled payment available for allocation.</summary>

@@ -3539,6 +3539,48 @@ public class StockEntryManager : DomainService
                 .WithData("detail", $"Not permitted for company {warehouseCompanyId.Value}.");
         }
     }
+
+    /// <summary>
+    /// Validates that every distinct source and target warehouse across Stock Entry rows belongs to
+    /// <paramref name="stockEntryCompanyId"/> BEFORE reading rates (<c>set_actual_qty</c>) and on save
+    /// per ERPNext PR #65938 (<c>stock_entry.py: validate_warehouses_company</c>).
+    /// </summary>
+    public static void ValidateAllRowWarehousesBelongToCompany(
+        Guid stockEntryCompanyId,
+        IEnumerable<(Guid? SourceWarehouseId, Guid? TargetWarehouseId)>? items,
+        IReadOnlyDictionary<Guid, Guid>? warehouseCompanyById)
+    {
+        if (items == null || warehouseCompanyById == null)
+        {
+            return;
+        }
+
+        var distinctWarehouses = new HashSet<Guid>();
+        foreach (var row in items)
+        {
+            if (row.SourceWarehouseId.HasValue && row.SourceWarehouseId.Value != Guid.Empty)
+            {
+                distinctWarehouses.Add(row.SourceWarehouseId.Value);
+            }
+
+            if (row.TargetWarehouseId.HasValue && row.TargetWarehouseId.Value != Guid.Empty)
+            {
+                distinctWarehouses.Add(row.TargetWarehouseId.Value);
+            }
+        }
+
+        foreach (var whId in distinctWarehouses)
+        {
+            if (warehouseCompanyById.TryGetValue(whId, out var whCompanyId) && whCompanyId != stockEntryCompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("warehouseId", whId)
+                    .WithData("warehouseCompanyId", whCompanyId)
+                    .WithData("stockEntryCompanyId", stockEntryCompanyId)
+                    .WithData("detail", $"Warehouse {whId} does not belong to Stock Entry company {stockEntryCompanyId}.");
+            }
+        }
+    }
 }
 
 public sealed record OverflowReservedBatchRowResult(

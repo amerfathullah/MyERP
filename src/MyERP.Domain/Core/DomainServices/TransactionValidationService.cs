@@ -601,4 +601,44 @@ public class TransactionValidationService : DomainService
     {
         return callerIgnorePermissions;
     }
+
+    /// <summary>
+    /// Filters Party Types by an optional <c>account</c> filter per ERPNext PR #66626
+    /// (<c>party_type.py: get_party_type</c>):
+    /// - When <paramref name="accountFilter"/> is provided, returns an empty list if it is not a string
+    ///   or if the caller lacks read/select permission on that Account.
+    /// - When the account's type is <c>Receivable</c> or <c>Payable</c>, returns Party Types matching
+    ///   that <paramref name="accountType"/> plus <c>Employee</c>.
+    /// </summary>
+    public static IReadOnlyList<string> FilterPartyTypesByAccountFilter(
+        object? accountFilter,
+        bool hasAccountPermission,
+        string? accountType,
+        IEnumerable<(string PartyTypeName, string? AccountType)>? allPartyTypes)
+    {
+        if (allPartyTypes == null)
+        {
+            return Array.Empty<string>();
+        }
+
+        if (accountFilter != null)
+        {
+            if (accountFilter is not string accountStr || string.IsNullOrWhiteSpace(accountStr) || !hasAccountPermission)
+            {
+                return Array.Empty<string>();
+            }
+
+            if (string.Equals(accountType, "Receivable", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(accountType, "Payable", StringComparison.OrdinalIgnoreCase))
+            {
+                return allPartyTypes
+                    .Where(p => string.Equals(p.AccountType, accountType, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(p.PartyTypeName, "Employee", StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.PartyTypeName)
+                    .ToList();
+            }
+        }
+
+        return allPartyTypes.Select(p => p.PartyTypeName).ToList();
+    }
 }

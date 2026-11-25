@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66000, #66259, #66260, #66292, #66299, #66329, #66444, #66536, #66588, #66596, #66600, #66647, #66690, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65938, #65961, #66000, #66259, #66260, #66292, #66299, #66304, #66326, #66329, #66444, #66536, #66588, #66596, #66600, #66626, #66647, #66690, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
 /// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67957, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -2581,5 +2581,54 @@ public class UpstreamBatch42ParityTests
             otherEmployeeSameUserAndCompanyHasPermission: false,
             otherEmployeeStillLinkedToUser: false);
         lastEmployee.ShouldBe((RemoveEmployeePermission: true, RemoveCompanyPermission: true, RemoveEmployeeRole: true));
+    }
+
+    [Fact]
+    public void Pr65938_Pr66304_Pr66326_Pr66626_MyInvoisD9adf36_SeWhCo_PayReconLimit_DisposalPerm_PartyTypeFilter_LhdnAutoSkip_Parity()
+    {
+        // PR #66304: Payment Reconciliation limit rejects negative and non-integer inputs
+        PaymentReconciliationEngine.ValidatePaymentReconciliationLimit(null).ShouldBe(0);
+        PaymentReconciliationEngine.ValidatePaymentReconciliationLimit("25").ShouldBe(25);
+        Should.Throw<BusinessException>(() => PaymentReconciliationEngine.ValidatePaymentReconciliationLimit(-1))
+            .Data["detail"]!.ToString()!.ShouldContain("non-negative integer");
+        Should.Throw<BusinessException>(() => PaymentReconciliationEngine.ValidatePaymentReconciliationLimit("abc"))
+            .Data["detail"]!.ToString()!.ShouldContain("non-negative integer");
+
+        // PR #66626: Party Type account filter returns empty on non-string or unpermitted Account, includes Employee for AR/AP
+        var partyTypes = new (string, string?)[]
+        {
+            ("Customer", "Receivable"),
+            ("Supplier", "Payable"),
+            ("Employee", "Payable"),
+            ("Shareholder", null),
+        };
+        TransactionValidationService.FilterPartyTypesByAccountFilter(123, true, "Receivable", partyTypes).ShouldBeEmpty();
+        TransactionValidationService.FilterPartyTypesByAccountFilter("Debtors", false, "Receivable", partyTypes).ShouldBeEmpty();
+        TransactionValidationService.FilterPartyTypesByAccountFilter("Debtors", true, "Receivable", partyTypes)
+            .ShouldBe(new[] { "Customer", "Employee" });
+
+        // PR #65938: Stock Entry validates every distinct source/target warehouse belongs to Stock Entry company
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var whA = Guid.NewGuid();
+        var whB = Guid.NewGuid();
+        var whMap = new Dictionary<Guid, Guid> { [whA] = compA, [whB] = compB };
+        StockEntryManager.ValidateAllRowWarehousesBelongToCompany(compA, new[] { ((Guid?)whA, (Guid?)null) }, whMap);
+        Should.Throw<BusinessException>(() =>
+            StockEntryManager.ValidateAllRowWarehousesBelongToCompany(compA, new[] { ((Guid?)whA, (Guid?)whB) }, whMap));
+
+        // PR #66326: Asset disposal defaults endpoint requires Company read permission
+        MyERP.Assets.DomainServices.AssetLifecycleManager.ValidateCompanyAccessForDisposalDefaults(compA, true);
+        Should.Throw<BusinessException>(() =>
+            MyERP.Assets.DomainServices.AssetLifecycleManager.ValidateCompanyAccessForDisposalDefaults(compA, false));
+
+        // MyInvois commit d9adf36: Auto-submit hook skips non-blockingly when LHDN disabled, manual submit throws
+        MyERP.EInvoice.Services.EInvoiceValidationService.ShouldProceedWithLhdnSubmission(
+            companyLhdnEnabled: false, submitToLhdnChecked: true, isExplicitManualSubmission: false).ShouldBeFalse();
+        Should.Throw<BusinessException>(() =>
+            MyERP.EInvoice.Services.EInvoiceValidationService.ShouldProceedWithLhdnSubmission(
+                companyLhdnEnabled: false, submitToLhdnChecked: true, isExplicitManualSubmission: true));
+        MyERP.EInvoice.Services.EInvoiceValidationService.ShouldProceedWithLhdnSubmission(
+            companyLhdnEnabled: true, submitToLhdnChecked: true, isExplicitManualSubmission: false).ShouldBeTrue();
     }
 }

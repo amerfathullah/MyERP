@@ -506,4 +506,20 @@ public class AssetLifecycleManager : DomainService
         var isEntered = rateOfDepreciation.HasValue && rateOfDepreciation.Value != 0m;
         return (existingExpectedValueAfterUsefulLife, isEntered);
     }
+
+    /// <summary>
+    /// Enforces Company read permission on the whitelisted disposal account and cost center defaults
+    /// lookup per ERPNext PR #66326 (<c>asset/depreciation.py: get_disposal_account_and_cost_center</c>).
+    /// </summary>
+    public static void ValidateCompanyAccessForDisposalDefaults(
+        Guid companyId,
+        bool hasCompanyReadPermission)
+    {
+        if (!hasCompanyReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("companyId", companyId)
+                .WithData("detail", $"Not permitted to read Company {companyId} disposal defaults.");
+        }
+    }
 }
