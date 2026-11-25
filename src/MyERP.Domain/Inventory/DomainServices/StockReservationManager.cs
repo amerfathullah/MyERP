@@ -3066,7 +3066,41 @@ public class StockReservationManager : DomainService
 
         return total;
     }
+
+    /// <summary>
+    /// Builds the Subcontracting Order Unreserve dialog rows using remaining held quantity
+    /// (<c>ReservedQty - DeliveredQty - TransferredQty - ConsumedQty</c>) rather than
+    /// <c>ReservedQty - DeliveredQty</c> per ERPNext PR #67551
+    /// (<c>subcontracting_order.js: unreserve_stock</c> / <c>stock_reservation.js: get_held_qty</c>):
+    /// omits entries with <c>heldQty &lt;= 0</c> so transferred or consumed stock is never shown for unreserve.
+    /// </summary>
+    public static IReadOnlyList<SubcontractingUnreserveDialogRow> BuildSubcontractingOrderUnreserveDialogRows(
+        IEnumerable<(Guid SreId, Guid ItemId, Guid WarehouseId, decimal ReservedQty, decimal DeliveredQty, decimal TransferredQty, decimal ConsumedQty)>? entries)
+    {
+        var rows = new List<SubcontractingUnreserveDialogRow>();
+        if (entries == null)
+        {
+            return rows;
+        }
+
+        foreach (var entry in entries)
+        {
+            var heldQty = entry.ReservedQty - entry.DeliveredQty - entry.TransferredQty - entry.ConsumedQty;
+            if (heldQty > 0m)
+            {
+                rows.Add(new SubcontractingUnreserveDialogRow(entry.SreId, entry.ItemId, entry.WarehouseId, heldQty));
+            }
+        }
+
+        return rows;
+    }
 }
+
+public readonly record struct SubcontractingUnreserveDialogRow(
+    Guid StockReservationEntryId,
+    Guid ItemId,
+    Guid WarehouseId,
+    decimal HeldQty);
 
 public readonly record struct SalesOrderReservedQtyRow(
     bool IsSubmitted,

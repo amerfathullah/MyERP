@@ -1277,6 +1277,49 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return Math.Max(0m, Math.Round(plannedQty - committed, precision, MidpointRounding.AwayFromZero));
     }
+
+    /// <summary>
+    /// Orders Production Planning Report parent-document rows (e.g. Work Orders) with deterministic
+    /// tie-breaking by <c>DocumentName</c> after optional primary date ordering per ERPNext PR #66690
+    /// (<c>production_planning_report.py</c>).
+    /// </summary>
+    public static IReadOnlyList<(string DocumentName, DateTime? PrimaryDate)> OrderProductionPlanningParentRows(
+        IEnumerable<(string DocumentName, DateTime? PrimaryDate)>? rows,
+        bool orderByPrimaryDate)
+    {
+        if (rows == null)
+        {
+            return Array.Empty<(string, DateTime?)>();
+        }
+
+        return orderByPrimaryDate
+            ? rows.OrderBy(r => r.PrimaryDate).ThenBy(r => r.DocumentName, StringComparer.Ordinal).ToList()
+            : rows.OrderBy(r => r.DocumentName, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// Orders Production Planning Report child rows (e.g. Sales Order Item / Material Request Item) with
+    /// deterministic tie-breaking by <c>(ParentDocumentName, RowIdx)</c> after optional primary date ordering
+    /// per ERPNext PR #66690 (<c>production_planning_report.py</c>).
+    /// </summary>
+    public static IReadOnlyList<(string ParentDocumentName, int RowIdx, DateTime? PrimaryDate)> OrderProductionPlanningChildRows(
+        IEnumerable<(string ParentDocumentName, int RowIdx, DateTime? PrimaryDate)>? rows,
+        bool orderByPrimaryDate)
+    {
+        if (rows == null)
+        {
+            return Array.Empty<(string, int, DateTime?)>();
+        }
+
+        return orderByPrimaryDate
+            ? rows.OrderBy(r => r.PrimaryDate)
+                .ThenBy(r => r.ParentDocumentName, StringComparer.Ordinal)
+                .ThenBy(r => r.RowIdx)
+                .ToList()
+            : rows.OrderBy(r => r.ParentDocumentName, StringComparer.Ordinal)
+                .ThenBy(r => r.RowIdx)
+                .ToList();
+    }
 }
 
 public sealed record OpenManufactureMaterialRequestCandidate(

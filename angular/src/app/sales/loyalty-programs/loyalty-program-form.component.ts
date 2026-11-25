@@ -27,12 +27,12 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
             <div class="col-md-3">
               <label class="form-label">{{ '::ConversionFactor' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="conversionFactor" step="0.01">
-              <small class="text-muted">Points = FLOOR(amount / factor)</small>
+              <small class="text-muted">{{ '::PointsFormulaHint' | abpLocalization }}</small>
             </div>
             <div class="col-md-3">
               <label class="form-label">{{ '::ExpiryDays' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="expiryDurationDays">
-              <small class="text-muted">0 = never expires</small>
+              <small class="text-muted">{{ '::ZeroNeverExpires' | abpLocalization }}</small>
             </div>
           </div>
         </div></div>
@@ -45,15 +45,15 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
             </button>
           </div>
           @if (tiers.length === 0) {
-            <p class="text-muted">Add at least one tier. The lowest tier must have Min Spent = 0.</p>
+            <p class="text-muted">{{ '::AddAtLeastOneTierHint' | abpLocalization }}</p>
           }
           @if (tiers.length > 0) {
           <table class="table table-sm">
             <thead><tr>
               <th>{{ '::TierName' | abpLocalization }}</th>
-              <th>Min Spent</th>
-              <th>Collection Factor</th>
-              <th>Redemption Factor</th>
+              <th>{{ '::MinSpent' | abpLocalization }}</th>
+              <th>{{ '::CollectionFactor' | abpLocalization }}</th>
+              <th>{{ '::RedemptionFactor' | abpLocalization }}</th>
               <th></th>
             </tr></thead>
             <tbody>

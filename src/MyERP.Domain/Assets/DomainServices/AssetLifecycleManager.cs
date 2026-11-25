@@ -476,4 +476,34 @@ public class AssetLifecycleManager : DomainService
             precision,
             MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Determines whether the Asset form should auto-compute <c>rate_of_depreciation</c> for a finance book row
+    /// per ERPNext PR #67961 (<c>asset.js: set_depreciation_rate</c>):
+    /// skips auto-recomputation for <c>Written Down Value</c> when the user explicitly entered a depreciation rate
+    /// (<paramref name="isRateOfDepreciationEntered"/> = true), allowing typed WDV rate and salvage value to coexist.
+    /// </summary>
+    public static bool ShouldAutoComputeWdvDepreciationRate(
+        string? depreciationMethod,
+        bool isRateOfDepreciationEntered)
+    {
+        var isWdv = string.Equals(depreciationMethod?.Trim(), "Written Down Value", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(depreciationMethod?.Trim(), "WrittenDownValue", StringComparison.OrdinalIgnoreCase);
+
+        return !(isWdv && isRateOfDepreciationEntered);
+    }
+
+    /// <summary>
+    /// Resolves salvage value and the <c>is_rate_of_depreciation_entered</c> flag when a user edits
+    /// <c>rate_of_depreciation</c> on an Asset Finance Book row per ERPNext PR #67961 (<c>asset.js</c>):
+    /// preserves <paramref name="existingExpectedValueAfterUsefulLife"/> instead of zeroing it and sets
+    /// <c>IsRateOfDepreciationEntered</c> to <c>true</c> whenever the entered rate is non-zero.
+    /// </summary>
+    public static (decimal ExpectedValueAfterUsefulLife, bool IsRateOfDepreciationEntered) ResolveSalvageAndEnteredRateFlagOnRateEdit(
+        decimal? rateOfDepreciation,
+        decimal existingExpectedValueAfterUsefulLife)
+    {
+        var isEntered = rateOfDepreciation.HasValue && rateOfDepreciation.Value != 0m;
+        return (existingExpectedValueAfterUsefulLife, isEntered);
+    }
 }

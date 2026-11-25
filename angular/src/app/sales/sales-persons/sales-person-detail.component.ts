@@ -14,28 +14,28 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="person?.name ?? 'Sales Person'">
+    <abp-page [title]="person?.name ?? ('::SalesPerson' | abpLocalization)">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (person) {
         <div class="row g-3 mb-4">
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Commission Rate</div>
+              <div class="text-muted small">{{ '::CommissionRate' | abpLocalization }}</div>
               <div class="fs-3 fw-bold text-primary">{{ person.commissionRate }}%</div>
             </div></div>
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Type' | abpLocalization }}</div>
-              <div class="fs-5 fw-bold">{{ person.isGroup ? 'Group (Manager)' : 'Individual' }}</div>
+              <div class="fs-5 fw-bold">{{ (person.isGroup ? '::GroupManager' : '::Individual') | abpLocalization }}</div>
             </div></div>
           </div>
           <div class="col-md-4">
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="person.isEnabled ? 'bg-success' : 'bg-secondary'">
-                {{ person.isEnabled ? 'Active' : 'Disabled' }}
+                {{ (person.isEnabled ? '::Active' : '::Disabled') | abpLocalization }}
               </span>
               @if (person.isEnabled) {
                 <div class="mt-2">
@@ -50,17 +50,17 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
 
         @if (person.parentSalesPersonId) {
           <div class="alert alert-light">
-            <i class="fa fa-sitemap me-2"></i>Reports to: <strong>{{ person.parentSalesPersonName ?? person.parentSalesPersonId }}</strong>
+            <i class="fa fa-sitemap me-2"></i>{{ '::ReportsTo' | abpLocalization }}: <strong>{{ person.parentSalesPersonName ?? person.parentSalesPersonId }}</strong>
           </div>
         }
 
-        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">Targets</h6></div>
+        <div class="card mb-4"><div class="card-header"><h6 class="mb-0">{{ '::Targets' | abpLocalization }}</h6></div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>Fiscal Year</th>
-                <th class="text-end">Target Qty</th>
-                <th class="text-end">Target Amount</th>
+                <th>{{ '::FiscalYear' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TargetQty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::TargetAmount' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (t of person.targets; track t.fiscalYear) {
@@ -152,7 +152,7 @@ export class SalesPersonDetailComponent implements OnInit {
       if (status !== Confirmation.Status.confirm) return;
       this.service.disable(this.person.id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDisabled'); this.load(this.person.id); },
-        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+        error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
       });
     });
   }

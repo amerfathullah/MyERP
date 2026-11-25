@@ -17,7 +17,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="program?.name ?? 'Loyalty Program'">
+    <abp-page [title]="program?.name ?? ('::LoyaltyProgram' | abpLocalization)">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (program) {
@@ -26,7 +26,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::ConversionFactor' | abpLocalization }}</div>
               <div class="fs-4 fw-bold">{{ program.conversionFactor }}</div>
-              <div class="text-muted small">amount per point</div>
+              <div class="text-muted small">{{ '::AmountPerPoint' | abpLocalization }}</div>
             </div></div>
           </div>
           <div class="col-md-3">
@@ -45,7 +45,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
             <div class="card text-center h-100"><div class="card-body">
               <div class="text-muted small">{{ '::Status' | abpLocalization }}</div>
               <span class="badge fs-6" [class]="program.isEnabled ? 'bg-success' : 'bg-secondary'">
-                {{ program.isEnabled ? 'Active' : 'Disabled' }}
+                {{ (program.isEnabled ? '::Active' : '::Disabled') | abpLocalization }}
               </span>
             </div></div>
           </div>
@@ -56,9 +56,9 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
             <table class="table table-hover mb-0">
               <thead><tr>
                 <th>{{ '::TierName' | abpLocalization }}</th>
-                <th class="text-end">Min Spent</th>
-                <th class="text-end">Collection Factor</th>
-                <th class="text-end">Redemption Factor</th>
+                <th class="text-end">{{ '::MinSpent' | abpLocalization }}</th>
+                <th class="text-end">{{ '::CollectionFactor' | abpLocalization }}</th>
+                <th class="text-end">{{ '::RedemptionFactor' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (tier of program.tiers; track tier.name) {
@@ -79,7 +79,7 @@ import type { LoyaltyBalanceDto, LoyaltyPointEntryDto } from '../../proxy/sales/
 
         @if (program.expenseAccountId) {
           <div class="card mb-4"><div class="card-body">
-            <small class="text-muted">Expense Account ID: {{ program.expenseAccountId }}</small>
+            <small class="text-muted">{{ '::ExpenseAccountId' | abpLocalization }}: {{ program.expenseAccountId }}</small>
           </div></div>
         }
 

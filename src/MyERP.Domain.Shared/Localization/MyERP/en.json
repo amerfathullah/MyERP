@@ -7670,7 +7670,22 @@
     "CalculationMode": "Calculation Mode",
     "Conditions": "Conditions",
     "AnyCatchAll": "Any (catch-all)",
-    "FixedAmountNoConditions": "Fixed amount (no conditions)"
+    "FixedAmountNoConditions": "Fixed amount (no conditions)",
+    "GroupManager": "Group (Manager)",
+    "Individual": "Individual",
+    "LoyaltyProgram": "Loyalty Program",
+    "AmountPerPoint": "amount per point",
+    "ExpenseAccountId": "Expense Account ID",
+    "Fixed": "Fixed",
+    "BasedOnNetTotal": "Based on Net Total",
+    "BasedOnNetWeight": "Based on Net Weight",
+    "ConditionsForTieredModes": "Conditions (for tiered modes)",
+    "AddCondition": "Add Condition",
+    "ToZeroCatchAll": "To (0=catch-all)",
+    "LeaveEmptyForGlobal": "(leave empty for global)",
+    "PointsFormulaHint": "Points = FLOOR(amount / factor)",
+    "ZeroNeverExpires": "0 = never expires",
+    "AddAtLeastOneTierHint": "Add at least one tier. The lowest tier must have Min Spent = 0."
   }
 }
 

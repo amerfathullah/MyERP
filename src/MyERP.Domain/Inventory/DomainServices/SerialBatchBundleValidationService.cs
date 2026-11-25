@@ -1460,6 +1460,76 @@ public class SerialBatchBundleValidationService : DomainService
         var factor = conversionFactor > 0m ? conversionFactor : 1m;
         return Math.Round(Math.Abs(bundleTotalStockQty) / factor, qtyPrecision, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// Resolves the reference row link field and bundle field looked up when opening the Serial and Batch
+    /// Selector on a return row per ERPNext PR #66600 (<c>serial_and_batch_bundle.py: get_reference_serial_and_batch_bundle</c>):
+    /// - Checks <paramref name="rejectedQty"/> when <paramref name="isRejected"/> is true, otherwise <paramref name="qty"/>;
+    ///   returns <c>null</c> if the checked qty is non-negative.
+    /// - Supports all 6 returnable child DocTypes including <c>Subcontracting Receipt Item</c>.
+    /// - Picks <c>rejected_serial_and_batch_bundle</c> when <paramref name="isRejected"/> or
+    ///   <paramref name="returnQtyFromRejectedWarehouse"/> is true, else <c>serial_and_batch_bundle</c>.
+    /// </summary>
+    public static (string SourceRowField, string BundleField)? ResolveReferenceSerialAndBatchBundleField(
+        string? childDocType,
+        bool isRejected,
+        bool returnQtyFromRejectedWarehouse,
+        decimal qty,
+        decimal rejectedQty)
+    {
+        var checkedQty = isRejected ? rejectedQty : qty;
+        if (checkedQty >= 0m || string.IsNullOrWhiteSpace(childDocType))
+        {
+            return null;
+        }
+
+        var sourceField = childDocType.Trim() switch
+        {
+            "Sales Invoice Item" => "sales_invoice_item",
+            "Delivery Note Item" => "dn_detail",
+            "Purchase Receipt Item" => "purchase_receipt_item",
+            "Purchase Invoice Item" => "purchase_invoice_item",
+            "POS Invoice Item" => "pos_invoice_item",
+            "Subcontracting Receipt Item" => "subcontracting_receipt_item",
+            _ => null
+        };
+
+        if (sourceField == null)
+        {
+            return null;
+        }
+
+        var fromRejected = isRejected || returnQtyFromRejectedWarehouse;
+        var bundleField = fromRejected ? "rejected_serial_and_batch_bundle" : "serial_and_batch_bundle";
+        return (sourceField, bundleField);
+    }
+
+    /// <summary>
+    /// Determines whether the Serial and Batch Package Selector should preserve the initial rows it opened
+    /// with rather than re-fetching and replacing them per ERPNext PR #66600
+    /// (<c>serial_no_batch_selector.js</c>): keeps initial rows while <paramref name="keepInitialRows"/> is true
+    /// and <c>(qty, warehouse, basedOn)</c> remain unchanged.
+    /// </summary>
+    public static bool ShouldKeepInitialSelectorRows(
+        bool keepInitialRows,
+        decimal qty,
+        decimal initialQty,
+        Guid? warehouseId,
+        Guid? initialWarehouseId,
+        string? basedOn,
+        string? initialBasedOn)
+    {
+        if (!keepInitialRows)
+        {
+            return false;
+        }
+
+        var resolvedWh = warehouseId ?? initialWarehouseId;
+        var resolvedBasedOn = string.IsNullOrWhiteSpace(basedOn) ? initialBasedOn : basedOn;
+        return qty == initialQty
+            && resolvedWh == initialWarehouseId
+            && string.Equals(resolvedBasedOn, initialBasedOn, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public readonly record struct DocumentBatchRowUsage(

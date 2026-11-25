@@ -33,9 +33,9 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
             <div class="col-md-3">
               <label class="form-label">{{ '::Mode' | abpLocalization }}</label>
               <select class="form-select" formControlName="calculationMode">
-                <option [ngValue]="0">Fixed</option>
-                <option [ngValue]="1">Based on Net Total</option>
-                <option [ngValue]="2">Based on Net Weight</option>
+                <option [ngValue]="0">{{ '::Fixed' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::BasedOnNetTotal' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::BasedOnNetWeight' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-2">
@@ -47,14 +47,14 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
 
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title mb-0">Conditions (for tiered modes)</h6>
+            <h6 class="card-title mb-0">{{ '::ConditionsForTieredModes' | abpLocalization }}</h6>
             <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCondition()">
-              <i class="fa fa-plus me-1"></i>Add Condition
+              <i class="fa fa-plus me-1"></i>{{ '::AddCondition' | abpLocalization }}
             </button>
           </div>
           @if (conditions.length > 0) {
             <table class="table table-sm">
-              <thead><tr><th>From</th><th>To (0=catch-all)</th><th>{{ '::Amount' | abpLocalization }}</th><th></th></tr></thead>
+              <thead><tr><th>{{ '::From' | abpLocalization }}</th><th>{{ '::ToZeroCatchAll' | abpLocalization }}</th><th>{{ '::Amount' | abpLocalization }}</th><th></th></tr></thead>
               <tbody>
                 @for (cond of conditions.controls; track $index; let i = $index) {
                   <tr [formGroup]="$any(cond)">
@@ -70,10 +70,10 @@ import { ShippingRuleService } from '../../proxy/sales/shipping-rule.service';
         </div></div>
 
         <div class="card mb-3"><div class="card-body">
-          <h6 class="card-title">{{ '::Countries' | abpLocalization }} (leave empty for global)</h6>
+          <h6 class="card-title">{{ '::Countries' | abpLocalization }} {{ '::LeaveEmptyForGlobal' | abpLocalization }}</h6>
           <div class="d-flex gap-2 align-items-center">
             <input type="text" class="form-control form-control-sm" style="max-width:100px" [placeholder]="'::Placeholder:CountryCode' | abpLocalization" #countryInput>
-            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCountry(countryInput)">Add</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addCountry(countryInput)">{{ '::Add' | abpLocalization }}</button>
           </div>
           @if (countries.length > 0) {
             <div class="mt-2 d-flex gap-1 flex-wrap">

@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66647, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67553, #67554, #67555,
-/// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66600, #66647, #66690, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2391,5 +2391,74 @@ public class UpstreamBatch42ParityTests
             isDeliveryNote: true, isSalesInvoiceWithUpdateStock: false,
             isPurchaseReceipt: false, isPurchaseInvoiceWithUpdateStock: false)
             .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr66600_Pr66690_Pr67551_Pr67961_SelectorBundleRef_ProdPlanTieBreak_ScoUnreserveHeldQty_AssetWdvSalvage_Parity()
+    {
+        // PR #67551: Subcontracting Order unreserve dialog uses heldQty (reserved - delivered - transferred - consumed) > 0
+        var sreHeld = Guid.NewGuid();
+        var sreTransferred = Guid.NewGuid();
+        var dialogRows = StockReservationManager.BuildSubcontractingOrderUnreserveDialogRows(new[]
+        {
+            (sreHeld, Guid.NewGuid(), Guid.NewGuid(), ReservedQty: 10m, DeliveredQty: 2m, TransferredQty: 3m, ConsumedQty: 1m), // held=4
+            (sreTransferred, Guid.NewGuid(), Guid.NewGuid(), ReservedQty: 10m, DeliveredQty: 0m, TransferredQty: 10m, ConsumedQty: 0m), // held=0
+        });
+        dialogRows.Count.ShouldBe(1);
+        dialogRows[0].StockReservationEntryId.ShouldBe(sreHeld);
+        dialogRows[0].HeldQty.ShouldBe(4m);
+
+        // PR #67961: WDV asset form keeps salvage value when rate edited and skips auto-recompute when rate was entered
+        MyERP.Assets.DomainServices.AssetLifecycleManager.ShouldAutoComputeWdvDepreciationRate(
+            "Written Down Value", isRateOfDepreciationEntered: true).ShouldBeFalse();
+        MyERP.Assets.DomainServices.AssetLifecycleManager.ShouldAutoComputeWdvDepreciationRate(
+            "Written Down Value", isRateOfDepreciationEntered: false).ShouldBeTrue();
+        MyERP.Assets.DomainServices.AssetLifecycleManager.ShouldAutoComputeWdvDepreciationRate(
+            "Straight Line", isRateOfDepreciationEntered: true).ShouldBeTrue();
+        var (salvage, entered) = MyERP.Assets.DomainServices.AssetLifecycleManager.ResolveSalvageAndEnteredRateFlagOnRateEdit(
+            rateOfDepreciation: 20m, existingExpectedValueAfterUsefulLife: 500m);
+        salvage.ShouldBe(500m);
+        entered.ShouldBeTrue();
+
+        // PR #66600: Return bundle reference supports Subcontracting Receipt Item & rejected bundle, and selector keeps unchanged initial rows
+        var scrRef = SerialBatchBundleValidationService.ResolveReferenceSerialAndBatchBundleField(
+            "Subcontracting Receipt Item", isRejected: true, returnQtyFromRejectedWarehouse: false, qty: 0m, rejectedQty: -2m);
+        scrRef.ShouldBe(("subcontracting_receipt_item", "rejected_serial_and_batch_bundle"));
+
+        var prFromRejWh = SerialBatchBundleValidationService.ResolveReferenceSerialAndBatchBundleField(
+            "Purchase Receipt Item", isRejected: false, returnQtyFromRejectedWarehouse: true, qty: -3m, rejectedQty: 0m);
+        prFromRejWh.ShouldBe(("purchase_receipt_item", "rejected_serial_and_batch_bundle"));
+
+        SerialBatchBundleValidationService.ResolveReferenceSerialAndBatchBundleField(
+            "Delivery Note Item", isRejected: false, returnQtyFromRejectedWarehouse: false, qty: 5m, rejectedQty: 0m)
+            .ShouldBeNull();
+
+        var wh1 = Guid.NewGuid();
+        var wh2 = Guid.NewGuid();
+        SerialBatchBundleValidationService.ShouldKeepInitialSelectorRows(
+            keepInitialRows: true, qty: 5m, initialQty: 5m, warehouseId: null, initialWarehouseId: wh1, basedOn: null, initialBasedOn: "FIFO")
+            .ShouldBeTrue();
+        SerialBatchBundleValidationService.ShouldKeepInitialSelectorRows(
+            keepInitialRows: true, qty: 5m, initialQty: 5m, warehouseId: wh2, initialWarehouseId: wh1, basedOn: "FIFO", initialBasedOn: "FIFO")
+            .ShouldBeFalse();
+
+        // PR #66690: Production Planning Report breaks date ties by DocumentName / (ParentDocumentName, RowIdx)
+        var d1 = new DateTime(2026, 12, 1);
+        var orderedParents = ProductionPlanMaterialPlanningService.OrderProductionPlanningParentRows(
+            new[] { ("WO-002", (DateTime?)d1), ("WO-001", (DateTime?)d1) }, orderByPrimaryDate: true);
+        orderedParents[0].DocumentName.ShouldBe("WO-001");
+        orderedParents[1].DocumentName.ShouldBe("WO-002");
+
+        var orderedChildren = ProductionPlanMaterialPlanningService.OrderProductionPlanningChildRows(
+            new[]
+            {
+                ("SO-001", 3, (DateTime?)d1),
+                ("SO-001", 1, (DateTime?)d1),
+                ("SO-000", 2, (DateTime?)d1),
+            },
+            orderByPrimaryDate: true);
+        orderedChildren[0].ShouldBe(("SO-000", 2, (DateTime?)d1));
+        orderedChildren[1].ShouldBe(("SO-001", 1, (DateTime?)d1));
+        orderedChildren[2].ShouldBe(("SO-001", 3, (DateTime?)d1));
     }
 }
