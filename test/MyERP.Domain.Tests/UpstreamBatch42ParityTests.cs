@@ -20,7 +20,7 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2049,5 +2049,81 @@ public class UpstreamBatch42ParityTests
         drifted.Count.ShouldBe(2);
         drifted.ShouldContain((recvRow1, orderId, 5m));
         drifted.ShouldContain((recvRow2, orderId, 0m));
+    }
+
+    [Fact]
+    public void Pr68325_Pr68326_Pr68327_ProjectRowSalesAmount_BlankInvoiceProjectFallback_AndBillingCardOrderFilter_Parity()
+    {
+        var projA = Guid.NewGuid();
+        var projB = Guid.NewGuid();
+        var so1 = Guid.NewGuid();
+        var so2 = Guid.NewGuid();
+
+        // PR #68326: Total sales amount splits across SO row projects (header fallback for blank row project)
+        var orders = new[]
+        {
+            (true, (Guid?)projA, (IEnumerable<(Guid?, decimal)>)new (Guid?, decimal)[]
+            {
+                (null, 400m),  // inherits header projA
+                (projB, 600m), // attributed to row projB
+            }),
+            (false, (Guid?)projA, (IEnumerable<(Guid?, decimal)>)new (Guid?, decimal)[]
+            {
+                (projA, 999m), // draft -> excluded
+            }),
+        };
+        Project.CalculateProjectTotalSalesAmountByRowProject(projA, orders).ShouldBe(400m);
+        Project.CalculateProjectTotalSalesAmountByRowProject(projB, orders).ShouldBe(600m);
+
+        // PR #68326: Updating a row's project after submit refreshes both previous and current projects
+        var affected = Project.CollectAffectedProjectsOnSalesOrderUpdate(
+            projA, new Guid?[] { projA },
+            projA, new Guid?[] { projB });
+        affected.ShouldContain(projA);
+        affected.ShouldContain(projB);
+
+        // PR #68325: Cleared/blank row project string falls back to invoice header project
+        var billed = Project.CalculateProjectBilledAmountWithBlankRowFallback(
+            projA,
+            new[]
+            {
+                (true, (Guid?)projA, (IEnumerable<(string?, decimal)>)new (string?, decimal)[]
+                {
+                    ("", 250m),               // cleared string -> header projA
+                    ("   ", 150m),            // whitespace -> header projA
+                    (projB.ToString(), 500m), // explicit projB -> excluded
+                }),
+            });
+        billed.ShouldBe(400m);
+
+        // PR #68327: Billing card lists mixed header + row project orders un-truncated with null orderFilter
+        var card = Project.BuildProjectSalesOrderBillingCard(
+            projA,
+            new[]
+            {
+                new ProjectBillingSalesOrderInput(so1, "SO-001", new DateTime(2026, 1, 10), true, projA, new (Guid?, decimal)[] { (null, 300m) }),
+                new ProjectBillingSalesOrderInput(so2, "SO-002", new DateTime(2026, 1, 15), true, null, new (Guid?, decimal)[] { (projA, 700m), (projB, 100m) }),
+            },
+            listLimit: 1);
+        card.OrderFilter.ShouldBeNull();
+        card.TotalOrderCount.ShouldBe(2);
+        card.ListedOrders.Count.ShouldBe(2); // not truncated when OrderFilter is null
+        card.ListedOrders[0].OrderId.ShouldBe(so2);
+        card.ListedOrders[0].Amount.ShouldBe(700m);
+        card.ListedOrders[1].OrderId.ShouldBe(so1);
+        card.ListedOrders[1].Amount.ShouldBe(300m);
+
+        // Pure row-project orders get RowProject filter and obey listLimit
+        var rowOnlyCard = Project.BuildProjectSalesOrderBillingCard(
+            projA,
+            new[]
+            {
+                new ProjectBillingSalesOrderInput(so1, "SO-001", new DateTime(2026, 1, 10), true, null, new (Guid?, decimal)[] { (projA, 200m) }),
+                new ProjectBillingSalesOrderInput(so2, "SO-002", new DateTime(2026, 1, 15), true, null, new (Guid?, decimal)[] { (projA, 500m) }),
+            },
+            listLimit: 1);
+        rowOnlyCard.OrderFilter.ShouldBe("RowProject");
+        rowOnlyCard.TotalOrderCount.ShouldBe(2);
+        rowOnlyCard.ListedOrders.Count.ShouldBe(1);
     }
 }

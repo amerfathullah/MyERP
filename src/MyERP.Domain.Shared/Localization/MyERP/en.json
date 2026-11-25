@@ -7581,7 +7581,22 @@
     "ValueDifference": "Value Difference",
     "ActiveBundle": "Active Bundle",
     "BundleCancelled": "Bundle Cancelled",
-    "ConfirmFixCancelledSle": "This will mark stock ledger entries for the selected cancelled vouchers as cancelled and queue valuation reposting. Proceed?"
+    "ConfirmFixCancelledSle": "This will mark stock ledger entries for the selected cancelled vouchers as cancelled and queue valuation reposting. Proceed?",
+    "PartlyPaid": "Partly Paid",
+    "Unpaid": "Unpaid",
+    "TotalTerms": "Total Terms",
+    "ScheduledAmount": "Scheduled Amount",
+    "PaidOrInvoiced": "Paid / Invoiced",
+    "OverdueTerms": "Overdue Terms",
+    "PaymentTerm": "Payment Term",
+    "NoPaymentTermsScheduleRecordsMatch": "No payment terms schedule records match the criteria.",
+    "IssuedItem": "Issued Item",
+    "SourceWarehouseShort": "Source Wh",
+    "TargetWarehouseShort": "Target Wh",
+    "NewMedium": "New Medium",
+    "TimeslotsCount": "Timeslots Count",
+    "TimeslotsSuffix": "timeslot(s)",
+    "NoCommunicationMediaFound": "No communication media found."
   }
 }
 

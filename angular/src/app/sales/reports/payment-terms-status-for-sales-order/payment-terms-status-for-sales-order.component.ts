@@ -41,11 +41,11 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-3">
             <label class="form-label small">{{ '::Status' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="status">
-              <option value="">All Statuses</option>
-              <option value="Completed">Completed</option>
-              <option value="Partly Paid">Partly Paid</option>
-              <option value="Unpaid">Unpaid</option>
-              <option value="Overdue">Overdue</option>
+              <option value="">{{ '::AllStatuses' | abpLocalization }}</option>
+              <option value="Completed">{{ '::Completed' | abpLocalization }}</option>
+              <option value="Partly Paid">{{ '::PartlyPaid' | abpLocalization }}</option>
+              <option value="Unpaid">{{ '::Unpaid' | abpLocalization }}</option>
+              <option value="Overdue">{{ '::Overdue' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3 d-flex align-items-center pt-3">
@@ -70,32 +70,32 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-2">
               <div class="card text-center border-primary h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Sales Orders</div>
+                <div class="text-muted small">{{ '::SalesOrders' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-primary">{{ d.totalSalesOrders }}</div>
               </div></div>
             </div>
             <div class="col-md-2">
               <div class="card text-center border-info h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Total Terms</div>
+                <div class="text-muted small">{{ '::TotalTerms' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-info">{{ d.totalPaymentTerms }}</div>
               </div></div>
             </div>
             <div class="col-md-3">
               <div class="card text-center border-secondary h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Scheduled Amount</div>
+                <div class="text-muted small">{{ '::ScheduledAmount' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-secondary">{{ d.totalPaymentAmount | number:'1.2-2' }}</div>
               </div></div>
             </div>
             <div class="col-md-3">
               <div class="card text-center border-success h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Paid / Invoiced</div>
+                <div class="text-muted small">{{ '::PaidOrInvoiced' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-success">{{ d.totalPaidAmount | number:'1.2-2' }}</div>
               </div></div>
             </div>
             <div class="col-md-2">
               <div class="card text-center h-100 bg-light" [class.border-danger]="d.overdueTermsCount > 0">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Overdue Terms</div>
+                  <div class="text-muted small">{{ '::OverdueTerms' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold" [class.text-danger]="d.overdueTermsCount > 0" [class.text-muted]="d.overdueTermsCount === 0">
                     {{ d.overdueTermsCount }}
                   </div>
@@ -111,13 +111,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 <tr>
                   <th>{{ '::SalesOrder' | abpLocalization }}</th>
                   <th>{{ '::Customer' | abpLocalization }}</th>
-                  <th>Order Date</th>
-                  <th>Payment Term</th>
-                  <th>Due Date</th>
-                  <th class="text-end">Portion</th>
-                  <th class="text-end">Amount</th>
-                  <th class="text-end">Paid</th>
-                  <th>Invoices</th>
+                  <th>{{ '::OrderDate' | abpLocalization }}</th>
+                  <th>{{ '::PaymentTerm' | abpLocalization }}</th>
+                  <th>{{ '::DueDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Portion' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Paid' | abpLocalization }}</th>
+                  <th>{{ '::Invoices' | abpLocalization }}</th>
                   <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
@@ -146,13 +146,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     </td>
                     <td class="text-center">
                       @if (row.status === 'Completed') {
-                        <span class="badge bg-success">Completed</span>
+                        <span class="badge bg-success">{{ '::Completed' | abpLocalization }}</span>
                       } @else if (row.status === 'Partly Paid') {
-                        <span class="badge bg-warning text-dark">Partly Paid</span>
+                        <span class="badge bg-warning text-dark">{{ '::PartlyPaid' | abpLocalization }}</span>
                       } @else if (row.status === 'Overdue') {
-                        <span class="badge bg-danger">Overdue</span>
+                        <span class="badge bg-danger">{{ '::Overdue' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary">Unpaid</span>
+                        <span class="badge bg-secondary">{{ '::Unpaid' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>
@@ -160,7 +160,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 @if (d.rows.length === 0) {
                   <tr>
                     <td colspan="10" class="text-center py-4 text-muted">
-                      No payment terms schedule records match the criteria.
+                      {{ '::NoPaymentTermsScheduleRecordsMatch' | abpLocalization }}
                     </td>
                   </tr>
                 }

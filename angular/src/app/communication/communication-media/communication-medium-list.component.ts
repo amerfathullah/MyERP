@@ -15,8 +15,8 @@ import { CommunicationMediumDto } from '../../proxy/communication/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Communication Media</h5>
-        <a routerLink="/communication/communication-media/new" class="btn btn-primary btn-sm">New Medium</a>
+        <h5 class="card-title mb-0">{{ '::CommunicationMedia' | abpLocalization }}</h5>
+        <a routerLink="/communication/communication-media/new" class="btn btn-primary btn-sm">{{ '::NewMedium' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,11 +28,11 @@ import { CommunicationMediumDto } from '../../proxy/communication/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Type</th>
-              <th>Channel</th>
-              <th>Timeslots Count</th>
-              <th class="text-center" style="width: 100px;">Status</th>
-              <th class="text-end" style="width: 160px;">Actions</th>
+              <th>{{ '::Type' | abpLocalization }}</th>
+              <th>{{ '::Channel' | abpLocalization }}</th>
+              <th>{{ '::TimeslotsCount' | abpLocalization }}</th>
+              <th class="text-center" style="width: 100px;">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end" style="width: 160px;">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -44,20 +44,20 @@ import { CommunicationMediumDto } from '../../proxy/communication/models';
                   </a>
                 </td>
                 <td>{{ item.communicationChannel || '—' }}</td>
-                <td>{{ item.timeslots?.length || 0 }} timeslot(s)</td>
+                <td>{{ item.timeslots?.length || 0 }} {{ '::TimeslotsSuffix' | abpLocalization }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isDisabled ? 'bg-secondary' : 'bg-success'">
-                    {{ item.isDisabled ? 'Disabled' : 'Active' }}
+                    {{ (item.isDisabled ? '::Disabled' : '::Active') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/communication/communication-media', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/communication/communication-media', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No communication media found.</td>
+                <td colspan="5" class="text-center text-muted py-4">{{ '::NoCommunicationMediaFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

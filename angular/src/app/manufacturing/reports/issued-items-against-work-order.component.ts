@@ -56,7 +56,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Work Orders</div>
+                  <div class="text-muted small">{{ '::WorkOrders' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-primary">{{ d.totalWorkOrders }}</div>
                 </div>
               </div>
@@ -72,7 +72,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-info text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Quantity</div>
+                  <div class="text-muted small">{{ '::TotalQuantity' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-info">{{ d.totalQuantity | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -80,7 +80,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-success text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Amount</div>
+                  <div class="text-muted small">{{ '::TotalAmount' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-success">{{ d.totalAmount | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -94,14 +94,14 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <tr>
                   <th>{{ '::WorkOrder' | abpLocalization }}</th>
                   <th>{{ '::IssueDate' | abpLocalization }}</th>
-                  <th>Stock Entry</th>
-                  <th>Finished Good</th>
-                  <th>Issued Item</th>
+                  <th>{{ '::StockEntry' | abpLocalization }}</th>
+                  <th>{{ '::FinishedGood' | abpLocalization }}</th>
+                  <th>{{ '::IssuedItem' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                   <th>{{ '::Uom' | abpLocalization }}</th>
-                  <th class="text-end">Amount</th>
-                  <th>Source Wh</th>
-                  <th>Target Wh</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th>{{ '::SourceWarehouseShort' | abpLocalization }}</th>
+                  <th>{{ '::TargetWarehouseShort' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ProjectedQtyAtSource' | abpLocalization }}</th>
                 </tr>
               </thead>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -282,4 +283,224 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return projects;
     }
+
+    /// <summary>
+    /// Computes a Project's <c>TotalSalesAmount</c> by summing submitted Sales Order row base net amounts
+    /// whose effective project (<see cref="ResolveEffectiveRowProjectId"/>) equals <paramref name="projectId"/>
+    /// per ERPNext PR #68326 (<c>fix(projects): split total sales amount by sales order row project</c>).
+    /// </summary>
+    public static decimal CalculateProjectTotalSalesAmountByRowProject(
+        Guid projectId,
+        IEnumerable<(bool IsSubmitted, Guid? HeaderProjectId, IEnumerable<(Guid? RowProjectId, decimal BaseNetAmount)> Rows)>? salesOrders,
+        int precision = 2)
+    {
+        if (projectId == Guid.Empty || salesOrders == null)
+        {
+            return 0m;
+        }
+
+        decimal total = 0m;
+        foreach (var order in salesOrders)
+        {
+            if (!order.IsSubmitted || order.Rows == null)
+            {
+                continue;
+            }
+
+            foreach (var row in order.Rows)
+            {
+                if (ResolveEffectiveRowProjectId(row.RowProjectId, order.HeaderProjectId) == projectId)
+                {
+                    total += row.BaseNetAmount;
+                }
+            }
+        }
+
+        return Math.Round(total, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Collects all distinct project IDs affected when a submitted Sales Order's header or row projects
+    /// are updated after submit per ERPNext PR #68326 (<c>SalesOrder.on_update_after_submit</c>):
+    /// returns the union of previous and current effective project IDs so both old and new projects recalculate.
+    /// </summary>
+    public static IReadOnlySet<Guid> CollectAffectedProjectsOnSalesOrderUpdate(
+        Guid? previousHeaderProjectId,
+        IEnumerable<Guid?>? previousRowProjectIds,
+        Guid? currentHeaderProjectId,
+        IEnumerable<Guid?>? currentRowProjectIds)
+    {
+        var affected = new HashSet<Guid>();
+        foreach (var id in CollectEffectivePurchaseInvoiceProjectIds(previousHeaderProjectId, previousRowProjectIds))
+        {
+            affected.Add(id);
+        }
+
+        foreach (var id in CollectEffectivePurchaseInvoiceProjectIds(currentHeaderProjectId, currentRowProjectIds))
+        {
+            affected.Add(id);
+        }
+
+        return affected;
+    }
+
+    /// <summary>
+    /// Computes billed Sales Invoice amounts for a project where rows with a cleared/blank project string
+    /// (empty, whitespace, or <see cref="Guid.Empty"/>) fall back to the invoice header project
+    /// per ERPNext PR #68325 (<c>ProjectCostQueries.billed_items</c>: <c>NullIf(item.project, "").isnull()</c>).
+    /// </summary>
+    public static decimal CalculateProjectBilledAmountWithBlankRowFallback(
+        Guid projectId,
+        IEnumerable<(bool IsSubmitted, Guid? HeaderProjectId, IEnumerable<(string? RawRowProjectId, decimal BaseNetAmount)> Rows)>? salesInvoices,
+        int precision = 2)
+    {
+        if (projectId == Guid.Empty || salesInvoices == null)
+        {
+            return 0m;
+        }
+
+        decimal total = 0m;
+        foreach (var invoice in salesInvoices)
+        {
+            if (!invoice.IsSubmitted || invoice.Rows == null)
+            {
+                continue;
+            }
+
+            foreach (var row in invoice.Rows)
+            {
+                Guid? parsedRowProject = null;
+                if (!string.IsNullOrWhiteSpace(row.RawRowProjectId)
+                    && Guid.TryParse(row.RawRowProjectId.Trim(), out var parsed)
+                    && parsed != Guid.Empty)
+                {
+                    parsedRowProject = parsed;
+                }
+
+                if (ResolveEffectiveRowProjectId(parsedRowProject, invoice.HeaderProjectId) == projectId)
+                {
+                    total += row.BaseNetAmount;
+                }
+            }
+        }
+
+        return Math.Round(total, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Builds the Project Billing Card Sales Orders summary per ERPNext PR #68327
+    /// (<c>ProjectBilling.build</c> / <c>sales_orders</c> / <c>order_filter</c> in <c>project/costing/billing.py</c>):
+    /// - Computes each submitted Sales Order's contract amount contributed to <paramref name="projectId"/>
+    ///   (from both header-attributed rows and row-attributed rows), ordered newest first (<c>TransactionDate desc, OrderNumber desc</c>).
+    /// - Sets <c>OrderFilter</c> to <c>"HeaderProject"</c> when every order names the project on its header,
+    ///   <c>"RowProject"</c> when every order names the project on its rows, or <c>null</c> for a mix.
+    /// - Truncates <c>ListedOrders</c> to <paramref name="listLimit"/> ONLY when <c>OrderFilter</c> is non-null;
+    ///   when mixed (<c>OrderFilter == null</c>), lists every order so no order is hidden behind an unusable filter link.
+    /// </summary>
+    public static ProjectSalesOrderBillingCardResult BuildProjectSalesOrderBillingCard(
+        Guid projectId,
+        IEnumerable<ProjectBillingSalesOrderInput>? salesOrders,
+        int listLimit = 5,
+        int precision = 2)
+    {
+        if (projectId == Guid.Empty || salesOrders == null)
+        {
+            return new ProjectSalesOrderBillingCardResult(
+                Array.Empty<ProjectBillingSalesOrderSummary>(),
+                0,
+                OrderFilter: null);
+        }
+
+        var itemOrderedOrderIds = new HashSet<Guid>();
+        var matched = new List<(ProjectBillingSalesOrderInput Order, decimal Amount)>();
+
+        foreach (var order in salesOrders)
+        {
+            if (!order.IsSubmitted || order.Rows == null)
+            {
+                continue;
+            }
+
+            decimal fromOrder = 0m;
+            decimal fromItems = 0m;
+            bool hasRowMatch = false;
+
+            foreach (var row in order.Rows)
+            {
+                if (row.RowProjectId.HasValue && row.RowProjectId.Value != Guid.Empty)
+                {
+                    if (row.RowProjectId.Value == projectId)
+                    {
+                        fromItems += row.BaseNetAmount;
+                        hasRowMatch = true;
+                    }
+                }
+                else if (order.HeaderProjectId == projectId)
+                {
+                    fromOrder += row.BaseNetAmount;
+                }
+            }
+
+            if (hasRowMatch)
+            {
+                itemOrderedOrderIds.Add(order.OrderId);
+            }
+
+            var combinedAmount = Math.Round(fromOrder + fromItems, precision, MidpointRounding.AwayFromZero);
+            if (hasRowMatch || fromOrder != 0m)
+            {
+                matched.Add((order, combinedAmount));
+            }
+        }
+
+        var ordered = matched
+            .OrderByDescending(m => m.Order.TransactionDate)
+            .ThenByDescending(m => m.Order.OrderNumber, StringComparer.Ordinal)
+            .Select(m => new ProjectBillingSalesOrderSummary(
+                m.Order.OrderId,
+                m.Order.OrderNumber,
+                m.Order.TransactionDate,
+                m.Order.HeaderProjectId,
+                m.Amount))
+            .ToList();
+
+        string? orderFilter = null;
+        if (ordered.Count > 0)
+        {
+            if (ordered.All(o => o.HeaderProjectId == projectId))
+            {
+                orderFilter = "HeaderProject";
+            }
+            else if (ordered.All(o => itemOrderedOrderIds.Contains(o.OrderId)))
+            {
+                orderFilter = "RowProject";
+            }
+        }
+
+        var listedOrders = orderFilter != null && listLimit > 0
+            ? ordered.Take(listLimit).ToList()
+            : ordered;
+
+        return new ProjectSalesOrderBillingCardResult(listedOrders, ordered.Count, orderFilter);
+    }
 }
+
+public sealed record ProjectBillingSalesOrderInput(
+    Guid OrderId,
+    string OrderNumber,
+    DateTime TransactionDate,
+    bool IsSubmitted,
+    Guid? HeaderProjectId,
+    IReadOnlyList<(Guid? RowProjectId, decimal BaseNetAmount)> Rows);
+
+public sealed record ProjectBillingSalesOrderSummary(
+    Guid OrderId,
+    string OrderNumber,
+    DateTime TransactionDate,
+    Guid? HeaderProjectId,
+    decimal Amount);
+
+public sealed record ProjectSalesOrderBillingCardResult(
+    IReadOnlyList<ProjectBillingSalesOrderSummary> ListedOrders,
+    int TotalOrderCount,
+    string? OrderFilter);
