@@ -71,21 +71,21 @@ import { LocalizationPipe } from '@abp/ng.core';
         <!-- Header: Company Info + Invoice Title -->
         <div class="print-header">
           <div class="company-info">
-            <h1>{{ company?.name || 'Company Name' }}</h1>
+            <h1>{{ company?.name || ('::CompanyName' | abpLocalization) }}</h1>
             @if (company?.registrationNumber) {
-              <p>Reg No: {{ company.registrationNumber }}</p>
+              <p>{{ '::RegNo' | abpLocalization }}: {{ company.registrationNumber }}</p>
             }
             @if (company?.taxId) {
-              <p>TIN: {{ company.taxId }}</p>
+              <p>{{ '::TIN' | abpLocalization }}: {{ company.taxId }}</p>
             }
             @if (company?.sstRegistrationNumber) {
-              <p>SST: {{ company.sstRegistrationNumber }}</p>
+              <p>{{ '::Sst' | abpLocalization }}: {{ company.sstRegistrationNumber }}</p>
             }
             @if (company?.address) {
               <p>{{ company.address }}</p>
             }
             @if (company?.phone) {
-              <p>Tel: {{ company.phone }}</p>
+              <p>{{ '::Tel' | abpLocalization }}: {{ company.phone }}</p>
             }
           </div>
           <div class="invoice-title">
@@ -110,7 +110,7 @@ import { LocalizationPipe } from '@abp/ng.core';
             <h4>{{ '::From' | abpLocalization }} ({{ '::Supplier' | abpLocalization }})</h4>
             <p><strong>{{ invoice.supplierName || '—' }}</strong></p>
             @if (invoice.supplierTin) {
-              <p>TIN: {{ invoice.supplierTin }}</p>
+              <p>{{ '::TIN' | abpLocalization }}: {{ invoice.supplierTin }}</p>
             }
             @if (invoice.supplierAddress) {
               <p>{{ invoice.supplierAddress }}</p>
@@ -129,25 +129,25 @@ import { LocalizationPipe } from '@abp/ng.core';
           <div class="ref-section">
             @if (invoice.supplierInvoiceNumber) {
               <div class="ref-item">
-                <div class="label">Supplier Invoice No.</div>
+                <div class="label">{{ '::SupplierInvoiceNo' | abpLocalization }}</div>
                 <div class="value">{{ invoice.supplierInvoiceNumber }}</div>
               </div>
             }
             @if (invoice.purchaseOrderNumber) {
               <div class="ref-item">
-                <div class="label">Purchase Order</div>
+                <div class="label">{{ '::PurchaseOrder' | abpLocalization }}</div>
                 <div class="value">{{ invoice.purchaseOrderNumber }}</div>
               </div>
             }
             @if (invoice.purchaseReceiptNumber) {
               <div class="ref-item">
-                <div class="label">Goods Receipt</div>
+                <div class="label">{{ '::GoodsReceipt' | abpLocalization }}</div>
                 <div class="value">{{ invoice.purchaseReceiptNumber }}</div>
               </div>
             }
             @if (invoice.supplierDeliveryNote) {
               <div class="ref-item">
-                <div class="label">Supplier DO</div>
+                <div class="label">{{ '::SupplierDO' | abpLocalization }}</div>
                 <div class="value">{{ invoice.supplierDeliveryNote }}</div>
               </div>
             }
@@ -160,7 +160,7 @@ import { LocalizationPipe } from '@abp/ng.core';
               <th class="sno">#</th>
               <th>{{ '::Description' | abpLocalization }}</th>
               <th class="text-end" style="width:60px">{{ '::Qty' | abpLocalization }}</th>
-              <th class="text-end" style="width:50px">UOM</th>
+              <th class="text-end" style="width:50px">{{ '::UOM' | abpLocalization }}</th>
               <th class="text-end" style="width:100px">{{ '::Rate' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
               <th class="text-end" style="width:120px">{{ '::Amount' | abpLocalization }} ({{ invoice.currencyCode || 'MYR' }})</th>
             </tr>
@@ -171,7 +171,7 @@ import { LocalizationPipe } from '@abp/ng.core';
                 <td class="sno">{{ i + 1 }}</td>
                 <td>{{ item.description || item.itemName || '—' }}</td>
                 <td class="text-end">{{ formatNumber(item.quantity) }}</td>
-                <td class="text-end">{{ item.uom || item.stockUom || 'Unit' }}</td>
+                <td class="text-end">{{ item.uom || item.stockUom || ('::Unit' | abpLocalization) }}</td>
                 <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
                 <td class="text-end">{{ formatCurrency(item.quantity * item.unitPrice) }}</td>
               </tr>
@@ -193,7 +193,7 @@ import { LocalizationPipe } from '@abp/ng.core';
             }
             @if (invoice.taxAmount > 0) {
               <tr>
-                <td>SST / Tax</td>
+                <td>{{ '::SstSlashTax' | abpLocalization }}</td>
                 <td>{{ formatCurrency(invoice.taxAmount) }}</td>
               </tr>
             }
@@ -218,9 +218,9 @@ import { LocalizationPipe } from '@abp/ng.core';
             </div>
           }
           <div class="approval-box">
-            <div class="sign-block">Prepared By</div>
-            <div class="sign-block">Verified By</div>
-            <div class="sign-block">Approved By</div>
+            <div class="sign-block">{{ '::PreparedBy' | abpLocalization }}</div>
+            <div class="sign-block">{{ '::VerifiedBy' | abpLocalization }}</div>
+            <div class="sign-block">{{ '::ApprovedBy' | abpLocalization }}</div>
           </div>
         </div>
       </div>

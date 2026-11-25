@@ -666,4 +666,41 @@ public class TransactionValidationService : DomainService
 
         return isSubmitted;
     }
+
+    /// <summary>
+    /// Enforces Account role and Company user permissions for <c>get_income_account</c> and
+    /// <c>get_expense_account</c> queries per ERPNext PR #65940 (<c>queries.py</c>):
+    /// throws when the caller lacks Account permission, then restricts matching accounts to
+    /// <paramref name="requestedCompanyId"/> and <paramref name="allowedCompanyIds"/>.
+    /// </summary>
+    public static IReadOnlyList<(Guid AccountId, Guid CompanyId, string AccountName)> FilterPermittedAccountsForQuery(
+        bool hasAccountRolePermission,
+        Guid? requestedCompanyId,
+        IReadOnlySet<Guid>? allowedCompanyIds,
+        IEnumerable<(Guid AccountId, Guid CompanyId, string AccountName)>? accounts)
+    {
+        if (!hasAccountRolePermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to query Account.");
+        }
+
+        if (accounts == null)
+        {
+            return Array.Empty<(Guid AccountId, Guid CompanyId, string AccountName)>();
+        }
+
+        var query = accounts;
+        if (requestedCompanyId.HasValue)
+        {
+            query = query.Where(a => a.CompanyId == requestedCompanyId.Value);
+        }
+
+        if (allowedCompanyIds != null)
+        {
+            query = query.Where(a => allowedCompanyIds.Contains(a.CompanyId));
+        }
+
+        return query.ToList();
+    }
 }

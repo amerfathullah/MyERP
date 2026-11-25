@@ -7799,7 +7799,18 @@
     "TotalCreditBalance": "Total Credit Balance",
     "NoCustomerCreditRecordsFound": "No customer credit records found for the current company.",
     "AllowPurchaseInvoiceWithoutPurchaseOrder": "Allow Purchase Invoice without Purchase Order",
-    "AllowPurchaseInvoiceWithoutPurchaseReceipt": "Allow Purchase Invoice without Purchase Receipt"
+    "AllowPurchaseInvoiceWithoutPurchaseReceipt": "Allow Purchase Invoice without Purchase Receipt",
+    "RegNo": "Reg No",
+    "GoodsReceipt": "Goods Receipt",
+    "SupplierDO": "Supplier DO",
+    "SstSlashTax": "SST / Tax",
+    "VerifiedBy": "Verified By",
+    "ApprovedBy": "Approved By",
+    "AllGroups": "All Groups",
+    "ShowZeroStock": "Show Zero Stock",
+    "NegativeStock": "Negative Stock",
+    "NoStockMovementDataHint": "No stock movement data. Click Refresh to load.",
+    "NoStockBalanceDataHint": "No stock balance data. Click Refresh to load."
   }
 }
 

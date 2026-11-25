@@ -26,14 +26,14 @@ import type { AccountingDimensionDto, AccountingDimensionFilterDto, AccountDto }
             <div class="col-md-3">
               <label class="form-label">{{ '::DocumentType' | abpLocalization }}</label>
               <select class="form-select" formControlName="documentType">
-                <option value="" disabled>Select...</option>
-                <option value="Branch">Branch</option>
-                <option value="Department">Department</option>
-                <option value="CostCenter">Cost Center</option>
-                <option value="Project">Project</option>
-                <option value="Territory">Territory</option>
-                <option value="CustomerGroup">Customer Group</option>
-                <option value="SupplierGroup">Supplier Group</option>
+                <option value="" disabled>{{ '::Select' | abpLocalization }}...</option>
+                <option value="Branch">{{ '::Branch' | abpLocalization }}</option>
+                <option value="Department">{{ '::Department' | abpLocalization }}</option>
+                <option value="CostCenter">{{ '::CostCenter' | abpLocalization }}</option>
+                <option value="Project">{{ '::Project' | abpLocalization }}</option>
+                <option value="Territory">{{ '::Territory' | abpLocalization }}</option>
+                <option value="CustomerGroup">{{ '::CustomerGroup' | abpLocalization }}</option>
+                <option value="SupplierGroup">{{ '::SupplierGroup' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -105,14 +105,14 @@ import type { AccountingDimensionDto, AccountingDimensionFilterDto, AccountDto }
                       @if (dim.isMandatory) {
                         <span class="badge bg-warning">{{ '::Mandatory' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-light text-dark">Optional</span>
+                        <span class="badge bg-light text-dark">{{ '::Optional' | abpLocalization }}</span>
                       }
                     </td>
                     <td>
                       @if (dim.isEnabled) {
-                        <span class="badge bg-success">Enabled</span>
+                        <span class="badge bg-success">{{ '::Enabled' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-secondary">Disabled</span>
+                        <span class="badge bg-secondary">{{ '::Disabled' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

@@ -1056,6 +1056,77 @@ public class ItemDetailsResolverService : DomainService
                 .WithData("detail", $"Not permitted to read Item {itemCode}.");
         }
     }
+
+    /// <summary>
+    /// Enforces <c>select</c> permission on <c>Item Tax Template</c> for external <c>get_item_tax_map</c>
+    /// requests per ERPNext PR #65909 (<c>get_item_details.py: get_item_tax_map</c>), while allowing
+    /// internal document tax calculations (<c>_get_item_tax_map</c>) to resolve the map directly.
+    /// </summary>
+    public static void ValidateItemTaxMapTemplateAccess(
+        string? taxTemplate,
+        bool hasTemplateSelectPermission,
+        bool isInternalCalculation = false)
+    {
+        if (isInternalCalculation || string.IsNullOrWhiteSpace(taxTemplate))
+        {
+            return;
+        }
+
+        if (!hasTemplateSelectPermission)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("itemTaxTemplate", taxTemplate.Trim())
+                .WithData("detail", $"No select permission for Item Tax Template {taxTemplate.Trim()}.");
+        }
+    }
+
+    /// <summary>
+    /// Enforces Item <c>read</c> permission on external <c>get_item_manufacturer_part_no</c> calls
+    /// per ERPNext PR #65925 (<c>item_manufacturer.py: get_item_manufacturer_part_no</c>), while
+    /// internal item-details resolution (<c>_get_item_manufacturer_part_no</c>) bypasses the external gate.
+    /// </summary>
+    public static void ValidateItemManufacturerPartNoAccess(
+        string? itemCode,
+        bool hasItemReadPermission,
+        bool isInternalItemDetailsLookup = false)
+    {
+        if (isInternalItemDetailsLookup)
+        {
+            return;
+        }
+
+        if (!hasItemReadPermission)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("itemCode", itemCode ?? string.Empty)
+                .WithData("detail", $"Not permitted to read Item {itemCode}.");
+        }
+    }
+
+    /// <summary>
+    /// Validates the <c>item_code</c> filter and enforces Item <c>read</c> permission in
+    /// <c>item_manufacturer_query</c> per ERPNext PR #65939 (<c>queries.py: item_manufacturer_query</c>):
+    /// returns <c>null</c> (caller yields empty result) when <paramref name="itemCodeFilter"/> is missing
+    /// or non-string; otherwise requires Item <c>read</c> permission.
+    /// </summary>
+    public static string? ResolveItemManufacturerQueryAccess(
+        object? itemCodeFilter,
+        bool hasItemReadPermission)
+    {
+        if (itemCodeFilter is not string itemCode || string.IsNullOrWhiteSpace(itemCode))
+        {
+            return null;
+        }
+
+        if (!hasItemReadPermission)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("itemCode", itemCode)
+                .WithData("detail", $"Not permitted to read Item {itemCode}.");
+        }
+
+        return itemCode;
+    }
 }
 
 // --- Supporting types ---

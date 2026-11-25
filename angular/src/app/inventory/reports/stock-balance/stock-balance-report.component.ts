@@ -82,7 +82,7 @@ interface StockBalanceRow {
               </button>
             </div>
             <button class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="reportMode === 'snapshot' ? !data().length : !filteredMovementData().length">
-              <i class="fas fa-download me-1"></i>Export CSV
+              <i class="fas fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
             </button>
             <button class="btn btn-primary btn-sm" (click)="loadReport()" [disabled]="loading()">
               <i class="fas fa-sync me-1"></i>{{ '::Refresh' | abpLocalization }}
@@ -96,7 +96,7 @@ interface StockBalanceRow {
             <div class="col-md-3">
               <label class="form-label small">{{ '::Warehouse' | abpLocalization }}</label>
               <select class="form-select form-select-sm" [(ngModel)]="filterWarehouseId">
-                <option value="">All Warehouses</option>
+                <option value="">{{ '::AllWarehouses' | abpLocalization }}</option>
                 @for (wh of warehouses(); track wh.id) {
                   <option [value]="wh.id">{{ wh.name }}</option>
                 }
@@ -106,7 +106,7 @@ interface StockBalanceRow {
               <div class="col-md-3">
                 <label class="form-label small">{{ '::ItemGroup' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup">
-                  <option value="">All Groups</option>
+                  <option value="">{{ '::AllGroups' | abpLocalization }}</option>
                   @for (g of itemGroups(); track g) {
                     <option [value]="g">{{ g }}</option>
                   }
@@ -129,7 +129,7 @@ interface StockBalanceRow {
             <div class="col-md-3 d-flex align-items-end gap-3 flex-wrap">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="showZero" [(ngModel)]="includeZeroStock" />
-                <label class="form-check-label small" for="showZero">Show Zero Stock</label>
+                <label class="form-check-label small" for="showZero">{{ '::ShowZeroStock' | abpLocalization }}</label>
               </div>
               @if (reportMode === 'movement') {
                 <div class="form-check">
@@ -147,19 +147,19 @@ interface StockBalanceRow {
             <div class="row text-center">
               <div class="col-md-3">
                 <div class="fw-bold text-primary fs-5">{{ totalItems() }}</div>
-                <small class="text-muted">Items</small>
+                <small class="text-muted">{{ '::Items' | abpLocalization }}</small>
               </div>
               <div class="col-md-3">
                 <div class="fw-bold text-success fs-5">{{ totalQty() | number:'1.0-0' }}</div>
-                <small class="text-muted">Total Qty</small>
+                <small class="text-muted">{{ '::TotalQty' | abpLocalization }}</small>
               </div>
               <div class="col-md-3">
                 <div class="fw-bold text-info fs-5">{{ totalValue() | number:'1.0-0' }}</div>
-                <small class="text-muted">Total Value</small>
+                <small class="text-muted">{{ '::TotalValue' | abpLocalization }}</small>
               </div>
               <div class="col-md-3">
                 <div class="fw-bold text-warning fs-5">{{ negativeStockCount() }}</div>
-                <small class="text-muted">Negative Stock</small>
+                <small class="text-muted">{{ '::NegativeStock' | abpLocalization }}</small>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@ interface StockBalanceRow {
             @if (filteredMovementData().length === 0) {
               <div class="text-center py-5 text-muted">
                 <i class="fas fa-box-open fa-3x mb-3 d-block opacity-50"></i>
-                <p>No stock movement data. Click Refresh to load.</p>
+                <p>{{ '::NoStockMovementDataHint' | abpLocalization }}</p>
               </div>
             } @else {
               <div class="table-responsive">
@@ -252,7 +252,7 @@ interface StockBalanceRow {
           } @else if (data().length === 0) {
             <div class="text-center py-5 text-muted">
               <i class="fas fa-box-open fa-3x mb-3 d-block opacity-50"></i>
-              <p>No stock balance data. Click Refresh to load.</p>
+              <p>{{ '::NoStockBalanceDataHint' | abpLocalization }}</p>
             </div>
           } @else {
             <div class="table-responsive">
@@ -309,7 +309,7 @@ interface StockBalanceRow {
                 </tbody>
                 <tfoot class="table-light fw-bold">
                   <tr>
-                    <td colspan="4">Total</td>
+                    <td colspan="4">{{ '::Total' | abpLocalization }}</td>
                     <td class="text-end">{{ totalQty() | number:'1.0-2' }}</td>
                     <td class="text-end">{{ totalReserved() | number:'1.0-2' }}</td>
                     <td class="text-end">{{ totalOrdered() | number:'1.0-2' }}</td>

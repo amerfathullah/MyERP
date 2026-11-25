@@ -1835,6 +1835,60 @@ public class JobCardManager : DomainService
         totalSeconds += (currentEnd - currentStart).TotalSeconds;
         return totalSeconds;
     }
+
+    /// <summary>
+    /// Converts a UTC timestamp into the ERP system time zone for Job Card start/pause/resume/end
+    /// logging per ERPNext PR #66764 (<c>job_card.js</c>, <c>work_order.js</c>, <c>shop_floor.js</c>:
+    /// <c>frappe.datetime.system_datetime()</c>), ensuring logged times never drift to browser-local time.
+    /// </summary>
+    public static DateTime ConvertUtcToSystemTimeZoneForJobCardLog(
+        DateTime utcTimestamp,
+        TimeZoneInfo systemTimeZone)
+    {
+        var normalizedUtc = utcTimestamp.Kind == DateTimeKind.Utc
+            ? utcTimestamp
+            : DateTime.SpecifyKind(utcTimestamp.ToUniversalTime(), DateTimeKind.Utc);
+        if (utcTimestamp.Kind == DateTimeKind.Unspecified)
+        {
+            normalizedUtc = DateTime.SpecifyKind(utcTimestamp, DateTimeKind.Utc);
+        }
+
+        return TimeZoneInfo.ConvertTimeFromUtc(normalizedUtc, systemTimeZone);
+    }
+
+    /// <summary>
+    /// Computes active Shop Floor elapsed seconds for Job Card time logs stored in
+    /// <paramref name="systemTimeZone"/> by comparing open logs against the system-time-zone
+    /// equivalent of <paramref name="utcNow"/> per ERPNext PR #66764 (<c>shop_floor.js</c>).
+    /// </summary>
+    public static double CalculateShopFloorElapsedSecondsInSystemTimeZone(
+        IEnumerable<(DateTime? FromTimeSystem, DateTime? ToTimeSystem)>? timeLogs,
+        DateTime utcNow,
+        TimeZoneInfo systemTimeZone)
+    {
+        if (timeLogs == null)
+        {
+            return 0d;
+        }
+
+        var systemNow = ConvertUtcToSystemTimeZoneForJobCardLog(utcNow, systemTimeZone);
+        double totalSeconds = 0d;
+        foreach (var (fromTime, toTime) in timeLogs)
+        {
+            if (!fromTime.HasValue)
+            {
+                continue;
+            }
+
+            var end = toTime ?? systemNow;
+            if (end > fromTime.Value)
+            {
+                totalSeconds += (end - fromTime.Value).TotalSeconds;
+            }
+        }
+
+        return totalSeconds;
+    }
 }
 
 public readonly record struct JobCardExistingItemRow(
