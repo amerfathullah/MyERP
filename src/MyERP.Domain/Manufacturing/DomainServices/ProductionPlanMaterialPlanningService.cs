@@ -1120,6 +1120,40 @@ public class ProductionPlanMaterialPlanningService : DomainService
 
         return results;
     }
+
+    /// <summary>
+    /// Ensures a non-transfer Production Plan Material Request item row never ends up with a fractional stock UOM
+    /// quantity when the stock UOM requires whole numbers per ERPNext PR #65637
+    /// (<c>production_plan/services/material_request.py: _keep_stock_qty_whole</c>):
+    /// if <paramref name="isTransfer"/> is false, <paramref name="stockUomMustBeWholeNumber"/> is true, and
+    /// <c>Round(quantity * conversionFactor, stockQtyPrecision)</c> is not an integer, switches the row to
+    /// <paramref name="stockUom"/> with <c>ConversionFactor = 1</c> and <c>Quantity = Ceiling(requiredStockQty)</c>.
+    /// </summary>
+    public static (string Uom, decimal ConversionFactor, decimal Quantity) KeepMaterialRequestStockQtyWhole(
+        string rowUom,
+        decimal conversionFactor,
+        decimal quantity,
+        string stockUom,
+        bool stockUomMustBeWholeNumber,
+        decimal requiredStockQty,
+        bool isTransfer = false,
+        int stockQtyPrecision = 4)
+    {
+        if (isTransfer || !stockUomMustBeWholeNumber)
+        {
+            return (rowUom, conversionFactor, quantity);
+        }
+
+        var effectiveFactor = conversionFactor > 0m ? conversionFactor : 1m;
+        var rowStockQty = Math.Round(quantity * effectiveFactor, stockQtyPrecision, MidpointRounding.AwayFromZero);
+        if (rowStockQty == Math.Truncate(rowStockQty))
+        {
+            return (rowUom, conversionFactor, quantity);
+        }
+
+        var roundedRequired = Math.Ceiling(requiredStockQty);
+        return (stockUom, 1m, roundedRequired);
+    }
 }
 
 public sealed record OpenManufactureMaterialRequestCandidate(

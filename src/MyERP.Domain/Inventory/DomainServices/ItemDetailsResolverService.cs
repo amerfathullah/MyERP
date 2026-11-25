@@ -857,6 +857,38 @@ public class ItemDetailsResolverService : DomainService
 
         return null;
     }
+
+    /// <summary>
+    /// Resolves a document row's effective stock quantity for batch auto-selection filtering
+    /// per ERPNext PR #65650 (<c>get_item_details.py: get_row_stock_qty</c>):
+    /// a row's <c>stock_qty</c> and <c>conversion_factor</c> can be stale until <c>validate</c> resets them,
+    /// so resolves <c>uom = rowUom ?? itemSalesUom ?? itemStockUom</c>; when <c>uom == itemStockUom</c> returns
+    /// <paramref name="rowQty"/> directly, otherwise multiplies by <paramref name="rowConversionFactor"/>
+    /// (falling back to <paramref name="uomConversionFactor"/>).
+    /// </summary>
+    public static decimal ResolveRowStockQtyForBatchFilter(
+        decimal rowQty,
+        string? rowUom,
+        decimal? rowConversionFactor,
+        string itemStockUom,
+        string? itemSalesUom,
+        decimal uomConversionFactor = 1m)
+    {
+        var effectiveUom = !string.IsNullOrWhiteSpace(rowUom)
+            ? rowUom
+            : (!string.IsNullOrWhiteSpace(itemSalesUom) ? itemSalesUom : itemStockUom);
+
+        if (string.Equals(effectiveUom, itemStockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            return rowQty;
+        }
+
+        var factor = (rowConversionFactor.HasValue && rowConversionFactor.Value > 0m)
+            ? rowConversionFactor.Value
+            : (uomConversionFactor > 0m ? uomConversionFactor : 1m);
+
+        return rowQty * factor;
+    }
 }
 
 // --- Supporting types ---

@@ -1109,6 +1109,121 @@ public class PickListManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Selects the Pick List row for a packed component when picked across multiple warehouses
+    /// per ERPNext PR #65601 (<c>packed_item.py: update_packed_item_with_pick_list_info</c>):
+    /// narrows candidates to rows with pending qty (<c>Round(pickedQty - deliveredQty, precision) &gt; 0</c>,
+    /// falling back to all rows if none pending), then prefers the candidate whose serial numbers overlap
+    /// <paramref name="keptSerialNos"/> (case-insensitive) before falling back to the first pending candidate.
+    /// </summary>
+    public static Guid? SelectPickListRowForPackedItem(
+        IReadOnlyList<(Guid LocationId, decimal PickedQty, decimal DeliveredQty, IReadOnlyList<string>? SerialNos)>? pickListRows,
+        IReadOnlyList<string>? keptSerialNos,
+        int deliveredQtyPrecision = 4)
+    {
+        if (pickListRows == null || pickListRows.Count == 0)
+        {
+            return null;
+        }
+
+        var pendingRows = pickListRows
+            .Where(r => Math.Round(r.PickedQty - r.DeliveredQty, deliveredQtyPrecision, MidpointRounding.AwayFromZero) > 0m)
+            .ToList();
+        var candidates = pendingRows.Count > 0 ? pendingRows : pickListRows.ToList();
+
+        if (keptSerialNos != null && keptSerialNos.Count > 0)
+        {
+            var keptSet = new HashSet<string>(
+                keptSerialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (keptSet.Count > 0)
+            {
+                foreach (var candidate in candidates)
+                {
+                    if (candidate.SerialNos != null
+                        && candidate.SerialNos.Any(sn => !string.IsNullOrWhiteSpace(sn) && keptSet.Contains(sn.Trim())))
+                    {
+                        return candidate.LocationId;
+                    }
+                }
+            }
+        }
+
+        return candidates[0].LocationId;
+    }
+
+    /// <summary>
+    /// Removes serial numbers and deducts batch quantities already moved by earlier deliveries of a Pick List item
+    /// from a package per ERPNext PR #65444 (<c>selling_controller.py: remove_delivered_entries</c>):
+    /// - Drops any package entry whose <c>SerialNo</c> was already delivered.
+    /// - Deducts delivered batch qty (using <c>Math.Abs</c>) from matching batch entries, removing rows whose
+    ///   remaining quantity drops to <c>&lt;= 0</c>.
+    /// </summary>
+    public static List<(string? SerialNo, Guid? BatchId, decimal Qty)> RemoveDeliveredSerialAndBatchEntries(
+        IEnumerable<(string? SerialNo, Guid? BatchId, decimal Qty)>? packageEntries,
+        IEnumerable<(string? SerialNo, Guid? BatchId, decimal Qty)>? movedEntries)
+    {
+        var result = new List<(string? SerialNo, Guid? BatchId, decimal Qty)>();
+        if (packageEntries == null)
+        {
+            return result;
+        }
+
+        var deliveredSerials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var deliveredBatchQty = new Dictionary<Guid, decimal>();
+        if (movedEntries != null)
+        {
+            foreach (var moved in movedEntries)
+            {
+                if (!string.IsNullOrWhiteSpace(moved.SerialNo))
+                {
+                    deliveredSerials.Add(moved.SerialNo.Trim());
+                }
+
+                if (moved.BatchId.HasValue)
+                {
+                    deliveredBatchQty[moved.BatchId.Value] =
+                        deliveredBatchQty.GetValueOrDefault(moved.BatchId.Value) + Math.Abs(moved.Qty);
+                }
+            }
+        }
+
+        foreach (var entry in packageEntries)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.SerialNo))
+            {
+                if (deliveredSerials.Contains(entry.SerialNo.Trim()))
+                {
+                    continue;
+                }
+
+                result.Add(entry);
+                continue;
+            }
+
+            if (entry.BatchId.HasValue && deliveredBatchQty.TryGetValue(entry.BatchId.Value, out var toDeduct) && toDeduct > 0m)
+            {
+                var rowAbsQty = Math.Abs(entry.Qty);
+                var consumed = Math.Min(rowAbsQty, toDeduct);
+                var remaining = rowAbsQty - consumed;
+                deliveredBatchQty[entry.BatchId.Value] = toDeduct - consumed;
+
+                if (remaining > 0m)
+                {
+                    var signedRemaining = entry.Qty < 0m ? -remaining : remaining;
+                    result.Add((entry.SerialNo, entry.BatchId, signedRemaining));
+                }
+
+                continue;
+            }
+
+            result.Add(entry);
+        }
+
+        return result;
+    }
 }
 
 public sealed record RepackedPackedItemRow(

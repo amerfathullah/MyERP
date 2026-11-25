@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
 /// #67699, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68348, #68371, #68473, #68529, #68578, #68732,
 /// #69286, #69293, #69299, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351.
 /// </summary>
@@ -1459,5 +1459,63 @@ public class UpstreamBatch42ParityTests
             warehouseId: whMain, rejectedWarehouseId: whRej);
         fromRejectedWh.BundleStockQty.ShouldBe(-36m);
         fromRejectedWh.WarehouseId.ShouldBe(whMain);
+    }
+
+    [Fact]
+    public void Pr65637_Pr65601_Pr65444_Pr65650_WholeStockUomMr_PickListKeptSerialRow_MovedEntriesDeduct_StaleBatchRowStockQty_Parity()
+    {
+        // PR #65637: Fractional stock qty under whole-number stock UOM falls back to stock UOM (cf=1, ceil qty)
+        var fixedRow = ProductionPlanMaterialPlanningService.KeepMaterialRequestStockQtyWhole(
+            rowUom: "Box", conversionFactor: 0.5m, quantity: 1.5m, stockUom: "Nos",
+            stockUomMustBeWholeNumber: true, requiredStockQty: 0.75m, isTransfer: false);
+        fixedRow.Uom.ShouldBe("Nos");
+        fixedRow.ConversionFactor.ShouldBe(1m);
+        fixedRow.Quantity.ShouldBe(1m);
+
+        // Transfer request leaves row untouched
+        var transferRow = ProductionPlanMaterialPlanningService.KeepMaterialRequestStockQtyWhole(
+            rowUom: "Box", conversionFactor: 0.5m, quantity: 1.5m, stockUom: "Nos",
+            stockUomMustBeWholeNumber: true, requiredStockQty: 0.75m, isTransfer: true);
+        transferRow.Uom.ShouldBe("Box");
+        transferRow.Quantity.ShouldBe(1.5m);
+
+        // PR #65601: Pending Pick List row whose serials overlap keptSerialNos wins over earlier pending row
+        var loc1 = Guid.NewGuid();
+        var loc2 = Guid.NewGuid();
+        var picked = PickListManager.SelectPickListRowForPackedItem(
+            new (Guid, decimal, decimal, IReadOnlyList<string>?)[]
+            {
+                (loc1, 2m, 0m, new[] { "SN-001", "SN-002" }),
+                (loc2, 2m, 0m, new[] { "SN-003", "SN-004" }),
+            },
+            keptSerialNos: new[] { "sn-004" });
+        picked.ShouldBe(loc2);
+
+        // PR #65444: RemoveDeliveredSerialAndBatchEntries strips moved serials and deducts moved batch qty
+        var batchA = Guid.NewGuid();
+        var remaining = PickListManager.RemoveDeliveredSerialAndBatchEntries(
+            packageEntries: new (string?, Guid?, decimal)[]
+            {
+                ("SN-1", null, -1m),
+                ("SN-2", null, -1m),
+                (null, batchA, -10m),
+            },
+            movedEntries: new (string?, Guid?, decimal)[]
+            {
+                ("SN-1", null, -1m),
+                (null, batchA, -6m),
+            });
+        remaining.Count.ShouldBe(2);
+        remaining[0].ShouldBe(("SN-2", (Guid?)null, -1m));
+        remaining[1].ShouldBe(((string?)null, (Guid?)batchA, -4m));
+
+        // PR #65650: Row whose UOM matches stock UOM ignores stale conversionFactor (12) and returns rowQty (3)
+        ItemDetailsResolverService.ResolveRowStockQtyForBatchFilter(
+            rowQty: 3m, rowUom: "Nos", rowConversionFactor: 12m, itemStockUom: "Nos", itemSalesUom: "Box", uomConversionFactor: 12m)
+            .ShouldBe(3m);
+        // Blank rowUom falls back to salesUom ("Box") with uomConversionFactor (12) -> 3 * 12 = 36
+        ItemDetailsResolverService.ResolveRowStockQtyForBatchFilter(
+            rowQty: 3m, rowUom: null, rowConversionFactor: null, itemStockUom: "Nos", itemSalesUom: "Box", uomConversionFactor: 12m)
+            .ShouldBe(36m);
     }
 }

@@ -14,34 +14,34 @@ import { VideoSettingsService } from '../../proxy/utilities/video-settings.servi
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Video Settings</h5>
-        <a routerLink="/utilities/videos" class="btn btn-secondary btn-sm">Back to Videos</a>
+        <h5 class="card-title mb-0">{{ '::VideoSettings' | abpLocalization }}</h5>
+        <a routerLink="/utilities/videos" class="btn btn-secondary btn-sm">{{ '::BackToVideos' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="form-check form-switch mb-3">
             <input class="form-check-input" type="checkbox" id="enableYoutubeTracking" formControlName="enableYoutubeTracking">
-            <label class="form-check-label fw-semibold" for="enableYoutubeTracking">Enable YouTube Tracking</label>
+            <label class="form-check-label fw-semibold" for="enableYoutubeTracking">{{ '::EnableYouTubeTracking' | abpLocalization }}</label>
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">YouTube Data API Key</label>
+              <label class="form-label">{{ '::YouTubeDataApiKey' | abpLocalization }}</label>
               <input type="password" class="form-control" formControlName="apiKey" [placeholder]="'::Placeholder:EnterApiKey' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Tracking Sync Frequency</label>
+              <label class="form-label">{{ '::TrackingSyncFrequency' | abpLocalization }}</label>
               <select class="form-select" formControlName="frequencyMinutes">
-                <option [ngValue]="30">Every 30 minutes</option>
-                <option [ngValue]="60">Every 1 hour</option>
-                <option [ngValue]="360">Every 6 hours</option>
-                <option [ngValue]="1440">Daily</option>
+                <option [ngValue]="30">{{ '::Every30Minutes' | abpLocalization }}</option>
+                <option [ngValue]="60">{{ '::Every1Hour' | abpLocalization }}</option>
+                <option [ngValue]="360">{{ '::Every6Hours' | abpLocalization }}</option>
+                <option [ngValue]="1440">{{ '::Daily' | abpLocalization }}</option>
               </select>
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary">Save Settings</button>
+          <button type="submit" class="btn btn-primary">{{ '::SaveSettings' | abpLocalization }}</button>
         </form>
       </div>
     </div>
@@ -73,7 +73,7 @@ export class VideoSettingsComponent implements OnInit {
       next: () => {
         this.toaster.success('::SuccessfullySaved');
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

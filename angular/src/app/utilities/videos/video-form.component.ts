@@ -15,68 +15,68 @@ import { VideoProvider } from '../../proxy/utilities/video-provider.enum';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Video</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditVideo' : '::NewVideo') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Title *</label>
+              <label class="form-label">{{ '::Title' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="title" [placeholder]="'::Placeholder:VideoTitleExample' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Provider *</label>
+              <label class="form-label">{{ '::Provider' | abpLocalization }} *</label>
               <select class="form-select" formControlName="provider">
-                <option [ngValue]="0">YouTube</option>
-                <option [ngValue]="1">Vimeo</option>
-                <option [ngValue]="2">Custom</option>
+                <option [ngValue]="0">{{ '::YouTube' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Vimeo' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Custom' | abpLocalization }}</option>
               </select>
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-8 mb-3">
-              <label class="form-label">Video URL *</label>
+              <label class="form-label">{{ '::VideoUrl' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="url" placeholder="https://www.youtube.com/watch?v=...">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">YouTube Video ID</label>
+              <label class="form-label">{{ '::YouTubeVideoId' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="youtubeVideoId" [placeholder]="'::Placeholder:YoutubeVideoIdExample' | abpLocalization">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Publish Date</label>
+              <label class="form-label">{{ '::PublishDate' | abpLocalization }}</label>
               <input type="date" class="form-control" formControlName="publishDate">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Duration (seconds)</label>
+              <label class="form-label">{{ '::DurationSeconds' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="durationSeconds" [placeholder]="'::Placeholder:VideoDurationExample' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Thumbnail Image URL</label>
+              <label class="form-label">{{ '::ThumbnailImageUrl' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="imageUrl" placeholder="https://...">
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ '::Description' | abpLocalization }}</label>
             <textarea class="form-control" rows="3" formControlName="description" [placeholder]="'::Placeholder:VideoNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
-            <label class="form-check-label" for="isActive">Active</label>
+            <label class="form-check-label" for="isActive">{{ '::Active' | abpLocalization }}</label>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/utilities/videos" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/utilities/videos" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -139,7 +139,7 @@ export class VideoFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/utilities/videos']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

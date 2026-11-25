@@ -16,54 +16,54 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">{{ isEdit ? 'Edit' : 'New' }} Call Log</h5>
+        <h5 class="card-title mb-0">{{ (isEdit ? '::EditCallLog' : '::NewCallLog') | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Call ID *</label>
+              <label class="form-label">{{ '::CallId' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="callId" [readonly]="isEdit" [placeholder]="'::Placeholder:UniqueCallId' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">From (Caller) *</label>
+              <label class="form-label">{{ '::FromCaller' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="from" [placeholder]="'::Placeholder:PhoneFromSample' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">To (Receiver) *</label>
+              <label class="form-label">{{ '::ToReceiver' | abpLocalization }} *</label>
               <input type="text" class="form-control" formControlName="to" [placeholder]="'::Placeholder:PhoneToSample' | abpLocalization">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Direction *</label>
+              <label class="form-label">{{ '::Direction' | abpLocalization }} *</label>
               <select class="form-select" formControlName="callDirection">
-                <option [ngValue]="0">Incoming</option>
-                <option [ngValue]="1">Outgoing</option>
+                <option [ngValue]="0">{{ '::Incoming' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::Outgoing' | abpLocalization }}</option>
               </select>
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Status *</label>
+              <label class="form-label">{{ '::Status' | abpLocalization }} *</label>
               <select class="form-select" formControlName="status">
-                <option [ngValue]="0">Ringing</option>
-                <option [ngValue]="1">In Progress</option>
-                <option [ngValue]="2">Completed</option>
-                <option [ngValue]="3">Failed</option>
-                <option [ngValue]="4">Busy</option>
-                <option [ngValue]="5">No Answer</option>
-                <option [ngValue]="6">Queued</option>
-                <option [ngValue]="7">Cancelled</option>
+                <option [ngValue]="0">{{ '::Ringing' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::InProgress' | abpLocalization }}</option>
+                <option [ngValue]="2">{{ '::Completed' | abpLocalization }}</option>
+                <option [ngValue]="3">{{ '::Failed' | abpLocalization }}</option>
+                <option [ngValue]="4">{{ '::Busy' | abpLocalization }}</option>
+                <option [ngValue]="5">{{ '::NoAnswer' | abpLocalization }}</option>
+                <option [ngValue]="6">{{ '::Queued' | abpLocalization }}</option>
+                <option [ngValue]="7">{{ '::Cancelled' | abpLocalization }}</option>
               </select>
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Call Type</label>
+              <label class="form-label">{{ '::CallType' | abpLocalization }}</label>
               <select class="form-select" formControlName="telephonyCallTypeId">
-                <option [ngValue]="null">-- None --</option>
+                <option [ngValue]="null">-- {{ '::None' | abpLocalization }} --</option>
                 @for (type of callTypes; track type.id) {
                   <option [ngValue]="type.id">{{ type.callTypeName }}</option>
                 }
@@ -73,41 +73,41 @@ import { TelephonyCallTypeDto } from '../../proxy/telephony/models';
 
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Duration (seconds)</label>
+              <label class="form-label">{{ '::DurationSeconds' | abpLocalization }}</label>
               <input type="number" class="form-control" formControlName="duration">
             </div>
 
             <div class="col-md-8 mb-3">
-              <label class="form-label">Recording URL</label>
+              <label class="form-label">{{ '::RecordingUrl' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="recordingUrl" placeholder="https://...">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">Customer ID</label>
+              <label class="form-label">{{ '::CustomerId' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="customerId" [placeholder]="'::Placeholder:OptionalCustomerGuid' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Received By Employee ID</label>
+              <label class="form-label">{{ '::ReceivedByEmployeeId' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="callReceivedByEmployeeId" [placeholder]="'::Placeholder:OptionalEmployeeGuid' | abpLocalization">
             </div>
 
             <div class="col-md-4 mb-3">
-              <label class="form-label">Medium</label>
+              <label class="form-label">{{ '::Medium' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="medium" [placeholder]="'::Placeholder:TelephonyMediumExample' | abpLocalization">
             </div>
           </div>
 
           <div class="mb-4">
-            <label class="form-label">Call Summary / Notes</label>
+            <label class="form-label">{{ '::CallSummaryNotes' | abpLocalization }}</label>
             <textarea class="form-control" rows="4" formControlName="summary" [placeholder]="'::Placeholder:CallNotes' | abpLocalization"></textarea>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save</button>
-            <a routerLink="/telephony/call-logs" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::Save' | abpLocalization }}</button>
+            <a routerLink="/telephony/call-logs" class="btn btn-secondary">{{ '::Cancel' | abpLocalization }}</a>
           </div>
         </form>
       </div>
@@ -188,7 +188,7 @@ export class CallLogFormComponent implements OnInit {
         this.toaster.success('::SuccessfullySaved');
         this.router.navigate(['/telephony/call-logs']);
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }

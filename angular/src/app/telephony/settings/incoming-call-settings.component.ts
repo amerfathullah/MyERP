@@ -16,33 +16,33 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
   template: `
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title mb-0">Incoming Call Settings</h5>
+        <h5 class="card-title mb-0">{{ '::IncomingCallSettings' | abpLocalization }}</h5>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Call Routing Mode *</label>
+              <label class="form-label">{{ '::CallRoutingMode' | abpLocalization }} *</label>
               <select class="form-select" formControlName="callRouting">
-                <option [ngValue]="0">Sequential (Agent after agent)</option>
-                <option [ngValue]="1">Simultaneous (Ring all available agents)</option>
+                <option [ngValue]="0">{{ '::SequentialRouting' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::SimultaneousRouting' | abpLocalization }}</option>
               </select>
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Greeting Message</label>
+              <label class="form-label">{{ '::GreetingMessage' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="greetingMessage" [placeholder]="'::Placeholder:GreetingMessage' | abpLocalization">
             </div>
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Agent Busy Message</label>
+              <label class="form-label">{{ '::AgentBusyMessage' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="agentBusyMessage" [placeholder]="'::Placeholder:AgentBusyMessage' | abpLocalization">
             </div>
 
             <div class="col-md-6 mb-3">
-              <label class="form-label">Agent Unavailable Message</label>
+              <label class="form-label">{{ '::AgentUnavailableMessage' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="agentUnavailableMessage" [placeholder]="'::Placeholder:AgentUnavailableMessage' | abpLocalization">
             </div>
           </div>
@@ -50,18 +50,18 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
           <!-- Schedule table -->
           <div class="card mb-4 border">
             <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-              <h6 class="mb-0 text-secondary">Incoming Call Handling Schedule</h6>
-              <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSchedule()">+ Add Schedule</button>
+              <h6 class="mb-0 text-secondary">{{ '::IncomingCallHandlingSchedule' | abpLocalization }}</h6>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSchedule()">+ {{ '::AddSchedule' | abpLocalization }}</button>
             </div>
             <div class="card-body p-0">
               <table class="table table-bordered mb-0">
                 <thead class="table-light small">
                   <tr>
-                    <th>Day of Week</th>
-                    <th>From Time</th>
-                    <th>To Time</th>
-                    <th>Handling Employee Group</th>
-                    <th style="width: 80px;" class="text-center">Action</th>
+                    <th>{{ '::DayOfWeek' | abpLocalization }}</th>
+                    <th>{{ '::FromTime' | abpLocalization }}</th>
+                    <th>{{ '::ToTime' | abpLocalization }}</th>
+                    <th>{{ '::HandlingEmployeeGroup' | abpLocalization }}</th>
+                    <th style="width: 80px;" class="text-center">{{ '::Action' | abpLocalization }}</th>
                   </tr>
                 </thead>
                 <tbody formArrayName="schedules">
@@ -69,13 +69,13 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
                     <tr [formGroupName]="i">
                       <td>
                         <select class="form-select form-select-sm" formControlName="dayOfWeek">
-                          <option [ngValue]="1">Monday</option>
-                          <option [ngValue]="2">Tuesday</option>
-                          <option [ngValue]="3">Wednesday</option>
-                          <option [ngValue]="4">Thursday</option>
-                          <option [ngValue]="5">Friday</option>
-                          <option [ngValue]="6">Saturday</option>
-                          <option [ngValue]="0">Sunday</option>
+                          <option [ngValue]="1">{{ '::Monday' | abpLocalization }}</option>
+                          <option [ngValue]="2">{{ '::Tuesday' | abpLocalization }}</option>
+                          <option [ngValue]="3">{{ '::Wednesday' | abpLocalization }}</option>
+                          <option [ngValue]="4">{{ '::Thursday' | abpLocalization }}</option>
+                          <option [ngValue]="5">{{ '::Friday' | abpLocalization }}</option>
+                          <option [ngValue]="6">{{ '::Saturday' | abpLocalization }}</option>
+                          <option [ngValue]="0">{{ '::Sunday' | abpLocalization }}</option>
                         </select>
                       </td>
                       <td>
@@ -86,7 +86,7 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
                       </td>
                       <td>
                         <select class="form-select form-select-sm" formControlName="employeeGroupId">
-                          <option value="">Select Employee Group...</option>
+                          <option value="">{{ '::SelectEmployeeGroup' | abpLocalization }}</option>
                           @for (g of employeeGroups(); track g.id) {
                             <option [value]="g.id">{{ g.groupName }}</option>
                           }
@@ -98,7 +98,7 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
                     </tr>
                   } @empty {
                     <tr>
-                      <td colspan="5" class="text-center text-muted py-3 small">No weekly handling schedules configured.</td>
+                      <td colspan="5" class="text-center text-muted py-3 small">{{ '::NoWeeklySchedulesConfigured' | abpLocalization }}</td>
                     </tr>
                   }
                 </tbody>
@@ -114,19 +114,19 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
             <div class="card-body">
               <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                  <label class="form-label small">Day of Week</label>
+                  <label class="form-label small">{{ '::DayOfWeek' | abpLocalization }}</label>
                   <select class="form-select form-select-sm" [ngModel]="testDay()" [ngModelOptions]="{standalone: true}" (ngModelChange)="testDay.set($event)">
-                    <option [ngValue]="1">Monday</option>
-                    <option [ngValue]="2">Tuesday</option>
-                    <option [ngValue]="3">Wednesday</option>
-                    <option [ngValue]="4">Thursday</option>
-                    <option [ngValue]="5">Friday</option>
-                    <option [ngValue]="6">Saturday</option>
-                    <option [ngValue]="0">Sunday</option>
+                    <option [ngValue]="1">{{ '::Monday' | abpLocalization }}</option>
+                    <option [ngValue]="2">{{ '::Tuesday' | abpLocalization }}</option>
+                    <option [ngValue]="3">{{ '::Wednesday' | abpLocalization }}</option>
+                    <option [ngValue]="4">{{ '::Thursday' | abpLocalization }}</option>
+                    <option [ngValue]="5">{{ '::Friday' | abpLocalization }}</option>
+                    <option [ngValue]="6">{{ '::Saturday' | abpLocalization }}</option>
+                    <option [ngValue]="0">{{ '::Sunday' | abpLocalization }}</option>
                   </select>
                 </div>
                 <div class="col-md-3">
-                  <label class="form-label small">Time</label>
+                  <label class="form-label small">{{ '::Time' | abpLocalization }}</label>
                   <input type="time" class="form-control form-control-sm" [ngModel]="testTime()" [ngModelOptions]="{standalone: true}" (ngModelChange)="testTime.set($event)">
                 </div>
                 <div class="col-md-3">
@@ -136,14 +136,14 @@ import type { EmployeeGroupDto } from '../../proxy/human-resources/models';
                 </div>
                 <div class="col-md-3">
                   @if (activeGroupLabel()) {
-                    <span class="badge bg-info text-dark">{{ activeGroupLabel() }}</span>
+                    <span class="badge bg-info text-dark">{{ activeGroupLabel() === 'None' ? ('::None' | abpLocalization) : activeGroupLabel() }}</span>
                   }
                 </div>
               </div>
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">Save Settings</button>
+          <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ '::SaveSettings' | abpLocalization }}</button>
         </form>
       </div>
     </div>
@@ -240,7 +240,7 @@ export class IncomingCallSettingsComponent implements OnInit {
       next: () => {
         this.toaster.success('::SuccessfullySaved');
       },
-      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Failed'),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::Failed'),
     });
   }
 }
