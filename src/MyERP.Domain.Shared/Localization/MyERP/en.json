@@ -7602,7 +7602,15 @@
     "NewReason": "New Reason",
     "NoQuotationLostReasonsFound": "No quotation lost reasons found.",
     "NoTaskTypesFound": "No task types found.",
-    "NoParameterGroupsFound": "No parameter groups found."
+    "NoParameterGroupsFound": "No parameter groups found.",
+    "NoOpportunityTypesFound": "No opportunity types found.",
+    "NewType": "New Type",
+    "NoBankAccountTypesFound": "No bank account types found.",
+    "NewSubtype": "New Subtype",
+    "AccountSubtype": "Account Subtype",
+    "NoBankAccountSubtypesFound": "No bank account subtypes found.",
+    "NewCallType": "New Call Type",
+    "NoTelephonyCallTypesFound": "No telephony call types found."
   }
 }
 

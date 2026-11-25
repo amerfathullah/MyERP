@@ -3552,6 +3552,93 @@ public class SubcontractingManager : DomainService
 
         return (fgTotalCostMinusOwnSecondaryCost * (costAllocationPercentage / 100m)) / secondaryQty;
     }
+
+    /// <summary>
+    /// Validates that every Finished Good item row on a Subcontracting Order has a matching
+    /// Service Item row (by <c>PurchaseOrderItemId</c>) and that every Service Item is a non-stock item
+    /// per ERPNext PR #67360 (<c>subcontracting_order.py: validate_service_items</c>).
+    /// </summary>
+    public static void ValidateOrderItemServiceRowParity(
+        IEnumerable<(int RowIdx, string ItemCode, Guid PurchaseOrderItemId)>? finishedGoodItems,
+        IEnumerable<(string ServiceItemCode, Guid PurchaseOrderItemId, bool IsStockItem)>? serviceItems)
+    {
+        var serviceList = (serviceItems ?? Array.Empty<(string, Guid, bool)>()).ToList();
+        var servicePoItemIds = serviceList
+            .Where(s => s.PurchaseOrderItemId != Guid.Empty)
+            .Select(s => s.PurchaseOrderItemId)
+            .ToHashSet();
+
+        if (finishedGoodItems != null)
+        {
+            foreach (var item in finishedGoodItems)
+            {
+                if (!servicePoItemIds.Contains(item.PurchaseOrderItemId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("rowIdx", item.RowIdx)
+                        .WithData("itemCode", item.ItemCode)
+                        .WithData("detail", $"Row {item.RowIdx}: Finished Good {item.ItemCode} has no Service Item row.");
+                }
+            }
+        }
+
+        foreach (var service in serviceList)
+        {
+            if (service.IsStockItem)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("itemCode", service.ServiceItemCode)
+                    .WithData("detail", $"Service Item {service.ServiceItemCode} must be a non-stock item.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes the remaining unreserved quantity for each Subcontracting Order supplied item row
+    /// per ERPNext PR #67550 (<c>subcontracting_order.py: get_unreserved_qty</c>):
+    /// ignores Stock Reservation Entries whose <c>FromVoucherType == "Stock Entry"</c> because a transfer's
+    /// reservation holds stock already counted in <c>TotalSuppliedQty</c>, and returns only rows with
+    /// rounded unreserved quantity <c>&gt; 0</c>.
+    /// </summary>
+    public static Dictionary<Guid, decimal> CalculateUnreservedSuppliedItemQuantities(
+        IEnumerable<(Guid SuppliedItemId, decimal RequiredQty, decimal TotalSuppliedQty)>? suppliedItems,
+        IEnumerable<(Guid VoucherDetailId, string? FromVoucherType, decimal ReservedQty, decimal DeliveredQty, decimal TransferredQty, decimal ConsumedQty)>? reservationEntries,
+        int precision = 4)
+    {
+        var unreserved = new Dictionary<Guid, decimal>();
+        if (suppliedItems == null)
+        {
+            return unreserved;
+        }
+
+        var heldByRow = new Dictionary<Guid, decimal>();
+        if (reservationEntries != null)
+        {
+            foreach (var sre in reservationEntries)
+            {
+                // A transfer's reservation holds stock that TotalSuppliedQty already counts
+                if (string.Equals(sre.FromVoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var remaining = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
+                heldByRow[sre.VoucherDetailId] = heldByRow.GetValueOrDefault(sre.VoucherDetailId, 0m) + remaining;
+            }
+        }
+
+        foreach (var item in suppliedItems)
+        {
+            var held = heldByRow.GetValueOrDefault(item.SuppliedItemId, 0m);
+            var qty = Math.Round(item.RequiredQty - item.TotalSuppliedQty - held, precision, MidpointRounding.AwayFromZero);
+            if (qty > 0m)
+            {
+                unreserved[item.SuppliedItemId] = qty;
+            }
+        }
+
+        return unreserved;
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

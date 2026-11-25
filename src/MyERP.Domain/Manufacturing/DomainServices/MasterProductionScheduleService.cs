@@ -593,6 +593,49 @@ public class MasterProductionScheduleService : DomainService
         return result;
     }
 
+    /// <summary>
+    /// Filters Sales Order item rows eligible for Master Production Schedule demand and returns
+    /// deduplicated Sales Order IDs per ERPNext PR #67493 (<c>closed == 0</c> on SO rows and packed-item SO rows)
+    /// and PR #67495 (<c>.distinct()</c> so each Sales Order is listed once in Get Sales Orders):
+    /// requires submitted order in <paramref name="companyId"/>, excludes <c>Closed</c>/<c>Completed</c> orders,
+    /// excludes individually closed Sales Order rows (<c>IsRowClosed == true</c>), and requires <c>PendingQty &gt; 0</c>.
+    /// </summary>
+    public static (IReadOnlyList<MpsSalesOrderDemandRow> EligibleRows, IReadOnlyList<Guid> DistinctSalesOrderIds)
+        FilterOpenSalesOrderRowsForMpsDemand(
+            Guid companyId,
+            IEnumerable<MpsSalesOrderDemandRow>? rows)
+    {
+        if (rows == null)
+        {
+            return (Array.Empty<MpsSalesOrderDemandRow>(), Array.Empty<Guid>());
+        }
+
+        var eligible = new List<MpsSalesOrderDemandRow>();
+        var seenOrders = new HashSet<Guid>();
+        var distinctOrders = new List<Guid>();
+
+        foreach (var row in rows.OrderBy(r => r.DeliveryDate))
+        {
+            if (!row.IsSubmitted
+                || row.CompanyId != companyId
+                || row.IsRowClosed
+                || row.PendingQty <= 0m
+                || string.Equals(row.OrderStatus, "Closed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(row.OrderStatus, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            eligible.Add(row);
+            if (row.SalesOrderId != Guid.Empty && seenOrders.Add(row.SalesOrderId))
+            {
+                distinctOrders.Add(row.SalesOrderId);
+            }
+        }
+
+        return (eligible, distinctOrders);
+    }
+
     private sealed class DemandBucket
     {
         public DateTime Date { get; }
@@ -605,3 +648,13 @@ public class MasterProductionScheduleService : DomainService
         }
     }
 }
+
+public sealed record MpsSalesOrderDemandRow(
+    Guid SalesOrderId,
+    Guid SalesOrderItemId,
+    Guid CompanyId,
+    bool IsSubmitted,
+    string OrderStatus,
+    bool IsRowClosed,
+    decimal PendingQty,
+    DateTime DeliveryDate);

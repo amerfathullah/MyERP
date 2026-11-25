@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530, #67554, #67555,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67530, #67550, #67554, #67555,
 /// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -2180,5 +2180,52 @@ public class UpstreamBatch42ParityTests
         updatedRules[0].Share.ShouldBeFalse();
         updatedRules[1].Print.ShouldBeTrue(); // Read == true preserved
         updatedRules[2].Print.ShouldBeTrue(); // non-Employee preserved
+    }
+
+    [Fact]
+    public void Pr67360_Pr67493_Pr67495_Pr67550_ScoServiceRow_MpsClosedRowDistinct_ScoUnreservedTransferExclusion_Parity()
+    {
+        // PR #67360: Refuse SCO Finished Good row without matching Service Item row, and reject stock Service Item
+        var poItem1 = Guid.NewGuid();
+        var poItemMissing = Guid.NewGuid();
+        Should.NotThrow(() => SubcontractingManager.ValidateOrderItemServiceRowParity(
+            new[] { (1, "FG-1", poItem1) },
+            new[] { ("SVC-1", poItem1, false) }));
+        Should.Throw<BusinessException>(() => SubcontractingManager.ValidateOrderItemServiceRowParity(
+            new[] { (1, "FG-1", poItemMissing) },
+            new[] { ("SVC-1", poItem1, false) }))
+            .Data["detail"]!.ToString()!.ShouldContain("has no Service Item row");
+        Should.Throw<BusinessException>(() => SubcontractingManager.ValidateOrderItemServiceRowParity(
+            new[] { (1, "FG-1", poItem1) },
+            new[] { ("STOCK-SVC", poItem1, true) }))
+            .Data["detail"]!.ToString()!.ShouldContain("must be a non-stock item");
+
+        // PR #67550: Transfer SRE ("Stock Entry") is excluded from unsupplied held qty so it is not double-counted with TotalSuppliedQty
+        var rmRow = Guid.NewGuid();
+        var unreserved = SubcontractingManager.CalculateUnreservedSuppliedItemQuantities(
+            suppliedItems: new[] { (rmRow, RequiredQty: 10m, TotalSuppliedQty: 4m) },
+            reservationEntries: new[]
+            {
+                (rmRow, "Stock Entry", 4m, 0m, 0m, 0m),  // transfer reservation -> ignored (already in TotalSuppliedQty)
+                (rmRow, (string?)null, 2m, 0m, 0m, 0m),  // direct warehouse reservation -> counted
+            });
+        unreserved[rmRow].ShouldBe(4m); // 10 - 4 supplied - 2 direct reserved = 4 unreserved
+
+        // PR #67493 & #67495: MPS excludes closed SO rows and lists each Sales Order once
+        var compId = Guid.NewGuid();
+        var otherCompId = Guid.NewGuid();
+        var so1 = Guid.NewGuid();
+        var so2 = Guid.NewGuid();
+        var (eligible, distinctOrders) = MasterProductionScheduleService.FilterOpenSalesOrderRowsForMpsDemand(
+            compId,
+            new[]
+            {
+                new MpsSalesOrderDemandRow(so1, Guid.NewGuid(), compId, true, "To Deliver", IsRowClosed: false, 5m, new DateTime(2026, 2, 1)),
+                new MpsSalesOrderDemandRow(so1, Guid.NewGuid(), compId, true, "To Deliver", IsRowClosed: false, 3m, new DateTime(2026, 2, 2)),
+                new MpsSalesOrderDemandRow(so1, Guid.NewGuid(), compId, true, "To Deliver", IsRowClosed: true, 7m, new DateTime(2026, 2, 3)), // closed row excluded (#67493)
+                new MpsSalesOrderDemandRow(so2, Guid.NewGuid(), otherCompId, true, "To Deliver", IsRowClosed: false, 4m, new DateTime(2026, 2, 1)), // other company excluded
+            });
+        eligible.Count.ShouldBe(2);
+        distinctOrders.ShouldBe(new[] { so1 }); // listed once (#67495)
     }
 }
