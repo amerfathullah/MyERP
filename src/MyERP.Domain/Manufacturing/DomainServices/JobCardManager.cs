@@ -1781,6 +1781,60 @@ public class JobCardManager : DomainService
 
         return effectiveCaps;
     }
+
+    /// <summary>
+    /// Computes elapsed seconds for the live Job Card stopwatch timer per ERPNext PR #67474
+    /// (<c>job_card.js: get_current_time</c>):
+    /// takes the union of all <c>[FromTime, ToTime ?? nowUtc]</c> intervals sorted by start, merging
+    /// overlapping intervals so parallel operators are counted once rather than summed, matching server-side
+    /// <c>get_workstation_minutes</c>.
+    /// </summary>
+    public static double CalculateLiveJobCardTimerSeconds(
+        IEnumerable<(DateTime? FromTime, DateTime? ToTime)>? timeLogs,
+        DateTime nowUtc)
+    {
+        if (timeLogs == null)
+        {
+            return 0d;
+        }
+
+        var intervals = timeLogs
+            .Where(l => l.FromTime.HasValue)
+            .Select(l => (Start: l.FromTime!.Value, End: l.ToTime ?? nowUtc))
+            .Where(i => i.End > i.Start)
+            .OrderBy(i => i.Start)
+            .ThenBy(i => i.End)
+            .ToList();
+
+        if (intervals.Count == 0)
+        {
+            return 0d;
+        }
+
+        double totalSeconds = 0d;
+        var currentStart = intervals[0].Start;
+        var currentEnd = intervals[0].End;
+
+        for (var i = 1; i < intervals.Count; i++)
+        {
+            var (start, end) = intervals[i];
+            if (start <= currentEnd)
+            {
+                if (end > currentEnd)
+                {
+                    currentEnd = end;
+                }
+                continue;
+            }
+
+            totalSeconds += (currentEnd - currentStart).TotalSeconds;
+            currentStart = start;
+            currentEnd = end;
+        }
+
+        totalSeconds += (currentEnd - currentStart).TotalSeconds;
+        return totalSeconds;
+    }
 }
 
 public readonly record struct JobCardExistingItemRow(

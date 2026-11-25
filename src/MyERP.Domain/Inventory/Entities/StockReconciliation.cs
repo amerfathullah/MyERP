@@ -118,4 +118,58 @@ public class StockReconciliation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         return valuationRate!.Value;
     }
+
+    /// <summary>
+    /// Refreshes a Stock Reconciliation row's book qty and valuation rate when posting date/time changes
+    /// per ERPNext PR #67442 (<c>stock_reconciliation.js: set_valuation_rate_and_qty</c>):
+    /// - When <paramref name="keepCountedValues"/> is true, any field the user edited away from the prior
+    ///   book value (compared at precision) is preserved, while untouched fields follow the new book value.
+    /// - In scan mode, counted qty is preserved and <c>ResetSerialNo</c> is false; <c>ResetSerialNo</c> is
+    ///   also false whenever counted qty was kept (<c>keepQty</c>).
+    /// </summary>
+    public static StockReconciliationPostingTimeRefreshResult ResolveReconciliationRowOnPostingTimeRefresh(
+        decimal currentRowQty,
+        decimal previousBookQty,
+        decimal currentRowRate,
+        decimal previousBookRate,
+        decimal newBookQty,
+        decimal newBookRate,
+        bool isScanMode,
+        bool keepCountedValues,
+        bool isStockReconciliationPurpose = true,
+        int qtyPrecision = 4,
+        int ratePrecision = 4)
+    {
+        var qtyChanged = Math.Round(currentRowQty, qtyPrecision, MidpointRounding.AwayFromZero)
+            != Math.Round(previousBookQty, qtyPrecision, MidpointRounding.AwayFromZero);
+        var rateChanged = Math.Round(currentRowRate, ratePrecision, MidpointRounding.AwayFromZero)
+            != Math.Round(previousBookRate, ratePrecision, MidpointRounding.AwayFromZero);
+
+        var keepQty = isScanMode || (keepCountedValues && qtyChanged);
+        var keepRate = keepCountedValues && rateChanged;
+
+        var resolvedQty = keepQty ? currentRowQty : newBookQty;
+        var resolvedRate = keepRate ? currentRowRate : newBookRate;
+        var currentAmount = newBookRate * newBookQty;
+        var amount = resolvedQty * resolvedRate;
+        var resetSerialNo = isStockReconciliationPurpose && !isScanMode && !keepQty;
+
+        return new StockReconciliationPostingTimeRefreshResult(
+            Qty: resolvedQty,
+            ValuationRate: resolvedRate,
+            CurrentQty: newBookQty,
+            CurrentValuationRate: newBookRate,
+            CurrentAmount: currentAmount,
+            Amount: amount,
+            ResetSerialNo: resetSerialNo);
+    }
 }
+
+public readonly record struct StockReconciliationPostingTimeRefreshResult(
+    decimal Qty,
+    decimal ValuationRate,
+    decimal CurrentQty,
+    decimal CurrentValuationRate,
+    decimal CurrentAmount,
+    decimal Amount,
+    bool ResetSerialNo);

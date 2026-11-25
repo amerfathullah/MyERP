@@ -1843,7 +1843,57 @@ public class PurchaseReceiptManager : DomainService
 
         return requestedQty;
     }
+
+    /// <summary>
+    /// Determines whether an internal transfer Purchase Receipt or stock-updating Purchase Invoice
+    /// should create a transfer Serial &amp; Batch package per ERPNext PR #67725
+    /// (<c>BuyingController.create_package_for_transfer</c>):
+    /// skips package creation when <paramref name="isReturn"/> is true.
+    /// </summary>
+    public static bool ShouldCreateTransferPackageForReceipt(
+        bool isInternalTransfer,
+        bool isReturn,
+        bool isPurchaseReceipt,
+        bool isPurchaseInvoiceWithUpdateStock)
+    {
+        if (isReturn)
+        {
+            return false;
+        }
+
+        return isInternalTransfer && (isPurchaseReceipt || isPurchaseInvoiceWithUpdateStock);
+    }
+
+    /// <summary>
+    /// Copies source row references onto a Purchase Receipt return row per ERPNext PR #67725
+    /// (<c>sales_and_purchase_return.py: make_return_doc</c>):
+    /// preserves <paramref name="sourceDeliveryNoteItemId"/> (and <paramref name="sourceDeliveryNotePackedItemId"/>)
+    /// alongside <paramref name="sourcePurchaseOrderItemId"/>, <paramref name="sourceRejectedWarehouseId"/>,
+    /// and <paramref name="sourcePurchaseReceiptItemId"/> so inter-company receipt returns keep their
+    /// Delivery Note row link.
+    /// </summary>
+    public static PurchaseReceiptReturnRowLinks CopyReturnRowDeliveryNoteLinks(
+        Guid? sourcePurchaseOrderItemId,
+        Guid? sourceRejectedWarehouseId,
+        Guid sourcePurchaseReceiptItemId,
+        Guid? sourceDeliveryNoteItemId,
+        Guid? sourceDeliveryNotePackedItemId = null)
+    {
+        return new PurchaseReceiptReturnRowLinks(
+            PurchaseOrderItemId: sourcePurchaseOrderItemId,
+            RejectedWarehouseId: sourceRejectedWarehouseId,
+            PurchaseReceiptItemId: sourcePurchaseReceiptItemId,
+            DeliveryNoteItemId: sourceDeliveryNoteItemId,
+            DeliveryNotePackedItemId: sourceDeliveryNotePackedItemId);
+    }
 }
+
+public readonly record struct PurchaseReceiptReturnRowLinks(
+    Guid? PurchaseOrderItemId,
+    Guid? RejectedWarehouseId,
+    Guid PurchaseReceiptItemId,
+    Guid? DeliveryNoteItemId,
+    Guid? DeliveryNotePackedItemId);
 
 public sealed record PurchaseReturnMovedWarehouseRow(
     int RowIdx,

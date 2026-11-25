@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67553, #67554, #67555,
-/// #67699, #67724, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66647, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67553, #67554, #67555,
+/// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2319,5 +2319,77 @@ public class UpstreamBatch42ParityTests
         extraPer.ShouldBe(0m);
         extraTotal.ShouldBe(5m);
         extraHasReceived.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Pr66647_Pr67442_Pr67474_Pr67725_PickListInternalDnDraft_ReconKeepCounted_JobCardLiveTimer_IcReturnDnLink_Parity()
+    {
+        // PR #67725: Inter-company return skips transfer package creation and preserves DeliveryNoteItemId link
+        PurchaseReceiptManager.ShouldCreateTransferPackageForReceipt(
+            isInternalTransfer: true, isReturn: true, isPurchaseReceipt: true, isPurchaseInvoiceWithUpdateStock: false)
+            .ShouldBeFalse();
+        PurchaseReceiptManager.ShouldCreateTransferPackageForReceipt(
+            isInternalTransfer: true, isReturn: false, isPurchaseReceipt: true, isPurchaseInvoiceWithUpdateStock: false)
+            .ShouldBeTrue();
+        var poRowId = Guid.NewGuid();
+        var rejWhId = Guid.NewGuid();
+        var prRowId = Guid.NewGuid();
+        var dnRowId = Guid.NewGuid();
+        var dnPackedRowId = Guid.NewGuid();
+        var links = PurchaseReceiptManager.CopyReturnRowDeliveryNoteLinks(poRowId, rejWhId, prRowId, dnRowId, dnPackedRowId);
+        links.PurchaseOrderItemId.ShouldBe(poRowId);
+        links.RejectedWarehouseId.ShouldBe(rejWhId);
+        links.PurchaseReceiptItemId.ShouldBe(prRowId);
+        links.DeliveryNoteItemId.ShouldBe(dnRowId);
+        links.DeliveryNotePackedItemId.ShouldBe(dnPackedRowId);
+
+        // PR #67442: Posting time refresh preserves user-edited qty/rate and updates untouched fields to new book values
+        var keptCounted = MyERP.Inventory.Entities.StockReconciliation.ResolveReconciliationRowOnPostingTimeRefresh(
+            currentRowQty: 8m, previousBookQty: 10m,
+            currentRowRate: 25m, previousBookRate: 20m,
+            newBookQty: 12m, newBookRate: 30m,
+            isScanMode: false, keepCountedValues: true);
+        keptCounted.Qty.ShouldBe(8m);
+        keptCounted.ValuationRate.ShouldBe(25m);
+        keptCounted.CurrentQty.ShouldBe(12m);
+        keptCounted.CurrentValuationRate.ShouldBe(30m);
+        keptCounted.CurrentAmount.ShouldBe(360m);
+        keptCounted.Amount.ShouldBe(200m);
+        keptCounted.ResetSerialNo.ShouldBeFalse();
+
+        var followedBook = MyERP.Inventory.Entities.StockReconciliation.ResolveReconciliationRowOnPostingTimeRefresh(
+            currentRowQty: 10m, previousBookQty: 10m,
+            currentRowRate: 20m, previousBookRate: 20m,
+            newBookQty: 12m, newBookRate: 30m,
+            isScanMode: false, keepCountedValues: true);
+        followedBook.Qty.ShouldBe(12m);
+        followedBook.ValuationRate.ShouldBe(30m);
+        followedBook.Amount.ShouldBe(360m);
+        followedBook.ResetSerialNo.ShouldBeTrue();
+
+        // PR #67474: Live Job Card timer takes union of intervals so parallel operators count once
+        var t0 = new DateTime(2026, 11, 20, 9, 0, 0, DateTimeKind.Utc);
+        var now = t0.AddMinutes(30); // 1800s from t0
+        var elapsed = JobCardManager.CalculateLiveJobCardTimerSeconds(
+            new (DateTime?, DateTime?)[]
+            {
+                (t0, t0.AddMinutes(20)),              // Operator 1: 09:00..09:20
+                (t0.AddMinutes(10), null),            // Operator 2 (running): 09:10..09:30 -> union 09:00..09:30 = 1800s
+                (t0.AddMinutes(15), t0.AddMinutes(25)), // Operator 3 overlapping inside union
+            },
+            now);
+        elapsed.ShouldBe(1800d);
+
+        // PR #66647: Draft internal Delivery Note saved with ignoreMandatory skips in-transit warehouse validation
+        InterCompanyTransactionService.ShouldValidateInTransitWarehouses(
+            isDraft: true, ignoreMandatory: true,
+            isDeliveryNote: true, isSalesInvoiceWithUpdateStock: false,
+            isPurchaseReceipt: false, isPurchaseInvoiceWithUpdateStock: false)
+            .ShouldBeFalse();
+        InterCompanyTransactionService.ShouldValidateInTransitWarehouses(
+            isDraft: false, ignoreMandatory: true,
+            isDeliveryNote: true, isSalesInvoiceWithUpdateStock: false,
+            isPurchaseReceipt: false, isPurchaseInvoiceWithUpdateStock: false)
+            .ShouldBeTrue();
     }
 }

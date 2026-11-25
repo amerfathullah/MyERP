@@ -1050,4 +1050,29 @@ public class InterCompanyTransactionService : DomainService
         var lookupWarehouse = isInternalPurchase ? fromWarehouseId : warehouseId;
         return (lookupWarehouse, isOutgoing ? -stockQty : stockQty);
     }
+
+    /// <summary>
+    /// Determines whether in-transit warehouse validation runs on an internal transfer document
+    /// per ERPNext PR #66647 (<c>internal_transfer.py: validate_in_transit_warehouses</c>):
+    /// skips validation on draft documents saved with <paramref name="ignoreMandatory"/> (for example,
+    /// a draft Delivery Note mapped from a Pick List before warehouses are set for submit).
+    /// </summary>
+    public static bool ShouldValidateInTransitWarehouses(
+        bool isDraft,
+        bool ignoreMandatory,
+        bool isDeliveryNote,
+        bool isSalesInvoiceWithUpdateStock,
+        bool isPurchaseReceipt,
+        bool isPurchaseInvoiceWithUpdateStock)
+    {
+        if (isDraft && ignoreMandatory)
+        {
+            return false;
+        }
+
+        return isDeliveryNote
+            || isSalesInvoiceWithUpdateStock
+            || isPurchaseReceipt
+            || isPurchaseInvoiceWithUpdateStock;
+    }
 }

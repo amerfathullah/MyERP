@@ -59,17 +59,17 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
             </select>
           </div>
           <div class="col-md-2 col-sm-6">
-            <label class="form-label small fw-semibold">Expiry Type</label>
+            <label class="form-label small fw-semibold">{{ '::ExpiryType' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="expiryType" (change)="loadData()">
-              <option value="Both">Both (Warranty & AMC)</option>
-              <option value="Warranty">Warranty Only</option>
-              <option value="AMC">AMC Only</option>
+              <option value="Both">{{ '::BothWarrantyAndAmc' | abpLocalization }}</option>
+              <option value="Warranty">{{ '::WarrantyOnly' | abpLocalization }}</option>
+              <option value="AMC">{{ '::AmcOnly' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-2 col-sm-6">
-            <label class="form-label small fw-semibold">Maintenance Status</label>
+            <label class="form-label small fw-semibold">{{ '::MaintenanceStatus' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedMaintenanceStatus" (change)="loadData()">
-              <option value="All">All Statuses</option>
+              <option value="All">{{ '::AllStatuses' | abpLocalization }}</option>
               <option value="Under Warranty">{{ '::UnderWarranty' | abpLocalization }}</option>
               <option value="Under AMC">{{ '::UnderAMC' | abpLocalization }}</option>
               <option value="Out of Warranty">{{ '::OutOfWarranty' | abpLocalization }}</option>
@@ -86,13 +86,13 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
         <!-- Filter Row 2 -->
         <div class="row g-2 mb-4 align-items-center">
           <div class="col-md-2 col-sm-6">
-            <label class="form-label small fw-semibold">Expiring Within</label>
+            <label class="form-label small fw-semibold">{{ '::ExpiringWithin' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="daysThreshold" (change)="loadData()">
-              <option [ngValue]="null">Any Duration</option>
-              <option [ngValue]="30">30 Days</option>
-              <option [ngValue]="60">60 Days</option>
-              <option [ngValue]="90">90 Days</option>
-              <option [ngValue]="180">180 Days</option>
+              <option [ngValue]="null">{{ '::AnyDuration' | abpLocalization }}</option>
+              <option [ngValue]="30">{{ '::Days30' | abpLocalization }}</option>
+              <option [ngValue]="60">{{ '::Days60' | abpLocalization }}</option>
+              <option [ngValue]="90">{{ '::Days90' | abpLocalization }}</option>
+              <option [ngValue]="180">{{ '::Days180' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-2 col-sm-6">
@@ -121,7 +121,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 [(ngModel)]="expiringSoonOnly"
               />
               <label class="form-check-label small" for="expiringSoonOnly">
-                {{ '::ExpiringSoon' | abpLocalization }} Only
+                {{ '::ExpiringSoonOnly' | abpLocalization }}
               </label>
             </div>
           </div>
@@ -132,7 +132,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-2 col-sm-4 col-6">
               <div class="card bg-light border-0 shadow-sm p-3 text-center">
-                <span class="text-muted small">Total Serials</span>
+                <span class="text-muted small">{{ '::TotalSerials' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold">{{ report()!.totalCount }}</span>
               </div>
             </div>
@@ -190,7 +190,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::Customer' | abpLocalization }}</th>
                   <th>{{ '::Warehouse' | abpLocalization }}</th>
-                  <th>Maintenance Status</th>
+                  <th>{{ '::MaintenanceStatus' | abpLocalization }}</th>
                   <th>{{ '::WarrantyExpiryDate' | abpLocalization }}</th>
                   <th>{{ '::DaysToWarrantyExpiry' | abpLocalization }}</th>
                   <th>{{ '::AmcExpiryDate' | abpLocalization }}</th>
@@ -227,11 +227,11 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td class="small">
                       @if (row.daysToWarrantyExpiry !== null && row.daysToWarrantyExpiry !== undefined) {
                         @if (row.isWarrantyExpired) {
-                          <span class="badge bg-danger">Expired ({{ -row.daysToWarrantyExpiry }}d ago)</span>
+                          <span class="badge bg-danger">{{ '::Expired' | abpLocalization }} ({{ -row.daysToWarrantyExpiry }}{{ '::DaysAgo' | abpLocalization }})</span>
                         } @else if (row.daysToWarrantyExpiry <= 30) {
-                          <span class="badge bg-warning text-dark">{{ row.daysToWarrantyExpiry }}d left</span>
+                          <span class="badge bg-warning text-dark">{{ row.daysToWarrantyExpiry }}{{ '::DaysLeftShort' | abpLocalization }}</span>
                         } @else {
-                          <span class="text-muted">{{ row.daysToWarrantyExpiry }}d</span>
+                          <span class="text-muted">{{ row.daysToWarrantyExpiry }}{{ '::DaysShort' | abpLocalization }}</span>
                         }
                       } @else {
                         <span class="text-muted">-</span>
@@ -249,11 +249,11 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td class="small">
                       @if (row.daysToAmcExpiry !== null && row.daysToAmcExpiry !== undefined) {
                         @if (row.isAmcExpired) {
-                          <span class="badge bg-danger">Expired ({{ -row.daysToAmcExpiry }}d ago)</span>
+                          <span class="badge bg-danger">{{ '::Expired' | abpLocalization }} ({{ -row.daysToAmcExpiry }}{{ '::DaysAgo' | abpLocalization }})</span>
                         } @else if (row.daysToAmcExpiry <= 30) {
-                          <span class="badge bg-warning text-dark">{{ row.daysToAmcExpiry }}d left</span>
+                          <span class="badge bg-warning text-dark">{{ row.daysToAmcExpiry }}{{ '::DaysLeftShort' | abpLocalization }}</span>
                         } @else {
-                          <span class="text-muted">{{ row.daysToAmcExpiry }}d</span>
+                          <span class="text-muted">{{ row.daysToAmcExpiry }}{{ '::DaysShort' | abpLocalization }}</span>
                         }
                       } @else {
                         <span class="text-muted">-</span>

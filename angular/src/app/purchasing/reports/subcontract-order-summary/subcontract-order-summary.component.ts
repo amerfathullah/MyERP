@@ -85,7 +85,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">{{ '::SubcontractingOrder' | abpLocalization }}s</div>
+                <div class="text-muted small mb-1">{{ '::SubcontractingOrders' | abpLocalization }}</div>
                 <h4 class="fw-bold text-dark mb-0">{{ rep.totalOrders }}</h4>
               </div>
             </div>
@@ -93,7 +93,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">FG Ordered</div>
+                <div class="text-muted small mb-1">{{ '::FgOrdered' | abpLocalization }}</div>
                 <h4 class="fw-bold text-primary mb-0">{{ rep.totalOrderQty | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -101,7 +101,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">FG Received</div>
+                <div class="text-muted small mb-1">{{ '::FgReceived' | abpLocalization }}</div>
                 <h4 class="fw-bold text-success mb-0">{{ rep.totalReceivedQty | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -109,7 +109,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">RM Required</div>
+                <div class="text-muted small mb-1">{{ '::RmRequired' | abpLocalization }}</div>
                 <h4 class="fw-bold text-dark mb-0">{{ rep.totalRequiredQty | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -117,7 +117,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">RM Supplied</div>
+                <div class="text-muted small mb-1">{{ '::RmSupplied' | abpLocalization }}</div>
                 <h4 class="fw-bold text-info mb-0">{{ rep.totalSuppliedQty | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -125,7 +125,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-2">
             <div class="card shadow-sm border-0 h-100">
               <div class="card-body py-3 text-center">
-                <div class="text-muted small mb-1">RM Consumed</div>
+                <div class="text-muted small mb-1">{{ '::RmConsumed' | abpLocalization }}</div>
                 <h4 class="fw-bold text-warning mb-0">{{ rep.totalConsumedQty | number:'1.2-2' }}</h4>
               </div>
             </div>
@@ -154,14 +154,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       <th>{{ '::Supplier' | abpLocalization }}</th>
                       <th>{{ '::Status' | abpLocalization }}</th>
                       <th>{{ '::SubcontractedItem' | abpLocalization }}</th>
-                      <th class="text-end">Order Qty</th>
+                      <th class="text-end">{{ '::OrderQty' | abpLocalization }}</th>
                       <th class="text-end">{{ '::ReceivedQty' | abpLocalization }}</th>
-                      <th class="text-end">Pending FG</th>
+                      <th class="text-end">{{ '::PendingFg' | abpLocalization }}</th>
                       <th>{{ '::SuppliedItem' | abpLocalization }}</th>
                       <th class="text-end">{{ '::RequiredQuantity' | abpLocalization }}</th>
                       <th class="text-end">{{ '::TransferredQty' | abpLocalization }}</th>
                       <th class="text-end">{{ '::ConsumedQty' | abpLocalization }}</th>
-                      <th class="text-end">Pending RM</th>
+                      <th class="text-end">{{ '::PendingRm' | abpLocalization }}</th>
                     </tr>
                   </thead>
                   <tbody>

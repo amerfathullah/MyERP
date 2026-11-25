@@ -37,7 +37,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="onlyOverproduced" [(ngModel)]="onlyOverproduced">
               <label class="form-check-label" for="onlyOverproduced">
-                Only Overproduced Work Orders (Produced &gt; Ordered)
+                {{ '::OnlyOverproducedWorkOrders' | abpLocalization }}
               </label>
             </div>
           </div>
@@ -62,7 +62,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <div class="fs-4 fw-bold text-info">
                   {{ d.totalOrderedQty | number:'1.2-2' }} / {{ d.totalProducedQty | number:'1.2-2' }}
                 </div>
-                <small class="text-muted">Ordered vs Produced FG</small>
+                <small class="text-muted">{{ '::OrderedVsProducedFg' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
@@ -70,7 +70,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <div class="fs-4 fw-bold text-secondary">
                   {{ d.totalRequiredQty | number:'1.2-2' }} / {{ d.totalConsumedQty | number:'1.2-2' }}
                 </div>
-                <small class="text-muted">Required vs Consumed RM</small>
+                <small class="text-muted">{{ '::RequiredVsConsumedRm' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
@@ -78,7 +78,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <div class="fs-3 fw-bold" [class.text-danger]="d.totalVarianceQty > 0" [class.text-success]="d.totalVarianceQty <= 0">
                   {{ d.totalVarianceQty > 0 ? '+' : '' }}{{ d.totalVarianceQty | number:'1.2-2' }}
                 </div>
-                <small class="text-muted">Total Variance</small>
+                <small class="text-muted">{{ '::TotalVariance' | abpLocalization }}</small>
               </div>
             </div>
           </div>
@@ -89,14 +89,14 @@ import { exportToCsv } from '../../shared/utils/csv-export';
               <thead class="table-light">
                 <tr>
                   <th>{{ '::WorkOrder' | abpLocalization }}</th>
-                  <th>BOM</th>
+                  <th>{{ '::BOM' | abpLocalization }}</th>
                   <th>{{ '::FinishedGood' | abpLocalization }}</th>
                   <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
-                  <th>Raw Material</th>
+                  <th>{{ '::RawMaterial' | abpLocalization }}</th>
                   <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
                   <th class="text-end">{{ '::ConsumedQty' | abpLocalization }}</th>
-                  <th class="text-end">Variance</th>
+                  <th class="text-end">{{ '::Variance' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
