@@ -1224,6 +1224,39 @@ public class PickListManager : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Validates the <c>company</c> filter passed to Pick List queries per ERPNext PR #67097
+    /// (<c>pick_list.py: check_pick_list_company</c>):
+    /// - Rejects any non-null value that is not a <see cref="string"/> (<c>"Company must be text"</c>).
+    /// - Treats null or empty string as a no-op.
+    /// - When <paramref name="allowedCompanies"/> is non-empty, rejects companies outside the caller's allowed set.
+    /// </summary>
+    public static void ValidatePickListQueryCompanyFilter(
+        object? company,
+        IReadOnlySet<string>? allowedCompanies = null)
+    {
+        if (company is not null and not string)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company must be text");
+        }
+
+        var companyText = company as string;
+        if (string.IsNullOrWhiteSpace(companyText))
+        {
+            return;
+        }
+
+        if (allowedCompanies != null
+            && allowedCompanies.Count > 0
+            && !allowedCompanies.Contains(companyText))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("company", companyText)
+                .WithData("detail", $"Not permitted for company {companyText}.");
+        }
+    }
 }
 
 public sealed record RepackedPackedItemRow(

@@ -3488,6 +3488,57 @@ public class StockEntryManager : DomainService
             : workOrderQty;
         return baseQty - producedQty - processLossQty;
     }
+
+    /// <summary>
+    /// Enforces Item select permission, Stock Entry read permission, and Stock Entry-scoped Warehouse and
+    /// Company user permissions on <c>get_warehouse_details</c> per ERPNext PR #67132
+    /// (<c>stock_entry.py: get_warehouse_details</c> / <c>check_stock_entry_warehouse_permission</c>).
+    /// </summary>
+    public static void ValidateStockEntryWarehouseDetailsAccess(
+        bool hasItemSelectPermission,
+        bool hasStockEntryReadPermission,
+        Guid? warehouseId,
+        Guid? warehouseCompanyId,
+        IReadOnlySet<Guid>? allowedStockEntryWarehouses,
+        IReadOnlySet<Guid>? allowedStockEntryCompanies)
+    {
+        if (!hasItemSelectPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to select Item.");
+        }
+
+        if (!hasStockEntryReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Not permitted to read Stock Entry.");
+        }
+
+        if (!warehouseId.HasValue || warehouseId.Value == Guid.Empty)
+        {
+            return;
+        }
+
+        if (allowedStockEntryWarehouses != null
+            && allowedStockEntryWarehouses.Count > 0
+            && !allowedStockEntryWarehouses.Contains(warehouseId.Value))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("warehouseId", warehouseId.Value)
+                .WithData("detail", $"Not permitted for warehouse {warehouseId.Value}.");
+        }
+
+        if (warehouseCompanyId.HasValue
+            && warehouseCompanyId.Value != Guid.Empty
+            && allowedStockEntryCompanies != null
+            && allowedStockEntryCompanies.Count > 0
+            && !allowedStockEntryCompanies.Contains(warehouseCompanyId.Value))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("companyId", warehouseCompanyId.Value)
+                .WithData("detail", $"Not permitted for company {warehouseCompanyId.Value}.");
+        }
+    }
 }
 
 public sealed record OverflowReservedBatchRowResult(

@@ -229,4 +229,30 @@ public class EmployeeLifecycleManager : DomainService
             h.HolidayDate.Date == checkDate
             && (!onlyNonWeekly || !h.IsWeeklyOff));
     }
+
+    /// <summary>
+    /// Resolves which User Permissions and Employee Role should be cleaned up when an Employee's
+    /// <c>CreateUserPermission</c> flag is unticked, its linked <c>UserId</c> changes, or the Employee is deleted
+    /// per ERPNext PR #64319 (<c>employee.py: remove_user_access</c> / <c>remove_user_permissions</c> / <c>after_delete</c>):
+    /// - Always removes the Employee User Permission when <paramref name="includeEmployeePermission"/> is true.
+    /// - Removes the Company User Permission ONLY when <paramref name="hadAddedCompanyPermission"/> is true,
+    ///   <paramref name="createUserPermissionWasEnabled"/> is true, AND no other Employee for the same
+    ///   <c>(UserId, CompanyId)</c> still has <c>CreateUserPermission</c> enabled.
+    /// - Removes the Employee role on the User ONLY when no other Employee remains linked to that User.
+    /// </summary>
+    public static (bool RemoveEmployeePermission, bool RemoveCompanyPermission, bool RemoveEmployeeRole)
+        ResolveEmployeeUserPermissionCleanup(
+            bool createUserPermissionWasEnabled,
+            bool hadAddedCompanyPermission,
+            bool otherEmployeeSameUserAndCompanyHasPermission,
+            bool otherEmployeeStillLinkedToUser,
+            bool includeEmployeePermission = true)
+    {
+        var removeCompany = createUserPermissionWasEnabled
+            && hadAddedCompanyPermission
+            && !otherEmployeeSameUserAndCompanyHasPermission;
+        var removeRole = !otherEmployeeStillLinkedToUser;
+
+        return (includeEmployeePermission, removeCompany, removeRole);
+    }
 }

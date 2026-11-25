@@ -56,11 +56,11 @@
           <div class="col-12 col-md-6 mb-3">
             <label class="form-label" for="idType">{{ '::IDType' | abpLocalization }}</label>
             <select id="idType" class="form-select" formControlName="idType">
-              <option value="BRN">BRN (Business Registration)</option>
-              <option value="NRIC">NRIC (MyKad)</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="ARMY">ARMY (My Tentera)</option>
-              <option value="MYKAS">MyKas</option>
+              <option value="BRN">{{ '::IdTypeBrn' | abpLocalization }}</option>
+              <option value="NRIC">{{ '::IdTypeNric' | abpLocalization }}</option>
+              <option value="PASSPORT">{{ '::IdTypePassport' | abpLocalization }}</option>
+              <option value="ARMY">{{ '::IdTypeArmy' | abpLocalization }}</option>
+              <option value="MYKAS">{{ '::IdTypeMykas' | abpLocalization }}</option>
             </select>
           </div>
 
@@ -229,21 +229,21 @@
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="soRequired" formControlName="soRequired" />
-              <label class="form-check-label" for="soRequired">Allow Sales Invoice without Sales Order</label>
+              <label class="form-check-label" for="soRequired">{{ '::AllowSalesInvoiceWithoutSalesOrder' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="dnRequired" formControlName="dnRequired" />
-              <label class="form-check-label" for="dnRequired">Allow Sales Invoice without Delivery Note</label>
+              <label class="form-check-label" for="dnRequired">{{ '::AllowSalesInvoiceWithoutDeliveryNote' | abpLocalization }}</label>
             </div>
           </div>
 
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="isFrozen" formControlName="isFrozen" />
-              <label class="form-check-label" for="isFrozen">Frozen</label>
+              <label class="form-check-label" for="isFrozen">{{ '::Frozen' | abpLocalization }}</label>
             </div>
           </div>
 

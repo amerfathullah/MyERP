@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66000, #66259, #66260, #66292, #66299, #66329, #66536, #66596, #66600, #66647, #66690, #66947, #66966, #66971, #66993, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66000, #66259, #66260, #66292, #66299, #66329, #66444, #66536, #66588, #66596, #66600, #66647, #66690, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
 /// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67957, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -2523,5 +2523,63 @@ public class UpstreamBatch42ParityTests
         TransactionValidationService.ValidateInclusiveTaxRowAgainstFormTaxes(
             rowIdx: 2, chargeType: "On Previous Row Total", includedInPrintRate: true, referencedRowId: 1,
             currentFormTaxes: new[] { (1, true), (2, true) });
+    }
+
+    [Fact]
+    public void Pr64319_Pr66444_Pr66588_Pr67097_Pr67132_EmpPermCleanup_PortalSq_SoSiPerm_PickListCompany_SeWhPerm_Parity()
+    {
+        // PR #67132: get_warehouse_details checks Item select, Stock Entry read, and SE-scoped Warehouse & Company permissions
+        var wh1 = Guid.NewGuid();
+        var comp1 = Guid.NewGuid();
+        var comp2 = Guid.NewGuid();
+        Should.Throw<BusinessException>(() => StockEntryManager.ValidateStockEntryWarehouseDetailsAccess(
+            hasItemSelectPermission: false, hasStockEntryReadPermission: true,
+            warehouseId: wh1, warehouseCompanyId: comp1,
+            allowedStockEntryWarehouses: null, allowedStockEntryCompanies: null));
+        Should.Throw<BusinessException>(() => StockEntryManager.ValidateStockEntryWarehouseDetailsAccess(
+            hasItemSelectPermission: true, hasStockEntryReadPermission: true,
+            warehouseId: wh1, warehouseCompanyId: comp2,
+            allowedStockEntryWarehouses: new HashSet<Guid> { wh1 },
+            allowedStockEntryCompanies: new HashSet<Guid> { comp1 }));
+        StockEntryManager.ValidateStockEntryWarehouseDetailsAccess(
+            hasItemSelectPermission: true, hasStockEntryReadPermission: true,
+            warehouseId: wh1, warehouseCompanyId: comp1,
+            allowedStockEntryWarehouses: new HashSet<Guid> { wh1 },
+            allowedStockEntryCompanies: new HashSet<Guid> { comp1 });
+
+        // PR #67097: Pick List company query filter rejects non-string types and disallowed companies
+        Should.Throw<BusinessException>(() => PickListManager.ValidatePickListQueryCompanyFilter(123))
+            .Data["detail"]!.ToString()!.ShouldContain("Company must be text");
+        PickListManager.ValidatePickListQueryCompanyFilter(null);
+        PickListManager.ValidatePickListQueryCompanyFilter("Acme", new HashSet<string> { "Acme" });
+        Should.Throw<BusinessException>(() =>
+            PickListManager.ValidatePickListQueryCompanyFilter("Other", new HashSet<string> { "Acme" }));
+
+        // PR #66444: Supplier portal Supplier Quotation with ignore_permissions bypasses item permission check
+        ItemDetailsResolverService.ShouldEnforceItemPermissionOnGetItemDetails(
+            "Supplier Quotation", isDocumentInstance: true, ignorePermissions: true).ShouldBeFalse();
+        ItemDetailsResolverService.ShouldEnforceItemPermissionOnGetItemDetails(
+            "Supplier Quotation", isDocumentInstance: true, ignorePermissions: false).ShouldBeTrue();
+        ItemDetailsResolverService.ShouldEnforceItemPermissionOnGetItemDetails(
+            "Sales Order", isDocumentInstance: true, ignorePermissions: true).ShouldBeTrue();
+
+        // PR #66588: SO -> SI mapper propagates caller's ignore_permissions rather than forcing true
+        TransactionValidationService.ResolveMappedSalesInvoiceIgnorePermissions(false).ShouldBeFalse();
+        TransactionValidationService.ResolveMappedSalesInvoiceIgnorePermissions(true).ShouldBeTrue();
+
+        // PR #64319: Employee user permission cleanup keeps shared Company permission and Employee role when another Employee exists
+        var sharedCompany = MyERP.HumanResources.DomainServices.EmployeeLifecycleManager.ResolveEmployeeUserPermissionCleanup(
+            createUserPermissionWasEnabled: true,
+            hadAddedCompanyPermission: true,
+            otherEmployeeSameUserAndCompanyHasPermission: true,
+            otherEmployeeStillLinkedToUser: true);
+        sharedCompany.ShouldBe((RemoveEmployeePermission: true, RemoveCompanyPermission: false, RemoveEmployeeRole: false));
+
+        var lastEmployee = MyERP.HumanResources.DomainServices.EmployeeLifecycleManager.ResolveEmployeeUserPermissionCleanup(
+            createUserPermissionWasEnabled: true,
+            hadAddedCompanyPermission: true,
+            otherEmployeeSameUserAndCompanyHasPermission: false,
+            otherEmployeeStillLinkedToUser: false);
+        lastEmployee.ShouldBe((RemoveEmployeePermission: true, RemoveCompanyPermission: true, RemoveEmployeeRole: true));
     }
 }

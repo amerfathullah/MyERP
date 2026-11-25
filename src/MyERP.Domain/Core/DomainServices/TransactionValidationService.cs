@@ -591,4 +591,14 @@ public class TransactionValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Resolves <c>ignore_permissions</c> on a Sales Invoice mapped from a Sales Order per ERPNext PR #66588
+    /// (<c>sales_order/mapper.py: make_sales_invoice</c>): propagates the caller's
+    /// <paramref name="callerIgnorePermissions"/> flag instead of hardcoding <c>true</c>.
+    /// </summary>
+    public static bool ResolveMappedSalesInvoiceIgnorePermissions(bool callerIgnorePermissions)
+    {
+        return callerIgnorePermissions;
+    }
 }

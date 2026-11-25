@@ -80,7 +80,7 @@ interface Sst02FilingData {
           <div class="alert" [class.alert-danger]="!f.isRefundable" [class.alert-success]="f.isRefundable">
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <strong>{{ f.isRefundable ? 'Refundable' : 'Tax Payable' }}</strong>
+                <strong>{{ (f.isRefundable ? '::Refundable' : '::TaxPayable') | abpLocalization }}</strong>
                 <span class="ms-2 text-muted">{{ f.taxPeriod }}</span>
               </div>
               <h4 class="mb-0">RM {{ (f.isRefundable ? -f.netTaxPayable : f.netTaxPayable) | number:'1.2-2' }}</h4>
@@ -93,25 +93,25 @@ interface Sst02FilingData {
             <div class="col-md-6">
               <div class="card border">
                 <div class="card-header bg-light">
-                  <h6 class="mb-0">Section A: Taxable Supplies</h6>
+                  <h6 class="mb-0">{{ '::SectionATaxableSupplies' | abpLocalization }}</h6>
                 </div>
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
-                    <thead><tr><th>Rate</th><th class="text-end">Taxable Value (RM)</th><th class="text-end">Tax (RM)</th></tr></thead>
+                    <thead><tr><th>{{ '::Rate' | abpLocalization }}</th><th class="text-end">{{ '::TaxableValueRm' | abpLocalization }}</th><th class="text-end">{{ '::TaxRm' | abpLocalization }}</th></tr></thead>
                     <tbody>
                       @if (f.taxableSupplies6Percent > 0) {
-                        <tr><td>Service Tax 6%</td><td class="text-end">{{ f.taxableSupplies6Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax6Percent | number:'1.2-2' }}</td></tr>
+                        <tr><td>{{ '::ServiceTax6Percent' | abpLocalization }}</td><td class="text-end">{{ f.taxableSupplies6Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax6Percent | number:'1.2-2' }}</td></tr>
                       }
                       @if (f.taxableSupplies10Percent > 0) {
-                        <tr><td>Sales Tax 10%</td><td class="text-end">{{ f.taxableSupplies10Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax10Percent | number:'1.2-2' }}</td></tr>
+                        <tr><td>{{ '::SalesTax10Percent' | abpLocalization }}</td><td class="text-end">{{ f.taxableSupplies10Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax10Percent | number:'1.2-2' }}</td></tr>
                       }
                       @if (f.taxableSupplies5Percent > 0) {
-                        <tr><td>Sales Tax 5%</td><td class="text-end">{{ f.taxableSupplies5Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax5Percent | number:'1.2-2' }}</td></tr>
+                        <tr><td>{{ '::SalesTax5Percent' | abpLocalization }}</td><td class="text-end">{{ f.taxableSupplies5Percent | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTax5Percent | number:'1.2-2' }}</td></tr>
                       }
                       @if (f.taxableSuppliesOtherRate > 0) {
-                        <tr><td>Other Rates</td><td class="text-end">{{ f.taxableSuppliesOtherRate | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTaxOther | number:'1.2-2' }}</td></tr>
+                        <tr><td>{{ '::OtherRates' | abpLocalization }}</td><td class="text-end">{{ f.taxableSuppliesOtherRate | number:'1.2-2' }}</td><td class="text-end">{{ f.outputTaxOther | number:'1.2-2' }}</td></tr>
                       }
-                      <tr class="fw-bold table-light"><td>Total Output Tax (D)</td><td></td><td class="text-end">{{ f.totalOutputTax | number:'1.2-2' }}</td></tr>
+                      <tr class="fw-bold table-light"><td>{{ '::TotalOutputTaxD' | abpLocalization }}</td><td></td><td class="text-end">{{ f.totalOutputTax | number:'1.2-2' }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -122,13 +122,13 @@ interface Sst02FilingData {
             <div class="col-md-6">
               <div class="card border">
                 <div class="card-header bg-light">
-                  <h6 class="mb-0">Section B & C: Non-Taxable Supplies</h6>
+                  <h6 class="mb-0">{{ '::SectionBCNonTaxableSupplies' | abpLocalization }}</h6>
                 </div>
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      <tr><td>Exempt Supplies (B)</td><td class="text-end">{{ f.exemptSupplies | number:'1.2-2' }}</td></tr>
-                      <tr><td>Zero-Rated Supplies (C)</td><td class="text-end">{{ f.zeroRatedSupplies | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::ExemptSuppliesB' | abpLocalization }}</td><td class="text-end">{{ f.exemptSupplies | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::ZeroRatedSuppliesC' | abpLocalization }}</td><td class="text-end">{{ f.zeroRatedSupplies | number:'1.2-2' }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -137,12 +137,12 @@ interface Sst02FilingData {
               <!-- Section E: Input Tax -->
               <div class="card border mt-3">
                 <div class="card-header bg-light">
-                  <h6 class="mb-0">Section E: Input Tax Credit</h6>
+                  <h6 class="mb-0">{{ '::SectionEInputTaxCredit' | abpLocalization }}</h6>
                 </div>
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      <tr><td>Input Tax on Purchases</td><td class="text-end">{{ f.inputTaxCredit | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::InputTaxOnPurchases' | abpLocalization }}</td><td class="text-end">{{ f.inputTaxCredit | number:'1.2-2' }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -153,14 +153,14 @@ interface Sst02FilingData {
             <div class="col-md-6">
               <div class="card border">
                 <div class="card-header bg-light">
-                  <h6 class="mb-0">Section F: Adjustments</h6>
+                  <h6 class="mb-0">{{ '::SectionFAdjustments' | abpLocalization }}</h6>
                 </div>
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      <tr><td>Credit Note Adjustment</td><td class="text-end text-danger">-{{ f.creditNoteAdjustment | number:'1.2-2' }}</td></tr>
-                      <tr><td>Debit Note Adjustment</td><td class="text-end text-success">+{{ f.debitNoteAdjustment | number:'1.2-2' }}</td></tr>
-                      <tr class="fw-bold"><td>Net Adjustment</td><td class="text-end">{{ f.netAdjustment | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::CreditNoteAdjustment' | abpLocalization }}</td><td class="text-end text-danger">-{{ f.creditNoteAdjustment | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::DebitNoteAdjustment' | abpLocalization }}</td><td class="text-end text-success">+{{ f.debitNoteAdjustment | number:'1.2-2' }}</td></tr>
+                      <tr class="fw-bold"><td>{{ '::NetAdjustment' | abpLocalization }}</td><td class="text-end">{{ f.netAdjustment | number:'1.2-2' }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -171,15 +171,15 @@ interface Sst02FilingData {
             <div class="col-md-6">
               <div class="card border">
                 <div class="card-header bg-light">
-                  <h6 class="mb-0">Section G: Net Tax Position</h6>
+                  <h6 class="mb-0">{{ '::SectionGNetTaxPosition' | abpLocalization }}</h6>
                 </div>
                 <div class="card-body p-0">
                   <table class="table table-sm mb-0">
                     <tbody>
-                      <tr><td>Total Output Tax (D)</td><td class="text-end">{{ f.totalOutputTax | number:'1.2-2' }}</td></tr>
-                      <tr><td>Less: Input Tax Credit (E)</td><td class="text-end">-{{ f.inputTaxCredit | number:'1.2-2' }}</td></tr>
-                      <tr><td>Adjustments (F)</td><td class="text-end">{{ f.netAdjustment | number:'1.2-2' }}</td></tr>
-                      <tr class="fw-bold table-warning"><td>Net Tax Payable/Refundable (G)</td><td class="text-end">{{ f.netTaxPayable | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::TotalOutputTaxD' | abpLocalization }}</td><td class="text-end">{{ f.totalOutputTax | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::LessInputTaxCreditE' | abpLocalization }}</td><td class="text-end">-{{ f.inputTaxCredit | number:'1.2-2' }}</td></tr>
+                      <tr><td>{{ '::AdjustmentsF' | abpLocalization }}</td><td class="text-end">{{ f.netAdjustment | number:'1.2-2' }}</td></tr>
+                      <tr class="fw-bold table-warning"><td>{{ '::NetTaxPayableRefundableG' | abpLocalization }}</td><td class="text-end">{{ f.netTaxPayable | number:'1.2-2' }}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -189,10 +189,10 @@ interface Sst02FilingData {
 
           <!-- Document Counts -->
           <div class="row mt-3">
-            <div class="col-md-3"><small class="text-muted">Sales Invoices: {{ f.totalSalesInvoices }}</small></div>
-            <div class="col-md-3"><small class="text-muted">Purchase Invoices: {{ f.totalPurchaseInvoices }}</small></div>
-            <div class="col-md-3"><small class="text-muted">Credit Notes: {{ f.totalCreditNotes }}</small></div>
-            <div class="col-md-3"><small class="text-muted">Debit Notes: {{ f.totalDebitNotes }}</small></div>
+            <div class="col-md-3"><small class="text-muted">{{ '::SalesInvoices' | abpLocalization }}: {{ f.totalSalesInvoices }}</small></div>
+            <div class="col-md-3"><small class="text-muted">{{ '::PurchaseInvoices' | abpLocalization }}: {{ f.totalPurchaseInvoices }}</small></div>
+            <div class="col-md-3"><small class="text-muted">{{ '::CreditNotes' | abpLocalization }}: {{ f.totalCreditNotes }}</small></div>
+            <div class="col-md-3"><small class="text-muted">{{ '::DebitNotes' | abpLocalization }}: {{ f.totalDebitNotes }}</small></div>
           </div>
         }
       </div>

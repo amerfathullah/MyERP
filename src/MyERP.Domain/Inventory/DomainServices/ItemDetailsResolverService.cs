@@ -962,6 +962,25 @@ public class ItemDetailsResolverService : DomainService
         var amount = Math.Round(rate * qty, amountPrecision, MidpointRounding.AwayFromZero);
         return (rate, rate, amount);
     }
+
+    /// <summary>
+    /// Determines whether <c>get_item_details</c> must enforce Item read permission per ERPNext PR #66444
+    /// (<c>get_item_details.py: _get_item_details</c>): skips <c>item.check_permission()</c> ONLY when a
+    /// Supplier Portal request saves a <c>Supplier Quotation</c> document instance with
+    /// <paramref name="ignorePermissions"/> enabled.
+    /// </summary>
+    public static bool ShouldEnforceItemPermissionOnGetItemDetails(
+        string? docType,
+        bool isDocumentInstance,
+        bool ignorePermissions)
+    {
+        var isPortalQuotation = isDocumentInstance
+            && ignorePermissions
+            && (string.Equals(docType?.Trim(), "Supplier Quotation", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(docType?.Trim(), "SupplierQuotation", StringComparison.OrdinalIgnoreCase));
+
+        return !isPortalQuotation;
+    }
 }
 
 // --- Supporting types ---
