@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { StockLedgerEntriesOfCancelledVouchersService } from '../../../proxy/inventory/stock-ledger-entries-of-cancelled-vouchers.service';
 import type {
   StockLedgerEntriesOfCancelledVouchersReportDto,
@@ -55,15 +55,15 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
         <!-- Filters -->
         <div class="row g-2 mb-3 align-items-end">
           <div class="col-md-3 col-sm-6">
-            <label class="form-label small fw-semibold">Voucher Type</label>
+            <label class="form-label small fw-semibold">{{ '::VoucherType' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedVoucherType" (change)="loadData()">
-              <option value="All">All Voucher Types</option>
-              <option value="StockEntry">Stock Entry</option>
-              <option value="PurchaseReceipt">Purchase Receipt</option>
-              <option value="DeliveryNote">Delivery Note</option>
-              <option value="SalesInvoice">Sales Invoice</option>
-              <option value="PurchaseInvoice">Purchase Invoice</option>
-              <option value="StockReconciliation">Stock Reconciliation</option>
+              <option value="All">{{ '::AllVoucherTypes' | abpLocalization }}</option>
+              <option value="StockEntry">{{ '::StockEntry' | abpLocalization }}</option>
+              <option value="PurchaseReceipt">{{ '::PurchaseReceipt' | abpLocalization }}</option>
+              <option value="DeliveryNote">{{ '::DeliveryNote' | abpLocalization }}</option>
+              <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+              <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+              <option value="StockReconciliation">{{ '::StockReconciliation' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3 col-sm-6">
@@ -130,25 +130,25 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-3 col-sm-6 col-12">
               <div class="card bg-danger-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-danger small fw-semibold">Uncancelled SLEs</span>
+                <span class="text-danger small fw-semibold">{{ '::UncancelledSles' | abpLocalization }}</span>
                 <span class="h4 mb-0 fw-bold text-danger">{{ report()!.totalUncancelledEntries }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6 col-12">
               <div class="card bg-warning-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-warning-emphasis small fw-semibold">Cancelled Vouchers Affected</span>
+                <span class="text-warning-emphasis small fw-semibold">{{ '::CancelledVouchersAffected' | abpLocalization }}</span>
                 <span class="h4 mb-0 fw-bold text-warning-emphasis">{{ report()!.distinctCancelledVouchersCount }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6 col-12">
               <div class="card bg-info-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-info small fw-semibold">Discrepancy Quantity</span>
+                <span class="text-info small fw-semibold">{{ '::DiscrepancyQuantity' | abpLocalization }}</span>
                 <span class="h4 mb-0 fw-bold text-info">{{ report()!.totalDiscrepancyQty | number: '1.2-2' }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6 col-12">
               <div class="card bg-primary-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-primary small fw-semibold">Discrepancy Stock Value</span>
+                <span class="text-primary small fw-semibold">{{ '::DiscrepancyStockValue' | abpLocalization }}</span>
                 <span class="h4 mb-0 fw-bold text-primary">{{ report()!.totalDiscrepancyValue | currency: 'MYR' }}</span>
               </div>
             </div>
@@ -180,14 +180,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     />
                   </th>
                   <th>#</th>
-                  <th>Voucher Type</th>
-                  <th>Voucher No</th>
-                  <th>Posting Date</th>
+                  <th>{{ '::VoucherType' | abpLocalization }}</th>
+                  <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::Warehouse' | abpLocalization }}</th>
-                  <th class="text-end">Quantity</th>
-                  <th class="text-end">Value Difference</th>
-                  <th>Bundle</th>
+                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValueDifference' | abpLocalization }}</th>
+                  <th>{{ '::Bundle' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,10 +235,10 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       @if (row.serialAndBatchBundleId) {
                         @if (row.isBundleActive) {
                           <span class="badge bg-warning text-dark">
-                            <i class="fa fa-exclamation-triangle me-1"></i>Active Bundle
+                            <i class="fa fa-exclamation-triangle me-1"></i>{{ '::ActiveBundle' | abpLocalization }}
                           </span>
                         } @else {
-                          <span class="badge bg-light text-muted">Bundle Cancelled</span>
+                          <span class="badge bg-light text-muted">{{ '::BundleCancelled' | abpLocalization }}</span>
                         }
                       } @else {
                         <span class="text-muted">-</span>
@@ -259,6 +259,7 @@ export class StockLedgerEntriesOfCancelledVouchersComponent implements OnInit {
   private readonly itemService = inject(ItemService);
   private readonly warehouseService = inject(WarehouseService);
   private readonly companyContext = inject(CompanyContextService);
+  private readonly l = inject(LocalizationService);
 
   // Filters
   selectedVoucherType = 'All';
@@ -392,7 +393,7 @@ export class StockLedgerEntriesOfCancelledVouchersComponent implements OnInit {
     const keys = this.selectedVoucherKeys();
     if (!keys.length) return;
 
-    if (!confirm('This will mark stock ledger entries for the selected cancelled vouchers as cancelled and queue valuation reposting. Proceed?')) {
+    if (!confirm(this.l.instant('::ConfirmFixCancelledSle'))) {
       return;
     }
 

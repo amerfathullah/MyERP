@@ -222,6 +222,62 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
             }
         }
     }
+
+    /// <summary>
+    /// Recounts <c>ReturnedQty</c> on submitted Subcontracting Inward Order received customer-material rows
+    /// from the sum of submitted <c>Return Raw Material to Customer</c> Stock Entry detail <c>TransferQty</c> rows
+    /// per ERPNext PR #68801 (<c>recalculate_returned_qty_of_customer_material_returned_in_parts.py</c>):
+    /// repairs both undercounted split returns and negative/stale balances left after cancelling returns,
+    /// returning only rows whose rounded recounted quantity differs from the stored <c>ReturnedQty</c>.
+    /// </summary>
+    public static IReadOnlyList<(Guid ReceivedItemId, Guid OrderId, decimal RecountedReturnedQty)> RecountReturnedQtyFromSplitReturns(
+        IEnumerable<(Guid ReceivedItemId, Guid OrderId, bool IsSubmitted, decimal StoredReturnedQty)>? receivedItems,
+        IEnumerable<(Guid ScioDetailId, Guid OrderId, bool IsSubmitted, string Purpose, decimal TransferQty)>? stockEntryReturnRows,
+        int precision = 4)
+    {
+        if (receivedItems == null)
+        {
+            return Array.Empty<(Guid, Guid, decimal)>();
+        }
+
+        var summedByKey = new Dictionary<(Guid ScioDetailId, Guid OrderId), decimal>();
+        if (stockEntryReturnRows != null)
+        {
+            foreach (var row in stockEntryReturnRows)
+            {
+                if (!row.IsSubmitted
+                    || !string.Equals(row.Purpose, "Return Raw Material to Customer", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var key = (row.ScioDetailId, row.OrderId);
+                summedByKey[key] = summedByKey.GetValueOrDefault(key, 0m) + row.TransferQty;
+            }
+        }
+
+        var drifted = new List<(Guid ReceivedItemId, Guid OrderId, decimal RecountedReturnedQty)>();
+        foreach (var item in receivedItems)
+        {
+            if (!item.IsSubmitted)
+            {
+                continue;
+            }
+
+            var expected = Math.Round(
+                summedByKey.GetValueOrDefault((item.ReceivedItemId, item.OrderId), 0m),
+                precision,
+                MidpointRounding.AwayFromZero);
+            var stored = Math.Round(item.StoredReturnedQty, precision, MidpointRounding.AwayFromZero);
+
+            if (expected != stored)
+            {
+                drifted.Add((item.ReceivedItemId, item.OrderId, expected));
+            }
+        }
+
+        return drifted;
+    }
 }
 
 /// <summary>FG item expected from subcontracting.</summary>

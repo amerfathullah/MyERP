@@ -724,7 +724,9 @@ public class ProductionPlanMaterialPlanningService : DomainService
     /// <summary>
     /// Combines fetched Sales Order items for a Production Plan while preserving Sales Order,
     /// Sales Order Item (<c>name</c>), and Product Bundle (<c>parent_item</c>) links
-    /// per ERPNext PR #67477 (commit 4109c29d2d, <c>SalesOrderSourcingService</c>).
+    /// per ERPNext PR #67477 (commit 4109c29d2d, <c>SalesOrderSourcingService</c>) and
+    /// PR #67881 (commit 3a30704a06): skips rows without a BOM BEFORE combining or adding
+    /// Sales Order references so non-BOM items never pollute combined references.
     /// </summary>
     public static List<CombinedSalesOrderPlanItem> CombineFetchedSalesOrderItems(
         IEnumerable<FetchedSalesOrderPlanRow> rows,
@@ -737,9 +739,14 @@ public class ProductionPlanMaterialPlanningService : DomainService
             return result;
         }
 
+        // Per PR #67881: resolve/require BOM before combining or adding Sales Order references
+        var rowsWithBom = rows
+            .Where(r => r.BomId.HasValue && r.BomId.Value != Guid.Empty)
+            .ToList();
+
         if (!combineItems)
         {
-            foreach (var r in rows)
+            foreach (var r in rowsWithBom)
             {
                 result.Add(new CombinedSalesOrderPlanItem(
                     r.ItemId,
@@ -757,7 +764,7 @@ public class ProductionPlanMaterialPlanningService : DomainService
             return result;
         }
 
-        foreach (var group in rows.GroupBy(r => (r.ItemId, r.BomId, r.WarehouseId)))
+        foreach (var group in rowsWithBom.GroupBy(r => (r.ItemId, r.BomId, r.WarehouseId)))
         {
             var members = group.ToList();
             var first = members[0];
@@ -1216,6 +1223,59 @@ public class ProductionPlanMaterialPlanningService : DomainService
         }
 
         return (shortagePoolQty, transfers, Math.Max(remaining, 0m));
+    }
+
+    /// <summary>
+    /// Computes the committed quantity of a Work Order against its Production Plan row
+    /// per ERPNext PR #67876 (<c>production_plan/services/work_order_quantities.py: _get_committed_qty</c>):
+    /// - Accounts for planned process loss (<c>good_qty = qty - max(process_loss_qty, qty * loss_pct / 100)</c>,
+    ///   <c>committed_qty = good_qty / (1 - loss_pct / 100)</c>).
+    /// - When <paramref name="creditProducedQty"/> is <c>true</c> (plan pending-qty calculation),
+    ///   scales <paramref name="producedQty"/> by <c>1 / (1 - loss_pct / 100)</c> so output above
+    ///   the planned loss on one Work Order offsets another Work Order's excess process loss.
+    /// </summary>
+    public static decimal CalculateWorkOrderCommittedQty(
+        decimal workOrderQty,
+        decimal producedQty,
+        decimal processLossQty,
+        decimal plannedLossPercentage,
+        bool creditProducedQty = false)
+    {
+        var lossPct = plannedLossPercentage is > 0m and < 100m ? plannedLossPercentage : 0m;
+        var yieldFactor = 1m - lossPct / 100m;
+        var effectiveLoss = Math.Max(processLossQty, workOrderQty * lossPct / 100m);
+        var goodQty = workOrderQty - effectiveLoss;
+        var committedQty = goodQty / yieldFactor;
+        var creditedProducedQty = creditProducedQty ? producedQty / yieldFactor : producedQty;
+
+        return Math.Max(0m, Math.Max(creditedProducedQty, committedQty));
+    }
+
+    /// <summary>
+    /// Computes remaining pending Work Order quantity for a Production Plan row by summing each
+    /// draft/submitted Work Order's committed quantity with <c>creditProducedQty = true</c>
+    /// per ERPNext PR #67876 (<c>work_order_quantities.py: get_pending_quantities</c>).
+    /// </summary>
+    public static decimal CalculateProductionPlanPendingWorkOrderQty(
+        decimal plannedQty,
+        IEnumerable<(decimal WorkOrderQty, decimal ProducedQty, decimal ProcessLossQty, decimal PlannedLossPercentage)>? workOrders,
+        int precision = 4)
+    {
+        var committed = 0m;
+        if (workOrders != null)
+        {
+            foreach (var wo in workOrders)
+            {
+                committed += CalculateWorkOrderCommittedQty(
+                    wo.WorkOrderQty,
+                    wo.ProducedQty,
+                    wo.ProcessLossQty,
+                    wo.PlannedLossPercentage,
+                    creditProducedQty: true);
+            }
+        }
+
+        return Math.Max(0m, Math.Round(plannedQty - committed, precision, MidpointRounding.AwayFromZero));
     }
 }
 

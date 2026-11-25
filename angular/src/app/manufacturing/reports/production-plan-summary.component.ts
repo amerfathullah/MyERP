@@ -32,9 +32,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
         <!-- Filter Bar -->
         <div class="row g-2 mb-4 align-items-end">
           <div class="col-md-5">
-            <label class="form-label small text-muted">Production Plan</label>
+            <label class="form-label small text-muted">{{ '::ProductionPlan' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedPlanId" (ngModelChange)="onPlanChange()">
-              <option [ngValue]="null">-- Select Production Plan --</option>
+              <option [ngValue]="null">-- {{ '::SelectProductionPlan' | abpLocalization }} --</option>
               @for (p of planList(); track p.id) {
                 <option [ngValue]="p.id">
                   {{ p.planNumber }} ({{ p.status }})
@@ -63,7 +63,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Plan Number</div>
+                  <div class="text-muted small">{{ '::PlanNumber' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-primary">{{ d.planNumber }}</div>
                 </div>
               </div>
@@ -71,7 +71,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-info text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Planned Qty</div>
+                  <div class="text-muted small">{{ '::TotalPlannedQty' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-info">{{ totalPlannedQty() | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -79,7 +79,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-success text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Produced Qty</div>
+                  <div class="text-muted small">{{ '::TotalProducedQty' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-success">{{ totalProducedQty() | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -87,7 +87,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-warning text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Pending Qty</div>
+                  <div class="text-muted small">{{ '::TotalPendingQty' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-warning">{{ totalPendingQty() | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -99,15 +99,15 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <table class="table table-striped table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th style="min-width: 250px;">Item / Document</th>
-                  <th>Item Name</th>
-                  <th>Sales Order</th>
-                  <th>Document Type</th>
-                  <th>Status</th>
+                  <th style="min-width: 250px;">{{ '::ItemOrDocument' | abpLocalization }}</th>
+                  <th>{{ '::ItemName' | abpLocalization }}</th>
+                  <th>{{ '::SalesOrder' | abpLocalization }}</th>
+                  <th>{{ '::DocumentType' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                   <th class="text-center">{{ '::BOMLevel' | abpLocalization }}</th>
                   <th class="text-end">{{ '::OrderQty' | abpLocalization }}</th>
-                  <th class="text-end">Produced Qty</th>
-                  <th class="text-end">Pending Qty</th>
+                  <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,7 +141,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       @if (row.documentType) {
                         <span class="badge bg-light text-dark border">{{ row.documentType }}</span>
                       } @else {
-                        <span class="badge bg-secondary-subtle text-secondary">Finished Good</span>
+                        <span class="badge bg-secondary-subtle text-secondary">{{ '::FinishedGood' | abpLocalization }}</span>
                       }
                     </td>
                     <td>

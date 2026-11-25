@@ -7558,7 +7558,30 @@
     "System": "System",
     "NoScorecardVariablesConfigured": "No scorecard variables configured yet.",
     "NoPlantFloorsFound": "No plant floors found.",
-    "NoBulkTransactionLogsFound": "No bulk transaction logs found."
+    "NoBulkTransactionLogsFound": "No bulk transaction logs found.",
+    "ProductionPlan": "Production Plan",
+    "SelectProductionPlan": "Select Production Plan",
+    "TotalPendingQty": "Total Pending Qty",
+    "ItemOrDocument": "Item / Document",
+    "CompleteGenealogy": "Complete Genealogy (Up & Down)",
+    "TotalTraceNodes": "Total Trace Nodes",
+    "RootStartingNodes": "Root Starting Nodes",
+    "SuppliersLinked": "Suppliers Linked",
+    "ItemOrGenealogyNode": "Item / Genealogy Node",
+    "SerialOrBatchNo": "Serial / Batch #",
+    "VoucherOrTransaction": "Voucher / Transaction",
+    "SupplierOrCustomer": "Supplier / Customer",
+    "LoadingTraceabilityGenealogy": "Loading traceability genealogy...",
+    "Origin": "Origin",
+    "FailedToLoadTraceabilityGenealogy": "Failed to load traceability genealogy",
+    "UncancelledSles": "Uncancelled SLEs",
+    "CancelledVouchersAffected": "Cancelled Vouchers Affected",
+    "DiscrepancyQuantity": "Discrepancy Quantity",
+    "DiscrepancyStockValue": "Discrepancy Stock Value",
+    "ValueDifference": "Value Difference",
+    "ActiveBundle": "Active Bundle",
+    "BundleCancelled": "Bundle Cancelled",
+    "ConfirmFixCancelledSle": "This will mark stock ledger entries for the selected cancelled vouchers as cancelled and queue valuation reposting. Proceed?"
   }
 }
 

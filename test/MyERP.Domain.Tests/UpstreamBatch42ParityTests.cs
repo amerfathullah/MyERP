@@ -20,7 +20,7 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66536, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
+/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -1985,5 +1985,69 @@ public class UpstreamBatch42ParityTests
             new[] { curBad }, prevBad, "Moving Average", olderRowsNewestFirst: older);
         maRes.Steps[0].LedgerProblems.ShouldContain("outgoing_rate");
         maRes.RepostFromEntryId.ShouldBe(olderBroken);
+    }
+
+    [Fact]
+    public void Pr67876_Pr67881_Pr68801_ProductionPlanLossOffset_CombinedBomFilter_ScioSplitReturnRecount_Parity()
+    {
+        // PR #67876: Work Order output above planned process loss offsets another Work Order's excess loss
+        // Planned = 10, PlannedLoss = 20% (expected yield 80% -> 8 good units per 10 planned).
+        // WO1: qty=5, produced=3, loss=2 (excess loss: committed = (5 - 2) / 0.8 = 3.75)
+        // WO2: qty=5, produced=5, loss=0 (zero loss: creditedProduced = 5 / 0.8 = 6.25 > committed 5)
+        // Total committed = 3.75 + 6.25 = 10 -> pending = 0!
+        ProductionPlanMaterialPlanningService.CalculateWorkOrderCommittedQty(
+            workOrderQty: 5m, producedQty: 5m, processLossQty: 0m, plannedLossPercentage: 20m, creditProducedQty: false)
+            .ShouldBe(5m);
+        ProductionPlanMaterialPlanningService.CalculateWorkOrderCommittedQty(
+            workOrderQty: 5m, producedQty: 5m, processLossQty: 0m, plannedLossPercentage: 20m, creditProducedQty: true)
+            .ShouldBe(6.25m);
+        ProductionPlanMaterialPlanningService.CalculateProductionPlanPendingWorkOrderQty(
+            plannedQty: 10m,
+            new[]
+            {
+                (5m, 3m, 2m, 20m),
+                (5m, 5m, 0m, 20m),
+            }).ShouldBe(0m);
+
+        // PR #67881: CombineFetchedSalesOrderItems skips non-BOM rows before combining/adding SO references
+        var so1 = Guid.NewGuid();
+        var so2 = Guid.NewGuid();
+        var item1 = Guid.NewGuid();
+        var wh1 = Guid.NewGuid();
+        var bom1 = Guid.NewGuid();
+        var combined = ProductionPlanMaterialPlanningService.CombineFetchedSalesOrderItems(
+            new[]
+            {
+                new FetchedSalesOrderPlanRow(so1, Guid.NewGuid(), item1, wh1, bom1, 4m),
+                new FetchedSalesOrderPlanRow(so2, Guid.NewGuid(), item1, wh1, BomId: null, 6m),
+                new FetchedSalesOrderPlanRow(so2, Guid.NewGuid(), item1, wh1, bom1, 3m),
+            },
+            combineItems: true);
+        combined.Count.ShouldBe(1);
+        combined[0].PlannedQty.ShouldBe(7m);
+        combined[0].SalesOrderLinks.Count.ShouldBe(2);
+
+        // PR #68801: Recount ReturnedQty from split Return Raw Material to Customer stock entries
+        var orderId = Guid.NewGuid();
+        var recvRow1 = Guid.NewGuid();
+        var recvRow2 = Guid.NewGuid();
+        var recvRowClean = Guid.NewGuid();
+        var drifted = MyERP.Purchasing.Entities.SubcontractingInwardOrder.RecountReturnedQtyFromSplitReturns(
+            receivedItems: new[]
+            {
+                (recvRow1, orderId, true, 2m),     // stored 2 before split returns summed (actual 3 + 2 = 5)
+                (recvRow2, orderId, true, -3m),    // cancelled after deploy -> negative drift (actual 0)
+                (recvRowClean, orderId, true, 4m), // matches submitted return (actual 4) -> untouched
+            },
+            stockEntryReturnRows: new[]
+            {
+                (recvRow1, orderId, true, "Return Raw Material to Customer", 3m),
+                (recvRow1, orderId, true, "Return Raw Material to Customer", 2m),
+                (recvRow2, orderId, false, "Return Raw Material to Customer", 5m), // cancelled -> ignored
+                (recvRowClean, orderId, true, "Return Raw Material to Customer", 4m),
+            });
+        drifted.Count.ShouldBe(2);
+        drifted.ShouldContain((recvRow1, orderId, 5m));
+        drifted.ShouldContain((recvRow2, orderId, 0m));
     }
 }

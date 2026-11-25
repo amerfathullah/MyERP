@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { SerialNoAndBatchTraceabilityService } from '../../../proxy/inventory/serial-no-and-batch-traceability.service';
 import type {
@@ -77,7 +77,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="col-md-3 col-sm-6">
             <label class="form-label small fw-semibold">{{ '::TraceabilityDirection' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedDirection">
-              <option value="Both">Complete Genealogy (Up & Down)</option>
+              <option value="Both">{{ '::CompleteGenealogy' | abpLocalization }}</option>
               <option value="Backward">{{ '::Backward' | abpLocalization }}</option>
               <option value="Forward">{{ '::Forward' | abpLocalization }}</option>
             </select>
@@ -108,25 +108,25 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-3 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Total Trace Nodes</small>
+                <small class="text-muted fw-semibold">{{ '::TotalTraceNodes' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-primary">{{ data.totalNodes }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Root Starting Nodes</small>
+                <small class="text-muted fw-semibold">{{ '::RootStartingNodes' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-dark">{{ data.rootNodesCount }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Suppliers Linked</small>
+                <small class="text-muted fw-semibold">{{ '::SuppliersLinked' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-info">{{ supplierCount() }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6">
               <div class="card border-0 bg-light p-3 text-center">
-                <small class="text-muted fw-semibold">Customers Reached</small>
+                <small class="text-muted fw-semibold">{{ '::CustomersReached' | abpLocalization }}</small>
                 <span class="fs-4 fw-bold text-success">{{ customerCount() }}</span>
               </div>
             </div>
@@ -138,22 +138,22 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light text-nowrap">
               <tr>
-                <th style="min-width: 280px;">Item / Genealogy Node</th>
-                <th>Serial / Batch #</th>
-                <th>Direction</th>
-                <th>Voucher / Transaction</th>
-                <th>Work Order</th>
-                <th>Warehouse</th>
-                <th class="text-end">Qty</th>
-                <th>Posting Date</th>
-                <th>Supplier / Customer</th>
+                <th style="min-width: 280px;">{{ '::ItemOrGenealogyNode' | abpLocalization }}</th>
+                <th>{{ '::SerialOrBatchNo' | abpLocalization }}</th>
+                <th>{{ '::Direction' | abpLocalization }}</th>
+                <th>{{ '::VoucherOrTransaction' | abpLocalization }}</th>
+                <th>{{ '::WorkOrder' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::SupplierOrCustomer' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
               @if (isLoading()) {
                 <tr>
                   <td colspan="9" class="text-center py-4 text-muted">
-                    <i class="fa fa-spinner fa-spin me-2"></i>Loading traceability genealogy...
+                    <i class="fa fa-spinner fa-spin me-2"></i>{{ '::LoadingTraceabilityGenealogy' | abpLocalization }}
                   </td>
                 </tr>
               } @else if (filteredNodes().length === 0) {
@@ -172,7 +172,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                           <span class="text-muted font-monospace me-2">└──</span>
                         }
                         @if (node.indent === 0) {
-                          <span class="badge bg-secondary me-2">Root</span>
+                          <span class="badge bg-secondary me-2">{{ '::Root' | abpLocalization }}</span>
                         }
                         <div>
                           <span class="fw-semibold">{{ node.itemCode }}</span>
@@ -196,14 +196,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     <td>
                       @if (node.direction === 'Backward') {
                         <span class="badge bg-info text-dark">
-                          <i class="fa fa-arrow-left me-1"></i>Backward
+                          <i class="fa fa-arrow-left me-1"></i>{{ '::Backward' | abpLocalization }}
                         </span>
                       } @else if (node.direction === 'Forward') {
                         <span class="badge bg-success">
-                          <i class="fa fa-arrow-right me-1"></i>Forward
+                          <i class="fa fa-arrow-right me-1"></i>{{ '::Forward' | abpLocalization }}
                         </span>
                       } @else {
-                        <span class="badge bg-light text-muted border">Origin</span>
+                        <span class="badge bg-light text-muted border">{{ '::Origin' | abpLocalization }}</span>
                       }
                     </td>
                     <td>
@@ -230,14 +230,14 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       @if (node.supplierName) {
                         <div>
                           <i class="fa fa-truck me-1 text-info small"></i>
-                          <span class="badge bg-info-subtle text-info border border-info-subtle me-1">Supplier</span>
+                          <span class="badge bg-info-subtle text-info border border-info-subtle me-1">{{ '::Supplier' | abpLocalization }}</span>
                           {{ node.supplierName }}
                         </div>
                       }
                       @if (node.customerName) {
                         <div>
                           <i class="fa fa-building me-1 text-success small"></i>
-                          <span class="badge bg-success-subtle text-success border border-success-subtle me-1">Customer</span>
+                          <span class="badge bg-success-subtle text-success border border-success-subtle me-1">{{ '::Customer' | abpLocalization }}</span>
                           {{ node.customerName }}
                         </div>
                       }
@@ -260,6 +260,7 @@ export class SerialNoAndBatchTraceabilityComponent implements OnInit {
   private itemService = inject(ItemService);
   private companyContext = inject(CompanyContextService);
   private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   reportData = signal<SerialNoAndBatchTraceabilityReportDto | null>(null);
   items = signal<ItemDto[]>([]);
@@ -334,7 +335,7 @@ export class SerialNoAndBatchTraceabilityComponent implements OnInit {
         },
         error: err => {
           this.isLoading.set(false);
-          this.toaster.error(err.message || 'Failed to load traceability genealogy');
+          this.toaster.error(err.message || this.l.instant('::FailedToLoadTraceabilityGenealogy'));
         },
       });
   }
