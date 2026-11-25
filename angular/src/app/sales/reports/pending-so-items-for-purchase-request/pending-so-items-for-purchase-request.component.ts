@@ -52,31 +52,31 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-2">
               <div class="card text-center border-primary h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Sales Orders</div>
+                <div class="text-muted small">{{ '::SalesOrders' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-primary">{{ d.totalSalesOrders }}</div>
               </div></div>
             </div>
             <div class="col-md-2">
               <div class="card text-center border-info h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Distinct Items</div>
+                <div class="text-muted small">{{ '::DistinctItems' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-info">{{ d.totalItems }}</div>
               </div></div>
             </div>
             <div class="col-md-3">
               <div class="card text-center border-secondary h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Total {{ '::SoQuantity' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Total' | abpLocalization }} {{ '::SoQuantity' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-secondary">{{ d.totalSoQuantity | number:'1.2-2' }}</div>
               </div></div>
             </div>
             <div class="col-md-3">
               <div class="card text-center border-success h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Total {{ '::RequestedQuantity' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Total' | abpLocalization }} {{ '::RequestedQuantity' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-success">{{ d.totalRequestedQuantity | number:'1.2-2' }}</div>
               </div></div>
             </div>
             <div class="col-md-2">
               <div class="card text-center border-danger h-100 bg-light"><div class="card-body py-3">
-                <div class="text-muted small">Total {{ '::PendingQuantity' | abpLocalization }}</div>
+                <div class="text-muted small">{{ '::Total' | abpLocalization }} {{ '::PendingQuantity' | abpLocalization }}</div>
                 <div class="fs-4 fw-bold text-danger">{{ d.totalPendingQuantity | number:'1.2-2' }}</div>
               </div></div>
             </div>
@@ -90,8 +90,8 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::SalesOrder' | abpLocalization }}</th>
                   <th>{{ '::Customer' | abpLocalization }}</th>
-                  <th>Order Date</th>
-                  <th>Material Requests</th>
+                  <th>{{ '::OrderDate' | abpLocalization }}</th>
+                  <th>{{ '::MaterialRequests' | abpLocalization }}</th>
                   <th class="text-end">{{ '::SoQuantity' | abpLocalization }}</th>
                   <th class="text-end">{{ '::RequestedQuantity' | abpLocalization }}</th>
                   <th class="text-end text-danger">{{ '::PendingQuantity' | abpLocalization }}</th>
@@ -104,7 +104,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       <div>
                         <strong>{{ row.itemName }}</strong>
                         @if (row.isProductBundleComponent) {
-                          <span class="badge bg-info text-dark ms-1">Bundle Component</span>
+                          <span class="badge bg-info text-dark ms-1">{{ '::BundleComponent' | abpLocalization }}</span>
                         }
                       </div>
                       <small class="text-muted">{{ row.itemCode }}</small>
@@ -128,7 +128,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                   <tr>
                     <td colspan="8" class="text-center py-4 text-muted">
                       <i class="fas fa-check-circle text-success me-1"></i>
-                      All Sales Order items have been fully requested in Material Requests!
+                      {{ '::AllSoItemsRequestedHint' | abpLocalization }}
                     </td>
                   </tr>
                 }

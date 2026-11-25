@@ -385,6 +385,31 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
 
         return (perReceived, totalReceived, totalReceived > 0m);
     }
+
+    /// <summary>
+    /// Validates the <c>parent</c> filter and enforces <c>Subcontracting Inward Order</c> read permission
+    /// in <c>get_fg_reference_names</c> per ERPNext PR #65794 (<c>subcontracting_inward_controller.py</c>):
+    /// returns <c>null</c> (empty result) when <paramref name="parentFilter"/> is missing or non-string
+    /// (blocking operator filters such as <c>["like", "%"]</c>), and throws when read permission is absent.
+    /// </summary>
+    public static string? ResolveFgReferenceNamesParentAccess(
+        object? parentFilter,
+        bool hasInwardOrderReadPermission)
+    {
+        if (parentFilter is not string parent || string.IsNullOrWhiteSpace(parent))
+        {
+            return null;
+        }
+
+        if (!hasInwardOrderReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("parent", parent)
+                .WithData("detail", $"Not permitted to read Subcontracting Inward Order {parent}.");
+        }
+
+        return parent;
+    }
 }
 
 /// <summary>FG item expected from subcontracting.</summary>

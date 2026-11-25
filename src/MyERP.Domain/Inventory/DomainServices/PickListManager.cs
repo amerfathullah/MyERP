@@ -1257,6 +1257,35 @@ public class PickListManager : DomainService
                 .WithData("detail", $"Not permitted for company {companyText}.");
         }
     }
+
+    /// <summary>
+    /// Validates the <c>company</c> filter in the Delivery Note Pick List search query
+    /// (<c>get_pick_list_query</c>) per ERPNext PR #66037 (<c>pick_list.py: get_pick_list_query</c>):
+    /// requires a non-empty company filter and enforces Company user permissions via
+    /// <c>check_pick_list_company</c> so company-restricted users cannot query other companies' Pick Lists.
+    /// </summary>
+    public static string ValidateDeliveryNotePickListQueryCompany(
+        object? companyFilter,
+        IReadOnlySet<string>? allowedCompanies)
+    {
+        if (companyFilter is not string companyText || string.IsNullOrWhiteSpace(companyText))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select a Company");
+        }
+
+        var trimmed = companyText.Trim();
+        if (allowedCompanies != null
+            && allowedCompanies.Count > 0
+            && !allowedCompanies.Contains(trimmed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("company", trimmed)
+                .WithData("detail", $"Not permitted for company {trimmed}.");
+        }
+
+        return trimmed;
+    }
 }
 
 public sealed record RepackedPackedItemRow(

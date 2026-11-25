@@ -19,7 +19,7 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65796, #65905, #65906, #65908, #65909, #65911, #65925, #65931, #65936, #65938, #65939, #65940, #65960, #65961, #66000, #66259, #66260, #66292, #66299, #66304, #66326, #66329, #66395, #66444, #66523, #66536, #66588, #66596, #66600, #66621, #66626, #66647, #66690, #66764, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64319, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65794, #65796, #65799, #65857, #65876, #65905, #65906, #65908, #65909, #65911, #65925, #65931, #65936, #65938, #65939, #65940, #65947, #65960, #65961, #66000, #66037, #66259, #66260, #66292, #66299, #66304, #66326, #66329, #66395, #66444, #66523, #66536, #66588, #66596, #66600, #66621, #66626, #66647, #66690, #66764, #66947, #66966, #66971, #66993, #67097, #67132, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67442, #67445, #67450, #67462, #67468, #67474, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67551, #67553, #67554, #67555,
 /// #67699, #67724, #67725, #67749, #67758, #67789, #67876, #67881, #67892, #67957, #67961, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
@@ -2771,5 +2771,60 @@ public class UpstreamBatch42ParityTests
             utcNow,
             myt);
         elapsed.ShouldBe(2700d);
+    }
+
+    [Fact]
+    public void Pr65794_Pr65799_Pr65857_Pr65876_Pr65947_Pr66037_PickList_QiSe_ScioFg_PackingSlip_LcvPerms_Parity()
+    {
+        // PR #66037: Delivery Note Pick List query enforces Company user permissions
+        var allowedCos = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Company A" };
+        PickListManager.ValidateDeliveryNotePickListQueryCompany("Company A", allowedCos).ShouldBe("Company A");
+        Should.Throw<BusinessException>(() =>
+            PickListManager.ValidateDeliveryNotePickListQueryCompany("Company B", allowedCos));
+        Should.Throw<BusinessException>(() =>
+            PickListManager.ValidateDeliveryNotePickListQueryCompany(null, allowedCos));
+
+        // PR #65947: Quality Inspection item_query validates text reference_name and enforces Stock Entry read perm
+        QualityInspectionEnforcementService.ResolveItemQueryReferenceAccess("Stock Entry", new { name = "SE-1" }, false)
+            .ShouldQuery.ShouldBeFalse();
+        Should.Throw<BusinessException>(() =>
+            QualityInspectionEnforcementService.ResolveItemQueryReferenceAccess("Stock Entry", "SE-1", false, "Material Receipt"));
+        var qiAllowed = QualityInspectionEnforcementService.ResolveItemQueryReferenceAccess("Stock Entry", "SE-1", true, "Material Receipt");
+        qiAllowed.ShouldQuery.ShouldBeTrue();
+        qiAllowed.StockEntryPurpose.ShouldBe("Material Receipt");
+
+        // PR #65794: SCIO get_fg_reference_names blocks non-string parent filters and requires SCIO read perm
+        MyERP.Purchasing.Entities.SubcontractingInwardOrder.ResolveFgReferenceNamesParentAccess(new[] { "like", "%" }, false)
+            .ShouldBeNull();
+        Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.Entities.SubcontractingInwardOrder.ResolveFgReferenceNamesParentAccess("SCIO-001", false));
+        MyERP.Purchasing.Entities.SubcontractingInwardOrder.ResolveFgReferenceNamesParentAccess("SCIO-001", true)
+            .ShouldBe("SCIO-001");
+
+        // PR #65876: Packing Slip item_details search requires Delivery Note read perm
+        var dnId = Guid.NewGuid();
+        MyERP.Sales.Entities.PackingSlip.ValidateDeliveryNoteAccessForItemSearch(dnId, true);
+        Should.Throw<BusinessException>(() =>
+            MyERP.Sales.Entities.PackingSlip.ValidateDeliveryNoteAccessForItemSearch(dnId, false));
+
+        // PR #65857: LCV get_items_from_purchase_receipts rejects unsupported doctype & enforces receipt read perm
+        Should.Throw<BusinessException>(() =>
+            MyERP.Inventory.Entities.LandedCostVoucher.ValidateReceiptDocumentAccess("Sales Invoice", "SI-1", true))
+            .Data["detail"]!.ToString()!.ShouldContain("is not supported");
+        Should.Throw<BusinessException>(() =>
+            MyERP.Inventory.Entities.LandedCostVoucher.ValidateReceiptDocumentAccess("Purchase Receipt", "PR-1", false));
+        MyERP.Inventory.Entities.LandedCostVoucher.ValidateReceiptDocumentAccess("Purchase Receipt", "PR-1", true);
+
+        // PR #65799: LCV vendor invoice search applies Purchase Invoice company user permissions
+        var comp1 = Guid.NewGuid();
+        var comp2 = Guid.NewGuid();
+        var pi1 = Guid.NewGuid();
+        var vendorInvoices = new[] { (pi1, comp1, "PINV-001") };
+        MyERP.Inventory.Entities.LandedCostVoucher.FilterVendorInvoicesByUserPermissions(
+            vendorInvoices, comp1, new HashSet<Guid> { comp2 }).ShouldBeEmpty();
+        var allowedVendorInvoices = MyERP.Inventory.Entities.LandedCostVoucher.FilterVendorInvoicesByUserPermissions(
+            vendorInvoices, comp1, new HashSet<Guid> { comp1 });
+        allowedVendorInvoices.Count.ShouldBe(1);
+        allowedVendorInvoices[0].InvoiceId.ShouldBe(pi1);
     }
 }

@@ -112,6 +112,22 @@ public class PackingSlip : FullAuditedAggregateRoot<Guid>, IMultiTenant
                (to1 >= from2 && to1 <= to2) ||
                (from2 >= from1 && from2 <= to1);
     }
+
+    /// <summary>
+    /// Enforces Delivery Note read permission before executing the Packing Slip <c>item_details</c>
+    /// search query per ERPNext PR #65876 (<c>packing_slip.py: item_details</c>).
+    /// </summary>
+    public static void ValidateDeliveryNoteAccessForItemSearch(
+        Guid? deliveryNoteId,
+        bool hasDeliveryNoteReadPermission)
+    {
+        if (!hasDeliveryNoteReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("deliveryNoteId", deliveryNoteId ?? Guid.Empty)
+                .WithData("detail", "Not permitted to read Delivery Note.");
+        }
+    }
 }
 
 /// <summary>

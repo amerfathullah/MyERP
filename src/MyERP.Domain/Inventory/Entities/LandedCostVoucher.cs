@@ -290,4 +290,71 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
             .Where(item => string.IsNullOrWhiteSpace(getSecondaryItemType(item)) && !getValuationType(item).HasValue)
             .ToList();
     }
+
+    private static readonly HashSet<string> SupportedReceiptDocumentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Purchase Receipt",
+        "PurchaseReceipt",
+        "Purchase Invoice",
+        "PurchaseInvoice",
+        "Subcontracting Receipt",
+        "SubcontractingReceipt",
+        "Stock Entry",
+        "StockEntry",
+    };
+
+    /// <summary>
+    /// Validates that <paramref name="receiptDocumentType"/> is a supported Landed Cost receipt type and
+    /// that the caller holds read permission on the target receipt document per ERPNext PR #65857
+    /// (<c>landed_cost_voucher.py: check_receipt_document_access</c> &amp; <c>get_items_from_purchase_receipts</c>).
+    /// </summary>
+    public static void ValidateReceiptDocumentAccess(
+        string? receiptDocumentType,
+        string? receiptDocument,
+        bool hasReceiptReadPermission)
+    {
+        if (string.IsNullOrWhiteSpace(receiptDocumentType)
+            || !SupportedReceiptDocumentTypes.Contains(receiptDocumentType.Trim()))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("receiptDocumentType", receiptDocumentType ?? string.Empty)
+                .WithData("detail", $"Receipt Document Type {receiptDocumentType} is not supported");
+        }
+
+        if (!hasReceiptReadPermission)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("receiptDocumentType", receiptDocumentType.Trim())
+                .WithData("receiptDocument", receiptDocument ?? string.Empty)
+                .WithData("detail", $"Not permitted to read {receiptDocumentType.Trim()} {receiptDocument}.");
+        }
+    }
+
+    /// <summary>
+    /// Applies Purchase Invoice company user permissions to Landed Cost Voucher vendor invoice search
+    /// results per ERPNext PR #65799 (<c>landed_cost_voucher.py: get_vendor_invoices</c>).
+    /// </summary>
+    public static IReadOnlyList<(Guid InvoiceId, Guid CompanyId, string InvoiceNumber)> FilterVendorInvoicesByUserPermissions(
+        IEnumerable<(Guid InvoiceId, Guid CompanyId, string InvoiceNumber)>? vendorInvoices,
+        Guid? requestedCompanyId,
+        IReadOnlySet<Guid>? allowedCompanyIds)
+    {
+        if (vendorInvoices == null)
+        {
+            return Array.Empty<(Guid InvoiceId, Guid CompanyId, string InvoiceNumber)>();
+        }
+
+        var query = vendorInvoices;
+        if (requestedCompanyId.HasValue)
+        {
+            query = query.Where(v => v.CompanyId == requestedCompanyId.Value);
+        }
+
+        if (allowedCompanyIds != null)
+        {
+            query = query.Where(v => allowedCompanyIds.Contains(v.CompanyId));
+        }
+
+        return query.ToList();
+    }
 }

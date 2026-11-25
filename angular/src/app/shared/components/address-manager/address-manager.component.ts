@@ -55,7 +55,7 @@ interface AddressDto {
         } @else if (addresses().length === 0 && !showForm()) {
           <div class="text-center text-muted py-3">
             <i class="fas fa-map-marker-alt fa-2x mb-2 d-block opacity-50"></i>
-            <p>No addresses added yet.</p>
+            <p>{{ '::NoAddressesAddedYet' | abpLocalization }}</p>
           </div>
         } @else {
           <div class="row g-3">
@@ -88,8 +88,8 @@ interface AddressDto {
                     @if (addr.phone) { <p class="mb-0 small"><i class="fas fa-phone me-1"></i>{{ addr.phone }}</p> }
                     @if (addr.email) { <p class="mb-0 small"><i class="fas fa-envelope me-1"></i>{{ addr.email }}</p> }
                     <div class="mt-2">
-                      @if (addr.isPrimaryAddress) { <span class="badge bg-primary-subtle text-primary me-1">Primary</span> }
-                      @if (addr.isShippingAddress) { <span class="badge bg-success-subtle text-success">Shipping</span> }
+                      @if (addr.isPrimaryAddress) { <span class="badge bg-primary-subtle text-primary me-1">{{ '::Primary' | abpLocalization }}</span> }
+                      @if (addr.isShippingAddress) { <span class="badge bg-success-subtle text-success">{{ '::Shipping' | abpLocalization }}</span> }
                     </div>
                   </div>
                 </div>
@@ -111,11 +111,11 @@ interface AddressDto {
                 <div class="col-md-4">
                   <label class="form-label">{{ '::Type' | abpLocalization }}</label>
                   <select class="form-select form-select-sm" formControlName="addressType">
-                    <option value="Billing">Billing</option>
-                    <option value="Shipping">Shipping</option>
-                    <option value="Office">Office</option>
-                    <option value="Warehouse">Warehouse</option>
-                    <option value="Other">Other</option>
+                    <option value="Billing">{{ '::Billing' | abpLocalization }}</option>
+                    <option value="Shipping">{{ '::Shipping' | abpLocalization }}</option>
+                    <option value="Office">{{ '::Office' | abpLocalization }}</option>
+                    <option value="Warehouse">{{ '::Warehouse' | abpLocalization }}</option>
+                    <option value="Other">{{ '::Other' | abpLocalization }}</option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -164,13 +164,13 @@ interface AddressDto {
                 <div class="col-md-4 d-flex align-items-end">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="isPrimary" formControlName="isPrimaryAddress" />
-                    <label class="form-check-label" for="isPrimary">Primary Address</label>
+                    <label class="form-check-label" for="isPrimary">{{ '::PrimaryAddress' | abpLocalization }}</label>
                   </div>
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="isShipping" formControlName="isShippingAddress" />
-                    <label class="form-check-label" for="isShipping">Shipping Address</label>
+                    <label class="form-check-label" for="isShipping">{{ '::ShippingAddress' | abpLocalization }}</label>
                   </div>
                 </div>
               </div>

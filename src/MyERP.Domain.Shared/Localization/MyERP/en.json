@@ -7810,7 +7810,16 @@
     "ShowZeroStock": "Show Zero Stock",
     "NegativeStock": "Negative Stock",
     "NoStockMovementDataHint": "No stock movement data. Click Refresh to load.",
-    "NoStockBalanceDataHint": "No stock balance data. Click Refresh to load."
+    "NoStockBalanceDataHint": "No stock balance data. Click Refresh to load.",
+    "NoAddressesAddedYet": "No addresses added yet.",
+    "Billing": "Billing",
+    "Office": "Office",
+    "PrimaryAddress": "Primary Address",
+    "DistinctItems": "Distinct Items",
+    "BundleComponent": "Bundle Component",
+    "AllSoItemsRequestedHint": "All Sales Order items have been fully requested in Material Requests!",
+    "ThreeWay": "3-Way",
+    "NoPr": "No PR"
   }
 }
 

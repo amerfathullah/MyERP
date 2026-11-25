@@ -216,4 +216,43 @@ public class QualityInspectionEnforcementService : DomainService
                 .WithData("referenceType", referenceType);
         }
     }
+
+    /// <summary>
+    /// Validates reference inputs and reads <c>Stock Entry.purpose</c> with permission enforcement for
+    /// Quality Inspection <c>item_query</c> per ERPNext PR #65947 (<c>quality_inspection.py: item_query</c>):
+    /// returns <c>(ShouldQuery: false, null, null)</c> when <paramref name="referenceDocType"/> or
+    /// <paramref name="referenceNameFilter"/> is missing or non-string; when querying a Stock Entry,
+    /// requires Stock Entry read permission before exposing its purpose or items.
+    /// </summary>
+    public static (bool ShouldQuery, string? ReferenceName, string? StockEntryPurpose) ResolveItemQueryReferenceAccess(
+        string? referenceDocType,
+        object? referenceNameFilter,
+        bool hasStockEntryReadPermission,
+        string? stockEntryPurpose = null)
+    {
+        if (string.IsNullOrWhiteSpace(referenceDocType)
+            || referenceNameFilter is not string referenceName
+            || string.IsNullOrWhiteSpace(referenceName))
+        {
+            return (false, null, null);
+        }
+
+        var normalizedType = referenceDocType.Trim();
+        var isStockEntry = string.Equals(normalizedType, "Stock Entry", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedType, "StockEntry", StringComparison.OrdinalIgnoreCase);
+
+        if (isStockEntry)
+        {
+            if (!hasStockEntryReadPermission)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("referenceName", referenceName)
+                    .WithData("detail", $"Not permitted to read Stock Entry {referenceName}.");
+            }
+
+            return (true, referenceName, stockEntryPurpose);
+        }
+
+        return (true, referenceName, null);
+    }
 }
