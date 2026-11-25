@@ -3420,6 +3420,35 @@ public class StockEntryManager : DomainService
     /// </summary>
     public static bool ShouldApplyHeaderWarehousesToAddedRow(string? itemName)
         => string.IsNullOrWhiteSpace(itemName);
+
+    /// <summary>
+    /// Determines whether a Stock Entry is blocked because its linked Work Order is <c>Closed</c>
+    /// per ERPNext PR #67988 (<c>stock_entry_base.py</c>):
+    /// blocks submitted <c>MaterialTransferForManufacture</c>, <c>Manufacture</c>, and
+    /// <c>MaterialConsumptionForManufacture</c> entries against a Closed Work Order, exempting ONLY
+    /// <c>MaterialTransferForManufacture</c> returns (and NOT return-flagged <c>Manufacture</c> or
+    /// consumption entries).
+    /// </summary>
+    public static bool IsBlockedByClosedWorkOrder(
+        bool isWorkOrderClosed,
+        bool isSubmitted,
+        StockEntryType purpose,
+        bool isReturn)
+    {
+        if (!isWorkOrderClosed || !isSubmitted)
+        {
+            return false;
+        }
+
+        if (purpose == StockEntryType.MaterialTransferForManufacture && isReturn)
+        {
+            return false;
+        }
+
+        return purpose is StockEntryType.MaterialTransferForManufacture
+            or StockEntryType.Manufacture
+            or StockEntryType.MaterialConsumptionForManufacture;
+    }
 }
 
 public sealed class ReservedSerialBatchSlot

@@ -474,6 +474,36 @@ public class TransactionValidationService : DomainService
         => discountAmount != 0m || hasTaxIncludedInPrintRate;
 
     /// <summary>
+    /// Computes <c>RateWithMargin</c> for a transaction item row per ERPNext PR #67995
+    /// (<c>taxes_and_totals.js: apply_pricing_rule_on_item</c>): coerces nullable <paramref name="priceListRate"/>
+    /// and <paramref name="marginRateOrAmount"/> to <c>0m</c> so newly added rows with unset margin compute
+    /// their rate cleanly instead of propagating null/NaN.
+    /// </summary>
+    public static decimal CalculateItemRateWithMargin(
+        decimal? priceListRate,
+        decimal? blanketOrderRate,
+        decimal? conversionFactor,
+        bool isSalesOrderOrQuotation,
+        string? marginType,
+        decimal? marginRateOrAmount,
+        int precision = 4)
+    {
+        var effectiveRate = priceListRate ?? 0m;
+        if (isSalesOrderOrQuotation && blanketOrderRate.HasValue && blanketOrderRate.Value != 0m)
+        {
+            var factor = conversionFactor.HasValue && conversionFactor.Value != 0m ? conversionFactor.Value : 1m;
+            effectiveRate = blanketOrderRate.Value * factor;
+        }
+
+        var margin = marginRateOrAmount ?? 0m;
+        var rateWithMargin = string.Equals(marginType, "Percentage", StringComparison.OrdinalIgnoreCase)
+            ? effectiveRate * (1m + margin / 100m)
+            : effectiveRate + margin;
+
+        return Math.Round(rateWithMargin, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

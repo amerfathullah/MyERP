@@ -7546,7 +7546,14 @@
     "TotalActiveBatches": "Total Active Batches",
     "MfgDate": "Mfg Date",
     "ExpiresToday": "Expires Today",
-    "NoBatchExpiryRecordsFound": "No batch expiry records found matching the filter criteria."
+    "NoBatchExpiryRecordsFound": "No batch expiry records found matching the filter criteria.",
+    "Loan": "Loan",
+    "EMI": "EMI",
+    "NewDeferredProcess": "New Deferred Process",
+    "IncomeRevenue": "Income (Revenue)",
+    "ProcessNo": "Process #",
+    "NoProcessDeferredAccountingFound": "No Process Deferred Accounting entries found.",
+    "RemainingCapitalized": "Remaining"
   }
 }
 

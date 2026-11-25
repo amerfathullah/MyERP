@@ -15,7 +15,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="order?.orderNumber ?? 'Blanket Order'">
+    <abp-page [title]="order?.orderNumber ?? ('::BlanketOrder' | abpLocalization)">
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (order) {
@@ -36,7 +36,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
             }
             @if (order.status === 14) {
               <button class="btn btn-info text-white" (click)="reopen()">
-                <i class="fa fa-unlock me-1"></i>Reopen
+                <i class="fa fa-unlock me-1"></i>{{ '::Reopen' | abpLocalization }}
               </button>
             }
           </div>
@@ -51,7 +51,7 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           </div>
           <div class="col-md-2">
             <div class="card text-center h-100"><div class="card-body">
-              <div class="text-muted small">Order Type</div>
+              <div class="text-muted small">{{ '::OrderType' | abpLocalization }}</div>
               <div class="fs-5 fw-bold">{{ order.orderType }}</div>
             </div></div>
           </div>
@@ -85,14 +85,14 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
               <thead><tr>
-                <th>Item</th>
-                <th>UoM</th>
-                <th class="text-end">Qty</th>
-                <th class="text-end">Rate</th>
-                <th class="text-end">Ordered</th>
-                <th class="text-end">Remaining</th>
-                <th class="text-center">Status</th>
-                <th class="text-end">Actions</th>
+                <th>{{ '::Item' | abpLocalization }}</th>
+                <th>{{ '::UoM' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Ordered' | abpLocalization }}</th>
+                <th class="text-end">{{ '::RemainingCapitalized' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
               </tr></thead>
               <tbody>
                 @for (item of order.items; track item.id ?? $index) {
@@ -107,20 +107,20 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
                     </td>
                     <td class="text-center">
                       @if (item.isClosed) {
-                        <span class="badge bg-secondary">Closed</span>
+                        <span class="badge bg-secondary">{{ '::Closed' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-success">Open</span>
+                        <span class="badge bg-success">{{ '::Open' | abpLocalization }}</span>
                       }
                     </td>
                     <td class="text-end">
                       @if (!item.isClosed && order.status === 1) {
                         <button class="btn btn-sm btn-outline-warning" (click)="closeItem(item.id)">
-                          <i class="fa fa-lock me-1"></i>Close
+                          <i class="fa fa-lock me-1"></i>{{ '::Close' | abpLocalization }}
                         </button>
                       }
                       @if (item.isClosed && (order.status === 1 || order.status === 14)) {
                         <button class="btn btn-sm btn-outline-info" (click)="reopenItem(item.id)">
-                          <i class="fa fa-unlock me-1"></i>Reopen
+                          <i class="fa fa-unlock me-1"></i>{{ '::Reopen' | abpLocalization }}
                         </button>
                       }
                     </td>

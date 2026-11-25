@@ -1551,6 +1551,35 @@ public class WorkOrderManager : DomainService
             .Select(g => g.Key)
             .ToList();
     }
+
+    /// <summary>
+    /// Sums submitted Work Order quantities attributed to a specific Sales Order line
+    /// (<paramref name="salesOrderId"/> + <paramref name="salesOrderItemId"/>) per ERPNext PR #67982
+    /// (<c>work_order/services/status.py</c>): ALWAYS filters by <c>SalesOrderItemId</c> even when
+    /// <paramref name="productBundleItemId"/> is set so two Sales Order lines for the same Product Bundle
+    /// only count their own Work Orders.
+    /// </summary>
+    public static decimal SumWorkOrderQtyForSalesOrderItem(
+        Guid salesOrderId,
+        Guid salesOrderItemId,
+        Guid productionItemId,
+        Guid? productBundleItemId,
+        IEnumerable<(Guid? SalesOrderId, Guid? SalesOrderItemId, Guid ProductionItemId, Guid? ProductBundleItemId, bool IsSubmitted, decimal QtyAgainstSalesOrder)>? workOrders)
+    {
+        if (workOrders == null)
+        {
+            return 0m;
+        }
+
+        return workOrders
+            .Where(wo => wo.IsSubmitted
+                && wo.SalesOrderId == salesOrderId
+                && wo.SalesOrderItemId == salesOrderItemId
+                && (productBundleItemId.HasValue
+                    ? wo.ProductBundleItemId == productBundleItemId.Value
+                    : wo.ProductionItemId == productionItemId))
+            .Sum(wo => wo.QtyAgainstSalesOrder);
+    }
 }
 
 public sealed record WorkOrderOperationCostInput(

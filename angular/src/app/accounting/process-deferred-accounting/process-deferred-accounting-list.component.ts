@@ -15,9 +15,9 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Process Deferred Accounting</h5>
+        <h5 class="card-title mb-0">{{ '::ProcessDeferredAccounting' | abpLocalization }}</h5>
         <a routerLink="/accounting/process-deferred-accounting/new" class="btn btn-primary btn-sm">
-          <i class="fa fa-plus me-1"></i>New Deferred Process
+          <i class="fa fa-plus me-1"></i>{{ '::NewDeferredProcess' | abpLocalization }}
         </a>
       </div>
       <div class="card-body">
@@ -28,16 +28,16 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
           </div>
           <div class="col-md-3">
             <select class="form-select form-select-sm" [(ngModel)]="selectedType" (ngModelChange)="loadList()">
-              <option [ngValue]="null">All Types</option>
-              <option [ngValue]="DeferredAccountingType.Income">Income (Revenue)</option>
-              <option [ngValue]="DeferredAccountingType.Expense">Expense</option>
+              <option [ngValue]="null">{{ '::AllTypes' | abpLocalization }}</option>
+              <option [ngValue]="DeferredAccountingType.Income">{{ '::IncomeRevenue' | abpLocalization }}</option>
+              <option [ngValue]="DeferredAccountingType.Expense">{{ '::Expense' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3">
             <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" (ngModelChange)="loadList()">
           </div>
           <div class="col-md-2">
-            <button class="btn btn-outline-secondary btn-sm w-100" (click)="resetFilters()">Reset</button>
+            <button class="btn btn-outline-secondary btn-sm w-100" (click)="resetFilters()">{{ '::Reset' | abpLocalization }}</button>
           </div>
         </div>
 
@@ -45,14 +45,14 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
           <table class="table table-hover table-bordered table-sm align-middle">
             <thead class="table-light">
               <tr>
-                <th>Process #</th>
-                <th>Company</th>
-                <th>Type</th>
-                <th>Posting Date</th>
-                <th>Service Period</th>
-                <th class="text-center">Entries</th>
-                <th class="text-center">Status</th>
-                <th class="text-center">Action</th>
+                <th>{{ '::ProcessNo' | abpLocalization }}</th>
+                <th>{{ '::Company' | abpLocalization }}</th>
+                <th>{{ '::Type' | abpLocalization }}</th>
+                <th>{{ '::PostingDate' | abpLocalization }}</th>
+                <th>{{ '::ServicePeriod' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Entries' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+                <th class="text-center">{{ '::Action' | abpLocalization }}</th>
               </tr>
             </thead>
             <tbody>
@@ -64,7 +64,7 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
                   <td>{{ item.companyName || '—' }}</td>
                   <td>
                     <span class="badge" [ngClass]="item.type === DeferredAccountingType.Income ? 'bg-info text-dark' : 'bg-primary'">
-                      {{ item.type === DeferredAccountingType.Income ? 'Income' : 'Expense' }}
+                      {{ (item.type === DeferredAccountingType.Income ? '::Income' : '::Expense') | abpLocalization }}
                     </span>
                   </td>
                   <td>{{ item.postingDate | date:'yyyy-MM-dd' }}</td>
@@ -72,11 +72,11 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
                   <td class="text-center fw-bold">{{ item.entriesProcessed }}</td>
                   <td class="text-center">
                     @if (item.isCancelled) {
-                      <span class="badge bg-danger">Cancelled</span>
+                      <span class="badge bg-danger">{{ '::Cancelled' | abpLocalization }}</span>
                     } @else if (item.isSubmitted) {
-                      <span class="badge bg-success">Submitted</span>
+                      <span class="badge bg-success">{{ '::Submitted' | abpLocalization }}</span>
                     } @else {
-                      <span class="badge bg-warning text-dark">Draft</span>
+                      <span class="badge bg-warning text-dark">{{ '::Draft' | abpLocalization }}</span>
                     }
                   </td>
                   <td class="text-center">
@@ -87,7 +87,7 @@ import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="8" class="text-center py-4 text-muted">No Process Deferred Accounting entries found.</td>
+                  <td colspan="8" class="text-center py-4 text-muted">{{ '::NoProcessDeferredAccountingFound' | abpLocalization }}</td>
                 </tr>
               }
             </tbody>

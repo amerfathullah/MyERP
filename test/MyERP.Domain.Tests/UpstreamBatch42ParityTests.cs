@@ -20,7 +20,7 @@ namespace MyERP;
 
 /// <summary>
 /// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
+/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68172, #68211, #68232, #68233, #68311, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -1890,5 +1890,59 @@ public class UpstreamBatch42ParityTests
             isLifo: true);
         var consumedZero = lifoZeroReturn.RemoveStock(1m, outgoingRate: 0m, isReturnPurchaseEntry: true);
         consumedZero[0].Rate.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void Pr67995_Pr67988_Pr67990_Pr67980_Pr67982_MarginNullGuard_ClosedWoReturn_SupplierLeadRename_NoSelfTransfer_BundleWoQty_Parity()
+    {
+        // PR #67995: Newly added row with null margin computes rate_with_margin cleanly without NaN/null failure
+        TransactionValidationService.CalculateItemRateWithMargin(
+            priceListRate: 150m, blanketOrderRate: null, conversionFactor: 1m,
+            isSalesOrderOrQuotation: true, marginType: "Percentage", marginRateOrAmount: null).ShouldBe(150m);
+        TransactionValidationService.CalculateItemRateWithMargin(
+            priceListRate: 150m, blanketOrderRate: null, conversionFactor: 1m,
+            isSalesOrderOrQuotation: true, marginType: "Amount", marginRateOrAmount: 10m).ShouldBe(160m);
+
+        // PR #67988: Return-flagged Manufacture against Closed WO is blocked; only Material Transfer return is allowed
+        StockEntryManager.IsBlockedByClosedWorkOrder(
+            isWorkOrderClosed: true, isSubmitted: true, MyERP.Inventory.StockEntryType.Manufacture, isReturn: true).ShouldBeTrue();
+        StockEntryManager.IsBlockedByClosedWorkOrder(
+            isWorkOrderClosed: true, isSubmitted: true, MyERP.Inventory.StockEntryType.MaterialTransferForManufacture, isReturn: true).ShouldBeFalse();
+
+        // PR #67990: Supplier lead times grouped by ItemLeadTime.ItemCode survive Item rename
+        var ltId = Guid.NewGuid();
+        var supId = Guid.NewGuid();
+        var grouped = MasterProductionScheduleService.GroupSupplierLeadTimesByItemCode(
+            leadTimeHeaders: new[] { (ltId, "ITEM-NEW-CODE") },
+            supplierRows: new[] { (ltId, supId, 7m, 2m, true) },
+            requestedItemCodes: new HashSet<string> { "ITEM-NEW-CODE" });
+        grouped["ITEM-NEW-CODE"][supId].PurchaseTimeDays.ShouldBe(7m);
+
+        // PR #67980: Never transfer raw material from receiving warehouse to itself; keep receiving warehouse in shortage pool
+        var whRecv = Guid.NewGuid();
+        var whStore = Guid.NewGuid();
+        var (pool, transfers, rem) = ProductionPlanMaterialPlanningService.PlanTransfersExcludingSelfWarehouse(
+            receivingWarehouseId: whRecv,
+            requiredQty: 10m,
+            transferSourceWarehouseIds: new HashSet<Guid> { whRecv, whStore },
+            allBins: new[] { (whRecv, 4m), (whStore, 5m) });
+        pool.ShouldBe(4m); // receiving warehouse counted in shortage pool (10 - 4 = 6 needed)
+        transfers.ShouldBe(new[] { (whStore, 5m) }); // never transfers from whRecv to whRecv
+        rem.ShouldBe(1m);
+
+        // PR #67982: Two SO lines for same Product Bundle count only each line's own Work Orders
+        var soId = Guid.NewGuid();
+        var soLine1 = Guid.NewGuid();
+        var soLine2 = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var compId = Guid.NewGuid();
+        var line1Qty = WorkOrderManager.SumWorkOrderQtyForSalesOrderItem(
+            soId, soLine1, compId, bundleId,
+            new[]
+            {
+                ((Guid?)soId, (Guid?)soLine1, compId, (Guid?)bundleId, true, 3m),
+                ((Guid?)soId, (Guid?)soLine2, compId, (Guid?)bundleId, true, 7m),
+            });
+        line1Qty.ShouldBe(3m);
     }
 }

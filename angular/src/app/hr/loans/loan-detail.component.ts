@@ -25,21 +25,21 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
     <app-breadcrumb />
     @if (isLoading) { <app-loading-overlay /> }
     @if (!isLoading && loan) {
-      <abp-page [title]="loan.loanNumber ?? 'Loan'">
+      <abp-page [title]="loan.loanNumber ?? ('::Loan' | abpLocalization)">
         <!-- Status + Actions -->
         <div class="d-flex justify-content-between align-items-center mb-4">
           <app-status-badge [status]="statusLabel(loan.status)" />
           <div class="btn-group btn-group-sm">
             @if (loan.status === 0) {
-              <button class="btn btn-outline-success" (click)="sanction()"><i class="fa fa-check me-1"></i>Sanction</button>
-              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>Cancel</button>
+              <button class="btn btn-outline-success" (click)="sanction()"><i class="fa fa-check me-1"></i>{{ '::Sanction' | abpLocalization }}</button>
+              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             }
             @if (loan.status === 1) {
-              <button class="btn btn-outline-primary" (click)="showDisburseModal = true"><i class="fa fa-money-bill-wave me-1"></i>Disburse</button>
-              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>Cancel</button>
+              <button class="btn btn-outline-primary" (click)="showDisburseModal = true"><i class="fa fa-money-bill-wave me-1"></i>{{ '::Disburse' | abpLocalization }}</button>
+              <button class="btn btn-outline-danger" (click)="cancel()"><i class="fa fa-times me-1"></i>{{ '::Cancel' | abpLocalization }}</button>
             }
             @if (loan.status === 2 || loan.status === 3) {
-              <button class="btn btn-outline-success" (click)="showRepaymentModal = true"><i class="fa fa-hand-holding-dollar me-1"></i>Record Repayment</button>
+              <button class="btn btn-outline-success" (click)="showRepaymentModal = true"><i class="fa fa-hand-holding-dollar me-1"></i>{{ '::RecordRepayment' | abpLocalization }}</button>
             }
           </div>
         </div>
@@ -59,7 +59,7 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
             <div class="fs-4 fw-bold">{{ loan.annualInterestRate }}%</div>
           </div></div></div>
           <div class="col-md-3"><div class="card text-center"><div class="card-body py-3">
-            <div class="text-muted small">EMI</div>
+            <div class="text-muted small">{{ '::EMI' | abpLocalization }}</div>
             <div class="fs-4 fw-bold">{{ loan.emi | number:'1.2-2' }}</div>
           </div></div></div>
         </div>
@@ -73,7 +73,7 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
             <div class="col-md-4"><strong>{{ '::InterestMethod' | abpLocalization }}:</strong> {{ INTEREST_METHOD[loan.interestMethod ?? 0] }}</div>
           </div>
           <div class="row mt-2">
-            <div class="col-md-4"><strong>{{ '::Tenure' | abpLocalization }}:</strong> {{ loan.tenureMonths }} months</div>
+            <div class="col-md-4"><strong>{{ '::Tenure' | abpLocalization }}:</strong> {{ loan.tenureMonths }} {{ '::Months' | abpLocalization }}</div>
             <div class="col-md-4"><strong>{{ '::DisbursementDate' | abpLocalization }}:</strong> {{ loan.disbursementDate | date:'dd/MM/yyyy' }}</div>
             <div class="col-md-4"><strong>{{ '::RepaymentStartDate' | abpLocalization }}:</strong> {{ loan.repaymentStartDate | date:'dd/MM/yyyy' }}</div>
           </div>
@@ -104,8 +104,8 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
                       <td class="text-end fw-bold">{{ entry.totalPayment | number:'1.2-2' }}</td>
                       <td class="text-end">{{ entry.outstandingBalance | number:'1.2-2' }}</td>
                       <td>
-                        @if (entry.isPaid) { <span class="badge bg-success">Paid</span> }
-                        @else { <span class="badge bg-warning text-dark">Pending</span> }
+                        @if (entry.isPaid) { <span class="badge bg-success">{{ '::Paid' | abpLocalization }}</span> }
+                        @else { <span class="badge bg-warning text-dark">{{ '::Pending' | abpLocalization }}</span> }
                       </td>
                     </tr>
                   }
@@ -122,18 +122,18 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
         @if (showDisburseModal) {
           <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
             <div class="modal-dialog"><div class="modal-content">
-              <div class="modal-header"><h5 class="modal-title">Disburse Loan</h5>
+              <div class="modal-header"><h5 class="modal-title">{{ '::DisburseLoan' | abpLocalization }}</h5>
                 <button class="btn-close" (click)="showDisburseModal = false"></button>
               </div>
               <div class="modal-body">
                 <div class="mb-3">
-                  <label class="form-label">Disbursement Date</label>
+                  <label class="form-label">{{ '::DisbursementDate' | abpLocalization }}</label>
                   <input type="date" class="form-control" [(ngModel)]="disburseDate" />
                 </div>
               </div>
               <div class="modal-footer">
-                <button class="btn btn-secondary btn-sm" (click)="showDisburseModal = false">Close</button>
-                <button class="btn btn-primary btn-sm" (click)="disburse()">Confirm Disburse</button>
+                <button class="btn btn-secondary btn-sm" (click)="showDisburseModal = false">{{ '::Close' | abpLocalization }}</button>
+                <button class="btn btn-primary btn-sm" (click)="disburse()">{{ '::ConfirmDisburse' | abpLocalization }}</button>
               </div>
             </div></div>
           </div>
@@ -143,22 +143,22 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
         @if (showRepaymentModal) {
           <div class="modal show d-block" style="background: rgba(0,0,0,0.5)">
             <div class="modal-dialog"><div class="modal-content">
-              <div class="modal-header"><h5 class="modal-title">Record Repayment</h5>
+              <div class="modal-header"><h5 class="modal-title">{{ '::RecordRepayment' | abpLocalization }}</h5>
                 <button class="btn-close" (click)="showRepaymentModal = false"></button>
               </div>
               <div class="modal-body">
                 <div class="mb-3">
-                  <label class="form-label">Payment Date</label>
+                  <label class="form-label">{{ '::PaymentDate' | abpLocalization }}</label>
                   <input type="date" class="form-control" [(ngModel)]="repaymentDate" />
                 </div>
                 <div class="mb-3">
-                  <label class="form-label">Amount</label>
+                  <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
                   <input type="number" class="form-control" [(ngModel)]="repaymentAmount" step="0.01" />
                 </div>
               </div>
               <div class="modal-footer">
-                <button class="btn btn-secondary btn-sm" (click)="showRepaymentModal = false">Close</button>
-                <button class="btn btn-success btn-sm" (click)="recordRepayment()">Record Payment</button>
+                <button class="btn btn-secondary btn-sm" (click)="showRepaymentModal = false">{{ '::Close' | abpLocalization }}</button>
+                <button class="btn btn-success btn-sm" (click)="recordRepayment()">{{ '::RecordPayment' | abpLocalization }}</button>
               </div>
             </div></div>
           </div>

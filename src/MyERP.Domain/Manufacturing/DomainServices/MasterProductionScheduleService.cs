@@ -548,6 +548,51 @@ public class MasterProductionScheduleService : DomainService
         return existingRows.ToList();
     }
 
+    /// <summary>
+    /// Groups supplier lead-time child rows by the parent <c>ItemLeadTime.ItemCode</c> (joined via
+    /// <c>ParentLeadTimeId</c>) rather than the parent's document name per ERPNext PR #67990
+    /// (<c>plan_adapter.py: get_supplier_lead_times</c>), so supplier lead times remain discoverable
+    /// after an Item is renamed.
+    /// </summary>
+    public static Dictionary<string, Dictionary<Guid, (decimal PurchaseTimeDays, decimal BufferTimeDays, bool IsDefault)>>
+        GroupSupplierLeadTimesByItemCode(
+            IEnumerable<(Guid LeadTimeId, string ItemCode)>? leadTimeHeaders,
+            IEnumerable<(Guid ParentLeadTimeId, Guid SupplierId, decimal PurchaseTimeDays, decimal BufferTimeDays, bool IsDefault)>? supplierRows,
+            IReadOnlySet<string>? requestedItemCodes = null)
+    {
+        var result = new Dictionary<string, Dictionary<Guid, (decimal, decimal, bool)>>(StringComparer.OrdinalIgnoreCase);
+        if (leadTimeHeaders == null || supplierRows == null)
+        {
+            return result;
+        }
+
+        var itemCodeByLeadTimeId = new Dictionary<Guid, string>();
+        foreach (var h in leadTimeHeaders)
+        {
+            if (string.IsNullOrWhiteSpace(h.ItemCode)) continue;
+            if (requestedItemCodes != null && !requestedItemCodes.Contains(h.ItemCode)) continue;
+            itemCodeByLeadTimeId[h.LeadTimeId] = h.ItemCode;
+        }
+
+        foreach (var row in supplierRows)
+        {
+            if (!itemCodeByLeadTimeId.TryGetValue(row.ParentLeadTimeId, out var itemCode))
+            {
+                continue;
+            }
+
+            if (!result.TryGetValue(itemCode, out var bySupplier))
+            {
+                bySupplier = new Dictionary<Guid, (decimal, decimal, bool)>();
+                result[itemCode] = bySupplier;
+            }
+
+            bySupplier[row.SupplierId] = (row.PurchaseTimeDays, row.BufferTimeDays, row.IsDefault);
+        }
+
+        return result;
+    }
+
     private sealed class DemandBucket
     {
         public DateTime Date { get; }

@@ -1154,6 +1154,69 @@ public class ProductionPlanMaterialPlanningService : DomainService
         var roundedRequired = Math.Ceiling(requiredStockQty);
         return (stockUom, 1m, roundedRequired);
     }
+
+    /// <summary>
+    /// Allocates raw-material transfer quantities from candidate source warehouses to
+    /// <paramref name="receivingWarehouseId"/> per ERPNext PR #67980
+    /// (<c>production_plan/services/material_request.py: _mr_item_for_details</c> / <c>_transfer_from_locations</c>):
+    /// - When computing shortage availability across warehouses, keeps <paramref name="receivingWarehouseId"/>
+    ///   in the shortage pool while excluding other transfer source warehouses.
+    /// - Skips any candidate location whose warehouse equals <paramref name="receivingWarehouseId"/> so stock
+    ///   is never transferred from the receiving warehouse to itself.
+    /// </summary>
+    public static (decimal ShortagePoolQty, List<(Guid SourceWarehouseId, decimal TransferQty)> Transfers, decimal RemainingShortage)
+        PlanTransfersExcludingSelfWarehouse(
+            Guid? receivingWarehouseId,
+            decimal requiredQty,
+            IReadOnlySet<Guid>? transferSourceWarehouseIds,
+            IEnumerable<(Guid WarehouseId, decimal AvailableQty)>? allBins,
+            int precision = 4)
+    {
+        var binList = (allBins ?? Array.Empty<(Guid, decimal)>()).ToList();
+
+        // Keep receivingWarehouseId in shortage availability even if it is also in transferSourceWarehouseIds
+        var shortagePoolQty = binList
+            .Where(b => (receivingWarehouseId.HasValue && b.WarehouseId == receivingWarehouseId.Value)
+                || transferSourceWarehouseIds == null
+                || !transferSourceWarehouseIds.Contains(b.WarehouseId))
+            .Sum(b => b.AvailableQty);
+
+        var remaining = Math.Round(Math.Max(requiredQty - shortagePoolQty, 0m), precision, MidpointRounding.AwayFromZero);
+        var transfers = new List<(Guid SourceWarehouseId, decimal TransferQty)>();
+
+        if (remaining > 0m && transferSourceWarehouseIds != null)
+        {
+            foreach (var bin in binList)
+            {
+                if (Math.Round(remaining, precision, MidpointRounding.AwayFromZero) <= 0m)
+                {
+                    break;
+                }
+
+                if (!transferSourceWarehouseIds.Contains(bin.WarehouseId))
+                {
+                    continue;
+                }
+
+                // Never transfer stock from the receiving warehouse to itself
+                if (receivingWarehouseId.HasValue && bin.WarehouseId == receivingWarehouseId.Value)
+                {
+                    continue;
+                }
+
+                var qty = Math.Round(Math.Min(remaining, bin.AvailableQty), precision, MidpointRounding.AwayFromZero);
+                if (qty <= 0m)
+                {
+                    continue;
+                }
+
+                transfers.Add((bin.WarehouseId, qty));
+                remaining = Math.Round(remaining - qty, precision, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        return (shortagePoolQty, transfers, Math.Max(remaining, 0m));
+    }
 }
 
 public sealed record OpenManufactureMaterialRequestCandidate(
