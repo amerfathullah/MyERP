@@ -3459,6 +3459,42 @@ public class SubcontractingManager : DomainService
 
         return (serialRates, batchRates);
     }
+
+    /// <summary>
+    /// Refuses cancellation of a <c>Send to Subcontractor</c> Stock Entry when Subcontracting Receipts
+    /// against the linked order have already consumed more material than would remain supplied after
+    /// cancellation per ERPNext PR #67369 (<c>stock_entry/services/subcontracting.py:
+    /// validate_consumed_qty_is_still_supplied</c>).
+    /// </summary>
+    public static void ValidateConsumedQtyStillSuppliedOnTransferCancel(
+        string orderDocType,
+        string orderName,
+        IEnumerable<(int RowIdx, string RmItemCode, decimal ConsumedQty, decimal RemainingSuppliedQty)>? suppliedRows,
+        int precision = 4)
+    {
+        if (suppliedRows == null)
+        {
+            return;
+        }
+
+        foreach (var row in suppliedRows)
+        {
+            var consumed = Math.Round(row.ConsumedQty, precision, MidpointRounding.AwayFromZero);
+            var remaining = Math.Round(row.RemainingSuppliedQty, precision, MidpointRounding.AwayFromZero);
+            if (consumed > remaining)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("orderDocType", orderDocType)
+                    .WithData("orderName", orderName)
+                    .WithData("rmItemCode", row.RmItemCode)
+                    .WithData("consumedQty", row.ConsumedQty)
+                    .WithData("remainingSuppliedQty", row.RemainingSuppliedQty)
+                    .WithData(
+                        "detail",
+                        $"Cannot cancel: receipts of {orderDocType} {orderName} already consumed {row.ConsumedQty} of Item {row.RmItemCode} (row {row.RowIdx}), more than the {row.RemainingSuppliedQty} it would still have supplied.");
+            }
+        }
+    }
 }
 
 public sealed record InwardSecondaryItemReconciliationResult(

@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67378, #67379, #67383, #67384, #67395, #67399, #67400, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
-/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68473, #68529, #68578, #68732, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66947, #66966, #66971, #67344, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67445, #67450, #67462, #67468, #67480, #67485, #67503, #67530,
+/// #67699, #67749, #67758, #67789, #67892, #67977, #67978, #67984, #67986, #68065, #68172, #68232, #68311, #68340, #68348, #68371, #68473, #68529, #68578, #68732, #68786, #68916,
 /// #67174, #69225, #69278, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -1773,5 +1773,42 @@ public class UpstreamBatch42ParityTests
         var restricted = TransactionValidationService.RestrictCustomerGroupCustomerRolePermissions(
             select: true, hasReadPermission: false, print: true, email: true, export: true, report: true, share: true);
         restricted.ShouldBe((Select: true, Read: false, Print: false, Email: false, Export: false, Report: false, Share: false));
+    }
+
+    [Fact]
+    public void Pr67369_Pr67411_Pr67380_Pr67385_Pr68786_Pr65261_SubcontractCancel_BackflushSerial_SelectorUom_ReceiptRate_HeaderWh_FxJe_Parity()
+    {
+        // PR #67369: Refuse Send to Subcontractor cancel when consumed > remaining supplied
+        SubcontractingManager.ValidateConsumedQtyStillSuppliedOnTransferCancel(
+            "Subcontracting Order", "SCO-001", new[] { (1, "RM-01", 4m, 5m) });
+
+        var ex = Should.Throw<BusinessException>(() =>
+            SubcontractingManager.ValidateConsumedQtyStillSuppliedOnTransferCancel(
+                "Subcontracting Order", "SCO-001", new[] { (1, "RM-01", 6m, 5m) }));
+        ex.Data["detail"]!.ToString()!.ShouldContain("already consumed 6 of Item RM-01");
+
+        // PR #67411: Backflush serial/batch assignment takes rounded/ceiled item row qty, not raw qty
+        StockEntryManager.ResolveBackflushSerialBatchAssignQty(rawQty: 2.3m, roundedItemRowQty: 3m).ShouldBe(3m);
+
+        // PR #67380: Serial/Batch Selector converts bundle total stock qty to row UOM via conversionFactor
+        SerialBatchBundleValidationService.ConvertSelectorBundleQtyToRowUom(
+            bundleTotalStockQty: -24m, conversionFactor: 12m).ShouldBe(2m);
+
+        // PR #67385: Preserve typed basic rate on Material Receipt UOM/batch change (even when manual flag false)
+        StockEntryManager.ShouldPreserveRowBasicRateOnUomOrBatchChange(
+            MyERP.Inventory.StockEntryType.MaterialReceipt, setBasicRateManually: false, currentBasicRate: 50m).ShouldBeTrue();
+        StockEntryManager.ShouldPreserveRowBasicRateOnUomOrBatchChange(
+            MyERP.Inventory.StockEntryType.MaterialIssue, setBasicRateManually: false, currentBasicRate: 50m).ShouldBeFalse();
+        StockEntryManager.ShouldPreserveRowBasicRateOnUomOrBatchChange(
+            MyERP.Inventory.StockEntryType.MaterialIssue, setBasicRateManually: true, currentBasicRate: 0m).ShouldBeTrue();
+
+        // PR #68786: Apply header warehouses to new row when itemName is blank (not stockUom); preserve on duplicate row
+        StockEntryManager.ShouldApplyHeaderWarehousesToAddedRow(null).ShouldBeTrue();
+        StockEntryManager.ShouldApplyHeaderWarehousesToAddedRow("Widget A").ShouldBeFalse();
+
+        // PR #65261: Multi-currency Exchange Gain Or Loss JE preserves independent base/account currency amounts
+        TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Exchange Gain Or Loss", true).ShouldBeFalse();
+        TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Journal Entry", true).ShouldBeTrue();
+        TransactionValidationService.ShouldRecalculateJournalRowCompanyCurrencyAmounts("Exchange Gain Or Loss", false).ShouldBeTrue();
     }
 }

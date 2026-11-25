@@ -15,8 +15,8 @@ import { ShipmentParcelTemplateDto } from '../../proxy/inventory/models';
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Shipment Parcel Templates</h5>
-        <a routerLink="/inventory/shipment-parcel-templates/new" class="btn btn-primary btn-sm">New Template</a>
+        <h5 class="card-title mb-0">{{ '::ShipmentParcelTemplates' | abpLocalization }}</h5>
+        <a routerLink="/inventory/shipment-parcel-templates/new" class="btn btn-primary btn-sm">{{ '::NewTemplate' | abpLocalization }}</a>
       </div>
       <div class="card-body">
         <div class="row mb-3">
@@ -28,14 +28,14 @@ import { ShipmentParcelTemplateDto } from '../../proxy/inventory/models';
         <table class="table table-bordered table-hover">
           <thead class="table-light">
             <tr>
-              <th>Template Name</th>
-              <th class="text-end">Length (cm)</th>
-              <th class="text-end">Width (cm)</th>
-              <th class="text-end">Height (cm)</th>
-              <th class="text-end">Weight (kg)</th>
-              <th>Description</th>
-              <th class="text-center">Status</th>
-              <th class="text-end">Actions</th>
+              <th>{{ '::TemplateName' | abpLocalization }}</th>
+              <th class="text-end">{{ '::LengthCm' | abpLocalization }}</th>
+              <th class="text-end">{{ '::WidthCm' | abpLocalization }}</th>
+              <th class="text-end">{{ '::HeightCm' | abpLocalization }}</th>
+              <th class="text-end">{{ '::WeightKg' | abpLocalization }}</th>
+              <th>{{ '::Description' | abpLocalization }}</th>
+              <th class="text-center">{{ '::Status' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -53,17 +53,17 @@ import { ShipmentParcelTemplateDto } from '../../proxy/inventory/models';
                 <td>{{ item.description || '—' }}</td>
                 <td class="text-center">
                   <span class="badge" [ngClass]="item.isActive ? 'bg-success' : 'bg-secondary'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
+                    {{ (item.isActive ? '::Active' : '::Inactive') | abpLocalization }}
                   </span>
                 </td>
                 <td class="text-end">
-                  <a [routerLink]="['/inventory/shipment-parcel-templates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">Edit</a>
-                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">Delete</button>
+                  <a [routerLink]="['/inventory/shipment-parcel-templates', item.id, 'edit']" class="btn btn-sm btn-outline-primary me-2">{{ '::Edit' | abpLocalization }}</a>
+                  <button class="btn btn-sm btn-outline-danger" (click)="delete(item)">{{ '::Delete' | abpLocalization }}</button>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="8" class="text-center text-muted py-4">No shipment parcel templates found.</td>
+                <td colspan="8" class="text-center text-muted py-4">{{ '::NoShipmentParcelTemplatesFound' | abpLocalization }}</td>
               </tr>
             }
           </tbody>

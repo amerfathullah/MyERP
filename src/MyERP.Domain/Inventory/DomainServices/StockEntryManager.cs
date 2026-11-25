@@ -3389,6 +3389,37 @@ public class StockEntryManager : DomainService
                     $"When there are multiple finished goods ({string.Join(", ", distinctFgItems)}) in a Repack stock entry, the basic rate for all finished goods must be set manually.");
         }
     }
+
+    /// <summary>
+    /// Resolves the quantity passed to serial/batch auto-assignment for a backflushed raw material row
+    /// per ERPNext PR #67411 (<c>manufacturing.py</c>): uses the row's already rounded/ceiled quantity
+    /// (<paramref name="roundedItemRowQty"/>) rather than the unrounded intermediate quantity so the
+    /// assigned serial count matches the saved row quantity.
+    /// </summary>
+    public static decimal ResolveBackflushSerialBatchAssignQty(decimal rawQty, decimal roundedItemRowQty)
+        => roundedItemRowQty;
+
+    /// <summary>
+    /// Determines whether a Stock Entry row should preserve its existing <c>BasicRate</c> (skipping
+    /// valuation-rate re-fetch) when UOM or batch changes per ERPNext PR #67385 (<c>stock_entry.js</c>):
+    /// preserves the rate when <paramref name="setBasicRateManually"/> is true OR on a
+    /// <see cref="StockEntryType.MaterialReceipt"/> row where the user already entered a non-zero rate.
+    /// </summary>
+    public static bool ShouldPreserveRowBasicRateOnUomOrBatchChange(
+        StockEntryType purpose,
+        bool setBasicRateManually,
+        decimal currentBasicRate)
+        => setBasicRateManually || (purpose == StockEntryType.MaterialReceipt && currentBasicRate > 0m);
+
+    /// <summary>
+    /// Determines whether header <c>FromWarehouse</c>/<c>ToWarehouse</c> defaults should be applied to an
+    /// added Stock Entry item row per ERPNext PR #68786 (<c>stock_entry.js</c>):
+    /// checks whether <paramref name="itemName"/> is blank (user/item defaults can pre-fill <c>stock_uom</c>
+    /// on a brand-new row, never <c>item_name</c>, while duplicated rows already carry <c>item_name</c>
+    /// and must retain their own warehouses).
+    /// </summary>
+    public static bool ShouldApplyHeaderWarehousesToAddedRow(string? itemName)
+        => string.IsNullOrWhiteSpace(itemName);
 }
 
 public sealed class ReservedSerialBatchSlot

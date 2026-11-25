@@ -392,6 +392,20 @@ public class TransactionValidationService : DomainService
     }
 
     /// <summary>
+    /// Determines whether changing an account-currency amount on a Journal Entry row should overwrite
+    /// company-currency debit/credit amounts per ERPNext PR #65261 (<c>journal_entry.js</c>):
+    /// returns <c>false</c> for multi-currency <c>Exchange Gain Or Loss</c> journals because base and
+    /// account-currency amounts are adjusted independently (including zero foreign balance revaluations).
+    /// </summary>
+    public static bool ShouldRecalculateJournalRowCompanyCurrencyAmounts(
+        string? voucherType,
+        bool isMultiCurrency)
+    {
+        return !(isMultiCurrency
+            && string.Equals(voucherType, "Exchange Gain Or Loss", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Validates that the price list is enabled (active).
     /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
     /// Returns retain a submitted voucher's pricing even if its price list is now disabled.

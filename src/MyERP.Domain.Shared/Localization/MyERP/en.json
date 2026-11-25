@@ -7480,7 +7480,23 @@
     "FgAvail": "FG Avail",
     "PlannedDate": "Planned Date",
     "RmWh": "RM Wh",
-    "PoArrival": "PO Arrival"
+    "PoArrival": "PO Arrival",
+    "AgeRangesDays": "Age Ranges (days)",
+    "SearchItem": "Search Item",
+    "WarehouseWise": "Warehouse-wise",
+    "ZeroStock": "Zero Stock",
+    "AgedOver90Days": "Aged > 90 days",
+    "OverallAvgAgeDays": "Overall Avg Age (days)",
+    "AvgAge": "Avg Age",
+    "Oldest": "Oldest",
+    "Newest": "Newest",
+    "StockReconciliation": "Stock Reconciliation",
+    "IncludeCancelledBundles": "Include Cancelled Bundles",
+    "InwardQuantity": "Inward Quantity",
+    "OutwardQuantity": "Outward Quantity",
+    "Bundle": "Bundle",
+    "ValueDiff": "Value Diff",
+    "NoShipmentParcelTemplatesFound": "No shipment parcel templates found."
   }
 }
 

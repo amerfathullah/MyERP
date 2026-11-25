@@ -31,7 +31,7 @@ import {
               [class.btn-outline-primary]="displayMode !== 'qty'"
               (click)="displayMode = 'qty'"
             >
-              Qty
+              {{ '::Qty' | abpLocalization }}
             </button>
             <button
               type="button"
@@ -40,14 +40,14 @@ import {
               [class.btn-outline-primary]="displayMode !== 'value'"
               (click)="displayMode = 'value'"
             >
-              Value
+              {{ '::Value' | abpLocalization }}
             </button>
           </div>
           <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()" [disabled]="!rows().length">
-            <i class="bi bi-download me-1"></i>Export CSV
+            <i class="bi bi-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
           </button>
           <button class="btn btn-sm btn-primary" (click)="loadData()" [disabled]="loading()">
-            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            <i class="bi bi-arrow-clockwise me-1"></i>{{ '::Refresh' | abpLocalization }}
           </button>
         </div>
       </div>
@@ -57,7 +57,7 @@ import {
           <div class="col-md-2">
             <label class="form-label small">{{ '::Warehouse' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterWarehouse" (change)="loadData()">
-              <option value="">All Warehouses</option>
+              <option value="">{{ '::AllWarehouses' | abpLocalization }}</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }
@@ -66,18 +66,18 @@ import {
           <div class="col-md-2">
             <label class="form-label small">{{ '::ItemGroup' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup" (change)="loadData()">
-              <option value="">All Item Groups</option>
+              <option value="">{{ '::AllItemGroups' | abpLocalization }}</option>
               @for (g of itemGroups(); track g.id) {
                 <option [value]="g.id">{{ g.name }}</option>
               }
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label small">As of Date</label>
+            <label class="form-label small">{{ '::AsOfDate' | abpLocalization }}</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="asOfDate" (change)="loadData()" />
           </div>
           <div class="col-md-2">
-            <label class="form-label small">Age Ranges (days)</label>
+            <label class="form-label small">{{ '::AgeRangesDays' | abpLocalization }}</label>
             <input
               type="text"
               class="form-control form-control-sm"
@@ -87,7 +87,7 @@ import {
             />
           </div>
           <div class="col-md-2">
-            <label class="form-label small">Search Item</label>
+            <label class="form-label small">{{ '::SearchItem' | abpLocalization }}</label>
             <input
               type="text"
               class="form-control form-control-sm"
@@ -105,7 +105,7 @@ import {
                 [(ngModel)]="showWarehouseWise"
                 (change)="loadData()"
               />
-              <label class="form-check-label small" for="showWhWise">Warehouse-wise</label>
+              <label class="form-check-label small" for="showWhWise">{{ '::WarehouseWise' | abpLocalization }}</label>
             </div>
             <div class="form-check form-check-sm">
               <input
@@ -115,7 +115,7 @@ import {
                 [(ngModel)]="includeZeroStock"
                 (change)="loadData()"
               />
-              <label class="form-check-label small" for="showZero">Zero Stock</label>
+              <label class="form-check-label small" for="showZero">{{ '::ZeroStock' | abpLocalization }}</label>
             </div>
           </div>
         </div>
@@ -127,25 +127,25 @@ import {
           <div class="row g-3 mb-3">
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
-                <div class="small text-muted">Total Items</div>
+                <div class="small text-muted">{{ '::TotalItems' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ report()?.totalItems ?? 0 }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
-                <div class="small text-muted">Total Stock Value</div>
+                <div class="small text-muted">{{ '::TotalStockValue' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ report()?.totalStockValue ?? 0 | number:'1.2-2' }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center bg-warning bg-opacity-10">
-                <div class="small text-muted">Aged &gt; 90 days</div>
+                <div class="small text-muted">{{ '::AgedOver90Days' | abpLocalization }}</div>
                 <div class="fw-bold fs-5 text-warning">{{ report()?.agedOver90Count ?? 0 }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
-                <div class="small text-muted">Overall Avg Age (days)</div>
+                <div class="small text-muted">{{ '::OverallAvgAgeDays' | abpLocalization }}</div>
                 <div class="fw-bold fs-5">{{ report()?.overallAverageAgeDays ?? 0 | number:'1.0-0' }}</div>
               </div>
             </div>
@@ -160,15 +160,15 @@ import {
                   @if (showWarehouseWise) {
                     <th>{{ '::Warehouse' | abpLocalization }}</th>
                   }
-                  <th class="text-end">Total Qty</th>
-                  <th class="text-end">Valuation Rate</th>
-                  <th class="text-end">Total Value</th>
+                  <th class="text-end">{{ '::TotalQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TotalValue' | abpLocalization }}</th>
                   @for (b of buckets(); track b.bucketIndex) {
                     <th class="text-end">{{ b.label }}</th>
                   }
-                  <th class="text-end">Avg Age</th>
-                  <th class="text-end">Oldest</th>
-                  <th class="text-end">Newest</th>
+                  <th class="text-end">{{ '::AvgAge' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Oldest' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Newest' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>

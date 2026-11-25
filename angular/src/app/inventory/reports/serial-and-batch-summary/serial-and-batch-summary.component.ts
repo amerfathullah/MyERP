@@ -44,15 +44,15 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
         <!-- Filters Row 1 -->
         <div class="row g-2 mb-3 align-items-end">
           <div class="col-md-3 col-sm-6">
-            <label class="form-label small fw-semibold">Voucher Type</label>
+            <label class="form-label small fw-semibold">{{ '::VoucherType' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedVoucherType" (change)="loadData()">
-              <option value="All">All Voucher Types</option>
-              <option value="StockEntry">Stock Entry</option>
-              <option value="PurchaseReceipt">Purchase Receipt</option>
-              <option value="DeliveryNote">Delivery Note</option>
-              <option value="SalesInvoice">Sales Invoice</option>
-              <option value="PurchaseInvoice">Purchase Invoice</option>
-              <option value="StockReconciliation">Stock Reconciliation</option>
+              <option value="All">{{ '::AllVoucherTypes' | abpLocalization }}</option>
+              <option value="StockEntry">{{ '::StockEntry' | abpLocalization }}</option>
+              <option value="PurchaseReceipt">{{ '::PurchaseReceipt' | abpLocalization }}</option>
+              <option value="DeliveryNote">{{ '::DeliveryNote' | abpLocalization }}</option>
+              <option value="SalesInvoice">{{ '::SalesInvoice' | abpLocalization }}</option>
+              <option value="PurchaseInvoice">{{ '::PurchaseInvoice' | abpLocalization }}</option>
+              <option value="StockReconciliation">{{ '::StockReconciliation' | abpLocalization }}</option>
             </select>
           </div>
           <div class="col-md-3 col-sm-6">
@@ -109,7 +109,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                 (change)="loadData()"
               />
               <label class="form-check-label small" for="includeCancelled">
-                Include Cancelled Bundles
+                {{ '::IncludeCancelledBundles' | abpLocalization }}
               </label>
             </div>
           </div>
@@ -120,31 +120,31 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
           <div class="row g-3 mb-4">
             <div class="col-md-2 col-sm-4 col-6">
               <div class="card bg-light border-0 shadow-sm p-3 text-center">
-                <span class="text-muted small">Total Bundles</span>
+                <span class="text-muted small">{{ '::TotalBundles' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold">{{ report()!.totalBundles }}</span>
               </div>
             </div>
             <div class="col-md-2 col-sm-4 col-6">
               <div class="card bg-info-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-info small fw-semibold">Total Entries</span>
+                <span class="text-info small fw-semibold">{{ '::TotalEntries' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold text-info">{{ report()!.totalEntries }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-4 col-6">
               <div class="card bg-success-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-success small fw-semibold">Inward Quantity</span>
+                <span class="text-success small fw-semibold">{{ '::InwardQuantity' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold text-success">{{ report()!.totalInwardQty | number: '1.2-2' }}</span>
               </div>
             </div>
             <div class="col-md-2 col-sm-6 col-6">
               <div class="card bg-warning-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-warning-emphasis small fw-semibold">Outward Quantity</span>
+                <span class="text-warning-emphasis small fw-semibold">{{ '::OutwardQuantity' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold text-warning-emphasis">{{ report()!.totalOutwardQty | number: '1.2-2' }}</span>
               </div>
             </div>
             <div class="col-md-3 col-sm-6 col-12">
               <div class="card bg-primary-subtle border-0 shadow-sm p-3 text-center">
-                <span class="text-primary small fw-semibold">Total Stock Value</span>
+                <span class="text-primary small fw-semibold">{{ '::TotalStockValue' | abpLocalization }}</span>
                 <span class="h5 mb-0 fw-bold text-primary">{{ report()!.totalStockValue | currency: 'MYR' }}</span>
               </div>
             </div>
@@ -168,18 +168,18 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
               <thead class="table-light">
                 <tr>
                   <th>#</th>
-                  <th>Bundle</th>
-                  <th>Voucher Type</th>
-                  <th>Voucher No</th>
-                  <th>Posting Date</th>
+                  <th>{{ '::Bundle' | abpLocalization }}</th>
+                  <th>{{ '::VoucherType' | abpLocalization }}</th>
+                  <th>{{ '::VoucherNo' | abpLocalization }}</th>
+                  <th>{{ '::PostingDate' | abpLocalization }}</th>
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::Warehouse' | abpLocalization }}</th>
-                  <th>Type</th>
-                  <th>Serial / Batch</th>
-                  <th class="text-end">Qty</th>
-                  <th class="text-end">Rate</th>
-                  <th class="text-end">Value Diff</th>
-                  <th>Status</th>
+                  <th>{{ '::Type' | abpLocalization }}</th>
+                  <th>{{ '::SerialBatch' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Qty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValueDiff' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,9 +241,9 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                     </td>
                     <td>
                       @if (row.isCancelled) {
-                        <span class="badge bg-danger">Cancelled</span>
+                        <span class="badge bg-danger">{{ '::Cancelled' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-success">Active</span>
+                        <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
                       }
                     </td>
                   </tr>

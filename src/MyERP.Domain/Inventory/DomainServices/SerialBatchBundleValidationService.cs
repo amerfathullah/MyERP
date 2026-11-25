@@ -1446,6 +1446,20 @@ public class SerialBatchBundleValidationService : DomainService
         var rejectedStockQty = Math.Round(rejectedQty * factor, stockQtyPrecision, MidpointRounding.AwayFromZero);
         return (rejectedStockQty, rejectedWarehouseId);
     }
+
+    /// <summary>
+    /// Converts the Serial and Batch Selector bundle's total stock quantity back into the transaction
+    /// row's own UOM (<c>abs(bundleTotalStockQty) / conversionFactor</c>) per ERPNext PR #67380
+    /// (<c>transaction.js: show_serial_batch_selector</c>).
+    /// </summary>
+    public static decimal ConvertSelectorBundleQtyToRowUom(
+        decimal bundleTotalStockQty,
+        decimal conversionFactor,
+        int qtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        return Math.Round(Math.Abs(bundleTotalStockQty) / factor, qtyPrecision, MidpointRounding.AwayFromZero);
+    }
 }
 
 public readonly record struct DocumentBatchRowUsage(
