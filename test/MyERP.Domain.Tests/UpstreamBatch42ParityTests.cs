@@ -19,8 +19,8 @@ using Xunit;
 namespace MyERP;
 
 /// <summary>
-/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67530, #67550, #67553, #67554, #67555,
-/// #67699, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
+/// Parity tests for upstream ERPNext PRs #63403, #63784, #64304, #64596, #64998, #65261, #65444, #65601, #65637, #65650, #65669, #65791, #65961, #66259, #66260, #66292, #66299, #66329, #66536, #66947, #66966, #66971, #67344, #67360, #67364, #67369, #67378, #67379, #67380, #67383, #67384, #67385, #67395, #67399, #67400, #67411, #67432, #67433, #67445, #67450, #67462, #67468, #67480, #67485, #67493, #67495, #67503, #67506, #67507, #67530, #67531, #67550, #67553, #67554, #67555,
+/// #67699, #67724, #67749, #67758, #67789, #67876, #67881, #67892, #67977, #67978, #67980, #67982, #67984, #67986, #67988, #67990, #67995, #68029, #68065, #68075, #68142, #68153, #68172, #68211, #68232, #68233, #68311, #68325, #68326, #68327, #68340, #68348, #68371, #68372, #68473, #68529, #68578, #68732, #68786, #68801, #68916,
 /// #67174, #69225, #69278, #69279, #69281, #69284, #69286, #69293, #69299, #69300, #69301, #69312, #69314, #69315, #69316, #69322, #69324, #69327, #69337, #69350, #69351, #69369, #69370, #69371, #69372.
 /// </summary>
 public class UpstreamBatch42ParityTests
@@ -2272,5 +2272,52 @@ public class UpstreamBatch42ParityTests
         proposals[0].ProposedQty.ShouldBe(0m);
         proposals[1].ScioDetailId.ShouldBe(rowShort);
         proposals[1].ProposedQty.ShouldBe(6m); // 10 - 8 + 1 + (2 * 1.5) = 6
+    }
+
+    [Fact]
+    public void Pr67506_Pr67507_Pr67531_Pr67724_ScioPerReceivedAndDupSo_OverflowUseBatchFlag_WoProcessLossUnconsumedRm_Parity()
+    {
+        // PR #67531: Overflow batch split row clears RowId and keeps UseSerialBatchFields = true
+        var overflow = StockEntryManager.CreateOverflowReservedBatchRow(Guid.NewGuid(), Guid.NewGuid(), "BATCH-2", 4m);
+        overflow.RowId.ShouldBe(Guid.Empty);
+        overflow.UseSerialBatchFields.ShouldBeTrue();
+        overflow.BatchNo.ShouldBe("BATCH-2");
+        overflow.Qty.ShouldBe(4m);
+
+        // PR #67724: Unconsumed RM remaining qty to produce subtracts both producedQty and processLossQty
+        StockEntryManager.CalculateRemainingWorkOrderQtyToProduce(
+            workOrderQty: 10m, materialTransferredForManufacturing: 10m, producedQty: 6m, processLossQty: 2m)
+            .ShouldBe(2m);
+
+        // PR #67507: Refuse duplicate SalesOrderItemId across SCIO rows
+        var dupSoRow = Guid.NewGuid();
+        Should.Throw<BusinessException>(() => MyERP.Purchasing.Entities.SubcontractingInwardOrder.ValidateUniqueSalesOrderItemLinks(
+            new[]
+            {
+                (1, "FG-A", (Guid?)dupSoRow),
+                (2, "FG-A", (Guid?)dupSoRow),
+            }))
+            .Data["detail"]!.ToString()!.ShouldContain("duplicate Sales Order Item");
+
+        // PR #67506: % Raw Material Received caps each material at min(received, required), and Ongoing uses totalReceived > 0
+        var (perReceived, totalReceived, hasReceived) =
+            MyERP.Purchasing.Entities.SubcontractingInwardOrder.CalculateCustomerMaterialReceiptProgress(new[]
+            {
+                (true, RequiredQty: 10m, ReceivedQty: 20m), // excess 10 capped at 10
+                (true, RequiredQty: 10m, ReceivedQty: 0m),  // 0 received -> usable = 10 / 20 = 50% (not 100%)
+            });
+        perReceived.ShouldBe(50m);
+        totalReceived.ShouldBe(20m);
+        hasReceived.ShouldBeTrue();
+
+        // Additional customer material row (RequiredQty == 0) still sets HasReceivedMaterial = true -> Ongoing
+        var (extraPer, extraTotal, extraHasReceived) =
+            MyERP.Purchasing.Entities.SubcontractingInwardOrder.CalculateCustomerMaterialReceiptProgress(new[]
+            {
+                (true, RequiredQty: 0m, ReceivedQty: 5m),
+            });
+        extraPer.ShouldBe(0m);
+        extraTotal.ShouldBe(5m);
+        extraHasReceived.ShouldBeTrue();
     }
 }

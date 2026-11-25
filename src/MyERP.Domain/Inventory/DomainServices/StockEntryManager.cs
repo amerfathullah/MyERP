@@ -3449,7 +3449,54 @@ public class StockEntryManager : DomainService
             or StockEntryType.Manufacture
             or StockEntryType.MaterialConsumptionForManufacture;
     }
+
+    /// <summary>
+    /// Builds an overflow batch row when splitting a Stock Entry item row across reserved batches
+    /// per ERPNext PR #67531 (<c>stock_entry/services/serial_batch.py: _make_overflow_batch_row</c>):
+    /// clears the cloned row identity (<c>RowId = Guid.Empty</c>) and keeps <c>UseSerialBatchFields = true</c>
+    /// so split rows remain in manual serial/batch field mode rather than reverting to bundle mode.
+    /// </summary>
+    public static OverflowReservedBatchRowResult CreateOverflowReservedBatchRow(
+        Guid itemId,
+        Guid? sourceWarehouseId,
+        string batchNo,
+        decimal qty)
+        => new(
+            RowId: Guid.Empty,
+            ItemId: itemId,
+            SourceWarehouseId: sourceWarehouseId,
+            BatchNo: batchNo,
+            Qty: qty,
+            UseSerialBatchFields: true);
+
+    /// <summary>
+    /// Computes the remaining Work Order quantity to produce when appending unconsumed raw materials
+    /// on a Manufacture Stock Entry per ERPNext PR #67724
+    /// (<c>stock_entry/services/manufacturing.py: ManufactureStockEntry</c>):
+    /// subtracts BOTH <paramref name="producedQty"/> AND <paramref name="processLossQty"/> from
+    /// <c>(materialTransferredForManufacturing &gt; 0 ? materialTransferredForManufacturing : workOrderQty)</c>
+    /// so unconsumed raw materials consume the full BOM rate after a process loss.
+    /// </summary>
+    public static decimal CalculateRemainingWorkOrderQtyToProduce(
+        decimal workOrderQty,
+        decimal materialTransferredForManufacturing,
+        decimal producedQty,
+        decimal processLossQty)
+    {
+        var baseQty = materialTransferredForManufacturing > 0m
+            ? materialTransferredForManufacturing
+            : workOrderQty;
+        return baseQty - producedQty - processLossQty;
+    }
 }
+
+public sealed record OverflowReservedBatchRowResult(
+    Guid RowId,
+    Guid ItemId,
+    Guid? SourceWarehouseId,
+    string BatchNo,
+    decimal Qty,
+    bool UseSerialBatchFields);
 
 public sealed class ReservedSerialBatchSlot
 {

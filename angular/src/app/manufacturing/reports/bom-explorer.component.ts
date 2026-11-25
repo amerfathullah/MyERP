@@ -34,7 +34,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
           <div class="col-md-5">
             <label class="form-label small text-muted">{{ '::BOM' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="selectedBomId" (ngModelChange)="onBomChange()">
-              <option [ngValue]="null">-- Select BOM --</option>
+              <option [ngValue]="null">-- {{ '::SelectBom' | abpLocalization }} --</option>
               @for (b of bomList(); track b.id) {
                 <option [ngValue]="b.id">
                   {{ b.bomNumber }} ({{ b.itemCode }} - {{ b.itemName }})
@@ -73,7 +73,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Finished Good</div>
+                  <div class="text-muted small">{{ '::FinishedGood' | abpLocalization }}</div>
                   <div class="fw-bold text-primary text-truncate">{{ d.itemCode }}</div>
                   <div class="small text-muted text-truncate">{{ d.itemName }}</div>
                 </div>
@@ -98,7 +98,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-success text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Total Cost</div>
+                  <div class="text-muted small">{{ '::TotalCost' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-success">{{ d.totalCost | number:'1.2-2' }}</div>
                 </div>
               </div>
@@ -110,15 +110,15 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <table class="table table-striped table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th style="min-width: 280px;">Item / Component</th>
+                  <th style="min-width: 280px;">{{ '::ItemOrComponent' | abpLocalization }}</th>
                   <th class="text-center" style="width: 80px;">{{ '::BOMLevel' | abpLocalization }}</th>
                   <th>{{ '::SubBom' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                   <th>{{ '::Uom' | abpLocalization }}</th>
-                  <th class="text-end">Rate</th>
-                  <th class="text-end">Amount</th>
-                  <th class="text-end">Available Stock</th>
-                  <th class="text-center">Stock Status</th>
+                  <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::Amount' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::AvailableStock' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::StockStatus' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,7 +147,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                             <span class="badge bg-info ms-1">{{ '::IsPhantomItem' | abpLocalization }}</span>
                           }
                           @if (row.doNotExplode) {
-                            <span class="badge bg-secondary ms-1">No Explode</span>
+                            <span class="badge bg-secondary ms-1">{{ '::NoExplode' | abpLocalization }}</span>
                           }
                           @if (row.itemName && row.itemName !== row.itemCode) {
                             <div class="small text-muted">{{ row.itemName }}</div>

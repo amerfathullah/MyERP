@@ -49,19 +49,19 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="border rounded p-3 text-center bg-light">
                 <div class="fs-3 fw-bold text-primary">{{ d.totalJobCards }}</div>
-                <small class="text-muted">Corrective Job Cards</small>
+                <small class="text-muted">{{ '::CorrectiveJobCards' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center bg-light">
-                <div class="fs-3 fw-bold text-info">{{ d.totalTimeInMins | number:'1.1-1' }} <span class="fs-6 text-muted">mins</span></div>
-                <small class="text-muted">Total Time Spent</small>
+                <div class="fs-3 fw-bold text-info">{{ d.totalTimeInMins | number:'1.1-1' }} <span class="fs-6 text-muted">{{ '::MinutesShort' | abpLocalization }}</span></div>
+                <small class="text-muted">{{ '::TotalTimeSpent' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-3 text-center bg-light border-warning">
                 <div class="fs-3 fw-bold text-danger">{{ d.totalOperatingCost | number:'1.2-2' }}</div>
-                <small class="text-muted">Total Operating Cost</small>
+                <small class="text-muted">{{ '::TotalOperatingCost' | abpLocalization }}</small>
               </div>
             </div>
             <div class="col-md-3">
@@ -69,7 +69,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                 <div class="fs-3 fw-bold text-secondary">
                   {{ (d.totalJobCards > 0 ? (d.totalOperatingCost / d.totalJobCards) : 0) | number:'1.2-2' }}
                 </div>
-                <small class="text-muted">Avg Cost / Job Card</small>
+                <small class="text-muted">{{ '::AvgCostPerJobCard' | abpLocalization }}</small>
               </div>
             </div>
           </div>
@@ -83,11 +83,11 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::Operation' | abpLocalization }}</th>
                   <th>{{ '::Workstation' | abpLocalization }}</th>
-                  <th class="text-end">Hourly Rate</th>
-                  <th class="text-end">Time (Mins)</th>
-                  <th class="text-end">Operating Cost</th>
-                  <th>Started</th>
-                  <th>Completed</th>
+                  <th class="text-end">{{ '::HourlyRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TimeMins' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::OperatingCost' | abpLocalization }}</th>
+                  <th>{{ '::Started' | abpLocalization }}</th>
+                  <th>{{ '::Completed' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,7 +99,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       <small class="text-muted">{{ row.productionItemCode }}</small>
                     </td>
                     <td>
-                      <span class="badge bg-warning text-dark me-1">Rework</span>
+                      <span class="badge bg-warning text-dark me-1">{{ '::Rework' | abpLocalization }}</span>
                       {{ row.operationName }}
                     </td>
                     <td>{{ row.workstationName || '-' }}</td>
@@ -114,7 +114,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                   <tr>
                     <td colspan="9" class="text-center py-4 text-muted">
                       <i class="fa fa-check-circle text-success me-1"></i>
-                      No corrective or rework job cards recorded for the selected period.
+                      {{ '::NoCorrectiveJobCardsRecorded' | abpLocalization }}
                     </td>
                   </tr>
                 }

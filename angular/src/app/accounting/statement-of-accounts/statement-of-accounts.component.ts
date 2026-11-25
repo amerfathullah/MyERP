@@ -391,15 +391,15 @@ export function buildBatchStatementCsvRows(
     @if (customerResult() || supplierResult()) {
       <div class="d-none d-print-block soa-print-layout">
         <div class="text-center mb-4">
-          <h4>STATEMENT OF ACCOUNT</h4>
+          <h4>{{ '::StatementOfAccount' | abpLocalization }}</h4>
           <p class="mb-0">{{ getPartyName() }}</p>
           <small>{{ '::From' | abpLocalization }}: {{ fromDate }} — {{ '::To' | abpLocalization }}: {{ toDate }}</small>
         </div>
         <table class="table table-bordered table-sm" style="font-size: 11px;">
           <thead>
             <tr class="table-dark">
-              <th>Date</th><th>Type</th><th>Number</th>
-              <th class="text-end">Debit</th><th class="text-end">Credit</th><th class="text-end">Balance</th>
+              <th>{{ '::Date' | abpLocalization }}</th><th>{{ '::Type' | abpLocalization }}</th><th>{{ '::Number' | abpLocalization }}</th>
+              <th class="text-end">{{ '::Debit' | abpLocalization }}</th><th class="text-end">{{ '::Credit' | abpLocalization }}</th><th class="text-end">{{ '::Balance' | abpLocalization }}</th>
             </tr>
           </thead>
           <tbody>
@@ -416,14 +416,14 @@ export function buildBatchStatementCsvRows(
           </tbody>
           <tfoot>
             <tr class="fw-bold">
-              <td colspan="3">Closing Balance</td>
+              <td colspan="3">{{ '::ClosingBalance' | abpLocalization }}</td>
               <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.totalDebit) | number:'1.2-2' }}</td>
               <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.totalCredit) | number:'1.2-2' }}</td>
               <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.closingBalance) | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
         </table>
-        <p class="small text-muted mt-4">Generated on {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
+        <p class="small text-muted mt-4">{{ '::GeneratedOn' | abpLocalization }} {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
       </div>
     }
   `,

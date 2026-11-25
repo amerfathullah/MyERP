@@ -61,7 +61,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
             <div class="col-md-3">
               <div class="card border-primary text-center h-100 bg-light">
                 <div class="card-body py-3">
-                  <div class="text-muted small">Work Orders</div>
+                  <div class="text-muted small">{{ '::WorkOrders' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-primary">{{ d.totalWorkOrders }}</div>
                 </div>
               </div>
@@ -141,7 +141,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       @if (row.readyToBuild) {
                         <span class="badge bg-success">{{ '::ReadyToBuild' | abpLocalization }}</span>
                       } @else {
-                        <span class="badge bg-warning text-dark">Shortage</span>
+                        <span class="badge bg-warning text-dark">{{ '::Shortage' | abpLocalization }}</span>
                       }
                     </td>
                     <td class="text-center">
@@ -164,16 +164,16 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       <td colspan="10" class="p-3">
                         <div class="bg-white p-3 rounded border">
                           <h6 class="mb-2 text-secondary">
-                            <i class="fa fa-list-check me-2"></i>Component Stock Breakdown
+                            <i class="fa fa-list-check me-2"></i>{{ '::ComponentStockBreakdown' | abpLocalization }}
                           </h6>
                           <table class="table table-sm table-bordered mb-0">
                             <thead class="table-light">
                               <tr>
-                                <th>Item</th>
-                                <th class="text-end">Required Qty</th>
-                                <th class="text-end">Available Stock</th>
-                                <th class="text-end">Buildable Units</th>
-                                <th class="text-center">Stock Status</th>
+                                <th>{{ '::Item' | abpLocalization }}</th>
+                                <th class="text-end">{{ '::RequiredQty' | abpLocalization }}</th>
+                                <th class="text-end">{{ '::AvailableStock' | abpLocalization }}</th>
+                                <th class="text-end">{{ '::BuildableUnits' | abpLocalization }}</th>
+                                <th class="text-center">{{ '::StockStatus' | abpLocalization }}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -189,9 +189,9 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                                   <td class="text-end">{{ comp.buildableQty | number:'1.2-2' }}</td>
                                   <td class="text-center">
                                     @if (comp.isInStock) {
-                                      <span class="badge bg-success-subtle text-success">In Stock</span>
+                                      <span class="badge bg-success-subtle text-success">{{ '::InStock' | abpLocalization }}</span>
                                     } @else {
-                                      <span class="badge bg-danger-subtle text-danger">Insufficient</span>
+                                      <span class="badge bg-danger-subtle text-danger">{{ '::Insufficient' | abpLocalization }}</span>
                                     }
                                   </td>
                                 </tr>

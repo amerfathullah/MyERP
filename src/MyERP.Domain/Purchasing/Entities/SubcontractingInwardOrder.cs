@@ -314,6 +314,77 @@ public class SubcontractingInwardOrder : FullAuditedAggregateRoot<Guid>, IMultiT
 
         return proposals;
     }
+
+    /// <summary>
+    /// Validates that no two Subcontracting Inward Order item rows link to the same
+    /// <c>SalesOrderItemId</c> per ERPNext PR #67507 (<c>subcontracting_inward_order.py: validate_with_previous_doc</c>).
+    /// </summary>
+    public static void ValidateUniqueSalesOrderItemLinks(
+        IEnumerable<(int RowIdx, string ItemCode, Guid? SalesOrderItemId)>? items)
+    {
+        if (items == null)
+        {
+            return;
+        }
+
+        var seen = new HashSet<Guid>();
+        foreach (var item in items)
+        {
+            if (!item.SalesOrderItemId.HasValue || item.SalesOrderItemId.Value == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (!seen.Add(item.SalesOrderItemId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("rowIdx", item.RowIdx)
+                    .WithData("itemCode", item.ItemCode)
+                    .WithData("salesOrderItemId", item.SalesOrderItemId.Value)
+                    .WithData("detail", $"Row {item.RowIdx}: Item {item.ItemCode} references a duplicate Sales Order Item row.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes <c>% Raw Material Received</c> and ongoing flag for a Subcontracting Inward Order
+    /// per ERPNext PR #67506 (<c>subcontracting_inward_order.py: update_status</c>):
+    /// - Caps each customer-provided row's usable received qty at <c>min(ReceivedQty, RequiredQty)</c>
+    ///   so excess receipt on one material cannot inflate overall <c>% Raw Material Received</c>.
+    /// - Uses <c>TotalReceived &gt; 0</c> (not <c>PerRawMaterialReceived &gt; 0</c>) to determine
+    ///   whether material receipt has started (<c>HasReceivedMaterial</c> -&gt; <c>Ongoing</c>).
+    /// </summary>
+    public static (decimal PerRawMaterialReceived, decimal TotalReceived, bool HasReceivedMaterial)
+        CalculateCustomerMaterialReceiptProgress(
+            IEnumerable<(bool IsCustomerProvidedItem, decimal RequiredQty, decimal ReceivedQty)>? receivedItems)
+    {
+        if (receivedItems == null)
+        {
+            return (0m, 0m, false);
+        }
+
+        decimal totalRequired = 0m;
+        decimal totalReceived = 0m;
+        decimal totalUsable = 0m;
+
+        foreach (var rm in receivedItems)
+        {
+            if (!rm.IsCustomerProvidedItem)
+            {
+                continue;
+            }
+
+            totalRequired += rm.RequiredQty;
+            totalReceived += rm.ReceivedQty;
+            totalUsable += Math.Min(rm.ReceivedQty, rm.RequiredQty);
+        }
+
+        var perReceived = totalRequired > 0m
+            ? Math.Round(totalUsable / totalRequired * 100m, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+
+        return (perReceived, totalReceived, totalReceived > 0m);
+    }
 }
 
 /// <summary>FG item expected from subcontracting.</summary>

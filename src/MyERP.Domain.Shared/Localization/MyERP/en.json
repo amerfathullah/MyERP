@@ -7624,7 +7624,23 @@
     "ProductionCapacity": "Production Capacity",
     "AmountPerHr": "Amount / Hr",
     "TotalHourRate": "Total Hour Rate",
-    "Day": "Day"
+    "Day": "Day",
+    "StatementOfAccount": "STATEMENT OF ACCOUNT",
+    "GeneratedOn": "Generated on",
+    "ComponentStockBreakdown": "Component Stock Breakdown",
+    "BuildableUnits": "Buildable Units",
+    "StockStatus": "Stock Status",
+    "Insufficient": "Insufficient",
+    "CorrectiveJobCards": "Corrective Job Cards",
+    "MinutesShort": "mins",
+    "TotalTimeSpent": "Total Time Spent",
+    "AvgCostPerJobCard": "Avg Cost / Job Card",
+    "HourlyRate": "Hourly Rate",
+    "TimeMins": "Time (Mins)",
+    "Rework": "Rework",
+    "NoCorrectiveJobCardsRecorded": "No corrective or rework job cards recorded for the selected period.",
+    "ItemOrComponent": "Item / Component",
+    "NoExplode": "No Explode"
   }
 }
 
